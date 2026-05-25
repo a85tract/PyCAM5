@@ -114,12 +114,23 @@ logical :: physprop_accum_unique_files_logged = .false.
 logical :: use_native_physprop_get_impl = .false.
 logical :: physprop_get_impl_selected = .false.
 logical :: physprop_get_logged = .false.
+logical :: use_native_aerosol_optics_init_impl = .false.
+logical :: aerosol_optics_init_impl_selected = .false.
+logical :: aerosol_optics_init_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   function aerosol_optics_init_dispatch_codon(optics_len_c, optics_ascii_p) result(dispatch_c) &
+        bind(c, name="aerosol_optics_init_dispatch_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: optics_len_c
+     type(c_ptr), value :: optics_ascii_p
+     integer(c_int64_t) :: dispatch_c
+   end function aerosol_optics_init_dispatch_codon
+
    function physprop_get_check_id_codon(id_c, numphysprops_c) result(invalid_c) &
         bind(c, name="physprop_get_check_id_codon")
      use iso_c_binding, only: c_int64_t
@@ -244,6 +255,57 @@ subroutine physprop_get_select_impl()
    end if
 
 end subroutine physprop_get_select_impl
+
+!================================================================================================
+
+subroutine aerosol_optics_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (aerosol_optics_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('AEROSOL_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_aerosol_optics_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_aerosol_optics_init_impl = .false.
+   end if
+
+   aerosol_optics_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_aerosol_optics_init_impl) then
+         write(iulog,*) 'aerosol_optics_init implementation = native'
+      else
+         write(iulog,*) 'aerosol_optics_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine aerosol_optics_init_select_impl
+
+!================================================================================================
+
+subroutine aerosol_optics_init_log_direct()
+
+   if (aerosol_optics_init_logged) return
+   aerosol_optics_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'aerosol_optics_init direct = codon opticsmethod dispatch; native PIO and initializer calls'
+      call flush(iulog)
+   end if
+
+end subroutine aerosol_optics_init_log_direct
 
 !================================================================================================
 
@@ -730,6 +792,8 @@ subroutine aerosol_optics_init(phys_prop, nc_id)
    ! Determine the opticstype, then call the 
    ! appropriate routine to read the data.
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    type(physprop_type), intent(inout) :: phys_prop  ! data after interp onto cam rh mesh
    type(file_desc_t),   intent(inout) :: nc_id      ! indentifier for netcdf file
 
@@ -738,6 +802,9 @@ subroutine aerosol_optics_init(phys_prop, nc_id)
    integer :: ierr ! mpi error codes
    character(len=ot_length)  :: opticstype_str ! string read from netCDF file -- may contain trailing
                                         ! nulls which aren't dealt with by trim()
+   integer :: i
+   integer(c_int64_t), target :: optics_ascii(ot_length)
+   integer(c_int64_t) :: dispatch_c
    !------------------------------------------------------------------------------------
 
    ierr = pio_inq_dimid(nc_id, 'opticsmethod_len', opticslength_id)
@@ -748,29 +815,59 @@ subroutine aerosol_optics_init(phys_prop, nc_id)
    ierr = pio_inq_varid(nc_id, 'opticsmethod', op_type_id)
    ierr = pio_get_var(nc_id, op_type_id,phys_prop%opticsmethod )
 
-   select case (phys_prop%opticsmethod)
-   case ('zero')
+   call aerosol_optics_init_select_impl()
+   if (use_native_aerosol_optics_init_impl) then
+      select case (phys_prop%opticsmethod)
+      case ('zero')
+         dispatch_c = 1_c_int64_t
+      case ('hygro')
+         dispatch_c = 2_c_int64_t
+      case ('hygroscopic')
+         dispatch_c = 3_c_int64_t
+      case ('nonhygro')
+         dispatch_c = 4_c_int64_t
+      case ('insoluble')
+         dispatch_c = 5_c_int64_t
+      case ('volcanic_radius')
+         dispatch_c = 6_c_int64_t
+      case ('volcanic')
+         dispatch_c = 7_c_int64_t
+      case ('modal')
+         dispatch_c = 8_c_int64_t
+      case default
+         dispatch_c = -1_c_int64_t
+      end select
+   else
+      do i = 1, ot_length
+         optics_ascii(i) = int(iachar(phys_prop%opticsmethod(i:i)), c_int64_t)
+      end do
+      dispatch_c = aerosol_optics_init_dispatch_codon(int(ot_length, c_int64_t), c_loc(optics_ascii(1)))
+      call aerosol_optics_init_log_direct()
+   end if
+
+   select case (dispatch_c)
+   case (1_c_int64_t)
       call zero_optics_init(phys_prop, nc_id)
 
-   case ('hygro')
+   case (2_c_int64_t)
       call hygro_optics_init(phys_prop, nc_id)
 
-   case ('hygroscopic')
+   case (3_c_int64_t)
       call hygroscopic_optics_init(phys_prop, nc_id)
 
-   case ('nonhygro')
+   case (4_c_int64_t)
       call nonhygro_optics_init(phys_prop, nc_id)
         
-   case ('insoluble')
+   case (5_c_int64_t)
       call insoluble_optics_init(phys_prop, nc_id)
         
-   case ('volcanic_radius')
+   case (6_c_int64_t)
       call volcanic_radius_optics_init(phys_prop, nc_id)
 
-   case ('volcanic')
+   case (7_c_int64_t)
       call volcanic_optics_init(phys_prop, nc_id)
         
-   case ('modal')
+   case (8_c_int64_t)
       call modal_optics_init(phys_prop, nc_id)
         
    ! other types of optics can be added here

@@ -4072,6 +4072,42 @@ def _physprop_is_known(name: Ptr[int], name_len: int, names: Ptr[int], known_cou
     return False
 
 
+@inline
+def _phys_prop_trimmed_eq_lit(text: Ptr[int], text_len: int, literal: str) -> bool:
+    trim_len = _phys_prop_trimmed_len(text, text_len)
+    if trim_len != len(literal):
+        return False
+
+    i = 0
+    while i < trim_len:
+        if text[i] != ord(literal[i]):
+            return False
+        i += 1
+    return True
+
+
+@export
+def aerosol_optics_init_dispatch_codon(optics_len: int, optics_ascii_p: cobj) -> int:
+    optics_ascii = Ptr[int](optics_ascii_p)
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "zero"):
+        return 1
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "hygro"):
+        return 2
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "hygroscopic"):
+        return 3
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "nonhygro"):
+        return 4
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "insoluble"):
+        return 5
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "volcanic_radius"):
+        return 6
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "volcanic"):
+        return 7
+    if _phys_prop_trimmed_eq_lit(optics_ascii, optics_len, "modal"):
+        return 8
+    return -1
+
+
 @export
 def physprop_get_check_id_codon(id_value: int, numphysprops: int) -> int:
     if id_value <= 0 or id_value > numphysprops:
