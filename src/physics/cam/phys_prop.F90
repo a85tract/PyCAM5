@@ -120,12 +120,29 @@ logical :: aerosol_optics_init_logged = .false.
 logical :: use_native_bulk_props_init_impl = .false.
 logical :: bulk_props_init_impl_selected = .false.
 logical :: bulk_props_init_logged = .false.
+logical :: use_native_refindex_aer_init_impl = .false.
+logical :: refindex_aer_init_impl_selected = .false.
+logical :: refindex_aer_init_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   function refindex_aer_init_have_pair_codon(istat1_c, istat2_c, noerr_c) result(have_pair_c) &
+        bind(c, name="refindex_aer_init_have_pair_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: istat1_c, istat2_c, noerr_c
+     integer(c_int64_t) :: have_pair_c
+   end function refindex_aer_init_have_pair_codon
+
+   subroutine refindex_aer_init_fill_complex_codon(n_c, ref_real_p, ref_im_p, refindex_p) &
+        bind(c, name="refindex_aer_init_fill_complex_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: n_c
+     type(c_ptr), value :: ref_real_p, ref_im_p, refindex_p
+   end subroutine refindex_aer_init_fill_complex_codon
+
    function bulk_props_init_is_sulfate_codon(name_len_c, name_ascii_p) result(is_sulfate_c) &
         bind(c, name="bulk_props_init_is_sulfate_codon")
      use iso_c_binding, only: c_int64_t, c_ptr
@@ -343,6 +360,43 @@ end subroutine bulk_props_init_select_impl
 
 !================================================================================================
 
+subroutine refindex_aer_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (refindex_aer_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('REFINDEX_AER_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_refindex_aer_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_refindex_aer_init_impl = .false.
+   end if
+
+   refindex_aer_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_refindex_aer_init_impl) then
+         write(iulog,*) 'refindex_aer_init implementation = native'
+      else
+         write(iulog,*) 'refindex_aer_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine refindex_aer_init_select_impl
+
+!================================================================================================
+
 subroutine bulk_props_init_log_direct()
 
    if (bulk_props_init_logged) return
@@ -354,6 +408,20 @@ subroutine bulk_props_init_log_direct()
    end if
 
 end subroutine bulk_props_init_log_direct
+
+!================================================================================================
+
+subroutine refindex_aer_init_log_direct()
+
+   if (refindex_aer_init_logged) return
+   refindex_aer_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'refindex_aer_init direct = codon var-pair decision and complex fill; native PIO reads'
+      call flush(iulog)
+   end if
+
+end subroutine refindex_aer_init_log_direct
 
 !================================================================================================
 
@@ -1398,6 +1466,8 @@ subroutine refindex_aer_init(phys_prop, nc_id)
 
 !  Read refractive indices of aerosol
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    type (physprop_type), intent(inout) :: phys_prop  ! storage for file data
    type (file_desc_T),   intent(inout) :: nc_id      ! indentifier for netcdf file
 
@@ -1406,6 +1476,7 @@ subroutine refindex_aer_init(phys_prop, nc_id)
    integer :: istat1, istat2, istat3     ! status flags
    integer :: vid_real, vid_im           ! variable ids
    real(r8), pointer :: ref_real(:), ref_im(:)  ! tmp storage for components of complex index
+   logical :: have_ref_pair
    character(len=*), parameter :: subname = 'refindex_aer_init'
    !------------------------------------------------------------------------------------
 
@@ -1418,11 +1489,20 @@ subroutine refindex_aer_init(phys_prop, nc_id)
 
    ! set PIO to return control to the caller when variable not found
    call pio_seterrorhandling(nc_id, PIO_BCAST_ERROR)
+   call refindex_aer_init_select_impl()
 
    istat1 = pio_inq_varid(nc_id, 'refindex_real_aer_sw', vid_real)
    istat2 = pio_inq_varid(nc_id, 'refindex_im_aer_sw',   vid_im)
 
-   if (istat1 == PIO_NOERR  .and. istat2 == PIO_NOERR) then
+   if (use_native_refindex_aer_init_impl) then
+      have_ref_pair = istat1 == PIO_NOERR  .and. istat2 == PIO_NOERR
+   else
+      have_ref_pair = refindex_aer_init_have_pair_codon(int(istat1, c_int64_t), &
+           int(istat2, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t
+      call refindex_aer_init_log_direct()
+   end if
+
+   if (have_ref_pair) then
 
       allocate(ref_real(nswbands), ref_im(nswbands))
 
@@ -1438,10 +1518,15 @@ subroutine refindex_aer_init(phys_prop, nc_id)
 
       ! successfully read refindex data -- set complex values in physprop object
       allocate(phys_prop%refindex_aer_sw(nswbands))
-      do i = 1, nswbands
-         phys_prop%refindex_aer_sw(i) = cmplx(ref_real(i), abs(ref_im(i)),&
-              kind=r8)
-      end do
+      if (use_native_refindex_aer_init_impl) then
+         do i = 1, nswbands
+            phys_prop%refindex_aer_sw(i) = cmplx(ref_real(i), abs(ref_im(i)),&
+                 kind=r8)
+         end do
+      else
+         call refindex_aer_init_fill_complex_codon(int(nswbands, c_int64_t), &
+              c_loc(ref_real(1)), c_loc(ref_im(1)), c_loc(phys_prop%refindex_aer_sw(1)))
+      end if
 
       deallocate(ref_real, ref_im)
 
@@ -1450,7 +1535,15 @@ subroutine refindex_aer_init(phys_prop, nc_id)
    istat1 = pio_inq_varid(nc_id, 'refindex_real_aer_lw', vid_real)
    istat2 = pio_inq_varid(nc_id, 'refindex_im_aer_lw',   vid_im)
 
-   if (istat1 == PIO_NOERR  .and. istat2 == PIO_NOERR) then
+   if (use_native_refindex_aer_init_impl) then
+      have_ref_pair = istat1 == PIO_NOERR  .and. istat2 == PIO_NOERR
+   else
+      have_ref_pair = refindex_aer_init_have_pair_codon(int(istat1, c_int64_t), &
+           int(istat2, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t
+      call refindex_aer_init_log_direct()
+   end if
+
+   if (have_ref_pair) then
 
       allocate(ref_real(nlwbands), ref_im(nlwbands))
 
@@ -1466,10 +1559,15 @@ subroutine refindex_aer_init(phys_prop, nc_id)
 
       ! successfully read refindex data -- set complex value in physprop object
       allocate(phys_prop%refindex_aer_lw(nlwbands))
-      do i = 1, nlwbands
-         phys_prop%refindex_aer_lw(i) = cmplx(ref_real(i), abs(ref_im(i)),&
-              kind=r8)
-      end do
+      if (use_native_refindex_aer_init_impl) then
+         do i = 1, nlwbands
+            phys_prop%refindex_aer_lw(i) = cmplx(ref_real(i), abs(ref_im(i)),&
+                 kind=r8)
+         end do
+      else
+         call refindex_aer_init_fill_complex_codon(int(nlwbands, c_int64_t), &
+              c_loc(ref_real(1)), c_loc(ref_im(1)), c_loc(phys_prop%refindex_aer_lw(1)))
+      end if
 
       deallocate(ref_real, ref_im)
 

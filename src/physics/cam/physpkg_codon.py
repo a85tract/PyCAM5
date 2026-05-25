@@ -4117,6 +4117,26 @@ def bulk_props_init_is_sulfate_codon(name_len: int, name_ascii_p: cobj) -> int:
 
 
 @export
+def refindex_aer_init_have_pair_codon(istat1: int, istat2: int, noerr: int) -> int:
+    if istat1 == noerr and istat2 == noerr:
+        return 1
+    return 0
+
+
+@export
+def refindex_aer_init_fill_complex_codon(n: int, ref_real_p: cobj, ref_im_p: cobj, refindex_p: cobj):
+    ref_real = Ptr[float](ref_real_p)
+    ref_im = Ptr[float](ref_im_p)
+    refindex = Ptr[float](refindex_p)
+
+    i = 0
+    while i < n:
+        refindex[2 * i] = ref_real[i]
+        refindex[2 * i + 1] = abs(ref_im[i])
+        i += 1
+
+
+@export
 def physprop_get_check_id_codon(id_value: int, numphysprops: int) -> int:
     if id_value <= 0 or id_value > numphysprops:
         return 1
