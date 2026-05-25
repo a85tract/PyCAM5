@@ -336,7 +336,11 @@ subroutine nucleati_select_impl()
 
    nucleati_impl_selected = .true.
 
-   write(iulog,*) 'nucleati implementation = ', merge('native', 'codon ', use_native_nucleati_impl)
+   if (use_native_nucleati_impl) then
+      write(iulog,*) 'nucleati implementation = native'
+   else
+      write(iulog,*) 'nucleati implementation = codon'
+   end if
    call flush(iulog)
 
 end subroutine nucleati_select_impl
@@ -348,7 +352,7 @@ subroutine nucleati_note_direct()
    if (nucleati_direct_logged) return
    nucleati_direct_logged = .true.
 
-   write(iulog,*) 'nucleati direct = codon'
+   write(iulog,'(A)') 'nucleati direct = codon scalar ice nucleation kernel; native svp_water/svp_ice callbacks'
    call flush(iulog)
 
 end subroutine nucleati_note_direct
