@@ -109,6 +109,8 @@ logical :: use_native_phys_prop_interp_impl = .false.
 logical :: phys_prop_interp_impl_selected = .false.
 logical :: phys_prop_interp_proof_written = .false.
 logical :: physprop_get_id_logged = .false.
+logical :: exp_interpol_logged = .false.
+logical :: lin_interpol_logged = .false.
 
 interface
    function physprop_get_id_codon(filename_len_c, filename_ascii_p, names_len_c, names_ascii_p, &
@@ -188,6 +190,32 @@ subroutine phys_prop_interp_proof_once()
    end if
 
 end subroutine phys_prop_interp_proof_once
+
+!================================================================================================
+
+subroutine exp_interpol_log_direct()
+
+   if (exp_interpol_logged) return
+   exp_interpol_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'exp_interpol direct = codon'
+   end if
+
+end subroutine exp_interpol_log_direct
+
+!================================================================================================
+
+subroutine lin_interpol_log_direct()
+
+   if (lin_interpol_logged) return
+   lin_interpol_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'lin_interpol direct = codon'
+   end if
+
+end subroutine lin_interpol_log_direct
 
 !================================================================================================
 
@@ -1275,6 +1303,7 @@ function exp_interpol(x, f, y) result(g)
       g = exp_interpol_native(x, f, y)
    else
       call phys_prop_interp_proof_once()
+      call exp_interpol_log_direct()
       g = exp_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
    end if
 
@@ -1346,6 +1375,7 @@ function lin_interpol(x, f, y) result(g)
       g = lin_interpol_native(x, f, y)
    else
       call phys_prop_interp_proof_once()
+      call lin_interpol_log_direct()
       g = lin_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
    end if
 

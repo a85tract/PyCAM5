@@ -3332,6 +3332,7 @@ end subroutine rhcrit_calc
       gaussj_entered_logged = .true.
       if (masterproc) then
          write(iulog,*) 'cldwat2m_gaussj entered (macrophysics Gauss-Jordan solve = codon)'
+         write(iulog,*) 'gaussj direct = codon'
       end if
       end subroutine gaussj_log_entered
 
