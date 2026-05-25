@@ -170,6 +170,10 @@ logical :: use_reff_calc_compare = .false.
 logical :: reff_calc_compare_selected = .false.
 logical :: reff_calc_compare_done = .false.
 logical :: micro_mg_cam_implements_cnst_logged = .false.
+logical :: use_native_p_ptr_impl = .false.
+logical :: p_ptr_impl_selected = .false.
+logical :: p1_logged = .false.
+logical :: p2_logged = .false.
 
 integer :: num_steps ! Number of MG substeps
 
@@ -298,6 +302,18 @@ interface
       type(c_ptr), value :: name_ascii_p
       integer(c_int64_t) :: out_c
    end function micro_mg_cam_implements_cnst_codon
+
+   function micro_mg_cam_p1_codon(n_c) result(out_c) bind(c, name="micro_mg_cam_p1_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: n_c
+      integer(c_int64_t) :: out_c
+   end function micro_mg_cam_p1_codon
+
+   function micro_mg_cam_p2_codon(n1_c, n2_c) result(out_c) bind(c, name="micro_mg_cam_p2_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: n1_c, n2_c
+      integer(c_int64_t) :: out_c
+   end function micro_mg_cam_p2_codon
 end interface
 
 
@@ -4269,6 +4285,55 @@ subroutine micro_mg_cam_log_entered_once(entered_logged, env_name, proof_line)
 
 end subroutine micro_mg_cam_log_entered_once
 
+subroutine micro_mg_cam_select_p_ptr_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (p_ptr_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_P_PTR_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_p_ptr_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_p_ptr_impl = .false.
+  end if
+
+  p_ptr_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_p_ptr_impl) then
+        write(iulog,*) 'micro_mg_cam_p_ptr implementation = native'
+     else
+        write(iulog,*) 'micro_mg_cam_p_ptr implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_select_p_ptr_impl
+
+subroutine micro_mg_cam_log_p_ptr_once(logged, proof_line)
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_log_p_ptr_once
+
 subroutine micro_mg_cam_stage_dispatch_call(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, top_lev_c, &
      micro_mg_version_c, rate1_cw2pr_st_idx_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c, &
      pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, iwtstrain_c, iwtstsnow_c, mincld_c, gravit_c, cpair_c, qsmall_c, rair_c, &
@@ -5644,14 +5709,32 @@ subroutine micro_mg_cam_grid_diag_native(ngrdcol_local, minlwp_local, iclwpst_gr
 end subroutine micro_mg_cam_grid_diag_native
 
 function p1(tin) result(pout)
+  use iso_c_binding, only: c_int64_t
   real(r8), target, intent(in) :: tin(:)
   real(r8), pointer :: pout(:)
+  integer(c_int64_t) :: touched
+  call micro_mg_cam_select_p_ptr_impl()
+  if (.not. use_native_p_ptr_impl) then
+     touched = micro_mg_cam_p1_codon(int(size(tin), c_int64_t))
+     if (touched == 0_c_int64_t) call endrun('micro_mg_cam:p1 Codon pointer-touch failed')
+     call micro_mg_cam_log_p_ptr_once(p1_logged, &
+          'p1 direct = codon entry; native Fortran pointer association')
+  end if
   pout => tin
 end function p1
 
 function p2(tin) result(pout)
+  use iso_c_binding, only: c_int64_t
   real(r8), target, intent(in) :: tin(:,:)
   real(r8), pointer :: pout(:,:)
+  integer(c_int64_t) :: touched
+  call micro_mg_cam_select_p_ptr_impl()
+  if (.not. use_native_p_ptr_impl) then
+     touched = micro_mg_cam_p2_codon(int(size(tin, 1), c_int64_t), int(size(tin, 2), c_int64_t))
+     if (touched == 0_c_int64_t) call endrun('micro_mg_cam:p2 Codon pointer-touch failed')
+     call micro_mg_cam_log_p_ptr_once(p2_logged, &
+          'p2 direct = codon entry; native Fortran pointer association')
+  end if
   pout => tin
 end function p2
 
