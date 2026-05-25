@@ -869,7 +869,7 @@
     ! --------------- !
 
     integer                    icol
-    integer                    i, k, iturb, status
+    integer                    i, k, iturb, n, status
 
     character(128)          :: errstring                 ! Error status for compute_vdiff
     logical                 :: saved_use_native_trbintd_impl, saved_trbintd_impl_selected
@@ -1016,8 +1016,13 @@
 
        saved_use_native_trbintd_impl = use_native_trbintd_impl
        saved_trbintd_impl_selected = trbintd_impl_selected
-       use_native_trbintd_impl = use_native_compute_path
-       trbintd_impl_selected = .true.
+       call get_environment_variable('EDDY_DIFF_TRBINTD_IMPL', length=n, status=status)
+       if (status == 0 .and. n > 0) then
+          trbintd_impl_selected = .false.
+       else
+          use_native_trbintd_impl = use_native_compute_path
+          trbintd_impl_selected = .true.
+       end if
        call trbintd( &
                      pcols    , pver    , ncol  , z       , ufd     , vfd     , tfd   , pmid    , &
                      s2       , n2      , ri    , zi      , pi      , cldn    , qtfd  , qvfd    , &
@@ -3083,9 +3088,14 @@
     if (masterproc) then
        if (use_native_trbintd_impl) then
           write(iulog,*) 'eddy_diff_trbintd implementation = native'
+          write(*,*) 'eddy_diff_trbintd implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_trbintd implementation = native')
        else
           write(iulog,*) 'eddy_diff_trbintd implementation = codon'
+          write(*,*) 'eddy_diff_trbintd implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_trbintd implementation = codon')
        end if
+       call flush(iulog)
     end if
 
   end subroutine trbintd_select_impl
@@ -3188,6 +3198,13 @@
     do k = ntop_turb, nbot_turb
        call qsat( t(:ncol,k), pmid(:ncol,k), es(:ncol,k), qs(:ncol,k), gam=gam(:ncol,k))
     end do
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_trbintd direct = codon with native qsat/gam island'
+       write(*,*) 'eddy_diff_trbintd direct = codon with native qsat/gam island'
+       call eddy_diff_append_impl_trace('eddy_diff_trbintd direct = codon with native qsat/gam island')
+       call flush(iulog)
+    end if
 
     call eddy_diff_trbintd_core(ncol, pcols, pver, t, z, u, v, qv, ql, qi, gam, pmid, pi, zi, cld, qt, sl, slv, slslope, &
          qtslope, dsldp_b, dqtdp_b, chu, chs, cmu, cms, sfi, sfuh, sflh, n2, s2, ri)
