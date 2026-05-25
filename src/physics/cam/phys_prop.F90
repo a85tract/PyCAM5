@@ -111,6 +111,7 @@ logical :: phys_prop_interp_proof_written = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
+logical :: aer_optics_log_rh_logged = .false.
 
 interface
    function physprop_get_id_codon(filename_len_c, filename_ascii_p, names_len_c, names_ascii_p, &
@@ -138,6 +139,13 @@ interface
      real(c_double), value :: y_c
      real(c_double) :: g
    end function lin_interpol_codon
+
+   subroutine aer_optics_log_rh_codon(nrh_c, nrh_test_c, ext_p, ssa_p, asm_p, &
+        rh_test_p, exti_p, ssai_p, asmi_p) bind(c, name="aer_optics_log_rh_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: nrh_c, nrh_test_c
+     type(c_ptr), value :: ext_p, ssa_p, asm_p, rh_test_p, exti_p, ssai_p, asmi_p
+   end subroutine aer_optics_log_rh_codon
 end interface
  
 !================================================================================================
@@ -216,6 +224,19 @@ subroutine lin_interpol_log_direct()
    end if
 
 end subroutine lin_interpol_log_direct
+
+!================================================================================================
+
+subroutine aer_optics_log_rh_log_direct()
+
+   if (aer_optics_log_rh_logged) return
+   aer_optics_log_rh_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'aer_optics_log_rh direct = codon interpolation values; native formatted logging'
+   end if
+
+end subroutine aer_optics_log_rh_log_direct
 
 !================================================================================================
 
@@ -1465,41 +1486,77 @@ subroutine aer_optics_log_rh(name, ext, ssa, asm)
 
    ! Author: D. Fillmore
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    character(len=*), intent(in) :: name
-   real(r8), intent(in) :: ext(nrh)
-   real(r8), intent(in) :: ssa(nrh)
-   real(r8), intent(in) :: asm(nrh)
+   real(r8), target, intent(in) :: ext(nrh)
+   real(r8), target, intent(in) :: ssa(nrh)
+   real(r8), target, intent(in) :: asm(nrh)
 
    integer :: krh_test
    integer, parameter :: nrh_test = 36
-   integer :: krh
-   real(r8) :: rh
-   real(r8) :: rh_test(nrh_test)
-   real(r8) :: exti
-   real(r8) :: ssai
-   real(r8) :: asmi
-   real(r8) :: wrh
+   real(r8), target :: rh_test(nrh_test)
+   real(r8), target :: exti(nrh_test)
+   real(r8), target :: ssai(nrh_test)
+   real(r8), target :: asmi(nrh_test)
    !------------------------------------------------------------------------------------
 
-   do krh_test = 1, nrh_test
-      rh_test(krh_test) = sqrt(sqrt(sqrt(sqrt(((krh_test - 1.0_r8) / (nrh_test - 1))))))
-   enddo
+   call phys_prop_interp_select_impl()
+   if (use_native_phys_prop_interp_impl) then
+      call aer_optics_log_rh_native_values(ext, ssa, asm, rh_test, exti, ssai, asmi)
+   else
+      call phys_prop_interp_proof_once()
+      call aer_optics_log_rh_codon(int(nrh, c_int64_t), int(nrh_test, c_int64_t), &
+           c_loc(ext(1)), c_loc(ssa(1)), c_loc(asm(1)), c_loc(rh_test(1)), &
+           c_loc(exti(1)), c_loc(ssai(1)), c_loc(asmi(1)))
+      call aer_optics_log_rh_log_direct()
+   end if
+
    write(iulog, '(2x, a)') name
    write(iulog, '(2x, a, 4x, a, 4x, a, 4x, a)') '   rh', 'ext (m^2 kg^-1)', '  ssa', '  asm'
 
    ! loop through test rh values
    do krh_test = 1, nrh_test
-      ! find corresponding rh index
-      rh = rh_test(krh_test)
-      krh = min(floor( (rh) * nrh ) + 1, nrh - 1)
-      wrh = (rh) *nrh - krh
-      exti = ext(krh + 1) * (wrh + 1) - ext(krh) * wrh
-      ssai = ssa(krh + 1) * (wrh + 1) - ssa(krh) * wrh
-      asmi = asm(krh + 1) * (wrh + 1) - asm(krh) * wrh
-      write(iulog, '(2x, f5.3, 4x, f13.3, 4x, f5.3, 4x, f5.3)') rh_test(krh_test), exti, ssai, asmi
+      write(iulog, '(2x, f5.3, 4x, f13.3, 4x, f5.3, 4x, f5.3)') &
+           rh_test(krh_test), exti(krh_test), ssai(krh_test), asmi(krh_test)
    end do
 
 end subroutine aer_optics_log_rh
+
+!================================================================================================
+
+subroutine aer_optics_log_rh_native_values(ext, ssa, asm, rh_test, exti, ssai, asmi)
+
+   real(r8), intent(in)  :: ext(nrh)
+   real(r8), intent(in)  :: ssa(nrh)
+   real(r8), intent(in)  :: asm(nrh)
+   real(r8), intent(out) :: rh_test(:)
+   real(r8), intent(out) :: exti(:)
+   real(r8), intent(out) :: ssai(:)
+   real(r8), intent(out) :: asmi(:)
+
+   integer :: krh_test
+   integer :: krh
+   integer :: nrh_test
+   real(r8) :: rh
+   real(r8) :: wrh
+   !------------------------------------------------------------------------------------
+
+   nrh_test = size(rh_test)
+   do krh_test = 1, nrh_test
+      rh_test(krh_test) = sqrt(sqrt(sqrt(sqrt(((krh_test - 1.0_r8) / (nrh_test - 1))))))
+   enddo
+
+   do krh_test = 1, nrh_test
+      rh = rh_test(krh_test)
+      krh = min(floor( (rh) * nrh ) + 1, nrh - 1)
+      wrh = (rh) *nrh - krh
+      exti(krh_test) = ext(krh + 1) * (wrh + 1) - ext(krh) * wrh
+      ssai(krh_test) = ssa(krh + 1) * (wrh + 1) - ssa(krh) * wrh
+      asmi(krh_test) = asm(krh + 1) * (wrh + 1) - asm(krh) * wrh
+   end do
+
+end subroutine aer_optics_log_rh_native_values
 
 
 !================================================================================================

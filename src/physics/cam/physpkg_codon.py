@@ -4109,6 +4109,39 @@ def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> floa
 
 
 @export
+def aer_optics_log_rh_codon(
+    nrh: int,
+    nrh_test: int,
+    ext_p: cobj,
+    ssa_p: cobj,
+    asm_p: cobj,
+    rh_test_p: cobj,
+    exti_p: cobj,
+    ssai_p: cobj,
+    asmi_p: cobj,
+):
+    ext = Ptr[float](ext_p)
+    ssa = Ptr[float](ssa_p)
+    asm = Ptr[float](asm_p)
+    rh_test = Ptr[float](rh_test_p)
+    exti = Ptr[float](exti_p)
+    ssai = Ptr[float](ssai_p)
+    asmi = Ptr[float](asmi_p)
+
+    for krh_test in range(1, nrh_test + 1):
+        value = (float(krh_test) - 1.0) / float(nrh_test - 1)
+        rh_test[krh_test - 1] = sqrt(sqrt(sqrt(sqrt(value))))
+
+    for krh_test in range(1, nrh_test + 1):
+        rh = rh_test[krh_test - 1]
+        krh = min(int(floor(rh * float(nrh))) + 1, nrh - 1)
+        wrh = rh * float(nrh) - float(krh)
+        exti[krh_test - 1] = ext[krh] * (wrh + 1.0) - ext[krh - 1] * wrh
+        ssai[krh_test - 1] = ssa[krh] * (wrh + 1.0) - ssa[krh - 1] * wrh
+        asmi[krh_test - 1] = asm[krh] * (wrh + 1.0) - asm[krh - 1] * wrh
+
+
+@export
 def modal_aer_opt_sw_init_state_codon(
     ncol: int,
     pcols: int,
