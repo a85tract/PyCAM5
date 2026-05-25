@@ -4057,6 +4057,54 @@ def _phys_prop_trimmed_eq(a: Ptr[int], a_len: int, b: Ptr[int], b_len: int) -> b
     return True
 
 
+@inline
+def _physprop_name_ptr(base: Ptr[int], name_len: int, idx1: int) -> Ptr[int]:
+    return base + (idx1 - 1) * name_len
+
+
+@inline
+def _physprop_is_known(name: Ptr[int], name_len: int, names: Ptr[int], known_count: int) -> bool:
+    i = 1
+    while i <= known_count:
+        if _phys_prop_trimmed_eq(name, name_len, _physprop_name_ptr(names, name_len, i), name_len):
+            return True
+        i += 1
+    return False
+
+
+@export
+def physprop_accum_unique_files_codon(
+    ncnst: int,
+    name_len: int,
+    numphysprops: int,
+    radname_ascii_p: cobj,
+    type_ascii_p: cobj,
+    names_ascii_p: cobj,
+    append_flags_p: cobj,
+):
+    radname_ascii = Ptr[int](radname_ascii_p)
+    type_ascii = Ptr[int](type_ascii_p)
+    names_ascii = Ptr[int](names_ascii_p)
+    append_flags = Ptr[int](append_flags_p)
+
+    known_count = numphysprops
+    i = 1
+    while i <= ncnst:
+        append_flags[i - 1] = 0
+        t = type_ascii[i - 1]
+        if t == 65 or t == 77:
+            name = _physprop_name_ptr(radname_ascii, name_len, i)
+            if not _physprop_is_known(name, name_len, names_ascii, known_count):
+                append_flags[i - 1] = 1
+                known_count += 1
+                dst = _physprop_name_ptr(names_ascii, name_len, known_count)
+                j = 0
+                while j < name_len:
+                    dst[j] = name[j]
+                    j += 1
+        i += 1
+
+
 @export
 def physprop_get_id_codon(filename_len: int, filename_ascii_p: cobj, names_len: int, names_ascii_p: cobj,
                           numphysprops: int) -> int:

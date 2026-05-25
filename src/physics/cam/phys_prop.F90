@@ -108,12 +108,23 @@ character(len=256), allocatable :: uniquefilenames(:)
 logical :: use_native_phys_prop_interp_impl = .false.
 logical :: phys_prop_interp_impl_selected = .false.
 logical :: phys_prop_interp_proof_written = .false.
+logical :: use_native_physprop_accum_unique_files_impl = .false.
+logical :: physprop_accum_unique_files_impl_selected = .false.
+logical :: physprop_accum_unique_files_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   subroutine physprop_accum_unique_files_codon(ncnst_c, name_len_c, numphysprops_c, &
+        radname_ascii_p, type_ascii_p, names_ascii_p, append_flags_p) &
+        bind(c, name="physprop_accum_unique_files_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: ncnst_c, name_len_c, numphysprops_c
+     type(c_ptr), value :: radname_ascii_p, type_ascii_p, names_ascii_p, append_flags_p
+   end subroutine physprop_accum_unique_files_codon
+
    function physprop_get_id_codon(filename_len_c, filename_ascii_p, names_len_c, names_ascii_p, &
         numphysprops_c) result(id_c) bind(c, name="physprop_get_id_codon")
      use iso_c_binding, only: c_int64_t, c_ptr
@@ -150,6 +161,57 @@ end interface
  
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine physprop_accum_unique_files_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (physprop_accum_unique_files_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PHYS_PROP_ACCUM_UNIQUE_FILES_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_physprop_accum_unique_files_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_physprop_accum_unique_files_impl = .false.
+   end if
+
+   physprop_accum_unique_files_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_physprop_accum_unique_files_impl) then
+         write(iulog,*) 'physprop_accum_unique_files implementation = native'
+      else
+         write(iulog,*) 'physprop_accum_unique_files implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine physprop_accum_unique_files_select_impl
+
+!================================================================================================
+
+subroutine physprop_accum_unique_files_log_direct()
+
+   if (physprop_accum_unique_files_logged) return
+   physprop_accum_unique_files_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'physprop_accum_unique_files direct = codon unique-file append decisions; native allocation/string append'
+      call flush(iulog)
+   end if
+
+end subroutine physprop_accum_unique_files_log_direct
+
 !================================================================================================
 
 subroutine phys_prop_interp_select_impl()
@@ -246,10 +308,14 @@ subroutine physprop_accum_unique_files(radname, type)
    ! as strings with a ".nc" suffix.
    ! Construct a cumulative list of unique filenames containing physical property data.
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    character(len=*), intent(in)  :: radname(:)
    character(len=1), intent(in)  :: type(:)
 
-   integer :: ncnst, i
+   integer :: ncnst, i, ichar, name_len, max_names
+   integer(c_int64_t), allocatable, target :: radname_ascii(:,:), names_ascii(:,:)
+   integer(c_int64_t), allocatable, target :: type_ascii(:), append_flags(:)
    character(len=*), parameter :: subname = 'physprop_accum_unique_files'
    !------------------------------------------------------------------------------------
 
@@ -257,6 +323,50 @@ subroutine physprop_accum_unique_files(radname, type)
    if (.not. allocated(uniquefilenames)) allocate(uniquefilenames(50))
 
    ncnst = ubound(radname, 1)
+
+   call physprop_accum_unique_files_select_impl()
+
+   if (.not. use_native_physprop_accum_unique_files_impl) then
+      name_len = max(1, max(len(radname), len(uniquefilenames(1))))
+      max_names = max(1, numphysprops + ncnst)
+      allocate(radname_ascii(name_len, max(1, ncnst)))
+      allocate(names_ascii(name_len, max_names))
+      allocate(type_ascii(max(1, ncnst)))
+      allocate(append_flags(max(1, ncnst)))
+      radname_ascii = 32_c_int64_t
+      names_ascii = 32_c_int64_t
+      type_ascii = 32_c_int64_t
+      append_flags = 0_c_int64_t
+
+      do i = 1, ncnst
+         type_ascii(i) = int(iachar(type(i)), c_int64_t)
+         do ichar = 1, len(radname)
+            radname_ascii(ichar, i) = int(iachar(radname(i)(ichar:ichar)), c_int64_t)
+         end do
+      end do
+      do i = 1, numphysprops
+         do ichar = 1, len(uniquefilenames(1))
+            names_ascii(ichar, i) = int(iachar(uniquefilenames(i)(ichar:ichar)), c_int64_t)
+         end do
+      end do
+
+      call physprop_accum_unique_files_codon(int(ncnst, c_int64_t), int(name_len, c_int64_t), &
+           int(numphysprops, c_int64_t), c_loc(radname_ascii(1,1)), c_loc(type_ascii(1)), &
+           c_loc(names_ascii(1,1)), c_loc(append_flags(1)))
+
+      do i = 1, ncnst
+         if (append_flags(i) /= 0_c_int64_t) then
+            numphysprops = numphysprops + 1
+            if (numphysprops > size(uniquefilenames)) then
+               call double_capacity(uniquefilenames)
+            end if
+            uniquefilenames(numphysprops) = trim(radname(i))
+         end if
+      end do
+
+      call physprop_accum_unique_files_log_direct()
+      return
+   end if
 
    do i = 1, ncnst
 
