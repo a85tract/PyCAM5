@@ -117,12 +117,23 @@ logical :: physprop_get_logged = .false.
 logical :: use_native_aerosol_optics_init_impl = .false.
 logical :: aerosol_optics_init_impl_selected = .false.
 logical :: aerosol_optics_init_logged = .false.
+logical :: use_native_bulk_props_init_impl = .false.
+logical :: bulk_props_init_impl_selected = .false.
+logical :: bulk_props_init_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   function bulk_props_init_is_sulfate_codon(name_len_c, name_ascii_p) result(is_sulfate_c) &
+        bind(c, name="bulk_props_init_is_sulfate_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: name_len_c
+     type(c_ptr), value :: name_ascii_p
+     integer(c_int64_t) :: is_sulfate_c
+   end function bulk_props_init_is_sulfate_codon
+
    function aerosol_optics_init_dispatch_codon(optics_len_c, optics_ascii_p) result(dispatch_c) &
         bind(c, name="aerosol_optics_init_dispatch_codon")
      use iso_c_binding, only: c_int64_t, c_ptr
@@ -292,6 +303,57 @@ subroutine aerosol_optics_init_select_impl()
    end if
 
 end subroutine aerosol_optics_init_select_impl
+
+!================================================================================================
+
+subroutine bulk_props_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (bulk_props_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('BULK_PROPS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_bulk_props_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_bulk_props_init_impl = .false.
+   end if
+
+   bulk_props_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_bulk_props_init_impl) then
+         write(iulog,*) 'bulk_props_init implementation = native'
+      else
+         write(iulog,*) 'bulk_props_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine bulk_props_init_select_impl
+
+!================================================================================================
+
+subroutine bulk_props_init_log_direct()
+
+   if (bulk_props_init_logged) return
+   bulk_props_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'bulk_props_init direct = codon sulfate debug-log decision; native PIO property reads'
+      call flush(iulog)
+   end if
+
+end subroutine bulk_props_init_log_direct
 
 !================================================================================================
 
@@ -1535,15 +1597,19 @@ subroutine bulk_props_init(physprop, nc_id)
 
 !  Read props for bulk aerosols
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    type (physprop_type), intent(inout) :: physprop ! storage for file data
    type (file_desc_T),   intent(inout) :: nc_id    ! indentifier for netcdf file
 
    ! Local variables
-   integer :: ierr
+   integer :: ierr, i
 
    type(var_desc_T) :: vid
 
    logical :: debug = .true.
+   logical :: log_rh
+   integer(c_int64_t), target :: aername_ascii(len(physprop%aername))
 
    character(len=*), parameter :: subname = 'bulk_props_init'
    !------------------------------------------------------------------------------------
@@ -1569,10 +1635,22 @@ subroutine bulk_props_init(physprop, nc_id)
 
    ierr = pio_inq_varid(nc_id, 'num_to_mass_ratio', vid)
    ierr = pio_get_var(nc_id, vid, physprop%num_to_mass_aer)
+
+   call bulk_props_init_select_impl()
+   if (use_native_bulk_props_init_impl) then
+      log_rh = trim(physprop%aername) == 'SULFATE'
+   else
+      do i = 1, len(physprop%aername)
+         aername_ascii(i) = int(iachar(physprop%aername(i:i)), c_int64_t)
+      end do
+      log_rh = bulk_props_init_is_sulfate_codon(int(len(physprop%aername), c_int64_t), &
+           c_loc(aername_ascii(1))) /= 0_c_int64_t
+      call bulk_props_init_log_direct()
+   end if
       
    ! Output select data to log file
    if (debug .and. masterproc) then
-      if (trim(physprop%aername) == 'SULFATE') then
+      if (log_rh) then
          write(iulog, '(2x, a)') '_______ hygroscopic growth in visible band _______'
          call aer_optics_log_rh('SO4', physprop%sw_hygro_ext(:,idx_sw_diag), &
             physprop%sw_hygro_ssa(:,idx_sw_diag), physprop%sw_hygro_asm(:,idx_sw_diag))

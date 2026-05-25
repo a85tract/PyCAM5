@@ -4109,6 +4109,14 @@ def aerosol_optics_init_dispatch_codon(optics_len: int, optics_ascii_p: cobj) ->
 
 
 @export
+def bulk_props_init_is_sulfate_codon(name_len: int, name_ascii_p: cobj) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    if _phys_prop_trimmed_eq_lit(name_ascii, name_len, "SULFATE"):
+        return 1
+    return 0
+
+
+@export
 def physprop_get_check_id_codon(id_value: int, numphysprops: int) -> int:
     if id_value <= 0 or id_value > numphysprops:
         return 1
