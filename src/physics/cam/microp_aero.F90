@@ -111,6 +111,7 @@ integer :: npccn_idx, rndst_idx, nacon_idx
 logical  :: separate_dust = .false.
 logical  :: use_native_run_impl = .false.
 logical  :: run_impl_selected = .false.
+logical  :: run_direct_entered_logged = .false.
 logical  :: run_linear_entered_logged = .false.
 logical  :: run_npccn_copy_entered_logged = .false.
 
@@ -407,6 +408,21 @@ end subroutine microp_aero_run_select_impl
 
 !=========================================================================================
 
+subroutine microp_aero_run_direct_log_entered()
+
+   if (use_native_run_impl .or. run_direct_entered_logged) return
+   run_direct_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'microp_aero_run direct = codon init/rho/diag_TKE/lcloud/NPCCN/modal-contact helpers; ' // &
+           'native pbuf/rad_constituents/nucleation/dropmixnuc/outfld callbacks'
+      call flush(iulog)
+   end if
+
+end subroutine microp_aero_run_direct_log_entered
+
+!=========================================================================================
+
 subroutine microp_aero_run_linear_log_entered()
 
    if (run_linear_entered_logged) return
@@ -445,6 +461,7 @@ subroutine microp_aero_run ( &
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    call microp_aero_run_select_impl()
+   call microp_aero_run_direct_log_entered()
    call microp_aero_run_codon(state, ptend, deltatin, pbuf, use_native_run_impl)
 
 end subroutine microp_aero_run
