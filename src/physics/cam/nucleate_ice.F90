@@ -65,6 +65,9 @@ logical :: nucleate_ice_helpers_entered_logged = .false.
 logical :: use_native_nucleati_init_impl = .false.
 logical :: nucleati_init_impl_selected = .false.
 logical :: nucleati_init_direct_logged = .false.
+logical :: use_native_nucleati_impl = .false.
+logical :: nucleati_impl_selected = .false.
+logical :: nucleati_direct_logged = .false.
 
 interface
    subroutine nucleati_init_scalars_codon(use_preexisting_ice_in_c, use_hetfrz_classnuc_in_c, &
@@ -87,6 +90,22 @@ interface
      type(c_ptr), value :: use_preexisting_ice_p, use_hetfrz_classnuc_p
      type(c_ptr), value :: iulog_p, pi_p, mincld_p, subgrid_p, ci_p
    end subroutine nucleati_init_codon
+   subroutine nucleati_codon(wbar_c, tair_c, pmid_c, relhum_c, cldn_c, qc_c, qi_c, ni_in_c, &
+        rhoair_c, so4_num_c, dst_num_c, soot_num_c, svp_water_tair_c, svp_ice_tair_c, &
+        use_preexisting_ice_c, use_hetfrz_classnuc_c, mincld_c, subgrid_c, ci_c, shet_c, &
+        minweff_c, gamma4_c, pi_c, nuci_p, onihf_p, oniimm_p, &
+        onidep_p, onimey_p, wpice_p, weff_p, fhom_p, warn_p, warn_ni_p, warn_nihf_p, warn_niimm_p, &
+        warn_nidep_p, warn_deles_p, warn_esi_p) bind(c, name="nucleati_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     real(c_double), value :: wbar_c, tair_c, pmid_c, relhum_c, cldn_c, qc_c, qi_c, ni_in_c
+     real(c_double), value :: rhoair_c, so4_num_c, dst_num_c, soot_num_c
+     real(c_double), value :: svp_water_tair_c, svp_ice_tair_c
+     integer(c_int64_t), value :: use_preexisting_ice_c, use_hetfrz_classnuc_c
+     real(c_double), value :: mincld_c, subgrid_c, ci_c, shet_c, minweff_c, gamma4_c, pi_c
+     type(c_ptr), value :: nuci_p, onihf_p, oniimm_p, onidep_p, onimey_p, wpice_p, weff_p, fhom_p
+     type(c_ptr), value :: warn_p, warn_ni_p, warn_nihf_p, warn_niimm_p, warn_nidep_p, warn_deles_p
+     type(c_ptr), value :: warn_esi_p
+   end subroutine nucleati_codon
 end interface
 
 !===============================================================================
@@ -217,6 +236,126 @@ end subroutine nucleate_ice_helpers_note_entered
 !===============================================================================
 
 subroutine nucleati(  &
+   wbar, tair, pmid, relhum, cldn,      &
+   qc, qi, ni_in, rhoair,               &
+   so4_num, dst_num, soot_num,          &
+   nuci, onihf, oniimm, onidep, onimey, &
+   wpice, weff, fhom)
+
+   real(r8), intent(in) :: wbar        ! grid cell mean vertical velocity (m/s)
+   real(r8), intent(in) :: tair        ! temperature (K)
+   real(r8), intent(in) :: pmid        ! pressure at layer midpoints (pa)
+   real(r8), intent(in) :: relhum      ! relative humidity with respective to liquid
+   real(r8), intent(in) :: cldn        ! new value of cloud fraction    (fraction)
+   real(r8), intent(in) :: qc          ! liquid water mixing ratio (kg/kg)
+   real(r8), intent(in) :: qi          ! grid-mean preexisting cloud ice mass mixing ratio (kg/kg)
+   real(r8), intent(in) :: ni_in       ! grid-mean preexisting cloud ice number conc (#/kg)
+   real(r8), intent(in) :: rhoair      ! air density (kg/m3)
+   real(r8), intent(in) :: so4_num     ! so4 aerosol number (#/cm^3)
+   real(r8), intent(in) :: dst_num     ! total dust aerosol number (#/cm^3)
+   real(r8), intent(in) :: soot_num    ! soot (hydrophilic) aerosol number (#/cm^3)
+
+   real(r8), intent(out) :: nuci       ! ice number nucleated (#/kg)
+   real(r8), intent(out) :: onihf      ! nucleated number from homogeneous freezing of so4
+   real(r8), intent(out) :: oniimm     ! nucleated number from immersion freezing
+   real(r8), intent(out) :: onidep     ! nucleated number from deposition nucleation
+   real(r8), intent(out) :: onimey     ! nucleated number from deposition nucleation  (meyers: mixed phase)
+   real(r8), intent(out) :: wpice      ! diagnosed Vertical velocity Reduction caused by preexisting ice (m/s), at Shom
+   real(r8), intent(out) :: weff       ! effective Vertical velocity for ice nucleation (m/s); weff=wbar-wpice
+   real(r8), intent(out) :: fhom       ! how much fraction of cloud can reach Shom
+
+   real(c_double), target :: nuci_c, onihf_c, oniimm_c, onidep_c, onimey_c
+   real(c_double), target :: wpice_c, weff_c, fhom_c
+   real(c_double), target :: warn_ni_c, warn_nihf_c, warn_niimm_c, warn_nidep_c
+   real(c_double), target :: warn_deles_c, warn_esi_c
+   integer(c_int64_t), target :: warn_c
+
+   call nucleati_select_impl()
+
+   if (use_native_nucleati_impl) then
+      call nucleati_native(wbar, tair, pmid, relhum, cldn, qc, qi, ni_in, rhoair, &
+           so4_num, dst_num, soot_num, nuci, onihf, oniimm, onidep, onimey, wpice, weff, fhom)
+      return
+   end if
+
+   call nucleati_note_direct()
+   call nucleati_codon(real(wbar, c_double), real(tair, c_double), real(pmid, c_double), &
+        real(relhum, c_double), real(cldn, c_double), real(qc, c_double), real(qi, c_double), &
+        real(ni_in, c_double), real(rhoair, c_double), real(so4_num, c_double), &
+        real(dst_num, c_double), real(soot_num, c_double), &
+        real(svp_water(tair), c_double), real(svp_ice(tair), c_double), &
+        merge(1_c_int64_t, 0_c_int64_t, use_preexisting_ice), &
+        merge(1_c_int64_t, 0_c_int64_t, use_hetfrz_classnuc), real(mincld, c_double), &
+        real(subgrid, c_double), real(ci, c_double), real(Shet, c_double), &
+        real(minweff, c_double), real(gamma4, c_double), real(pi, c_double), &
+        c_loc(nuci_c), c_loc(onihf_c), c_loc(oniimm_c), c_loc(onidep_c), c_loc(onimey_c), &
+        c_loc(wpice_c), c_loc(weff_c), c_loc(fhom_c), c_loc(warn_c), c_loc(warn_ni_c), &
+        c_loc(warn_nihf_c), c_loc(warn_niimm_c), c_loc(warn_nidep_c), c_loc(warn_deles_c), &
+        c_loc(warn_esi_c))
+
+   nuci = nuci_c
+   onihf = onihf_c
+   oniimm = oniimm_c
+   onidep = onidep_c
+   onimey = onimey_c
+   wpice = wpice_c
+   weff = weff_c
+   fhom = fhom_c
+
+   if (warn_c /= 0_c_int64_t) then
+      write(iulog, *) 'Warning: incorrect ice nucleation number (nuci reset =0)'
+      write(iulog, *) warn_ni_c, tair, relhum, wbar, warn_nihf_c, warn_niimm_c, warn_nidep_c, &
+           warn_deles_c, warn_esi_c, dst_num, so4_num
+   endif
+
+end subroutine nucleati
+
+!===============================================================================
+
+subroutine nucleati_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (nucleati_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NUCLEATI_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_nucleati_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_nucleati_impl = .false.
+   end if
+
+   nucleati_impl_selected = .true.
+
+   write(iulog,*) 'nucleati implementation = ', merge('native', 'codon ', use_native_nucleati_impl)
+   call flush(iulog)
+
+end subroutine nucleati_select_impl
+
+!===============================================================================
+
+subroutine nucleati_note_direct()
+
+   if (nucleati_direct_logged) return
+   nucleati_direct_logged = .true.
+
+   write(iulog,*) 'nucleati direct = codon'
+   call flush(iulog)
+
+end subroutine nucleati_note_direct
+
+!===============================================================================
+
+subroutine nucleati_native(  &
    wbar, tair, pmid, relhum, cldn,      &
    qc, qi, ni_in, rhoair,               &
    so4_num, dst_num, soot_num,          &
@@ -463,7 +602,7 @@ subroutine nucleati(  &
    oniimm = niimm*1.e+6_r8/rhoair
    onihf  = nihf*1.e+6_r8/rhoair
 
-end subroutine nucleati
+end subroutine nucleati_native
 
 !===============================================================================
 
