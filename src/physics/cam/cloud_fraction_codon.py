@@ -9,6 +9,167 @@ def cldfrc_register_codon(flag: int) -> int:
 
 
 @inline
+def _ascii_ptr_to_str(n: int, ptr_p: cobj) -> str:
+    ptr = Ptr[int](ptr_p)
+    out = ""
+    for i in range(n):
+        out += chr(ptr[i])
+    return out.strip()
+
+
+@inline
+def _strip_comment(line: str) -> str:
+    pos = line.find("!")
+    if pos >= 0:
+        return line[:pos]
+    return line
+
+
+@inline
+def _parse_fortran_float(value: str) -> float:
+    return float(value.strip().replace("D", "E").replace("d", "e"))
+
+
+@inline
+def _parse_fortran_int(value: str) -> int:
+    return int(value.strip())
+
+
+@inline
+def _parse_fortran_bool(value: str) -> int:
+    text = value.strip().lower()
+    if text == ".true." or text == "t" or text == "true":
+        return 1
+    return 0
+
+
+@export
+def cldfrc_readnl_codon(
+    path_len: int,
+    path_ascii_p: cobj,
+    reals_p: cobj,
+    ints_p: cobj,
+    logicals_p: cobj,
+) -> int:
+    path = _ascii_ptr_to_str(path_len, path_ascii_p)
+    reals = Ptr[float](reals_p)
+    ints = Ptr[i32](ints_p)
+    logicals = Ptr[i32](logicals_p)
+
+    f = open(path, "r")
+    text = f.read()
+    f.close()
+
+    in_group = False
+    found_group = False
+    assignments = ""
+
+    for raw_line in text.split("\n"):
+        line = _strip_comment(raw_line).strip()
+        lowered = line.lower()
+        if not in_group:
+            if lowered.startswith("&cldfrc_nl"):
+                in_group = True
+                found_group = True
+                rest = line[len("&cldfrc_nl") :]
+                if rest:
+                    assignments += rest + ","
+            continue
+
+        slash = line.find("/")
+        if slash >= 0:
+            assignments += line[:slash] + ","
+            break
+        assignments += line + ","
+
+    if not found_group:
+        return 0
+
+    for item in assignments.split(","):
+        if "=" not in item:
+            continue
+        parts = item.split("=", 1)
+        key = parts[0].strip().lower()
+        value = parts[1].strip()
+        if key == "cldfrc_rhminl":
+            reals[0] = _parse_fortran_float(value)
+        elif key == "cldfrc_rhminl_adj_land":
+            reals[1] = _parse_fortran_float(value)
+        elif key == "cldfrc_rhminh":
+            reals[2] = _parse_fortran_float(value)
+        elif key == "cldfrc_rhminp":
+            reals[3] = _parse_fortran_float(value)
+        elif key == "cldfrc_rhminp_botmb":
+            reals[4] = _parse_fortran_float(value)
+        elif key == "cldfrc_sh1":
+            reals[5] = _parse_fortran_float(value)
+        elif key == "cldfrc_sh2":
+            reals[6] = _parse_fortran_float(value)
+        elif key == "cldfrc_dp1":
+            reals[7] = _parse_fortran_float(value)
+        elif key == "cldfrc_dp2":
+            reals[8] = _parse_fortran_float(value)
+        elif key == "cldfrc_premit":
+            reals[9] = _parse_fortran_float(value)
+        elif key == "cldfrc_premib":
+            reals[10] = _parse_fortran_float(value)
+        elif key == "cldfrc_icecrit":
+            reals[11] = _parse_fortran_float(value)
+        elif key == "cldfrc_iceopt":
+            ints[0] = i32(_parse_fortran_int(value))
+        elif key == "cldfrc_freeze_dry":
+            logicals[0] = i32(_parse_fortran_bool(value))
+        elif key == "cldfrc_ice":
+            logicals[1] = i32(_parse_fortran_bool(value))
+
+    return 0
+
+
+@export
+def cldfrc_init_codon(
+    pver: int,
+    macrop_rk_i: int,
+    eddy_diag_tke_i: int,
+    shallow_uw_i: int,
+    trop_cloud_top_lev: int,
+    pref_mid_p: cobj,
+    top_lev_p: cobj,
+    inversion_cld_off_p: cobj,
+    k700_p: cobj,
+) -> int:
+    pref_mid = Ptr[float](pref_mid_p)
+    top_lev_out = Ptr[i32](top_lev_p)
+    inversion_out = Ptr[i32](inversion_cld_off_p)
+    k700_out = Ptr[i32](k700_p)
+
+    top = 1
+    if macrop_rk_i == 0:
+        top = trop_cloud_top_lev
+    top_lev_out[0] = i32(top)
+
+    if eddy_diag_tke_i != 0 or shallow_uw_i != 0:
+        inversion_out[0] = i32(1)
+    else:
+        inversion_out[0] = i32(0)
+
+    if pref_mid[top - 1] > 7.0e4:
+        return 1
+
+    best_section_index = 1
+    best_abs = abs(pref_mid[top - 1] - 7.0e4)
+    section_index = 1
+    for k in range(top + 1, pver + 1):
+        section_index += 1
+        diff = abs(pref_mid[k - 1] - 7.0e4)
+        if diff < best_abs:
+            best_abs = diff
+            best_section_index = section_index
+
+    k700_out[0] = i32(best_section_index)
+    return 0
+
+
+@inline
 def _field2_idx(i: int, k: int, ld1: int) -> int:
     """t/fice/fsnow declared as (ld1, pver)"""
     return (i - 1) + (k - 1) * ld1

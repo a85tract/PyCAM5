@@ -66,8 +66,32 @@ logical :: cldfrc2m_aist_single_proof_written = .false.
 logical :: use_native_cldfrc2m_astg_pdf_impl = .false.
 logical :: cldfrc2m_astg_pdf_impl_selected = .false.
 logical :: cldfrc2m_astg_pdf_proof_written = .false.
+logical :: use_native_cldfrc2m_readnl_impl = .false.
+logical :: cldfrc2m_readnl_impl_selected = .false.
+logical :: use_native_cldfrc2m_init_impl = .false.
+logical :: cldfrc2m_init_impl_selected = .false.
 
 interface
+   function cldfrc2m_readnl_codon(path_len_c, path_ascii_p, reals_p) result(status_c) &
+        bind(c, name="cldfrc2m_readnl_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: path_len_c
+     type(c_ptr), value :: path_ascii_p, reals_p
+     integer(c_int64_t) :: status_c
+   end function cldfrc2m_readnl_codon
+
+   subroutine cldfrc2m_init_codon(rhmini_in_c, rhmaxi_in_c, rhminl_in_c, rhminl_adj_land_in_c, &
+        rhminh_in_c, premit_in_c, premib_in_c, icecrit_in_c, iceopt_in_c, rhmini_p, rhmaxi_p, &
+        rhminl_p, rhminl_adj_land_p, rhminh_p, premit_p, premib_p, icecrit_p, iceopt_p) &
+        bind(c, name="cldfrc2m_init_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     real(c_double), value :: rhmini_in_c, rhmaxi_in_c, rhminl_in_c, rhminl_adj_land_in_c
+     real(c_double), value :: rhminh_in_c, premit_in_c, premib_in_c, icecrit_in_c
+     integer(c_int64_t), value :: iceopt_in_c
+     type(c_ptr), value :: rhmini_p, rhmaxi_p, rhminl_p, rhminl_adj_land_p, rhminh_p
+     type(c_ptr), value :: premit_p, premib_p, icecrit_p, iceopt_p
+   end subroutine cldfrc2m_init_codon
+
    function cldfrc2m_pressure_regime_codon(p_c, premib_c, premit_c) result(regime_c) &
         bind(c, name="cldfrc2m_pressure_regime_codon")
      use iso_c_binding, only: c_int64_t, c_double
@@ -100,6 +124,78 @@ end interface
 
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine cldfrc2m_readnl_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc2m_readnl_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC2M_READNL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc2m_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc2m_readnl_impl = .false.
+   end if
+
+   cldfrc2m_readnl_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc2m_readnl_impl) then
+         write(iulog,*) 'cldfrc2m_readnl implementation = native'
+      else
+         write(iulog,*) 'cldfrc2m_readnl implementation = codon'
+      end if
+   end if
+
+end subroutine cldfrc2m_readnl_select_impl
+
+!================================================================================================
+
+subroutine cldfrc2m_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc2m_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC2M_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc2m_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc2m_init_impl = .false.
+   end if
+
+   cldfrc2m_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc2m_init_impl) then
+         write(iulog,*) 'cldfrc2m_init implementation = native'
+      else
+         write(iulog,*) 'cldfrc2m_init implementation = codon'
+      end if
+   end if
+
+end subroutine cldfrc2m_init_select_impl
+
 !================================================================================================
 
 subroutine cldfrc2m_aist_select_impl()
@@ -218,28 +314,50 @@ subroutine cldfrc2m_readnl(nlfile)
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+   use iso_c_binding,   only: c_double, c_int64_t, c_loc
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
    ! Local variables
-   integer :: unitn, ierr
+   integer :: unitn, ierr, i
    character(len=*), parameter :: subname = 'cldfrc2m_readnl'
+   integer(c_int64_t) :: status_c
+   integer(c_int64_t), target :: path_ascii(max(1, len(nlfile)))
+   real(c_double), target :: readnl_reals(2)
 
    namelist /cldfrc2m_nl/ cldfrc2m_rhmini, cldfrc2m_rhmaxi
    !-----------------------------------------------------------------------------
 
+   call cldfrc2m_readnl_select_impl()
+
    if (masterproc) then
-      unitn = getunit()
-      open( unitn, file=trim(nlfile), status='old' )
-      call find_group_name(unitn, 'cldfrc2m_nl', status=ierr)
-      if (ierr == 0) then
-         read(unitn, cldfrc2m_nl, iostat=ierr)
-         if (ierr /= 0) then
-            call endrun(subname // ':: ERROR reading namelist')
+      readnl_reals = (/ real(cldfrc2m_rhmini, c_double), real(cldfrc2m_rhmaxi, c_double) /)
+
+      if (use_native_cldfrc2m_readnl_impl) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'cldfrc2m_nl', status=ierr)
+         if (ierr == 0) then
+            read(unitn, cldfrc2m_nl, iostat=ierr)
+            if (ierr /= 0) then
+               call endrun(subname // ':: ERROR reading namelist')
+            end if
          end if
+         close(unitn)
+         call freeunit(unitn)
+      else
+         do i = 1, len_trim(nlfile)
+            path_ascii(i) = int(iachar(nlfile(i:i)), c_int64_t)
+         end do
+         status_c = cldfrc2m_readnl_codon(int(len_trim(nlfile), c_int64_t), &
+              c_loc(path_ascii(1)), c_loc(readnl_reals(1)))
+         if (status_c /= 0_c_int64_t) then
+            call endrun(subname // ':: ERROR reading namelist with Codon parser')
+         end if
+         cldfrc2m_rhmini = readnl_reals(1)
+         cldfrc2m_rhmaxi = readnl_reals(2)
+         write(iulog,'(A)') 'cldfrc2m_readnl direct = codon namelist parser; native MPI broadcast'
       end if
-      close(unitn)
-      call freeunit(unitn)
 
       ! set local variables
       rhmini_const = cldfrc2m_rhmini
@@ -260,10 +378,44 @@ end subroutine cldfrc2m_readnl
 subroutine cldfrc2m_init()
 
    use cloud_fraction, only: cldfrc_getparams
+   use iso_c_binding, only: c_double, c_int, c_int64_t, c_loc
+
+   real(c_double), target :: rhmini_c, rhmaxi_c, rhminl_c, rhminl_adj_land_c
+   real(c_double), target :: rhminh_c, premit_c, premib_c, icecrit_c
+   integer(c_int), target :: iceopt_c
 
    call cldfrc_getparams(rhminl_out=rhminl_const, rhminl_adj_land_out=rhminl_adj_land_const,  &
                          rhminh_out=rhminh_const, premit_out=premit, premib_out=premib, &
                          iceopt_out=iceopt, icecrit_out=icecrit)
+
+   call cldfrc2m_init_select_impl()
+   if (.not. use_native_cldfrc2m_init_impl) then
+      rhmini_c = real(rhmini_const, c_double)
+      rhmaxi_c = real(rhmaxi_const, c_double)
+      rhminl_c = real(rhminl_const, c_double)
+      rhminl_adj_land_c = real(rhminl_adj_land_const, c_double)
+      rhminh_c = real(rhminh_const, c_double)
+      premit_c = real(premit, c_double)
+      premib_c = real(premib, c_double)
+      icecrit_c = real(icecrit, c_double)
+      iceopt_c = int(iceopt, c_int)
+      call cldfrc2m_init_codon(real(rhmini_const, c_double), real(rhmaxi_const, c_double), &
+           real(rhminl_const, c_double), real(rhminl_adj_land_const, c_double), &
+           real(rhminh_const, c_double), real(premit, c_double), real(premib, c_double), &
+           real(icecrit, c_double), int(iceopt, c_int64_t), c_loc(rhmini_c), c_loc(rhmaxi_c), &
+           c_loc(rhminl_c), c_loc(rhminl_adj_land_c), c_loc(rhminh_c), c_loc(premit_c), &
+           c_loc(premib_c), c_loc(icecrit_c), c_loc(iceopt_c))
+      rhmini_const = real(rhmini_c, r8)
+      rhmaxi_const = real(rhmaxi_c, r8)
+      rhminl_const = real(rhminl_c, r8)
+      rhminl_adj_land_const = real(rhminl_adj_land_c, r8)
+      rhminh_const = real(rhminh_c, r8)
+      premit = real(premit_c, r8)
+      premib = real(premib_c, r8)
+      icecrit = real(icecrit_c, r8)
+      iceopt = int(iceopt_c)
+      if (masterproc) write(iulog,'(A)') 'cldfrc2m_init direct = codon parameter synchronization; native cldfrc_getparams/log'
+   end if
 
    if( masterproc ) then
       write(iulog,*) 'cldfrc2m parameters:'

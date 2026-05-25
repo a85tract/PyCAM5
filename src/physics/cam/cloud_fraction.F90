@@ -10,7 +10,7 @@ module cloud_fraction
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
   use ref_pres,       only: trop_cloud_top_lev
-  use iso_c_binding,  only: c_double, c_int64_t
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc
 
   implicit none
   private
@@ -75,6 +75,8 @@ module cloud_fraction
   logical :: inversion_cld_off    ! Turns off stratification-based cld frc
 
   integer :: k700   ! model level nearest 700 mb
+  logical :: use_native_cldfrc_readnl_impl = .false.
+  logical :: cldfrc_readnl_impl_selected = .false.
   logical :: use_native_cldfrc_fice_impl = .false.
   logical :: cldfrc_fice_impl_selected = .false.
   logical :: use_native_cldfrc_convective_cover_impl = .false.
@@ -120,6 +122,22 @@ module cloud_fraction
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: out_c
      end function cldfrc_register_codon
+     function cldfrc_readnl_codon(path_len_c, path_ascii_p, reals_p, ints_p, logicals_p) &
+          result(status_c) bind(c, name="cldfrc_readnl_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: path_len_c
+       type(c_ptr), value :: path_ascii_p, reals_p, ints_p, logicals_p
+       integer(c_int64_t) :: status_c
+     end function cldfrc_readnl_codon
+     function cldfrc_init_codon(pver_c, macrop_rk_c, eddy_diag_tke_c, shallow_uw_c, &
+          trop_cloud_top_lev_c, pref_mid_p, top_lev_p, inversion_cld_off_p, k700_p) &
+          result(status_c) bind(c, name="cldfrc_init_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: pver_c, macrop_rk_c, eddy_diag_tke_c, shallow_uw_c
+       integer(c_int64_t), value :: trop_cloud_top_lev_c
+       type(c_ptr), value :: pref_mid_p, top_lev_p, inversion_cld_off_p, k700_p
+       integer(c_int64_t) :: status_c
+     end function cldfrc_init_codon
      function relhum_min_codon(press_c, lat_c, rhminh_c, rhminp_c, cldfrc_rhminp_botmb_c, unset_r8_c, pi_c) &
           result(rh_c) bind(c, name="relhum_min_codon")
        use iso_c_binding, only: c_double
@@ -130,6 +148,43 @@ module cloud_fraction
 
 !================================================================================================
   contains
+!================================================================================================
+
+subroutine cldfrc_readnl_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_readnl_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_READNL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_readnl_impl = .false.
+   end if
+
+   cldfrc_readnl_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_readnl_impl) then
+         write(iulog,*) 'cldfrc_readnl implementation = native'
+      else
+         write(iulog,*) 'cldfrc_readnl implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_readnl_select_impl
+
 !================================================================================================
 
 subroutine cldfrc_fice_select_impl()
@@ -470,12 +525,18 @@ subroutine cldfrc_readnl(nlfile)
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+   use iso_c_binding,   only: c_int, c_int64_t, c_double, c_loc
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
    ! Local variables
-   integer :: unitn, ierr
+   integer :: unitn, ierr, i
    character(len=*), parameter :: subname = 'cldfrc_readnl'
+   integer(c_int64_t) :: status_c
+   integer(c_int64_t), target :: path_ascii(max(1, len(nlfile)))
+   real(c_double), target :: readnl_reals(12)
+   integer(c_int), target :: readnl_ints(1)
+   integer(c_int), target :: readnl_logicals(2)
 
    namelist /cldfrc_nl/ cldfrc_freeze_dry,      cldfrc_ice,    cldfrc_rhminl, &
                         cldfrc_rhminl_adj_land, cldfrc_rhminh, cldfrc_sh1,    &
@@ -485,18 +546,57 @@ subroutine cldfrc_readnl(nlfile)
                         cldfrc_icecrit
    !-----------------------------------------------------------------------------
 
+   call cldfrc_readnl_select_impl()
+
    if (masterproc) then
-      unitn = getunit()
-      open( unitn, file=trim(nlfile), status='old' )
-      call find_group_name(unitn, 'cldfrc_nl', status=ierr)
-      if (ierr == 0) then
-         read(unitn, cldfrc_nl, iostat=ierr)
-         if (ierr /= 0) then
-            call endrun(subname // ':: ERROR reading namelist')
+      readnl_reals = (/ real(cldfrc_rhminl, c_double), real(cldfrc_rhminl_adj_land, c_double), &
+         real(cldfrc_rhminh, c_double), real(cldfrc_rhminp, c_double), &
+         real(cldfrc_rhminp_botmb, c_double), real(cldfrc_sh1, c_double), &
+         real(cldfrc_sh2, c_double), real(cldfrc_dp1, c_double), real(cldfrc_dp2, c_double), &
+         real(cldfrc_premit, c_double), real(cldfrc_premib, c_double), real(cldfrc_icecrit, c_double) /)
+      readnl_ints = (/ cldfrc_iceopt /)
+      readnl_logicals = (/ merge(1, 0, cldfrc_freeze_dry), merge(1, 0, cldfrc_ice) /)
+
+      if (use_native_cldfrc_readnl_impl) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'cldfrc_nl', status=ierr)
+         if (ierr == 0) then
+            read(unitn, cldfrc_nl, iostat=ierr)
+            if (ierr /= 0) then
+               call endrun(subname // ':: ERROR reading namelist')
+            end if
          end if
+         close(unitn)
+         call freeunit(unitn)
+      else
+         do i = 1, len_trim(nlfile)
+            path_ascii(i) = int(iachar(nlfile(i:i)), c_int64_t)
+         end do
+
+         status_c = cldfrc_readnl_codon(int(len_trim(nlfile), c_int64_t), c_loc(path_ascii(1)), &
+            c_loc(readnl_reals(1)), c_loc(readnl_ints(1)), c_loc(readnl_logicals(1)))
+         if (status_c /= 0_c_int64_t) then
+            call endrun(subname // ':: ERROR reading namelist with Codon parser')
+         end if
+         cldfrc_rhminl = readnl_reals(1)
+         cldfrc_rhminl_adj_land = readnl_reals(2)
+         cldfrc_rhminh = readnl_reals(3)
+         cldfrc_rhminp = readnl_reals(4)
+         cldfrc_rhminp_botmb = readnl_reals(5)
+         cldfrc_sh1 = readnl_reals(6)
+         cldfrc_sh2 = readnl_reals(7)
+         cldfrc_dp1 = readnl_reals(8)
+         cldfrc_dp2 = readnl_reals(9)
+         cldfrc_premit = readnl_reals(10)
+         cldfrc_premib = readnl_reals(11)
+         cldfrc_icecrit = readnl_reals(12)
+         cldfrc_iceopt = readnl_ints(1)
+         cldfrc_freeze_dry = readnl_logicals(1) /= 0
+         cldfrc_ice = readnl_logicals(2) /= 0
+         write(iulog,'(A)') 'cldfrc_readnl direct = codon namelist parser; native MPI broadcast'
+         call flush(iulog)
       end if
-      close(unitn)
-      call freeunit(unitn)
 
       ! set local variables
       rhminl = cldfrc_rhminl
@@ -645,6 +745,7 @@ subroutine cldfrc_init
    use cam_history,   only:  phys_decomp, addfld
    use dycore,        only:  dycore_is, get_resolution
    use phys_control,  only:  phys_getopts
+   use iso_c_binding, only: c_int, c_int64_t, c_loc
 
    ! horizontal grid specifier
    character(len=32) :: hgrid
@@ -652,24 +753,30 @@ subroutine cldfrc_init
    ! query interfaces for scheme settings
    character(len=16) :: shallow_scheme, eddy_scheme, macrop_scheme
 
-   integer :: k
+   integer(c_int), target :: top_lev_c, inversion_cld_off_c, k700_c
+   integer(c_int64_t) :: cldfrc_init_status
    !-----------------------------------------------------------------------------
 
    call phys_getopts(shallow_scheme_out = shallow_scheme ,&
                      eddy_scheme_out    = eddy_scheme    ,&
                      macrop_scheme_out  = macrop_scheme  )
 
-   ! Limit CAM5 cloud physics to below top cloud level.
-   if (macrop_scheme /= "rk") top_lev = trop_cloud_top_lev
-
    hgrid = get_resolution()
 
-   ! Turn off inversion_cld if any UW PBL scheme is being used
-   if ( (eddy_scheme .eq. 'diag_TKE' ) .or. (shallow_scheme .eq.  'UW' )) then
-      inversion_cld_off = .true.
-   else
-      inversion_cld_off = .false.
-   endif
+   top_lev_c = int(top_lev, c_int)
+   inversion_cld_off_c = merge(1_c_int, 0_c_int, inversion_cld_off)
+   k700_c = int(k700, c_int)
+   cldfrc_init_status = cldfrc_init_codon(int(pver, c_int64_t), &
+        merge(1_c_int64_t, 0_c_int64_t, macrop_scheme == "rk"), &
+        merge(1_c_int64_t, 0_c_int64_t, eddy_scheme == 'diag_TKE'), &
+        merge(1_c_int64_t, 0_c_int64_t, shallow_scheme == 'UW'), &
+        int(trop_cloud_top_lev, c_int64_t), c_loc(pref_mid(1)), c_loc(top_lev_c), &
+        c_loc(inversion_cld_off_c), c_loc(k700_c))
+   top_lev = int(top_lev_c)
+   inversion_cld_off = inversion_cld_off_c /= 0_c_int
+   k700 = int(k700_c)
+   if (cldfrc_init_status /= 0_c_int64_t) &
+        call endrun ('cldfrc_init: model levels bracketing 700 mb not found')
 
    if ( masterproc ) then 
       write(iulog,*)'tuning parameters cldfrc_init: inversion_cld_off',inversion_cld_off
@@ -681,13 +788,8 @@ subroutine cldfrc_init
       endif
    endif
 
-   if (pref_mid(top_lev) > 7.e4_r8) &
-        call endrun ('cldfrc_init: model levels bracketing 700 mb not found')
-
-   ! Find vertical level nearest 700 mb.
-   k700 = minloc(abs(pref_mid(top_lev:pver) - 7.e4_r8), 1)
-
    if (masterproc) then
+      write(iulog,'(A)') 'cldfrc_init direct = codon decision/minloc; native phys_getopts/get_resolution/log/addfld'
       write(iulog,*)'cldfrc_init: model level nearest 700 mb is',k700,'which is',pref_mid(k700),'pascals'
    end if
 

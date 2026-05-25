@@ -1,4 +1,3 @@
-import cam_misc_codon as _cam_misc
 import modal_aer_opt_codon as _modal_aer_opt
 import ndrop_codon as _ndrop
 import phys_grid_codon as _phys_grid
@@ -19,10 +18,6 @@ from C import oldgoffgratch_svp_ice_native_cb(float) -> float
 from C import oldgoffgratch_svp_water_native_cb(float) -> float
 from C import zm_entropy_expr_native_cb(float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from math import cos, exp, floor, log, sin, sqrt
-
-@export
-def cam_misc_touch_codon(tag: int) -> int:
-    return _cam_misc.cam_misc_touch_codon(tag)
 
 @export
 def phys_timestep_init_select_branches_codon(
@@ -3817,6 +3812,108 @@ def diffusion_solver_setup_codon(
             _diff_solver_ncol_idx(i, pver, ncol)
         ]
         tmp1[i - 1] = ztodt * gravit * p_rdel[_diff_solver_ncol_idx(i, pver, ncol)]
+
+
+@inline
+def _ptr_ascii_to_str(n: int, ptr_p: cobj) -> str:
+    ptr = Ptr[int](ptr_p)
+    out = ""
+    for i in range(n):
+        out += chr(ptr[i])
+    return out.strip()
+
+
+@inline
+def _strip_fortran_comment(line: str) -> str:
+    pos = line.find("!")
+    if pos >= 0:
+        return line[:pos]
+    return line
+
+
+@inline
+def _parse_fortran_real(value: str) -> float:
+    return float(value.strip().replace("D", "E").replace("d", "e"))
+
+
+@export
+def cldfrc2m_readnl_codon(path_len: int, path_ascii_p: cobj, reals_p: cobj) -> int:
+    path = _ptr_ascii_to_str(path_len, path_ascii_p)
+    reals = Ptr[float](reals_p)
+
+    f = open(path, "r")
+    text = f.read()
+    f.close()
+
+    in_group = False
+    found_group = False
+    assignments = ""
+
+    for raw_line in text.split("\n"):
+        line = _strip_fortran_comment(raw_line).strip()
+        lowered = line.lower()
+        if not in_group:
+            if lowered.startswith("&cldfrc2m_nl"):
+                in_group = True
+                found_group = True
+                rest = line[len("&cldfrc2m_nl") :]
+                if rest:
+                    assignments += rest + ","
+            continue
+
+        slash = line.find("/")
+        if slash >= 0:
+            assignments += line[:slash] + ","
+            break
+        assignments += line + ","
+
+    if not found_group:
+        return 0
+
+    for item in assignments.split(","):
+        if "=" not in item:
+            continue
+        parts = item.split("=", 1)
+        key = parts[0].strip().lower()
+        value = parts[1].strip()
+        if key == "cldfrc2m_rhmini":
+            reals[0] = _parse_fortran_real(value)
+        elif key == "cldfrc2m_rhmaxi":
+            reals[1] = _parse_fortran_real(value)
+
+    return 0
+
+
+@export
+def cldfrc2m_init_codon(
+    rhmini_in: float,
+    rhmaxi_in: float,
+    rhminl_in: float,
+    rhminl_adj_land_in: float,
+    rhminh_in: float,
+    premit_in: float,
+    premib_in: float,
+    icecrit_in: float,
+    iceopt_in: int,
+    rhmini_p: cobj,
+    rhmaxi_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+    premit_p: cobj,
+    premib_p: cobj,
+    icecrit_p: cobj,
+    iceopt_p: cobj,
+):
+    Ptr[float](rhmini_p)[0] = rhmini_in
+    Ptr[float](rhmaxi_p)[0] = rhmaxi_in
+    Ptr[float](rhminl_p)[0] = rhminl_in
+    Ptr[float](rhminl_adj_land_p)[0] = rhminl_adj_land_in
+    Ptr[float](rhminh_p)[0] = rhminh_in
+    Ptr[float](premit_p)[0] = premit_in
+    Ptr[float](premib_p)[0] = premib_in
+    Ptr[float](icecrit_p)[0] = icecrit_in
+    Ptr[i32](iceopt_p)[0] = i32(iceopt_in)
 
 
 @export
