@@ -126,6 +126,9 @@ logical, public :: do_cldice ! Prognose cldice flag
 logical :: use_native_premg_diag_impl = .false.
 logical :: use_native_micro_mg_cam_readnl_impl = .false.
 logical :: micro_mg_cam_readnl_impl_selected = .false.
+logical :: use_native_micro_mg_cam_register_impl = .false.
+logical :: micro_mg_cam_register_impl_selected = .false.
+logical :: micro_mg_cam_register_logged = .false.
 logical :: premg_diag_impl_selected = .false.
 logical :: premg_diag_entered_logged = .false.
 logical :: use_native_postmg_diag_impl = .false.
@@ -303,6 +306,15 @@ interface
       integer(c_int64_t) :: out_c
    end function micro_mg_cam_implements_cnst_codon
 
+   subroutine micro_mg_cam_register_plan_codon(micro_mg_version_c, micro_mg_sub_version_c, prog_modal_aero_c, &
+        use_subcol_microp_c, do_cldice_c, subcol_silhs_c, cnst_count_p, cnst_codes_p, pbuf_count_p, pbuf_codes_p, &
+        subcol_count_p, subcol_codes_p) bind(c, name="micro_mg_cam_register_plan_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: micro_mg_version_c, micro_mg_sub_version_c, prog_modal_aero_c
+      integer(c_int64_t), value :: use_subcol_microp_c, do_cldice_c, subcol_silhs_c
+      type(c_ptr), value :: cnst_count_p, cnst_codes_p, pbuf_count_p, pbuf_codes_p, subcol_count_p, subcol_codes_p
+   end subroutine micro_mg_cam_register_plan_codon
+
    function micro_mg_cam_p1_codon(n_c) result(out_c) bind(c, name="micro_mg_cam_p1_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: n_c
@@ -355,6 +367,43 @@ subroutine micro_mg_cam_readnl_select_impl()
   end if
 
 end subroutine micro_mg_cam_readnl_select_impl
+
+!===============================================================================
+
+subroutine micro_mg_cam_register_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (micro_mg_cam_register_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_REGISTER_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_micro_mg_cam_register_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_micro_mg_cam_register_impl = .false.
+  end if
+
+  micro_mg_cam_register_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_micro_mg_cam_register_impl) then
+        write(iulog,*) 'micro_mg_cam_register implementation = native'
+     else
+        write(iulog,*) 'micro_mg_cam_register implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_register_select_impl
 
 !===============================================================================
 
@@ -495,16 +544,274 @@ end subroutine micro_mg_cam_readnl
 
 !================================================================================================
 
+subroutine micro_mg_cam_register_cnst_code(code)
+
+   integer, intent(in) :: code
+
+   select case (code)
+   case (1)
+      call cnst_add(cnst_names(1), mwh2o, cpair, 0._r8, ixcldliq, &
+         longname='Grid box averaged cloud liquid amount', is_convtran1=.true.)
+   case (2)
+      call cnst_add(cnst_names(2), mwh2o, cpair, 0._r8, ixcldice, &
+         longname='Grid box averaged cloud ice amount', is_convtran1=.true.)
+   case (3)
+      call cnst_add(cnst_names(3), mwh2o, cpair, 0._r8, ixnumliq, &
+           longname='Grid box averaged cloud liquid number', is_convtran1=.false.)
+   case (4)
+      call cnst_add(cnst_names(4), mwh2o, cpair, 0._r8, ixnumice, &
+           longname='Grid box averaged cloud ice number', is_convtran1=.false.)
+   case (103)
+      call cnst_add(cnst_names(3), mwh2o, cpair, 0._r8, ixnumliq, &
+           longname='Grid box averaged cloud liquid number', is_convtran1=.true.)
+   case (104)
+      call cnst_add(cnst_names(4), mwh2o, cpair, 0._r8, ixnumice, &
+           longname='Grid box averaged cloud ice number', is_convtran1=.true.)
+   case (105)
+      call cnst_add(cnst_names(5), mwh2o, cpair, 0._r8, ixrain, &
+           longname='Grid box averaged rain amount', is_convtran1=.true.)
+   case (106)
+      call cnst_add(cnst_names(6), mwh2o, cpair, 0._r8, ixsnow, &
+           longname='Grid box averaged snow amount', is_convtran1=.true.)
+   case (107)
+      call cnst_add(cnst_names(7), mwh2o, cpair, 0._r8, ixnumrain, &
+           longname='Grid box averaged rain number', is_convtran1=.true.)
+   case (108)
+      call cnst_add(cnst_names(8), mwh2o, cpair, 0._r8, ixnumsnow, &
+           longname='Grid box averaged snow number', is_convtran1=.true.)
+   case default
+      call endrun('micro_mg_cam_register: Codon constituent registration plan contained an unknown code')
+   end select
+
+end subroutine micro_mg_cam_register_cnst_code
+
+!================================================================================================
+
+subroutine micro_mg_cam_register_pbuf_code(code)
+
+   integer, intent(in) :: code
+
+   select case (code)
+   case (1)
+      call pbuf_add_field('CLDO','global',dtype_r8,(/pcols,pver,dyn_time_lvls/), cldo_idx)
+   case (2)
+      call pbuf_add_field('QME',        'physpkg',dtype_r8,(/pcols,pver/), qme_idx)
+   case (3)
+      call pbuf_add_field('PRAIN',      'physpkg',dtype_r8,(/pcols,pver/), prain_idx)
+   case (4)
+      call pbuf_add_field('NEVAPR',     'physpkg',dtype_r8,(/pcols,pver/), nevapr_idx)
+   case (5)
+      call pbuf_add_field('PRER_EVAP',  'global', dtype_r8,(/pcols,pver/), prer_evap_idx)
+   case (6)
+      call pbuf_add_field('WSEDL',      'physpkg',dtype_r8,(/pcols,pver/), wsedl_idx)
+   case (7)
+      call pbuf_add_field('REI',        'physpkg',dtype_r8,(/pcols,pver/), rei_idx)
+   case (8)
+      call pbuf_add_field('REL',        'physpkg',dtype_r8,(/pcols,pver/), rel_idx)
+   case (9)
+      call pbuf_add_field('DEI',        'physpkg',dtype_r8,(/pcols,pver/), dei_idx)
+   case (10)
+      call pbuf_add_field('MU',         'physpkg',dtype_r8,(/pcols,pver/), mu_idx)
+   case (11)
+      call pbuf_add_field('LAMBDAC',    'physpkg',dtype_r8,(/pcols,pver/), lambdac_idx)
+   case (12)
+      call pbuf_add_field('ICIWPST',    'physpkg',dtype_r8,(/pcols,pver/), iciwpst_idx)
+   case (13)
+      call pbuf_add_field('ICLWPST',    'physpkg',dtype_r8,(/pcols,pver/), iclwpst_idx)
+   case (14)
+      call pbuf_add_field('DES',        'physpkg',dtype_r8,(/pcols,pver/), des_idx)
+   case (15)
+      call pbuf_add_field('ICSWP',      'physpkg',dtype_r8,(/pcols,pver/), icswp_idx)
+   case (16)
+      call pbuf_add_field('CLDFSNOW ',  'physpkg',dtype_r8,(/pcols,pver,dyn_time_lvls/), cldfsnow_idx)
+   case (17)
+      call pbuf_add_field('RATE1_CW2PR_ST','physpkg',dtype_r8,(/pcols,pver/), rate1_cw2pr_st_idx)
+   case (18)
+      call pbuf_add_field('LS_FLXPRC',  'physpkg',dtype_r8,(/pcols,pverp/), ls_flxprc_idx)
+   case (19)
+      call pbuf_add_field('LS_FLXSNW',  'physpkg',dtype_r8,(/pcols,pverp/), ls_flxsnw_idx)
+   case (20)
+      call pbuf_add_field('LS_MRPRC',   'physpkg',dtype_r8,(/pcols,pver/), ls_mrprc_idx)
+   case (21)
+      call pbuf_add_field('LS_MRSNW',   'physpkg',dtype_r8,(/pcols,pver/), ls_mrsnw_idx)
+   case (22)
+      call pbuf_add_field('LS_REFFRAIN','physpkg',dtype_r8,(/pcols,pver/), ls_reffrain_idx)
+   case (23)
+      call pbuf_add_field('LS_REFFSNOW','physpkg',dtype_r8,(/pcols,pver/), ls_reffsnow_idx)
+   case (24)
+      call pbuf_add_field('CV_REFFLIQ', 'physpkg',dtype_r8,(/pcols,pver/), cv_reffliq_idx)
+   case (25)
+      call pbuf_add_field('CV_REFFICE', 'physpkg',dtype_r8,(/pcols,pver/), cv_reffice_idx)
+   case (26)
+      call pbuf_add_field('CC_T',     'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_t_idx)
+   case (27)
+      call pbuf_add_field('CC_qv',    'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_qv_idx)
+   case (28)
+      call pbuf_add_field('CC_ql',    'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_ql_idx)
+   case (29)
+      call pbuf_add_field('CC_qi',    'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_qi_idx)
+   case (30)
+      call pbuf_add_field('CC_nl',    'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_nl_idx)
+   case (31)
+      call pbuf_add_field('CC_ni',    'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_ni_idx)
+   case (32)
+      call pbuf_add_field('CC_qlst',  'global',  dtype_r8, (/pcols,pver,dyn_time_lvls/), cc_qlst_idx)
+   case (33)
+      call pbuf_add_field('am_evp_st',  'global', dtype_r8, (/pcols,pver/), am_evp_st_idx)
+   case (34)
+      call pbuf_add_field('evprain_st', 'global', dtype_r8, (/pcols,pver/), evprain_st_idx)
+   case (35)
+      call pbuf_add_field('evpsnow_st', 'global', dtype_r8, (/pcols,pver/), evpsnow_st_idx)
+   case (36)
+      call pbuf_add_field('TND_QSNOW',  'physpkg',dtype_r8,(/pcols,pver/), tnd_qsnow_idx)
+   case (37)
+      call pbuf_add_field('TND_NSNOW',  'physpkg',dtype_r8,(/pcols,pver/), tnd_nsnow_idx)
+   case (38)
+      call pbuf_add_field('RE_ICE',     'physpkg',dtype_r8,(/pcols,pver/), re_ice_idx)
+   case (39)
+      call pbuf_add_field('ACPRECL',    'global',dtype_r8,(/pcols/), acpr_idx)
+   case (40)
+      call pbuf_add_field('ACGCME',     'global',dtype_r8,(/pcols/), acgcme_idx)
+   case (41)
+      call pbuf_add_field('ACNUM',      'global',dtype_i4,(/pcols/), acnum_idx)
+   case (42)
+      call pbuf_add_field('RELVAR',     'global',dtype_r8,(/pcols,pver/), relvar_idx)
+   case (43)
+      call pbuf_add_field('ACCRE_ENHAN','global',dtype_r8,(/pcols,pver/), accre_enhan_idx)
+   case (44)
+      call pbuf_add_field('QRAIN',   'global',dtype_r8,(/pcols,pver/), qrain_idx)
+   case (45)
+      call pbuf_add_field('QSNOW',   'global',dtype_r8,(/pcols,pver/), qsnow_idx)
+   case (46)
+      call pbuf_add_field('NRAIN',   'global',dtype_r8,(/pcols,pver/), nrain_idx)
+   case (47)
+      call pbuf_add_field('NSNOW',   'global',dtype_r8,(/pcols,pver/), nsnow_idx)
+   case default
+      call endrun('micro_mg_cam_register: Codon pbuf registration plan contained an unknown code')
+   end select
+
+end subroutine micro_mg_cam_register_pbuf_code
+
+!================================================================================================
+
+subroutine micro_mg_cam_register_subcol_code(code)
+
+   integer, intent(in) :: code
+
+   select case (code)
+   case (1)
+      call pbuf_register_subcol('CLDO',        'micro_mg_cam_register', cldo_idx)
+   case (2)
+      call pbuf_register_subcol('CC_T',        'micro_mg_cam_register', cc_t_idx)
+   case (3)
+      call pbuf_register_subcol('CC_qv',       'micro_mg_cam_register', cc_qv_idx)
+   case (4)
+      call pbuf_register_subcol('CC_ql',       'micro_mg_cam_register', cc_ql_idx)
+   case (5)
+      call pbuf_register_subcol('CC_qi',       'micro_mg_cam_register', cc_qi_idx)
+   case (6)
+      call pbuf_register_subcol('CC_nl',       'micro_mg_cam_register', cc_nl_idx)
+   case (7)
+      call pbuf_register_subcol('CC_ni',       'micro_mg_cam_register', cc_ni_idx)
+   case (8)
+      call pbuf_register_subcol('CC_qlst',     'micro_mg_cam_register', cc_qlst_idx)
+   case (9)
+      call pbuf_register_subcol('QME',         'micro_mg_cam_register', qme_idx)
+   case (10)
+      call pbuf_register_subcol('PRAIN',       'micro_mg_cam_register', prain_idx)
+   case (11)
+      call pbuf_register_subcol('NEVAPR',      'micro_mg_cam_register', nevapr_idx)
+   case (12)
+      call pbuf_register_subcol('PRER_EVAP',   'micro_mg_cam_register', prer_evap_idx)
+   case (13)
+      call pbuf_register_subcol('WSEDL',       'micro_mg_cam_register', wsedl_idx)
+   case (14)
+      call pbuf_register_subcol('REI',         'micro_mg_cam_register', rei_idx)
+   case (15)
+      call pbuf_register_subcol('REL',         'micro_mg_cam_register', rel_idx)
+   case (16)
+      call pbuf_register_subcol('DEI',         'micro_mg_cam_register', dei_idx)
+   case (17)
+      call pbuf_register_subcol('MU',          'micro_mg_cam_register', mu_idx)
+   case (18)
+      call pbuf_register_subcol('LAMBDAC',     'micro_mg_cam_register', lambdac_idx)
+   case (19)
+      call pbuf_register_subcol('ICIWPST',     'micro_mg_cam_register', iciwpst_idx)
+   case (20)
+      call pbuf_register_subcol('ICLWPST',     'micro_mg_cam_register', iclwpst_idx)
+   case (21)
+      call pbuf_register_subcol('DES',         'micro_mg_cam_register', des_idx)
+   case (22)
+      call pbuf_register_subcol('ICSWP',       'micro_mg_cam_register', icswp_idx)
+   case (23)
+      call pbuf_register_subcol('CLDFSNOW ',   'micro_mg_cam_register', cldfsnow_idx)
+   case (24)
+      call pbuf_register_subcol('RATE1_CW2PR_ST', 'micro_mg_cam_register', rate1_cw2pr_st_idx)
+   case (25)
+      call pbuf_register_subcol('LS_FLXPRC',   'micro_mg_cam_register', ls_flxprc_idx)
+   case (26)
+      call pbuf_register_subcol('LS_FLXSNW',   'micro_mg_cam_register', ls_flxsnw_idx)
+   case (27)
+      call pbuf_register_subcol('LS_MRPRC',    'micro_mg_cam_register', ls_mrprc_idx)
+   case (28)
+      call pbuf_register_subcol('LS_MRSNW',    'micro_mg_cam_register', ls_mrsnw_idx)
+   case (29)
+      call pbuf_register_subcol('LS_REFFRAIN', 'micro_mg_cam_register', ls_reffrain_idx)
+   case (30)
+      call pbuf_register_subcol('LS_REFFSNOW', 'micro_mg_cam_register', ls_reffsnow_idx)
+   case (31)
+      call pbuf_register_subcol('CV_REFFLIQ',  'micro_mg_cam_register', cv_reffliq_idx)
+   case (32)
+      call pbuf_register_subcol('CV_REFFICE',  'micro_mg_cam_register', cv_reffice_idx)
+   case default
+      call endrun('micro_mg_cam_register: Codon subcol registration plan contained an unknown code')
+   end select
+
+end subroutine micro_mg_cam_register_subcol_code
+
+!================================================================================================
+
 subroutine micro_mg_cam_register
+
+   use iso_c_binding, only: c_int64_t, c_loc
 
    ! Register microphysics constituents and fields in the physics buffer.
    !-----------------------------------------------------------------------
 
+   integer :: ifield
+   integer(c_int64_t), target :: cnst_count, pbuf_count, subcol_count
+   integer(c_int64_t), target :: cnst_codes(8), pbuf_codes(47), subcol_codes(32)
    logical :: prog_modal_aero
+   logical :: subcol_silhs
    logical :: use_subcol_microp  ! If true, then are using subcolumns in microphysics
 
    call phys_getopts(use_subcol_microp_out    = use_subcol_microp, &
                      prog_modal_aero_out      = prog_modal_aero)
+   subcol_silhs = subcol_get_scheme() == 'SILHS'
+
+   call micro_mg_cam_register_select_impl()
+
+   if (.not. use_native_micro_mg_cam_register_impl) then
+      call micro_mg_cam_register_plan_codon(int(micro_mg_version, c_int64_t), &
+           int(micro_mg_sub_version, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &
+           merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp), merge(1_c_int64_t, 0_c_int64_t, do_cldice), &
+           merge(1_c_int64_t, 0_c_int64_t, subcol_silhs), c_loc(cnst_count), c_loc(cnst_codes(1)), &
+           c_loc(pbuf_count), c_loc(pbuf_codes(1)), c_loc(subcol_count), c_loc(subcol_codes(1)))
+
+      do ifield = 1, int(cnst_count)
+         call micro_mg_cam_register_cnst_code(int(cnst_codes(ifield)))
+      end do
+      do ifield = 1, int(pbuf_count)
+         call micro_mg_cam_register_pbuf_code(int(pbuf_codes(ifield)))
+      end do
+      do ifield = 1, int(subcol_count)
+         call micro_mg_cam_register_subcol_code(int(subcol_codes(ifield)))
+      end do
+
+      call micro_mg_cam_log_entered_once(micro_mg_cam_register_logged, 'MICRO_MG_CAM_REGISTER_PROOF_FILE', &
+           'micro_mg_cam_register direct = codon registration plan; native phys_getopts/cnst_add/pbuf callbacks')
+      return
+   end if
 
    ! Register microphysics constituents and save indices.
 
@@ -683,7 +990,7 @@ subroutine micro_mg_cam_register
    call pbuf_add_field('ACCRE_ENHAN','global',dtype_r8,(/pcols,pver/), accre_enhan_idx)
 
    ! Diagnostic fields needed for subcol_SILHS, need to be grid-only
-   if (subcol_get_scheme() == 'SILHS') then
+   if (subcol_silhs) then
       call pbuf_add_field('QRAIN',   'global',dtype_r8,(/pcols,pver/), qrain_idx)
       call pbuf_add_field('QSNOW',   'global',dtype_r8,(/pcols,pver/), qsnow_idx)
       call pbuf_add_field('NRAIN',   'global',dtype_r8,(/pcols,pver/), nrain_idx)

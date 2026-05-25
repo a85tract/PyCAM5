@@ -160,6 +160,86 @@ def micro_mg_cam_implements_cnst_codon(name_len: int, name_ascii_p: cobj) -> int
 
 
 @export
+def micro_mg_cam_register_plan_codon(
+    micro_mg_version: int,
+    micro_mg_sub_version: int,
+    prog_modal_aero: int,
+    use_subcol_microp: int,
+    do_cldice: int,
+    subcol_silhs: int,
+    cnst_count_p: cobj,
+    cnst_codes_p: cobj,
+    pbuf_count_p: cobj,
+    pbuf_codes_p: cobj,
+    subcol_count_p: cobj,
+    subcol_codes_p: cobj,
+):
+    cnst_count = Ptr[int](cnst_count_p)
+    cnst_codes = Ptr[int](cnst_codes_p)
+    pbuf_count = Ptr[int](pbuf_count_p)
+    pbuf_codes = Ptr[int](pbuf_codes_p)
+    subcol_count = Ptr[int](subcol_count_p)
+    subcol_codes = Ptr[int](subcol_codes_p)
+
+    n = 0
+    cnst_codes[n] = 1
+    n += 1
+    cnst_codes[n] = 2
+    n += 1
+    if micro_mg_version == 1 and micro_mg_sub_version == 0:
+        cnst_codes[n] = 3
+        n += 1
+        cnst_codes[n] = 4
+        n += 1
+    else:
+        cnst_codes[n] = 103
+        n += 1
+        cnst_codes[n] = 104
+        n += 1
+    if micro_mg_version > 1:
+        for code in range(105, 109):
+            cnst_codes[n] = code
+            n += 1
+    cnst_count[0] = n
+
+    n = 0
+    for code in range(1, 17):
+        pbuf_codes[n] = code
+        n += 1
+    if prog_modal_aero != 0:
+        pbuf_codes[n] = 17
+        n += 1
+    for code in range(18, 36):
+        pbuf_codes[n] = code
+        n += 1
+    if do_cldice == 0:
+        for code in range(36, 39):
+            pbuf_codes[n] = code
+            n += 1
+    for code in range(39, 44):
+        pbuf_codes[n] = code
+        n += 1
+    if subcol_silhs != 0:
+        for code in range(44, 48):
+            pbuf_codes[n] = code
+            n += 1
+    pbuf_count[0] = n
+
+    n = 0
+    if use_subcol_microp != 0:
+        for code in range(1, 24):
+            subcol_codes[n] = code
+            n += 1
+        if prog_modal_aero != 0:
+            subcol_codes[n] = 24
+            n += 1
+        for code in range(25, 33):
+            subcol_codes[n] = code
+            n += 1
+    subcol_count[0] = n
+
+
+@export
 def micro_mg_cam_p1_codon(n: int) -> int:
     if n >= 0:
         return 1
