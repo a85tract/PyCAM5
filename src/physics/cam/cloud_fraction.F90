@@ -89,6 +89,9 @@ module cloud_fraction
   logical :: cldfrc_ice_wilson_impl_selected = .false.
   logical :: use_native_cldfrc_total_cloud_impl = .false.
   logical :: cldfrc_total_cloud_impl_selected = .false.
+  logical :: use_native_cldfrc_impl = .false.
+  logical :: cldfrc_impl_selected = .false.
+  logical :: cldfrc_entered_logged = .false.
   logical :: use_native_cldfrc_batch_impl = .false.
   logical :: cldfrc_batch_impl_selected = .false.
   logical :: use_native_cldfrc_getparams_impl = .false.
@@ -148,6 +151,64 @@ module cloud_fraction
 
 !================================================================================================
   contains
+!================================================================================================
+
+subroutine cldfrc_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+   logical :: impl_explicit
+
+   if (cldfrc_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_IMPL', value=impl_name, length=n, status=status)
+
+   impl_explicit = status == 0 .and. n > 0
+
+   if (impl_explicit) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_impl = trim(adjustl(impl_name(:n))) == 'native'
+      use_native_cldfrc_batch_impl = use_native_cldfrc_impl
+      cldfrc_batch_impl_selected = .true.
+   else
+      call cldfrc_batch_select_impl()
+      use_native_cldfrc_impl = use_native_cldfrc_batch_impl
+   end if
+
+   cldfrc_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_impl) then
+         write(iulog,*) 'cldfrc implementation = native'
+      else
+         write(iulog,*) 'cldfrc implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_log_entered()
+
+   if (use_native_cldfrc_impl .or. cldfrc_entered_logged) return
+   cldfrc_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cldfrc direct = codon state/layer/ice/convective/total/fice batch helpers; ' // &
+           'native qsat/geolocation/pbuf/outfld and fractional-power prep callbacks'
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_log_entered
+
 !================================================================================================
 
 subroutine cldfrc_readnl_select_impl()
@@ -914,6 +975,9 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     ! Statement functions
     logical land
     land(i) = nint(landfrac(i)) == 1
+
+    call cldfrc_select_impl()
+    call cldfrc_log_entered()
 
     call get_rlat_all_p(lchnk, ncol, clat)
     call get_rlon_all_p(lchnk, ncol, clon)
