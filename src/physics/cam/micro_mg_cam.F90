@@ -129,6 +129,9 @@ logical :: micro_mg_cam_readnl_impl_selected = .false.
 logical :: use_native_micro_mg_cam_register_impl = .false.
 logical :: micro_mg_cam_register_impl_selected = .false.
 logical :: micro_mg_cam_register_logged = .false.
+logical :: use_native_micro_mg_cam_init_impl = .false.
+logical :: micro_mg_cam_init_impl_selected = .false.
+logical :: micro_mg_cam_init_logged = .false.
 logical :: premg_diag_impl_selected = .false.
 logical :: premg_diag_entered_logged = .false.
 logical :: use_native_postmg_diag_impl = .false.
@@ -315,6 +318,21 @@ interface
       type(c_ptr), value :: cnst_count_p, cnst_codes_p, pbuf_count_p, pbuf_codes_p, subcol_count_p, subcol_codes_p
    end subroutine micro_mg_cam_register_plan_codon
 
+   subroutine micro_mg_cam_init_plan_codon(micro_mg_version_c, micro_mg_sub_version_c, init_plan_p) &
+        bind(c, name="micro_mg_cam_init_plan_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: micro_mg_version_c, micro_mg_sub_version_c
+      type(c_ptr), value :: init_plan_p
+   end subroutine micro_mg_cam_init_plan_codon
+
+   subroutine micro_mg_cam_init_pbuf_set_plan_codon(use_subcol_microp_c, qrain_present_c, qsnow_present_c, &
+        nrain_present_c, nsnow_present_c, count_p, codes_p) bind(c, name="micro_mg_cam_init_pbuf_set_plan_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: use_subcol_microp_c, qrain_present_c, qsnow_present_c
+      integer(c_int64_t), value :: nrain_present_c, nsnow_present_c
+      type(c_ptr), value :: count_p, codes_p
+   end subroutine micro_mg_cam_init_pbuf_set_plan_codon
+
    function micro_mg_cam_p1_codon(n_c) result(out_c) bind(c, name="micro_mg_cam_p1_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: n_c
@@ -404,6 +422,43 @@ subroutine micro_mg_cam_register_select_impl()
   end if
 
 end subroutine micro_mg_cam_register_select_impl
+
+!===============================================================================
+
+subroutine micro_mg_cam_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (micro_mg_cam_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_micro_mg_cam_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_micro_mg_cam_init_impl = .false.
+  end if
+
+  micro_mg_cam_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_micro_mg_cam_init_impl) then
+        write(iulog,*) 'micro_mg_cam_init implementation = native'
+     else
+        write(iulog,*) 'micro_mg_cam_init implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_init_select_impl
 
 !===============================================================================
 
@@ -1044,7 +1099,80 @@ end subroutine micro_mg_cam_init_cnst
 
 !===============================================================================
 
+subroutine micro_mg_cam_init_pbuf_set_code(code, pbuf2d)
+
+   integer, intent(in) :: code
+   type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+
+   select case (code)
+   case (1)
+      call pbuf_set_field(pbuf2d, cldo_idx,   0._r8)
+   case (2)
+      call pbuf_set_field(pbuf2d, cc_t_idx,   0._r8)
+   case (3)
+      call pbuf_set_field(pbuf2d, cc_qv_idx,  0._r8)
+   case (4)
+      call pbuf_set_field(pbuf2d, cc_ql_idx,  0._r8)
+   case (5)
+      call pbuf_set_field(pbuf2d, cc_qi_idx,  0._r8)
+   case (6)
+      call pbuf_set_field(pbuf2d, cc_nl_idx,  0._r8)
+   case (7)
+      call pbuf_set_field(pbuf2d, cc_ni_idx,  0._r8)
+   case (8)
+      call pbuf_set_field(pbuf2d, cc_qlst_idx,0._r8)
+   case (9)
+      call pbuf_set_field(pbuf2d, acpr_idx,   0._r8)
+   case (10)
+      call pbuf_set_field(pbuf2d, acgcme_idx, 0._r8)
+   case (11)
+      call pbuf_set_field(pbuf2d, acnum_idx,  0)
+   case (12)
+      call pbuf_set_field(pbuf2d, relvar_idx, 2._r8)
+   case (13)
+      call pbuf_set_field(pbuf2d, accre_enhan_idx, 1._r8)
+   case (14)
+      call pbuf_set_field(pbuf2d, am_evp_st_idx,  0._r8)
+   case (15)
+      call pbuf_set_field(pbuf2d, evprain_st_idx, 0._r8)
+   case (16)
+      call pbuf_set_field(pbuf2d, evpsnow_st_idx, 0._r8)
+   case (17)
+      call pbuf_set_field(pbuf2d, prer_evap_idx,  0._r8)
+   case (18)
+      call pbuf_set_field(pbuf2d, qrain_idx, 0._r8)
+   case (19)
+      call pbuf_set_field(pbuf2d, qsnow_idx, 0._r8)
+   case (20)
+      call pbuf_set_field(pbuf2d, nrain_idx, 0._r8)
+   case (21)
+      call pbuf_set_field(pbuf2d, nsnow_idx, 0._r8)
+   case (101)
+      call pbuf_set_field(pbuf2d, cldo_idx,   0._r8, col_type=col_type_subcol)
+   case (102)
+      call pbuf_set_field(pbuf2d, cc_t_idx,   0._r8, col_type=col_type_subcol)
+   case (103)
+      call pbuf_set_field(pbuf2d, cc_qv_idx,  0._r8, col_type=col_type_subcol)
+   case (104)
+      call pbuf_set_field(pbuf2d, cc_ql_idx,  0._r8, col_type=col_type_subcol)
+   case (105)
+      call pbuf_set_field(pbuf2d, cc_qi_idx,  0._r8, col_type=col_type_subcol)
+   case (106)
+      call pbuf_set_field(pbuf2d, cc_nl_idx,  0._r8, col_type=col_type_subcol)
+   case (107)
+      call pbuf_set_field(pbuf2d, cc_ni_idx,  0._r8, col_type=col_type_subcol)
+   case (108)
+      call pbuf_set_field(pbuf2d, cc_qlst_idx,0._r8, col_type=col_type_subcol)
+   case default
+      call endrun('micro_mg_cam_init: Codon pbuf initialization plan contained an unknown code')
+   end select
+
+end subroutine micro_mg_cam_init_pbuf_set_code
+
+!===============================================================================
+
 subroutine micro_mg_cam_init(pbuf2d)
+   use iso_c_binding, only: c_int64_t, c_loc
    use time_manager,   only: is_first_step
    use micro_mg_utils, only: micro_mg_utils_init
    use micro_mg1_0, only: micro_mg_init1_0 => micro_mg_init
@@ -1060,6 +1188,7 @@ subroutine micro_mg_cam_init(pbuf2d)
    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
    integer :: m, mm
+   integer :: ifield
    logical :: history_amwg         ! output the variables used by the AMWG diag package
    logical :: history_budget       ! Output tendencies and state variables for CAM4
                                    ! temperature, water vapor, cloud ice and cloud
@@ -1067,11 +1196,18 @@ subroutine micro_mg_cam_init(pbuf2d)
    logical :: use_subcol_microp
    integer :: budget_histfile      ! output history file number for budget fields
    integer :: ierr
+   integer(c_int64_t), target :: init_plan(1), pbuf_set_count, pbuf_set_codes(29)
    character(128) :: errstring     ! return status (non-blank for error return)
 
    !-----------------------------------------------------------------------
 
    call phys_getopts(use_subcol_microp_out=use_subcol_microp)
+   call micro_mg_cam_init_select_impl()
+   if (.not. use_native_micro_mg_cam_init_impl) then
+      call micro_mg_cam_init_plan_codon(int(micro_mg_version, c_int64_t), &
+           int(micro_mg_sub_version, c_int64_t), c_loc(init_plan(1)))
+      ncnst = int(init_plan(1))
+   end if
 
    if (masterproc) then
       write(iulog,"(A,I2,A,I2)") "Initializing MG version ",micro_mg_version,".",micro_mg_sub_version
@@ -1085,7 +1221,7 @@ subroutine micro_mg_cam_init(pbuf2d)
    select case (micro_mg_version)
    case (1)
       ! Set constituent number for later loops.
-      ncnst = 4
+      if (use_native_micro_mg_cam_init_impl) ncnst = 4
 
       select case (micro_mg_sub_version)
       case (0)
@@ -1114,7 +1250,7 @@ subroutine micro_mg_cam_init(pbuf2d)
       end select
    case (2)
       ! Set constituent number for later loops.
-      ncnst = 8
+      if (use_native_micro_mg_cam_init_impl) ncnst = 8
 
       select case (micro_mg_sub_version)
       case (0)
@@ -1432,41 +1568,56 @@ subroutine micro_mg_cam_init(pbuf2d)
 
   ! Initialize physics buffer grid fields for accumulating precip and condensation
    if (is_first_step()) then
-      call pbuf_set_field(pbuf2d, cldo_idx,   0._r8)
-      call pbuf_set_field(pbuf2d, cc_t_idx,   0._r8)
-      call pbuf_set_field(pbuf2d, cc_qv_idx,  0._r8)
-      call pbuf_set_field(pbuf2d, cc_ql_idx,  0._r8)
-      call pbuf_set_field(pbuf2d, cc_qi_idx,  0._r8)
-      call pbuf_set_field(pbuf2d, cc_nl_idx,  0._r8)
-      call pbuf_set_field(pbuf2d, cc_ni_idx,  0._r8)
-      call pbuf_set_field(pbuf2d, cc_qlst_idx,0._r8)
-      call pbuf_set_field(pbuf2d, acpr_idx,   0._r8)
-      call pbuf_set_field(pbuf2d, acgcme_idx, 0._r8)
-      call pbuf_set_field(pbuf2d, acnum_idx,  0)
-      call pbuf_set_field(pbuf2d, relvar_idx, 2._r8)
-      call pbuf_set_field(pbuf2d, accre_enhan_idx, 1._r8)
-      call pbuf_set_field(pbuf2d, am_evp_st_idx,  0._r8)
-      call pbuf_set_field(pbuf2d, evprain_st_idx, 0._r8)
-      call pbuf_set_field(pbuf2d, evpsnow_st_idx, 0._r8)
-      call pbuf_set_field(pbuf2d, prer_evap_idx,  0._r8)
+      if (.not. use_native_micro_mg_cam_init_impl) then
+         call micro_mg_cam_init_pbuf_set_plan_codon(merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp), &
+              merge(1_c_int64_t, 0_c_int64_t, qrain_idx > 0), merge(1_c_int64_t, 0_c_int64_t, qsnow_idx > 0), &
+              merge(1_c_int64_t, 0_c_int64_t, nrain_idx > 0), merge(1_c_int64_t, 0_c_int64_t, nsnow_idx > 0), &
+              c_loc(pbuf_set_count), c_loc(pbuf_set_codes(1)))
+         do ifield = 1, int(pbuf_set_count)
+            call micro_mg_cam_init_pbuf_set_code(int(pbuf_set_codes(ifield)), pbuf2d)
+         end do
+      else
+         call pbuf_set_field(pbuf2d, cldo_idx,   0._r8)
+         call pbuf_set_field(pbuf2d, cc_t_idx,   0._r8)
+         call pbuf_set_field(pbuf2d, cc_qv_idx,  0._r8)
+         call pbuf_set_field(pbuf2d, cc_ql_idx,  0._r8)
+         call pbuf_set_field(pbuf2d, cc_qi_idx,  0._r8)
+         call pbuf_set_field(pbuf2d, cc_nl_idx,  0._r8)
+         call pbuf_set_field(pbuf2d, cc_ni_idx,  0._r8)
+         call pbuf_set_field(pbuf2d, cc_qlst_idx,0._r8)
+         call pbuf_set_field(pbuf2d, acpr_idx,   0._r8)
+         call pbuf_set_field(pbuf2d, acgcme_idx, 0._r8)
+         call pbuf_set_field(pbuf2d, acnum_idx,  0)
+         call pbuf_set_field(pbuf2d, relvar_idx, 2._r8)
+         call pbuf_set_field(pbuf2d, accre_enhan_idx, 1._r8)
+         call pbuf_set_field(pbuf2d, am_evp_st_idx,  0._r8)
+         call pbuf_set_field(pbuf2d, evprain_st_idx, 0._r8)
+         call pbuf_set_field(pbuf2d, evpsnow_st_idx, 0._r8)
+         call pbuf_set_field(pbuf2d, prer_evap_idx,  0._r8)
 
-      if (qrain_idx > 0)   call pbuf_set_field(pbuf2d, qrain_idx, 0._r8)
-      if (qsnow_idx > 0)   call pbuf_set_field(pbuf2d, qsnow_idx, 0._r8)
-      if (nrain_idx > 0)   call pbuf_set_field(pbuf2d, nrain_idx, 0._r8)
-      if (nsnow_idx > 0)   call pbuf_set_field(pbuf2d, nsnow_idx, 0._r8)
+         if (qrain_idx > 0)   call pbuf_set_field(pbuf2d, qrain_idx, 0._r8)
+         if (qsnow_idx > 0)   call pbuf_set_field(pbuf2d, qsnow_idx, 0._r8)
+         if (nrain_idx > 0)   call pbuf_set_field(pbuf2d, nrain_idx, 0._r8)
+         if (nsnow_idx > 0)   call pbuf_set_field(pbuf2d, nsnow_idx, 0._r8)
 
-      ! If sub-columns turned on, need to set the sub-column fields as well
-      if (use_subcol_microp) then
-         call pbuf_set_field(pbuf2d, cldo_idx,   0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_t_idx,   0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_qv_idx,  0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_ql_idx,  0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_qi_idx,  0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_nl_idx,  0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_ni_idx,  0._r8, col_type=col_type_subcol)
-         call pbuf_set_field(pbuf2d, cc_qlst_idx,0._r8, col_type=col_type_subcol)
+         ! If sub-columns turned on, need to set the sub-column fields as well
+         if (use_subcol_microp) then
+            call pbuf_set_field(pbuf2d, cldo_idx,   0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_t_idx,   0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_qv_idx,  0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_ql_idx,  0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_qi_idx,  0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_nl_idx,  0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_ni_idx,  0._r8, col_type=col_type_subcol)
+            call pbuf_set_field(pbuf2d, cc_qlst_idx,0._r8, col_type=col_type_subcol)
+         end if
       end if
 
+   end if
+
+   if (.not. use_native_micro_mg_cam_init_impl) then
+      call micro_mg_cam_log_entered_once(micro_mg_cam_init_logged, 'MICRO_MG_CAM_INIT_PROOF_FILE', &
+           'micro_mg_cam_init direct = codon ncnst and pbuf initialization plans; native MG module/history/pbuf callbacks')
    end if
 
 end subroutine micro_mg_cam_init

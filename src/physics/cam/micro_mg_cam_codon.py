@@ -240,6 +240,60 @@ def micro_mg_cam_register_plan_codon(
 
 
 @export
+def micro_mg_cam_init_plan_codon(
+    micro_mg_version: int,
+    micro_mg_sub_version: int,
+    init_plan_p: cobj,
+):
+    init_plan = Ptr[int](init_plan_p)
+    if micro_mg_version == 1:
+        init_plan[0] = 4
+    elif micro_mg_version == 2:
+        init_plan[0] = 8
+    else:
+        init_plan[0] = 4
+
+
+@export
+def micro_mg_cam_init_pbuf_set_plan_codon(
+    use_subcol_microp: int,
+    qrain_present: int,
+    qsnow_present: int,
+    nrain_present: int,
+    nsnow_present: int,
+    count_p: cobj,
+    codes_p: cobj,
+):
+    count = Ptr[int](count_p)
+    codes = Ptr[int](codes_p)
+
+    n = 0
+    for code in range(1, 18):
+        codes[n] = code
+        n += 1
+
+    if qrain_present != 0:
+        codes[n] = 18
+        n += 1
+    if qsnow_present != 0:
+        codes[n] = 19
+        n += 1
+    if nrain_present != 0:
+        codes[n] = 20
+        n += 1
+    if nsnow_present != 0:
+        codes[n] = 21
+        n += 1
+
+    if use_subcol_microp != 0:
+        for code in range(101, 109):
+            codes[n] = code
+            n += 1
+
+    count[0] = n
+
+
+@export
 def micro_mg_cam_p1_codon(n: int) -> int:
     if n >= 0:
         return 1
