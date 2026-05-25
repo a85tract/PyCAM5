@@ -4073,6 +4073,13 @@ def _physprop_is_known(name: Ptr[int], name_len: int, names: Ptr[int], known_cou
 
 
 @export
+def physprop_get_check_id_codon(id_value: int, numphysprops: int) -> int:
+    if id_value <= 0 or id_value > numphysprops:
+        return 1
+    return 0
+
+
+@export
 def physprop_accum_unique_files_codon(
     ncnst: int,
     name_len: int,

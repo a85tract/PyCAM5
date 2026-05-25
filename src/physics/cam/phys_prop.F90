@@ -111,12 +111,22 @@ logical :: phys_prop_interp_proof_written = .false.
 logical :: use_native_physprop_accum_unique_files_impl = .false.
 logical :: physprop_accum_unique_files_impl_selected = .false.
 logical :: physprop_accum_unique_files_logged = .false.
+logical :: use_native_physprop_get_impl = .false.
+logical :: physprop_get_impl_selected = .false.
+logical :: physprop_get_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   function physprop_get_check_id_codon(id_c, numphysprops_c) result(invalid_c) &
+        bind(c, name="physprop_get_check_id_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: id_c, numphysprops_c
+     integer(c_int64_t) :: invalid_c
+   end function physprop_get_check_id_codon
+
    subroutine physprop_accum_unique_files_codon(ncnst_c, name_len_c, numphysprops_c, &
         radname_ascii_p, type_ascii_p, names_ascii_p, append_flags_p) &
         bind(c, name="physprop_accum_unique_files_codon")
@@ -197,6 +207,57 @@ subroutine physprop_accum_unique_files_select_impl()
    end if
 
 end subroutine physprop_accum_unique_files_select_impl
+
+!================================================================================================
+
+subroutine physprop_get_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (physprop_get_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PHYS_PROP_GET_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_physprop_get_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_physprop_get_impl = .false.
+   end if
+
+   physprop_get_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_physprop_get_impl) then
+         write(iulog,*) 'physprop_get implementation = native'
+      else
+         write(iulog,*) 'physprop_get implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine physprop_get_select_impl
+
+!================================================================================================
+
+subroutine physprop_get_log_direct()
+
+   if (physprop_get_logged) return
+   physprop_get_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'physprop_get direct = codon ID bounds decision; native optional pointer/scalar returns'
+      call flush(iulog)
+   end if
+
+end subroutine physprop_get_log_direct
 
 !================================================================================================
 
@@ -543,6 +604,8 @@ subroutine physprop_get(id, sourcefile, opticstype, &
    num_to_mass_aer, ncoef, prefr, prefi, sigmag, &
    dgnum, dgnumlo, dgnumhi, rhcrystal, rhdeliques)
 
+   use iso_c_binding, only: c_int64_t
+
    ! Return requested properties for specified ID.
 
    ! Arguments
@@ -592,9 +655,18 @@ subroutine physprop_get(id, sourcefile, opticstype, &
 
    ! Local variables
    character(len=*), parameter :: subname = 'physprop_get'
+   integer(c_int64_t) :: invalid_id
    !------------------------------------------------------------------------------------
 
-   if (id <= 0 .or. id > numphysprops) then
+   call physprop_get_select_impl()
+   if (use_native_physprop_get_impl) then
+      invalid_id = merge(1_c_int64_t, 0_c_int64_t, id <= 0 .or. id > numphysprops)
+   else
+      invalid_id = physprop_get_check_id_codon(int(id, c_int64_t), int(numphysprops, c_int64_t))
+      call physprop_get_log_direct()
+   end if
+
+   if (invalid_id /= 0_c_int64_t) then
       write(iulog,*) subname//': illegal ID value: ', id
       call endrun('physprop_get: ID out of range')
    end if
