@@ -89,6 +89,9 @@ logical :: prog_modal_aero     ! true when modal aerosols are prognostic
 logical :: lq(pcnst) = .false. ! set flags true for constituents with non-zero tendencies
                                ! in the ptend object
 
+logical :: use_native_ndrop_init_impl = .false.
+logical :: ndrop_init_impl_selected = .false.
+logical :: ndrop_init_proof_written = .false.
 logical :: use_native_ndrop_init_props_impl = .false.
 logical :: ndrop_init_props_impl_selected = .false.
 logical :: ndrop_init_props_proof_written = .false.
@@ -112,6 +115,20 @@ logical :: ndrop_maxsat_impl_selected = .false.
 logical :: ndrop_maxsat_proof_written = .false.
 
 interface
+   subroutine ndrop_init_counts_codon(nmode_c, nspec_amode_p, nspec_max_p, ncnst_tot_p) &
+        bind(c, name="ndrop_init_counts_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: nmode_c
+      type(c_ptr), value :: nspec_amode_p, nspec_max_p, ncnst_tot_p
+   end subroutine ndrop_init_counts_codon
+
+   subroutine ndrop_init_mam_idx_codon(nmode_c, nspec_max_c, nspec_amode_p, mam_idx_p) &
+        bind(c, name="ndrop_init_mam_idx_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: nmode_c, nspec_max_c
+      type(c_ptr), value :: nspec_amode_p, mam_idx_p
+   end subroutine ndrop_init_mam_idx_codon
+
    subroutine ndrop_mode_props_finalize_codon(nmode_c, pi_c, sigmag_p, dgnumlo_p, dgnumhi_p, &
         alogsig_p, exp45logsig_p, f1_p, f2_p, voltonumblo_p, voltonumbhi_p) &
         bind(c, name="ndrop_mode_props_finalize_codon")
@@ -467,6 +484,55 @@ end interface
 contains
 !===============================================================================
 
+subroutine ndrop_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_init_impl = .false.
+   end if
+
+   ndrop_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_init_impl) then
+         write(iulog,*) 'ndrop_init implementation = native'
+      else
+         write(iulog,*) 'ndrop_init implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_init_select_impl
+
+!===============================================================================
+
+subroutine ndrop_init_proof_once()
+
+   if (ndrop_init_proof_written) return
+   ndrop_init_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_init direct = codon local mode counts and mam_idx plan; native rad_constituents, phys_getopts, history callbacks'
+   end if
+
+end subroutine ndrop_init_proof_once
+
+!===============================================================================
+
 subroutine ndrop_init_props_select_impl()
 
    character(len=32) :: impl_name
@@ -813,8 +879,11 @@ end subroutine ndrop_maxsat_proof_once
 
 subroutine ndrop_init
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    integer  :: ii, l, lptr, m, mm
    integer  :: nspec_max            ! max number of species in a mode
+   integer(c_int64_t), target :: nspec_max_c, ncnst_tot_c
    character(len=32)   :: tmpname
    character(len=32)   :: tmpname_cw
    character(len=128)  :: long_name
@@ -822,6 +891,8 @@ subroutine ndrop_init
    logical :: history_amwg         ! output the variables used by the AMWG diag package
 
    !-------------------------------------------------------------------------------
+
+   call ndrop_init_select_impl()
 
    ! get indices into state%q and pbuf structures
    call cnst_get_ind('NUMLIQ', numliq_idx)
@@ -877,12 +948,19 @@ subroutine ndrop_init
 
    ! Find max number of species in all the modes, and the total
    ! number of mode number concentrations + mode species
-   nspec_max = nspec_amode(1)
-   ncnst_tot = nspec_amode(1) + 1
-   do m = 2, ntot_amode
-      nspec_max = max(nspec_max, nspec_amode(m))
-      ncnst_tot = ncnst_tot + nspec_amode(m) + 1
-   end do
+   if (.not. use_native_ndrop_init_impl) then
+      call ndrop_init_counts_codon(int(ntot_amode, c_int64_t), c_loc(nspec_amode(1)), &
+           c_loc(nspec_max_c), c_loc(ncnst_tot_c))
+      nspec_max = int(nspec_max_c)
+      ncnst_tot = int(ncnst_tot_c)
+   else
+      nspec_max = nspec_amode(1)
+      ncnst_tot = nspec_amode(1) + 1
+      do m = 2, ntot_amode
+         nspec_max = max(nspec_max, nspec_amode(m))
+         ncnst_tot = ncnst_tot + nspec_amode(m) + 1
+      end do
+   end if
 
    allocate( &
       mam_idx(ntot_amode,0:nspec_max),      &
@@ -893,13 +971,19 @@ subroutine ndrop_init
    ! Local indexing compresses the mode and number/mass indicies into one index.
    ! This indexing is used by the pointer arrays used to reference state and pbuf
    ! fields.
-   ii = 0
-   do m = 1, ntot_amode
-      do l = 0, nspec_amode(m)
-         ii = ii + 1
-         mam_idx(m,l) = ii
+   if (.not. use_native_ndrop_init_impl) then
+      call ndrop_init_mam_idx_codon(int(ntot_amode, c_int64_t), int(nspec_max, c_int64_t), &
+           c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)))
+      call ndrop_init_proof_once()
+   else
+      ii = 0
+      do m = 1, ntot_amode
+         do l = 0, nspec_amode(m)
+            ii = ii + 1
+            mam_idx(m,l) = ii
+         end do
       end do
-   end do
+   end if
 
    ! Add dropmixnuc tendencies for all modal aerosol species
 

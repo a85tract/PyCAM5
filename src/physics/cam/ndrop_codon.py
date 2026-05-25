@@ -31,6 +31,43 @@ def _mam_idx(m: int, l: int, ntot_amode: int) -> int:
     return (m - 1) + l * ntot_amode
 
 
+def ndrop_init_counts_codon(
+    nmode: int,
+    nspec_amode_p: cobj,
+    nspec_max_p: cobj,
+    ncnst_tot_p: cobj,
+):
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    nspec_max_out = Ptr[int](nspec_max_p)
+    ncnst_tot_out = Ptr[int](ncnst_tot_p)
+
+    nspec_max = int(nspec_amode[0])
+    ncnst_tot = int(nspec_amode[0]) + 1
+    for m in range(2, nmode + 1):
+        nspec_m = int(nspec_amode[m - 1])
+        nspec_max = max(nspec_max, nspec_m)
+        ncnst_tot = ncnst_tot + nspec_m + 1
+
+    nspec_max_out[0] = nspec_max
+    ncnst_tot_out[0] = ncnst_tot
+
+
+def ndrop_init_mam_idx_codon(
+    nmode: int,
+    nspec_max: int,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+):
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+
+    ii = 0
+    for m in range(1, nmode + 1):
+        for l in range(0, int(nspec_amode[m - 1]) + 1):
+            ii += 1
+            mam_idx[(m - 1) + l * nmode] = i32(ii)
+
+
 def ndrop_dropmixnuc_zero_fields_codon(
     pcols: int,
     pver: int,

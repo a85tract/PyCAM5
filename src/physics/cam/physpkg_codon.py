@@ -5575,6 +5575,26 @@ def modal_aer_opt_sw_binterp3_codon(
 
 
 @export
+def ndrop_init_counts_codon(
+    nmode: int,
+    nspec_amode_p: cobj,
+    nspec_max_p: cobj,
+    ncnst_tot_p: cobj,
+):
+    _ndrop.ndrop_init_counts_codon(nmode, nspec_amode_p, nspec_max_p, ncnst_tot_p)
+
+
+@export
+def ndrop_init_mam_idx_codon(
+    nmode: int,
+    nspec_max: int,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+):
+    _ndrop.ndrop_init_mam_idx_codon(nmode, nspec_max, nspec_amode_p, mam_idx_p)
+
+
+@export
 def ndrop_mode_props_finalize_codon(
     nmode: int,
     pi: float,
