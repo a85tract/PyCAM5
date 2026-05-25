@@ -127,6 +127,9 @@
    logical :: use_native_gridmean_rh_impl = .false.
    logical :: gridmean_rh_impl_selected = .false.
    logical :: gridmean_rh_entered_logged = .false.
+   logical :: use_native_instratus_core_impl = .false.
+   logical :: instratus_core_impl_selected = .false.
+   logical :: instratus_core_entered_logged = .false.
    logical :: use_native_funcd_instratus_impl = .false.
    logical :: funcd_instratus_impl_selected = .false.
    logical :: funcd_instratus_entered_logged = .false.
@@ -2823,10 +2826,10 @@ end subroutine rhcrit_calc
    real(r8), intent(in)  :: rhminl_adj_land
    real(r8), intent(in)  :: rhminh
 
-   real(r8), intent(out) :: T          ! Temperature [K]
-   real(r8), intent(out) :: qv         ! Grid-mean water vapor [kg/kg]
-   real(r8), intent(out) :: ql         ! Grid-mean LWC [kg/kg]
-   real(r8), intent(out) :: qi         ! Grid-mean IWC [kg/kg]
+   real(r8), target, intent(out) :: T  ! Temperature [K]
+   real(r8), target, intent(out) :: qv ! Grid-mean water vapor [kg/kg]
+   real(r8), target, intent(out) :: ql ! Grid-mean LWC [kg/kg]
+   real(r8), target, intent(out) :: qi ! Grid-mean IWC [kg/kg]
 
    ! Local variables
 
@@ -2852,9 +2855,36 @@ end subroutine rhcrit_calc
    real(r8)  df, dx, dxold, f, fh, fl, temp, xh, xl
    real(r8), parameter :: xacc = 1.e-3_r8
 
+   interface
+      subroutine cldwat2m_instratus_core_codon(p_c, t0_c, qv0_c, ql0_c, qi0_c, &
+           a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c, ai_st_c, &
+           qcst_crit_c, tmin_c, tmax_c, landfrac_c, snowh_c, rhminl_c, &
+           rhminl_adj_land_c, rhminh_c, cpair_c, latvap_c, qlst_min_c, qlst_max_c, &
+           camstfrac_c, t_p, qv_p, ql_p, qi_p) bind(c, name="cldwat2m_instratus_core_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         real(c_double), value :: p_c, t0_c, qv0_c, ql0_c, qi0_c
+         real(c_double), value :: a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c
+         real(c_double), value :: ai_st_c, qcst_crit_c, tmin_c, tmax_c, landfrac_c, snowh_c
+         real(c_double), value :: rhminl_c, rhminl_adj_land_c, rhminh_c
+         real(c_double), value :: cpair_c, latvap_c, qlst_min_c, qlst_max_c
+         integer(c_int64_t), value :: camstfrac_c
+         type(c_ptr), value :: t_p, qv_p, ql_p, qi_p
+      end subroutine cldwat2m_instratus_core_codon
+   end interface
+
    ! ---------------- !
    ! Main computation !
    ! ---------------- !
+
+   call instratus_core_select_impl()
+   if (.not. use_native_instratus_core_impl) then
+      call instratus_core_log_entered()
+      call cldwat2m_instratus_core_codon(p, T0, qv0, ql0, qi0, &
+           a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc, ai_st, qcst_crit, Tmin, Tmax, &
+           landfrac, snowh, rhminl, rhminl_adj_land, rhminh, cpair, latvap, qlst_min, qlst_max, &
+           merge(1_c_int64_t, 0_c_int64_t, CAMstfrac), c_loc(T), c_loc(qv), c_loc(ql), c_loc(qi))
+      return
+   end if
 
    ql_nc0 = max(0._r8,ql0-a_dc*ql_dc-a_sc*ql_sc)
    qi_nc0 = max(0._r8,qi0-a_dc*qi_dc-a_sc*qi_sc)
@@ -2960,6 +2990,41 @@ end subroutine rhcrit_calc
 
    return
    end subroutine instratus_core
+
+   subroutine instratus_core_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (instratus_core_impl_selected) return
+   call get_environment_variable('CLDWAT2M_INSTRATUS_CORE_IMPL', value=impl_name, length=n, status=status)
+   use_native_instratus_core_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_instratus_core_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_instratus_core_impl = .false.
+      case default
+         use_native_instratus_core_impl = .false.
+      end select
+   end if
+   instratus_core_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_instratus_core_impl) then
+         write(iulog,*) 'cldwat2m_instratus_core implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_instratus_core implementation = codon'
+      end if
+   end if
+   end subroutine instratus_core_select_impl
+
+   subroutine instratus_core_log_entered()
+   if (instratus_core_entered_logged) return
+   instratus_core_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_instratus_core direct = codon with funcd Codon helper and native qsat_water/astG_single islands'
+   end if
+   end subroutine instratus_core_log_entered
 
    ! ----------------- !
    ! End of subroutine !

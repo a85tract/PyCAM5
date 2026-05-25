@@ -171,6 +171,73 @@ def cldwat2m_funcd_instratus_codon(
     fice_out = Ptr[float](fice_p)
     al_st_out = Ptr[float](al_st_p)
 
+    _cldwat2m_funcd_instratus_calc(
+        t,
+        p,
+        t0,
+        qv0,
+        ql0,
+        qi0,
+        fice0,
+        muq0,
+        qc_nc0,
+        a_dc,
+        ql_dc,
+        qi_dc,
+        a_sc,
+        ql_sc,
+        qi_sc,
+        ai_st,
+        qcst_crit,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        cpair,
+        latvap,
+        camstfrac,
+        f,
+        fg,
+        qc_nc_out,
+        fice_out,
+        al_st_out,
+    )
+
+
+@inline
+def _cldwat2m_funcd_instratus_calc(
+    t: float,
+    p: float,
+    t0: float,
+    qv0: float,
+    ql0: float,
+    qi0: float,
+    fice0: float,
+    muq0: float,
+    qc_nc0: float,
+    a_dc: float,
+    ql_dc: float,
+    qi_dc: float,
+    a_sc: float,
+    ql_sc: float,
+    qi_sc: float,
+    ai_st: float,
+    qcst_crit: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    cpair: float,
+    latvap: float,
+    camstfrac: int,
+    f_out: Ptr[float],
+    fg_out: Ptr[float],
+    qc_nc_out: Ptr[float],
+    fice_out: Ptr[float],
+    al_st_out: Ptr[float],
+):
     _, qs, dqsdt = _cldwat2m_qsat_water_native(t, p)
 
     fice = fice0
@@ -199,11 +266,277 @@ def cldwat2m_funcd_instratus_codon(
     if u_nc == 1.0:
         dalstdt = 0.0
 
-    f[0] = qc_nc - qcst_crit * al_st
-    fg[0] = dqcncdt - qcst_crit * dalstdt
+    f_out[0] = qc_nc - qcst_crit * al_st
+    fg_out[0] = dqcncdt - qcst_crit * dalstdt
     qc_nc_out[0] = qc_nc
-    al_st_out[0] = al_st
     fice_out[0] = fice
+    al_st_out[0] = al_st
+
+
+@export
+def cldwat2m_instratus_core_codon(
+    p: float,
+    t0: float,
+    qv0: float,
+    ql0: float,
+    qi0: float,
+    a_dc: float,
+    ql_dc: float,
+    qi_dc: float,
+    a_sc: float,
+    ql_sc: float,
+    qi_sc: float,
+    ai_st: float,
+    qcst_crit: float,
+    tmin: float,
+    tmax: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    cpair: float,
+    latvap: float,
+    qlst_min: float,
+    qlst_max: float,
+    camstfrac: int,
+    t_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+):
+    t_out = Ptr[float](t_p)
+    qv_out = Ptr[float](qv_p)
+    ql_out = Ptr[float](ql_p)
+    qi_out = Ptr[float](qi_p)
+
+    ql_nc0 = max(0.0, ql0 - a_dc * ql_dc - a_sc * ql_sc)
+    qi_nc0 = max(0.0, qi0 - a_dc * qi_dc - a_sc * qi_sc)
+    qc_nc0 = max(0.0, ql0 + qi0 - a_dc * (ql_dc + qi_dc) - a_sc * (ql_sc + qi_sc))
+    fice0 = 0.0
+    ficeg0 = 0.0
+    muq0 = 1.0
+
+    df = 0.0
+    f = 0.0
+    fh = 0.0
+    fl = 0.0
+    qc_nc = 0.0
+    fice = 0.0
+    al_st = 0.0
+
+    x1 = tmin
+    x2 = tmax
+    _cldwat2m_funcd_instratus_calc(
+        x1,
+        p,
+        t0,
+        qv0,
+        ql0,
+        qi0,
+        fice0,
+        muq0,
+        qc_nc0,
+        a_dc,
+        ql_dc,
+        qi_dc,
+        a_sc,
+        ql_sc,
+        qi_sc,
+        ai_st,
+        qcst_crit,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        cpair,
+        latvap,
+        camstfrac,
+        __ptr__(fl),
+        __ptr__(df),
+        __ptr__(qc_nc),
+        __ptr__(fice),
+        __ptr__(al_st),
+    )
+    _cldwat2m_funcd_instratus_calc(
+        x2,
+        p,
+        t0,
+        qv0,
+        ql0,
+        qi0,
+        fice0,
+        muq0,
+        qc_nc0,
+        a_dc,
+        ql_dc,
+        qi_dc,
+        a_sc,
+        ql_sc,
+        qi_sc,
+        ai_st,
+        qcst_crit,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        cpair,
+        latvap,
+        camstfrac,
+        __ptr__(fh),
+        __ptr__(df),
+        __ptr__(qc_nc),
+        __ptr__(fice),
+        __ptr__(al_st),
+    )
+
+    rtsafe = 0.0
+    if (fl > 0.0 and fh > 0.0) or (fl < 0.0 and fh < 0.0):
+        _cldwat2m_funcd_instratus_calc(
+            t0,
+            p,
+            t0,
+            qv0,
+            ql0,
+            qi0,
+            fice0,
+            muq0,
+            qc_nc0,
+            a_dc,
+            ql_dc,
+            qi_dc,
+            a_sc,
+            ql_sc,
+            qi_sc,
+            ai_st,
+            qcst_crit,
+            landfrac,
+            snowh,
+            rhminl,
+            rhminl_adj_land,
+            rhminh,
+            cpair,
+            latvap,
+            camstfrac,
+            __ptr__(fl),
+            __ptr__(df),
+            __ptr__(qc_nc),
+            __ptr__(fice),
+            __ptr__(al_st),
+        )
+        rtsafe = t0
+    elif fl == 0.0:
+        rtsafe = x1
+    elif fh == 0.0:
+        rtsafe = x2
+    else:
+        if fl < 0.0:
+            xl = x1
+            xh = x2
+        else:
+            xh = x1
+            xl = x2
+        rtsafe = 0.5 * (x1 + x2)
+        dxold = abs(x2 - x1)
+        dx = dxold
+        _cldwat2m_funcd_instratus_calc(
+            rtsafe,
+            p,
+            t0,
+            qv0,
+            ql0,
+            qi0,
+            fice0,
+            muq0,
+            qc_nc0,
+            a_dc,
+            ql_dc,
+            qi_dc,
+            a_sc,
+            ql_sc,
+            qi_sc,
+            ai_st,
+            qcst_crit,
+            landfrac,
+            snowh,
+            rhminl,
+            rhminl_adj_land,
+            rhminh,
+            cpair,
+            latvap,
+            camstfrac,
+            __ptr__(f),
+            __ptr__(df),
+            __ptr__(qc_nc),
+            __ptr__(fice),
+            __ptr__(al_st),
+        )
+        for _ in range(20):
+            if ((rtsafe - xh) * df - f) * ((rtsafe - xl) * df - f) > 0.0 or abs(2.0 * f) > abs(dxold * df):
+                dxold = dx
+                dx = 0.5 * (xh - xl)
+                rtsafe = xl + dx
+                if xl == rtsafe:
+                    break
+            else:
+                dxold = dx
+                dx = f / df
+                temp = rtsafe
+                rtsafe = rtsafe - dx
+                if temp == rtsafe:
+                    break
+            _cldwat2m_funcd_instratus_calc(
+                rtsafe,
+                p,
+                t0,
+                qv0,
+                ql0,
+                qi0,
+                fice0,
+                muq0,
+                qc_nc0,
+                a_dc,
+                ql_dc,
+                qi_dc,
+                a_sc,
+                ql_sc,
+                qi_sc,
+                ai_st,
+                qcst_crit,
+                landfrac,
+                snowh,
+                rhminl,
+                rhminl_adj_land,
+                rhminh,
+                cpair,
+                latvap,
+                camstfrac,
+                __ptr__(f),
+                __ptr__(df),
+                __ptr__(qc_nc),
+                __ptr__(fice),
+                __ptr__(al_st),
+            )
+            if qcst_crit < 0.5 * (qlst_min + qlst_max):
+                if qc_nc * (1.0 - fice) > qlst_min * al_st and qc_nc * (1.0 - fice) < 1.1 * qlst_min * al_st:
+                    break
+            else:
+                if qc_nc * (1.0 - fice) > 0.9 * qlst_max * al_st and qc_nc * (1.0 - fice) < qlst_max * al_st:
+                    break
+            if f < 0.0:
+                xl = rtsafe
+            else:
+                xh = rtsafe
+
+    qc_nc = max(0.0, qc_nc)
+
+    t_out[0] = rtsafe
+    ql_out[0] = qc_nc * (1.0 - fice) + a_dc * ql_dc + a_sc * ql_sc
+    qi_out[0] = qc_nc * fice + a_dc * qi_dc + a_sc * qi_sc
+    qv_out[0] = qv0 + ql0 + qi0 - (qc_nc + a_dc * (ql_dc + qi_dc) + a_sc * (ql_sc + qi_sc))
+    qv_out[0] = max(qv_out[0], 1.0e-12)
 
 
 @export
