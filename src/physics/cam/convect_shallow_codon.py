@@ -77,6 +77,60 @@ def convect_shallow_register_decision_codon(scheme_len: int, scheme_ascii_p: cob
     return mask
 
 
+@inline
+def _convect_shallow_trimmed_ascii_len(scheme_len: int, scheme_ascii: Ptr[int]) -> int:
+    n = scheme_len
+    while n > 0 and scheme_ascii[n - 1] == 32:
+        n -= 1
+    return n
+
+
+@inline
+def _lower_ascii_code(code: int) -> int:
+    if code >= 65 and code <= 90:
+        return code + 32
+    return code
+
+
+@export
+def convect_shallow_init_action_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
+    scheme_ascii = Ptr[int](scheme_ascii_p)
+    n = _convect_shallow_trimmed_ascii_len(scheme_len, scheme_ascii)
+
+    if n == 2:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        if c1 == 117 and c2 == 119:
+            return 3
+
+    if n == 3:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        if c1 == 111 and c2 == 102 and c3 == 102:
+            return 1
+
+    if n == 4:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        c4 = _lower_ascii_code(scheme_ascii[3])
+        if c1 == 104 and c2 == 97 and c3 == 99 and c4 == 107:
+            return 2
+
+    if n == 6:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        c4 = _lower_ascii_code(scheme_ascii[3])
+        c5 = _lower_ascii_code(scheme_ascii[4])
+        c6 = _lower_ascii_code(scheme_ascii[5])
+        if c1 == 117 and c2 == 110 and c3 == 105 and c4 == 99 and c5 == 111 and c6 == 110:
+            return 4
+
+    return 0
+
+
 _UWSHCU_XLV = 0.0
 _UWSHCU_XLS = 0.0
 _UWSHCU_CP = 0.0

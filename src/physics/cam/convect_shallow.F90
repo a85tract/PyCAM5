@@ -68,6 +68,7 @@
    integer    :: codon_scheme_code  = 0
    logical    :: codon_scheme_selected = .false.
    logical    :: convect_shallow_diag_shell_logged = .false.
+   logical    :: convect_shallow_init_direct_logged = .false.
    logical    :: convect_shallow_init_shell_logged = .false.
    logical    :: convect_shallow_ptend_lq_mask_shell_logged = .false.
    logical    :: convect_shallow_uw_post_shell_logged = .false.
@@ -189,7 +190,7 @@
   ! Purpose : Declare output fields, and initialize variables needed by convection !
   !------------------------------------------------------------------------------- !
 
-  use iso_c_binding,    only : c_double
+  use iso_c_binding,    only : c_double, c_int64_t, c_loc
   use cam_history,       only : addfld, add_default, phys_decomp
   use ppgrid,            only : pcols, pver
   use hk_conv,           only : mfinti
@@ -209,11 +210,21 @@
   type(physics_buffer_desc), pointer    :: pbuf2d(:,:)
 
   integer limcnv                                   ! Top interface level limit for convection
-  integer k
+  integer i, k
   character(len=16)          :: eddy_scheme
   real(r8)                   :: mwh2o_mwdry_ratio
+  integer                    :: scheme_action
+  integer(c_int64_t)         :: init_action_c
+  integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
 
   interface
+     function convect_shallow_init_action_codon(scheme_len_c, scheme_ascii_p) result(action_c) &
+          bind(c, name="convect_shallow_init_action_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: scheme_len_c
+       type(c_ptr), value :: scheme_ascii_p
+       integer(c_int64_t) :: action_c
+     end function convect_shallow_init_action_codon
      function convect_shallow_init_mw_ratio_codon(mwh2o_c, mwdry_c) result(ratio_c) &
           bind(c, name="convect_shallow_init_mw_ratio_codon")
         use iso_c_binding, only: c_double
@@ -221,6 +232,29 @@
         real(c_double) :: ratio_c
      end function convect_shallow_init_mw_ratio_codon
   end interface
+
+  call convect_shallow_init_select_impl()
+  if (use_native_init_impl) then
+     select case (shallow_scheme)
+     case('off')
+        scheme_action = 1
+     case('Hack')
+        scheme_action = 2
+     case('UW')
+        scheme_action = 3
+     case('UNICON')
+        scheme_action = 4
+     case default
+        scheme_action = 0
+     end select
+  else
+     do i = 1, len(shallow_scheme)
+        scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
+     end do
+     init_action_c = convect_shallow_init_action_codon(int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)))
+     scheme_action = int(init_action_c)
+     call convect_shallow_log_init_direct()
+  end if
     
   ! ------------------------------------------------- !
   ! Variables for detailed abalysis of UW-ShCu scheme !
@@ -313,7 +347,7 @@
   call addfld ('ICWMRSH  '    , 'kg/kg   ',  pver,   'A' , &
        'Shallow Convection in-cloud water mixing ratio '           ,  phys_decomp )
 
-  if( shallow_scheme .eq. 'UW' ) then
+  if( scheme_action == 3 ) then
      call addfld( 'UWFLXPRC'     , 'kg/m2/s ',  pverp,  'A' , &
           'Flux of precipitation from UW shallow convection'          ,  phys_decomp )
      call addfld( 'UWFLXSNW'     , 'kg/m2/s ',  pverp,  'A' , &
@@ -341,14 +375,14 @@
   pblh_idx  = pbuf_get_index('pblh')
 
 
-  select case (shallow_scheme)
+  select case (scheme_action)
 
-  case('off')  ! None
+  case(1)  ! None
 
      if( masterproc ) write(iulog,*) 'convect_shallow_init: shallow convection OFF'
      continue
 
-  case('Hack') ! Hack scheme
+  case(2) ! Hack scheme
 
      qpert_idx = pbuf_get_index('qpert')
 
@@ -374,14 +408,13 @@
      
      call mfinti( rair, cpair, gravit, latvap, rhoh2o, limcnv) ! Get args from inti.F90
 
-  case('UW') ! Park and Bretherton shallow convection scheme
+  case(3) ! Park and Bretherton shallow convection scheme
 
      if( masterproc ) write(iulog,*) 'convect_shallow_init: UW shallow convection scheme (McCaa)'
      if( eddy_scheme .ne. 'diag_TKE' ) then
          write(iulog,*) 'ERROR: shallow convection scheme ', shallow_scheme, ' is incompatible with eddy scheme ', eddy_scheme
          call endrun( 'convect_shallow_init: shallow_scheme and eddy_scheme are incompatible' )
      endif
-     call convect_shallow_init_select_impl()
      if (use_native_init_impl) then
         mwh2o_mwdry_ratio = mwh2o/mwdry
      else
@@ -393,7 +426,7 @@
 
      tke_idx = pbuf_get_index('tke')
 
-  case('UNICON') ! Sungsu Park's General Convection Model
+  case(4) ! Sungsu Park's General Convection Model
 
      if ( masterproc ) write(iulog,*) 'convect_shallow_init: General Convection Model by Sungsu Park'
      if ( eddy_scheme .ne. 'diag_TKE' ) then
@@ -1253,6 +1286,23 @@ subroutine convect_shallow_log_init_mw_ratio_entered()
    end if
 
 end subroutine convect_shallow_log_init_mw_ratio_entered
+
+subroutine convect_shallow_log_init_direct()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_init_direct_logged) return
+   convect_shallow_init_direct_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'convect_shallow_init direct = codon; scheme/action dispatch direct = codon; addfld/pbuf/init_uwshcu/unicon native CAM API islands'
+      call convect_shallow_append_proof( &
+           'convect_shallow_init direct = codon; scheme/action dispatch direct = codon; addfld/pbuf/init_uwshcu/unicon native CAM API islands')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_init_direct
 
   !=============================================================================== !
 
