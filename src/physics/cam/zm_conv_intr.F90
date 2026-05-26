@@ -104,6 +104,9 @@ module zm_conv_intr
    logical :: zm_ptend_lq_mask_logged = .false.
    logical :: zm_conv_register_logged = .false.
    logical :: zm_conv_readnl_logged = .false.
+   logical :: use_native_zm_conv_tend_2 = .false.
+   logical :: zm_conv_tend_2_selected = .false.
+   logical :: zm_conv_tend_2_logged = .false.
 
 
 !=========================================================================================
@@ -215,6 +218,61 @@ subroutine zm_conv_init_limcnv_select_impl()
    end if
 
 end subroutine zm_conv_init_limcnv_select_impl
+
+!=========================================================================================
+
+subroutine zm_conv_tend_2_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_conv_tend_2_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_TEND_2_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_conv_tend_2 = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_conv_tend_2 = .false.
+   end if
+
+   zm_conv_tend_2_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_conv_tend_2) then
+         write(iulog,*) 'zm_conv_tend_2 implementation = native'
+         call zm_conv_append_post_shell_proof('zm_conv_tend_2 implementation = native')
+      else
+         write(iulog,*) 'zm_conv_tend_2 implementation = codon'
+         call zm_conv_append_post_shell_proof('zm_conv_tend_2 implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_tend_2_select_impl
+
+!=========================================================================================
+
+subroutine zm_conv_tend_2_log_direct()
+
+   if (zm_conv_tend_2_logged) return
+   zm_conv_tend_2_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'zm_conv_tend_2 direct = codon; lq mask/dpdry shell direct = codon; physics_ptend_init/pbuf/timer/convtran call native CAM API islands'
+      call zm_conv_append_post_shell_proof( &
+           'zm_conv_tend_2 direct = codon; lq mask/dpdry shell direct = codon; physics_ptend_init/pbuf/timer/convtran call native CAM API islands')
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_tend_2_log_direct
 
 !=========================================================================================
 
@@ -1884,7 +1942,7 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
    use error_messages, only: alloc_err
    use water_types,   only: iwtvap, iwtcvsnow 
    use water_tracer_vars, only: trace_water, wtrc_iatype, wtrc_nwset
-   use iso_c_binding, only: c_int64_t
+   use iso_c_binding, only: c_int64_t, c_loc
  
 ! Arguments
    type(physics_state), intent(in )   :: state          ! Physics state variables
@@ -1903,11 +1961,44 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
    real(r8) :: Rwt(pcols,pver,wtrc_nwset,2) !water tracer ratio
    integer  :: m                            !loop variable 
    integer(c_int64_t), target :: ideep64(pcols)
+   integer(c_int64_t), target :: convtran1_mask_c(pcnst)
+   integer(c_int64_t), target :: wtrc_iatype_c(wtrc_nwset, iwtvap:iwtcvsnow)
+   integer(c_int64_t), target :: lq_mask_c(pcnst)
 
 ! physics buffer fields 
    integer ifld
    real(r8), pointer, dimension(:,:,:) :: fracis  ! fraction of transported species that are insoluble
    logical   :: lq(pcnst)
+
+   interface
+      subroutine zm_conv_tend_2_lq_mask_codon(pcnst_c, wtrc_nwset_c, iwtvap_c, iwtcvsnow_c, trace_water_c, &
+           convtran1_mask_p, wtrc_iatype_p, lq_mask_p) bind(c, name="zm_conv_tend_2_lq_mask_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnst_c, wtrc_nwset_c, iwtvap_c, iwtcvsnow_c, trace_water_c
+         type(c_ptr), value :: convtran1_mask_p, wtrc_iatype_p, lq_mask_p
+      end subroutine zm_conv_tend_2_lq_mask_codon
+   end interface
+
+   call zm_conv_tend_2_select_impl()
+
+   if (.not. use_native_zm_conv_tend_2) then
+      do i = 1, pcnst
+         convtran1_mask_c(i) = merge(1_c_int64_t, 0_c_int64_t, cnst_is_convtran1(i))
+      end do
+      do m = iwtvap, iwtcvsnow
+         do i = 1, wtrc_nwset
+            wtrc_iatype_c(i,m) = int(wtrc_iatype(i,m), c_int64_t)
+         end do
+      end do
+      call zm_conv_tend_2_lq_mask_codon(int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), &
+           int(iwtvap, c_int64_t), int(iwtcvsnow, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, trace_water), c_loc(convtran1_mask_c), &
+           c_loc(wtrc_iatype_c), c_loc(lq_mask_c))
+      do i = 1, pcnst
+         lq(i) = lq_mask_c(i) /= 0_c_int64_t
+      end do
+      call zm_conv_tend_2_log_direct()
+   else
 
 !
 ! Initialize
@@ -1923,6 +2014,7 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
         lq(wtrc_iatype(i,m)) = .FALSE.
       end do
     end do
+  end if
   end if
 
   call physics_ptend_init(ptend, state%psetcols, 'convtran2', lq=lq )

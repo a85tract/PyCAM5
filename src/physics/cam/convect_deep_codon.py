@@ -4414,6 +4414,41 @@ def zm_convtran2_dpdry_shell_codon(
 
 
 @export
+def zm_conv_tend_2_lq_mask_codon(
+    pcnst: int,
+    wtrc_nwset: int,
+    iwtvap: int,
+    iwtcvsnow: int,
+    trace_water: int,
+    convtran1_mask_p: cobj,
+    wtrc_iatype_p: cobj,
+    lq_mask_p: cobj,
+):
+    convtran1_mask = Ptr[int](convtran1_mask_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    lq_mask = Ptr[int](lq_mask_p)
+
+    i = 0
+    while i < pcnst:
+        if convtran1_mask[i] != 0:
+            lq_mask[i] = 0
+        else:
+            lq_mask[i] = 1
+        i += 1
+
+    if trace_water != 0:
+        m = iwtvap
+        while m <= iwtcvsnow:
+            moff = (m - iwtvap) * wtrc_nwset
+            i = 0
+            while i < wtrc_nwset:
+                idx = wtrc_iatype[i + moff] - 1
+                lq_mask[idx] = 0
+                i += 1
+            m += 1
+
+
+@export
 def zm_conv_post_stage_dispatch_codon(
     stage: int,
     mode: int,
