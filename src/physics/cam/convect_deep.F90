@@ -37,6 +37,7 @@ module convect_deep
    logical :: impl_selected = .false.
    integer :: codon_scheme_code = 0
    logical :: codon_scheme_selected = .false.
+   logical :: convect_deep_tend_logged = .false.
    logical :: convect_deep_tend_2_logged = .false.
 ! Physics buffer indices 
    integer     ::  icwmrdp_idx      = 0 
@@ -77,6 +78,12 @@ module convect_deep
         integer(c_int64_t), value :: scheme_code_c
         integer(c_int64_t) :: action_c
       end function convect_deep_tend_2_action_codon
+      function convect_deep_tend_action_codon(scheme_code_c) result(action_c) &
+           bind(c, name="convect_deep_tend_action_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: scheme_code_c
+        integer(c_int64_t) :: action_c
+      end function convect_deep_tend_action_codon
    end interface
 
 !=========================================================================================
@@ -274,6 +281,7 @@ subroutine convect_deep_tend( &
 
    integer i, k
    integer :: scheme_code
+   integer(c_int64_t) :: tend_action_c
 
    call convect_deep_select_impl()
    if (.not. use_native_impl) call convect_deep_select_codon_scheme()
@@ -297,6 +305,18 @@ subroutine convect_deep_tend( &
       end select
    else
       scheme_code = codon_scheme_code
+   end if
+
+   if (.not. use_native_impl) then
+      tend_action_c = convect_deep_tend_action_codon(int(codon_scheme_code, c_int64_t))
+      call convect_deep_log_tend_direct()
+      if (tend_action_c == 1_c_int64_t) then
+         scheme_code = 1
+      else if (tend_action_c == 2_c_int64_t) then
+         scheme_code = 2
+      else
+         scheme_code = -1
+      end if
    end if
 
   select case ( scheme_code )
@@ -429,6 +449,23 @@ subroutine convect_deep_append_proof(proof_line)
    end if
 
 end subroutine convect_deep_append_proof
+
+!=========================================================================================
+
+subroutine convect_deep_log_tend_direct()
+
+   if (convect_deep_tend_logged) return
+   convect_deep_tend_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'convect_deep_tend direct = codon; scheme/action dispatch direct = codon; zm_conv_tend/pbuf/outfld native islands'
+      call convect_deep_append_proof( &
+           'convect_deep_tend direct = codon; scheme/action dispatch direct = codon; zm_conv_tend/pbuf/outfld native islands')
+      call flush(iulog)
+   end if
+
+end subroutine convect_deep_log_tend_direct
 
 !=========================================================================================
 
