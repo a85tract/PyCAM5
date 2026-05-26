@@ -2321,6 +2321,11 @@ def physics_dme_adjust_codon(is_lr: int) -> int:
 
 
 @export
+def physics_types_touch_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def physics_tend_init_codon(
     psetcols: int,
     pver: int,
@@ -7042,6 +7047,11 @@ def rad_cnst_out_mass_cb_codon(
 
 
 @export
+def rad_constituents_touch_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def rad_cnst_get_call_list_codon(n: int, active_p: cobj, call_list_p: cobj):
     active = Ptr[int](active_p)
     call_list = Ptr[int](call_list_p)
@@ -8578,6 +8588,11 @@ def sslt_rebin_active_codon(has_sslt: int) -> int:
 
 
 @export
+def sslt_rebin_register_codon(pcols: int, pver: int) -> int:
+    return pcols * 1000 + pver
+
+
+@export
 def constituent_burden_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
@@ -9418,6 +9433,11 @@ def wv_saturation_value_codon(value: float) -> float:
 @export
 def wv_sat_readnl_codon() -> int:
     return 1
+
+
+@export
+def wv_saturation_touch_codon(stage: int) -> int:
+    return stage
 
 
 @export

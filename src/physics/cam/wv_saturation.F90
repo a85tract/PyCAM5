@@ -93,6 +93,8 @@ real(r8), parameter :: tboil = 373.16_r8
   logical :: wv_saturation_proof_written = .false.
   logical :: wv_sat_readnl_logged = .false.
   logical :: wv_sat_init_logged = .false.
+  logical :: wv_sat_final_logged = .false.
+  logical :: tq_enthalpy_logged = .false.
 
   interface
      function wv_sat_readnl_codon() result(out_c) bind(c, name="wv_sat_readnl_codon")
@@ -120,6 +122,12 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), value :: cpair_c, t_c, q_c, hltalt_c
        real(c_double) :: enthalpy_out
      end function wv_saturation_tq_enthalpy_codon
+
+     function wv_saturation_touch_codon(stage_c) result(stage_out) bind(c, name="wv_saturation_touch_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function wv_saturation_touch_codon
 
      pure function wv_saturation_no_ip_hltalt_codon(t_c, tmelt_c, latvap_c) result(hltalt_out) &
           bind(c, name="wv_saturation_no_ip_hltalt_codon")
@@ -458,6 +466,17 @@ subroutine wv_sat_final
   use cam_abortutils, only: endrun
 
   integer :: status
+  integer(c_int64_t) :: touch_c
+
+  call wv_saturation_select_impl()
+  if (.not. use_native_wv_saturation_impl) then
+     call wv_saturation_proof_once()
+     touch_c = wv_saturation_touch_codon(3_c_int64_t)
+     if (touch_c == 3_c_int64_t) then
+        call wv_saturation_log_direct(wv_sat_final_logged, &
+             'wv_sat_final direct = codon; finalization selector/touch direct = codon; native deallocate/error island')
+     end if
+  end if
 
   if (allocated(estbl)) then
 

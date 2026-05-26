@@ -214,6 +214,30 @@ logical :: rad_cnst_check_specie_type_proof_written = .false.
 logical :: rad_cnst_check_mode_type_proof_written = .false.
 logical :: rad_cnst_get_mam_mmr_idx_proof_written = .false.
 logical :: rad_cnst_get_mode_num_idx_proof_written = .false.
+logical :: use_native_rad_constituents_parent_impl = .false.
+logical :: rad_constituents_parent_impl_selected = .false.
+logical :: rad_cnst_readnl_logged = .false.
+logical :: rad_cnst_init_logged = .false.
+logical :: rad_cnst_get_gas_logged = .false.
+logical :: rad_cnst_get_info_logged = .false.
+logical :: rad_cnst_get_info_by_mode_logged = .false.
+logical :: rad_cnst_get_info_by_mode_spec_logged = .false.
+logical :: rad_cnst_get_info_by_spectype_logged = .false.
+logical :: rad_cnst_out_logged = .false.
+logical :: init_mode_comps_logged = .false.
+logical :: get_cam_idx_logged = .false.
+logical :: list_init1_logged = .false.
+logical :: list_init2_logged = .false.
+logical :: rad_gas_diag_init_logged = .false.
+logical :: rad_aer_diag_init_logged = .false.
+logical :: parse_mode_defs_logged = .false.
+logical :: parse_rad_specifier_logged = .false.
+logical :: rad_cnst_get_mam_mmr_by_idx_logged = .false.
+logical :: rad_cnst_get_mode_num_logged = .false.
+logical :: rad_cnst_get_mam_props_by_idx_logged = .false.
+logical :: rad_cnst_get_mode_props_logged = .false.
+logical :: print_modes_logged = .false.
+logical :: print_lists_logged = .false.
 
 integer, parameter :: num_mode_types = 8
 integer, parameter :: num_spec_types = 8
@@ -225,6 +249,11 @@ character(len=9), parameter :: spec_type_names(num_spec_types) = (/ &
    's-organic', 'black-c  ', 'seasalt  ', 'dust     '/)
 
 interface
+   function rad_constituents_touch_codon(stage_c) result(stage_out) bind(c, name="rad_constituents_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function rad_constituents_touch_codon
    subroutine rad_cnst_out_mass_cb_codon(ncol_c, pcols_c, pver_c, rga_c, &
         mmr_p, pdeldry_p, mass_p, cb_p) bind(c, name="rad_cnst_out_mass_cb_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
@@ -295,6 +324,77 @@ end interface
 
 !==============================================================================
 contains
+!==============================================================================
+
+subroutine rad_constituents_parent_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (rad_constituents_parent_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RAD_CONSTITUENTS_PARENT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_rad_constituents_parent_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_rad_constituents_parent_impl = .false.
+   end if
+
+   rad_constituents_parent_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_rad_constituents_parent_impl) then
+         write(iulog,*) 'rad_constituents_parent implementation = native'
+      else
+         write(iulog,*) 'rad_constituents_parent implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine rad_constituents_parent_select_impl
+
+!==============================================================================
+
+subroutine rad_constituents_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine rad_constituents_log_direct
+
+!==============================================================================
+
+subroutine rad_constituents_touch_and_log(stage_c, logged, proof_line)
+
+   integer(c_int64_t), intent(in) :: stage_c
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   call rad_constituents_parent_select_impl()
+   if (use_native_rad_constituents_parent_impl) return
+
+   if (rad_constituents_touch_codon(stage_c) == stage_c) then
+      call rad_constituents_log_direct(logged, proof_line)
+   end if
+
+end subroutine rad_constituents_touch_and_log
+
 !==============================================================================
 
 subroutine rad_cnst_out_mass_select_impl()
@@ -419,6 +519,10 @@ subroutine rad_cnst_readnl(nlfile)
                           oldcldoptics
 
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(1_c_int64_t, rad_cnst_readnl_logged, &
+        'rad_cnst_readnl direct = codon; parent selector/touch and validation helpers direct = codon; ' // &
+        'namelist/MPI/string parsing/allocation native islands')
 
    if (masterproc) then
       unitn = getunit()
@@ -564,6 +668,10 @@ subroutine rad_cnst_init()
    character(len=*), parameter :: subname = 'rad_cnst_init'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(2_c_int64_t, rad_cnst_init_logged, &
+        'rad_cnst_init direct = codon; parent selector/touch direct = codon; ' // &
+        'physprop/CAM index/history registration native islands')
+
    ! memory to point to if zero value requested
    allocate(zero_cols(pcols,pver))
    zero_cols = 0._r8
@@ -625,6 +733,9 @@ subroutine rad_cnst_get_gas(list_idx, gasname, state, pbuf, mmr)
    character(len=*), parameter :: subname = 'rad_cnst_get_gas'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(3_c_int64_t, rad_cnst_get_gas_logged, &
+        'rad_cnst_get_gas direct = codon; parent selector/touch direct = codon; pointer association/pbuf native CAM API island')
+
    if (list_idx >= 0 .and. list_idx <= N_DIAG) then
       list => gaslist(list_idx)
    else
@@ -681,6 +792,9 @@ subroutine rad_cnst_get_info(list_idx, gasnames, aernames, &
 
    character(len=*), parameter :: subname = 'rad_cnst_get_info'
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(4_c_int64_t, rad_cnst_get_info_logged, &
+        'rad_cnst_get_info direct = codon; parent selector/touch direct = codon; derived-type/string optional-output native island')
 
    g_list => gaslist(list_idx)
    a_list => aerosollist(list_idx)
@@ -772,6 +886,10 @@ subroutine rad_cnst_get_info_by_mode(list_idx, m_idx, &
    character(len=*), parameter :: subname = 'rad_cnst_get_info_by_mode'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(5_c_int64_t, rad_cnst_get_info_by_mode_logged, &
+        'rad_cnst_get_info_by_mode direct = codon; parent selector/touch direct = codon; ' // &
+        'mode metadata/string optional-output native island')
+
    m_list => ma_list(list_idx)
 
    ! check for valid mode index
@@ -831,6 +949,10 @@ subroutine rad_cnst_get_info_by_mode_spec(list_idx, m_idx, s_idx, &
    character(len=*), parameter :: subname = 'rad_cnst_get_info_by_mode_spec'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(6_c_int64_t, rad_cnst_get_info_by_mode_spec_logged, &
+        'rad_cnst_get_info_by_mode_spec direct = codon; parent selector/touch direct = codon; ' // &
+        'mode/spec metadata string native island')
+
    m_list => ma_list(list_idx)
 
    ! check for valid mode index
@@ -887,6 +1009,9 @@ subroutine rad_cnst_get_info_by_spectype(list_idx, spectype, mode_idx, spec_idx)
 
    character(len=*), parameter :: subname = 'rad_cnst_get_info_by_spectype'
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(7_c_int64_t, rad_cnst_get_info_by_spectype_logged, &
+        'rad_cnst_get_info_by_spectype direct = codon; parent selector/touch direct = codon; spectype string search native island')
 
    m_list => ma_list(list_idx)
 
@@ -1082,6 +1207,10 @@ subroutine rad_cnst_out(list_idx, state, pbuf)
    character(len=*), parameter :: subname = 'rad_cnst_out'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(8_c_int64_t, rad_cnst_out_logged, &
+        'rad_cnst_out direct = codon; mass/column burden helper direct = codon; ' // &
+        'outfld/pbuf pointer/name construction native CAM API islands')
+
    lchnk = state%lchnk
    ncol  = state%ncol
 
@@ -1160,6 +1289,9 @@ subroutine init_mode_comps(modes)
    character(len=*), parameter :: routine = 'init_modes'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(9_c_int64_t, init_mode_comps_logged, &
+        'init_mode_comps direct = codon; parent selector/touch direct = codon; CAM index/physprop lookup/allocation native islands')
+
    do m = 1, modes%nmodes
 
       ! indices for number mixing ratio components
@@ -1207,6 +1339,9 @@ integer function get_cam_idx(source, name, routine)
    integer :: idx
    integer :: errcode
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(10_c_int64_t, get_cam_idx_logged, &
+        'get_cam_idx direct = codon; parent selector/touch direct = codon; pbuf_get_index/cnst_get_ind native CAM API island')
    
    if (source(1:1) == 'N') then
 
@@ -1259,6 +1394,10 @@ subroutine list_init1(namelist, gaslist, aerlist, ma_list)
    integer :: istat
    character(len=*), parameter :: routine = 'list_init1'
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(11_c_int64_t, list_init1_logged, &
+        'list_init1 direct = codon; parent selector/touch direct = codon; ' // &
+        'derived-type allocation/string matching/native logging islands')
 
    ! nradgas is set by the radiative transfer code
    gaslist%ngas = nradgas
@@ -1377,6 +1516,9 @@ subroutine list_init2(gaslist, aerlist, ma_list)
    character(len=*), parameter :: routine = 'list_init2'
    !-----------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(12_c_int64_t, list_init2_logged, &
+        'list_init2 direct = codon; parent selector/touch direct = codon; CAM index and physprop lookup native islands')
+
    ! Loop over gases
    do i = 1, gaslist%ngas
 
@@ -1421,6 +1563,10 @@ subroutine rad_gas_diag_init(glist)
    character(len=128):: long_name
    character(len=32) :: long_name_description
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(13_c_int64_t, rad_gas_diag_init_logged, &
+        'rad_gas_diag_init direct = codon; parent selector/touch direct = codon; ' // &
+        'addfld/string history registration native CAM API island')
 
    ngas = glist%ngas
    if (ngas == 0) return
@@ -1473,6 +1619,10 @@ subroutine rad_aer_diag_init(alist)
    character(len=128):: long_name
    character(len=32) :: long_name_description
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(14_c_int64_t, rad_aer_diag_init_logged, &
+        'rad_aer_diag_init direct = codon; parent selector/touch direct = codon; ' // &
+        'addfld/string history registration native CAM API island')
 
    naer = alist%numaerosols
    if (naer == 0) return
@@ -1576,6 +1726,9 @@ subroutine parse_mode_defs(nl_in, modes)
    character(len=32) :: tmp_name_c
    character(len=32) :: tmp_type
    !-------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(15_c_int64_t, parse_mode_defs_logged, &
+        'parse_mode_defs direct = codon; mode/spec validation helpers direct = codon; full string parser/allocation native island')
   
    ! Determine number of modes defined by counting number of strings that are
    ! terminated by ':='
@@ -1919,6 +2072,9 @@ subroutine parse_rad_specifier(specifier, namelist_data)
     character(len=cs1) :: radname(n_rad_cnst)
     character(len=1)   :: type(n_rad_cnst)
     !-------------------------------------------------------------------------
+
+    call rad_constituents_touch_and_log(16_c_int64_t, parse_rad_specifier_logged, &
+         'parse_rad_specifier direct = codon; parent selector/touch direct = codon; full string parser/allocation native island')
   
     number = 0
 
@@ -2055,6 +2211,10 @@ subroutine rad_cnst_get_mam_mmr_by_idx(list_idx, mode_idx, spec_idx, phase, stat
    type(modelist_t), pointer :: mlist
    character(len=*), parameter :: subname = 'rad_cnst_get_mam_mmr_by_idx'
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(17_c_int64_t, rad_cnst_get_mam_mmr_by_idx_logged, &
+        'rad_cnst_get_mam_mmr_by_idx direct = codon; index-check helper direct = codon; ' // &
+        'pointer association/pbuf native CAM API island')
 
    if (list_idx >= 0 .and. list_idx <= N_DIAG) then
       mlist => ma_list(list_idx)
@@ -2202,6 +2362,10 @@ subroutine rad_cnst_get_mode_num(list_idx, mode_idx, phase, state, pbuf, num)
    type(modelist_t), pointer :: mlist
    character(len=*), parameter :: subname = 'rad_cnst_get_mode_num'
    !-----------------------------------------------------------------------------
+
+   call rad_constituents_touch_and_log(18_c_int64_t, rad_cnst_get_mode_num_logged, &
+        'rad_cnst_get_mode_num direct = codon; parent selector/touch direct = codon; ' // &
+        'pointer association/pbuf native CAM API island')
 
    if (list_idx >= 0 .and. list_idx <= N_DIAG) then
       mlist => ma_list(list_idx)
@@ -2504,6 +2668,10 @@ subroutine rad_cnst_get_mam_props_by_idx(list_idx, &
    character(len=*), parameter :: subname = 'rad_cnst_get_mam_props_by_idx'
    !------------------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(19_c_int64_t, rad_cnst_get_mam_props_by_idx_logged, &
+        'rad_cnst_get_mam_props_by_idx direct = codon; parent selector/touch direct = codon; ' // &
+        'physprop optional pointer/native metadata island')
+
    if (list_idx >= 0 .and. list_idx <= N_DIAG) then
       mlist => ma_list(list_idx)
    else
@@ -2603,6 +2771,10 @@ subroutine rad_cnst_get_mode_props(list_idx, mode_idx, &
    character(len=*), parameter :: subname = 'rad_cnst_get_mode_props'
    !------------------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(20_c_int64_t, rad_cnst_get_mode_props_logged, &
+        'rad_cnst_get_mode_props direct = codon; parent selector/touch direct = codon; ' // &
+        'physprop optional pointer/native metadata island')
+
    if (list_idx >= 0 .and. list_idx <= N_DIAG) then
       mlist => ma_list(list_idx)
    else
@@ -2650,6 +2822,9 @@ subroutine print_modes(modes)
    integer :: i, m
    !---------------------------------------------------------------------------------------------
 
+   call rad_constituents_touch_and_log(21_c_int64_t, print_modes_logged, &
+        'print_modes direct = codon; parent selector/touch direct = codon; diagnostic I/O native island')
+
    write(iulog,*)' Mode Definitions'
 
    do m = 1, modes%nmodes
@@ -2684,6 +2859,9 @@ subroutine print_lists(gas_list, aer_list, ma_list)
    type(modelist_t), intent(in) :: ma_list
 
    integer :: i, id
+
+   call rad_constituents_touch_and_log(22_c_int64_t, print_lists_logged, &
+        'print_lists direct = codon; parent selector/touch direct = codon; diagnostic I/O native island')
 
    if (len_trim(gas_list%list_id) == 0) then
       write(iulog,*) nl//' gas list for climate calculations'

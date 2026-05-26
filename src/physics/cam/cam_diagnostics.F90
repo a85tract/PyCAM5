@@ -123,12 +123,26 @@ logical :: cam_diag_init_helpers_entered_logged = .false.
 logical :: diag_readnl_use_native_impl = .false.
 logical :: diag_readnl_impl_selected = .false.
 logical :: diag_readnl_logged = .false.
+logical :: cam_diag_parent_use_native_impl = .false.
+logical :: cam_diag_parent_impl_selected = .false.
+logical :: diag_register_logged = .false.
+logical :: diag_init_logged = .false.
+logical :: diag_allocate_logged = .false.
+logical :: diag_deallocate_logged = .false.
+logical :: diag_phys_writeout_logged = .false.
+logical :: diag_export_logged = .false.
+logical :: diag_state_b4_phys_write_logged = .false.
 
 interface
    function diag_readnl_codon() result(out_c) bind(c, name="diag_readnl_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t) :: out_c
    end function diag_readnl_codon
+   function cam_diagnostics_touch_codon(stage_c) result(stage_out) bind(c, name="cam_diagnostics_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function cam_diagnostics_touch_codon
    subroutine diag_phys_writeout_batch_dispatch_codon(group_c, mode_c, submode_c, ncol_c, pcols_c, pver_c, &
         scalar1_c, scalar2_c, scalar3_c, a_p, b_p, c_p, d_p, e_p, f_p, out1_p, out2_p, out3_p) &
         bind(c, name="diag_phys_writeout_batch_dispatch_codon")
@@ -153,6 +167,11 @@ contains
 ! ===============================================================================
 
 subroutine diag_register
+
+   use iso_c_binding, only: c_int64_t
+
+   call cam_diag_touch_and_log(1_c_int64_t, diag_register_logged, &
+        'diag_register direct = codon; register selector/touch direct = codon; pbuf_add_field native CAM API island')
 
    ! Request physics buffer space for fields that persist across timesteps.
    call pbuf_add_field('T_TTEND', 'global', dtype_r8, (/pcols,pver,dyn_time_lvls/), t_ttend_idx)
@@ -278,6 +297,79 @@ end subroutine diag_readnl_log_direct
 
 !================================================================================================
 
+subroutine cam_diag_parent_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cam_diag_parent_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM_DIAG_PARENT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      cam_diag_parent_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      cam_diag_parent_use_native_impl = .false.
+   end if
+
+   cam_diag_parent_impl_selected = .true.
+
+   if (masterproc) then
+      if (cam_diag_parent_use_native_impl) then
+         write(iulog,*) 'cam_diag_parent implementation = native'
+      else
+         write(iulog,*) 'cam_diag_parent implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_parent_select_impl
+
+!================================================================================================
+
+subroutine cam_diag_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_log_direct
+
+!================================================================================================
+
+subroutine cam_diag_touch_and_log(stage_c, logged, proof_line)
+
+   use iso_c_binding, only: c_int64_t
+
+   integer(c_int64_t), intent(in) :: stage_c
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   call cam_diag_parent_select_impl()
+   if (cam_diag_parent_use_native_impl) return
+
+   if (cam_diagnostics_touch_codon(stage_c) == stage_c) then
+      call cam_diag_log_direct(logged, proof_line)
+   end if
+
+end subroutine cam_diag_touch_and_log
+
+!================================================================================================
+
 subroutine diag_init()
 
   ! Declare the history fields for which this module contains outfld calls.
@@ -301,6 +393,9 @@ subroutine diag_init()
          integer(c_int64_t) :: result_c
       end function cam_diag_init_dqcond_num_codon
    end interface
+
+   call cam_diag_touch_and_log(2_c_int64_t, diag_init_logged, &
+        'diag_init direct = codon; dqcond policy helper direct = codon; addfld/add_default/pbuf/history native CAM API islands')
 
    ! outfld calls in diag_phys_writeout
 
@@ -836,6 +931,7 @@ end subroutine diag_init
 !===============================================================================
 
 subroutine diag_allocate()
+   use iso_c_binding, only: c_int64_t
    use infnan, only: nan, assignment(=)
 
    ! Allocate memory for module variables.
@@ -845,6 +941,9 @@ subroutine diag_allocate()
    ! Local variables
    character(len=*), parameter :: sub = 'diag_allocate'
    integer :: i, istat
+
+   call cam_diag_touch_and_log(3_c_int64_t, diag_allocate_logged, &
+        'diag_allocate direct = codon; allocation selector/touch direct = codon; native allocate/nan-fill island')
 
    allocate(dtcond(pcols,pver,begchunk:endchunk), stat=istat)
    if ( istat /= 0 ) call endrun (sub//': ERROR: allocate failed')
@@ -865,6 +964,8 @@ end subroutine diag_allocate
 
 subroutine diag_deallocate()
 
+   use iso_c_binding, only: c_int64_t
+
 ! Deallocate memory for module variables.
 ! Done at the end of a physics step at same point as the pbuf deallocate for
 ! variables with "physpkg" scope.
@@ -872,6 +973,9 @@ subroutine diag_deallocate()
 ! Local variables
    character(len=*), parameter :: sub = 'diag_deallocate'
    integer :: i, istat
+
+   call cam_diag_touch_and_log(4_c_int64_t, diag_deallocate_logged, &
+        'diag_deallocate direct = codon; deallocation selector/touch direct = codon; native deallocate/error island')
 
    deallocate(dtcond, stat=istat)
    if ( istat /= 0 ) call endrun (sub//': ERROR: deallocate failed')
@@ -1241,6 +1345,9 @@ end subroutine diag_conv_tend_ini
     call diag_phys_writeout_select_impl()
     if (.not. diag_phys_writeout_use_native_impl) then
        call diag_phys_writeout_batch_log_entered()
+       call cam_diag_log_direct(diag_phys_writeout_logged, &
+            'diag_phys_writeout direct = codon; numeric field helpers direct = codon; ' // &
+            'outfld/vertinterp/tidal/history native CAM API islands')
     end if
 
     ! Output NSTEP for debugging
@@ -2806,6 +2913,8 @@ subroutine diag_export(cam_out)
 !
 !-----------------------------------------------------------------------
 
+   use iso_c_binding, only: c_int64_t
+
    ! arguments
    type(cam_out_t), intent(inout) :: cam_out
 
@@ -2816,6 +2925,9 @@ subroutine diag_export(cam_out)
    !-----------------------------------------------------------------------
 
    lchnk = cam_out%lchnk
+
+   call cam_diag_touch_and_log(5_c_int64_t, diag_export_logged, &
+        'diag_export direct = codon; export selector/touch direct = codon; phys_getopts/outfld/coupler native CAM API island')
 
    call phys_getopts(atm_dep_flux_out=atm_dep_flux)
 
@@ -3237,6 +3349,8 @@ end subroutine diag_phys_tend_writeout
 !
 ! Arguments
 !
+   use iso_c_binding, only: c_int64_t
+
    type(physics_state), intent(in) :: state
 !
 !---------------------------Local workspace-----------------------------
@@ -3247,6 +3361,10 @@ end subroutine diag_phys_tend_writeout
 !-----------------------------------------------------------------------
 !
    lchnk = state%lchnk
+
+   call cam_diag_touch_and_log(6_c_int64_t, diag_state_b4_phys_write_logged, &
+        'diag_state_b4_phys_write direct = codon; state snapshot selector/touch direct = codon; ' // &
+        'cnst_get_ind/outfld native CAM API island')
 
    call cnst_get_ind('CLDLIQ', ixcldliq)
    call cnst_get_ind('CLDICE', ixcldice)

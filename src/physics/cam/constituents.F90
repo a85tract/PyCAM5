@@ -92,6 +92,8 @@ module constituents
   logical :: cnst_get_molec_byind_logged = .false.
   logical :: cnst_read_iv_logged = .false.
   logical :: cnst_cam_outfld_logged = .false.
+  logical :: cnst_add_logged = .false.
+  logical :: cnst_chk_dim_logged = .false.
 
   interface
      function constituents_rgas_codon(r_universal_c, mwc_c) result(rgas_c) &
@@ -357,6 +359,10 @@ CONTAINS
     if (ind == 1) qmincg = 0._r8  ! This crap is replicate what was there before ****
 
     call cnst_add_thermo_values(ind, mwc, cpc)
+    if (.not. use_native_constituents_thermo_impl) then
+       call constituents_log_direct(cnst_add_logged, &
+            'cnst_add direct = codon; rgas/cv thermo constants direct = codon; native CAM registration/string metadata island')
+    end if
 
     return
   end subroutine cnst_add
@@ -656,6 +662,13 @@ CONTAINS
        sflxnam(m)     = 'SF'//cnst_name(m)
     end do
 
+    call constituents_thermo_select_impl()
+    if (.not. use_native_constituents_thermo_impl) then
+       call constituents_thermo_proof_once()
+       call constituents_log_direct(cnst_chk_dim_logged, &
+            'cnst_chk_dim direct = codon; selector/proof active; native dimension check, ' // &
+            'I/O and diagnostic-name construction island')
+    end if
 
   end subroutine cnst_chk_dim
 

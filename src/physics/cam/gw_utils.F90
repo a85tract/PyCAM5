@@ -21,6 +21,8 @@ public :: midpoint_interp
 logical :: use_native_gw_utils_impl = .false.
 logical :: gw_utils_impl_selected = .false.
 logical :: gw_utils_proof_written = .false.
+logical :: gw_utils_dot_2d_logged = .false.
+logical :: gw_utils_midpoint_interp_logged = .false.
 
 interface
    subroutine gw_utils_get_unit_vector_codon(u_p, v_p, u_n_p, v_n_p, mag_p, n_c) &
@@ -99,6 +101,23 @@ subroutine gw_utils_proof_once()
 
 end subroutine gw_utils_proof_once
 
+subroutine gw_utils_log_direct(logged, proof_line)
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+  end if
+
+end subroutine gw_utils_log_direct
+
 ! Take two components of a vector, and find the unit vector components and
 ! total magnitude.
 subroutine get_unit_vector(u, v, u_n, v_n, mag)
@@ -150,6 +169,7 @@ function dot_2d(u1, v1, u2, v2)
      call gw_utils_proof_once()
      call gw_utils_dot_2d_codon(c_loc(u1), c_loc(v1), c_loc(u2), c_loc(v2), c_loc(dot_2d), &
           int(size(u1), c_int64_t))
+     call gw_utils_log_direct(gw_utils_dot_2d_logged, 'dot_2d direct = codon')
   else
      dot_2d = u1*u2 + v1*v2
   end if
@@ -172,6 +192,7 @@ function midpoint_interp(arr) result(interp)
      call gw_utils_proof_once()
      call gw_utils_midpoint_interp_codon(c_loc(arr), c_loc(interp), &
           int(size(arr,1), c_int64_t), int(size(arr,2), c_int64_t))
+     call gw_utils_log_direct(gw_utils_midpoint_interp_logged, 'midpoint_interp direct = codon')
   else
      do i = 1, size(interp,2)
         interp(:,i) = 0.5_r8 * (arr(:,i)+arr(:,i+1))

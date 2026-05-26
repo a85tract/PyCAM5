@@ -8,6 +8,11 @@ def diag_readnl_codon() -> int:
 
 
 @export
+def cam_diagnostics_touch_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def cloud_diagnostics_register_codon(flag: int) -> int:
     if flag != 0:
         return 1

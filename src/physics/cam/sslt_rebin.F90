@@ -32,6 +32,7 @@ module sslt_rebin
   logical :: use_native_sslt_rebin_impl = .false.
   logical :: sslt_rebin_impl_selected = .false.
   logical :: sslt_rebin_proof_written = .false.
+  logical :: sslt_rebin_register_logged = .false.
   logical :: sslt_rebin_init_logged = .false.
   logical :: sslt_rebin_adv_logged = .false.
 
@@ -48,6 +49,12 @@ module sslt_rebin
        integer(c_int64_t), value :: has_sslt_c
        integer(c_int64_t) :: active_c
      end function sslt_rebin_active_codon
+     function sslt_rebin_register_codon(pcols_c, pver_c) result(mask_c) &
+          bind(c, name="sslt_rebin_register_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: pcols_c, pver_c
+       integer(c_int64_t) :: mask_c
+     end function sslt_rebin_register_codon
   end interface
 
   private
@@ -136,6 +143,18 @@ contains
     use ppgrid,       only : pver,pcols
     
     use physics_buffer, only : pbuf_add_field, dtype_r8
+
+    integer(c_int64_t) :: register_mask_c
+
+    call sslt_rebin_select_impl()
+    if (.not. use_native_sslt_rebin_impl) then
+       call sslt_rebin_proof_once()
+       register_mask_c = sslt_rebin_register_codon(int(pcols, c_int64_t), int(pver, c_int64_t))
+       if (register_mask_c > 0_c_int64_t) then
+          call sslt_rebin_log_direct(sslt_rebin_register_logged, &
+               'sslt_rebin_register direct = codon; register shape mask direct = codon; pbuf_add_field native CAM API island')
+       end if
+    end if
 
     ! add SSLTA and SSLTC to physics buffer
     call pbuf_add_field('SSLTA','physpkg',dtype_r8,(/pcols,pver/),sslta_idx)

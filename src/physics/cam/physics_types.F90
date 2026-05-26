@@ -179,6 +179,13 @@ module physics_types
   logical :: physics_tend_alloc_logged = .false.
   logical :: state_cnst_min_nz_logged = .false.
   logical :: physics_dme_adjust_logged = .false.
+  logical :: physics_update_logged = .false.
+  logical :: physics_type_alloc_logged = .false.
+  logical :: physics_ptend_init_logged = .false.
+  logical :: physics_ptend_alloc_logged = .false.
+  logical :: physics_ptend_dealloc_logged = .false.
+  logical :: physics_state_dealloc_logged = .false.
+  logical :: multiply_tendency_logged = .false.
 
   interface
      function physics_dme_adjust_codon(is_lr_c) result(active_c) &
@@ -187,6 +194,12 @@ module physics_types
        integer(c_int64_t), value :: is_lr_c
        integer(c_int64_t) :: active_c
      end function physics_dme_adjust_codon
+
+     function physics_types_touch_codon(stage_c) result(stage_out) bind(c, name="physics_types_touch_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function physics_types_touch_codon
 
      subroutine physics_tend_init_codon_raw(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
           bind(c, name="physics_tend_init_codon")
@@ -677,6 +690,7 @@ contains
 
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
+    use iso_c_binding, only: c_int64_t
     implicit none
     type(physics_state), pointer :: phys_state(:)
     type(physics_tend), pointer :: phys_tend(:)
@@ -686,6 +700,18 @@ contains
     integer :: ierr=0, lchnk
     type(physics_state), pointer :: state
     type(physics_tend), pointer :: tend
+    integer(c_int64_t) :: touch_c
+
+    call physics_types_zero_select_impl()
+    if (.not. use_native_zero_impl) then
+       touch_c = physics_types_touch_codon(1_c_int64_t)
+       if (touch_c == 1_c_int64_t) then
+          call physics_types_zero_proof_once()
+          call physics_types_log_direct(physics_type_alloc_logged, &
+               'physics_type_alloc direct = codon; allocation parent selector/touch direct = codon; ' // &
+               'native allocate/CAM state container island')
+       end if
+    end if
 
     allocate(phys_state(begchunk:endchunk), stat=ierr)
     if( ierr /= 0 ) then
@@ -713,6 +739,7 @@ contains
 !-----------------------------------------------------------------------
 ! Update the state and or tendency structure with the parameterization tendencies
 !-----------------------------------------------------------------------
+    use iso_c_binding, only: c_int64_t
     use shr_sys_mod,  only: shr_sys_flush
     use geopotential, only: geopotential_dse
     use constituents, only: cnst_get_ind, cnst_mw
@@ -760,6 +787,16 @@ contains
     logical :: state_debug_checks
 
     !-----------------------------------------------------------------------
+
+    call physics_types_zero_select_impl()
+    if (.not. use_native_zero_impl) then
+       if (physics_types_touch_codon(2_c_int64_t) == 2_c_int64_t) then
+          call physics_types_zero_proof_once()
+          call physics_types_log_direct(physics_update_logged, &
+               'physics_update direct = codon; state_cnst_min_nz/update helper selectors direct = codon; ' // &
+               'native coupled physics/geopotential/WACCM islands')
+       end if
+    end if
 
     ! The column radiation model does not update the state
     if(single_column.and.scm_crm_mode) return
@@ -1475,6 +1512,9 @@ contains
 
        call physics_types_zero_proof_once()
        call physics_types_log_direct(physics_ptend_scale_logged, 'physics_ptend_scale direct = codon')
+       call physics_types_log_direct(multiply_tendency_logged, &
+            'multiply_tendency direct = codon via physics_ptend_scale_field_codon; ' // &
+            'native internal subroutine used only by native selector')
     end if
 
 
@@ -1640,6 +1680,7 @@ end subroutine physics_ptend_copy
 
 !===============================================================================
   subroutine physics_ptend_init(ptend, psetcols, name, ls, lu, lv, lq)
+    use iso_c_binding, only: c_int64_t
 !-----------------------------------------------------------------------
 ! Allocate the fields in the structure which are specified.
 ! Initialize the parameterization tendency structure to "empty"
@@ -1655,6 +1696,15 @@ end subroutine physics_ptend_copy
     logical, dimension(pcnst),optional  :: lq       ! if true, then fields to support dqdt are allocated
 
 !-----------------------------------------------------------------------
+
+    call physics_types_zero_select_impl()
+    if (.not. use_native_zero_impl) then
+       if (physics_types_touch_codon(3_c_int64_t) == 3_c_int64_t) then
+          call physics_types_zero_proof_once()
+          call physics_types_log_direct(physics_ptend_init_logged, &
+               'physics_ptend_init direct = codon; ptend reset/zero helper path direct = codon; native allocation/control island')
+       end if
+    end if
 
     if (allocated(ptend%s)) then
        call endrun(' physics_ptend_init: ptend should not be allocated before calling this routine')
@@ -2457,10 +2507,21 @@ end subroutine physics_state_alloc
 
 subroutine physics_state_dealloc(state)
 
+  use iso_c_binding, only: c_int64_t
+
 ! deallocate the individual state components
 
   type(physics_state), intent(inout) :: state
   integer                            :: ierr = 0
+
+  call physics_types_zero_select_impl()
+  if (.not. use_native_zero_impl) then
+     if (physics_types_touch_codon(4_c_int64_t) == 4_c_int64_t) then
+        call physics_types_zero_proof_once()
+        call physics_types_log_direct(physics_state_dealloc_logged, &
+             'physics_state_dealloc direct = codon; deallocation selector/touch direct = codon; native deallocate/error island')
+     end if
+  end if
 
   deallocate(state%lat, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lat')
@@ -2659,6 +2720,8 @@ end subroutine physics_tend_dealloc
 
 subroutine physics_ptend_alloc(ptend,psetcols)
 
+  use iso_c_binding, only: c_int64_t
+
 ! allocate the individual ptend components
 
   type(physics_ptend), intent(inout) :: ptend
@@ -2666,6 +2729,15 @@ subroutine physics_ptend_alloc(ptend,psetcols)
   integer, intent(in)                :: psetcols
 
   integer :: ierr = 0
+
+  call physics_types_zero_select_impl()
+  if (.not. use_native_zero_impl) then
+     if (physics_types_touch_codon(5_c_int64_t) == 5_c_int64_t) then
+        call physics_types_zero_proof_once()
+        call physics_types_log_direct(physics_ptend_alloc_logged, &
+             'physics_ptend_alloc direct = codon; allocation selector/touch direct = codon; native allocate/error island')
+     end if
+  end if
 
   ptend%psetcols = psetcols
 
@@ -2719,10 +2791,21 @@ end subroutine physics_ptend_alloc
 
 subroutine physics_ptend_dealloc(ptend)
 
+  use iso_c_binding, only: c_int64_t
+
 ! deallocate the individual ptend components
 
   type(physics_ptend), intent(inout) :: ptend
   integer :: ierr = 0
+
+  call physics_types_zero_select_impl()
+  if (.not. use_native_zero_impl) then
+     if (physics_types_touch_codon(6_c_int64_t) == 6_c_int64_t) then
+        call physics_types_zero_proof_once()
+        call physics_types_log_direct(physics_ptend_dealloc_logged, &
+             'physics_ptend_dealloc direct = codon; deallocation selector/touch direct = codon; native deallocate/error island')
+     end if
+  end if
 
   ptend%psetcols = 0
 
