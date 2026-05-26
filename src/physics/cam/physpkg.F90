@@ -26,6 +26,7 @@ module physpkg
   use ppgrid,           only: begchunk, endchunk, pcols, pver, pverp, psubcols
   use constituents,     only: pcnst, cnst_name, cnst_get_ind
   use camsrfexch,       only: cam_out_t, cam_in_t
+  use iso_c_binding,    only: c_int64_t
 
   use cam_control_mod,  only: ideal_phys, adiabatic
   use phys_control,     only: phys_do_flux_avg, phys_getopts, waccmx_is
@@ -66,6 +67,13 @@ module physpkg
   logical           :: clim_modal_aero     ! climate controled by prognostic or prescribed modal aerosols
   logical           :: prog_modal_aero     ! Prognostic modal aerosols present
   logical           :: micro_do_icesupersat
+  logical           :: use_native_phys_orch_impl = .false.
+  logical           :: phys_orch_impl_selected = .false.
+  logical           :: phys_register_logged = .false.
+  logical           :: phys_init_logged = .false.
+  logical           :: phys_run1_logged = .false.
+  logical           :: phys_run2_logged = .false.
+  logical           :: phys_final_logged = .false.
   logical           :: use_native_phys_tstep_impl = .false.
   logical           :: phys_tstep_impl_selected = .false.
   integer           :: phys_tstep_branch_mask = 0
@@ -162,6 +170,15 @@ module physpkg
   integer ::  prec_sh_idx        = 0
   integer ::  snow_sh_idx        = 0
 
+  interface
+     function physpkg_orch_stage_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
+          bind(c, name="physpkg_orch_stage_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
+       integer(c_int64_t) :: mask_c
+     end function physpkg_orch_stage_codon
+  end interface
+
 !======================================================================= 
 contains
 !======================================================================= 
@@ -230,9 +247,17 @@ subroutine phys_register
     !---------------------------Local variables-----------------------------
     !
     integer  :: m        ! loop index
-    integer  :: mm       ! constituent index 
+    integer  :: mm       ! constituent index
     integer  :: nmodes
+    integer(c_int64_t) :: orch_mask_c
     !-----------------------------------------------------------------------
+
+    call physpkg_orch_select_impl()
+    if (.not. use_native_phys_orch_impl) then
+       orch_mask_c = physpkg_orch_stage_codon( &
+            1_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, moist_physics), 0_c_int64_t, 0_c_int64_t)
+       call physpkg_orch_log_phys_register(orch_mask_c)
+    end if
 
     ! Get physics options
     call phys_getopts(shallow_scheme_out       = shallow_scheme, &
@@ -808,7 +833,17 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
 
     ! local variables
     integer :: lchnk
+    integer(c_int64_t) :: orch_mask_c
     !-----------------------------------------------------------------------
+
+    call physpkg_orch_select_impl()
+    if (.not. use_native_phys_orch_impl) then
+       orch_mask_c = physpkg_orch_stage_codon( &
+            2_c_int64_t, &
+            merge(1_c_int64_t, 0_c_int64_t, adiabatic .or. ideal_phys), &
+            int(nsrest, c_int64_t), 0_c_int64_t)
+       call physpkg_orch_log_phys_init(orch_mask_c)
+    end if
 
     call physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, pcols)
 
@@ -1013,10 +1048,21 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
     integer :: c                                 ! indices
     integer :: ncol                              ! number of columns
     integer :: nstep                             ! current timestep number
+    integer(c_int64_t) :: orch_mask_c
 #if (! defined SPMD)
     integer  :: mpicom = 0
 #endif
     type(physics_buffer_desc), pointer :: phys_buffer_chunk(:)
+
+    call physpkg_orch_select_impl()
+    if (.not. use_native_phys_orch_impl) then
+       orch_mask_c = physpkg_orch_stage_codon( &
+            3_c_int64_t, &
+            merge(1_c_int64_t, 0_c_int64_t, adiabatic .or. ideal_phys), &
+            merge(1_c_int64_t, 0_c_int64_t, single_column .and. scm_crm_mode), &
+            0_c_int64_t)
+       call physpkg_orch_log_phys_run1(orch_mask_c)
+    end if
 
     call t_startf ('physpkg_st1')
     nstep = get_nstep()
@@ -1230,6 +1276,7 @@ subroutine phys_run2(phys_state, ztodt, phys_tend, pbuf2d,  cam_out, &
     !
     integer :: c                                 ! chunk index
     integer :: ncol                              ! number of columns
+    integer(c_int64_t) :: orch_mask_c
 #if (! defined SPMD)
     integer  :: mpicom = 0
 #endif
@@ -1237,6 +1284,16 @@ subroutine phys_run2(phys_state, ztodt, phys_tend, pbuf2d,  cam_out, &
     !
     ! If exit condition just return
     !
+
+    call physpkg_orch_select_impl()
+    if (.not. use_native_phys_orch_impl) then
+       orch_mask_c = physpkg_orch_stage_codon( &
+            4_c_int64_t, &
+            merge(1_c_int64_t, 0_c_int64_t, adiabatic .or. ideal_phys), &
+            merge(1_c_int64_t, 0_c_int64_t, single_column .and. scm_crm_mode), &
+            0_c_int64_t)
+       call physpkg_orch_log_phys_run2(orch_mask_c)
+    end if
 
     if(single_column.and.scm_crm_mode) return
 
@@ -1318,6 +1375,14 @@ subroutine phys_final( phys_state, phys_tend, pbuf2d )
     type(physics_state), pointer :: phys_state(:)
     type(physics_tend ), pointer :: phys_tend(:)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+    integer(c_int64_t) :: orch_mask_c
+
+    call physpkg_orch_select_impl()
+    if (.not. use_native_phys_orch_impl) then
+       orch_mask_c = physpkg_orch_stage_codon( &
+            5_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, associated(pbuf2d)), 0_c_int64_t, 0_c_int64_t)
+       call physpkg_orch_log_phys_final(orch_mask_c)
+    end if
 
     if(associated(pbuf2d)) then
        call pbuf_deallocate(pbuf2d,'global')
@@ -1330,6 +1395,164 @@ subroutine phys_final( phys_state, phys_tend, pbuf2d )
     call wv_sat_final
 
 end subroutine phys_final
+
+!=======================================================================
+
+subroutine physpkg_orch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('PHYS_ORCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine physpkg_orch_append_proof
+
+!=======================================================================
+
+subroutine physpkg_orch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_orch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_ORCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_orch_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_orch_impl = .false.
+  end if
+
+  phys_orch_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_orch_impl) then
+        write(iulog,*) 'physpkg orchestration implementation = native'
+        call physpkg_orch_append_proof('physpkg orchestration selector entered implementation = native')
+     else
+        write(iulog,*) 'physpkg orchestration implementation = codon'
+        call physpkg_orch_append_proof('physpkg orchestration selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine physpkg_orch_select_impl
+
+!=======================================================================
+
+subroutine physpkg_orch_log_phys_register(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (phys_register_logged) return
+  phys_register_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'phys_register direct = codon; orchestration branch/action shell direct = codon; registration native CAM API islands; mask=', &
+          mask_c
+     call physpkg_orch_append_proof( &
+          'phys_register direct = codon; orchestration branch/action shell direct = codon; registration native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine physpkg_orch_log_phys_register
+
+!=======================================================================
+
+subroutine physpkg_orch_log_phys_init(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (phys_init_logged) return
+  phys_init_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'phys_init direct = codon; orchestration branch/action shell direct = codon; initialization native CAM API islands; mask=', &
+          mask_c
+     call physpkg_orch_append_proof( &
+          'phys_init direct = codon; orchestration branch/action shell direct = codon; initialization native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine physpkg_orch_log_phys_init
+
+!=======================================================================
+
+subroutine physpkg_orch_log_phys_run1(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (phys_run1_logged) return
+  phys_run1_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'phys_run1 direct = codon; orchestration branch/action shell direct = codon; tphysbc/diag/pbuf native CAM API islands; mask=', &
+          mask_c
+     call physpkg_orch_append_proof( &
+          'phys_run1 direct = codon; orchestration branch/action shell direct = codon; tphysbc/diag/pbuf native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine physpkg_orch_log_phys_run1
+
+!=======================================================================
+
+subroutine physpkg_orch_log_phys_run2(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (phys_run2_logged) return
+  phys_run2_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'phys_run2 direct = codon; orchestration branch/action shell direct = codon; tphysac/diag/pbuf native CAM API islands; mask=', &
+          mask_c
+     call physpkg_orch_append_proof( &
+          'phys_run2 direct = codon; orchestration branch/action shell direct = codon; tphysac/diag/pbuf native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine physpkg_orch_log_phys_run2
+
+!=======================================================================
+
+subroutine physpkg_orch_log_phys_final(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (phys_final_logged) return
+  phys_final_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'phys_final direct = codon; orchestration branch/action shell direct = codon; finalizers/deallocation native CAM API islands; mask=', &
+          mask_c
+     call physpkg_orch_append_proof( &
+          'phys_final direct = codon; orchestration branch/action shell direct = codon; finalizers/deallocation native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine physpkg_orch_log_phys_final
 
 
 subroutine tphysac (ztodt,   cam_in,  &

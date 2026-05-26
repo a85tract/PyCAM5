@@ -20,6 +20,18 @@ from C import zm_entropy_expr_native_cb(float, float, float, float, float, float
 from math import cos, exp, floor, log, sin, sqrt
 
 @export
+def physpkg_orch_stage_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
+    mask = stage
+    if flag1 != 0:
+        mask |= 16
+    if flag2 != 0:
+        mask |= 32
+    if flag3 != 0:
+        mask |= 64
+    return mask
+
+
+@export
 def phys_timestep_init_select_branches_codon(
     cam3_aero_on: int,
     cam3_ozone_on: int,
