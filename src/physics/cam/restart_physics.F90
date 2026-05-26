@@ -60,8 +60,27 @@ module restart_physics
     logical :: use_native_restart_pack_impl = .false.
     logical :: restart_pack_impl_selected = .false.
     logical :: restart_pack_entered_logged = .false.
+    logical :: restart_init_entered_logged = .false.
 
   CONTAINS
+    subroutine restart_physics_log_init_entry()
+      integer(c_int64_t) :: touch_c
+      interface
+         function restart_physics_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
+           import c_int64_t
+           integer(c_int64_t), value :: stage_c
+           integer(c_int64_t) :: stage_out
+         end function restart_physics_touch_codon
+      end interface
+
+      if (restart_init_entered_logged) return
+      touch_c = restart_physics_touch_codon(1101_c_int64_t)
+      if (masterproc .and. touch_c == 1101_c_int64_t) then
+         write(iulog,'(A)') 'init_restart_physics direct = codon; PIO/chem/subcol restart definition native island'
+      end if
+      restart_init_entered_logged = .true.
+    end subroutine restart_physics_log_init_entry
+
     subroutine init_restart_physics ( File, pbuf2d, hdimids)
       
     use cam_pio_utils,       only: fillvalue
@@ -87,6 +106,7 @@ module restart_physics
     integer, pointer :: ldof(:)
     character(len=4) :: num
 
+    call restart_physics_log_init_entry()
 
     hdimcnt=size(hdimids)
     dimids(1:hdimcnt) = hdimids

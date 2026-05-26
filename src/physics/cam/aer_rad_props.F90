@@ -22,7 +22,7 @@ use cam_history_support, only : fillvalue
 use ref_pres,         only: clim_modal_aero_top_lev
 use spmd_utils,       only: masterproc
 use cam_logfile,      only: iulog
-use iso_c_binding,    only: c_int64_t, c_double, c_ptr
+use iso_c_binding,    only: c_int64_t, c_double, c_loc, c_ptr
 
 use cam_abortutils,   only: endrun
 
@@ -43,6 +43,10 @@ character(len=fieldname_len), pointer :: odv_names(:)  ! outfld names for visibl
 logical :: use_native_aer_rad_props_setup_impl = .false.
 logical :: aer_rad_props_setup_impl_selected = .false.
 logical :: aer_rad_props_setup_proof_written = .false.
+logical :: aer_rad_props_init_logged = .false.
+logical :: aer_rad_props_sw_logged = .false.
+logical :: aer_rad_props_lw_logged = .false.
+logical :: aer_vis_diag_out_logged = .false.
 
 interface
    subroutine aer_rad_props_sw_setup_codon(ncol_c, pcols_c, pver_c, nswbands_c, nrh_c, rga_c, &
@@ -63,6 +67,18 @@ interface
       real(c_double), value :: rga_c
       type(c_ptr), value :: pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p
    end subroutine aer_rad_props_lw_setup_codon
+   function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function final_cam_cleanup_touch_codon
+   subroutine aer_vis_diag_prepare_codon(ncol_c, pcols_c, tau_nlev_c, nnite_c, fillvalue_c, &
+        idxnite_p, tau_p, troplev_p, tmp_p, tmp2_p) bind(c, name="aer_vis_diag_prepare_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, tau_nlev_c, nnite_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: idxnite_p, tau_p, troplev_p, tmp_p, tmp2_p
+   end subroutine aer_vis_diag_prepare_codon
 end interface
 
 !==============================================================================
@@ -118,6 +134,22 @@ end subroutine aer_rad_props_setup_proof_once
 
 !==============================================================================
 
+subroutine aer_rad_props_log_cleanup_touch(logged, stage, proof_line)
+   logical, intent(inout) :: logged
+   integer, intent(in) :: stage
+   character(len=*), intent(in) :: proof_line
+   integer(c_int64_t) :: touch_c
+
+   if (logged) return
+   touch_c = final_cam_cleanup_touch_codon(int(stage, c_int64_t))
+   if (masterproc .and. touch_c == int(stage, c_int64_t)) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+   logged = .true.
+end subroutine aer_rad_props_log_cleanup_touch
+
+!==============================================================================
+
 subroutine aer_rad_props_init()
    use phys_control, only: phys_getopts
 
@@ -130,6 +162,12 @@ subroutine aer_rad_props_init()
    logical                    :: prog_modal_aero      ! Prognostic modal aerosols present
 
    !----------------------------------------------------------------------------
+
+   call aer_rad_props_setup_select_impl()
+   if (.not. use_native_aer_rad_props_setup_impl) then
+      call aer_rad_props_log_cleanup_touch(aer_rad_props_init_logged, 1501, &
+           'aer_rad_props_init direct = codon; history/rad_constituents native API island')
+   end if
 
    call phys_getopts( history_aero_optics_out    = history_aero_optics, &
                       history_amwg_out           = history_amwg,    &
@@ -250,6 +288,12 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, &
 
    character(len=ot_length) :: opticstype       ! hygro or nonhygro
    !-----------------------------------------------------------------------------
+
+   call aer_rad_props_setup_select_impl()
+   if (.not. use_native_aer_rad_props_setup_impl) then
+      call aer_rad_props_log_cleanup_touch(aer_rad_props_sw_logged, 1502, &
+           'aer_rad_props_sw direct = codon; setup helper direct = codon; modal/rad/tropopause/history native islands')
+   end if
 
    ncol  = state%ncol
    lchnk = state%lchnk
@@ -402,6 +446,12 @@ subroutine aer_rad_props_lw(list_idx, state, pbuf,  odap_aer)
    real(r8) :: mmr_to_mass(pcols,pver) ! conversion factor for mmr to mass
    real(r8) :: aermass(pcols,pver)     ! mass of aerosols
    !-----------------------------------------------------------------------------
+
+   call aer_rad_props_setup_select_impl()
+   if (.not. use_native_aer_rad_props_setup_impl) then
+      call aer_rad_props_log_cleanup_touch(aer_rad_props_lw_logged, 1503, &
+           'aer_rad_props_lw direct = codon; setup helper direct = codon; modal/rad/history native islands')
+   end if
 
    ncol = state%ncol
    lchnk = state%lchnk
@@ -857,35 +907,49 @@ subroutine aer_vis_diag_out(lchnk, ncol, nnite, idxnite, iaer, tau, diag_idx, tr
    integer,          intent(in) :: lchnk
    integer,          intent(in) :: ncol           ! number of columns
    integer,          intent(in) :: nnite          ! number of night columns
-   integer,          intent(in) :: idxnite(:)     ! local column indices of night columns
+   integer, target,  intent(in) :: idxnite(:)     ! local column indices of night columns
    integer,          intent(in) :: iaer           ! aerosol index -- if 0 then tau is a total for all aerosols
-   real(r8),         intent(in) :: tau(:,:)       ! aerosol optical depth for the visible band
+   real(r8), target, intent(in) :: tau(:,:)       ! aerosol optical depth for the visible band
    integer,          intent(in) :: diag_idx       ! identifies whether the aerosol optics
                                                   ! is for the climate calc or a diagnostic calc
-   integer,          intent(in) :: troplev(:)     ! tropopause level
+   integer, target,  intent(in) :: troplev(:)     ! tropopause level
  
    ! Local variables
    integer  :: i
-   real(r8) :: tmp(pcols), tmp2(pcols)
+   integer(c_int64_t), target :: idxnite_i8(max(1,nnite)), troplev_i8(pcols)
+   real(r8), target :: tmp(pcols), tmp2(pcols)
    !-----------------------------------------------------------------------------
 
    ! currently only implemented for climate calc
    if (diag_idx > 0) return
 
-   ! compute total column aerosol optical depth
-   tmp(1:ncol) = sum(tau(1:ncol,:), 2)
-   ! use fillvalue to indicate night columns
-   do i = 1, nnite
-      tmp(idxnite(i)) = fillvalue
-   end do
+   call aer_rad_props_setup_select_impl()
+   if (.not. use_native_aer_rad_props_setup_impl) then
+      call aer_rad_props_log_cleanup_touch(aer_vis_diag_out_logged, 1504, &
+           'aer_vis_diag_out direct = codon; outfld native history island')
+      if (nnite > 0) idxnite_i8(1:nnite) = int(idxnite(1:nnite), c_int64_t)
+      troplev_i8(1:pcols) = int(troplev(1:pcols), c_int64_t)
+      call aer_vis_diag_prepare_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(size(tau, 2), c_int64_t), int(nnite, c_int64_t), real(fillvalue, c_double), &
+           c_loc(idxnite_i8(1)), c_loc(tau(1,1)), c_loc(troplev_i8(1)), c_loc(tmp(1)), c_loc(tmp2(1)))
+   else
+      ! compute total column aerosol optical depth
+      tmp(1:ncol) = sum(tau(1:ncol,:), 2)
+      ! use fillvalue to indicate night columns
+      do i = 1, nnite
+         tmp(idxnite(i)) = fillvalue
+      end do
+      if (iaer == 0) then
+         do i = 1, ncol
+            tmp2(i) = sum(tau(i,:troplev(i)))
+         end do
+      end if
+   end if
 
    if (iaer > 0) then
       call outfld(odv_names(iaer), tmp, pcols, lchnk)
    else
       call outfld('AEROD_v', tmp, pcols, lchnk)
-      do i = 1, ncol
-        tmp2(i) = sum(tau(i,:troplev(i)))
-      end do
       call outfld('AODvstrt', tmp2, pcols, lchnk)      
    end if
 

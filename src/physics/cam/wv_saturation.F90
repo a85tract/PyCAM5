@@ -95,6 +95,8 @@ real(r8), parameter :: tboil = 373.16_r8
   logical :: wv_sat_init_logged = .false.
   logical :: wv_sat_final_logged = .false.
   logical :: tq_enthalpy_logged = .false.
+  logical :: findsp_logged = .false.
+  logical :: findsp_vc_logged = .false.
 
   interface
      function wv_sat_readnl_codon() result(out_c) bind(c, name="wv_sat_readnl_codon")
@@ -182,6 +184,19 @@ real(r8), parameter :: tboil = 373.16_r8
        integer(c_int64_t), value :: plenest_c
        real(c_double) :: es_c
      end function estblf_codon
+
+     pure subroutine wv_saturation_findsp_codon(q_c, t_c, p_c, use_ice_c, idx_c, &
+          epsilo_c, omeps_c, cpair_c, c3_c, tmelt_c, ttrice_c, latvap_c, latice_c, &
+          rh2o_c, pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c, estbl_p, &
+          plenest_c, tsp_p, qsp_p, status_p) bind(c, name="wv_saturation_findsp_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       real(c_double), value :: q_c, t_c, p_c
+       integer(c_int64_t), value :: use_ice_c, idx_c, plenest_c
+       real(c_double), value :: epsilo_c, omeps_c, cpair_c, c3_c, tmelt_c, ttrice_c
+       real(c_double), value :: latvap_c, latice_c, rh2o_c
+       real(c_double), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c
+       type(c_ptr), value :: estbl_p, tsp_p, qsp_p, status_p
+     end subroutine wv_saturation_findsp_codon
   end interface
 
   ! Set coefficients for polynomial approximation of difference
@@ -582,7 +597,7 @@ elemental subroutine no_ip_hltalt(t, hltalt)
   ! Inputs
   real(r8), intent(in) :: t        ! Temperature
   ! Outputs
-  real(r8), intent(out) :: hltalt  ! Appropriately modified hlat
+  real(r8), target, intent(out) :: hltalt  ! Appropriately modified hlat
 
   hltalt = real(wv_saturation_no_ip_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
        real(latvap, c_double)), r8)
@@ -604,7 +619,7 @@ elemental subroutine calc_hltalt(t, hltalt, tterm)
   ! Outputs
   real(r8), intent(out) :: hltalt  ! Appropriately modified hlat
   ! Term to account for d(es)/dT in transition region.
-  real(r8), intent(out), optional :: tterm
+  real(r8), target, intent(out), optional :: tterm
 
   ! Local variables
   real(r8) :: tterm_loc
@@ -828,6 +843,11 @@ subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
 
   call findsp(q, t, p, use_ice, tsp, qsp, status)
 
+  if (.not. use_native_wv_saturation_impl) then
+     call wv_saturation_log_direct(findsp_vc_logged, &
+          'findsp_vc direct = codon; vector wrapper/error reporting native island')
+  end if
+
   ! Currently, only 2 and 8 seem to be treated as fatal errors.
   do i = 1,n
      if (status(i) == 2) then
@@ -846,6 +866,7 @@ subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
 end subroutine findsp_vc
 
 elemental subroutine findsp (q, t, p, use_ice, tsp, qsp, status)
+  use wv_sat_methods, only: wv_sat_get_default_idx
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: 
@@ -879,9 +900,9 @@ elemental subroutine findsp (q, t, p, use_ice, tsp, qsp, status)
 !
 ! output arguments
 !
-  real(r8), intent(out) :: tsp      ! saturation temp (K)
-  real(r8), intent(out) :: qsp      ! saturation mixing ratio (kg/kg)
-  integer,  intent(out) :: status   ! flag representing state of output
+  real(r8), target, intent(out) :: tsp      ! saturation temp (K)
+  real(r8), target, intent(out) :: qsp      ! saturation mixing ratio (kg/kg)
+  integer,  target, intent(out) :: status   ! flag representing state of output
                                     ! 0 => Successful convergence
                                     ! 1 => No calculation done: pressure or specific
                                     !      humidity not within usable range
@@ -908,6 +929,18 @@ elemental subroutine findsp (q, t, p, use_ice, tsp, qsp, status)
   real(r8), parameter :: dttol = 1.e-4_r8 ! the relative temp error tolerance required to quit the iteration
   real(r8), parameter :: dqtol = 1.e-4_r8 ! the relative moisture error tolerance required to quit the iteration
   real(r8) enin, enout
+
+  if (.not. use_native_wv_saturation_impl) then
+     call wv_saturation_findsp_codon(real(q, c_double), real(t, c_double), real(p, c_double), &
+          int(merge(1, 0, use_ice), c_int64_t), int(wv_sat_get_default_idx(), c_int64_t), &
+          real(epsilo, c_double), real(omeps, c_double), real(cpair, c_double), real(c3, c_double), &
+          real(tmelt, c_double), real(ttrice, c_double), real(latvap, c_double), real(latice, c_double), &
+          real(rh2o, c_double), real(pcf(1), c_double), real(pcf(2), c_double), &
+          real(pcf(3), c_double), real(pcf(4), c_double), real(pcf(5), c_double), &
+          real(tmin, c_double), real(tmax, c_double), c_loc(estbl(1)), int(plenest, c_int64_t), &
+          c_loc(tsp), c_loc(qsp), c_loc(status))
+     return
+  end if
 
   ! Saturation specific humidity at this temperature
   if (use_ice) then

@@ -169,6 +169,11 @@ def tropopause_output_prep_stage_dispatch_codon(
     )
 
 
+@export
+def final_cam_cleanup_touch_codon(stage: int) -> int:
+    return stage
+
+
 @inline
 def _tropopause_interp_t(
     i: int,
@@ -324,6 +329,55 @@ def tropopause_interpolatez_codon(
         state_pmid_p,
         state_pint_p,
     )
+
+
+@export
+def tropopause_climate_find_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    chunk_pos: int,
+    chunk_count: int,
+    last_month: int,
+    next_month: int,
+    notfound: int,
+    dels: float,
+    pint_p: cobj,
+    tropp_p_loc_p: cobj,
+    trop_lev_p: cobj,
+    trop_p_p: cobj,
+    updated_p: cobj,
+):
+    pint = Ptr[float](pint_p)
+    tropp_p_loc = Ptr[float](tropp_p_loc_p)
+    trop_lev = Ptr[int](trop_lev_p)
+    trop_p = Ptr[float](trop_p_p)
+    updated = Ptr[int](updated_p)
+
+    for i in range(1, pcols + 1):
+        updated[i - 1] = 0
+
+    for i in range(1, ncol + 1):
+        if trop_lev[i - 1] == notfound:
+            last_idx = (
+                (i - 1)
+                + (chunk_pos - 1) * pcols
+                + (last_month - 1) * pcols * chunk_count
+            )
+            next_idx = (
+                (i - 1)
+                + (chunk_pos - 1) * pcols
+                + (next_month - 1) * pcols * chunk_count
+            )
+            tp = tropp_p_loc[last_idx] + dels * (
+                tropp_p_loc[next_idx] - tropp_p_loc[last_idx]
+            )
+            trop_p[i - 1] = tp
+            for k in range(pver, 1, -1):
+                if tp >= pint[_field2_idx(i, k, pcols)]:
+                    trop_lev[i - 1] = k
+                    updated[i - 1] = 1
+                    break
 
 
 @inline
@@ -7549,6 +7603,52 @@ def aer_rad_props_lw_setup_codon(
 
 
 @export
+def aer_vis_diag_prepare_codon(
+    ncol: int,
+    pcols: int,
+    tau_nlev: int,
+    nnite: int,
+    fillvalue: float,
+    idxnite_p: cobj,
+    tau_p: cobj,
+    troplev_p: cobj,
+    tmp_p: cobj,
+    tmp2_p: cobj,
+):
+    idxnite = Ptr[int](idxnite_p)
+    tau = Ptr[float](tau_p)
+    troplev = Ptr[int](troplev_p)
+    tmp = Ptr[float](tmp_p)
+    tmp2 = Ptr[float](tmp2_p)
+
+    for i in range(1, pcols + 1):
+        tmp[i - 1] = 0.0
+        tmp2[i - 1] = 0.0
+
+    for i in range(1, ncol + 1):
+        total = 0.0
+        for k in range(1, tau_nlev + 1):
+            total = total + tau[_field2_idx(i, k, pcols)]
+        tmp[i - 1] = total
+
+    for i in range(1, nnite + 1):
+        idx = idxnite[i - 1]
+        if idx >= 1 and idx <= pcols:
+            tmp[idx - 1] = fillvalue
+
+    for i in range(1, ncol + 1):
+        trop = troplev[i - 1]
+        if trop < 1:
+            trop = 1
+        if trop > tau_nlev:
+            trop = tau_nlev
+        strat_total = 0.0
+        for k in range(1, trop + 1):
+            strat_total = strat_total + tau[_field2_idx(i, k, pcols)]
+        tmp2[i - 1] = strat_total
+
+
+@export
 def micro_mg_utils_init_scalars_codon(
     rh2o: float,
     cpair: float,
@@ -9524,6 +9624,329 @@ def wv_saturation_deriv_dqsdt_codon(
     den2 = p - omeps * es
     den2 = es * den2
     return out / den2
+
+
+@inline
+def _wv_saturation_qsat_ptr_codon(
+    t: float,
+    p: float,
+    epsilo: float,
+    omeps: float,
+    tmin: float,
+    tmax: float,
+    estbl_p: cobj,
+    plenest: int,
+    es_p: Ptr[float],
+    qs_p: Ptr[float],
+):
+    es = estblf_codon(t, tmin, tmax, estbl_p, plenest)
+    qs = wv_sat_svp_to_qsat_codon(es, p, epsilo, omeps)
+    if p < es:
+        es = p
+    es_p[0] = es
+    qs_p[0] = qs
+
+
+@inline
+def _wv_saturation_qsat_water_ptr_codon(
+    t: float,
+    p: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    es_p: Ptr[float],
+    qs_p: Ptr[float],
+):
+    es = wv_sat_svp_water_codon(t, idx)
+    qs = wv_sat_svp_to_qsat_codon(es, p, epsilo, omeps)
+    if p < es:
+        es = p
+    es_p[0] = es
+    qs_p[0] = qs
+
+
+@inline
+def _wv_saturation_calc_hltalt_vals_codon(
+    t: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    hltalt_p: Ptr[float],
+    tterm_p: Ptr[float],
+):
+    hltalt = latvap
+    if t >= tmelt:
+        hltalt = hltalt - 2369.0 * (t - tmelt)
+
+    tterm = 0.0
+    if t < tmelt:
+        tc = t - tmelt
+        if tc >= -ttrice:
+            weight = -tc / ttrice
+            tterm = pcf5 + tc * tterm
+            tterm = pcf4 + tc * tterm
+            tterm = pcf3 + tc * tterm
+            tterm = pcf2 + tc * tterm
+            tterm = pcf1 + tc * tterm
+            tterm = tterm / ttrice
+        else:
+            weight = 1.0
+        hltalt = hltalt + weight * latice
+
+    hltalt_p[0] = hltalt
+    tterm_p[0] = tterm
+
+
+@inline
+def _wv_saturation_no_ip_hltalt_val_codon(t: float, tmelt: float, latvap: float) -> float:
+    hltalt = latvap
+    if t >= tmelt:
+        hltalt = hltalt - 2369.0 * (t - tmelt)
+    return hltalt
+
+
+@inline
+def _wv_saturation_qsat_gam_enthalpy_codon(
+    use_ice: int,
+    t: float,
+    p: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    cpair: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    rh2o: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    tmin: float,
+    tmax: float,
+    estbl_p: cobj,
+    plenest: int,
+    es_p: Ptr[float],
+    qs_p: Ptr[float],
+    gam_p: Ptr[float],
+    enthalpy_p: Ptr[float],
+):
+    if use_ice != 0:
+        _wv_saturation_qsat_ptr_codon(t, p, epsilo, omeps, tmin, tmax, estbl_p, plenest, es_p, qs_p)
+        hltalt = 0.0
+        tterm = 0.0
+        _wv_saturation_calc_hltalt_vals_codon(
+            t,
+            tmelt,
+            ttrice,
+            latvap,
+            latice,
+            pcf1,
+            pcf2,
+            pcf3,
+            pcf4,
+            pcf5,
+            __ptr__(hltalt),
+            __ptr__(tterm),
+        )
+    else:
+        _wv_saturation_qsat_water_ptr_codon(t, p, idx, epsilo, omeps, es_p, qs_p)
+        hltalt = _wv_saturation_no_ip_hltalt_val_codon(t, tmelt, latvap)
+        tterm = 0.0
+
+    enthalpy_p[0] = cpair * t + hltalt * qs_p[0]
+    dqsdt = wv_saturation_deriv_dqsdt_codon(t, p, es_p[0], qs_p[0], hltalt, tterm, rh2o, omeps)
+    gam_p[0] = dqsdt * (hltalt / cpair)
+
+
+@export
+def wv_saturation_findsp_codon(
+    q: float,
+    t: float,
+    p: float,
+    use_ice: int,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    cpair: float,
+    c3: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    rh2o: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    tmin: float,
+    tmax: float,
+    estbl_p: cobj,
+    plenest: int,
+    tsp_p: cobj,
+    qsp_p: cobj,
+    status_p: cobj,
+):
+    tsp_out = Ptr[float](tsp_p)
+    qsp_out = Ptr[float](qsp_p)
+    status_out = Ptr[int](status_p)
+
+    es = 0.0
+    qs = 0.0
+    if use_ice != 0:
+        _wv_saturation_qsat_ptr_codon(t, p, epsilo, omeps, tmin, tmax, estbl_p, plenest, __ptr__(es), __ptr__(qs))
+    else:
+        _wv_saturation_qsat_water_ptr_codon(t, p, idx, epsilo, omeps, __ptr__(es), __ptr__(qs))
+
+    if p <= 5.0 * es or qs <= 0.0 or qs >= 0.5 or t < tmin or t > tmax:
+        status_out[0] = 1
+        tsp_out[0] = t
+        qsp_out[0] = q
+        return
+
+    status = 2
+
+    if use_ice != 0:
+        hltalt = 0.0
+        tterm = 0.0
+        _wv_saturation_calc_hltalt_vals_codon(
+            t,
+            tmelt,
+            ttrice,
+            latvap,
+            latice,
+            pcf1,
+            pcf2,
+            pcf3,
+            pcf4,
+            pcf5,
+            __ptr__(hltalt),
+            __ptr__(tterm),
+        )
+    else:
+        hltalt = _wv_saturation_no_ip_hltalt_val_codon(t, tmelt, latvap)
+
+    enin = cpair * t + hltalt * q
+
+    c1 = hltalt * c3
+    c2 = (t + 36.0) ** 2
+    r1b = c2 / (c2 + c1 * qs)
+    qvd = r1b * (q - qs)
+    tsp = t + ((hltalt / cpair) * qvd)
+
+    gam = 0.0
+    enout = 0.0
+    _wv_saturation_qsat_gam_enthalpy_codon(
+        use_ice,
+        tsp,
+        p,
+        idx,
+        epsilo,
+        omeps,
+        cpair,
+        tmelt,
+        ttrice,
+        latvap,
+        latice,
+        rh2o,
+        pcf1,
+        pcf2,
+        pcf3,
+        pcf4,
+        pcf5,
+        tmin,
+        tmax,
+        estbl_p,
+        plenest,
+        __ptr__(es),
+        qsp_out,
+        __ptr__(gam),
+        __ptr__(enout),
+    )
+
+    for _ in range(1, 9):
+        g = enin - enout
+        dgdt = -cpair * (1.0 + gam)
+
+        t1 = tsp - g / dgdt
+        dt = abs(t1 - tsp) / t1
+        tsp = t1
+
+        if tsp < tmin:
+            tsp = tmin
+            if use_ice != 0:
+                hltalt = 0.0
+                tterm = 0.0
+                _wv_saturation_calc_hltalt_vals_codon(
+                    tsp,
+                    tmelt,
+                    ttrice,
+                    latvap,
+                    latice,
+                    pcf1,
+                    pcf2,
+                    pcf3,
+                    pcf4,
+                    pcf5,
+                    __ptr__(hltalt),
+                    __ptr__(tterm),
+                )
+            else:
+                hltalt = _wv_saturation_no_ip_hltalt_val_codon(tsp, tmelt, latvap)
+            qsp_out[0] = (enin - cpair * tsp) / hltalt
+            enout = cpair * tsp + hltalt * qsp_out[0]
+            status = 4
+            break
+
+        q1 = 0.0
+        _wv_saturation_qsat_gam_enthalpy_codon(
+            use_ice,
+            tsp,
+            p,
+            idx,
+            epsilo,
+            omeps,
+            cpair,
+            tmelt,
+            ttrice,
+            latvap,
+            latice,
+            rh2o,
+            pcf1,
+            pcf2,
+            pcf3,
+            pcf4,
+            pcf5,
+            tmin,
+            tmax,
+            estbl_p,
+            plenest,
+            __ptr__(es),
+            __ptr__(q1),
+            __ptr__(gam),
+            __ptr__(enout),
+        )
+        dq = abs(q1 - qsp_out[0]) / max(q1, 1.0e-12)
+        qsp_out[0] = q1
+
+        if dt < 1.0e-4 and dq < 1.0e-4:
+            status = 0
+            break
+
+    if abs((enin - enout) / (enin + enout)) > 1.0e-4:
+        status = 8
+
+    tsp_out[0] = tsp
+    status_out[0] = status
 
 
 @export

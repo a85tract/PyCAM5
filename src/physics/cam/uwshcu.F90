@@ -162,6 +162,7 @@
   logical :: use_native_qsinvert_rh_guard_impl = .false.
   logical :: qsinvert_rh_guard_impl_selected = .false.
   logical :: qsinvert_rh_guard_entered_logged = .false.
+  logical :: qsinvert_native_iter_logged = .false.
   logical :: use_native_compute_impl = .true.
   logical :: compute_impl_selected = .false.
   logical :: compute_parent_shell_entered_logged = .false.
@@ -804,6 +805,21 @@ contains
     end if
 
   end subroutine uwshcu_log_qsinvert_rh_guard_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_qsinvert_native_iter_entered()
+
+    if (qsinvert_native_iter_logged) return
+    qsinvert_native_iter_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu qsinvert native iteration island; Codon dry guard only; full Codon iteration non-BFB'
+       call uwshcu_append_proof('uwshcu qsinvert native iteration island; Codon dry guard only; full Codon iteration non-BFB')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_qsinvert_native_iter_entered
 
 !===============================================================================
 
@@ -13295,6 +13311,8 @@ end subroutine uwshcu_readnl
     psmin  = 100._r8*100._r8 ! Default saturation pressure [Pa] if iteration does not converge
     dpsmax = 1._r8           ! Tolerance [Pa] for convergence of iteration
 
+    call uwshcu_select_qsinvert_rh_guard_impl()
+
     ! ------------------------------------ !
     ! Calculate best initial guess of pLCL !
     ! ------------------------------------ !
@@ -13302,11 +13320,11 @@ end subroutine uwshcu_readnl
     Ti       =  thl*(psfc/p00)**rovcp
     call qsat(Ti, psfc, es, qs)
     rhi      =  qt/qs
-    call uwshcu_select_qsinvert_rh_guard_impl()
     if (use_native_qsinvert_rh_guard_impl) then
         dry_guard_c = merge(1_c_int64_t, 0_c_int64_t, rhi .le. 0.01_r8)
     else
         call uwshcu_log_qsinvert_rh_guard_entered()
+        call uwshcu_log_qsinvert_native_iter_entered()
         dry_guard_c = uwshcu_qsinvert_rh_guard_codon(real(rhi, c_double))
     end if
     if( dry_guard_c /= 0_c_int64_t ) then

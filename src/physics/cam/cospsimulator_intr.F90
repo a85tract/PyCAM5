@@ -336,6 +336,7 @@ module cospsimulator_intr
    logical :: use_native_cosp_set_values_impl = .false.
    logical :: cosp_set_values_impl_selected = .false.
    logical :: cosp_set_values_proof_written = .false.
+   logical :: cosp_readnl_logged = .false.
 
    interface
       subroutine cosp_set_values_basic_codon(nlr_c, use_vgrid_c, csat_vgrid_c, ncolumns_c, &
@@ -346,6 +347,11 @@ module cospsimulator_intr
          integer(c_int64_t), value :: nradsteps_c, nht_current_c
          type(c_ptr), value :: nht_p, nscol_p, nradsteps_p, zstep_p
       end subroutine cosp_set_values_basic_codon
+      function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+      end function final_cam_cleanup_touch_codon
    end interface
 
 
@@ -645,6 +651,7 @@ subroutine cospsimulator_intr_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr
+   integer(c_int64_t) :: touch_c
    character(len=*), parameter :: subname = 'cospsimulator_intr_readnl'
 
     !!! this list should include any variable that you might want to include in the namelist
@@ -654,6 +661,15 @@ subroutine cospsimulator_intr_readnl(nlfile)
         cosp_lite, cosp_lradar_sim, cosp_llidar_sim, cosp_lisccp_sim,  cosp_lmisr_sim, cosp_lmodis_sim, cosp_ncolumns, &
         cosp_nradsteps, cosp_passive, cosp_sample_atrain, cosp_runall
    !-----------------------------------------------------------------------------
+
+   call cosp_set_values_select_impl()
+   if (.not. use_native_cosp_set_values_impl .and. .not. cosp_readnl_logged) then
+      touch_c = final_cam_cleanup_touch_codon(1301_c_int64_t)
+      if (masterproc .and. touch_c == 1301_c_int64_t) then
+         write(iulog,'(A)') 'cospsimulator_intr_readnl direct = codon; namelist/MPI flag normalization native island; setcospvalues basic direct = codon'
+      end if
+      cosp_readnl_logged = .true.
+   end if
 
    !! read in the namelist
    if (masterproc) then

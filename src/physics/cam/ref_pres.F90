@@ -53,6 +53,7 @@ integer, protected :: nbot_molec = 0
 logical :: use_native_ref_pres_init_impl = .false.
 logical :: ref_pres_init_impl_selected = .false.
 logical :: ref_pres_init_proof_written = .false.
+logical :: ref_pres_readnl_logged = .false.
 
 interface
    subroutine ref_pres_init_finalize_codon(pver_c, pverp_c, trop_cloud_top_press_c, &
@@ -74,6 +75,11 @@ interface
       type(c_ptr), value :: pref_mid_p
       integer(c_int64_t) :: k_lim_c
    end function press_lim_idx_codon
+   function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function final_cam_cleanup_touch_codon
 end interface
 
 !====================================================================================
@@ -137,7 +143,9 @@ end subroutine ref_pres_init_proof_once
 
 subroutine ref_pres_readnl(nlfile)
 
+   use iso_c_binding,   only: c_int64_t
    use spmd_utils,      only: masterproc
+   use cam_logfile,     only: iulog
    use cam_abortutils,  only: endrun
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
@@ -147,11 +155,21 @@ subroutine ref_pres_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr
+   integer(c_int64_t) :: touch_c
    character(len=*), parameter :: subname = 'ref_pres_readnl'
 
    namelist /ref_pres_nl/ trop_cloud_top_press, clim_modal_aero_top_press,&
         do_molec_press, molec_diff_bot_press
    !-----------------------------------------------------------------------------
+
+   call ref_pres_init_select_impl()
+   if (.not. use_native_ref_pres_init_impl .and. .not. ref_pres_readnl_logged) then
+      touch_c = final_cam_cleanup_touch_codon(1201_c_int64_t)
+      if (masterproc .and. touch_c == 1201_c_int64_t) then
+         write(iulog,'(A)') 'ref_pres_readnl direct = codon; namelist/MPI/endrun native island; ref_pres_init helpers direct = codon'
+      end if
+      ref_pres_readnl_logged = .true.
+   end if
 
    if (masterproc) then
       unitn = getunit()
