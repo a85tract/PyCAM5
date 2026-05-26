@@ -77,6 +77,10 @@ module physpkg
   logical           :: use_native_phys_inidat_impl = .false.
   logical           :: phys_inidat_impl_selected = .false.
   logical           :: phys_inidat_logged = .false.
+  logical           :: use_native_tphys_shell_impl = .false.
+  logical           :: tphys_shell_impl_selected = .false.
+  logical           :: tphysbc_logged = .false.
+  logical           :: tphysac_logged = .false.
   logical           :: use_native_phys_tstep_impl = .false.
   logical           :: phys_tstep_impl_selected = .false.
   integer           :: phys_tstep_branch_mask = 0
@@ -186,6 +190,12 @@ module physpkg
        integer(c_int64_t), value :: aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c
        integer(c_int64_t) :: mask_c
      end function phys_inidat_shell_mask_codon
+     function tphys_shell_mask_codon(stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c) &
+          result(mask_c) bind(c, name="tphys_shell_mask_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c
+       integer(c_int64_t) :: mask_c
+     end function tphys_shell_mask_codon
   end interface
 
 !======================================================================= 
@@ -1653,6 +1663,106 @@ subroutine phys_inidat_log_entered(mask_c)
 
 end subroutine phys_inidat_log_entered
 
+!=======================================================================
+
+subroutine tphys_shell_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('TPHYS_SHELL_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine tphys_shell_append_proof
+
+!=======================================================================
+
+subroutine tphys_shell_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphys_shell_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYS_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphys_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphys_shell_impl = .false.
+  end if
+
+  tphys_shell_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphys_shell_impl) then
+        write(iulog,*) 'tphys shell implementation = native'
+        call tphys_shell_append_proof('tphys shell selector entered implementation = native')
+     else
+        write(iulog,*) 'tphys shell implementation = codon'
+        call tphys_shell_append_proof('tphys shell selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphys_shell_select_impl
+
+!=======================================================================
+
+subroutine tphys_shell_log_tphysac(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (tphysac_logged) return
+  tphysac_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'tphysac direct = codon; physics branch/action shell direct = codon; ' // &
+          'tphyspkg_flux_batch direct = codon; chemistry/vdiff/gw/full physics/CAM API native islands; mask=', mask_c
+     call tphys_shell_append_proof( &
+          'tphysac direct = codon; physics branch/action shell direct = codon; ' // &
+          'tphyspkg_flux_batch direct = codon; chemistry/vdiff/gw/full physics/CAM API native islands')
+     call flush(iulog)
+  end if
+
+end subroutine tphys_shell_log_tphysac
+
+!=======================================================================
+
+subroutine tphys_shell_log_tphysbc(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (tphysbc_logged) return
+  tphysbc_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'tphysbc direct = codon; physics branch/action shell direct = codon; ' // &
+          'tphysbc_state_batch/tphyspkg_flux_batch direct = codon; qneg3/full physics/CAM API native islands; mask=', mask_c
+     call tphys_shell_append_proof( &
+          'tphysbc direct = codon; physics branch/action shell direct = codon; ' // &
+          'tphysbc_state_batch/tphyspkg_flux_batch direct = codon; qneg3/full physics/CAM API native islands')
+     call flush(iulog)
+  end if
+
+end subroutine tphys_shell_log_tphysbc
+
 
 subroutine tphysac (ztodt,   cam_in,  &
        sgh,     sgh30,                                     &
@@ -1772,10 +1882,23 @@ subroutine tphysac (ztodt,   cam_in,  &
     real(r8), pointer, dimension(:,:) :: cldiceini
     real(r8), pointer, dimension(:,:) :: dtcore
     real(r8), pointer, dimension(:,:) :: ast     ! relative humidity cloud fraction 
+    integer(c_int64_t) :: tphys_mask_c
 
     !-----------------------------------------------------------------------
     lchnk = state%lchnk
     ncol  = state%ncol
+
+    call tphys_shell_select_impl()
+    if (.not. use_native_tphys_shell_impl) then
+       tphys_mask_c = tphys_shell_mask_codon( &
+            2_c_int64_t, int(ncol, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+            merge(1_c_int64_t, 0_c_int64_t, chem_is_active()), &
+            merge(1_c_int64_t, 0_c_int64_t, do_clubb_sgs), &
+            merge(1_c_int64_t, 0_c_int64_t, carma_do_aerosol .or. carma_do_emission), &
+            merge(1_c_int64_t, 0_c_int64_t, waccmx_is('ionosphere')))
+       call tphys_shell_log_tphysac(tphys_mask_c)
+    end if
 
     nstep = get_nstep()
     
@@ -2272,6 +2395,7 @@ subroutine tphysbc (ztodt,               &
 
     ! Debug physics_state.
     logical :: state_debug_checks
+    integer(c_int64_t) :: tphys_mask_c
     !-----------------------------------------------------------------------
 
     call t_startf('bc_init')
@@ -2287,6 +2411,18 @@ subroutine tphysbc (ztodt,               &
 
     lchnk = state%lchnk
     ncol  = state%ncol
+
+    call tphys_shell_select_impl()
+    if (.not. use_native_tphys_shell_impl) then
+       tphys_mask_c = tphys_shell_mask_codon( &
+            1_c_int64_t, int(ncol, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+            merge(1_c_int64_t, 0_c_int64_t, do_clubb_sgs), &
+            merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp), &
+            merge(1_c_int64_t, 0_c_int64_t, micro_do_icesupersat), &
+            merge(1_c_int64_t, 0_c_int64_t, microp_scheme == 'MG'))
+       call tphys_shell_log_tphysbc(tphys_mask_c)
+    end if
 
     rtdt = 1._r8/ztodt
 

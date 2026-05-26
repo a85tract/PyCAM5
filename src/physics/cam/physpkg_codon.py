@@ -46,6 +46,24 @@ def phys_inidat_shell_mask_codon(aqua_planet: int, unstructured: int, chunk_coun
 
 
 @export
+def tphys_shell_mask_codon(stage: int, ncol: int, flag1: int, flag2: int, flag3: int, flag4: int, flag5: int) -> int:
+    mask = stage
+    if ncol > 0:
+        mask |= 16
+    if flag1 != 0:
+        mask |= 32
+    if flag2 != 0:
+        mask |= 64
+    if flag3 != 0:
+        mask |= 128
+    if flag4 != 0:
+        mask |= 256
+    if flag5 != 0:
+        mask |= 512
+    return mask
+
+
+@export
 def phys_timestep_init_select_branches_codon(
     cam3_aero_on: int,
     cam3_ozone_on: int,
