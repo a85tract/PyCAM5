@@ -74,6 +74,9 @@ module physpkg
   logical           :: phys_run1_logged = .false.
   logical           :: phys_run2_logged = .false.
   logical           :: phys_final_logged = .false.
+  logical           :: use_native_phys_inidat_impl = .false.
+  logical           :: phys_inidat_impl_selected = .false.
+  logical           :: phys_inidat_logged = .false.
   logical           :: use_native_phys_tstep_impl = .false.
   logical           :: phys_tstep_impl_selected = .false.
   integer           :: phys_tstep_branch_mask = 0
@@ -177,6 +180,12 @@ module physpkg
        integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
        integer(c_int64_t) :: mask_c
      end function physpkg_orch_stage_codon
+     function phys_inidat_shell_mask_codon(aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c) &
+          result(mask_c) bind(c, name="phys_inidat_shell_mask_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c
+       integer(c_int64_t) :: mask_c
+     end function phys_inidat_shell_mask_codon
   end interface
 
 !======================================================================= 
@@ -462,6 +471,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
     integer :: ierr, qcwat_source, iccwat_source, lcwat_source, tcwat_source
     character(len=4) :: dim1name
     integer :: ixcldice, ixcldliq
+    integer(c_int64_t) :: inidat_mask_c
     nullify(tptr,tptr3d,tptr3d_2,cldptr,convptr_3d)
 
     fh_ini=>initial_file_get_id()
@@ -474,6 +484,16 @@ subroutine phys_inidat( cam_out, pbuf2d )
     else
        dim1name='lon'
     end if
+
+    call phys_inidat_select_impl()
+    if (.not. use_native_phys_inidat_impl) then
+       inidat_mask_c = phys_inidat_shell_mask_codon( &
+            merge(1_c_int64_t, 0_c_int64_t, aqua_planet), &
+            merge(1_c_int64_t, 0_c_int64_t, dycore_is('UNSTRUCTURED')), &
+            int(endchunk-begchunk+1, c_int64_t), int(dyn_time_lvls, c_int64_t))
+       call phys_inidat_log_entered(inidat_mask_c)
+    end if
+
     if(aqua_planet) then
        sgh = 0._r8
        sgh30 = 0._r8
@@ -1553,6 +1573,85 @@ subroutine physpkg_orch_log_phys_final(mask_c)
   end if
 
 end subroutine physpkg_orch_log_phys_final
+
+!=======================================================================
+
+subroutine phys_inidat_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('PHYS_INIDAT_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine phys_inidat_append_proof
+
+!=======================================================================
+
+subroutine phys_inidat_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_impl = .false.
+  end if
+
+  phys_inidat_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_impl) then
+        write(iulog,*) 'phys_inidat implementation = native'
+        call phys_inidat_append_proof('phys_inidat selector entered implementation = native')
+     else
+        write(iulog,*) 'phys_inidat implementation = codon'
+        call phys_inidat_append_proof('phys_inidat selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_log_entered(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (phys_inidat_logged) return
+  phys_inidat_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'phys_inidat direct = codon; initialization branch/action shell direct = codon; ' // &
+          'infld/pbuf/polar_average/short_lived_species native CAM API islands; mask=', mask_c
+     call phys_inidat_append_proof( &
+          'phys_inidat direct = codon; initialization branch/action shell direct = codon; ' // &
+          'infld/pbuf/polar_average/short_lived_species native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_log_entered
 
 
 subroutine tphysac (ztodt,   cam_in,  &

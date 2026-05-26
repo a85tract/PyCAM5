@@ -32,6 +32,20 @@ def physpkg_orch_stage_codon(stage: int, flag1: int, flag2: int, flag3: int) -> 
 
 
 @export
+def phys_inidat_shell_mask_codon(aqua_planet: int, unstructured: int, chunk_count: int, dyn_time_lvls: int) -> int:
+    mask = 1
+    if aqua_planet != 0:
+        mask |= 2
+    if unstructured != 0:
+        mask |= 4
+    if chunk_count > 0:
+        mask |= 8
+    if dyn_time_lvls > 1:
+        mask |= 16
+    return mask
+
+
+@export
 def phys_timestep_init_select_branches_codon(
     cam3_aero_on: int,
     cam3_ozone_on: int,
