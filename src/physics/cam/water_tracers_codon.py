@@ -255,6 +255,59 @@ def wtrc_init_rates_codon(pcols: int, pver: int, pwtype: int, top_lev: int, proc
 
 
 @export
+def wtrc_cnst_add_state_codon(
+    ind: int,
+    iwt: int,
+    isp: int,
+    iwater_p: cobj,
+    iwater_is_water_p: cobj,
+    iwspec_p: cobj,
+) -> None:
+    iwater = Ptr[i32](iwater_p)
+    iwater_is_water = Ptr[int](iwater_is_water_p)
+    iwspec = Ptr[i32](iwspec_p)
+
+    idx = ind - 1
+    iwater[idx] = i32(iwt)
+    iwater_is_water[idx] = 1
+    iwspec[idx] = i32(isp)
+
+
+@export
+def wtrc_init_cnst_fill_codon(
+    nrow: int,
+    nlev: int,
+    trace_water: int,
+    iwater_value: int,
+    iwtvap: int,
+    iwtliq: int,
+    iwtice: int,
+    rat: float,
+    q_p: cobj,
+    qq_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+) -> None:
+    q = Ptr[float](q_p)
+    qq = Ptr[float](qq_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+
+    for k in range(1, nlev + 1):
+        for i in range(1, nrow + 1):
+            idx = (i - 1) + (k - 1) * nrow
+            value = 0.0
+            if trace_water != 0:
+                if iwater_value == iwtvap:
+                    value = rat * qq[idx]
+                elif iwater_value == iwtliq:
+                    value = rat * ql[idx]
+                elif iwater_value == iwtice:
+                    value = rat * qi[idx]
+            q[idx] = value
+
+
+@export
 def wtrc_apply_rates_copy_state_codon(
     ncol: int,
     pcols: int,

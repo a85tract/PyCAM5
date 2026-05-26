@@ -122,7 +122,7 @@ integer, parameter, public    :: WTRC_WSET_STD  = 1     ! water set index for "r
 ! Configuration pointers/indices
 !
 ! NOTE: These should probably be moved to constituents.
-  integer, public :: iwater(pcnst)     ! flag for water type (see water_types)
+  integer, public, target :: iwater(pcnst)     ! flag for water type (see water_types)
   integer(c_int64_t), public, target :: iwater_is_water(pcnst) = 0_c_int64_t  ! 1 when iwater is a water tracer type
   integer, public, target :: iwspec(pcnst)     ! flag for water (isotope) species (see water_isotopes)
   logical, public :: iwistag(pcnst)    ! flag for tagged water

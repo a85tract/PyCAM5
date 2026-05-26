@@ -150,6 +150,8 @@ module water_tracers
   logical :: wtrc_is_tagged_logged = .false.
   logical :: wtrc_get_icnst_logged = .false.
   logical :: wtrc_implements_cnst_logged = .false.
+  logical :: wtrc_cnst_add_logged = .false.
+  logical :: wtrc_init_cnst_logged = .false.
   logical :: wtrc_add_rate_logged = .false.
   logical :: wtrc_init_rates_logged = .false.
   logical :: wtrc_ratio_logged = .false.
@@ -232,6 +234,20 @@ module water_tracers
       real(c_double), value :: true_rstd_c, fixed_rstd_c
       real(c_double) :: result_c
     end function wtrc_get_rstd_codon
+    subroutine wtrc_cnst_add_state_codon(ind_c, iwt_c, isp_c, iwater_p, iwater_is_water_p, &
+         iwspec_p) bind(c, name="wtrc_cnst_add_state_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ind_c, iwt_c, isp_c
+      type(c_ptr), value :: iwater_p, iwater_is_water_p, iwspec_p
+    end subroutine wtrc_cnst_add_state_codon
+    subroutine wtrc_init_cnst_fill_codon(nrow_c, nlev_c, trace_water_c, iwater_value_c, iwtvap_c, &
+         iwtliq_c, iwtice_c, rat_c, q_p, qq_p, ql_p, qi_p) bind(c, name="wtrc_init_cnst_fill_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: nrow_c, nlev_c, trace_water_c, iwater_value_c
+      integer(c_int64_t), value :: iwtvap_c, iwtliq_c, iwtice_c
+      real(c_double), value :: rat_c
+      type(c_ptr), value :: q_p, qq_p, ql_p, qi_p
+    end subroutine wtrc_init_cnst_fill_codon
     function wtrc_ratio_scalar_codon(qtrc_c, qtot_c, qmin_c, rstd_c) result(result_c) &
          bind(c, name="wtrc_ratio_scalar_codon")
       use iso_c_binding, only: c_double
@@ -1518,10 +1534,20 @@ end subroutine wtrc_register
 !
 ! Knowing the tracer index assign water type and species
 !
-    iwater(ind)  = iwt
-    iwater_is_water(ind) = 1_c_int64_t
-    iwspec(ind)  = isp
-    iwistag(ind) = is_tag
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      call wtrc_cnst_add_state_codon(int(ind, c_int64_t), int(iwt, c_int64_t), int(isp, c_int64_t), &
+           c_loc(iwater(1)), c_loc(iwater_is_water(1)), c_loc(iwspec(1)))
+      iwistag(ind) = is_tag
+      call wtrc_scalar_helpers_log_direct(wtrc_cnst_add_logged, &
+           'wtrc_cnst_add direct = codon; cnst_add native CAM API island; iwistag logical native island')
+    else
+      iwater(ind)  = iwt
+      iwater_is_water(ind) = 1_c_int64_t
+      iwspec(ind)  = isp
+      iwistag(ind) = is_tag
+    end if
 !
     return
   end subroutine wtrc_cnst_add
@@ -1598,15 +1624,16 @@ end subroutine wtrc_register
     use constituents, only: pcnst, cnst_get_ind
 !---------------------------- Arguments --------------------------------
     character(len=*),intent(in)  :: name               ! tracer name
-    real(r8), intent(out)        :: q(:,:)             ! mass mixing ratio (gcol, lev)
+    real(r8), target, intent(out) :: q(:,:)            ! mass mixing ratio (gcol, lev)
     integer, intent(in)          :: gcid(:)            ! global column id
-    real(r8), intent(in)         :: qq(:,:)            ! Q mass mixing ratio (gcol, lev)
-    real(r8), intent(in)         :: ql(:,:)            ! CLDLIQ mass mixing ratio (gcol, lev)
-    real(r8), intent(in)         :: qi(:,:)            ! CLDICE mass mixing ratio (gcol, lev)
+    real(r8), target, intent(in) :: qq(:,:)            ! Q mass mixing ratio (gcol, lev)
+    real(r8), target, intent(in) :: ql(:,:)            ! CLDLIQ mass mixing ratio (gcol, lev)
+    real(r8), target, intent(in) :: qi(:,:)            ! CLDICE mass mixing ratio (gcol, lev)
  !------------------------- Local Variables -----------------------------
     integer ixwtrc              ! index of water tracer
     integer ixwprg              ! intext of water prognostic
     real(r8) rat                ! an isotope ratio
+    integer(c_int64_t) :: trace_water_c
 !-----------------------------------------------------------------------
 !
 
@@ -1615,10 +1642,10 @@ end subroutine wtrc_register
     if (.not. wtrc_is_wtrc(ixwtrc)) then
       call endrun( 'WTRC_INIT_CNST: non water tracer detected.')
     else
-   
+
       ! Assign tracer to be total, scaled by some standard ratio 
       if (trace_water) then
-      
+
         !standard ratio or isotope run:     
         rat = wtrc_get_rstd(iwspec(ixwtrc))
         !----------------------
@@ -1626,17 +1653,34 @@ end subroutine wtrc_register
           rat = 0._r8
         end if
         !----------------------       
-        if (iwater(ixwtrc) == iwtvap) then
-          q(:,:) = rat * qq(:,:)
-        else if (iwater(ixwtrc) == iwtliq) then
-          q(:,:) = rat * ql(:,:)
-        else if (iwater(ixwtrc) == iwtice) then
-          q(:,:) = rat * qi(:,:)
+      else
+        rat = 0._r8
+      end if
+
+      call wtrc_scalar_helpers_select_impl()
+      if (.not. use_native_wtrc_scalar_helpers_impl) then
+        call wtrc_scalar_helpers_log_entered()
+        trace_water_c = merge(1_c_int64_t, 0_c_int64_t, trace_water)
+        call wtrc_init_cnst_fill_codon(int(size(q, 1), c_int64_t), int(size(q, 2), c_int64_t), &
+             trace_water_c, int(iwater(ixwtrc), c_int64_t), int(iwtvap, c_int64_t), &
+             int(iwtliq, c_int64_t), int(iwtice, c_int64_t), real(rat, c_double), &
+             c_loc(q(1, 1)), c_loc(qq(1, 1)), c_loc(ql(1, 1)), c_loc(qi(1, 1)))
+        call wtrc_scalar_helpers_log_direct(wtrc_init_cnst_logged, &
+             'wtrc_init_cnst direct = codon; cnst_get_ind/endrun native CAM API islands')
+      else
+        if (trace_water) then
+          if (iwater(ixwtrc) == iwtvap) then
+            q(:,:) = rat * qq(:,:)
+          else if (iwater(ixwtrc) == iwtliq) then
+            q(:,:) = rat * ql(:,:)
+          else if (iwater(ixwtrc) == iwtice) then
+            q(:,:) = rat * qi(:,:)
+          else
+            q(:,:) = 0._r8
+          end if
         else
           q(:,:) = 0._r8
         end if
-      else
-        q(:,:) = 0._r8
       end if
     end if
     
