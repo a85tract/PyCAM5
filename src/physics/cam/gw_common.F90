@@ -1437,7 +1437,7 @@ subroutine energy_change(dt, p, u, v, dudt, dvdt, dsdt, de)
      call energy_change_native(dt, p, u, v, dudt, dvdt, dsdt, de)
   else
      call energy_change_note_entered()
-     call energy_change_codon_wrap(size(de), pver, dt, gravit, p%del, u, v, dudt, dvdt, dsdt, de)
+     call energy_change_codon(size(de), pver, dt, gravit, p%del, u, v, dudt, dvdt, dsdt, de)
   end if
 
 end subroutine energy_change
@@ -1508,8 +1508,8 @@ subroutine energy_change_note_entered()
   energy_change_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_energy_change entered (unified column-energy stage dispatch = codon)'
-     call energy_change_append_proof('gw_energy_change entered (unified column-energy stage dispatch = codon)')
+     write(iulog,*) 'energy_change direct = codon'
+     call energy_change_append_proof('energy_change direct = codon')
      call flush(iulog)
   end if
 
@@ -1517,7 +1517,7 @@ end subroutine energy_change_note_entered
 
 !==========================================================================
 
-subroutine energy_change_codon_wrap(ncol_local, pver_local, dt_local, gravit_local, &
+subroutine energy_change_codon(ncol_local, pver_local, dt_local, gravit_local, &
      p_del_local, u_local, v_local, dudt_local, dvdt_local, dsdt_local, de_local)
 
   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
@@ -1546,7 +1546,7 @@ subroutine energy_change_codon_wrap(ncol_local, pver_local, dt_local, gravit_loc
        c_loc(p_del_local), c_loc(u_local), c_loc(v_local), c_loc(dudt_local), &
        c_loc(dvdt_local), c_loc(dsdt_local), c_loc(de_local))
 
-end subroutine energy_change_codon_wrap
+end subroutine energy_change_codon
 
 !==========================================================================
 

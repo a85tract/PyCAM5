@@ -2545,6 +2545,41 @@ def wtrc_diagnose_bulk_precip_codon(
 
 
 @export
+def wtrc_diagnose_precip_codon(
+    ncol: int,
+    pcols: int,
+    iwset: int,
+    gravit: float,
+    rhoh2o: float,
+    dtime: float,
+    qmin: float,
+    srfpcp_p: cobj,
+    pmass_p: cobj,
+    stdpcp_p: cobj,
+    warn_flags_p: cobj,
+):
+    srfpcp = Ptr[float](srfpcp_p)
+    pmass = Ptr[float](pmass_p)
+    stdpcp = Ptr[float](stdpcp_p)
+    warn_flags = Ptr[int](warn_flags_p)
+
+    for i in range(ncol):
+        srfpcp[i] = srfpcp[i] + pmass[i] / gravit / rhoh2o / dtime
+        if iwset == 1:
+            stdpcp[i] = srfpcp[i]
+            warn_flags[i] = 0
+        else:
+            if srfpcp[i] > 2.0 * stdpcp[i] and stdpcp[i] > qmin:
+                warn_flags[i] = 1
+            else:
+                warn_flags[i] = 0
+        pmass[i] = 0.0
+
+    for i in range(ncol, pcols):
+        warn_flags[i] = 0
+
+
+@export
 def wtrc_add_rate_codon(
     pcols: int,
     pver: int,

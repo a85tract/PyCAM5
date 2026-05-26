@@ -334,12 +334,40 @@ module phys_grid
        integer(c_int64_t) :: result_c
      end function phys_grid_int_scalar_codon
 
+     function get_nlcols_p_codon(value_c) result(result_c) &
+          bind(c, name="get_nlcols_p_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: value_c
+       integer(c_int64_t) :: result_c
+     end function get_nlcols_p_codon
+
+     function get_gcol_p_codon(value_c) result(result_c) &
+          bind(c, name="get_gcol_p_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: value_c
+       integer(c_int64_t) :: result_c
+     end function get_gcol_p_codon
+
+     function get_ncols_p_codon(value_c) result(result_c) &
+          bind(c, name="get_ncols_p_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: value_c
+       integer(c_int64_t) :: result_c
+     end function get_ncols_p_codon
+
      function phys_grid_bool_scalar_codon(value_c) result(result_c) &
           bind(c, name="phys_grid_bool_scalar_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: value_c
        integer(c_int64_t) :: result_c
      end function phys_grid_bool_scalar_codon
+
+     function phys_grid_initialized_codon(value_c) result(result_c) &
+          bind(c, name="phys_grid_initialized_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: value_c
+       integer(c_int64_t) :: result_c
+     end function phys_grid_initialized_codon
 
      subroutine phys_grid_defaultopts_codon_raw(has_lbal_c, has_twin_c, has_alltoall_c, has_chunks_c, &
           is_unstructured_c, def_lbal_c, def_twin_unstructured_c, def_twin_lonlat_c, def_alltoall_c, &
@@ -631,7 +659,7 @@ contains
     if (use_native_getters_impl) then
        get_nlcols_p = nlcols
     else
-       get_nlcols_p = int(phys_grid_int_scalar_codon(int(nlcols, c_int64_t)))
+       get_nlcols_p = int(get_nlcols_p_codon(int(nlcols, c_int64_t)))
        call phys_grid_getter_log_direct(get_nlcols_logged, 'get_nlcols_p direct = codon')
     end if
   end function get_nlcols_p
@@ -2147,7 +2175,7 @@ logical function phys_grid_initialized ()
    if (use_native_getters_impl) then
       phys_grid_initialized = physgrid_set
    else
-      phys_grid_initialized = phys_grid_bool_scalar_codon( &
+      phys_grid_initialized = phys_grid_initialized_codon( &
            merge(1_c_int64_t, 0_c_int64_t, physgrid_set)) /= 0_c_int64_t
       call phys_grid_getter_log_direct(phys_grid_initialized_logged, &
            'phys_grid_initialized direct = codon')
@@ -2390,7 +2418,7 @@ logical function phys_grid_initialized ()
    if (use_native_getters_impl) then
       get_gcol_p = lchunks(lcid)%gcol(col)
    else
-      get_gcol_p = int(phys_grid_int_scalar_codon(int(lchunks(lcid)%gcol(col), c_int64_t)))
+      get_gcol_p = int(get_gcol_p_codon(int(lchunks(lcid)%gcol(col), c_int64_t)))
       call phys_grid_getter_log_direct(get_gcol_logged, 'get_gcol_p direct = codon')
    end if
    
@@ -2462,7 +2490,7 @@ logical function phys_grid_initialized ()
    if (use_native_getters_impl) then
       get_ncols_p = lchunks(lcid)%ncols
    else
-      get_ncols_p = int(phys_grid_int_scalar_codon(int(lchunks(lcid)%ncols, c_int64_t)))
+      get_ncols_p = int(get_ncols_p_codon(int(lchunks(lcid)%ncols, c_int64_t)))
       call phys_grid_getter_log_direct(get_ncols_logged, 'get_ncols_p direct = codon')
    end if
 

@@ -165,6 +165,7 @@ module water_tracers
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
   logical :: wtrc_batch_entered_logged = .false.
+  logical :: wtrc_diagnose_precip_logged = .false.
   logical :: use_native_wtrc_precip_evap_shell_impl = .false.
   logical :: wtrc_precip_evap_shell_impl_selected = .false.
   logical :: wtrc_precip_evap_init_logged = .false.
@@ -361,6 +362,21 @@ subroutine wtrc_batch_log_entered()
   end if
 
 end subroutine wtrc_batch_log_entered
+
+!=======================================================================
+subroutine wtrc_diagnose_precip_log_direct()
+
+  if (wtrc_diagnose_precip_logged) return
+  wtrc_diagnose_precip_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_diagnose_precip direct = codon; warning print native island'
+    call wtrc_batch_append_proof( &
+         'wtrc_diagnose_precip direct = codon; warning print native island')
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_diagnose_precip_log_direct
 
 !=======================================================================
 subroutine wtrc_precip_evap_shell_append_proof(proof_line)
@@ -3991,11 +4007,12 @@ end subroutine wtrc_collect_precip
   use physconst,      only: gravit, rhoh2o
   use physics_buffer, only: physics_buffer_desc, pbuf_get_index, pbuf_get_field
   use constituents,   only: cnst_name  
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr
 
    use time_manager,  only: get_nstep
 
   type(physics_state), intent(in)    :: pstate                        ! State of the atmosphere
-  real(r8), intent(inout)            :: pmass(pcols,wtrc_nwset)       ! local constituents
+  real(r8), target, intent(inout)    :: pmass(pcols,wtrc_nwset)       ! local constituents
   type(physics_buffer_desc), pointer :: pbuf(:)                       ! physics buffer
   integer,  intent(in)               :: top_lev                       ! top level index
   integer,  intent(in)               :: iwtype                        ! water type index
@@ -4008,10 +4025,23 @@ end subroutine wtrc_collect_precip
   integer                            :: srfpcidx      ! physics Buffer index 
   real(r8)                           :: R             ! water tracer precipitation ratio (unitless)
   real(r8), pointer, dimension(:)    :: srfpcp        ! surface precipitation (m/s)
-  real(r8)                           :: stdpcp(pcols) ! bulk water precipitation <-used for mass fixer - JN
+  real(r8), target                   :: stdpcp(pcols) ! bulk water precipitation <-used for mass fixer - JN
+  integer(c_int64_t), target         :: warn_flags(pcols)
+
+  interface
+    subroutine wtrc_diagnose_precip_codon(ncol_c, pcols_c, iwset_c, gravit_c, rhoh2o_c, dtime_c, qmin_c, &
+         srfpcp_p, pmass_p, stdpcp_p, warn_flags_p) bind(c, name="wtrc_diagnose_precip_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, iwset_c
+      real(c_double), value :: gravit_c, rhoh2o_c, dtime_c, qmin_c
+      type(c_ptr), value :: srfpcp_p, pmass_p, stdpcp_p, warn_flags_p
+    end subroutine wtrc_diagnose_precip_codon
+  end interface
 
 !-----------------------------------------------------------------------
 !
+  call wtrc_batch_select_impl()
+
   if (trace_water) then
     
     ! Use an internal local ptend, so we can do the mass checking.
@@ -4027,37 +4057,53 @@ end subroutine wtrc_collect_precip
       ! The surface precipitation is stored in the physics buffer, so
       ! get a pointer to the data.
       call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtype,iwset), srfpcp)
-  
-      ! The 3D data is in the state structure and/or the tendency. Sum the mass and
-      ! convert from kg/m2 to m/s.
-      do icol = 1, ncol
-      
-        ! Calculate surface total.
-        srfpcp(icol) = srfpcp(icol) + pmass(icol,iwset)/gravit/rhoh2o/dtime
 
-        !**********************************
-        !Stratiform isotopic snow error fix -JN
-        !**********************************
-        !NOTE:  May not be needed. - JN
-        !Save bulk (H2O) water for possible error-correcting.
-        if(iwset .eq. 1) then
-          stdpcp(icol) = srfpcp(icol)
-        end if
+      if (use_native_wtrc_batch_impl) then
 
-        !Prevent stratiform snow error (the random snow events that preciptate WAY too much isotopic mass).
-        !NOTE:  Eventually the root cause of this issue should be found and fixed, but for now this will do. - JN
-        if((iwset .ne. 1) .and. (srfpcp(icol) .gt. 2._r8 * stdpcp(icol))) then !isotopic precip too large, possible numerical error.
-          !Write out warning to log file:
-          if(stdpcp(icol) .gt. wtrc_qmin) write(*,*) 'ERROR: isotopic stratiform precipitation mass error!',srfpcp(icol),stdpcp(icol),iwtype,iwset,icol
-          !Adjust water tracers back to standard:
-!          srfpcp(icol) = stdpcp(icol) !set isotopic mass to be equal to bulk water (aka destroy numerically produced mass).
-        end if
-        !***********************************
+        ! The 3D data is in the state structure and/or the tendency. Sum the mass and
+        ! convert from kg/m2 to m/s.
+        do icol = 1, ncol
 
-        ! Clear out the field.
-        pmass(icol,iwset) = 0._r8     
+          ! Calculate surface total.
+          srfpcp(icol) = srfpcp(icol) + pmass(icol,iwset)/gravit/rhoh2o/dtime
 
-      end do
+          !**********************************
+          !Stratiform isotopic snow error fix -JN
+          !**********************************
+          !NOTE:  May not be needed. - JN
+          !Save bulk (H2O) water for possible error-correcting.
+          if(iwset .eq. 1) then
+            stdpcp(icol) = srfpcp(icol)
+          end if
+
+          !Prevent stratiform snow error (the random snow events that preciptate WAY too much isotopic mass).
+          !NOTE:  Eventually the root cause of this issue should be found and fixed, but for now this will do. - JN
+          if((iwset .ne. 1) .and. (srfpcp(icol) .gt. 2._r8 * stdpcp(icol))) then !isotopic precip too large, possible numerical error.
+            !Write out warning to log file:
+            if(stdpcp(icol) .gt. wtrc_qmin) write(*,*) 'ERROR: isotopic stratiform precipitation mass error!',srfpcp(icol),stdpcp(icol),iwtype,iwset,icol
+            !Adjust water tracers back to standard:
+!            srfpcp(icol) = stdpcp(icol) !set isotopic mass to be equal to bulk water (aka destroy numerically produced mass).
+          end if
+          !***********************************
+
+          ! Clear out the field.
+          pmass(icol,iwset) = 0._r8
+
+        end do
+      else
+        call wtrc_batch_log_entered()
+        call wtrc_diagnose_precip_log_direct()
+        call wtrc_diagnose_precip_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+             int(iwset, c_int64_t), real(gravit, c_double), real(rhoh2o, c_double), &
+             real(dtime, c_double), real(wtrc_qmin, c_double), c_loc(srfpcp(1)), &
+             c_loc(pmass(1,iwset)), c_loc(stdpcp(1)), c_loc(warn_flags(1)))
+
+        do icol = 1, ncol
+          if (warn_flags(icol) /= 0_c_int64_t) then
+            if(stdpcp(icol) .gt. wtrc_qmin) write(*,*) 'ERROR: isotopic stratiform precipitation mass error!',srfpcp(icol),stdpcp(icol),iwtype,iwset,icol
+          end if
+        end do
+      end if
     end do
   end if
 

@@ -2690,10 +2690,30 @@ def phys_grid_int_scalar_codon(value: int) -> int:
 
 
 @export
+def get_nlcols_p_codon(value: int) -> int:
+    return phys_grid_int_scalar_codon(value)
+
+
+@export
+def get_gcol_p_codon(value: int) -> int:
+    return phys_grid_int_scalar_codon(value)
+
+
+@export
+def get_ncols_p_codon(value: int) -> int:
+    return phys_grid_int_scalar_codon(value)
+
+
+@export
 def phys_grid_bool_scalar_codon(value: int) -> int:
     if value != 0:
         return 1
     return 0
+
+
+@export
+def phys_grid_initialized_codon(value: int) -> int:
+    return phys_grid_bool_scalar_codon(value)
 
 
 @export
