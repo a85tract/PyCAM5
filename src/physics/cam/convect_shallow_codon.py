@@ -28,6 +28,55 @@ def convect_shallow_use_shfrc_codon(scheme_len: int, scheme_ascii_p: cobj) -> in
     return 0
 
 
+@export
+def convect_shallow_register_decision_codon(scheme_len: int, scheme_ascii_p: cobj, use_gw_convect_sh: int) -> int:
+    scheme_ascii = Ptr[int](scheme_ascii_p)
+
+    n = scheme_len
+    while n > 0 and scheme_ascii[n - 1] == 32:
+        n -= 1
+
+    is_uw = False
+    is_unicon = False
+    if n == 2:
+        c1 = scheme_ascii[0]
+        c2 = scheme_ascii[1]
+        if c1 >= 65 and c1 <= 90:
+            c1 += 32
+        if c2 >= 65 and c2 <= 90:
+            c2 += 32
+        is_uw = c1 == 117 and c2 == 119
+    elif n == 6:
+        c1 = scheme_ascii[0]
+        c2 = scheme_ascii[1]
+        c3 = scheme_ascii[2]
+        c4 = scheme_ascii[3]
+        c5 = scheme_ascii[4]
+        c6 = scheme_ascii[5]
+        if c1 >= 65 and c1 <= 90:
+            c1 += 32
+        if c2 >= 65 and c2 <= 90:
+            c2 += 32
+        if c3 >= 65 and c3 <= 90:
+            c3 += 32
+        if c4 >= 65 and c4 <= 90:
+            c4 += 32
+        if c5 >= 65 and c5 <= 90:
+            c5 += 32
+        if c6 >= 65 and c6 <= 90:
+            c6 += 32
+        is_unicon = c1 == 117 and c2 == 110 and c3 == 105 and c4 == 99 and c5 == 111 and c6 == 110
+
+    mask = 0
+    if is_uw or is_unicon:
+        mask |= 1
+    if use_gw_convect_sh != 0:
+        mask |= 2
+    if is_unicon:
+        mask |= 4
+    return mask
+
+
 _UWSHCU_XLV = 0.0
 _UWSHCU_XLS = 0.0
 _UWSHCU_CP = 0.0

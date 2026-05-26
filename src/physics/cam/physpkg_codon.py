@@ -9254,6 +9254,77 @@ def ientropy_codon(
 
 
 @export
+def zm_convi_codon(
+    limcnv_in: int,
+    zmconv_c0_lnd: float,
+    zmconv_c0_ocn: float,
+    zmconv_ke: float,
+    zmconv_ke_lnd: float,
+    zmconv_org: int,
+    no_deep_present: int,
+    no_deep_value: int,
+    tmelt: float,
+    epsilo: float,
+    latvap: float,
+    cpair: float,
+    gravit: float,
+    rair: float,
+    limcnv_p: cobj,
+    tfreez_p: cobj,
+    eps1_p: cobj,
+    rl_p: cobj,
+    cpres_p: cobj,
+    rgrav_p: cobj,
+    rgas_p: cobj,
+    grav_p: cobj,
+    cp_p: cobj,
+    c0_lnd_p: cobj,
+    c0_ocn_p: cobj,
+    ke_p: cobj,
+    ke_lnd_p: cobj,
+    zm_org_p: cobj,
+    no_deep_pbl_p: cobj,
+    tau_p: cobj,
+):
+    limcnv = Ptr[int](limcnv_p)
+    tfreez = Ptr[float](tfreez_p)
+    eps1 = Ptr[float](eps1_p)
+    rl = Ptr[float](rl_p)
+    cpres = Ptr[float](cpres_p)
+    rgrav = Ptr[float](rgrav_p)
+    rgas = Ptr[float](rgas_p)
+    grav = Ptr[float](grav_p)
+    cp = Ptr[float](cp_p)
+    c0_lnd = Ptr[float](c0_lnd_p)
+    c0_ocn = Ptr[float](c0_ocn_p)
+    ke = Ptr[float](ke_p)
+    ke_lnd = Ptr[float](ke_lnd_p)
+    zm_org_out = Ptr[int](zm_org_p)
+    no_deep_pbl = Ptr[int](no_deep_pbl_p)
+    tau = Ptr[float](tau_p)
+
+    limcnv[0] = limcnv_in
+    tfreez[0] = tmelt
+    eps1[0] = epsilo
+    rl[0] = latvap
+    cpres[0] = cpair
+    rgrav[0] = 1.0 / gravit
+    rgas[0] = rair
+    grav[0] = gravit
+    cp[0] = cpres[0]
+    c0_lnd[0] = zmconv_c0_lnd
+    c0_ocn[0] = zmconv_c0_ocn
+    ke[0] = zmconv_ke
+    ke_lnd[0] = zmconv_ke_lnd
+    zm_org_out[0] = zmconv_org
+    if no_deep_present != 0:
+        no_deep_pbl[0] = no_deep_value
+    else:
+        no_deep_pbl[0] = 0
+    tau[0] = 3600.0
+
+
+@export
 def wv_saturation_value_codon(value: float) -> float:
     return value
 

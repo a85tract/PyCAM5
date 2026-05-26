@@ -17,6 +17,37 @@ def convect_deep_init_codon(flag: int) -> int:
 
 
 @export
+def zm_conv_register_codon(zmconv_org: int) -> int:
+    if zmconv_org != 0:
+        return 1
+    return 0
+
+
+@export
+def zm_conv_readnl_codon(
+    c0_lnd_set: int,
+    c0_ocn_set: int,
+    ke_set: int,
+    ke_lnd_set: int,
+    org_set: int,
+    flags_p: cobj,
+):
+    flags = Ptr[int](flags_p)
+    mask = 0
+    if c0_lnd_set != 0:
+        mask |= 1
+    if c0_ocn_set != 0:
+        mask |= 2
+    if ke_set != 0:
+        mask |= 4
+    if ke_lnd_set != 0:
+        mask |= 8
+    if org_set != 0:
+        mask |= 16
+    flags[0] = mask
+
+
+@export
 def convect_deep_tend_2_action_codon(scheme_code: int) -> int:
     if scheme_code == 1:
         return 1

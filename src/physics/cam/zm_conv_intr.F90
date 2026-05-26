@@ -99,6 +99,8 @@ module zm_conv_intr
    logical :: zm_momtran_prep_logged = .false.
    logical :: zm_convtran1_prep_logged = .false.
    logical :: zm_ptend_lq_mask_logged = .false.
+   logical :: zm_conv_register_logged = .false.
+   logical :: zm_conv_readnl_logged = .false.
 
 
 !=========================================================================================
@@ -147,10 +149,21 @@ subroutine zm_conv_register
 !----------------------------------------
 
   use physics_buffer, only : pbuf_add_field, dtype_r8
+  use iso_c_binding, only: c_int64_t
 
   implicit none
 
   integer idx
+  integer(c_int64_t) :: do_org_c
+
+  interface
+     function zm_conv_register_codon(zmconv_org_c) result(do_org_c) &
+          bind(c, name="zm_conv_register_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: zmconv_org_c
+       integer(c_int64_t) :: do_org_c
+     end function zm_conv_register_codon
+  end interface
 
 ! Flux of precipitation from deep convection (kg/m2/s)
    call pbuf_add_field('DP_FLXPRC','global',dtype_r8,(/pcols,pverp/),dp_flxprc_idx) 
@@ -164,9 +177,17 @@ subroutine zm_conv_register
 ! deep gbm cloud liquid water (kg/kg)    
    call pbuf_add_field('DP_CLDICE','global',dtype_r8,(/pcols,pver/), dp_cldice_idx)  
 
-   if (zmconv_org) then
+   do_org_c = zm_conv_register_codon(merge(1_c_int64_t, 0_c_int64_t, zmconv_org))
+   if (do_org_c /= 0_c_int64_t) then
       call cnst_add('ZM_ORG',0._r8,0._r8,0._r8,ixorg,longname='organization parameter')
    endif
+   if (masterproc .and. .not. zm_conv_register_logged) then
+      write(iulog,'(A)') 'zm_conv_register direct = codon; pbuf_add_field/cnst_add native CAM API islands'
+      call zm_conv_append_post_shell_proof( &
+           'zm_conv_register direct = codon; pbuf_add_field/cnst_add native CAM API islands')
+      call flush(iulog)
+      zm_conv_register_logged = .true.
+   end if
 
 end subroutine zm_conv_register
 
@@ -179,15 +200,26 @@ subroutine zm_conv_readnl(nlfile)
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+   use iso_c_binding, only: c_int64_t, c_loc
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
    ! Local variables
    integer :: unitn, ierr
    character(len=*), parameter :: subname = 'zm_conv_readnl'
+   integer(c_int64_t), target :: status_flags
 
    namelist /zmconv_nl/ zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_ke_lnd, zmconv_org
    !-----------------------------------------------------------------------------
+
+   interface
+      subroutine zm_conv_readnl_codon(c0_lnd_set_c, c0_ocn_set_c, ke_set_c, ke_lnd_set_c, &
+           org_set_c, flags_p) bind(c, name="zm_conv_readnl_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: c0_lnd_set_c, c0_ocn_set_c, ke_set_c, ke_lnd_set_c, org_set_c
+        type(c_ptr), value :: flags_p
+      end subroutine zm_conv_readnl_codon
+   end interface
 
    if (masterproc) then
       unitn = getunit()
@@ -212,6 +244,19 @@ subroutine zm_conv_readnl(nlfile)
    call mpibcast(zmconv_ke_lnd,            1, mpir8,  0, mpicom)
    call mpibcast(zmconv_org,               1, mpilog, 0, mpicom)
 #endif
+   status_flags = 0_c_int64_t
+   call zm_conv_readnl_codon(merge(1_c_int64_t, 0_c_int64_t, zmconv_c0_lnd /= unset_r8), &
+        merge(1_c_int64_t, 0_c_int64_t, zmconv_c0_ocn /= unset_r8), &
+        merge(1_c_int64_t, 0_c_int64_t, zmconv_ke /= unset_r8), &
+        merge(1_c_int64_t, 0_c_int64_t, zmconv_ke_lnd /= unset_r8), &
+        1_c_int64_t, c_loc(status_flags))
+   if (masterproc .and. .not. zm_conv_readnl_logged) then
+      write(iulog,'(A)') 'zm_conv_readnl direct = codon; namelist I/O and MPI broadcast native islands'
+      call zm_conv_append_post_shell_proof( &
+           'zm_conv_readnl direct = codon; namelist I/O and MPI broadcast native islands')
+      call flush(iulog)
+      zm_conv_readnl_logged = .true.
+   end if
 
 end subroutine zm_conv_readnl
 

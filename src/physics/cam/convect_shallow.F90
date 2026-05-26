@@ -76,6 +76,7 @@
    logical    :: init_impl_selected = .false.
    logical    :: init_mw_ratio_logged = .false.
    logical    :: convect_shallow_use_shfrc_logged = .false.
+   logical    :: convect_shallow_register_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -84,14 +85,21 @@
       sh_cldice_idx
 
    interface
-      function convect_shallow_use_shfrc_codon(scheme_len_c, scheme_ascii_p) result(out_c) &
-           bind(c, name="convect_shallow_use_shfrc_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: scheme_len_c
-         type(c_ptr), value :: scheme_ascii_p
-         integer(c_int64_t) :: out_c
-      end function convect_shallow_use_shfrc_codon
-   end interface
+	     function convect_shallow_use_shfrc_codon(scheme_len_c, scheme_ascii_p) result(out_c) &
+	          bind(c, name="convect_shallow_use_shfrc_codon")
+	        use iso_c_binding, only: c_int64_t, c_ptr
+	        integer(c_int64_t), value :: scheme_len_c
+	        type(c_ptr), value :: scheme_ascii_p
+	        integer(c_int64_t) :: out_c
+	     end function convect_shallow_use_shfrc_codon
+	     function convect_shallow_register_decision_codon(scheme_len_c, scheme_ascii_p, use_gw_convect_sh_c) &
+	          result(mask_c) bind(c, name="convect_shallow_register_decision_codon")
+	        use iso_c_binding, only: c_int64_t, c_ptr
+	        integer(c_int64_t), value :: scheme_len_c, use_gw_convect_sh_c
+	        type(c_ptr), value :: scheme_ascii_p
+	        integer(c_int64_t) :: mask_c
+	     end function convect_shallow_register_decision_codon
+	  end interface
 
    contains
 
@@ -105,14 +113,26 @@
   ! Purpose : Register fields with the physics buffer !
   !-------------------------------------------------- !
 
-  use physics_buffer, only : pbuf_add_field, dtype_r8, dyn_time_lvls
-  use phys_control, only: use_gw_convect_sh
-  use unicon_cam,     only: unicon_cam_register
-  
-  call phys_getopts( shallow_scheme_out = shallow_scheme, microp_scheme_out = microp_scheme)
-                     
+	  use physics_buffer, only : pbuf_add_field, dtype_r8, dyn_time_lvls
+	  use phys_control, only: use_gw_convect_sh
+	  use unicon_cam,     only: unicon_cam_register
+	  use spmd_utils,     only: masterproc
+	  use iso_c_binding,  only: c_int64_t, c_loc
 
-  call pbuf_add_field('ICWMRSH',    'physpkg' ,dtype_r8,(/pcols,pver/),       icwmrsh_idx )
+	  integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
+	  integer(c_int64_t) :: register_mask
+	  integer :: i
+
+	  call phys_getopts( shallow_scheme_out = shallow_scheme, microp_scheme_out = microp_scheme)
+
+	  do i = 1, len(shallow_scheme)
+	     scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
+	  end do
+	  register_mask = convect_shallow_register_decision_codon( &
+	       int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)), &
+	       merge(1_c_int64_t, 0_c_int64_t, use_gw_convect_sh))
+
+	  call pbuf_add_field('ICWMRSH',    'physpkg' ,dtype_r8,(/pcols,pver/),       icwmrsh_idx )
   call pbuf_add_field('RPRDSH',     'physpkg' ,dtype_r8,(/pcols,pver/),       rprdsh_idx )
   call pbuf_add_field('RPRDTOT',    'physpkg' ,dtype_r8,(/pcols,pver/),       rprdtot_idx )
   call pbuf_add_field('CLDTOP',     'physpkg' ,dtype_r8,(/pcols,1/),          cldtop_idx )
@@ -122,9 +142,9 @@
   call pbuf_add_field('PREC_SH',    'physpkg' ,dtype_r8,(/pcols/),            prec_sh_idx )
   call pbuf_add_field('SNOW_SH',    'physpkg' ,dtype_r8,(/pcols/),            snow_sh_idx )
 
-  if (shallow_scheme .eq. 'UW' .or. shallow_scheme .eq. 'UNICON') then
-     call pbuf_add_field('shfrc', 'physpkg', dtype_r8, (/pcols,pver/), shfrc_idx)
-  end if
+	  if (iand(int(register_mask), 1) /= 0) then
+	     call pbuf_add_field('shfrc', 'physpkg', dtype_r8, (/pcols,pver/), shfrc_idx)
+	  end if
 
 ! shallow interface gbm flux_convective_cloud_rain+snow (kg/m2/s)
   call pbuf_add_field('SH_FLXPRC','physpkg',dtype_r8,(/pcols,pverp/),sh_flxprc_idx)  
@@ -139,15 +159,24 @@
   call pbuf_add_field('SH_CLDICE','physpkg',dtype_r8,(/pcols,pver/),sh_cldice_idx)  
 
   ! If gravity waves from shallow convection are on, output this field.
-  if (use_gw_convect_sh) then
-     call pbuf_add_field('TTEND_SH','physpkg',dtype_r8,(/pcols,pver/),ttend_sh_idx)
-  end if
+	  if (iand(int(register_mask), 2) /= 0) then
+	     call pbuf_add_field('TTEND_SH','physpkg',dtype_r8,(/pcols,pver/),ttend_sh_idx)
+	  end if
 
-  if (shallow_scheme .eq. 'UNICON') then
-     call unicon_cam_register()
-  end if
+	  if (iand(int(register_mask), 4) /= 0) then
+	     call unicon_cam_register()
+	  end if
 
-  end subroutine convect_shallow_register
+	  if (masterproc .and. .not. convect_shallow_register_logged) then
+	     convect_shallow_register_logged = .true.
+	     write(iulog,'(A)') &
+	          'convect_shallow_register direct = codon; pbuf_add_field/unicon_cam_register native CAM API islands'
+	     call convect_shallow_append_proof( &
+	          'convect_shallow_register direct = codon; pbuf_add_field/unicon_cam_register native CAM API islands')
+	     call flush(iulog)
+	  end if
+
+	  end subroutine convect_shallow_register
 
   !=============================================================================== !
   !                                                                                !

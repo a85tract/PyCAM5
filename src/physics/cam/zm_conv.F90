@@ -102,14 +102,56 @@ module zm_conv
    logical :: use_native_zm_qsat_hpa = .false.
    logical :: zm_qsat_hpa_selected = .false.
    logical :: zm_qsat_hpa_logged = .false.
+   logical :: use_native_zm_convi = .false.
+   logical :: zm_convi_selected = .false.
+   logical :: zm_convi_logged = .false.
 
 contains
+
+
+subroutine zm_convi_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_convi_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONVI_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_convi = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_convi = .false.
+   end if
+
+   zm_convi_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_convi) then
+         write(iulog,*) 'zm_convi implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_convi implementation = native')
+      else
+         write(iulog,*) 'zm_convi implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_convi implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_convi_select_impl
 
 
 subroutine zm_convi(limcnv_in, zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_ke_lnd, &
                     zmconv_org, no_deep_pbl_in)
 
    use dycore,       only: dycore_is, get_resolution
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in)           :: limcnv_in       ! top interface level limit for convection
    real(r8),intent(in)           :: zmconv_c0_lnd
@@ -121,35 +163,97 @@ subroutine zm_convi(limcnv_in, zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_k
 
    ! local variables
    character(len=32)   :: hgrid           ! horizontal grid specifier
+   integer(c_int64_t) :: no_deep_present_c, no_deep_value_c
+   integer(c_int64_t), target :: limcnv_c, no_deep_pbl_c, zm_org_c
+   real(c_double), target :: tfreez_c, eps1_c, rl_c, cpres_c
+   real(c_double), target :: rgrav_c, rgas_c, grav_c, cp_c
+   real(c_double), target :: c0_lnd_c, c0_ocn_c, ke_c, ke_lnd_c, tau_c
+
+   interface
+      subroutine zm_convi_codon(limcnv_in_c, zmconv_c0_lnd_c, zmconv_c0_ocn_c, zmconv_ke_c, &
+           zmconv_ke_lnd_c, zmconv_org_c, no_deep_present_c, no_deep_value_c, tmelt_c, epsilo_c, &
+           latvap_c, cpair_c, gravit_c, rair_c, limcnv_p, tfreez_p, eps1_p, rl_p, cpres_p, &
+           rgrav_p, rgas_p, grav_p, cp_p, c0_lnd_p, c0_ocn_p, ke_p, ke_lnd_p, zm_org_p, &
+           no_deep_pbl_p, tau_p) bind(c, name="zm_convi_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: limcnv_in_c, zmconv_org_c, no_deep_present_c, no_deep_value_c
+        real(c_double), value :: zmconv_c0_lnd_c, zmconv_c0_ocn_c, zmconv_ke_c, zmconv_ke_lnd_c
+        real(c_double), value :: tmelt_c, epsilo_c, latvap_c, cpair_c, gravit_c, rair_c
+        type(c_ptr), value :: limcnv_p, tfreez_p, eps1_p, rl_p, cpres_p
+        type(c_ptr), value :: rgrav_p, rgas_p, grav_p, cp_p, c0_lnd_p, c0_ocn_p
+        type(c_ptr), value :: ke_p, ke_lnd_p, zm_org_p, no_deep_pbl_p, tau_p
+      end subroutine zm_convi_codon
+   end interface
 
    ! Initialization of ZM constants
-   limcnv = limcnv_in
-   tfreez = tmelt
-   eps1   = epsilo
-   rl     = latvap
-   cpres  = cpair
-   rgrav  = 1.0_r8/gravit
-   rgas   = rair
-   grav   = gravit
-   cp     = cpres
 
-   c0_lnd = zmconv_c0_lnd
-   c0_ocn = zmconv_c0_ocn
-   ke     = zmconv_ke
-   ke_lnd = zmconv_ke_lnd
-   zm_org = zmconv_org
+   call zm_convi_select_impl()
 
-   if ( present(no_deep_pbl_in) )  then
-      no_deep_pbl = no_deep_pbl_in
+   if (use_native_zm_convi) then
+      limcnv = limcnv_in
+      tfreez = tmelt
+      eps1   = epsilo
+      rl     = latvap
+      cpres  = cpair
+      rgrav  = 1.0_r8/gravit
+      rgas   = rair
+      grav   = gravit
+      cp     = cpres
+
+      c0_lnd = zmconv_c0_lnd
+      c0_ocn = zmconv_c0_ocn
+      ke     = zmconv_ke
+      ke_lnd = zmconv_ke_lnd
+      zm_org = zmconv_org
+
+      if ( present(no_deep_pbl_in) )  then
+         no_deep_pbl = no_deep_pbl_in
+      else
+         no_deep_pbl = .false.
+      endif
    else
-      no_deep_pbl = .false.
+      no_deep_present_c = merge(1_c_int64_t, 0_c_int64_t, present(no_deep_pbl_in))
+      no_deep_value_c = 0_c_int64_t
+      if (present(no_deep_pbl_in)) then
+         no_deep_value_c = merge(1_c_int64_t, 0_c_int64_t, no_deep_pbl_in)
+      end if
+
+      call zm_convi_codon(int(limcnv_in, c_int64_t), real(zmconv_c0_lnd, c_double), &
+           real(zmconv_c0_ocn, c_double), real(zmconv_ke, c_double), &
+           real(zmconv_ke_lnd, c_double), merge(1_c_int64_t, 0_c_int64_t, zmconv_org), &
+           no_deep_present_c, no_deep_value_c, real(tmelt, c_double), real(epsilo, c_double), &
+           real(latvap, c_double), real(cpair, c_double), real(gravit, c_double), real(rair, c_double), &
+           c_loc(limcnv_c), c_loc(tfreez_c), c_loc(eps1_c), c_loc(rl_c), c_loc(cpres_c), &
+           c_loc(rgrav_c), c_loc(rgas_c), c_loc(grav_c), c_loc(cp_c), c_loc(c0_lnd_c), &
+           c_loc(c0_ocn_c), c_loc(ke_c), c_loc(ke_lnd_c), c_loc(zm_org_c), &
+           c_loc(no_deep_pbl_c), c_loc(tau_c))
+
+      limcnv = int(limcnv_c)
+      tfreez = real(tfreez_c, r8)
+      eps1 = real(eps1_c, r8)
+      rl = real(rl_c, r8)
+      cpres = real(cpres_c, r8)
+      rgrav = real(rgrav_c, r8)
+      rgas = real(rgas_c, r8)
+      grav = real(grav_c, r8)
+      cp = real(cp_c, r8)
+      c0_lnd = real(c0_lnd_c, r8)
+      c0_ocn = real(c0_ocn_c, r8)
+      ke = real(ke_c, r8)
+      ke_lnd = real(ke_lnd_c, r8)
+      zm_org = zm_org_c /= 0_c_int64_t
+      no_deep_pbl = no_deep_pbl_c /= 0_c_int64_t
+      tau = real(tau_c, r8)
+
+      call zm_conv_log_direct(zm_convi_logged, &
+           'zm_convi direct = codon; get_resolution/logging native islands')
    endif
 
    ! tau=4800. were used in canadian climate center. however, in echam3 t42,
    ! convection is too weak, thus adjusted to 2400.
 
    hgrid = get_resolution()
-   tau = 3600._r8
+   if (use_native_zm_convi) tau = 3600._r8
 
    if ( masterproc ) then
       write(iulog,*) 'tuning parameters zm_convi: tau',tau
