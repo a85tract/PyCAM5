@@ -108,6 +108,9 @@ module zm_conv
    logical :: use_native_zm_closure = .false.
    logical :: zm_closure_selected = .false.
    logical :: zm_closure_logged = .false.
+   logical :: use_native_zm_buoyan_dilute = .false.
+   logical :: zm_buoyan_dilute_selected = .false.
+   logical :: zm_buoyan_dilute_logged = .false.
    logical :: use_native_zm_parcel_dilute = .false.
    logical :: zm_parcel_dilute_selected = .false.
    logical :: zm_parcel_dilute_logged = .false.
@@ -674,6 +677,44 @@ subroutine zm_closure_select_impl()
    end if
 
 end subroutine zm_closure_select_impl
+
+
+subroutine zm_buoyan_dilute_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_buoyan_dilute_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_BUOYAN_DILUTE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_buoyan_dilute = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_buoyan_dilute = .false.
+   end if
+
+   zm_buoyan_dilute_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_buoyan_dilute) then
+         write(iulog,*) 'zm_buoyan_dilute implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_buoyan_dilute implementation = native')
+      else
+         write(iulog,*) 'zm_buoyan_dilute implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_buoyan_dilute implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_buoyan_dilute_select_impl
 
 
 subroutine zm_parcel_dilute_select_impl()
@@ -4880,6 +4921,9 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 ! Richard Neale - September 2004
 !
 !-----------------------------------------------------------------------
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+   use wv_sat_methods, only: wv_sat_get_default_idx
+
    implicit none
 !-----------------------------------------------------------------------
 !
@@ -4888,48 +4932,61 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
    integer, intent(in) :: lchnk                 ! chunk identifier
    integer, intent(in) :: ncol                  ! number of atmospheric columns
 
-   real(r8), intent(in) :: q(pcols,pver)        ! spec. humidity
-   real(r8), intent(in) :: t(pcols,pver)        ! temperature
-   real(r8), intent(in) :: p(pcols,pver)        ! pressure
-   real(r8), intent(in) :: z(pcols,pver)        ! height
-   real(r8), intent(in) :: pf(pcols,pver+1)     ! pressure at interfaces
-   real(r8), intent(in) :: pblt(pcols)          ! index of pbl depth
-   real(r8), intent(in) :: tpert(pcols)         ! perturbation temperature by pbl processes
+   real(r8), target, intent(in) :: q(pcols,pver)        ! spec. humidity
+   real(r8), target, intent(in) :: t(pcols,pver)        ! temperature
+   real(r8), target, intent(in) :: p(pcols,pver)        ! pressure
+   real(r8), target, intent(in) :: z(pcols,pver)        ! height
+   real(r8), target, intent(in) :: pf(pcols,pver+1)     ! pressure at interfaces
+   real(r8), target, intent(in) :: pblt(pcols)          ! index of pbl depth
+   real(r8), target, intent(in) :: tpert(pcols)         ! perturbation temperature by pbl processes
 
 !
 ! output arguments
 !
-   real(r8), intent(out) :: tp(pcols,pver)       ! parcel temperature
-   real(r8), intent(out) :: qstp(pcols,pver)     ! saturation mixing ratio of parcel (only above lcl, just q below).
-   real(r8), intent(out) :: tl(pcols)            ! parcel temperature at lcl
-   real(r8), intent(out) :: cape(pcols)          ! convective aval. pot. energy.
-   integer lcl(pcols)        !
-   integer lel(pcols)        !
-   integer lon(pcols)        ! level of onset of deep convection
-   integer mx(pcols)         ! level of max moist static energy
+   real(r8), target, intent(out) :: tp(pcols,pver)       ! parcel temperature
+   real(r8), target, intent(out) :: qstp(pcols,pver)     ! saturation mixing ratio of parcel (only above lcl, just q below).
+   real(r8), target, intent(out) :: tl(pcols)            ! parcel temperature at lcl
+   real(r8), target, intent(out) :: cape(pcols)          ! convective aval. pot. energy.
+   integer, target :: lcl(pcols)        !
+   integer, target :: lel(pcols)        !
+   integer, target :: lon(pcols)        ! level of onset of deep convection
+   integer, target :: mx(pcols)         ! level of max moist static energy
 
    real(r8), pointer :: org(:,:)      ! organization parameter
-   real(r8), intent(in) :: landfrac(pcols)
+   real(r8), target, intent(in) :: landfrac(pcols)
 !
 !--------------------------Local Variables------------------------------
 !
-   real(r8) capeten(pcols,5)     ! provisional value of cape
-   real(r8) tv(pcols,pver)       !
-   real(r8) tpv(pcols,pver)      !
-   real(r8) buoy(pcols,pver)
+   real(r8), target :: capeten(pcols,5)     ! provisional value of cape
+   real(r8), target :: tv(pcols,pver)       !
+   real(r8), target :: tpv(pcols,pver)      !
+   real(r8), target :: buoy(pcols,pver)
 
    real(r8) a1(pcols)
    real(r8) a2(pcols)
    real(r8) estp(pcols)
-   real(r8) pl(pcols)
+   real(r8), target :: pl(pcols)
    real(r8) plexp(pcols)
-   real(r8) hmax(pcols)
-   real(r8) hmn(pcols)
+   real(r8), target :: hmax(pcols)
+   real(r8), target :: hmn(pcols)
    real(r8) y(pcols)
 
    logical plge600(pcols)
-   integer knt(pcols)
-   integer lelten(pcols,5)
+   integer, target :: knt(pcols)
+   integer, target :: lelten(pcols,5)
+   real(r8), target :: tmix(pcols,pver)
+   real(r8), target :: qtmix(pcols,pver)
+   real(r8), target :: qsmix(pcols,pver)
+   real(r8), target :: smix(pcols,pver)
+   real(r8), target :: xsh2o(pcols,pver)
+   real(r8), target :: ds_xsh2o(pcols,pver)
+   real(r8), target :: ds_freeze(pcols,pver)
+   real(r8), target :: mp(pcols)
+   real(r8), target :: qtp(pcols)
+   real(r8), target :: sp(pcols)
+   real(r8), target :: sp0(pcols)
+   real(r8), target :: qtp0(pcols)
+   real(r8), target :: mp0(pcols)
 
    real(r8) cp
    real(r8) e
@@ -4942,12 +4999,60 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 
    real(r8) rd
    real(r8) rl
+   type(c_ptr) :: org_p
+   integer(c_int64_t), target :: buoyan_status_c
 #ifdef PERGRO
    real(r8) rhd
 #endif
+   interface
+      subroutine zm_buoyan_dilute_codon(lchnk_c, ncol_c, msg_c, pcols_c, pver_c, pverp_c, zm_org_c, &
+           tiedke_add_c, rl_c, rd_c, grav_c, cp_c, rgas_c, cpliq_c, tfreez_c, latice_c, cpwv_c, &
+           cpres_c, eps1_c, rh2o_c, epsilo_c, omeps_c, wv_idx_c, q_p, t_p, p_p, z_p, pf_p, pblt_p, tpert_p, &
+           tp_p, qstp_p, tl_p, cape_p, lcl_p, lel_p, lon_p, mx_p, org_p, landfrac_p, capeten_p, &
+           tv_p, tpv_p, buoy_p, pl_p, hmax_p, hmn_p, knt_p, lelten_p, tmix_p, qtmix_p, qsmix_p, &
+           smix_p, xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p, status_p) &
+           bind(c, name="zm_buoyan_dilute_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lchnk_c, ncol_c, msg_c, pcols_c, pver_c, pverp_c, zm_org_c, wv_idx_c
+         real(c_double), value :: tiedke_add_c, rl_c, rd_c, grav_c, cp_c, rgas_c, cpliq_c
+         real(c_double), value :: tfreez_c, latice_c, cpwv_c, cpres_c, eps1_c, rh2o_c, epsilo_c, omeps_c
+         type(c_ptr), value :: q_p, t_p, p_p, z_p, pf_p, pblt_p, tpert_p, tp_p, qstp_p
+         type(c_ptr), value :: tl_p, cape_p, lcl_p, lel_p, lon_p, mx_p, org_p, landfrac_p
+         type(c_ptr), value :: capeten_p, tv_p, tpv_p, buoy_p, pl_p, hmax_p, hmn_p
+         type(c_ptr), value :: knt_p, lelten_p, tmix_p, qtmix_p, qsmix_p, smix_p
+         type(c_ptr), value :: xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p
+         type(c_ptr), value :: sp0_p, qtp0_p, mp0_p, status_p
+      end subroutine zm_buoyan_dilute_codon
+   end interface
 !
 !-----------------------------------------------------------------------
 !
+   call zm_buoyan_dilute_select_impl()
+   if (.not. use_native_zm_buoyan_dilute) then
+      buoyan_status_c = 1_c_int64_t
+      org_p = c_null_ptr
+      if (zm_org .and. associated(org)) org_p = c_loc(org(1,1))
+      call zm_conv_log_direct(zm_buoyan_dilute_logged, &
+           'buoyan_dilute direct = codon; parcel_dilute direct = codon; entropy expression native callback')
+      call zm_buoyan_dilute_codon(int(lchnk, c_int64_t), int(ncol, c_int64_t), int(msg, c_int64_t), &
+           int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, zm_org), real(tiedke_add, c_double), real(rl, c_double), &
+           real(rd, c_double), real(grav, c_double), real(cp, c_double), real(rgas, c_double), &
+           real(cpliq, c_double), real(tfreez, c_double), real(latice, c_double), real(cpwv, c_double), &
+           real(cpres, c_double), real(eps1, c_double), real(rh2o, c_double), real(epsilo, c_double), &
+           real(1._r8 - epsilo, c_double), int(wv_sat_get_default_idx(), c_int64_t), c_loc(q), c_loc(t), &
+           c_loc(p), c_loc(z), c_loc(pf), c_loc(pblt), c_loc(tpert), c_loc(tp), c_loc(qstp), &
+           c_loc(tl), c_loc(cape), c_loc(lcl), c_loc(lel), c_loc(lon), c_loc(mx), org_p, &
+           c_loc(landfrac), c_loc(capeten), c_loc(tv), c_loc(tpv), c_loc(buoy), c_loc(pl), &
+           c_loc(hmax), c_loc(hmn), c_loc(knt), c_loc(lelten), c_loc(tmix), c_loc(qtmix), &
+           c_loc(qsmix), c_loc(smix), c_loc(xsh2o), c_loc(ds_xsh2o), c_loc(ds_freeze), &
+           c_loc(mp), c_loc(qtp), c_loc(sp), c_loc(sp0), c_loc(qtp0), c_loc(mp0), c_loc(buoyan_status_c))
+      if (buoyan_status_c == 0_c_int64_t) then
+         call endrun('**** ZM_CONV IENTROPY: Tmix did not converge in Codon buoyan_dilute ****')
+      end if
+      return
+   end if
+
    do n = 1,5
       do i = 1,ncol
          lelten(i,n) = pver

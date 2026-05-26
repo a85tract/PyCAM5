@@ -4998,6 +4998,278 @@ def zm_parcel_dilute_codon(
         kk -= 1
 
 
+@inline
+def _zm_nint_codon(value: float) -> int:
+    if value >= 0.0:
+        return int(value + 0.5)
+    return int(value - 0.5)
+
+
+@export
+def zm_buoyan_dilute_codon(
+    lchnk: int,
+    ncol: int,
+    msg: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    zm_org: int,
+    tiedke_add: float,
+    rl: float,
+    rd: float,
+    grav: float,
+    cp: float,
+    rgas: float,
+    cpliq: float,
+    tfreez: float,
+    latice: float,
+    cpwv: float,
+    cpres: float,
+    eps1: float,
+    rh2o: float,
+    epsilo: float,
+    omeps: float,
+    wv_idx: int,
+    q_p: cobj,
+    t_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    pf_p: cobj,
+    pblt_p: cobj,
+    tpert_p: cobj,
+    tp_p: cobj,
+    qstp_p: cobj,
+    tl_p: cobj,
+    cape_p: cobj,
+    lcl_p: cobj,
+    lel_p: cobj,
+    lon_p: cobj,
+    mx_p: cobj,
+    org_p: cobj,
+    landfrac_p: cobj,
+    capeten_p: cobj,
+    tv_p: cobj,
+    tpv_p: cobj,
+    buoy_p: cobj,
+    pl_p: cobj,
+    hmax_p: cobj,
+    hmn_p: cobj,
+    knt_p: cobj,
+    lelten_p: cobj,
+    tmix_p: cobj,
+    qtmix_p: cobj,
+    qsmix_p: cobj,
+    smix_p: cobj,
+    xsh2o_p: cobj,
+    ds_xsh2o_p: cobj,
+    ds_freeze_p: cobj,
+    mp_p: cobj,
+    qtp_p: cobj,
+    sp_p: cobj,
+    sp0_p: cobj,
+    qtp0_p: cobj,
+    mp0_p: cobj,
+    status_p: cobj,
+):
+    q = Ptr[float](q_p)
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    z = Ptr[float](z_p)
+    pf = Ptr[float](pf_p)
+    pblt = Ptr[float](pblt_p)
+    tpert = Ptr[float](tpert_p)
+    tp = Ptr[float](tp_p)
+    qstp = Ptr[float](qstp_p)
+    tl = Ptr[float](tl_p)
+    cape = Ptr[float](cape_p)
+    lcl = Ptr[i32](lcl_p)
+    lel = Ptr[i32](lel_p)
+    lon = Ptr[i32](lon_p)
+    mx = Ptr[i32](mx_p)
+    org = Ptr[float](org_p)
+    landfrac = Ptr[float](landfrac_p)
+    capeten = Ptr[float](capeten_p)
+    tv = Ptr[float](tv_p)
+    tpv = Ptr[float](tpv_p)
+    buoy = Ptr[float](buoy_p)
+    pl = Ptr[float](pl_p)
+    hmax = Ptr[float](hmax_p)
+    hmn = Ptr[float](hmn_p)
+    knt = Ptr[i32](knt_p)
+    lelten = Ptr[i32](lelten_p)
+    status = Ptr[int](status_p)
+
+    status[0] = 1
+
+    n0 = 0
+    while n0 < 5:
+        i = 0
+        while i < ncol:
+            lelten[i + n0 * pcols] = i32(pver)
+            capeten[i + n0 * pcols] = 0.0
+            i += 1
+        n0 += 1
+
+    i = 0
+    while i < ncol:
+        lon[i] = i32(pver)
+        knt[i] = i32(0)
+        lel[i] = i32(pver)
+        mx[i] = lon[i]
+        cape[i] = 0.0
+        hmax[i] = 0.0
+        i += 1
+
+    k0 = 0
+    while k0 < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k0 * pcols
+            tp[idx] = t[idx]
+            qstp[idx] = q[idx]
+            tv[idx] = t[idx] * (1.0 + 1.608 * q[idx]) / (1.0 + q[idx])
+            tpv[idx] = tv[idx]
+            buoy[idx] = 0.0
+            i += 1
+        k0 += 1
+
+    kk = pver
+    while kk >= msg + 1:
+        k0 = kk - 1
+        i = 0
+        while i < ncol:
+            idx = i + k0 * pcols
+            hmn[i] = cp * t[idx] + grav * z[idx] + rl * q[idx]
+            if kk >= _zm_nint_codon(pblt[i]) and kk <= int(lon[i]) and hmn[i] > hmax[i]:
+                hmax[i] = hmn[i]
+                mx[i] = i32(kk)
+            i += 1
+        kk -= 1
+
+    i = 0
+    while i < ncol:
+        mx_i = int(mx[i])
+        mx_idx = i + (mx_i - 1) * pcols
+        lcl[i] = mx[i]
+        tl[i] = t[mx_idx]
+        pl[i] = p[mx_idx]
+        i += 1
+
+    zm_parcel_dilute_codon(
+        lchnk,
+        ncol,
+        msg,
+        pcols,
+        pver,
+        zm_org,
+        grav,
+        rgas,
+        cpliq,
+        tfreez,
+        latice,
+        rl,
+        cpwv,
+        cpres,
+        eps1,
+        rh2o,
+        epsilo,
+        omeps,
+        wv_idx,
+        mx_p,
+        p_p,
+        t_p,
+        q_p,
+        tpert_p,
+        tp_p,
+        tpv_p,
+        qstp_p,
+        pl_p,
+        tl_p,
+        lcl_p,
+        org_p,
+        landfrac_p,
+        tmix_p,
+        qtmix_p,
+        qsmix_p,
+        smix_p,
+        xsh2o_p,
+        ds_xsh2o_p,
+        ds_freeze_p,
+        mp_p,
+        qtp_p,
+        sp_p,
+        sp0_p,
+        qtp0_p,
+        mp0_p,
+        status_p,
+    )
+    if status[0] == 0:
+        return
+
+    kk = pver
+    while kk >= msg + 1:
+        k0 = kk - 1
+        i = 0
+        while i < ncol:
+            idx = i + k0 * pcols
+            if kk <= int(mx[i]) and pl[i] >= 600.0:
+                tv[idx] = t[idx] * (1.0 + 1.608 * q[idx]) / (1.0 + q[idx])
+                buoy[idx] = tpv[idx] - tv[idx] + tiedke_add
+            else:
+                qstp[idx] = q[idx]
+                tp[idx] = t[idx]
+                tpv[idx] = tv[idx]
+            i += 1
+        kk -= 1
+
+    kk = msg + 2
+    while kk <= pver:
+        k0 = kk - 1
+        i = 0
+        while i < ncol:
+            if kk < int(lcl[i]) and pl[i] >= 600.0:
+                idx = i + k0 * pcols
+                idxp1 = i + kk * pcols
+                if buoy[idxp1] > 0.0 and buoy[idx] <= 0.0:
+                    knt_i = min(5, int(knt[i]) + 1)
+                    knt[i] = i32(knt_i)
+                    lelten[i + (knt_i - 1) * pcols] = i32(kk)
+            i += 1
+        kk += 1
+
+    n0 = 0
+    while n0 < 5:
+        kk = msg + 1
+        while kk <= pver:
+            k0 = kk - 1
+            i = 0
+            while i < ncol:
+                if pl[i] >= 600.0 and kk <= int(mx[i]) and kk > int(lelten[i + n0 * pcols]):
+                    idx = i + k0 * pcols
+                    capeten[i + n0 * pcols] = (
+                        capeten[i + n0 * pcols] + rd * buoy[idx] * log(pf[i + kk * pcols] / pf[idx])
+                    )
+                i += 1
+            kk += 1
+        n0 += 1
+
+    n0 = 0
+    while n0 < 5:
+        i = 0
+        while i < ncol:
+            capeten_idx = i + n0 * pcols
+            if capeten[capeten_idx] > cape[i]:
+                cape[i] = capeten[capeten_idx]
+                lel[i] = lelten[capeten_idx]
+            i += 1
+        n0 += 1
+
+    i = 0
+    while i < ncol:
+        cape[i] = max(cape[i], 0.0)
+        i += 1
+
+
 @export
 def zm_conv_tend_2_lq_mask_codon(
     pcnst: int,
