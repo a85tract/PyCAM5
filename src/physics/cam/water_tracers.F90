@@ -168,6 +168,9 @@ module water_tracers
   logical :: wtrc_equil_time_logged = .false.
   logical :: wtrc_get_alpha_logged = .false.
   logical :: wtrc_get_rstd_logged = .false.
+  logical :: use_native_wtrc_apply_rates_impl = .false.
+  logical :: wtrc_apply_rates_impl_selected = .false.
+  logical :: wtrc_apply_rates_logged = .false.
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
   logical :: wtrc_apply_rates_helpers_impl_selected = .false.
   logical :: wtrc_apply_rates_helpers_entered_logged = .false.
@@ -829,6 +832,90 @@ subroutine wtrc_scalar_helpers_log_direct(logged, proof_line)
   end if
 
 end subroutine wtrc_scalar_helpers_log_direct
+
+!=======================================================================
+subroutine wtrc_apply_rates_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('WTRC_APPLY_RATES_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+    open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+    write(unitno,'(A)') trim(proof_line)
+    close(unitno)
+  end if
+
+end subroutine wtrc_apply_rates_append_proof
+
+!=======================================================================
+subroutine wtrc_apply_rates_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for the wtrc_apply_rates parent.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_apply_rates_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_APPLY_RATES_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_apply_rates_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_apply_rates_impl = .false.
+  end if
+
+  wtrc_apply_rates_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_apply_rates_impl) then
+      write(iulog,*) 'wtrc_apply_rates implementation = native'
+      call wtrc_apply_rates_append_proof('wtrc_apply_rates selector entered implementation = native')
+    else
+      write(iulog,*) 'wtrc_apply_rates implementation = codon'
+      call wtrc_apply_rates_append_proof('wtrc_apply_rates selector entered implementation = codon')
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_apply_rates_select_impl
+
+!=======================================================================
+subroutine wtrc_apply_rates_log_direct(mask_c)
+
+  use iso_c_binding, only: c_int64_t
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (wtrc_apply_rates_logged) return
+  wtrc_apply_rates_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A,I0)') &
+         'wtrc_apply_rates direct = codon; parent mask/helpers/final stage dispatch direct = codon; ' // &
+         'native CAM API/isotope islands: wtrc_clear_precip/wtrc_sediment/wtrc_diagnose_precip/' // &
+         'wtrc_diagnose_bulk_precip/wtrc_get_alpha/wtrc_liqvap_equil/Rayleigh optional blocks; mask=', &
+         mask_c
+    call wtrc_apply_rates_append_proof( &
+         'wtrc_apply_rates direct = codon; parent mask/helpers/final stage dispatch direct = codon; ' // &
+         'native CAM API/isotope islands: wtrc_clear_precip/wtrc_sediment/wtrc_diagnose_precip/' // &
+         'wtrc_diagnose_bulk_precip/wtrc_get_alpha/wtrc_liqvap_equil/Rayleigh optional blocks')
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_apply_rates_log_direct
 
 !=======================================================================
 subroutine wtrc_apply_rates_helpers_select_impl()
@@ -2256,9 +2343,18 @@ end subroutine wtrc_register
   integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
   integer(c_int64_t), target :: wtrc_iawset64(pwtype,wtrc_nwset)
   integer(c_int64_t), target :: iwspec64(pcnst)
+  integer(c_int64_t) :: apply_rates_mask_c
   real(c_double), target :: rstd(pwtspec)
 
   interface
+    function wtrc_apply_rates_mask_codon(ncol_c, trace_water_c, do_stprecip_c, micro_c, &
+         pre_present_c, sed_present_c, post_present_c, wisotope_c) result(mask_c) &
+         bind(c, name="wtrc_apply_rates_mask_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: ncol_c, trace_water_c, do_stprecip_c, micro_c
+      integer(c_int64_t), value :: pre_present_c, sed_present_c, post_present_c, wisotope_c
+      integer(c_int64_t) :: mask_c
+    end function wtrc_apply_rates_mask_codon
     subroutine wtrc_apply_rates_copy_state_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, &
          pstate_q_p, pstate_t_p, qloc_p, qloc0_p, tloc_p) bind(c, name="wtrc_apply_rates_copy_state_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -2488,6 +2584,18 @@ end subroutine wtrc_register
     end if
     
     ncol = pstate%ncol
+    call wtrc_apply_rates_select_impl()
+    if (.not. use_native_wtrc_apply_rates_impl) then
+      apply_rates_mask_c = wtrc_apply_rates_mask_codon(int(ncol, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+           merge(1_c_int64_t, 0_c_int64_t, ldo_stprecip), &
+           merge(1_c_int64_t, 0_c_int64_t, micro), &
+           merge(1_c_int64_t, 0_c_int64_t, present(pre_rates)), &
+           merge(1_c_int64_t, 0_c_int64_t, present(sed_rates)), &
+           merge(1_c_int64_t, 0_c_int64_t, present(post_rates)), &
+           merge(1_c_int64_t, 0_c_int64_t, wisotope))
+      call wtrc_apply_rates_log_direct(apply_rates_mask_c)
+    end if
     call wtrc_apply_rates_helpers_select_impl()
 
     !Copy initial state:

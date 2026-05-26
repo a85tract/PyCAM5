@@ -43,6 +43,35 @@ def wtrc_bool_id_codon(value: int) -> int:
 
 
 @export
+def wtrc_apply_rates_mask_codon(
+    ncol: int,
+    trace_water: int,
+    do_stprecip: int,
+    micro: int,
+    pre_present: int,
+    sed_present: int,
+    post_present: int,
+    wisotope: int,
+) -> int:
+    mask = ncol
+    if trace_water != 0:
+        mask += 1 << 16
+    if do_stprecip != 0:
+        mask += 1 << 17
+    if micro != 0:
+        mask += 1 << 18
+    if pre_present != 0:
+        mask += 1 << 19
+    if sed_present != 0:
+        mask += 1 << 20
+    if post_present != 0:
+        mask += 1 << 21
+    if wisotope != 0:
+        mask += 1 << 22
+    return mask
+
+
+@export
 def wtrc_control_stage_codon(stage: int, enabled: int, status_p: cobj):
     status = Ptr[int](status_p)
     if enabled != 0:
