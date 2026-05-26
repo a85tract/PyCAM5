@@ -173,6 +173,9 @@ module water_tracers
   logical :: wtrc_apply_rates_helpers_entered_logged = .false.
   logical :: wtrc_apply_rates_normal_batch_logged = .false.
   logical :: wtrc_apply_rates_final_stage_logged = .false.
+  logical :: use_native_wtrc_sediment_impl = .false.
+  logical :: wtrc_sediment_impl_selected = .false.
+  logical :: wtrc_sediment_logged = .false.
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
   logical :: wtrc_batch_entered_logged = .false.
@@ -905,6 +908,81 @@ subroutine wtrc_apply_rates_normal_batch_log_entered()
   end if
 
 end subroutine wtrc_apply_rates_normal_batch_log_entered
+
+!=======================================================================
+subroutine wtrc_sediment_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('WTRC_SEDIMENT_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+    open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+    write(unitno,'(A)') trim(proof_line)
+    close(unitno)
+  end if
+
+end subroutine wtrc_sediment_append_proof
+
+!=======================================================================
+subroutine wtrc_sediment_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for wtrc_sediment.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_sediment_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_SEDIMENT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_sediment_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_sediment_impl = .false.
+  end if
+
+  wtrc_sediment_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_sediment_impl) then
+      write(iulog,*) 'wtrc_sediment implementation = native'
+      call wtrc_sediment_append_proof('wtrc_sediment selector entered implementation = native')
+    else
+      write(iulog,*) 'wtrc_sediment implementation = codon'
+      call wtrc_sediment_append_proof('wtrc_sediment selector entered implementation = codon')
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_sediment_select_impl
+
+!=======================================================================
+subroutine wtrc_sediment_log_entered()
+
+  if (wtrc_sediment_logged) return
+  wtrc_sediment_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_sediment entered (sedimentation CFL loop direct = codon; ' // &
+         'pbuf surface precip writeback native CAM API island; wtrc_get_alpha native callback)'
+    call wtrc_sediment_append_proof('wtrc_sediment entered (sedimentation CFL loop direct = codon; ' // &
+         'pbuf surface precip writeback native CAM API island; wtrc_get_alpha native callback)')
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_sediment_log_entered
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -3461,6 +3539,7 @@ subroutine wtrc_sediment(wtrc_niter,ncol,lchnk,top_lev,dtime,wtfc,wtfi,liqcldf,i
 use physconst,      only: gravit, cpair, latvap, latice
 use physics_buffer, only: physics_buffer_desc, pbuf_get_index, pbuf_get_field
 use constituents,   only: cnst_name
+use iso_c_binding,  only: c_double, c_int64_t, c_loc
 
 !*****************
 !Declare variables:
@@ -3472,19 +3551,19 @@ integer, intent(in)  :: ncol                !number of columns in chunk
 integer, intent(in)  :: lchnk               !chunk number
 integer, intent(in)  :: top_lev             !top vertical level
 real(r8), intent(in) :: dtime               !model time step
-real(r8), intent(in) :: wtfc(pcols,pver)    !initial fall velocity of cloud liquid
-real(r8), intent(in) :: wtfi(pcols,pver)    !initial fall velocity of cloud ice
-real(r8), intent(in) :: liqcldf(pcols,pver) !liquid cloud fraction (unitless)
-real(r8), intent(in) :: icecldf(pcols,pver) !ice cloud fraction    (unitless)
-real(r8), intent(in) :: pdel(pcols,pver)    !change in pressure per vertical level
+real(r8), target, intent(in) :: wtfc(pcols,pver)    !initial fall velocity of cloud liquid
+real(r8), target, intent(in) :: wtfi(pcols,pver)    !initial fall velocity of cloud ice
+real(r8), target, intent(in) :: liqcldf(pcols,pver) !liquid cloud fraction (unitless)
+real(r8), target, intent(in) :: icecldf(pcols,pver) !ice cloud fraction    (unitless)
+real(r8), target, intent(in) :: pdel(pcols,pver)    !change in pressure per vertical level
 
 !Input/Output arguments:
 type(physics_buffer_desc), pointer :: pbuf(:)     !physics buffer
 
 real(r8), pointer, dimension(:)    :: srfpcp      !surface precipitation (m/s)
 
-real(r8), intent(inout) :: tloc(pcols,pver)       !air temperature
-real(r8), intent(inout) :: qloc(pcols,pver,pcnst) !current state of water tracers (kg/kg)
+real(r8), target, intent(inout) :: tloc(pcols,pver)       !air temperature
+real(r8), target, intent(inout) :: qloc(pcols,pver,pcnst) !current state of water tracers (kg/kg)
 
 !Local variables:
 integer  :: i,m,n,k                  !loop control variables
@@ -3497,22 +3576,81 @@ real(r8) :: faltndqce                !change in liquid due to sedimentation (no-
 real(r8) :: faltndqie                !change in ice due to sedimentation (no-evap)
 real(r8) :: faltndc                  !change in liquid due to sedimentation
 real(r8) :: faltndi                  !change in ice due to sedimentation
-real(r8) :: fc(pver)                 !cloud liquid fall velocity
-real(r8) :: fi(pver)                 !cloud ice fall velocity  
-real(r8) :: lcldm(pcols,pver)        !liquid cloud fraction
-real(r8) :: icldm(pcols,pver)        !ice cloud fraction
-real(r8) :: faloutc(pver,wtrc_nwset) !falling liquid amount
-real(r8) :: falouti(pver,wtrc_nwset) !falling ice amount
-real(r8) :: precr(pcols,wtrc_nwset)  !rain amount (m/s)
-real(r8) :: preci(pcols,wtrc_nwset)  !snow amount (m/s)
+real(r8), target :: fc(pver)                 !cloud liquid fall velocity
+real(r8), target :: fi(pver)                 !cloud ice fall velocity
+real(r8), target :: lcldm(pcols,pver)        !liquid cloud fraction
+real(r8), target :: icldm(pcols,pver)        !ice cloud fraction
+real(r8), target :: faloutc(pver,wtrc_nwset) !falling liquid amount
+real(r8), target :: falouti(pver,wtrc_nwset) !falling ice amount
+real(r8), target :: precr(pcols,wtrc_nwset)  !rain amount (m/s)
+real(r8), target :: preci(pcols,wtrc_nwset)  !snow amount (m/s)
 
 !water isotopes:
 real(r8) :: alpha                    !fractionation factor
-real(r8) :: dliqiso                  !change in liquid due to isotopic equilibration
+real(r8), target :: dliqiso          !change in liquid due to isotopic equilibration
 real(r8) :: ttmp(pcols,pver)         !temporary air temperature (used for equilibration)
-real(r8) :: tloc0(pcols,pver)        !copy of air temperature 
+real(r8), target :: tloc0(pcols,pver) !copy of air temperature
+integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+integer(c_int64_t), target :: iwspec64(pcnst)
+real(c_double), target :: rstd_isph2o
 
 real(r8), parameter :: mincld = 0.0001_r8 !minimum cloud fraction (unitless)
+
+interface
+  subroutine wtrc_apply_rates_prepare_correction_indices_codon(pcnst_c, pwtype_c, wtrc_nwset_c, &
+       wtrc_max_cnst_c, wtrc_iatype_p, iwspec_p, wtrc_iatype64_p, iwspec64_p) &
+       bind(c, name="wtrc_apply_rates_prepare_correction_indices_codon")
+    use iso_c_binding, only: c_int64_t, c_ptr
+    integer(c_int64_t), value :: pcnst_c, pwtype_c, wtrc_nwset_c, wtrc_max_cnst_c
+    type(c_ptr), value :: wtrc_iatype_p, iwspec_p, wtrc_iatype64_p, iwspec64_p
+  end subroutine wtrc_apply_rates_prepare_correction_indices_codon
+  subroutine wtrc_sediment_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
+       top_lev_c, dtime_c, gravit_c, cpair_c, latvap_c, latice_c, wisotope_c, iwtvap_c, iwtliq_c, iwtice_c, &
+       qmin_c, rstd_isph2o_c, wtfc_p, wtfi_p, liqcldf_p, icecldf_p, pdel_p, tloc_p, qloc_p, &
+       tloc0_p, lcldm_p, icldm_p, fc_p, fi_p, faloutc_p, falouti_p, precr_p, preci_p, &
+       wtrc_iatype_p, iwspec_p, dliqiso_p) bind(c, name="wtrc_sediment_codon")
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+    integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, top_lev_c
+    integer(c_int64_t), value :: wisotope_c, iwtvap_c, iwtliq_c, iwtice_c
+    real(c_double), value :: dtime_c, gravit_c, cpair_c, latvap_c, latice_c, qmin_c, rstd_isph2o_c
+    type(c_ptr), value :: wtfc_p, wtfi_p, liqcldf_p, icecldf_p, pdel_p, tloc_p, qloc_p
+    type(c_ptr), value :: tloc0_p, lcldm_p, icldm_p, fc_p, fi_p, faloutc_p, falouti_p, precr_p, preci_p
+    type(c_ptr), value :: wtrc_iatype_p, iwspec_p, dliqiso_p
+  end subroutine wtrc_sediment_codon
+end interface
+
+call wtrc_sediment_select_impl()
+
+if (.not. use_native_wtrc_sediment_impl) then
+  call wtrc_sediment_log_entered()
+  call wtrc_apply_rates_prepare_correction_indices_codon(int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
+       int(wtrc_nwset, c_int64_t), int(WTRC_MAX_CNST, c_int64_t), &
+       c_loc(wtrc_iatype), c_loc(iwspec), c_loc(wtrc_iatype64), c_loc(iwspec64))
+  rstd_isph2o = real(wtrc_get_rstd(isph2o), c_double)
+  dliqiso = 0._r8
+  call wtrc_sediment_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(top_lev, c_int64_t), &
+       real(dtime, c_double), real(gravit, c_double), real(cpair, c_double), real(latvap, c_double), &
+       real(latice, c_double), merge(1_c_int64_t, 0_c_int64_t, wisotope), int(iwtvap, c_int64_t), &
+       int(iwtliq, c_int64_t), int(iwtice, c_int64_t), real(wtrc_qmin, c_double), rstd_isph2o, &
+       c_loc(wtfc), c_loc(wtfi), c_loc(liqcldf), c_loc(icecldf), c_loc(pdel), c_loc(tloc), c_loc(qloc), &
+       c_loc(tloc0), c_loc(lcldm), c_loc(icldm), c_loc(fc), c_loc(fi), c_loc(faloutc), c_loc(falouti), &
+       c_loc(precr), c_loc(preci), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(dliqiso))
+
+  do m=1, wtrc_nwset
+
+    !Point to water tracer rain
+    call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtstrain,m), srfpcp)
+    srfpcp(:) = srfpcp(:) + precr(:,m) !add rain to precipitation variable
+
+    !Point to water tracer snow
+    call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtstsnow,m), srfpcp)
+    srfpcp(:) = srfpcp(:) + preci(:,m) !add snow to precipitation variable
+
+  end do
+
+  return
+end if
 
 !************************
 !Save initial temperature

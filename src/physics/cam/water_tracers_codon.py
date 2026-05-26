@@ -1104,6 +1104,266 @@ def wtrc_apply_rates_correction_pair_codon(
 
 
 @inline
+def _wtrc_sediment_2d_idx(i: int, k: int, pcols: int) -> int:
+    """water_tracers arrays declared as (pcols,pver)."""
+    return (i - 1) + (k - 1) * pcols
+
+
+@inline
+def _wtrc_sediment_3d_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:
+    """water_tracers qloc(pcols,pver,pcnst)."""
+    return (i - 1) + (k - 1) * pcols + (m - 1) * pcols * pver
+
+
+@inline
+def _wtrc_sediment_work_idx(k: int, m: int, pver: int) -> int:
+    """faloutc/falouti(pver,wtrc_nwset)."""
+    return (k - 1) + (m - 1) * pver
+
+
+@inline
+def _wtrc_sediment_precip_idx(i: int, m: int, pcols: int) -> int:
+    """precr/preci(pcols,wtrc_nwset)."""
+    return (i - 1) + (m - 1) * pcols
+
+
+@inline
+def _wtrc_sediment_iatype_idx(m: int, icnst: int, wtrc_nwset: int) -> int:
+    """wtrc_iatype64(wtrc_nwset,pwtype)."""
+    return (m - 1) + (icnst - 1) * wtrc_nwset
+
+
+@export
+def wtrc_sediment_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    top_lev: int,
+    dtime: float,
+    gravit: float,
+    cpair: float,
+    latvap: float,
+    latice: float,
+    wisotope: int,
+    iwtvap: int,
+    iwtliq: int,
+    iwtice: int,
+    qmin: float,
+    rstd_isph2o: float,
+    wtfc_p: cobj,
+    wtfi_p: cobj,
+    liqcldf_p: cobj,
+    icecldf_p: cobj,
+    pdel_p: cobj,
+    tloc_p: cobj,
+    qloc_p: cobj,
+    tloc0_p: cobj,
+    lcldm_p: cobj,
+    icldm_p: cobj,
+    fc_p: cobj,
+    fi_p: cobj,
+    faloutc_p: cobj,
+    falouti_p: cobj,
+    precr_p: cobj,
+    preci_p: cobj,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    dliqiso_p: cobj,
+) -> None:
+    wtfc = Ptr[float](wtfc_p)
+    wtfi = Ptr[float](wtfi_p)
+    liqcldf = Ptr[float](liqcldf_p)
+    icecldf = Ptr[float](icecldf_p)
+    pdel = Ptr[float](pdel_p)
+    tloc = Ptr[float](tloc_p)
+    qloc = Ptr[float](qloc_p)
+    tloc0 = Ptr[float](tloc0_p)
+    lcldm = Ptr[float](lcldm_p)
+    icldm = Ptr[float](icldm_p)
+    fc = Ptr[float](fc_p)
+    fi = Ptr[float](fi_p)
+    faloutc = Ptr[float](faloutc_p)
+    falouti = Ptr[float](falouti_p)
+    precr = Ptr[float](precr_p)
+    preci = Ptr[float](preci_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    dliqiso = Ptr[float](dliqiso_p)
+
+    k = top_lev
+    while k <= pver:
+        i = 1
+        while i <= ncol:
+            idx2 = _wtrc_sediment_2d_idx(i, k, pcols)
+            tloc0[idx2] = tloc[idx2]
+            lcldm[idx2] = max(liqcldf[idx2], 0.0001)
+            icldm[idx2] = max(icecldf[idx2], 0.0001)
+            i += 1
+        k += 1
+
+    m = 1
+    while m <= wtrc_nwset:
+        i = 1
+        while i <= pcols:
+            precr[_wtrc_sediment_precip_idx(i, m, pcols)] = 0.0
+            preci[_wtrc_sediment_precip_idx(i, m, pcols)] = 0.0
+            i += 1
+        m += 1
+
+    i = 1
+    while i <= ncol:
+        nstep = 1
+
+        k = top_lev
+        while k <= pver:
+            idx2 = _wtrc_sediment_2d_idx(i, k, pcols)
+            fc[k - 1] = wtfc[idx2]
+            fi[k - 1] = wtfi[idx2]
+            k += 1
+
+        k = top_lev
+        while k <= pver:
+            idx2 = _wtrc_sediment_2d_idx(i, k, pcols)
+            rgvm = max(fi[k - 1], fc[k - 1])
+            ncalc = int(rgvm * dtime / pdel[idx2] + 1.0)
+            nstep = max(ncalc, nstep)
+            k += 1
+
+        n = 1
+        while n <= nstep:
+            k = top_lev
+            while k <= pver:
+                m = 1
+                while m <= wtrc_nwset:
+                    ice_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtice, wtrc_nwset)]
+                    liq_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtliq, wtrc_nwset)]
+                    falouti[_wtrc_sediment_work_idx(k, m, pver)] = (
+                        fi[k - 1] * qloc[_wtrc_sediment_3d_idx(i, k, ice_idx, pcols, pver)]
+                    )
+                    faloutc[_wtrc_sediment_work_idx(k, m, pver)] = (
+                        fc[k - 1] * qloc[_wtrc_sediment_3d_idx(i, k, liq_idx, pcols, pver)]
+                    )
+                    m += 1
+                k += 1
+
+            k = top_lev
+            idx2 = _wtrc_sediment_2d_idx(i, k, pcols)
+            m = 1
+            while m <= wtrc_nwset:
+                ice_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtice, wtrc_nwset)]
+                liq_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtliq, wtrc_nwset)]
+                faltndi = falouti[_wtrc_sediment_work_idx(k, m, pver)] / pdel[idx2]
+                faltndc = faloutc[_wtrc_sediment_work_idx(k, m, pver)] / pdel[idx2]
+                qloc[_wtrc_sediment_3d_idx(i, k, ice_idx, pcols, pver)] = (
+                    qloc[_wtrc_sediment_3d_idx(i, k, ice_idx, pcols, pver)] - faltndi * dtime / float(nstep)
+                )
+                qloc[_wtrc_sediment_3d_idx(i, k, liq_idx, pcols, pver)] = (
+                    qloc[_wtrc_sediment_3d_idx(i, k, liq_idx, pcols, pver)] - faltndc * dtime / float(nstep)
+                )
+                m += 1
+
+            k = top_lev + 1
+            while k <= pver:
+                idx2 = _wtrc_sediment_2d_idx(i, k, pcols)
+                idx2m1 = _wtrc_sediment_2d_idx(i, k - 1, pcols)
+                dum = lcldm[idx2] / lcldm[idx2m1]
+                dum = min(dum, 1.0)
+                dum1 = icldm[idx2] / icldm[idx2m1]
+                dum1 = min(dum1, 1.0)
+
+                m = 1
+                while m <= wtrc_nwset:
+                    vap_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtvap, wtrc_nwset)]
+                    ice_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtice, wtrc_nwset)]
+                    liq_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(m, iwtliq, wtrc_nwset)]
+                    falouti_idx = _wtrc_sediment_work_idx(k, m, pver)
+                    falouti_prev_idx = _wtrc_sediment_work_idx(k - 1, m, pver)
+                    faloutc_idx = _wtrc_sediment_work_idx(k, m, pver)
+                    faloutc_prev_idx = _wtrc_sediment_work_idx(k - 1, m, pver)
+
+                    faltndqie = (falouti[falouti_idx] - falouti[falouti_prev_idx]) / pdel[idx2]
+                    faltndi = (falouti[falouti_idx] - dum1 * falouti[falouti_prev_idx]) / pdel[idx2]
+                    faltndqce = (faloutc[faloutc_idx] - faloutc[faloutc_prev_idx]) / pdel[idx2]
+                    faltndc = (faloutc[faloutc_idx] - dum * faloutc[faloutc_prev_idx]) / pdel[idx2]
+
+                    vap_3d = _wtrc_sediment_3d_idx(i, k, vap_idx, pcols, pver)
+                    ice_3d = _wtrc_sediment_3d_idx(i, k, ice_idx, pcols, pver)
+                    liq_3d = _wtrc_sediment_3d_idx(i, k, liq_idx, pcols, pver)
+
+                    qloc[vap_3d] = qloc[vap_3d] - (faltndqie - faltndi) * dtime / float(nstep)
+                    qloc[vap_3d] = qloc[vap_3d] - (faltndqce - faltndc) * dtime / float(nstep)
+                    qloc[ice_3d] = qloc[ice_3d] - faltndi * dtime / float(nstep)
+                    qloc[liq_3d] = qloc[liq_3d] - faltndc * dtime / float(nstep)
+
+                    if wisotope != 0:
+                        if m != 1:
+                            std_vap_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(1, iwtvap, wtrc_nwset)]
+                            std_liq_idx = wtrc_iatype[_wtrc_sediment_iatype_idx(1, iwtliq, wtrc_nwset)]
+                            ispec = iwspec[vap_idx - 1]
+                            alpha = wtrc_get_alpha_native_cb(ispec, iwtvap, iwtliq, tloc0[idx2], 1.0, 0)
+
+                            std_vap_3d = _wtrc_sediment_3d_idx(i, k, std_vap_idx, pcols, pver)
+                            std_liq_3d = _wtrc_sediment_3d_idx(i, k, std_liq_idx, pcols, pver)
+                            dliqiso[0] = 0.0
+                            qtot = qloc[std_vap_3d] + qloc[std_liq_3d]
+                            qiso = qloc[vap_3d] + qloc[liq_3d]
+                            qtiny = 1.0e-36
+                            if qtot >= qtiny and qiso >= qtiny:
+                                if qloc[std_liq_3d] < qtiny:
+                                    dliqiso[0] = -qloc[liq_3d]
+                                    qloc[vap_3d] = qloc[vap_3d] - dliqiso[0]
+                                    qloc[liq_3d] = 0.0
+                                elif qloc[std_vap_3d] < qtiny:
+                                    dliqiso[0] = qloc[vap_3d]
+                                    qloc[vap_3d] = 0.0
+                                    qloc[liq_3d] = qloc[liq_3d] + dliqiso[0]
+                                else:
+                                    dviso = wtrc_dqequil_scalar_codon(
+                                        alpha,
+                                        1.0,
+                                        qloc[std_vap_3d],
+                                        qloc[std_liq_3d],
+                                        qloc[vap_3d],
+                                        qloc[liq_3d],
+                                        qmin,
+                                        rstd_isph2o,
+                                    )
+                                    dliqiso[0] = -dviso
+                                    qloc[liq_3d] = qloc[liq_3d] + dliqiso[0]
+                                    qloc[vap_3d] = qloc[vap_3d] - dliqiso[0]
+
+                    if m == 1:
+                        tloc[idx2] = tloc[idx2] + (faltndqie - faltndi) * (latvap + latice) * dtime / cpair / float(nstep)
+                        tloc[idx2] = tloc[idx2] + (faltndqce - faltndc) * latvap * dtime / cpair / float(nstep)
+
+                    m += 1
+
+                tloc0[idx2] = tloc[idx2]
+                fi[k - 1] = max(fi[k - 1] / pdel[idx2], fi[k - 2] / pdel[idx2m1]) * pdel[idx2]
+                fc[k - 1] = max(fc[k - 1] / pdel[idx2], fc[k - 2] / pdel[idx2m1]) * pdel[idx2]
+                k += 1
+
+            m = 1
+            while m <= wtrc_nwset:
+                precr[_wtrc_sediment_precip_idx(i, m, pcols)] = (
+                    precr[_wtrc_sediment_precip_idx(i, m, pcols)]
+                    + (faloutc[_wtrc_sediment_work_idx(pver, m, pver)]) / gravit / float(nstep) / 1000.0
+                )
+                preci[_wtrc_sediment_precip_idx(i, m, pcols)] = (
+                    preci[_wtrc_sediment_precip_idx(i, m, pcols)]
+                    + (falouti[_wtrc_sediment_work_idx(pver, m, pver)]) / gravit / float(nstep) / 1000.0
+                )
+                m += 1
+
+            n += 1
+
+        i += 1
+
+
+@inline
 def _wtrc_q1q2_3d_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:
     """work(pcols, pver, wtrc_nwset)"""
     return i + k * pcols + m * pcols * pver
