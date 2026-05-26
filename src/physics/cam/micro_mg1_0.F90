@@ -148,6 +148,12 @@ logical :: micro_mg1_0_init_scalars_logged = .false.
 logical :: micro_mg1_0_colzero_use_native_impl = .false.
 logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
+logical :: micro_mg1_0_tend_use_native_impl = .false.
+logical :: micro_mg1_0_tend_impl_selected = .false.
+logical :: micro_mg1_0_tend_logged = .false.
+logical :: micro_mg1_0_tail_diag_use_native_impl = .false.
+logical :: micro_mg1_0_tail_diag_impl_selected = .false.
+logical :: micro_mg1_0_tail_diag_logged = .false.
 logical :: micro_mg1_0_get_cols_use_native_impl = .false.
 logical :: micro_mg1_0_get_cols_impl_selected = .false.
 logical :: micro_mg1_0_get_cols_logged = .false.
@@ -903,6 +909,12 @@ real(r8) :: frztmp
 logical  :: do_clubb_sgs
 
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+call micro_mg1_0_select_tend_impl()
+
+if (.not. micro_mg1_0_tend_use_native_impl) then
+   call micro_mg1_0_log_tend_entered()
+end if
 
 ! Return error message
 errstring = ' '
@@ -3761,35 +3773,131 @@ do i = 1,ncol
 end do
 
 ! output activated liquid and ice (convert from #/kg -> #/m3)
-do i = 1,ncol
-   do k=top_lev,pver
-      ncai(i,k)=dum2i(i,k)*rho(i,k)
-      ncal(i,k)=dum2l(i,k)*rho(i,k)
+call micro_mg1_0_select_tail_diag_impl()
+if (micro_mg1_0_tail_diag_use_native_impl) then
+   do i = 1,ncol
+      do k=top_lev,pver
+         ncai(i,k)=dum2i(i,k)*rho(i,k)
+         ncal(i,k)=dum2l(i,k)*rho(i,k)
+      end do
    end do
-end do
+else
+   call micro_mg1_0_tail_activation_codon_wrap(ncol, pcols, pver, top_lev, dum2i, dum2l, rho, ncai, ncal)
+end if
 
 
 !redefine fice here....
-nfice(:,:)=0._r8
-do k=top_lev,pver
-   do i=1,ncol
-      dumc(i,k) = (qc(i,k)+qctend(i,k)*deltat)
-      dumi(i,k) = (qi(i,k)+qitend(i,k)*deltat)
-      dumfice=qsout(i,k) + qrout(i,k) + dumc(i,k) + dumi(i,k)  
+if (micro_mg1_0_tail_diag_use_native_impl) then
+   nfice(:,:)=0._r8
+   do k=top_lev,pver
+      do i=1,ncol
+         dumc(i,k) = (qc(i,k)+qctend(i,k)*deltat)
+         dumi(i,k) = (qi(i,k)+qitend(i,k)*deltat)
+         dumfice=qsout(i,k) + qrout(i,k) + dumc(i,k) + dumi(i,k)
 
-      if (dumfice.gt.qsmall.and.(qsout(i,k)+dumi(i,k).gt.qsmall)) then
-         nfice(i,k)=(qsout(i,k) + dumi(i,k))/dumfice
-      endif
+         if (dumfice.gt.qsmall.and.(qsout(i,k)+dumi(i,k).gt.qsmall)) then
+            nfice(i,k)=(qsout(i,k) + dumi(i,k))/dumfice
+         endif
 
-      if (nfice(i,k).gt.1._r8) then
-         nfice(i,k)=1._r8
-      endif
+         if (nfice(i,k).gt.1._r8) then
+            nfice(i,k)=1._r8
+         endif
 
+      enddo
    enddo
-enddo
+else
+   call micro_mg1_0_tail_fice_codon_wrap(ncol, pcols, pver, top_lev, deltat, qsmall, qc, qi, qctend, &
+        qitend, qsout, qrout, dumc, dumi, nfice)
+end if
 
 
 end subroutine micro_mg_tend
+
+subroutine micro_mg1_0_select_tend_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_tend_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_TEND_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_tend_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_tend_use_native_impl = .false.
+  end if
+
+  if (micro_mg1_0_tend_use_native_impl) then
+     micro_mg1_0_init_use_native_impl = .true.
+     micro_mg1_0_init_impl_selected = .true.
+     micro_mg1_0_colzero_use_native_impl = .true.
+     micro_mg1_0_colzero_impl_selected = .true.
+     micro_mg1_0_tail_diag_use_native_impl = .true.
+     micro_mg1_0_tail_diag_impl_selected = .true.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_tend_use_native_impl) then
+        write(iulog,*) 'micro_mg_tend implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
+             'micro_mg_tend implementation = native')
+     else
+        write(iulog,*) 'micro_mg_tend implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
+             'micro_mg_tend implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_tend_impl_selected = .true.
+end subroutine micro_mg1_0_select_tend_impl
+
+subroutine micro_mg1_0_log_tend_entered()
+  if (micro_mg1_0_tend_logged) return
+  micro_mg1_0_tend_logged = .true.
+  if (masterproc) then
+     write(iulog,*) 'micro_mg_tend direct = codon helper stages; native MG process core and sensitive diagnostics'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
+          'micro_mg_tend direct = codon helper stages; native MG process core and sensitive diagnostics')
+  end if
+end subroutine micro_mg1_0_log_tend_entered
+
+subroutine micro_mg1_0_select_tail_diag_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_tail_diag_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_TAIL_DIAG_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_tail_diag_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_tail_diag_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_tail_diag_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_tail_diag implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TAIL_DIAG_PROOF_FILE', &
+             'micro_mg1_0_tail_diag implementation = native')
+     else
+        write(iulog,*) 'micro_mg1_0_tail_diag implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TAIL_DIAG_PROOF_FILE', &
+             'micro_mg1_0_tail_diag implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_tail_diag_impl_selected = .true.
+end subroutine micro_mg1_0_select_tail_diag_impl
+
+subroutine micro_mg1_0_tail_diag_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_tail_diag_logged) then
+     write(iulog,*) 'micro_mg1_0_tail_diag entered (activation and nfice tail diagnostics direct = codon; ' // &
+          'native fractional-power reflectivity/diameter diagnostics)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TAIL_DIAG_PROOF_FILE', &
+          'micro_mg1_0_tail_diag entered (activation and nfice tail diagnostics direct = codon; ' // &
+          'native fractional-power reflectivity/diameter diagnostics)')
+     micro_mg1_0_tail_diag_logged = .true.
+  end if
+end subroutine micro_mg1_0_tail_diag_log_entry
 
 subroutine micro_mg1_0_select_init_impl()
   character(len=32) :: impl_name
@@ -4134,6 +4242,62 @@ subroutine micro_mg1_0_substep_zero_column_codon_wrap(i_local, pcols_local, pver
        c_loc(qric_local), c_loc(nsic_local), c_loc(nric_local), c_loc(rainrt_local), &
        c_loc(qrtend_copy_local), c_loc(qnitend_copy_local))
 end subroutine micro_mg1_0_substep_zero_column_codon_wrap
+
+subroutine micro_mg1_0_tail_activation_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
+     dum2i_local, dum2l_local, rho_local, ncai_local, ncal_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), target, intent(in) :: dum2i_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: dum2l_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ncai_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ncal_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_tail_activation_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+          dum2i_p, dum2l_p, rho_p, ncai_p, ncal_p) bind(c, name="micro_mg1_0_tail_activation_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: dum2i_p, dum2l_p, rho_p, ncai_p, ncal_p
+     end subroutine micro_mg1_0_tail_activation_codon
+  end interface
+
+  call micro_mg1_0_tail_diag_log_entry()
+  call micro_mg1_0_tail_activation_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), c_loc(dum2i_local), &
+       c_loc(dum2l_local), c_loc(rho_local), c_loc(ncai_local), c_loc(ncal_local))
+end subroutine micro_mg1_0_tail_activation_codon_wrap
+
+subroutine micro_mg1_0_tail_fice_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
+     deltat_local, qsmall_local, qc_local, qi_local, qctend_local, qitend_local, qsout_local, qrout_local, &
+     dumc_local, dumi_local, nfice_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: deltat_local, qsmall_local
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local), qi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qctend_local(pcols_local,pver_local), qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qsout_local(pcols_local,pver_local), qrout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumc_local(pcols_local,pver_local), dumi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nfice_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_tail_fice_codon(ncol_c, pcols_c, pver_c, top_lev_c, deltat_c, qsmall_c, &
+          qc_p, qi_p, qctend_p, qitend_p, qsout_p, qrout_p, dumc_p, dumi_p, nfice_p) &
+          bind(c, name="micro_mg1_0_tail_fice_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: deltat_c, qsmall_c
+       type(c_ptr), value :: qc_p, qi_p, qctend_p, qitend_p, qsout_p, qrout_p, dumc_p, dumi_p, nfice_p
+     end subroutine micro_mg1_0_tail_fice_codon
+  end interface
+
+  call micro_mg1_0_tail_diag_log_entry()
+  call micro_mg1_0_tail_fice_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), real(deltat_local, c_double), &
+       real(qsmall_local, c_double), c_loc(qc_local), c_loc(qi_local), c_loc(qctend_local), &
+       c_loc(qitend_local), c_loc(qsout_local), c_loc(qrout_local), c_loc(dumc_local), &
+       c_loc(dumi_local), c_loc(nfice_local))
+end subroutine micro_mg1_0_tail_fice_codon_wrap
 
 !========================================================================
 !UTILITIES

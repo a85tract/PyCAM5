@@ -1391,6 +1391,77 @@ def micro_mg1_0_flux_ltrue_init_codon(
                 ltrue[i - 1] = i32(1)
 
 
+@export
+def micro_mg1_0_tail_activation_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dum2i_p: cobj,
+    dum2l_p: cobj,
+    rho_p: cobj,
+    ncai_p: cobj,
+    ncal_p: cobj,
+):
+    dum2i = Ptr[float](dum2i_p)
+    dum2l = Ptr[float](dum2l_p)
+    rho = Ptr[float](rho_p)
+    ncai = Ptr[float](ncai_p)
+    ncal = Ptr[float](ncal_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            ncai[idx] = dum2i[idx] * rho[idx]
+            ncal[idx] = dum2l[idx] * rho[idx]
+
+
+@export
+def micro_mg1_0_tail_fice_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    deltat: float,
+    qsmall: float,
+    qc_p: cobj,
+    qi_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    qsout_p: cobj,
+    qrout_p: cobj,
+    dumc_p: cobj,
+    dumi_p: cobj,
+    nfice_p: cobj,
+):
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    qsout = Ptr[float](qsout_p)
+    qrout = Ptr[float](qrout_p)
+    dumc = Ptr[float](dumc_p)
+    dumi = Ptr[float](dumi_p)
+    nfice = Ptr[float](nfice_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            nfice[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            dumc[idx] = qc[idx] + qctend[idx] * deltat
+            dumi[idx] = qi[idx] + qitend[idx] * deltat
+            dumfice = qsout[idx] + qrout[idx] + dumc[idx] + dumi[idx]
+
+            if dumfice > qsmall and (qsout[idx] + dumi[idx]) > qsmall:
+                nfice[idx] = (qsout[idx] + dumi[idx]) / dumfice
+
+            if nfice[idx] > 1.0:
+                nfice[idx] = 1.0
+
+
 @inline
 def _pack2d_mgcols(
     mgncol: int,
