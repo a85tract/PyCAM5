@@ -2746,6 +2746,77 @@ def phys_grid_defaultopts_codon(
 
 
 @export
+def phys_grid_setopts_codon(
+    has_lbal: int,
+    lbal_in: int,
+    has_twin: int,
+    twin_in: int,
+    has_alltoall: int,
+    alltoall_in: int,
+    has_chunks: int,
+    chunks_in: int,
+    current_lbal: int,
+    current_twin: int,
+    current_alltoall: int,
+    current_chunks: int,
+    min_lbal: int,
+    max_lbal: int,
+    min_twin: int,
+    max_twin: int,
+    min_alltoall: int,
+    max_alltoall: int,
+    allow_mod_alltoall: int,
+    modmin_alltoall: int,
+    modmax_alltoall: int,
+    min_chunks: int,
+    state_p: cobj,
+    error_p: cobj,
+):
+    state = Ptr[int](state_p)
+    error = Ptr[int](error_p)
+
+    lbal = current_lbal
+    twin = current_twin
+    alltoall = current_alltoall
+    chunks = current_chunks
+    error_code = 0
+
+    if has_lbal != 0:
+        lbal = lbal_in
+        if lbal < min_lbal or lbal > max_lbal:
+            error_code = 1
+
+    if error_code == 0 and has_twin != 0:
+        twin = twin_in
+        if twin < min_twin or twin > max_twin:
+            error_code = 2
+
+    if error_code == 0 and has_alltoall != 0:
+        alltoall = alltoall_in
+        standard_invalid = alltoall < min_alltoall or alltoall > max_alltoall
+        mod_invalid = True
+        if allow_mod_alltoall != 0:
+            mod_invalid = alltoall < modmin_alltoall or alltoall > modmax_alltoall
+        if standard_invalid and mod_invalid:
+            error_code = 3
+
+    if error_code == 0 and has_chunks != 0:
+        chunks = chunks_in
+        if chunks < min_chunks:
+            error_code = 4
+
+    state[0] = lbal
+    state[1] = twin
+    state[2] = alltoall
+    state[3] = chunks
+    if lbal == 3:
+        state[4] = 1
+    else:
+        state[4] = 0
+    error[0] = error_code
+
+
+@export
 def phys_grid_count_valid_cols_codon(ngcols: int, clon_d_p: cobj) -> int:
     return _phys_grid.phys_grid_count_valid_cols_codon(ngcols, clon_d_p)
 

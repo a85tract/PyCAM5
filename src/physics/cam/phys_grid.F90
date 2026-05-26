@@ -310,6 +310,7 @@ module phys_grid
    logical, private :: get_wght_all_logged = .false.
    logical, private :: get_rlon_all_logged = .false.
    logical, private :: phys_grid_defaultopts_logged = .false.
+   logical, private :: phys_grid_setopts_logged = .false.
    logical, private :: block_to_chunk_send_pters_logged = .false.
    logical, private :: block_to_chunk_recv_pters_logged = .false.
    logical, private :: chunk_to_block_send_pters_logged = .false.
@@ -378,6 +379,21 @@ module phys_grid
        integer(c_int64_t), value :: def_twin_lonlat_c, def_alltoall_c, def_chunks_c
        type(c_ptr), value :: out_p
      end subroutine phys_grid_defaultopts_codon_raw
+
+     subroutine phys_grid_setopts_codon_raw(has_lbal_c, lbal_in_c, has_twin_c, twin_in_c, &
+          has_alltoall_c, alltoall_in_c, has_chunks_c, chunks_in_c, current_lbal_c, current_twin_c, &
+          current_alltoall_c, current_chunks_c, min_lbal_c, max_lbal_c, min_twin_c, max_twin_c, &
+          min_alltoall_c, max_alltoall_c, allow_mod_alltoall_c, modmin_alltoall_c, modmax_alltoall_c, &
+          min_chunks_c, state_p, error_p) bind(c, name="phys_grid_setopts_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: has_lbal_c, lbal_in_c, has_twin_c, twin_in_c
+       integer(c_int64_t), value :: has_alltoall_c, alltoall_in_c, has_chunks_c, chunks_in_c
+       integer(c_int64_t), value :: current_lbal_c, current_twin_c, current_alltoall_c, current_chunks_c
+       integer(c_int64_t), value :: min_lbal_c, max_lbal_c, min_twin_c, max_twin_c
+       integer(c_int64_t), value :: min_alltoall_c, max_alltoall_c, allow_mod_alltoall_c
+       integer(c_int64_t), value :: modmin_alltoall_c, modmax_alltoall_c, min_chunks_c
+       type(c_ptr), value :: state_p, error_p
+     end subroutine phys_grid_setopts_codon_raw
 
      subroutine phys_grid_get_gcol_vec_codon_raw(lth_c, cols_p, src_p, dst_p) &
           bind(c, name="phys_grid_get_gcol_vec_codon")
@@ -835,6 +851,37 @@ contains
          int(def_twin_alg_lonlat, c_int64_t), int(def_alltoall, c_int64_t), &
          int(def_chunks_per_thread, c_int64_t), c_loc(out(1)))
   end subroutine phys_grid_defaultopts_codon
+
+  subroutine phys_grid_setopts_codon(has_lbal, lbal_in, has_twin, twin_in, has_alltoall, alltoall_in, &
+       has_chunks, chunks_in, state, error_code)
+    use iso_c_binding, only: c_int64_t, c_loc
+    logical, intent(in) :: has_lbal, has_twin, has_alltoall, has_chunks
+    integer, intent(in) :: lbal_in, twin_in, alltoall_in, chunks_in
+    integer(c_int64_t), target, intent(out) :: state(5)
+    integer(c_int64_t), target, intent(out) :: error_code(1)
+#if defined(MODCM_DP_TRANSPOSE)
+    integer(c_int64_t), parameter :: allow_mod_alltoall = 1_c_int64_t
+    integer(c_int64_t), parameter :: modmin_alltoall_value = modmin_alltoall
+    integer(c_int64_t), parameter :: modmax_alltoall_value = modmax_alltoall
+#else
+    integer(c_int64_t), parameter :: allow_mod_alltoall = 0_c_int64_t
+    integer(c_int64_t), parameter :: modmin_alltoall_value = 0_c_int64_t
+    integer(c_int64_t), parameter :: modmax_alltoall_value = 0_c_int64_t
+#endif
+
+    call phys_grid_setopts_codon_raw( &
+         merge(1_c_int64_t, 0_c_int64_t, has_lbal), int(lbal_in, c_int64_t), &
+         merge(1_c_int64_t, 0_c_int64_t, has_twin), int(twin_in, c_int64_t), &
+         merge(1_c_int64_t, 0_c_int64_t, has_alltoall), int(alltoall_in, c_int64_t), &
+         merge(1_c_int64_t, 0_c_int64_t, has_chunks), int(chunks_in, c_int64_t), &
+         int(lbal_opt, c_int64_t), int(twin_alg, c_int64_t), &
+         int(phys_alltoall, c_int64_t), int(chunks_per_thread, c_int64_t), &
+         int(min_lbal_opt, c_int64_t), int(max_lbal_opt, c_int64_t), &
+         int(min_twin_alg, c_int64_t), int(max_twin_alg, c_int64_t), &
+         int(min_alltoall, c_int64_t), int(max_alltoall, c_int64_t), &
+         allow_mod_alltoall, modmin_alltoall_value, modmax_alltoall_value, &
+         int(min_chunks_per_thread, c_int64_t), c_loc(state(1)), c_loc(error_code(1)))
+  end subroutine phys_grid_setopts_codon
 
   subroutine phys_grid_pter_offsets_codon(ncols_local, nlvls_local, fdim, ldim, record_size, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -2249,6 +2296,7 @@ logical function phys_grid_initialized ()
 ! Purpose: Set runtime options
 ! Author: Tom Henderson
 !-----------------------------------------------------------------------
+   use iso_c_binding, only: c_int64_t
    use spmd_utils, only: phys_mirror_decomp_req
 #if defined(MODCM_DP_TRANSPOSE)
    use mod_comm, only: phys_transpose_mod
@@ -2262,78 +2310,149 @@ logical function phys_grid_initialized ()
      integer, intent(in), optional :: phys_alltoall_in
      ! number of chunks per thread
      integer, intent(in), optional :: phys_chnk_per_thd_in
+     integer(c_int64_t) :: setopts_state(5)
+     integer(c_int64_t) :: setopts_error(1)
+     integer :: lbal_value, twin_value, alltoall_value, chunks_value
 !-----------------------------------------------------------------------
-     if ( present(phys_loadbalance_in) ) then
-        lbal_opt = phys_loadbalance_in
-        if ((lbal_opt < min_lbal_opt).or.(lbal_opt > max_lbal_opt)) then
+     lbal_value = lbal_opt
+     twin_value = twin_alg
+     alltoall_value = phys_alltoall
+     chunks_value = chunks_per_thread
+     if ( present(phys_loadbalance_in) ) lbal_value = phys_loadbalance_in
+     if ( present(phys_twin_algorithm_in) ) twin_value = phys_twin_algorithm_in
+     if ( present(phys_alltoall_in) ) alltoall_value = phys_alltoall_in
+     if ( present(phys_chnk_per_thd_in) ) chunks_value = phys_chnk_per_thd_in
+
+     call phys_grid_getters_select_impl()
+     if (use_native_getters_impl) then
+        if ( present(phys_loadbalance_in) ) then
+           lbal_opt = phys_loadbalance_in
+           if ((lbal_opt < min_lbal_opt).or.(lbal_opt > max_lbal_opt)) then
+              if (masterproc) then
+                 write(iulog,*)                                          &
+                    'PHYS_GRID_SETOPTS:  ERROR:  phys_loadbalance=', &
+                    phys_loadbalance_in,                             &
+                    '  is out of range.  It must be between ',       &
+                    min_lbal_opt,' and ',max_lbal_opt
+              endif
+              call endrun
+           endif
+           if (lbal_opt .eq. 3) then
+              phys_mirror_decomp_req = .true.
+           else
+              phys_mirror_decomp_req = .false.
+           endif
+        endif
+!
+        if ( present(phys_twin_algorithm_in) ) then
+           twin_alg = phys_twin_algorithm_in
+           if ((twin_alg < min_twin_alg).or.(twin_alg > max_twin_alg)) then
+              if (masterproc) then
+                 write(iulog,*)                                          &
+                    'PHYS_GRID_SETOPTS:  ERROR:  phys_twin_algorithm=', &
+                    phys_twin_algorithm_in,                             &
+                    '  is out of range.  It must be between ',       &
+                    min_twin_alg,' and ',max_twin_alg
+              endif
+              call endrun
+           endif
+        endif
+!
+        if ( present(phys_alltoall_in) ) then
+           phys_alltoall = phys_alltoall_in
+           if (((phys_alltoall .lt. min_alltoall) .or.    &
+                (phys_alltoall .gt. max_alltoall))        &
+# if defined(MODCM_DP_TRANSPOSE)
+              .and.                                       &
+               ((phys_alltoall .lt. modmin_alltoall) .or. &
+                (phys_alltoall .gt. modmax_alltoall))     &
+# endif
+              ) then
+              if (masterproc) then
+                 write(iulog,*)                                          &
+                    'PHYS_GRID_SET_OPTS:  ERROR:  phys_alltoall=',   &
+                     phys_alltoall_in,                               &
+                     '  is out of range.  It must be between ',      &
+                     min_alltoall,' and ',max_alltoall
+              endif
+              call endrun
+           endif
+#if defined(SPMD)
+# if defined(MODCM_DP_TRANSPOSE)
+           phys_transpose_mod = phys_alltoall
+# endif
+#endif
+        endif
+!
+        if ( present(phys_chnk_per_thd_in) ) then
+           chunks_per_thread = phys_chnk_per_thd_in
+           if (chunks_per_thread < min_chunks_per_thread) then
+              if (masterproc) then
+                 write(iulog,*)                                          &
+                    'PHYS_GRID_SETOPTS:  ERROR:  phys_chnk_per_thd=',&
+                    phys_chnk_per_thd_in,                            &
+                    ' is too small.  It must not be smaller than ',  &
+                    min_chunks_per_thread
+              endif
+              call endrun
+           endif
+        endif
+     else
+        call phys_grid_setopts_codon(present(phys_loadbalance_in), &
+             lbal_value, present(phys_twin_algorithm_in), twin_value, &
+             present(phys_alltoall_in), alltoall_value, present(phys_chnk_per_thd_in), chunks_value, &
+             setopts_state, setopts_error)
+
+        if (setopts_error(1) == 1_c_int64_t) then
            if (masterproc) then
-              write(iulog,*)                                          &
+                 write(iulog,*)                                          &
                  'PHYS_GRID_SETOPTS:  ERROR:  phys_loadbalance=', &
-                 phys_loadbalance_in,                             &
+                 lbal_value,                                      &
                  '  is out of range.  It must be between ',       &
                  min_lbal_opt,' and ',max_lbal_opt
            endif
            call endrun
-        endif
-        if (lbal_opt .eq. 3) then
-           phys_mirror_decomp_req = .true.
-        else
-           phys_mirror_decomp_req = .false.
-        endif
-     endif
-!
-     if ( present(phys_twin_algorithm_in) ) then
-        twin_alg = phys_twin_algorithm_in
-        if ((twin_alg < min_twin_alg).or.(twin_alg > max_twin_alg)) then
+        else if (setopts_error(1) == 2_c_int64_t) then
            if (masterproc) then
-              write(iulog,*)                                          &
+                 write(iulog,*)                                          &
                  'PHYS_GRID_SETOPTS:  ERROR:  phys_twin_algorithm=', &
-                 phys_twin_algorithm_in,                             &
+                 twin_value,                                         &
                  '  is out of range.  It must be between ',       &
                  min_twin_alg,' and ',max_twin_alg
            endif
            call endrun
-        endif
-     endif
-!
-     if ( present(phys_alltoall_in) ) then
-        phys_alltoall = phys_alltoall_in
-        if (((phys_alltoall .lt. min_alltoall) .or.    &
-             (phys_alltoall .gt. max_alltoall))        &
-# if defined(MODCM_DP_TRANSPOSE)
-           .and.                                       &
-            ((phys_alltoall .lt. modmin_alltoall) .or. &
-             (phys_alltoall .gt. modmax_alltoall))     &
-# endif
-           ) then
+        else if (setopts_error(1) == 3_c_int64_t) then
            if (masterproc) then
-              write(iulog,*)                                          &
+                 write(iulog,*)                                          &
                  'PHYS_GRID_SET_OPTS:  ERROR:  phys_alltoall=',   &
-                  phys_alltoall_in,                               &
-                  '  is out of range.  It must be between ',      &
-                  min_alltoall,' and ',max_alltoall
+                 alltoall_value,                                  &
+                 '  is out of range.  It must be between ',       &
+                 min_alltoall,' and ',max_alltoall
            endif
            call endrun
-        endif
-#if defined(SPMD)
-# if defined(MODCM_DP_TRANSPOSE)
-        phys_transpose_mod = phys_alltoall
-# endif
-#endif
-     endif
-!
-     if ( present(phys_chnk_per_thd_in) ) then
-        chunks_per_thread = phys_chnk_per_thd_in
-        if (chunks_per_thread < min_chunks_per_thread) then
+        else if (setopts_error(1) == 4_c_int64_t) then
            if (masterproc) then
-              write(iulog,*)                                          &
+                 write(iulog,*)                                          &
                  'PHYS_GRID_SETOPTS:  ERROR:  phys_chnk_per_thd=',&
-                 phys_chnk_per_thd_in,                            &
-                 ' is too small.  It must not be smaller than ',  &
+                 chunks_value,                                    &
+                 ' is too small.  It must not be smaller than ',   &
                  min_chunks_per_thread
            endif
            call endrun
         endif
+
+        lbal_opt = int(setopts_state(1))
+        twin_alg = int(setopts_state(2))
+        phys_alltoall = int(setopts_state(3))
+        chunks_per_thread = int(setopts_state(4))
+        phys_mirror_decomp_req = setopts_state(5) /= 0_c_int64_t
+#if defined(SPMD)
+# if defined(MODCM_DP_TRANSPOSE)
+        if ( present(phys_alltoall_in) ) phys_transpose_mod = phys_alltoall
+# endif
+#endif
+        call phys_grid_getter_log_direct(phys_grid_setopts_logged, &
+             'phys_grid_setopts direct = codon; endrun and cross-module assignments native islands')
      endif
    end subroutine phys_grid_setopts
 !
