@@ -37,6 +37,7 @@ module convect_deep
    logical :: impl_selected = .false.
    integer :: codon_scheme_code = 0
    logical :: codon_scheme_selected = .false.
+   logical :: convect_deep_tend_2_logged = .false.
 ! Physics buffer indices 
    integer     ::  icwmrdp_idx      = 0 
    integer     ::  rprddp_idx       = 0 
@@ -70,6 +71,12 @@ module convect_deep
         integer(c_int64_t), value :: flag_c
         integer(c_int64_t) :: out_c
       end function convect_deep_init_codon
+      function convect_deep_tend_2_action_codon(scheme_code_c) result(action_c) &
+           bind(c, name="convect_deep_tend_2_action_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: scheme_code_c
+        integer(c_int64_t) :: action_c
+      end function convect_deep_tend_2_action_codon
    end interface
 
 !=========================================================================================
@@ -380,19 +387,64 @@ subroutine convect_deep_tend_2( state,  ptend,  ztodt, pbuf)
    type(physics_buffer_desc), pointer :: pbuf(:)
 
    real(r8), intent(in) :: ztodt                          ! 2 delta t (model time increment)
+   integer(c_int64_t) :: action_c
 
 
    call convect_deep_select_impl()
    if (.not. use_native_impl) call convect_deep_select_codon_scheme()
 
-   if ( (use_native_impl .and. deep_scheme .eq. 'ZM') .or. (.not. use_native_impl .and. codon_scheme_code == 1) ) then
-      call zm_conv_tend_2( state,   ptend,  ztodt,  pbuf) 
+   if (.not. use_native_impl) then
+      action_c = convect_deep_tend_2_action_codon(int(codon_scheme_code, c_int64_t))
+      call convect_deep_log_tend_2_direct()
+      if (action_c == 1_c_int64_t) then
+         call zm_conv_tend_2( state,   ptend,  ztodt,  pbuf)
+      else
+         call physics_ptend_init(ptend, state%psetcols, 'convect_deep')
+      end if
+      return
+   end if
+
+   if (deep_scheme .eq. 'ZM') then
+      call zm_conv_tend_2( state,   ptend,  ztodt,  pbuf)
    else
       call physics_ptend_init(ptend, state%psetcols, 'convect_deep')
    end if
 
-
 end subroutine convect_deep_tend_2
+
+!=========================================================================================
+
+subroutine convect_deep_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CONVECT_DEEP_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine convect_deep_append_proof
+
+!=========================================================================================
+
+subroutine convect_deep_log_tend_2_direct()
+
+   if (convect_deep_tend_2_logged) return
+   convect_deep_tend_2_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_deep_tend_2 direct = codon; zm_conv_tend_2/physics_ptend_init native CAM API islands'
+      call convect_deep_append_proof( &
+           'convect_deep_tend_2 direct = codon; zm_conv_tend_2/physics_ptend_init native CAM API islands')
+      call flush(iulog)
+   end if
+
+end subroutine convect_deep_log_tend_2_direct
 
 !=========================================================================================
 
