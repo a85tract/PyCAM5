@@ -82,6 +82,32 @@ def gw_init_select_branches_codon(
     branch_mask[0] = mask
 
 
+@export
+def gw_drag_prof_shell_mask_codon(
+    ncol: int,
+    pver: int,
+    ngwv: int,
+    kbot_tend: int,
+    kbot_src: int,
+    ro_adjust_present: int,
+    tau_0_ubc_enabled: int,
+) -> int:
+    mask = 0
+    if ncol > 0:
+        mask |= 1
+    if pver > 0:
+        mask |= 2
+    if ngwv >= 0:
+        mask |= 4
+    if kbot_tend >= kbot_src:
+        mask |= 8
+    if ro_adjust_present != 0:
+        mask |= 16
+    if tau_0_ubc_enabled != 0:
+        mask |= 32
+    return mask
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array(i,k) with first dimension ld1."""

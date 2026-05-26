@@ -92,6 +92,9 @@ logical :: energy_change_entered_logged = .false.
 logical :: use_native_gw_drag_prof_core_impl = .false.
 logical :: gw_drag_prof_core_impl_selected = .false.
 logical :: gw_drag_prof_core_entered_logged = .false.
+logical :: use_native_gw_drag_prof_impl = .false.
+logical :: gw_drag_prof_impl_selected = .false.
+logical :: gw_drag_prof_entered_logged = .false.
 logical :: use_native_gw_diff_solver_impl = .false.
 logical :: gw_diff_solver_impl_selected = .false.
 logical :: gw_diff_solver_entered_logged = .false.
@@ -132,6 +135,13 @@ interface
      type(c_ptr), value :: pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p
      type(c_ptr), value :: alpha_in_p, alpha_p
    end subroutine gw_common_init_codon
+   function gw_drag_prof_shell_mask_codon(ncol_c, pver_c, ngwv_c, kbot_tend_c, kbot_src_c, &
+        ro_adjust_present_c, tau_0_ubc_enabled_c) result(mask_c) bind(c, name="gw_drag_prof_shell_mask_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: ncol_c, pver_c, ngwv_c, kbot_tend_c, kbot_src_c
+     integer(c_int64_t), value :: ro_adjust_present_c, tau_0_ubc_enabled_c
+     integer(c_int64_t) :: mask_c
+   end function gw_drag_prof_shell_mask_codon
 end interface
 
 ! Type describing a band of wavelengths into which gravity waves can be
@@ -704,6 +714,7 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   logical :: use_native_core
   ! Whether to keep the diffusion solver cluster in native Fortran.
   logical :: use_native_diff_solver
+  integer(c_int64_t) :: shell_mask_c
 
   ! LU decomposition.
   type(TriDiagDecomp) :: decomp
@@ -713,6 +724,16 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   ! Lowest levels that loops need to iterate over.
   kbot_tend = maxval(tend_level)
   kbot_src = maxval(src_level)
+
+  call gw_drag_prof_select_impl()
+  if (.not. use_native_gw_drag_prof_impl) then
+     shell_mask_c = gw_drag_prof_shell_mask_codon( &
+          int(ncol, c_int64_t), int(pver, c_int64_t), int(band%ngwv, c_int64_t), &
+          int(kbot_tend, c_int64_t), int(kbot_src, c_int64_t), &
+          merge(1_c_int64_t, 0_c_int64_t, present(ro_adjust)), &
+          merge(1_c_int64_t, 0_c_int64_t, tau_0_ubc))
+     call gw_drag_prof_note_entered(shell_mask_c)
+  end if
 
   call gw_drag_prof_core_select_impl()
   use_native_core = use_native_gw_drag_prof_core_impl .or. present(ro_adjust)
@@ -951,6 +972,85 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   if (use_native_diff_solver) call decomp%finalize()
 
 end subroutine gw_drag_prof
+
+!==========================================================================
+
+subroutine gw_drag_prof_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_DRAG_PROF_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_drag_prof_append_proof
+
+!==========================================================================
+
+subroutine gw_drag_prof_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_drag_prof_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_DRAG_PROF_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_drag_prof_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_drag_prof_impl = .false.
+  end if
+
+  gw_drag_prof_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_drag_prof_impl) then
+        write(iulog,*) 'gw_drag_prof implementation = native'
+        call gw_drag_prof_append_proof('gw_drag_prof selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_drag_prof implementation = codon'
+        call gw_drag_prof_append_proof('gw_drag_prof selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_drag_prof_select_impl
+
+!==========================================================================
+
+subroutine gw_drag_prof_note_entered(mask_c)
+
+  integer(c_int64_t), intent(in) :: mask_c
+
+  if (gw_drag_prof_entered_logged) return
+  gw_drag_prof_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A,I0)') &
+          'gw_drag_prof direct = codon; shell/mask direct = codon; ' // &
+          'core and diff solver direct = codon when ro_adjust absent; ro_adjust IGW native island; mask=', mask_c
+     call gw_drag_prof_append_proof( &
+          'gw_drag_prof direct = codon; shell/mask direct = codon; ' // &
+          'core and diff solver direct = codon when ro_adjust absent; ro_adjust IGW native island')
+     call flush(iulog)
+  end if
+
+end subroutine gw_drag_prof_note_entered
 
 !==========================================================================
 
