@@ -1,3 +1,4 @@
+from C import wtrc_equil_time_expr_native_cb(float, float, float, float, float, float, float, float, float, float, float) -> float
 from C import wtrc_get_alpha_native_cb(int, int, int, float, float, int) -> float
 from math import log
 import water_tracers_apply_rates_codon as _apply_rates
@@ -104,6 +105,23 @@ def wtrc_get_rstd_codon(use_wisotope: int, true_rstd: float, fixed_rstd: float) 
     if use_wisotope != 0:
         return true_rstd
     return fixed_rstd
+
+
+@export
+def wtrc_equil_time_codon(
+    temp: float,
+    pres: float,
+    rdrop: float,
+    zdel: float,
+    alpha: float,
+    difrm: float,
+    rhoa: float,
+    esat: float,
+    rh2o: float,
+    gravit: float,
+    rhoh2o: float,
+) -> float:
+    return wtrc_equil_time_expr_native_cb(temp, pres, rdrop, zdel, alpha, difrm, rhoa, esat, rh2o, gravit, rhoh2o)
 
 
 @export

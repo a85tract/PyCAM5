@@ -158,6 +158,7 @@ module water_tracers
   logical :: wtrc_efac_logged = .false.
   logical :: wtrc_dqequil_logged = .false.
   logical :: wtrc_liqvap_equil_logged = .false.
+  logical :: wtrc_equil_time_logged = .false.
   logical :: wtrc_get_alpha_logged = .false.
   logical :: wtrc_get_rstd_logged = .false.
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
@@ -235,6 +236,13 @@ module water_tracers
       real(c_double), value :: true_rstd_c, fixed_rstd_c
       real(c_double) :: result_c
     end function wtrc_get_rstd_codon
+    function wtrc_equil_time_codon(temp_c, pres_c, rdrop_c, zdel_c, alpha_c, difrm_c, rhoa_c, &
+         esat_c, rh2o_c, gravit_c, rhoh2o_c) result(result_c) bind(c, name="wtrc_equil_time_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: temp_c, pres_c, rdrop_c, zdel_c, alpha_c, difrm_c, rhoa_c
+      real(c_double), value :: esat_c, rh2o_c, gravit_c, rhoh2o_c
+      real(c_double) :: result_c
+    end function wtrc_equil_time_codon
     function wtrc_get_alpha_codon(q_c, tk_c, ispec_c, isrctype_c, idsttype_c, rhclc_c, porqh_c, &
          kin_present_c, kin_c, wtrc_alpha_kinetic_c, wisotope_c, fixed_alpha_c, qs_c) result(result_c) &
          bind(c, name="wtrc_get_alpha_codon")
@@ -6201,6 +6209,15 @@ use wv_saturation, only: qsat
 !
   call qsat(temp, pres, esat, qst)
 
+  call wtrc_scalar_helpers_select_impl()
+  if (.not. use_native_wtrc_scalar_helpers_impl) then
+    call wtrc_scalar_helpers_log_entered()
+    fequil = wtrc_equil_time_codon(temp, pres, rdrop, zdel, alpha, difrm, rhoa, esat, rh2o, gravit, rhoh2o)
+    call wtrc_scalar_helpers_log_direct(wtrc_equil_time_logged, &
+         'wtrc_equil_time direct = codon; qsat/native intrinsic expression island')
+    return
+  end if
+
 !
 ! Diffusivity of H2O in air (Hall and Pruppacher 1976)
 !
@@ -6268,6 +6285,51 @@ use wv_saturation, only: qsat
 !
   return
 end subroutine wtrc_equil_time
+
+  real(c_double) function wtrc_equil_time_expr_native_cb(temp_c, pres_c, rdrop_c, zdel_c, alpha_c, &
+       difrm_c, rhoa_c, esat_c, rh2o_c, gravit_c, rhoh2o_c) result(fequil_c) &
+       bind(C, name="wtrc_equil_time_expr_native_cb")
+!-----------------------------------------------------------------------
+! Native expression island for BFB-sensitive fractional powers, sqrt, and
+! exp in wtrc_equil_time.
+!-----------------------------------------------------------------------
+  real(c_double), value :: temp_c, pres_c, rdrop_c, zdel_c, alpha_c, difrm_c, rhoa_c
+  real(c_double), value :: esat_c, rh2o_c, gravit_c, rhoh2o_c
+  real(r8) :: temp, pres, rdrop, zdel, alpha, difrm, rhoa, esat
+  real(r8) :: rh2o_local, gravit_local, rhoh2o_local
+  real(r8) :: difa, mu, cddrop, vterm, re, sc, xx, fvent, tadjust, texposure
+
+  temp = real(temp_c, r8)
+  pres = real(pres_c, r8)
+  rdrop = real(rdrop_c, r8)
+  zdel = real(zdel_c, r8)
+  alpha = real(alpha_c, r8)
+  difrm = real(difrm_c, r8)
+  rhoa = real(rhoa_c, r8)
+  esat = real(esat_c, r8)
+  rh2o_local = real(rh2o_c, r8)
+  gravit_local = real(gravit_c, r8)
+  rhoh2o_local = real(rhoh2o_c, r8)
+
+  difa = 2.11e-5_r8*difrm*(temp/273.15_r8)**1.94_r8 * (101325._r8/pres)
+  mu = 1.72e-5_r8 * ((temp/273.0_r8)**1.5_r8) * 393.0_r8 / (temp+120.0_r8)
+  cddrop = 0.6_r8
+  vterm = sqrt((4._r8/3._r8)*gravit_local*(2._r8*rdrop)*rhoh2o_local/(cddrop*rhoa) )
+  re = 2._r8*rdrop*rhoa*vterm/mu
+  sc = mu/(rhoa*difa)
+  xx = re**(1._r8/2._r8) * sc**(1._r8/3._r8)
+
+  if(xx .ge. 1.4_r8) then
+    fvent = 0.78_r8 + 0.308_r8*xx
+  else
+    fvent = 1.0_r8 + 0.108_r8*xx*xx
+  endif
+
+  tadjust = alpha*(rdrop*rdrop)*rhoh2o_local*rh2o_local*temp/(3._r8*fvent*difa*esat)
+  texposure = zdel/vterm
+  fequil_c = real(1._r8 - exp(-texposure/tadjust), c_double)
+
+end function wtrc_equil_time_expr_native_cb
 
 
 !=======================================================================
