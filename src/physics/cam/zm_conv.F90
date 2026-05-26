@@ -108,6 +108,9 @@ module zm_conv
    logical :: use_native_zm_closure = .false.
    logical :: zm_closure_selected = .false.
    logical :: zm_closure_logged = .false.
+   logical :: use_native_zm_parcel_dilute = .false.
+   logical :: zm_parcel_dilute_selected = .false.
+   logical :: zm_parcel_dilute_logged = .false.
 
 contains
 
@@ -671,6 +674,44 @@ subroutine zm_closure_select_impl()
    end if
 
 end subroutine zm_closure_select_impl
+
+
+subroutine zm_parcel_dilute_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_parcel_dilute_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_PARCEL_DILUTE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_parcel_dilute = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_parcel_dilute = .false.
+   end if
+
+   zm_parcel_dilute_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_parcel_dilute) then
+         write(iulog,*) 'zm_parcel_dilute implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_parcel_dilute implementation = native')
+      else
+         write(iulog,*) 'zm_parcel_dilute implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_parcel_dilute implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_parcel_dilute_select_impl
 
 
 subroutine zm_closure_log_entered()
@@ -5067,6 +5108,9 @@ subroutine parcel_dilute (lchnk, ncol, msg, klaunch, p, t, q, &
   tpert, tp, tpv, qstp, pl, tl, lcl, &
   org, landfrac)
 
+use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+use wv_sat_methods, only: wv_sat_get_default_idx
+
 ! Routine  to determine
 !   1. Tp   - Parcel temperature
 !   2. qstp - Saturated mixing ratio at the parcel temperature.
@@ -5079,24 +5123,24 @@ integer, intent(in) :: lchnk
 integer, intent(in) :: ncol
 integer, intent(in) :: msg
 
-integer, intent(in), dimension(pcols) :: klaunch(pcols)
+integer, target, intent(in), dimension(pcols) :: klaunch(pcols)
 
-real(r8), intent(in), dimension(pcols,pver) :: p
-real(r8), intent(in), dimension(pcols,pver) :: t
-real(r8), intent(in), dimension(pcols,pver) :: q
-real(r8), intent(in), dimension(pcols) :: tpert ! PBL temperature perturbation.
+real(r8), target, intent(in), dimension(pcols,pver) :: p
+real(r8), target, intent(in), dimension(pcols,pver) :: t
+real(r8), target, intent(in), dimension(pcols,pver) :: q
+real(r8), target, intent(in), dimension(pcols) :: tpert ! PBL temperature perturbation.
 
-real(r8), intent(inout), dimension(pcols,pver) :: tp    ! Parcel temp.
-real(r8), intent(inout), dimension(pcols,pver) :: qstp  ! Parcel water vapour (sat value above lcl).
-real(r8), intent(inout), dimension(pcols) :: tl         ! Actual temp of LCL.
-real(r8), intent(inout), dimension(pcols) :: pl          ! Actual pressure of LCL.
+real(r8), target, intent(inout), dimension(pcols,pver) :: tp    ! Parcel temp.
+real(r8), target, intent(inout), dimension(pcols,pver) :: qstp  ! Parcel water vapour (sat value above lcl).
+real(r8), target, intent(inout), dimension(pcols) :: tl         ! Actual temp of LCL.
+real(r8), target, intent(inout), dimension(pcols) :: pl          ! Actual pressure of LCL.
 
-integer, intent(inout), dimension(pcols) :: lcl ! Lifting condesation level (first model level with saturation).
+integer, target, intent(inout), dimension(pcols) :: lcl ! Lifting condesation level (first model level with saturation).
 
-real(r8), intent(out), dimension(pcols,pver) :: tpv   ! Define tpv within this routine.
+real(r8), target, intent(out), dimension(pcols,pver) :: tpv   ! Define tpv within this routine.
 
 real(r8), pointer, dimension(:,:) :: org
-real(r8), intent(in), dimension(pcols) :: landfrac
+real(r8), target, intent(in), dimension(pcols) :: landfrac
 !--------------------
 
 ! Have to be careful as s is also dry static energy.
@@ -5106,22 +5150,22 @@ real(r8), intent(in), dimension(pcols) :: landfrac
 ! loop then we need to dimension sp,atp,mp,xsh2o with ncol.
 
 
-real(r8) tmix(pcols,pver)        ! Tempertaure of the entraining parcel.
-real(r8) qtmix(pcols,pver)       ! Total water of the entraining parcel.
-real(r8) qsmix(pcols,pver)       ! Saturated mixing ratio at the tmix.
-real(r8) smix(pcols,pver)        ! Entropy of the entraining parcel.
-real(r8) xsh2o(pcols,pver)       ! Precipitate lost from parcel.
-real(r8) ds_xsh2o(pcols,pver)    ! Entropy change due to loss of condensate.
-real(r8) ds_freeze(pcols,pver)   ! Entropy change sue to freezing of precip.
+real(r8), target :: tmix(pcols,pver)        ! Tempertaure of the entraining parcel.
+real(r8), target :: qtmix(pcols,pver)       ! Total water of the entraining parcel.
+real(r8), target :: qsmix(pcols,pver)       ! Saturated mixing ratio at the tmix.
+real(r8), target :: smix(pcols,pver)        ! Entropy of the entraining parcel.
+real(r8), target :: xsh2o(pcols,pver)       ! Precipitate lost from parcel.
+real(r8), target :: ds_xsh2o(pcols,pver)    ! Entropy change due to loss of condensate.
+real(r8), target :: ds_freeze(pcols,pver)   ! Entropy change sue to freezing of precip.
 real(r8) dmpdz2d(pcols,pver)     ! variable detrainment rate
 
-real(r8) mp(pcols)    ! Parcel mass flux.
-real(r8) qtp(pcols)   ! Parcel total water.
-real(r8) sp(pcols)    ! Parcel entropy.
+real(r8), target :: mp(pcols)    ! Parcel mass flux.
+real(r8), target :: qtp(pcols)   ! Parcel total water.
+real(r8), target :: sp(pcols)    ! Parcel entropy.
 
-real(r8) sp0(pcols)    ! Parcel launch entropy.
-real(r8) qtp0(pcols)   ! Parcel launch total water.
-real(r8) mp0(pcols)    ! Parcel launch relative mass flux.
+real(r8), target :: sp0(pcols)    ! Parcel launch entropy.
+real(r8), target :: qtp0(pcols)   ! Parcel launch total water.
+real(r8), target :: mp0(pcols)    ! Parcel launch relative mass flux.
 
 real(r8) lwmax      ! Maximum condesate that can be held in cloud before rainout.
 real(r8) dmpdp      ! Parcel fractional mass entrainment rate (/mb).
@@ -5147,6 +5191,26 @@ real(r8) dmpdz_lnd, dmpdz_mask
 integer rcall       ! Number of ientropy call for errors recording
 integer nit_lheat     ! Number of iterations for condensation/freezing loop.
 integer i,k,ii   ! Loop counters.
+type(c_ptr) :: org_p
+integer(c_int64_t), target :: parcel_status_c
+
+interface
+   subroutine zm_parcel_dilute_codon(lchnk_c, ncol_c, msg_c, pcols_c, pver_c, zm_org_c, &
+        grav_c, rgas_c, cpliq_c, tfreez_c, latice_c, rl_c, cpwv_c, cpres_c, eps1_c, rh2o_c, &
+        epsilo_c, omeps_c, wv_idx_c, klaunch_p, p_p, t_p, q_p, tpert_p, tp_p, tpv_p, qstp_p, &
+        pl_p, tl_p, lcl_p, org_p, landfrac_p, tmix_p, qtmix_p, qsmix_p, smix_p, xsh2o_p, &
+        ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p, status_p) &
+        bind(c, name="zm_parcel_dilute_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: lchnk_c, ncol_c, msg_c, pcols_c, pver_c, zm_org_c, wv_idx_c
+      real(c_double), value :: grav_c, rgas_c, cpliq_c, tfreez_c, latice_c, rl_c, cpwv_c
+      real(c_double), value :: cpres_c, eps1_c, rh2o_c, epsilo_c, omeps_c
+      type(c_ptr), value :: klaunch_p, p_p, t_p, q_p, tpert_p, tp_p, tpv_p, qstp_p
+      type(c_ptr), value :: pl_p, tl_p, lcl_p, org_p, landfrac_p, tmix_p, qtmix_p, qsmix_p
+      type(c_ptr), value :: smix_p, xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p
+      type(c_ptr), value :: sp_p, sp0_p, qtp0_p, mp0_p, status_p
+   end subroutine zm_parcel_dilute_codon
+end interface
 
 !======================================================================
 !    SUMMARY
@@ -5160,6 +5224,29 @@ integer i,k,ii   ! Loop counters.
 !
 ! Set some values that may be changed frequently.
 !
+
+call zm_parcel_dilute_select_impl()
+if (.not. use_native_zm_parcel_dilute) then
+   parcel_status_c = 1_c_int64_t
+   org_p = c_null_ptr
+   if (zm_org .and. associated(org)) org_p = c_loc(org(1,1))
+   call zm_conv_log_direct(zm_parcel_dilute_logged, &
+        'parcel_dilute direct = codon; entraining parcel/Brent entropy solve direct = codon; entropy expression native callback')
+   call zm_parcel_dilute_codon(int(lchnk, c_int64_t), int(ncol, c_int64_t), int(msg, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, zm_org), &
+        real(grav, c_double), real(rgas, c_double), real(cpliq, c_double), real(tfreez, c_double), &
+        real(latice, c_double), real(rl, c_double), real(cpwv, c_double), real(cpres, c_double), &
+        real(eps1, c_double), real(rh2o, c_double), real(epsilo, c_double), real(1._r8 - epsilo, c_double), &
+        int(wv_sat_get_default_idx(), c_int64_t), c_loc(klaunch), c_loc(p), c_loc(t), c_loc(q), &
+        c_loc(tpert), c_loc(tp), c_loc(tpv), c_loc(qstp), c_loc(pl), c_loc(tl), c_loc(lcl), &
+        org_p, c_loc(landfrac), c_loc(tmix), c_loc(qtmix), c_loc(qsmix), c_loc(smix), c_loc(xsh2o), &
+        c_loc(ds_xsh2o), c_loc(ds_freeze), c_loc(mp), c_loc(qtp), c_loc(sp), c_loc(sp0), &
+        c_loc(qtp0), c_loc(mp0), c_loc(parcel_status_c))
+   if (parcel_status_c == 0_c_int64_t) then
+      call endrun('**** ZM_CONV IENTROPY: Tmix did not converge in Codon parcel_dilute ****')
+   end if
+   return
+end if
 
 if (zm_org) then
    org2rkm = 10._r8

@@ -1,5 +1,197 @@
+from C import bolton_svp_water_native_cb(float) -> float
+from C import goffgratch_svp_water_native_cb(float) -> float
+from C import murphykoop_svp_water_native_cb(float) -> float
+from C import oldgoffgratch_svp_water_native_cb(float) -> float
+from C import zm_entropy_expr_native_cb(float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from math import log, sqrt
 import zm_cldprp_codon as _zm_cldprp
+
+
+WV_SAT_OLD_GOFF_GRATCH_IDX = 0
+WV_SAT_GOFF_GRATCH_IDX = 1
+WV_SAT_MURPHY_KOOP_IDX = 2
+WV_SAT_BOLTON_IDX = 3
+
+
+@inline
+def _zm_wv_sat_svp_to_qsat_codon(es: float, p: float, epsilo: float, omeps: float) -> float:
+    if (p - es) <= 0.0:
+        return 1.0
+    return epsilo * es / (p - omeps * es)
+
+
+@inline
+def _zm_wv_sat_svp_water_codon(t: float, idx: int) -> float:
+    if idx == WV_SAT_GOFF_GRATCH_IDX:
+        return goffgratch_svp_water_native_cb(t)
+    if idx == WV_SAT_MURPHY_KOOP_IDX:
+        return murphykoop_svp_water_native_cb(t)
+    if idx == WV_SAT_OLD_GOFF_GRATCH_IDX:
+        return oldgoffgratch_svp_water_native_cb(t)
+    if idx == WV_SAT_BOLTON_IDX:
+        return bolton_svp_water_native_cb(t)
+    return 0.0
+
+
+@inline
+def _zm_qsat_hpa_ptr_codon(
+    t: float,
+    p_hpa: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    es_out: Ptr[float],
+    qm_out: Ptr[float],
+):
+    p_pa = p_hpa * 100.0
+    es = _zm_wv_sat_svp_water_codon(t, idx)
+    qm = _zm_wv_sat_svp_to_qsat_codon(es, p_pa, epsilo, omeps)
+    if p_pa < es:
+        es = p_pa
+
+    es_out[0] = es * 0.01
+    qm_out[0] = qm
+
+
+@inline
+def _zm_entropy_codon(
+    tk: float,
+    p_hpa: float,
+    qtot: float,
+    rl: float,
+    cpliq: float,
+    cpwv: float,
+    tfreez: float,
+    cpres: float,
+    rgas: float,
+    eps1: float,
+    rh2o: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+) -> float:
+    est = 0.0
+    qst = 0.0
+    _zm_qsat_hpa_ptr_codon(tk, p_hpa, idx, epsilo, omeps, __ptr__(est), __ptr__(qst))
+    return zm_entropy_expr_native_cb(
+        tk,
+        p_hpa,
+        qtot,
+        qst,
+        rl,
+        cpliq,
+        cpwv,
+        tfreez,
+        cpres,
+        rgas,
+        eps1,
+        rh2o,
+    )
+
+
+@inline
+def _zm_ientropy_codon(
+    s: float,
+    p_hpa: float,
+    qt: float,
+    tfg: float,
+    rl: float,
+    cpliq: float,
+    cpwv: float,
+    tfreez: float,
+    cpres: float,
+    rgas: float,
+    eps1: float,
+    rh2o: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    t_out: Ptr[float],
+    qst_out: Ptr[float],
+    converged_out: Ptr[int],
+):
+    loopmax = 100
+    eps = 3.0e-8
+    tol = 0.001
+
+    a = tfg - 10.0
+    b = tfg + 10.0
+    fa = _zm_entropy_codon(a, p_hpa, qt, rl, cpliq, cpwv, tfreez, cpres, rgas, eps1, rh2o, idx, epsilo, omeps) - s
+    fb = _zm_entropy_codon(b, p_hpa, qt, rl, cpliq, cpwv, tfreez, cpres, rgas, eps1, rh2o, idx, epsilo, omeps) - s
+    c = b
+    fc = fb
+    d = 0.0
+    ebr = 0.0
+    converged = False
+
+    ii = 0
+    while ii <= loopmax:
+        if (fb > 0.0 and fc > 0.0) or (fb < 0.0 and fc < 0.0):
+            c = a
+            fc = fa
+            d = b - a
+            ebr = d
+
+        if abs(fc) < abs(fb):
+            a = b
+            b = c
+            c = a
+            fa = fb
+            fb = fc
+            fc = fa
+
+        tol1 = 2.0 * eps * abs(b) + 0.5 * tol
+        xm = 0.5 * (c - b)
+        converged = abs(xm) <= tol1 or fb == 0.0
+        if converged:
+            break
+
+        if abs(ebr) >= tol1 and abs(fa) > abs(fb):
+            sbr = fb / fa
+            if a == c:
+                pbr = 2.0 * xm * sbr
+                qbr = 1.0 - sbr
+            else:
+                qbr = fa / fc
+                rbr = fb / fc
+                pbr = sbr * (2.0 * xm * qbr * (qbr - rbr) - (b - a) * (rbr - 1.0))
+                qbr = (qbr - 1.0) * (rbr - 1.0) * (sbr - 1.0)
+
+            if pbr > 0.0:
+                qbr = -qbr
+            pbr = abs(pbr)
+            if 2.0 * pbr < min(3.0 * xm * qbr - abs(tol1 * qbr), abs(ebr * qbr)):
+                ebr = d
+                d = pbr / qbr
+            else:
+                d = xm
+                ebr = d
+        else:
+            d = xm
+            ebr = d
+
+        a = b
+        fa = fb
+        if abs(d) > tol1:
+            b = b + d
+        else:
+            if xm >= 0.0:
+                b = b + abs(tol1)
+            else:
+                b = b - abs(tol1)
+
+        fb = _zm_entropy_codon(b, p_hpa, qt, rl, cpliq, cpwv, tfreez, cpres, rgas, eps1, rh2o, idx, epsilo, omeps) - s
+        ii += 1
+
+    est = 0.0
+    qst = 0.0
+    _zm_qsat_hpa_ptr_codon(b, p_hpa, idx, epsilo, omeps, __ptr__(est), __ptr__(qst))
+    t_out[0] = b
+    qst_out[0] = qst
+    if converged:
+        converged_out[0] = 1
+    else:
+        converged_out[0] = 0
 
 
 @export
@@ -4411,6 +4603,399 @@ def zm_convtran2_dpdry_shell_codon(
             dpdry[i + k * pcols] = state_pdeldry[src_i + k * pcols] / 100.0
             k += 1
         i += 1
+
+
+@export
+def zm_parcel_dilute_codon(
+    lchnk: int,
+    ncol: int,
+    msg: int,
+    pcols: int,
+    pver: int,
+    zm_org: int,
+    grav: float,
+    rgas: float,
+    cpliq: float,
+    tfreez: float,
+    latice: float,
+    rl: float,
+    cpwv: float,
+    cpres: float,
+    eps1: float,
+    rh2o: float,
+    epsilo: float,
+    omeps: float,
+    wv_idx: int,
+    klaunch_p: cobj,
+    p_p: cobj,
+    t_p: cobj,
+    q_p: cobj,
+    tpert_p: cobj,
+    tp_p: cobj,
+    tpv_p: cobj,
+    qstp_p: cobj,
+    pl_p: cobj,
+    tl_p: cobj,
+    lcl_p: cobj,
+    org_p: cobj,
+    landfrac_p: cobj,
+    tmix_p: cobj,
+    qtmix_p: cobj,
+    qsmix_p: cobj,
+    smix_p: cobj,
+    xsh2o_p: cobj,
+    ds_xsh2o_p: cobj,
+    ds_freeze_p: cobj,
+    mp_p: cobj,
+    qtp_p: cobj,
+    sp_p: cobj,
+    sp0_p: cobj,
+    qtp0_p: cobj,
+    mp0_p: cobj,
+    status_p: cobj,
+):
+    klaunch = Ptr[i32](klaunch_p)
+    p = Ptr[float](p_p)
+    t = Ptr[float](t_p)
+    q = Ptr[float](q_p)
+    tpert = Ptr[float](tpert_p)
+    tp = Ptr[float](tp_p)
+    tpv = Ptr[float](tpv_p)
+    qstp = Ptr[float](qstp_p)
+    pl = Ptr[float](pl_p)
+    tl = Ptr[float](tl_p)
+    lcl = Ptr[i32](lcl_p)
+    org = Ptr[float](org_p)
+    landfrac = Ptr[float](landfrac_p)
+    tmix = Ptr[float](tmix_p)
+    qtmix = Ptr[float](qtmix_p)
+    qsmix = Ptr[float](qsmix_p)
+    smix = Ptr[float](smix_p)
+    xsh2o = Ptr[float](xsh2o_p)
+    ds_xsh2o = Ptr[float](ds_xsh2o_p)
+    ds_freeze = Ptr[float](ds_freeze_p)
+    mp = Ptr[float](mp_p)
+    qtp = Ptr[float](qtp_p)
+    sp = Ptr[float](sp_p)
+    sp0 = Ptr[float](sp0_p)
+    qtp0 = Ptr[float](qtp0_p)
+    mp0 = Ptr[float](mp0_p)
+    status = Ptr[int](status_p)
+
+    status[0] = 1
+
+    org2rkm = 0.0
+    org2tpert = 0.0
+    if zm_org != 0:
+        org2rkm = 10.0
+        org2tpert = 0.0
+
+    nit_lheat = 2
+    dmpdz = -1.0e-3
+    dmpdz_lnd = -1.0e-3
+    lwmax = 1.0e-3
+    tscool = 0.0
+
+    kk0 = 0
+    while kk0 < pver:
+        i0 = 0
+        while i0 < pcols:
+            idx0 = i0 + kk0 * pcols
+            qtmix[idx0] = 0.0
+            smix[idx0] = 0.0
+            i0 += 1
+        kk0 += 1
+
+    i0 = 0
+    while i0 < pcols:
+        qtp0[i0] = 0.0
+        sp0[i0] = 0.0
+        mp0[i0] = 0.0
+        qtp[i0] = 0.0
+        sp[i0] = 0.0
+        mp[i0] = 0.0
+        i0 += 1
+
+    kk = pver
+    while kk >= msg + 1:
+        k0 = kk - 1
+        i = 0
+        while i < ncol:
+            idx = i + k0 * pcols
+            launch_i = int(klaunch[i])
+
+            if kk == launch_i:
+                qtp0[i] = q[idx]
+                sp0[i] = _zm_entropy_codon(
+                    t[idx],
+                    p[idx],
+                    qtp0[i],
+                    rl,
+                    cpliq,
+                    cpwv,
+                    tfreez,
+                    cpres,
+                    rgas,
+                    eps1,
+                    rh2o,
+                    wv_idx,
+                    epsilo,
+                    omeps,
+                )
+                mp0[i] = 1.0
+                smix[idx] = sp0[i]
+                qtmix[idx] = qtp0[i]
+                tmix_val = 0.0
+                qsmix_val = 0.0
+                conv = 0
+                _zm_ientropy_codon(
+                    smix[idx],
+                    p[idx],
+                    qtmix[idx],
+                    t[idx],
+                    rl,
+                    cpliq,
+                    cpwv,
+                    tfreez,
+                    cpres,
+                    rgas,
+                    eps1,
+                    rh2o,
+                    wv_idx,
+                    epsilo,
+                    omeps,
+                    __ptr__(tmix_val),
+                    __ptr__(qsmix_val),
+                    __ptr__(conv),
+                )
+                if conv == 0:
+                    status[0] = 0
+                    return
+                tmix[idx] = tmix_val
+                qsmix[idx] = qsmix_val
+
+            if kk < launch_i:
+                idxp1 = i + kk * pcols
+                dp = p[idx] - p[idxp1]
+                qtenv = 0.5 * (q[idx] + q[idxp1])
+                tenv = 0.5 * (t[idx] + t[idxp1])
+                penv = 0.5 * (p[idx] + p[idxp1])
+                senv = _zm_entropy_codon(
+                    tenv,
+                    penv,
+                    qtenv,
+                    rl,
+                    cpliq,
+                    cpwv,
+                    tfreez,
+                    cpres,
+                    rgas,
+                    eps1,
+                    rh2o,
+                    wv_idx,
+                    epsilo,
+                    omeps,
+                )
+                dpdz = -(penv * grav) / (rgas * tenv)
+                dzdp = 1.0 / dpdz
+                if zm_org != 0:
+                    dmpdz_mask = landfrac[i] * dmpdz_lnd + (1.0 - landfrac[i]) * dmpdz
+                    dmpdp = (dmpdz_mask / (1.0 + org[idx] * org2rkm)) * dzdp
+                else:
+                    dmpdp = dmpdz * dzdp
+
+                sp[i] = sp[i] - dmpdp * dp * senv
+                qtp[i] = qtp[i] - dmpdp * dp * qtenv
+                mp[i] = mp[i] - dmpdp * dp
+
+                smix[idx] = (sp0[i] + sp[i]) / (mp0[i] + mp[i])
+                qtmix[idx] = (qtp0[i] + qtp[i]) / (mp0[i] + mp[i])
+
+                tmix_val = 0.0
+                qsmix_val = 0.0
+                conv = 0
+                _zm_ientropy_codon(
+                    smix[idx],
+                    p[idx],
+                    qtmix[idx],
+                    tmix[idxp1],
+                    rl,
+                    cpliq,
+                    cpwv,
+                    tfreez,
+                    cpres,
+                    rgas,
+                    eps1,
+                    rh2o,
+                    wv_idx,
+                    epsilo,
+                    omeps,
+                    __ptr__(tmix_val),
+                    __ptr__(qsmix_val),
+                    __ptr__(conv),
+                )
+                if conv == 0:
+                    status[0] = 0
+                    return
+                tmix[idx] = tmix_val
+                qsmix[idx] = qsmix_val
+
+                if qsmix[idx] <= qtmix[idx] and qsmix[idxp1] > qtmix[idxp1]:
+                    lcl[i] = i32(kk)
+                    qxsk = qtmix[idx] - qsmix[idx]
+                    qxskp1 = qtmix[idxp1] - qsmix[idxp1]
+                    dqxsdp = (qxsk - qxskp1) / dp
+                    pl[i] = p[idxp1] - qxskp1 / dqxsdp
+                    dsdp = (smix[idx] - smix[idxp1]) / dp
+                    dqtdp = (qtmix[idx] - qtmix[idxp1]) / dp
+                    slcl = smix[idxp1] + dsdp * (pl[i] - p[idxp1])
+                    qtlcl = qtmix[idxp1] + dqtdp * (pl[i] - p[idxp1])
+
+                    tl_val = 0.0
+                    qslcl = 0.0
+                    conv = 0
+                    _zm_ientropy_codon(
+                        slcl,
+                        pl[i],
+                        qtlcl,
+                        tmix[idx],
+                        rl,
+                        cpliq,
+                        cpwv,
+                        tfreez,
+                        cpres,
+                        rgas,
+                        eps1,
+                        rh2o,
+                        wv_idx,
+                        epsilo,
+                        omeps,
+                        __ptr__(tl_val),
+                        __ptr__(qslcl),
+                        __ptr__(conv),
+                    )
+                    if conv == 0:
+                        status[0] = 0
+                        return
+                    tl[i] = tl_val
+
+            i += 1
+        kk -= 1
+
+    kk0 = 0
+    while kk0 < pver:
+        i0 = 0
+        while i0 < pcols:
+            idx0 = i0 + kk0 * pcols
+            xsh2o[idx0] = 0.0
+            ds_xsh2o[idx0] = 0.0
+            ds_freeze[idx0] = 0.0
+            i0 += 1
+        kk0 += 1
+
+    kk = pver
+    while kk >= msg + 1:
+        k0 = kk - 1
+        i = 0
+        while i < ncol:
+            idx = i + k0 * pcols
+            launch_i = int(klaunch[i])
+
+            if kk == launch_i:
+                tp[idx] = tmix[idx]
+                qstp[idx] = q[idx]
+                if zm_org != 0:
+                    tpv[idx] = (
+                        (tp[idx] + (org2tpert * org[idx] + tpert[i]))
+                        * (1.0 + 1.608 * qstp[idx])
+                        / (1.0 + qstp[idx])
+                    )
+                else:
+                    tpv[idx] = (
+                        (tp[idx] + tpert[i])
+                        * (1.0 + 1.608 * qstp[idx])
+                        / (1.0 + qstp[idx])
+                    )
+
+            if kk < launch_i:
+                idxp1 = i + kk * pcols
+                new_q = 0.0
+                new_s = 0.0
+                ii = 0
+                while ii <= nit_lheat - 1:
+                    xsh2o[idx] = max(0.0, qtmix[idx] - qsmix[idx] - lwmax)
+                    ds_xsh2o[idx] = (
+                        ds_xsh2o[idxp1]
+                        - cpliq * log(tmix[idx] / tfreez) * max(0.0, (xsh2o[idx] - xsh2o[idxp1]))
+                    )
+
+                    if tmix[idx] <= tfreez + tscool and ds_freeze[idxp1] == 0.0:
+                        ds_freeze[idx] = (
+                            (latice / tmix[idx])
+                            * max(0.0, qtmix[idx] - qsmix[idx] - xsh2o[idx])
+                        )
+
+                    if tmix[idx] <= tfreez + tscool and ds_freeze[idxp1] != 0.0:
+                        ds_freeze[idx] = (
+                            ds_freeze[idxp1]
+                            + (latice / tmix[idx]) * max(0.0, (qsmix[idxp1] - qsmix[idx]))
+                        )
+
+                    new_s = smix[idx] + ds_xsh2o[idx] + ds_freeze[idx]
+                    new_q = qtmix[idx] - xsh2o[idx]
+
+                    tmix_val = 0.0
+                    qsmix_val = 0.0
+                    conv = 0
+                    _zm_ientropy_codon(
+                        new_s,
+                        p[idx],
+                        new_q,
+                        tmix[idx],
+                        rl,
+                        cpliq,
+                        cpwv,
+                        tfreez,
+                        cpres,
+                        rgas,
+                        eps1,
+                        rh2o,
+                        wv_idx,
+                        epsilo,
+                        omeps,
+                        __ptr__(tmix_val),
+                        __ptr__(qsmix_val),
+                        __ptr__(conv),
+                    )
+                    if conv == 0:
+                        status[0] = 0
+                        return
+                    tmix[idx] = tmix_val
+                    qsmix[idx] = qsmix_val
+                    ii += 1
+
+                tp[idx] = tmix[idx]
+
+                if new_q > qsmix[idx]:
+                    qstp[idx] = qsmix[idx]
+                else:
+                    qstp[idx] = new_q
+
+                if zm_org != 0:
+                    tpv[idx] = (
+                        (tp[idx] + (org2tpert * org[idx] + tpert[i]))
+                        * (1.0 + 1.608 * qstp[idx])
+                        / (1.0 + new_q)
+                    )
+                else:
+                    tpv[idx] = (
+                        (tp[idx] + tpert[i])
+                        * (1.0 + 1.608 * qstp[idx])
+                        / (1.0 + new_q)
+                    )
+
+            i += 1
+        kk -= 1
 
 
 @export
