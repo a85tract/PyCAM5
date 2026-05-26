@@ -2,6 +2,32 @@ from math import exp, sqrt
 
 
 @export
+def gw_drag_readnl_status_codon(
+    fcrit2_set: int,
+    pgwv_nonnegative: int,
+    gw_dc_set: int,
+    pgwv_long_nonnegative: int,
+    gw_dc_long_set: int,
+    status_mask_p: cobj,
+):
+    status_mask = Ptr[int](status_mask_p)
+
+    mask = 0
+    if fcrit2_set != 0:
+        mask |= 1
+    if pgwv_nonnegative != 0:
+        mask |= 2
+    if gw_dc_set != 0:
+        mask |= 4
+    if pgwv_long_nonnegative != 0:
+        mask |= 8
+    if gw_dc_long_set != 0:
+        mask |= 16
+
+    status_mask[0] = mask
+
+
+@export
 def gw_tend_select_branches_codon(
     do_molec_diff: int,
     use_gw_convect_dp: int,

@@ -48,6 +48,13 @@ def zm_conv_readnl_codon(
 
 
 @export
+def zm_conv_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def convect_deep_tend_2_action_codon(scheme_code: int) -> int:
     if scheme_code == 1:
         return 1

@@ -83,6 +83,9 @@ module zm_conv_intr
 
    logical :: use_native_zm_post_shell = .false.
    logical :: zm_post_shell_selected = .false.
+   logical :: use_native_zm_conv_init = .false.
+   logical :: zm_conv_init_selected = .false.
+   logical :: zm_conv_init_logged = .false.
    logical :: use_native_zm_conv_init_limcnv = .false.
    logical :: zm_conv_init_limcnv_selected = .false.
    logical :: zm_conv_init_limcnv_logged = .false.
@@ -105,6 +108,79 @@ module zm_conv_intr
 
 !=========================================================================================
 contains
+!=========================================================================================
+
+subroutine zm_conv_init_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('ZM_CONV_INIT_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine zm_conv_init_append_proof
+
+!=========================================================================================
+
+subroutine zm_conv_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_conv_init_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_INIT_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_conv_init = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_conv_init = .false.
+   end if
+
+   zm_conv_init_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_conv_init) then
+         write(iulog,*) 'zm_conv_init implementation = native'
+         call zm_conv_init_append_proof('zm_conv_init selector entered implementation = native')
+      else
+         write(iulog,*) 'zm_conv_init implementation = codon'
+         call zm_conv_init_append_proof('zm_conv_init selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_init_select_impl
+
+!=========================================================================================
+
+subroutine zm_conv_init_log_direct()
+
+   if (zm_conv_init_logged) return
+   zm_conv_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'zm_conv_init direct = codon; allocation/history/pbuf/zm_convi native CAM API islands; limcnv cap scan direct = codon'
+      call zm_conv_init_append_proof( &
+           'zm_conv_init direct = codon; allocation/history/pbuf/zm_convi native CAM API islands; limcnv cap scan direct = codon')
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_init_log_direct
+
 !=========================================================================================
 
 subroutine zm_conv_init_limcnv_select_impl()
@@ -290,8 +366,14 @@ subroutine zm_conv_init(pref_edge)
                             ! temperature, water vapor, cloud ice and cloud
                             ! liquid budgets.
   integer :: history_budget_histfile_num ! output history file number for budget fields
+  integer(c_int64_t) :: init_active_c
 
   interface
+     function zm_conv_init_codon(flag_c) result(active_c) bind(c, name="zm_conv_init_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: active_c
+     end function zm_conv_init_codon
      function zm_conv_init_limcnv_codon(plev_c, pref_edge_p) result(limcnv_c) &
           bind(c, name="zm_conv_init_limcnv_codon")
         use iso_c_binding, only: c_int64_t, c_ptr
@@ -300,6 +382,12 @@ subroutine zm_conv_init(pref_edge)
         integer(c_int64_t) :: limcnv_c
      end function zm_conv_init_limcnv_codon
   end interface
+
+    call zm_conv_init_select_impl()
+    if (.not. use_native_zm_conv_init) then
+       init_active_c = zm_conv_init_codon(1_c_int64_t)
+       if (init_active_c /= 0_c_int64_t) call zm_conv_init_log_direct()
+    end if
 
 !
 ! Allocate space for arrays private to this module

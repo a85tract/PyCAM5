@@ -131,8 +131,12 @@ module gw_drag
 
   ! namelist 
   logical          :: history_amwg                   ! output the variables used by the AMWG diag package
+  logical          :: use_native_readnl_impl = .false.
+  logical          :: gw_drag_readnl_impl_selected = .false.
+  logical          :: gw_drag_readnl_logged = .false.
   logical          :: use_native_tend_impl = .false.
   logical          :: gw_tend_impl_selected = .false.
+  logical          :: gw_tend_logged = .false.
   integer          :: gw_tend_branch_mask = 0
   logical          :: gw_tend_branch_selected = .false.
   logical          :: use_native_oro_post_impl = .false.
@@ -154,6 +158,7 @@ subroutine gw_drag_readnl(nlfile)
   use namelist_utils,  only: find_group_name
   use units,           only: getunit, freeunit
   use mpishorthand
+  use iso_c_binding,   only: c_int64_t, c_ptr, c_loc
 
   ! File containing namelist input.
   character(len=*), intent(in) :: nlfile
@@ -172,11 +177,23 @@ subroutine gw_drag_readnl(nlfile)
   ! facilitate backwards compatibility with the CAM3 version of this
   ! parameterization.  In CAM3, fcrit2=0.5.
   real(r8) :: fcrit2 = unset_r8   ! critical froude number squared
+  integer(c_int64_t), target :: readnl_status_mask
 
   namelist /gw_drag_nl/ pgwv, gw_dc, pgwv_long, gw_dc_long, tau_0_ubc, &
        effgw_beres_dp, effgw_beres_sh, effgw_cm, effgw_cm_igw, effgw_oro, &
        fcrit2, frontgfc, gw_drag_file, gw_drag_file_sh, taubgnd, &
        taubgnd_igw, gw_polar_taper
+
+  interface
+     subroutine gw_drag_readnl_status_codon(fcrit2_set_c, pgwv_nonnegative_c, gw_dc_set_c, &
+          pgwv_long_nonnegative_c, gw_dc_long_set_c, status_mask_p) &
+          bind(c, name="gw_drag_readnl_status_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: fcrit2_set_c, pgwv_nonnegative_c, gw_dc_set_c
+       integer(c_int64_t), value :: pgwv_long_nonnegative_c, gw_dc_long_set_c
+       type(c_ptr), value :: status_mask_p
+     end subroutine gw_drag_readnl_status_codon
+  end interface
   !----------------------------------------------------------------------
 
   if (masterproc) then
@@ -214,21 +231,48 @@ subroutine gw_drag_readnl(nlfile)
   call mpibcast(gw_drag_file_sh, len(gw_drag_file_sh), mpichar, 0, mpicom)
 #endif
 
+  call gw_drag_readnl_select_impl()
+
   ! Check if fcrit2 was set.
-  call shr_assert(fcrit2 /= unset_r8, &
-       "gw_drag_readnl: fcrit2 must be set via the namelist."// &
-       errMsg(__FILE__, __LINE__))
+  if (.not. use_native_readnl_impl) then
+     readnl_status_mask = 0_c_int64_t
+     call gw_drag_readnl_status_codon( &
+          merge(1_c_int64_t, 0_c_int64_t, fcrit2 /= unset_r8), &
+          merge(1_c_int64_t, 0_c_int64_t, pgwv >= 0), &
+          merge(1_c_int64_t, 0_c_int64_t, gw_dc /= unset_r8), &
+          merge(1_c_int64_t, 0_c_int64_t, pgwv_long >= 0), &
+          merge(1_c_int64_t, 0_c_int64_t, gw_dc_long /= unset_r8), &
+          c_loc(readnl_status_mask))
+     call gw_drag_readnl_log_direct()
 
-  ! Check if pgwv was set.
-  call shr_assert(pgwv >= 0, &
-       "gw_drag_readnl: pgwv must be set via the namelist and &
-       &non-negative."// &
-       errMsg(__FILE__, __LINE__))
+     call shr_assert(iand(readnl_status_mask, 1_c_int64_t) /= 0_c_int64_t, &
+          "gw_drag_readnl: fcrit2 must be set via the namelist."// &
+          errMsg(__FILE__, __LINE__))
 
-  ! Check if gw_dc was set.
-  call shr_assert(gw_dc /= unset_r8, &
-       "gw_drag_readnl: gw_dc must be set via the namelist."// &
-       errMsg(__FILE__, __LINE__))
+     call shr_assert(iand(readnl_status_mask, 2_c_int64_t) /= 0_c_int64_t, &
+          "gw_drag_readnl: pgwv must be set via the namelist and &
+          &non-negative."// &
+          errMsg(__FILE__, __LINE__))
+
+     call shr_assert(iand(readnl_status_mask, 4_c_int64_t) /= 0_c_int64_t, &
+          "gw_drag_readnl: gw_dc must be set via the namelist."// &
+          errMsg(__FILE__, __LINE__))
+  else
+     call shr_assert(fcrit2 /= unset_r8, &
+          "gw_drag_readnl: fcrit2 must be set via the namelist."// &
+          errMsg(__FILE__, __LINE__))
+
+     ! Check if pgwv was set.
+     call shr_assert(pgwv >= 0, &
+          "gw_drag_readnl: pgwv must be set via the namelist and &
+          &non-negative."// &
+          errMsg(__FILE__, __LINE__))
+
+     ! Check if gw_dc was set.
+     call shr_assert(gw_dc /= unset_r8, &
+          "gw_drag_readnl: gw_dc must be set via the namelist."// &
+          errMsg(__FILE__, __LINE__))
+  end if
 
   band_oro = GWBand(0, gw_dc, fcrit2, wavelength_mid)
   band_mid = GWBand(pgwv, gw_dc, 1.0_r8, wavelength_mid)
@@ -926,6 +970,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
      use_gw_front_local = iand(gw_tend_branch_mask, 8) /= 0
      use_gw_front_igw_local = iand(gw_tend_branch_mask, 16) /= 0
      use_gw_oro_local = iand(gw_tend_branch_mask, 32) /= 0
+     call gw_tend_log_direct()
   else
      do_molec_diff_local = do_molec_diff
      use_gw_convect_dp_local = use_gw_convect_dp
@@ -1811,6 +1856,113 @@ end subroutine gw_tend_oro_post_codon_wrap
 
 !==========================================================================
 
+subroutine gw_drag_readnl_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_DRAG_READNL_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_drag_readnl_append_proof
+
+!==========================================================================
+
+subroutine gw_drag_readnl_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_drag_readnl_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_DRAG_READNL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_readnl_impl = .false.
+  end if
+
+  gw_drag_readnl_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_readnl_impl) then
+        write(iulog,*) 'gw_drag_readnl implementation = native'
+        call gw_drag_readnl_append_proof('gw_drag_readnl selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_drag_readnl implementation = codon'
+        call gw_drag_readnl_append_proof('gw_drag_readnl selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_drag_readnl_select_impl
+
+!==========================================================================
+
+subroutine gw_drag_readnl_log_direct()
+
+  if (gw_drag_readnl_logged) return
+  gw_drag_readnl_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'gw_drag_readnl direct = codon; namelist I/O, MPI broadcast, asserts, GWBand construction native islands'
+     call gw_drag_readnl_append_proof( &
+          'gw_drag_readnl direct = codon; namelist I/O, MPI broadcast, asserts, GWBand construction native islands')
+     call flush(iulog)
+  end if
+
+end subroutine gw_drag_readnl_log_direct
+
+!==========================================================================
+
+subroutine gw_tend_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_TEND_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_tend_append_proof
+
+!==========================================================================
+
+subroutine gw_tend_log_direct()
+
+  if (gw_tend_logged) return
+  gw_tend_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'gw_tend direct = codon; branch/prep/history/oro-post shells direct = codon; native source/API islands'
+     call gw_tend_append_proof( &
+          'gw_tend direct = codon; branch/prep/history/oro-post shells direct = codon; native source/API islands')
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_log_direct
+
+!==========================================================================
+
 subroutine gw_tend_select_impl()
 
   character(len=32) :: impl_name
@@ -1838,8 +1990,10 @@ subroutine gw_tend_select_impl()
   if (masterproc) then
      if (use_native_tend_impl) then
         write(iulog,*) 'gw_tend implementation = native'
+        call gw_tend_append_proof('gw_tend selector entered implementation = native')
      else
         write(iulog,*) 'gw_tend implementation = codon'
+        call gw_tend_append_proof('gw_tend selector entered implementation = codon')
      end if
      call flush(iulog)
   end if
