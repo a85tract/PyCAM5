@@ -588,3 +588,60 @@ def phys_grid_assign_block_no_twin_codon(
             knuhcs_col[curgcol0] = i32(ncols)
 
             local_cid[smp] = i32((int(local_cid[smp]) + 1) % int(nsmpchunks[smp]))
+
+
+def phys_grid_transpose_counts_codon(
+    npes: int,
+    record_size: int,
+    direction: int,
+    block_num_p: cobj,
+    chunk_num_p: cobj,
+    sndcnts_p: cobj,
+    sdispls_p: cobj,
+    rcvcnts_p: cobj,
+    rdispls_p: cobj,
+):
+    block_num = Ptr[i32](block_num_p)
+    chunk_num = Ptr[i32](chunk_num_p)
+    sndcnts = Ptr[i32](sndcnts_p)
+    sdispls = Ptr[i32](sdispls_p)
+    rcvcnts = Ptr[i32](rcvcnts_p)
+    rdispls = Ptr[i32](rdispls_p)
+
+    if npes <= 0:
+        return
+
+    send_num = block_num
+    recv_num = chunk_num
+    if direction != 1:
+        send_num = chunk_num
+        recv_num = block_num
+
+    sdispls[0] = i32(0)
+    sndcnts[0] = i32(record_size * int(send_num[0]))
+    rdispls[0] = i32(0)
+    rcvcnts[0] = i32(record_size * int(recv_num[0]))
+
+    for p in range(1, npes):
+        sdispls[p] = i32(int(sdispls[p - 1]) + int(sndcnts[p - 1]))
+        sndcnts[p] = i32(record_size * int(send_num[p]))
+        rdispls[p] = i32(int(rdispls[p - 1]) + int(rcvcnts[p - 1]))
+        rcvcnts[p] = i32(record_size * int(recv_num[p]))
+
+
+def phys_grid_transpose_lopt_codon(
+    phys_alltoall: int,
+    max_nproc_smpx: int,
+    nproc_busy_d: int,
+    npes: int,
+    has_window: int,
+) -> int:
+    if phys_alltoall < 0:
+        if max_nproc_smpx > npes // 2 and nproc_busy_d > npes // 2:
+            return 0
+        return 1
+
+    lopt = phys_alltoall
+    if lopt == 2 and has_window == 0:
+        lopt = 1
+    return lopt

@@ -3364,6 +3364,48 @@ def chunk_to_block_recv_pters_codon(
 
 
 @export
+def phys_grid_transpose_counts_codon(
+    npes: int,
+    record_size: int,
+    direction: int,
+    block_num_p: cobj,
+    chunk_num_p: cobj,
+    sndcnts_p: cobj,
+    sdispls_p: cobj,
+    rcvcnts_p: cobj,
+    rdispls_p: cobj,
+):
+    _phys_grid.phys_grid_transpose_counts_codon(
+        npes,
+        record_size,
+        direction,
+        block_num_p,
+        chunk_num_p,
+        sndcnts_p,
+        sdispls_p,
+        rcvcnts_p,
+        rdispls_p,
+    )
+
+
+@export
+def phys_grid_transpose_lopt_codon(
+    phys_alltoall: int,
+    max_nproc_smpx: int,
+    nproc_busy_d: int,
+    npes: int,
+    has_window: int,
+) -> int:
+    return _phys_grid.phys_grid_transpose_lopt_codon(
+        phys_alltoall,
+        max_nproc_smpx,
+        nproc_busy_d,
+        npes,
+        has_window,
+    )
+
+
+@export
 def restart_physics_fill_tail_codon(
     ncol: int,
     pcols: int,

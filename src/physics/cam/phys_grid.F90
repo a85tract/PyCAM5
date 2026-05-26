@@ -315,6 +315,10 @@ module phys_grid
    logical, private :: block_to_chunk_recv_pters_logged = .false.
    logical, private :: chunk_to_block_send_pters_logged = .false.
    logical, private :: chunk_to_block_recv_pters_logged = .false.
+   logical, private :: use_native_transpose_impl = .false.
+   logical, private :: transpose_impl_selected = .false.
+   logical, private :: transpose_btoc_logged = .false.
+   logical, private :: transpose_ctob_logged = .false.
    logical, private :: use_native_init_helpers_impl = .false.
    logical, private :: init_helpers_impl_selected = .false.
    logical, private :: init_helpers_proof_written = .false.
@@ -664,6 +668,19 @@ module phys_grid
        integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
        type(c_ptr), value :: src_p, dst_p
      end subroutine chunk_to_block_recv_pters_codon_raw
+     subroutine phys_grid_transpose_counts_codon_raw(npes_c, record_size_c, direction_c, &
+          block_num_p, chunk_num_p, sndcnts_p, sdispls_p, rcvcnts_p, rdispls_p) &
+          bind(c, name="phys_grid_transpose_counts_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: npes_c, record_size_c, direction_c
+       type(c_ptr), value :: block_num_p, chunk_num_p, sndcnts_p, sdispls_p, rcvcnts_p, rdispls_p
+     end subroutine phys_grid_transpose_counts_codon_raw
+     function phys_grid_transpose_lopt_codon_raw(phys_alltoall_c, max_nproc_smpx_c, nproc_busy_d_c, &
+          npes_c, has_window_c) result(lopt_c) bind(c, name="phys_grid_transpose_lopt_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: phys_alltoall_c, max_nproc_smpx_c, nproc_busy_d_c, npes_c, has_window_c
+       integer(c_int64_t) :: lopt_c
+     end function phys_grid_transpose_lopt_codon_raw
    end interface
 
 contains
@@ -737,6 +754,92 @@ contains
        write(iulog,'(A)') trim(proof_line)
     end if
   end subroutine phys_grid_getter_log_direct
+
+  subroutine phys_grid_transpose_append_proof(proof_line)
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('PHYS_GRID_TRANSPOSE_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+  end subroutine phys_grid_transpose_append_proof
+
+  subroutine phys_grid_transpose_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (transpose_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHYS_GRID_TRANSPOSE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_transpose_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_transpose_impl = .false.
+    end if
+
+    transpose_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_transpose_impl) then
+          write(iulog,*) 'phys_grid_transpose implementation = native'
+          call phys_grid_transpose_append_proof('phys_grid_transpose selector entered implementation = native')
+       else
+          write(iulog,*) 'phys_grid_transpose implementation = codon'
+          call phys_grid_transpose_append_proof('phys_grid_transpose selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+  end subroutine phys_grid_transpose_select_impl
+
+  subroutine phys_grid_transpose_log_direct(logged, proof_line)
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+       call phys_grid_transpose_append_proof(proof_line)
+       call flush(iulog)
+    end if
+  end subroutine phys_grid_transpose_log_direct
+
+  subroutine phys_grid_transpose_counts_codon(npes_local, record_size_local, direction, &
+       block_num, chunk_num, sndcnts, sdispls, rcvcnts, rdispls)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: npes_local, record_size_local, direction
+    integer, target, intent(in) :: block_num(0:npes_local-1), chunk_num(0:npes_local-1)
+    integer, target, intent(inout) :: sndcnts(0:npes_local-1), sdispls(0:npes_local-1)
+    integer, target, intent(inout) :: rcvcnts(0:npes_local-1), rdispls(0:npes_local-1)
+
+    call phys_grid_transpose_counts_codon_raw(int(npes_local, c_int64_t), int(record_size_local, c_int64_t), &
+         int(direction, c_int64_t), c_loc(block_num(0)), c_loc(chunk_num(0)), c_loc(sndcnts(0)), &
+         c_loc(sdispls(0)), c_loc(rcvcnts(0)), c_loc(rdispls(0)))
+  end subroutine phys_grid_transpose_counts_codon
+
+  integer function phys_grid_transpose_lopt_codon(has_window)
+    use iso_c_binding, only: c_int64_t
+    logical, intent(in) :: has_window
+
+    phys_grid_transpose_lopt_codon = int(phys_grid_transpose_lopt_codon_raw( &
+         int(phys_alltoall, c_int64_t), int(max_nproc_smpx, c_int64_t), &
+         int(nproc_busy_d, c_int64_t), int(npes, c_int64_t), &
+         merge(1_c_int64_t, 0_c_int64_t, has_window)))
+  end function phys_grid_transpose_lopt_codon
 
   subroutine phys_grid_get_gcol_all_codon(ncols_local, out_dim, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -4377,6 +4480,8 @@ logical function phys_grid_initialized ()
    integer ione, ierror, mod_method
 # endif
 !-----------------------------------------------------------------------
+   call phys_grid_transpose_select_impl()
+
    if (first) then
 ! Compute send/recv/put counts and displacements
       allocate(sndcnts(0:npes-1))
@@ -4422,19 +4527,26 @@ logical function phys_grid_initialized ()
    if (record_size .ne. prev_record_size) then
 !
 ! Compute send/recv/put counts and displacements
-      sdispls(0) = 0
-      sndcnts(0) = record_size*btofc_blk_num(0)
-      do p=1,npes-1
-        sdispls(p) = sdispls(p-1) + sndcnts(p-1)
-        sndcnts(p) = record_size*btofc_blk_num(p)
-      enddo
+      if (use_native_transpose_impl) then
+         sdispls(0) = 0
+         sndcnts(0) = record_size*btofc_blk_num(0)
+         do p=1,npes-1
+           sdispls(p) = sdispls(p-1) + sndcnts(p-1)
+           sndcnts(p) = record_size*btofc_blk_num(p)
+         enddo
 !
-      rdispls(0) = 0
-      rcvcnts(0) = record_size*btofc_chk_num(0)
-      do p=1,npes-1
-         rdispls(p) = rdispls(p-1) + rcvcnts(p-1)
-         rcvcnts(p) = record_size*btofc_chk_num(p)
-      enddo
+         rdispls(0) = 0
+         rcvcnts(0) = record_size*btofc_chk_num(0)
+         do p=1,npes-1
+            rdispls(p) = rdispls(p-1) + rcvcnts(p-1)
+            rcvcnts(p) = record_size*btofc_chk_num(p)
+         enddo
+      else
+         call phys_grid_transpose_counts_codon(npes, record_size, 1, btofc_blk_num, btofc_chk_num, &
+              sndcnts, sdispls, rcvcnts, rdispls)
+         call phys_grid_transpose_log_direct(transpose_btoc_logged, &
+              'transpose_block_to_chunk direct = codon; counts/displacements/lopt direct = codon; MPI alltoall native island')
+      endif
 !
       call mpialltoallint(rdispls, 1, pdispls, 1, mpicom)
 !
@@ -4502,15 +4614,19 @@ logical function phys_grid_initialized ()
    endif
 !
    call t_barrierf('sync_tran_btoc', mpicom)
-   if (phys_alltoall < 0) then
-      if ((max_nproc_smpx > npes/2) .and. (nproc_busy_d > npes/2)) then
-         lopt = 0
+   if (use_native_transpose_impl) then
+      if (phys_alltoall < 0) then
+         if ((max_nproc_smpx > npes/2) .and. (nproc_busy_d > npes/2)) then
+            lopt = 0
+         else
+            lopt = 1
+         endif
       else
-         lopt = 1
+         lopt = phys_alltoall
+         if ((lopt .eq. 2) .and. ( .not. present(window) )) lopt = 1
       endif
    else
-      lopt = phys_alltoall
-      if ((lopt .eq. 2) .and. ( .not. present(window) )) lopt = 1
+      lopt = phys_grid_transpose_lopt_codon(present(window))
    endif
    if (lopt < 4) then
 !
@@ -4723,6 +4839,8 @@ logical function phys_grid_initialized ()
    integer ione, ierror, mod_method
 # endif
 !-----------------------------------------------------------------------
+   call phys_grid_transpose_select_impl()
+
    if (first) then
 ! Compute send/recv/put counts and displacements
       allocate(sndcnts(0:npes-1))
@@ -4768,19 +4886,26 @@ logical function phys_grid_initialized ()
    if (record_size .ne. prev_record_size) then
 !
 ! Compute send/recv/put counts and displacements
-      sdispls(0) = 0
-      sndcnts(0) = record_size*btofc_chk_num(0)
-      do p=1,npes-1
-        sdispls(p) = sdispls(p-1) + sndcnts(p-1)
-        sndcnts(p) = record_size*btofc_chk_num(p)
-      enddo
+      if (use_native_transpose_impl) then
+         sdispls(0) = 0
+         sndcnts(0) = record_size*btofc_chk_num(0)
+         do p=1,npes-1
+           sdispls(p) = sdispls(p-1) + sndcnts(p-1)
+           sndcnts(p) = record_size*btofc_chk_num(p)
+         enddo
 !
-      rdispls(0) = 0
-      rcvcnts(0) = record_size*btofc_blk_num(0)
-      do p=1,npes-1
-         rdispls(p) = rdispls(p-1) + rcvcnts(p-1)
-         rcvcnts(p) = record_size*btofc_blk_num(p)
-      enddo
+         rdispls(0) = 0
+         rcvcnts(0) = record_size*btofc_blk_num(0)
+         do p=1,npes-1
+            rdispls(p) = rdispls(p-1) + rcvcnts(p-1)
+            rcvcnts(p) = record_size*btofc_blk_num(p)
+         enddo
+      else
+         call phys_grid_transpose_counts_codon(npes, record_size, 2, btofc_blk_num, btofc_chk_num, &
+              sndcnts, sdispls, rcvcnts, rdispls)
+         call phys_grid_transpose_log_direct(transpose_ctob_logged, &
+              'transpose_chunk_to_block direct = codon; counts/displacements/lopt direct = codon; MPI alltoall native island')
+      endif
 !
       call mpialltoallint(rdispls, 1, pdispls, 1, mpicom)
 !
@@ -4848,15 +4973,19 @@ logical function phys_grid_initialized ()
    endif
 !
    call t_barrierf('sync_tran_ctob', mpicom)
-   if (phys_alltoall < 0) then
-      if ((max_nproc_smpx > npes/2) .and. (nproc_busy_d > npes/2)) then
-         lopt = 0
+   if (use_native_transpose_impl) then
+      if (phys_alltoall < 0) then
+         if ((max_nproc_smpx > npes/2) .and. (nproc_busy_d > npes/2)) then
+            lopt = 0
+         else
+            lopt = 1
+         endif
       else
-         lopt = 1
+         lopt = phys_alltoall
+         if ((lopt .eq. 2) .and. ( .not. present(window) )) lopt = 1
       endif
    else
-      lopt = phys_alltoall
-      if ((lopt .eq. 2) .and. ( .not. present(window) )) lopt = 1
+      lopt = phys_grid_transpose_lopt_codon(present(window))
    endif
    if (lopt < 4) then
 !
