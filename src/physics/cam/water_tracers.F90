@@ -158,6 +158,7 @@ module water_tracers
   logical :: wtrc_efac_logged = .false.
   logical :: wtrc_dqequil_logged = .false.
   logical :: wtrc_liqvap_equil_logged = .false.
+  logical :: wtrc_get_alpha_logged = .false.
   logical :: wtrc_get_rstd_logged = .false.
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
   logical :: wtrc_apply_rates_helpers_impl_selected = .false.
@@ -234,6 +235,15 @@ module water_tracers
       real(c_double), value :: true_rstd_c, fixed_rstd_c
       real(c_double) :: result_c
     end function wtrc_get_rstd_codon
+    function wtrc_get_alpha_codon(q_c, tk_c, ispec_c, isrctype_c, idsttype_c, rhclc_c, porqh_c, &
+         kin_present_c, kin_c, wtrc_alpha_kinetic_c, wisotope_c, fixed_alpha_c, qs_c) result(result_c) &
+         bind(c, name="wtrc_get_alpha_codon")
+      use iso_c_binding, only: c_double, c_int64_t
+      real(c_double), value :: q_c, tk_c, porqh_c, fixed_alpha_c, qs_c
+      integer(c_int64_t), value :: ispec_c, isrctype_c, idsttype_c, rhclc_c
+      integer(c_int64_t), value :: kin_present_c, kin_c, wtrc_alpha_kinetic_c, wisotope_c
+      real(c_double) :: result_c
+    end function wtrc_get_alpha_codon
     subroutine wtrc_cnst_add_state_codon(ind_c, iwt_c, isp_c, iwater_p, iwater_is_water_p, &
          iwspec_p) bind(c, name="wtrc_cnst_add_state_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -7425,6 +7435,31 @@ end subroutine wtrc_q1q2_pjr
       alpkin = wtrc_alpha_kinetic
     end if
 
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+
+      if(rhclc) then !If relative humidity is being calculated:
+        pmid1(1) = porqh
+        tk1(1)   = tk
+        call qsat_water(tk1, pmid1, es, qs, gam)
+      else
+        qs(1) = 1._r8
+      end if
+
+      wtrc_get_alpha = real(wtrc_get_alpha_codon(real(q, c_double), real(tk, c_double), &
+           int(ispec, c_int64_t), int(isrctype, c_int64_t), int(idsttype, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, rhclc), real(porqh, c_double), &
+           merge(1_c_int64_t, 0_c_int64_t, present(kin)), &
+           merge(1_c_int64_t, 0_c_int64_t, alpkin), &
+           merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic), &
+           merge(1_c_int64_t, 0_c_int64_t, wisotope), &
+           real(wtrc_fixed_alpha(ispec), c_double), real(qs(1), c_double)), r8)
+      call wtrc_scalar_helpers_log_direct(wtrc_get_alpha_logged, &
+           'wtrc_get_alpha direct = codon; qsat_water/wtype_get_alpha native API islands')
+      return
+    end if
+
     if(rhclc) then !If relative humidity is being calculated:
       pmid1(1) = porqh
       tk1(1)   = tk
@@ -7449,6 +7484,20 @@ end subroutine wtrc_q1q2_pjr
     
     return
   end function wtrc_get_alpha
+
+  real(c_double) function wtrc_get_alpha_native_cb(ispec_c, isrctype_c, idsttype_c, tk_c, rh_c, &
+       do_kinetic_c) result(alpha_c) bind(C, name="wtrc_get_alpha_native_cb")
+!-----------------------------------------------------------------------
+! Native API island for the CIME water_types/water_isotopes fractionation
+! formulas used by the Codon wtrc_get_alpha dispatch wrapper.
+!-----------------------------------------------------------------------
+    use water_types, only: wtype_get_alpha
+    integer(c_int64_t), value :: ispec_c, isrctype_c, idsttype_c, do_kinetic_c
+    real(c_double), value :: tk_c, rh_c
+
+    alpha_c = real(wtype_get_alpha(int(ispec_c), int(isrctype_c), int(idsttype_c), &
+         real(tk_c, r8), real(rh_c, r8), do_kinetic_c /= 0_c_int64_t), c_double)
+  end function wtrc_get_alpha_native_cb
 
   
 !=======================================================================

@@ -1,3 +1,4 @@
+from C import wtrc_get_alpha_native_cb(int, int, int, float, float, int) -> float
 from math import log
 import water_tracers_apply_rates_codon as _apply_rates
 
@@ -103,6 +104,36 @@ def wtrc_get_rstd_codon(use_wisotope: int, true_rstd: float, fixed_rstd: float) 
     if use_wisotope != 0:
         return true_rstd
     return fixed_rstd
+
+
+@export
+def wtrc_get_alpha_codon(
+    q: float,
+    tk: float,
+    ispec: int,
+    isrctype: int,
+    idsttype: int,
+    rhclc: int,
+    porqh: float,
+    kin_present: int,
+    kin: int,
+    wtrc_alpha_kinetic: int,
+    wisotope: int,
+    fixed_alpha: float,
+    qs: float,
+) -> float:
+    alpkin = wtrc_alpha_kinetic
+    if kin_present != 0:
+        alpkin = kin
+
+    if wisotope == 0:
+        return fixed_alpha
+
+    rh = porqh
+    if rhclc != 0:
+        rh = q / qs
+
+    return wtrc_get_alpha_native_cb(ispec, isrctype, idsttype, tk, rh, alpkin)
 
 
 @export
