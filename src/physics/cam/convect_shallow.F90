@@ -73,6 +73,7 @@
    logical    :: convect_shallow_ptend_lq_mask_shell_logged = .false.
    logical    :: convect_shallow_uw_post_shell_logged = .false.
    logical    :: convect_shallow_wtrc_precip_shell_logged = .false.
+   logical    :: convect_shallow_tend_logged = .false.
    logical    :: use_native_init_impl = .false.
    logical    :: init_impl_selected = .false.
    logical    :: init_mw_ratio_logged = .false.
@@ -100,6 +101,12 @@
 	        type(c_ptr), value :: scheme_ascii_p
 	        integer(c_int64_t) :: mask_c
 	     end function convect_shallow_register_decision_codon
+	     subroutine convect_shallow_select_scheme_codon(scheme_len_c, scheme_ascii_p, scheme_code_p, status_p) &
+	          bind(c, name="convect_shallow_select_scheme_codon")
+	        use iso_c_binding, only: c_int64_t, c_ptr
+	        integer(c_int64_t), value :: scheme_len_c
+	        type(c_ptr), value :: scheme_ascii_p, scheme_code_p, status_p
+	     end subroutine convect_shallow_select_scheme_codon
 	  end interface
 
    contains
@@ -699,7 +706,10 @@ end subroutine convect_shallow_init_cnst
    ncol  = state%ncol
 
    call convect_shallow_select_impl()
-   if (.not. use_native_impl) call convect_shallow_select_codon_scheme()
+   if (.not. use_native_impl) then
+      call convect_shallow_select_codon_scheme()
+      call convect_shallow_log_tend_direct()
+   end if
   
    call physics_state_copy( state, state1 )          ! Copy state to local state1.
 
@@ -1209,27 +1219,49 @@ end subroutine convect_shallow_init_cnst
 
 subroutine convect_shallow_select_codon_scheme()
 
-   character(len=len(shallow_scheme)) :: scheme_name
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   integer :: i
+   integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
+   integer(c_int64_t), target :: scheme_code_c, status_c
 
    if (codon_scheme_selected) return
 
-   scheme_name = trim(adjustl(shallow_scheme))
-   select case (scheme_name)
-   case ('off', 'clubb_sgs')
-      codon_scheme_code = 1
-   case ('Hack')
-      codon_scheme_code = 2
-   case ('UW')
-      codon_scheme_code = 3
-   case ('UNICON')
-      codon_scheme_code = 4
-   case default
+   do i = 1, len(shallow_scheme)
+      scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
+   end do
+
+   call convect_shallow_select_scheme_codon(int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)), &
+        c_loc(scheme_code_c), c_loc(status_c))
+
+   if (status_c == 0_c_int64_t) then
+      codon_scheme_code = int(scheme_code_c)
+   else
       codon_scheme_code = -1
-   end select
+   end if
 
    codon_scheme_selected = .true.
 
 end subroutine convect_shallow_select_codon_scheme
+
+subroutine convect_shallow_log_tend_direct()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_tend_logged) return
+   convect_shallow_tend_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'convect_shallow_tend direct = codon; scheme/action dispatch and outer stage shells direct = codon; ' // &
+           'cmfmca/compute_uwshcu_inv/unicon/zm_conv_evap/pbuf/outfld/physics_update native CAM API islands'
+      call convect_shallow_append_proof( &
+           'convect_shallow_tend direct = codon; scheme/action dispatch and outer stage shells direct = codon; ' // &
+           'cmfmca/compute_uwshcu_inv/unicon/zm_conv_evap/pbuf/outfld/physics_update native CAM API islands')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_tend_direct
 
   !=============================================================================== !
 
