@@ -132,6 +132,9 @@ logical :: micro_mg_cam_register_logged = .false.
 logical :: use_native_micro_mg_cam_init_impl = .false.
 logical :: micro_mg_cam_init_impl_selected = .false.
 logical :: micro_mg_cam_init_logged = .false.
+logical :: use_native_micro_mg_cam_tend_impl = .false.
+logical :: micro_mg_cam_tend_impl_selected = .false.
+logical :: micro_mg_cam_tend_logged = .false.
 logical :: premg_diag_impl_selected = .false.
 logical :: premg_diag_entered_logged = .false.
 logical :: use_native_postmg_diag_impl = .false.
@@ -459,6 +462,78 @@ subroutine micro_mg_cam_init_select_impl()
   end if
 
 end subroutine micro_mg_cam_init_select_impl
+
+!===============================================================================
+
+subroutine micro_mg_cam_tend_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (micro_mg_cam_tend_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_TEND_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_micro_mg_cam_tend_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_micro_mg_cam_tend_impl = .false.
+  end if
+
+  micro_mg_cam_tend_impl_selected = .true.
+
+  if (use_native_micro_mg_cam_tend_impl) then
+     use_native_premg_diag_impl = .true.
+     premg_diag_impl_selected = .true.
+     use_native_postmg_diag_impl = .true.
+     postmg_diag_impl_selected = .true.
+     use_native_grid_diag_impl = .true.
+     grid_diag_impl_selected = .true.
+     use_native_tail_shell_impl = .true.
+     tail_shell_impl_selected = .true.
+     use_native_tail_grid_copy_impl = .true.
+     tail_grid_copy_impl_selected = .true.
+     use_native_pack_inputs_impl = .true.
+     pack_inputs_impl_selected = .true.
+     use_native_ptend_unpack_impl = .true.
+     ptend_unpack_impl_selected = .true.
+     use_native_wtrc_shell_impl = .true.
+     wtrc_shell_impl_selected = .true.
+     use_native_wtrc_prep_impl = .true.
+     wtrc_prep_impl_selected = .true.
+     use_native_budget_diag_impl = .true.
+     budget_diag_impl_selected = .true.
+     use_native_reff_calc_impl = .true.
+     reff_calc_impl_selected = .true.
+     use_native_diag_shell_impl = .true.
+     diag_shell_impl_selected = .true.
+     use_native_pbuf_copy_impl = .true.
+     pbuf_copy_impl_selected = .true.
+     use_native_p_ptr_impl = .true.
+     p_ptr_impl_selected = .true.
+  end if
+
+  if (masterproc) then
+     if (use_native_micro_mg_cam_tend_impl) then
+        write(iulog,*) 'micro_mg_cam_tend implementation = native'
+        call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TEND_PROOF_FILE', &
+             'micro_mg_cam_tend implementation = native')
+     else
+        write(iulog,*) 'micro_mg_cam_tend implementation = codon'
+        call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TEND_PROOF_FILE', &
+             'micro_mg_cam_tend implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_tend_select_impl
 
 !===============================================================================
 
@@ -2182,6 +2257,13 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), pointer :: aist_mic_grid(:,:)
    character(len=*), parameter :: subname = 'micro_mg_cam_tend'
    !-------------------------------------------------------------------------------
+
+   call micro_mg_cam_tend_select_impl()
+
+   if (.not. use_native_micro_mg_cam_tend_impl) then
+      call micro_mg_cam_log_entered_once(micro_mg_cam_tend_logged, 'MICRO_MG_CAM_TEND_PROOF_FILE', &
+           'micro_mg_cam_tend direct = codon stage dispatch; native MG core/CAM API callbacks')
+   end if
 
    ! Find the number of levels used in the microphysics.
    nlev  = pver - top_lev + 1
