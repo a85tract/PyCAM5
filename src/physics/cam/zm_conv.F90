@@ -98,6 +98,7 @@ module zm_conv
    logical :: use_native_zm_entropy = .false.
    logical :: zm_entropy_selected = .false.
    logical :: zm_entropy_logged = .false.
+   logical :: zm_ientropy_logged = .false.
    logical :: use_native_zm_qsat_hpa = .false.
    logical :: zm_qsat_hpa_selected = .false.
    logical :: zm_qsat_hpa_logged = .false.
@@ -5290,20 +5291,60 @@ SUBROUTINE ientropy (rcall,icol,lchnk,s,p,qt,T,qst,Tfg)
 ! for T and saturated vapor mixing ratio
 !
 
+  use iso_c_binding, only: c_double, c_int64_t, c_loc
   use phys_grid, only: get_rlon_p, get_rlat_p
+  use wv_sat_methods, only: wv_sat_get_default_idx
 
   integer, intent(in) :: icol, lchnk, rcall
   real(r8), intent(in)  :: s, p, Tfg, qt
-  real(r8), intent(out) :: qst, T
+  real(r8), target, intent(out) :: qst, T
   real(r8) :: est, this_lat,this_lon
   real(r8) :: a,b,c,d,ebr,fa,fb,fc,pbr,qbr,rbr,sbr,tol1,xm,tol
   integer :: i
 
   logical :: converged
+  integer(c_int64_t), target :: converged_c
 
   ! Max number of iteration loops.
   integer, parameter :: LOOPMAX = 100
   real(r8), parameter :: EPS = 3.e-8_r8
+
+  interface
+     subroutine ientropy_codon(s_c, p_c, qt_c, tfg_c, rl_c, cpliq_c, cpwv_c, &
+          tfreez_c, cpres_c, rgas_c, eps1_c, rh2o_c, wv_idx_c, epsilo_c, omeps_c, &
+          t_p, qst_p, converged_p) bind(c, name="ientropy_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       real(c_double), value :: s_c, p_c, qt_c, tfg_c, rl_c, cpliq_c, cpwv_c
+       real(c_double), value :: tfreez_c, cpres_c, rgas_c, eps1_c, rh2o_c
+       real(c_double), value :: epsilo_c, omeps_c
+       integer(c_int64_t), value :: wv_idx_c
+       type(c_ptr), value :: t_p, qst_p, converged_p
+     end subroutine ientropy_codon
+  end interface
+
+  call zm_entropy_select_impl()
+  if (.not. use_native_zm_entropy) then
+     converged_c = 0_c_int64_t
+     call ientropy_codon(real(s, c_double), real(p, c_double), real(qt, c_double), &
+          real(Tfg, c_double), real(rl, c_double), real(cpliq, c_double), &
+          real(cpwv, c_double), real(tfreez, c_double), real(cpres, c_double), &
+          real(rgas, c_double), real(eps1, c_double), real(rh2o, c_double), &
+          int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
+          real(1._r8 - epsilo, c_double), c_loc(T), c_loc(qst), c_loc(converged_c))
+     converged = converged_c /= 0_c_int64_t
+     call zm_conv_log_direct(zm_ientropy_logged, &
+          'ientropy direct = codon; nonconvergence diagnostics/endrun native island; entropy expression native callback')
+     if (converged) return
+
+     this_lat = get_rlat_p(lchnk, icol)*57.296_r8
+     this_lon = get_rlon_p(lchnk, icol)*57.296_r8
+     write(iulog,*) '*** ZM_CONV: IENTROPY: Failed and about to exit, info follows ****'
+     write(iulog,100) 'ZM_CONV: IENTROPY. Details: call#,lchnk,icol= ',rcall,lchnk,icol, &
+          ' lat: ',this_lat,' lon: ',this_lon, &
+          ' P(mb)= ', p, ' Tfg(K)= ', Tfg, ' qt(g/kg) = ', 1000._r8*qt, &
+          ' qst(g/kg) = ', 1000._r8*qst,', s(J/kg) = ',s
+     call endrun('**** ZM_CONV IENTROPY: Tmix did not converge ****')
+  end if
 
   converged = .false.
 

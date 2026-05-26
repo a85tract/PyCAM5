@@ -9147,6 +9147,113 @@ def entropy_codon(
 
 
 @export
+def ientropy_codon(
+    s: float,
+    p_hpa: float,
+    qt: float,
+    tfg: float,
+    rl: float,
+    cpliq: float,
+    cpwv: float,
+    tfreez: float,
+    cpres: float,
+    rgas: float,
+    eps1: float,
+    rh2o: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    t_p: cobj,
+    qst_p: cobj,
+    converged_p: cobj,
+):
+    t_out = Ptr[float](t_p)
+    qst_out = Ptr[float](qst_p)
+    converged_out = Ptr[int](converged_p)
+
+    loopmax = 100
+    eps = 3.0e-8
+    tol = 0.001
+
+    a = tfg - 10.0
+    b = tfg + 10.0
+    fa = zm_entropy_codon(a, p_hpa, qt, rl, cpliq, cpwv, tfreez, cpres, rgas, eps1, rh2o, idx, epsilo, omeps) - s
+    fb = zm_entropy_codon(b, p_hpa, qt, rl, cpliq, cpwv, tfreez, cpres, rgas, eps1, rh2o, idx, epsilo, omeps) - s
+    c = b
+    fc = fb
+    d = 0.0
+    ebr = 0.0
+    converged = False
+
+    for _ in range(0, loopmax + 1):
+        if (fb > 0.0 and fc > 0.0) or (fb < 0.0 and fc < 0.0):
+            c = a
+            fc = fa
+            d = b - a
+            ebr = d
+
+        if abs(fc) < abs(fb):
+            a = b
+            b = c
+            c = a
+            fa = fb
+            fb = fc
+            fc = fa
+
+        tol1 = 2.0 * eps * abs(b) + 0.5 * tol
+        xm = 0.5 * (c - b)
+        converged = abs(xm) <= tol1 or fb == 0.0
+        if converged:
+            break
+
+        if abs(ebr) >= tol1 and abs(fa) > abs(fb):
+            sbr = fb / fa
+            if a == c:
+                pbr = 2.0 * xm * sbr
+                qbr = 1.0 - sbr
+            else:
+                qbr = fa / fc
+                rbr = fb / fc
+                pbr = sbr * (2.0 * xm * qbr * (qbr - rbr) - (b - a) * (rbr - 1.0))
+                qbr = (qbr - 1.0) * (rbr - 1.0) * (sbr - 1.0)
+
+            if pbr > 0.0:
+                qbr = -qbr
+            pbr = abs(pbr)
+            if 2.0 * pbr < min(3.0 * xm * qbr - abs(tol1 * qbr), abs(ebr * qbr)):
+                ebr = d
+                d = pbr / qbr
+            else:
+                d = xm
+                ebr = d
+        else:
+            d = xm
+            ebr = d
+
+        a = b
+        fa = fb
+        if abs(d) > tol1:
+            b = b + d
+        else:
+            if xm >= 0.0:
+                b = b + abs(tol1)
+            else:
+                b = b - abs(tol1)
+
+        fb = zm_entropy_codon(b, p_hpa, qt, rl, cpliq, cpwv, tfreez, cpres, rgas, eps1, rh2o, idx, epsilo, omeps) - s
+
+    est = 0.0
+    qst = 0.0
+    _zm_qsat_hpa_ptr_codon(b, p_hpa, idx, epsilo, omeps, __ptr__(est), __ptr__(qst))
+    t_out[0] = b
+    qst_out[0] = qst
+    if converged:
+        converged_out[0] = 1
+    else:
+        converged_out[0] = 0
+
+
+@export
 def wv_saturation_value_codon(value: float) -> float:
     return value
 
