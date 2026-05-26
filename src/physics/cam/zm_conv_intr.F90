@@ -104,6 +104,9 @@ module zm_conv_intr
    logical :: zm_ptend_lq_mask_logged = .false.
    logical :: zm_conv_register_logged = .false.
    logical :: zm_conv_readnl_logged = .false.
+   logical :: use_native_zm_conv_tend = .false.
+   logical :: zm_conv_tend_selected = .false.
+   logical :: zm_conv_tend_logged = .false.
    logical :: use_native_zm_conv_tend_2 = .false.
    logical :: zm_conv_tend_2_selected = .false.
    logical :: zm_conv_tend_2_logged = .false.
@@ -256,6 +259,68 @@ subroutine zm_conv_tend_2_select_impl()
    end if
 
 end subroutine zm_conv_tend_2_select_impl
+
+!=========================================================================================
+
+subroutine zm_conv_tend_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_conv_tend_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_TEND_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_conv_tend = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_conv_tend = .false.
+   end if
+
+   zm_conv_tend_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_conv_tend) then
+         write(iulog,*) 'zm_conv_tend implementation = native'
+         call zm_conv_append_post_shell_proof('zm_conv_tend implementation = native')
+      else
+         write(iulog,*) 'zm_conv_tend implementation = codon'
+         call zm_conv_append_post_shell_proof('zm_conv_tend implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_tend_select_impl
+
+!=========================================================================================
+
+subroutine zm_conv_tend_log_direct(mask_c)
+
+   use iso_c_binding, only: c_int64_t
+
+   integer(c_int64_t), intent(in) :: mask_c
+
+   if (zm_conv_tend_logged) return
+   zm_conv_tend_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A,I0)') &
+           'zm_conv_tend direct = codon; orchestration mask and post-stage shells direct = codon; ' // &
+           'zm_convr/wtrc_q1q2_pjr/zm_conv_evap/wtrc_precip_evap/momtran/convtran/pbuf/outfld/physics_update native CAM API islands; mask=', &
+           mask_c
+      call zm_conv_append_post_shell_proof( &
+           'zm_conv_tend direct = codon; orchestration mask and post-stage shells direct = codon; ' // &
+           'zm_convr/wtrc_q1q2_pjr/zm_conv_evap/wtrc_precip_evap/momtran/convtran/pbuf/outfld/physics_update native CAM API islands')
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_tend_log_direct
 
 !=========================================================================================
 
@@ -771,11 +836,21 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    integer  :: ii
    integer(c_int64_t), target :: ideep64(pcols), jt64(pcols), maxg64(pcols)
    integer(c_int64_t), target :: vap_type64(wtrc_nwset), liq_type64(wtrc_nwset), ice_type64(wtrc_nwset)
+   integer(c_int64_t) :: zm_tend_mask_c
    
    real(r8),pointer :: zm_org2d(:,:)
    real(r8),pointer :: orgt(:,:), org(:,:)
 
    logical  :: lq(pcnst)
+
+   interface
+      function zm_conv_tend_mask_codon(ncol_c, trace_water_c, zmconv_org_c, non_cam3_c) result(mask_c) &
+           bind(c, name="zm_conv_tend_mask_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: ncol_c, trace_water_c, zmconv_org_c, non_cam3_c
+         integer(c_int64_t) :: mask_c
+      end function zm_conv_tend_mask_codon
+   end interface
 
    !----------------------------------------------------------------------
 
@@ -783,6 +858,15 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    lchnk = state%lchnk
    ncol  = state%ncol
    nstep = get_nstep()
+
+   call zm_conv_tend_select_impl()
+   if (.not. use_native_zm_conv_tend) then
+      zm_tend_mask_c = zm_conv_tend_mask_codon(int(ncol, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+           merge(1_c_int64_t, 0_c_int64_t, zmconv_org), &
+           merge(1_c_int64_t, 0_c_int64_t, .not. cam_physpkg_is('cam3')))
+      call zm_conv_tend_log_direct(zm_tend_mask_c)
+   end if
 
    call zm_conv_workspace_init_shell(ncol, ftem, mu_out, md_out, wind_tends)
 

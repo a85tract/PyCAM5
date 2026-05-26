@@ -5306,6 +5306,20 @@ def zm_conv_tend_2_lq_mask_codon(
 
 
 @export
+def zm_conv_tend_mask_codon(ncol: int, trace_water: int, zmconv_org: int, non_cam3: int) -> int:
+    mask = 1
+    if ncol > 0:
+        mask |= 2
+    if trace_water != 0:
+        mask |= 4
+    if zmconv_org != 0:
+        mask |= 8
+    if non_cam3 != 0:
+        mask |= 16
+    return mask
+
+
+@export
 def zm_conv_post_stage_dispatch_codon(
     stage: int,
     mode: int,
