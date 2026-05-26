@@ -131,6 +131,11 @@ module gw_drag
 
   ! namelist 
   logical          :: history_amwg                   ! output the variables used by the AMWG diag package
+  logical          :: use_native_gw_init_impl = .false.
+  logical          :: gw_init_impl_selected = .false.
+  logical          :: gw_init_logged = .false.
+  integer          :: gw_init_branch_mask = 0
+  logical          :: gw_init_branch_selected = .false.
   logical          :: use_native_readnl_impl = .false.
   logical          :: gw_drag_readnl_impl_selected = .false.
   logical          :: gw_drag_readnl_logged = .false.
@@ -289,6 +294,7 @@ subroutine gw_init()
   !-----------------------------------------------------------------------
 
   use cam_history,      only: addfld, add_default, phys_decomp
+  use iso_c_binding,    only: c_int64_t
   use interpolate_data, only: lininterp
   use phys_control,     only: phys_getopts
   use physics_buffer,   only: pbuf_get_index
@@ -313,6 +319,11 @@ subroutine gw_init()
   integer :: history_budget_histfile_num
   ! output variables of interest in WACCM runs
   logical :: history_waccm
+  logical :: do_gw_oro_init
+  logical :: do_gw_front_init
+  logical :: do_gw_front_igw_init
+  logical :: do_gw_convect_dp_init
+  logical :: do_gw_convect_sh_init
 
   ! Interpolated Newtonian cooling coefficients.
   real(r8) :: alpha(pver+1)
@@ -369,6 +380,25 @@ subroutine gw_init()
   character(len=128) :: errstring
 
   !-----------------------------------------------------------------------
+
+  call gw_init_select_impl()
+  if (.not. use_native_gw_init_impl) call gw_init_select_branches( &
+       use_gw_oro, use_gw_front, use_gw_front_igw, use_gw_convect_dp, use_gw_convect_sh)
+
+  if (use_native_gw_init_impl) then
+     do_gw_oro_init = use_gw_oro
+     do_gw_front_init = use_gw_front
+     do_gw_front_igw_init = use_gw_front_igw
+     do_gw_convect_dp_init = use_gw_convect_dp
+     do_gw_convect_sh_init = use_gw_convect_sh
+  else
+     do_gw_oro_init = iand(gw_init_branch_mask, 1) /= 0
+     do_gw_front_init = iand(gw_init_branch_mask, 2) /= 0
+     do_gw_front_igw_init = iand(gw_init_branch_mask, 4) /= 0
+     do_gw_convect_dp_init = iand(gw_init_branch_mask, 8) /= 0
+     do_gw_convect_sh_init = iand(gw_init_branch_mask, 16) /= 0
+     call gw_init_log_direct()
+  end if
 
   if (do_molec_diff) then
      kvt_idx     = pbuf_get_index('kvt')
@@ -434,7 +464,7 @@ subroutine gw_init()
   call shr_assert(trim(errstring) == "", "gw_common_init: "//errstring// &
        errMsg(__FILE__, __LINE__))
 
-  if (use_gw_oro) then
+  if (do_gw_oro_init) then
 
      if (effgw_oro == unset_r8) then
         call endrun("gw_drag_init: Orographic gravity waves enabled, &
@@ -475,7 +505,7 @@ subroutine gw_init()
 
   end if
 
-  if (use_gw_front .or. use_gw_front_igw) then
+  if (do_gw_front_init .or. do_gw_front_igw_init) then
 
      frontgf_idx = pbuf_get_index('FRONTGF')
      frontga_idx = pbuf_get_index('FRONTGA')
@@ -511,7 +541,7 @@ subroutine gw_init()
 
   end if
 
-  if (use_gw_front) then
+  if (do_gw_front_init) then
 
      call shr_assert(all(unset_r8 /= [ effgw_cm, taubgnd ]), &
           "gw_drag_init: Frontogenesis mid-scale waves enabled, but not &
@@ -533,7 +563,7 @@ subroutine gw_init()
 
   end if
 
-  if (use_gw_front_igw) then
+  if (do_gw_front_igw_init) then
 
      call shr_assert(all(unset_r8 /= [ effgw_cm_igw, taubgnd_igw ]), &
           "gw_drag_init: Frontogenesis inertial waves enabled, but not &
@@ -555,7 +585,7 @@ subroutine gw_init()
 
   end if
 
-  if (use_gw_convect_dp) then
+  if (do_gw_convect_dp_init) then
 
      ttend_dp_idx    = pbuf_get_index('TTEND_DP')
 
@@ -602,7 +632,7 @@ subroutine gw_init()
 
   end if
 
-  if (use_gw_convect_sh) then
+  if (do_gw_convect_sh_init) then
 
      ttend_sh_idx    = pbuf_get_index('TTEND_SH')
 
@@ -1871,6 +1901,122 @@ subroutine gw_drag_readnl_append_proof(proof_line)
   end if
 
 end subroutine gw_drag_readnl_append_proof
+
+!==========================================================================
+
+subroutine gw_init_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_INIT_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_init_append_proof
+
+!==========================================================================
+
+subroutine gw_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_init_impl = .false.
+  end if
+
+  gw_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_init_impl) then
+        write(iulog,*) 'gw_init implementation = native'
+        call gw_init_append_proof('gw_init selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_init implementation = codon'
+        call gw_init_append_proof('gw_init selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_init_select_impl
+
+!==========================================================================
+
+subroutine gw_init_log_direct()
+
+  if (gw_init_logged) return
+  gw_init_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'gw_init direct = codon; branch mask direct = codon; lininterp/gw_common_init/Beres/addfld native CAM API islands'
+     call gw_init_append_proof( &
+          'gw_init direct = codon; branch mask direct = codon; lininterp/gw_common_init/Beres/addfld native CAM API islands')
+     call flush(iulog)
+  end if
+
+end subroutine gw_init_log_direct
+
+!==========================================================================
+
+subroutine gw_init_select_branches(use_gw_oro_in, use_gw_front_in, use_gw_front_igw_in, &
+     use_gw_convect_dp_in, use_gw_convect_sh_in)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  logical, intent(in) :: use_gw_oro_in
+  logical, intent(in) :: use_gw_front_in
+  logical, intent(in) :: use_gw_front_igw_in
+  logical, intent(in) :: use_gw_convect_dp_in
+  logical, intent(in) :: use_gw_convect_sh_in
+
+  integer(c_int64_t), target :: branch_mask
+
+  interface
+     subroutine gw_init_select_branches_codon(use_gw_oro_c, use_gw_front_c, use_gw_front_igw_c, &
+          use_gw_convect_dp_c, use_gw_convect_sh_c, branch_mask_p) &
+          bind(c, name="gw_init_select_branches_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: use_gw_oro_c, use_gw_front_c, use_gw_front_igw_c
+       integer(c_int64_t), value :: use_gw_convect_dp_c, use_gw_convect_sh_c
+       type(c_ptr), value :: branch_mask_p
+     end subroutine gw_init_select_branches_codon
+  end interface
+
+  if (gw_init_branch_selected) return
+
+  branch_mask = 0_c_int64_t
+  call gw_init_select_branches_codon( &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_oro_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_front_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_front_igw_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_convect_dp_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_convect_sh_in), &
+       c_loc(branch_mask) &
+  )
+
+  gw_init_branch_mask = int(branch_mask)
+  gw_init_branch_selected = .true.
+
+end subroutine gw_init_select_branches
 
 !==========================================================================
 
