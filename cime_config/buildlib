@@ -24,7 +24,7 @@ from CIME.build import get_standard_makefile_args
 logger = logging.getLogger(__name__)
 
 ###############################################################################
-def _build_codon_lib(srcroot, stem, subdir="physics/cam"):
+def _build_codon_lib(srcroot, stem, subdir="physics/cam", lib_subdir=None):
 ###############################################################################
 
     codon_src = os.path.join(srcroot, "components", "cam", "src", subdir,
@@ -32,12 +32,15 @@ def _build_codon_lib(srcroot, stem, subdir="physics/cam"):
     if not os.path.isfile(codon_src):
         return
 
-    codon_lib = os.path.join(srcroot, "components", "cam", "src", subdir,
+    if lib_subdir is None:
+        lib_subdir = subdir
+
+    codon_lib = os.path.join(srcroot, "components", "cam", "src", lib_subdir,
                              "lib{}_codon.so".format(stem))
     codon_out = codon_lib
     scratch_libdir = os.environ.get("CAM_CODON_BUILD_OUTPUT_DIR")
     if scratch_libdir:
-        codon_out = os.path.join(scratch_libdir, subdir,
+        codon_out = os.path.join(scratch_libdir, lib_subdir,
                                  "lib{}_codon.so".format(stem))
         os.makedirs(os.path.dirname(codon_out), exist_ok=True)
 
@@ -54,6 +57,7 @@ def _build_codon_lib(srcroot, stem, subdir="physics/cam"):
     logger.info("%s: \n\n output:\n %s \n\n err:\n\n%s\n", cmd, out, err)
     expect(rc == 0, "Command %s failed with rc=%s" % (cmd, rc))
 
+    os.makedirs(os.path.dirname(codon_lib), exist_ok=True)
     if codon_out != codon_lib:
         if os.path.lexists(codon_lib):
             os.remove(codon_lib)
@@ -100,12 +104,12 @@ def _build_cam():
         _build_codon_lib(srcroot, "cam_diagnostics")
         _build_codon_lib(srcroot, "check_energy")
         _build_codon_lib(srcroot, "vertical_diffusion")
-        _build_codon_lib(srcroot, "chem_surfvals")
+        _build_codon_lib(srcroot, "chem_surfvals", "chemistry/utils")
         _build_codon_lib(srcroot, "modal_aero_deposition", "chemistry/utils")
-        _build_codon_lib(srcroot, "aero_model")
-        _build_codon_lib(srcroot, "chemistry")
+        _build_codon_lib(srcroot, "aero_model", "chemistry/modal_aero")
+        _build_codon_lib(srcroot, "chemistry", "chemistry/mozart")
         _build_codon_lib(srcroot, "gw_drag")
-        _build_codon_lib(srcroot, "mo_lightning")
+        _build_codon_lib(srcroot, "mo_lightning", "chemistry/mozart")
         _build_codon_lib(srcroot, "microp_driver")
         _build_codon_lib(srcroot, "microp_aero")
         _build_codon_lib(srcroot, "micro_mg_cam")
@@ -116,6 +120,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "convect_shallow")
         _build_codon_lib(srcroot, "convect_deep")
         _build_codon_lib(srcroot, "conv_water")
+        _build_codon_lib(srcroot, "cam_misc", "utils")
         _build_codon_lib(srcroot, "physpkg")
         _build_codon_lib(srcroot, "rrtmg", "physics/rrtmg")
         _build_codon_lib(srcroot, "prim_subcycle_q_update", "dynamics/se")
