@@ -105,6 +105,9 @@ module zm_conv
    logical :: use_native_zm_convi = .false.
    logical :: zm_convi_selected = .false.
    logical :: zm_convi_logged = .false.
+   logical :: use_native_zm_closure = .false.
+   logical :: zm_closure_selected = .false.
+   logical :: zm_closure_logged = .false.
 
 contains
 
@@ -630,6 +633,58 @@ subroutine zm_qsat_hpa_select_impl()
    end if
 
 end subroutine zm_qsat_hpa_select_impl
+
+
+subroutine zm_closure_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_closure_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CLOSURE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_closure = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_closure = .false.
+   end if
+
+   zm_closure_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_closure) then
+         write(iulog,*) 'zm_closure implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_closure implementation = native')
+      else
+         write(iulog,*) 'zm_closure implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_closure implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_closure_select_impl
+
+
+subroutine zm_closure_log_entered()
+
+   if (zm_closure_logged) return
+   zm_closure_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'zm_closure entered (CAPE closure mass-flux solve direct = codon)'
+      call zm_conv_evap_append_impl_proof('zm_closure entered (CAPE closure mass-flux solve direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine zm_closure_log_entered
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -4320,6 +4375,7 @@ subroutine closure(lchnk   , &
 !
 !-----------------------------------------------------------------------
    use dycore,    only: dycore_is, get_resolution
+   use iso_c_binding, only: c_double, c_int64_t, c_loc
 
    implicit none
 
@@ -4328,53 +4384,53 @@ subroutine closure(lchnk   , &
 !
    integer, intent(in) :: lchnk                 ! chunk identifier
 
-   real(r8), intent(inout) :: q(pcols,pver)        ! spec humidity
-   real(r8), intent(inout) :: t(pcols,pver)        ! temperature
-   real(r8), intent(inout) :: p(pcols,pver)        ! pressure (mb)
-   real(r8), intent(inout) :: mb(pcols)            ! cloud base mass flux
-   real(r8), intent(in) :: z(pcols,pver)        ! height (m)
-   real(r8), intent(in) :: s(pcols,pver)        ! normalized dry static energy
-   real(r8), intent(in) :: tp(pcols,pver)       ! parcel temp
-   real(r8), intent(in) :: qs(pcols,pver)       ! sat spec humidity
-   real(r8), intent(in) :: qu(pcols,pver)       ! updraft spec. humidity
-   real(r8), intent(in) :: su(pcols,pver)       ! normalized dry stat energy of updraft
-   real(r8), intent(in) :: mc(pcols,pver)       ! net convective mass flux
-   real(r8), intent(in) :: du(pcols,pver)       ! detrainment from updraft
-   real(r8), intent(in) :: mu(pcols,pver)       ! mass flux of updraft
-   real(r8), intent(in) :: md(pcols,pver)       ! mass flux of downdraft
-   real(r8), intent(in) :: qd(pcols,pver)       ! spec. humidity of downdraft
-   real(r8), intent(in) :: sd(pcols,pver)       ! dry static energy of downdraft
-   real(r8), intent(in) :: qhat(pcols,pver)     ! environment spec humidity at interfaces
-   real(r8), intent(in) :: shat(pcols,pver)     ! env. normalized dry static energy at intrfcs
-   real(r8), intent(in) :: dp(pcols,pver)       ! pressure thickness of layers
-   real(r8), intent(in) :: qstp(pcols,pver)     ! spec humidity of parcel
-   real(r8), intent(in) :: zf(pcols,pver+1)     ! height of interface levels
-   real(r8), intent(in) :: ql(pcols,pver)       ! liquid water mixing ratio
+   real(r8), target, intent(inout) :: q(pcols,pver)        ! spec humidity
+   real(r8), target, intent(inout) :: t(pcols,pver)        ! temperature
+   real(r8), target, intent(inout) :: p(pcols,pver)        ! pressure (mb)
+   real(r8), target, intent(inout) :: mb(pcols)            ! cloud base mass flux
+   real(r8), target, intent(in) :: z(pcols,pver)        ! height (m)
+   real(r8), target, intent(in) :: s(pcols,pver)        ! normalized dry static energy
+   real(r8), target, intent(in) :: tp(pcols,pver)       ! parcel temp
+   real(r8), target, intent(in) :: qs(pcols,pver)       ! sat spec humidity
+   real(r8), target, intent(in) :: qu(pcols,pver)       ! updraft spec. humidity
+   real(r8), target, intent(in) :: su(pcols,pver)       ! normalized dry stat energy of updraft
+   real(r8), target, intent(in) :: mc(pcols,pver)       ! net convective mass flux
+   real(r8), target, intent(in) :: du(pcols,pver)       ! detrainment from updraft
+   real(r8), target, intent(in) :: mu(pcols,pver)       ! mass flux of updraft
+   real(r8), target, intent(in) :: md(pcols,pver)       ! mass flux of downdraft
+   real(r8), target, intent(in) :: qd(pcols,pver)       ! spec. humidity of downdraft
+   real(r8), target, intent(in) :: sd(pcols,pver)       ! dry static energy of downdraft
+   real(r8), target, intent(in) :: qhat(pcols,pver)     ! environment spec humidity at interfaces
+   real(r8), target, intent(in) :: shat(pcols,pver)     ! env. normalized dry static energy at intrfcs
+   real(r8), target, intent(in) :: dp(pcols,pver)       ! pressure thickness of layers
+   real(r8), target, intent(in) :: qstp(pcols,pver)     ! spec humidity of parcel
+   real(r8), target, intent(in) :: zf(pcols,pver+1)     ! height of interface levels
+   real(r8), target, intent(in) :: ql(pcols,pver)       ! liquid water mixing ratio
 
-   real(r8), intent(in) :: cape(pcols)          ! available pot. energy of column
-   real(r8), intent(in) :: tl(pcols)
-   real(r8), intent(in) :: dsubcld(pcols)       ! thickness of subcloud layer
+   real(r8), target, intent(in) :: cape(pcols)          ! available pot. energy of column
+   real(r8), target, intent(in) :: tl(pcols)
+   real(r8), target, intent(in) :: dsubcld(pcols)       ! thickness of subcloud layer
 
-   integer, intent(in) :: lcl(pcols)        ! index of lcl
-   integer, intent(in) :: lel(pcols)        ! index of launch leve
-   integer, intent(in) :: jt(pcols)         ! top of updraft
-   integer, intent(in) :: mx(pcols)         ! base of updraft
+   integer, target, intent(in) :: lcl(pcols)        ! index of lcl
+   integer, target, intent(in) :: lel(pcols)        ! index of launch leve
+   integer, target, intent(in) :: jt(pcols)         ! top of updraft
+   integer, target, intent(in) :: mx(pcols)         ! base of updraft
 !
 !--------------------------Local variables------------------------------
 !
-   real(r8) dtpdt(pcols,pver)
-   real(r8) dqsdtp(pcols,pver)
-   real(r8) dtmdt(pcols,pver)
-   real(r8) dqmdt(pcols,pver)
-   real(r8) dboydt(pcols,pver)
-   real(r8) thetavp(pcols,pver)
-   real(r8) thetavm(pcols,pver)
+   real(r8), target :: dtpdt(pcols,pver)
+   real(r8), target :: dqsdtp(pcols,pver)
+   real(r8), target :: dtmdt(pcols,pver)
+   real(r8), target :: dqmdt(pcols,pver)
+   real(r8), target :: dboydt(pcols,pver)
+   real(r8), target :: thetavp(pcols,pver)
+   real(r8), target :: thetavm(pcols,pver)
 
-   real(r8) dtbdt(pcols),dqbdt(pcols),dtldt(pcols)
+   real(r8), target :: dtbdt(pcols),dqbdt(pcols),dtldt(pcols)
    real(r8) beta
    real(r8) capelmt
    real(r8) cp
-   real(r8) dadt(pcols)
+   real(r8), target :: dadt(pcols)
    real(r8) debdt
    real(r8) dltaa
    real(r8) eb
@@ -4388,6 +4444,22 @@ subroutine closure(lchnk   , &
 
    real(r8) rd
    real(r8) rl
+   interface
+      subroutine zm_closure_codon(pcols_c, pver_c, il1g_c, il2g_c, msg_c, rd_c, grav_c, cp_c, rl_c, &
+           eps1_c, tau_c, capelmt_c, q_p, t_p, p_p, z_p, s_p, tp_p, qs_p, qu_p, su_p, mc_p, du_p, &
+           mu_p, md_p, qd_p, sd_p, qhat_p, shat_p, dp_p, qstp_p, zf_p, ql_p, dsubcld_p, mb_p, &
+           cape_p, tl_p, lcl_p, lel_p, jt_p, mx_p, dtpdt_p, dqsdtp_p, dtmdt_p, dqmdt_p, dboydt_p, &
+           thetavp_p, thetavm_p, dtbdt_p, dqbdt_p, dtldt_p, dadt_p) bind(c, name="zm_closure_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c, il1g_c, il2g_c, msg_c
+         real(c_double), value :: rd_c, grav_c, cp_c, rl_c, eps1_c, tau_c, capelmt_c
+         type(c_ptr), value :: q_p, t_p, p_p, z_p, s_p, tp_p, qs_p, qu_p, su_p, mc_p, du_p
+         type(c_ptr), value :: mu_p, md_p, qd_p, sd_p, qhat_p, shat_p, dp_p, qstp_p, zf_p, ql_p
+         type(c_ptr), value :: dsubcld_p, mb_p, cape_p, tl_p, lcl_p, lel_p, jt_p, mx_p
+         type(c_ptr), value :: dtpdt_p, dqsdtp_p, dtmdt_p, dqmdt_p, dboydt_p, thetavp_p, thetavm_p
+         type(c_ptr), value :: dtbdt_p, dqbdt_p, dtldt_p, dadt_p
+      end subroutine zm_closure_codon
+   end interface
 ! change of subcloud layer properties due to convection is
 ! related to cumulus updrafts and downdrafts.
 ! mc(z)=f(z)*mb, mub=betau*mb, mdb=betad*mb are used
@@ -4396,6 +4468,21 @@ subroutine closure(lchnk   , &
 ! time derivatives per unit cloud-base mass flux, i.e. they
 ! have units of 1/mb instead of 1/sec.
 !
+   call zm_closure_select_impl()
+   if (.not. use_native_zm_closure) then
+      call zm_closure_log_entered()
+      call zm_closure_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(il1g, c_int64_t), &
+           int(il2g, c_int64_t), int(msg, c_int64_t), real(rd, c_double), real(grav, c_double), &
+           real(cp, c_double), real(rl, c_double), real(eps1, c_double), real(tau, c_double), &
+           real(capelmt, c_double), c_loc(q), c_loc(t), c_loc(p), c_loc(z), c_loc(s), c_loc(tp), &
+           c_loc(qs), c_loc(qu), c_loc(su), c_loc(mc), c_loc(du), c_loc(mu), c_loc(md), c_loc(qd), &
+           c_loc(sd), c_loc(qhat), c_loc(shat), c_loc(dp), c_loc(qstp), c_loc(zf), c_loc(ql), &
+           c_loc(dsubcld), c_loc(mb), c_loc(cape), c_loc(tl), c_loc(lcl), c_loc(lel), c_loc(jt), &
+           c_loc(mx), c_loc(dtpdt), c_loc(dqsdtp), c_loc(dtmdt), c_loc(dqmdt), c_loc(dboydt), &
+           c_loc(thetavp), c_loc(thetavm), c_loc(dtbdt), c_loc(dqbdt), c_loc(dtldt), c_loc(dadt))
+      return
+   end if
+
    do i = il1g,il2g
       mb(i) = 0._r8
       eb = p(i,mx(i))*q(i,mx(i))/ (eps1+q(i,mx(i)))

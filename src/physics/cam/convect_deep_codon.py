@@ -2119,6 +2119,263 @@ def zm_convr_closure_limit_shell_codon(
 
 
 @export
+def zm_closure_codon(
+    pcols: int,
+    pver: int,
+    il1g: int,
+    il2g: int,
+    msg: int,
+    rd: float,
+    grav: float,
+    cp: float,
+    rl: float,
+    eps1: float,
+    tau: float,
+    capelmt: float,
+    q_p: cobj,
+    t_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    s_p: cobj,
+    tp_p: cobj,
+    qs_p: cobj,
+    qu_p: cobj,
+    su_p: cobj,
+    mc_p: cobj,
+    du_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    qd_p: cobj,
+    sd_p: cobj,
+    qhat_p: cobj,
+    shat_p: cobj,
+    dp_p: cobj,
+    qstp_p: cobj,
+    zf_p: cobj,
+    ql_p: cobj,
+    dsubcld_p: cobj,
+    mb_p: cobj,
+    cape_p: cobj,
+    tl_p: cobj,
+    lcl_p: cobj,
+    lel_p: cobj,
+    jt_p: cobj,
+    mx_p: cobj,
+    dtpdt_p: cobj,
+    dqsdtp_p: cobj,
+    dtmdt_p: cobj,
+    dqmdt_p: cobj,
+    dboydt_p: cobj,
+    thetavp_p: cobj,
+    thetavm_p: cobj,
+    dtbdt_p: cobj,
+    dqbdt_p: cobj,
+    dtldt_p: cobj,
+    dadt_p: cobj,
+):
+    q = Ptr[float](q_p)
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    z = Ptr[float](z_p)
+    s = Ptr[float](s_p)
+    tp = Ptr[float](tp_p)
+    qs = Ptr[float](qs_p)
+    qu = Ptr[float](qu_p)
+    su = Ptr[float](su_p)
+    mc = Ptr[float](mc_p)
+    du = Ptr[float](du_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    qd = Ptr[float](qd_p)
+    sd = Ptr[float](sd_p)
+    qhat = Ptr[float](qhat_p)
+    shat = Ptr[float](shat_p)
+    dp = Ptr[float](dp_p)
+    qstp = Ptr[float](qstp_p)
+    zf = Ptr[float](zf_p)
+    ql = Ptr[float](ql_p)
+    dsubcld = Ptr[float](dsubcld_p)
+    mb = Ptr[float](mb_p)
+    cape = Ptr[float](cape_p)
+    tl = Ptr[float](tl_p)
+    lcl = Ptr[i32](lcl_p)
+    lel = Ptr[i32](lel_p)
+    jt = Ptr[i32](jt_p)
+    mx = Ptr[i32](mx_p)
+    dtpdt = Ptr[float](dtpdt_p)
+    dqsdtp = Ptr[float](dqsdtp_p)
+    dtmdt = Ptr[float](dtmdt_p)
+    dqmdt = Ptr[float](dqmdt_p)
+    dboydt = Ptr[float](dboydt_p)
+    thetavp = Ptr[float](thetavp_p)
+    thetavm = Ptr[float](thetavm_p)
+    dtbdt = Ptr[float](dtbdt_p)
+    dqbdt = Ptr[float](dqbdt_p)
+    dtldt = Ptr[float](dtldt_p)
+    dadt = Ptr[float](dadt_p)
+
+    ii0 = il1g - 1
+    ii1 = il2g - 1
+
+    ii = ii0
+    while ii <= ii1:
+        mx_i = int(mx[ii])
+        mxidx = ii + (mx_i - 1) * pcols
+        mb[ii] = 0.0
+        eb = p[mxidx] * q[mxidx] / (eps1 + q[mxidx])
+        dtbdt[ii] = (1.0 / dsubcld[ii]) * (
+            mu[mxidx] * (shat[mxidx] - su[mxidx])
+            + md[mxidx] * (shat[mxidx] - sd[mxidx])
+        )
+        dqbdt[ii] = (1.0 / dsubcld[ii]) * (
+            mu[mxidx] * (qhat[mxidx] - qu[mxidx])
+            + md[mxidx] * (qhat[mxidx] - qd[mxidx])
+        )
+        debdt = eps1 * p[mxidx] / (eps1 + q[mxidx]) ** 2 * dqbdt[ii]
+        dtldt[ii] = (
+            -2840.0
+            * (3.5 / t[mxidx] * dtbdt[ii] - debdt / eb)
+            / (3.5 * log(t[mxidx]) - log(eb) - 4.805) ** 2
+        )
+        ii += 1
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        ii = ii0
+        while ii <= ii1:
+            idx = ii + k * pcols
+            dtmdt[idx] = 0.0
+            dqmdt[idx] = 0.0
+            ii += 1
+        kk += 1
+
+    kk = msg + 1
+    while kk <= pver - 1:
+        k = kk - 1
+        kp1 = kk
+        ii = ii0
+        while ii <= ii1:
+            if kk == int(jt[ii]):
+                idx = ii + k * pcols
+                kp1idx = ii + kp1 * pcols
+                dtmdt[idx] = (1.0 / dp[idx]) * (
+                    mu[kp1idx] * (su[kp1idx] - shat[kp1idx] - rl / cp * ql[kp1idx])
+                    + md[kp1idx] * (sd[kp1idx] - shat[kp1idx])
+                )
+                dqmdt[idx] = (1.0 / dp[idx]) * (
+                    mu[kp1idx] * (qu[kp1idx] - qhat[kp1idx] + ql[kp1idx])
+                    + md[kp1idx] * (qd[kp1idx] - qhat[kp1idx])
+                )
+            ii += 1
+        kk += 1
+
+    beta = 0.0
+    kk = msg + 1
+    while kk <= pver - 1:
+        k = kk - 1
+        kp1 = kk
+        ii = ii0
+        while ii <= ii1:
+            if kk > int(jt[ii]) and kk < int(mx[ii]):
+                idx = ii + k * pcols
+                kp1idx = ii + kp1 * pcols
+                dtmdt[idx] = (
+                    mc[idx] * (shat[idx] - s[idx])
+                    + mc[kp1idx] * (s[idx] - shat[kp1idx])
+                ) / dp[idx] - rl / cp * du[idx] * (beta * ql[idx] + (1.0 - beta) * ql[kp1idx])
+                dqmdt[idx] = (
+                    mu[kp1idx] * (qu[kp1idx] - qhat[kp1idx] + cp / rl * (su[kp1idx] - s[idx]))
+                    - mu[idx] * (qu[idx] - qhat[idx] + cp / rl * (su[idx] - s[idx]))
+                    + md[kp1idx] * (qd[kp1idx] - qhat[kp1idx] + cp / rl * (sd[kp1idx] - s[idx]))
+                    - md[idx] * (qd[idx] - qhat[idx] + cp / rl * (sd[idx] - s[idx]))
+                ) / dp[idx] + du[idx] * (beta * ql[idx] + (1.0 - beta) * ql[kp1idx])
+            ii += 1
+        kk += 1
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        ii = ii0
+        while ii <= ii1:
+            if kk >= int(lel[ii]) and kk <= int(lcl[ii]):
+                idx = ii + k * pcols
+                mxidx = ii + (int(mx[ii]) - 1) * pcols
+                thetavp[idx] = tp[idx] * (1000.0 / p[idx]) ** (rd / cp) * (1.0 + 1.608 * qstp[idx] - q[mxidx])
+                thetavm[idx] = t[idx] * (1000.0 / p[idx]) ** (rd / cp) * (1.0 + 0.608 * q[idx])
+                dqsdtp[idx] = qstp[idx] * (1.0 + qstp[idx] / eps1) * eps1 * rl / (rd * tp[idx] ** 2)
+                dtpdt[idx] = tp[idx] / (1.0 + rl / cp * (dqsdtp[idx] - qstp[idx] / tp[idx])) * (
+                    dtbdt[ii] / t[mxidx]
+                    + rl / cp * (dqbdt[ii] / tl[ii] - q[mxidx] / tl[ii] ** 2 * dtldt[ii])
+                )
+                dboydt[idx] = (
+                    (
+                        dtpdt[idx] / tp[idx]
+                        + 1.0 / (1.0 + 1.608 * qstp[idx] - q[mxidx])
+                        * (1.608 * dqsdtp[idx] * dtpdt[idx] - dqbdt[ii])
+                    )
+                    - (
+                        dtmdt[idx] / t[idx]
+                        + 0.608 / (1.0 + 0.608 * q[idx]) * dqmdt[idx]
+                    )
+                ) * grav * thetavp[idx] / thetavm[idx]
+            ii += 1
+        kk += 1
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        ii = ii0
+        while ii <= ii1:
+            if kk > int(lcl[ii]) and kk < int(mx[ii]):
+                idx = ii + k * pcols
+                mxidx = ii + (int(mx[ii]) - 1) * pcols
+                thetavp[idx] = tp[idx] * (1000.0 / p[idx]) ** (rd / cp) * (1.0 + 0.608 * q[mxidx])
+                thetavm[idx] = t[idx] * (1000.0 / p[idx]) ** (rd / cp) * (1.0 + 0.608 * q[idx])
+                dboydt[idx] = (
+                    dtbdt[ii] / t[mxidx]
+                    + 0.608 / (1.0 + 0.608 * q[mxidx]) * dqbdt[ii]
+                    - dtmdt[idx] / t[idx]
+                    - 0.608 / (1.0 + 0.608 * q[idx]) * dqmdt[idx]
+                ) * grav * thetavp[idx] / thetavm[idx]
+            ii += 1
+        kk += 1
+
+    ii = ii0
+    while ii <= ii1:
+        dadt[ii] = 0.0
+        ii += 1
+
+    kmin = int(lel[ii0])
+    kmax = int(mx[ii0])
+    ii = ii0 + 1
+    while ii <= ii1:
+        kmin = min(kmin, int(lel[ii]))
+        kmax = max(kmax, int(mx[ii]))
+        ii += 1
+    kmax -= 1
+
+    kk = kmin
+    while kk <= kmax:
+        k = kk - 1
+        kp1 = kk
+        ii = ii0
+        while ii <= ii1:
+            if kk >= int(lel[ii]) and kk <= int(mx[ii]) - 1:
+                idx = ii + k * pcols
+                dadt[ii] = dadt[ii] + dboydt[idx] * (zf[idx] - zf[ii + kp1 * pcols])
+            ii += 1
+        kk += 1
+
+    ii = ii0
+    while ii <= ii1:
+        dltaa = -1.0 * (cape[ii] - capelmt)
+        if dadt[ii] != 0.0:
+            mb[ii] = max(dltaa / tau / dadt[ii], 0.0)
+        ii += 1
+
+
+@export
 def zm_q1q2_pjr_codon(
     lengath: int,
     pcols: int,
