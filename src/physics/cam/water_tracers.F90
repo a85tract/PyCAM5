@@ -143,6 +143,13 @@ module water_tracers
   logical :: wtrc_diagnose_bulk_precip_impl_selected = .false.
   logical :: use_native_wtrc_add_rates_impl = .false.
   logical :: wtrc_add_rates_impl_selected = .false.
+  logical :: use_native_wtrc_control_impl = .false.
+  logical :: wtrc_control_impl_selected = .false.
+  logical :: wtrc_readnl_logged = .false.
+  logical :: wtrc_init_logged = .false.
+  logical :: wtrc_register_logged = .false.
+  logical :: wtrc_setup_diag_logged = .false.
+  logical :: wtrc_output_precip_logged = .false.
   logical :: use_native_wtrc_scalar_helpers_impl = .false.
   logical :: wtrc_scalar_helpers_impl_selected = .false.
   logical :: wtrc_scalar_helpers_entered_logged = .false.
@@ -208,6 +215,12 @@ module water_tracers
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: result_c
     end function wtrc_bool_id_codon
+    subroutine wtrc_control_stage_codon(stage_c, enabled_c, status_p) &
+         bind(c, name="wtrc_control_stage_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: stage_c, enabled_c
+      type(c_ptr), value :: status_p
+    end subroutine wtrc_control_stage_codon
     function wtrc_implements_cnst_codon(name_len_c, name_ascii_p, cnst_name_len_c, names_ascii_p, ncnst_c) &
          result(result_c) bind(c, name="wtrc_implements_cnst_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -325,6 +338,89 @@ module water_tracers
   end interface
 
 contains
+
+!=======================================================================
+subroutine wtrc_control_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('WTRC_CONTROL_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+    open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+    write(unitno,'(A)') trim(proof_line)
+    close(unitno)
+  end if
+
+end subroutine wtrc_control_append_proof
+
+!=======================================================================
+subroutine wtrc_control_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_control_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_CONTROL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_control_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_control_impl = .false.
+  end if
+
+  wtrc_control_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_control_impl) then
+      write(iulog,*) 'wtrc_control implementation = native'
+      call wtrc_control_append_proof('wtrc_control selector entered implementation = native')
+    else
+      write(iulog,*) 'wtrc_control implementation = codon'
+      call wtrc_control_append_proof('wtrc_control selector entered implementation = codon')
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_control_select_impl
+
+!=======================================================================
+subroutine wtrc_control_enter(stage, enabled, logged, proof_line)
+
+  integer, intent(in) :: stage
+  logical, intent(in) :: enabled
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  integer(c_int64_t), target :: status_c
+
+  call wtrc_control_select_impl()
+  if (use_native_wtrc_control_impl) return
+
+  status_c = 0_c_int64_t
+  call wtrc_control_stage_codon(int(stage, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, enabled), &
+       c_loc(status_c))
+  if (status_c == 0_c_int64_t .or. logged) return
+
+  logged = .true.
+  if (masterproc) then
+    write(iulog,'(A)') trim(proof_line)
+    call wtrc_control_append_proof(proof_line)
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_control_enter
 
 !=======================================================================
 subroutine wtrc_batch_append_proof(proof_line)
@@ -849,6 +945,9 @@ subroutine wtrc_readnl(nlfile)
       wtrc_fixed_alpha, wtrc_fixed_rstd, wtrc_lzmlin, wtrc_srf_bucket_mode, &
       wtrc_limiter_18O_hgh, wtrc_limiter_18O_low, wtrc_limiter_HDO_hgh, wtrc_limiter_HDO_low, wtrc_limiter_phis_crit
 
+     call wtrc_control_enter(1, .true., wtrc_readnl_logged, &
+          'wtrc_readnl direct = codon; namelist I/O and MPI broadcast native islands')
+
      if (masterproc) then
        unitn = getunit()
        open( unitn, file=trim(nlfile), status='old' )
@@ -930,6 +1029,9 @@ end subroutine wtrc_readnl
   integer            :: iwset
   character(len=128) :: longname
 !-----------------------------------------------------------------------
+
+    call wtrc_control_enter(2, water_tracer_model /= "none", wtrc_init_logged, &
+         'wtrc_init direct = codon; history registration and isotope/type init native CAM API islands')
 
     if (water_tracer_model /= "none") then
 
@@ -1049,6 +1151,9 @@ end subroutine wtrc_init
 
 !-----------------------------------------------------------------------
 !
+    call wtrc_control_enter(3, water_tracer_model /= "none", wtrc_register_logged, &
+         'wtrc_register direct = codon; cnst_add/pbuf/init-file/name lookup native CAM API islands')
+
 ! Initialize all tracers as non-water, with unknown species
 !
     iwater(:)  = iwtundef
@@ -4311,6 +4416,9 @@ end subroutine wtrc_diagnose_bulk_precip_native
 
 !-----------------------------------------------------------------------
 !
+  call wtrc_control_enter(5, trace_water, wtrc_output_precip_logged, &
+       'wtrc_output_precip direct = codon; pbuf_get_field/outfld native CAM API islands')
+
   ! Output fields for the isotopes.
   if (trace_water) then
     ncol  = pstate%ncol
@@ -7252,6 +7360,9 @@ end subroutine wtrc_q1q2_pjr
 1         format(a8,' ', i3,i3,l5,i3,e16.5)
 2         format(i4,' ',a8)
 3         format(i4,' ',a8,' ',i4,a10)
+
+    call wtrc_control_enter(4, .true., wtrc_setup_diag_logged, &
+         'wtrc_setup_diag direct = codon; formatted diagnostic output and CAM name lookups native islands')
 
     write(iulog,*) ' ' 
     write(iulog,*) '---- Water isotopes tracer configuration ----'

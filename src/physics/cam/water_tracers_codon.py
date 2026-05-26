@@ -43,6 +43,15 @@ def wtrc_bool_id_codon(value: int) -> int:
 
 
 @export
+def wtrc_control_stage_codon(stage: int, enabled: int, status_p: cobj):
+    status = Ptr[int](status_p)
+    if enabled != 0:
+        status[0] = stage
+    else:
+        status[0] = 0
+
+
+@export
 def wtrc_implements_cnst_codon(
     name_len: int,
     name_ascii_p: cobj,
