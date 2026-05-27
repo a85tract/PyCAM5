@@ -96,7 +96,7 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
 !--------------------------------------------------------------------------
 
   call gw_ediff_prep_select_impl()
-  use_native_prep = use_native_gw_ediff_prep_impl .or. present(ro_adjust)
+  use_native_prep = use_native_gw_ediff_prep_impl
 
   if (use_native_prep) then
 
@@ -139,7 +139,7 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
 
      call gw_ediff_prep_note_entered()
      call gw_ediff_prep_codon_wrap(ncol, pver, pver+1, ngwv, kbot, ktop, prndl, gravit, &
-          gwut, ubm, nm, rho, c, tend_level, egwdffi, egwdffm, egwdff_lev, dpidz_sq)
+          gwut, ubm, nm, rho, c, tend_level, egwdffi, egwdffm, egwdff_lev, dpidz_sq, ro_adjust)
 
   end if
 
@@ -226,9 +226,10 @@ end subroutine gw_ediff_prep_note_entered
 
 subroutine gw_ediff_prep_codon_wrap(ncol_local, pver_local, pverp_local, ngwv_local, &
      kbot_local, ktop_local, prndl_local, gravit_local, gwut_local, ubm_local, nm_local, &
-     rho_local, c_local, tend_level_local, egwdffi_local, egwdffm_local, egwdff_lev_local, dpidz_sq_local)
+     rho_local, c_local, tend_level_local, egwdffi_local, egwdffm_local, egwdff_lev_local, dpidz_sq_local, &
+     ro_adjust_local)
 
-  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   integer, intent(in) :: ncol_local, pver_local, pverp_local, ngwv_local
   integer, intent(in) :: kbot_local, ktop_local
@@ -242,22 +243,28 @@ subroutine gw_ediff_prep_codon_wrap(ncol_local, pver_local, pverp_local, ngwv_lo
   real(r8), target, intent(inout) :: egwdffm_local(ncol_local,pver_local)
   real(r8), target, intent(inout) :: egwdff_lev_local(ncol_local)
   real(r8), target, intent(inout) :: dpidz_sq_local(ncol_local,pverp_local)
+  real(r8), target, intent(in), optional :: ro_adjust_local(ncol_local,-ngwv_local:ngwv_local,pverp_local)
 
   integer(c_int64_t), target :: tend_level_i8(ncol_local)
+  type(c_ptr) :: ro_adjust_ptr
   integer :: i
 
   interface
      subroutine gw_ediff_prep_codon(ncol_c, pver_c, pverp_c, ngwv_c, kbot_c, ktop_c, &
           prndl_c, gravit_c, gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p, &
-          egwdffi_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p) &
+          egwdffi_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p, ro_adjust_present_c, ro_adjust_p) &
           bind(c, name="gw_ediff_prep_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pver_c, pverp_c, ngwv_c, kbot_c, ktop_c
+       integer(c_int64_t), value :: ro_adjust_present_c
        real(c_double), value :: prndl_c, gravit_c
        type(c_ptr), value :: gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p
-       type(c_ptr), value :: egwdffi_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p
+       type(c_ptr), value :: egwdffi_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p, ro_adjust_p
      end subroutine gw_ediff_prep_codon
   end interface
+
+  ro_adjust_ptr = c_null_ptr
+  if (present(ro_adjust_local)) ro_adjust_ptr = c_loc(ro_adjust_local)
 
   do i = 1, ncol_local
      tend_level_i8(i) = int(tend_level_local(i), c_int64_t)
@@ -268,7 +275,7 @@ subroutine gw_ediff_prep_codon_wrap(ncol_local, pver_local, pverp_local, ngwv_lo
        int(ktop_local, c_int64_t), real(prndl_local, c_double), real(gravit_local, c_double), &
        c_loc(gwut_local), c_loc(ubm_local), c_loc(nm_local), c_loc(rho_local), c_loc(c_local), &
        c_loc(tend_level_i8), c_loc(egwdffi_local), c_loc(egwdffm_local), c_loc(egwdff_lev_local), &
-       c_loc(dpidz_sq_local))
+       c_loc(dpidz_sq_local), merge(1_c_int64_t, 0_c_int64_t, present(ro_adjust_local)), ro_adjust_ptr)
 
 end subroutine gw_ediff_prep_codon_wrap
 

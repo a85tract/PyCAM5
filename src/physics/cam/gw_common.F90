@@ -736,9 +736,9 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   end if
 
   call gw_drag_prof_core_select_impl()
-  use_native_core = use_native_gw_drag_prof_core_impl .or. present(ro_adjust)
+  use_native_core = use_native_gw_drag_prof_core_impl
   call gw_diff_solver_select_impl()
-  use_native_diff_solver = use_native_gw_diff_solver_impl .or. present(ro_adjust)
+  use_native_diff_solver = use_native_gw_diff_solver_impl
 
   if (use_native_core) then
 
@@ -907,7 +907,7 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
           band%effkwv, band%kwv, gravit, rog, dt, alpha, p%del, p%rdel, &
           t, piln, rhoi, ni, ubm, ubi, xv, yv, effgw, c, kvtt, src_level, tend_level, tau, &
           utgw, vtgw, ttgw, gwut, dttdf, dttke, d, mi, taudmp, tausat, ubmc, ubmc2, &
-          ubt, ubtl, wrk, ubt_lim_ratio)
+          ubt, ubtl, wrk, ubt_lim_ratio, ro_adjust)
 
   end if
 
@@ -938,7 +938,7 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
           p%del, p%rdel, p%rdst, q, dse, egwdffi, qtgw, dttdf, &
           egwdffm, egwdff_lev, dpidz_sq, gw_diff_coef, gw_diff_qnew, &
           gw_diff_spr, gw_diff_sub, gw_diff_diag, gw_diff_ca, gw_diff_ze, &
-          gw_diff_dnom, gw_diff_zf)
+          gw_diff_dnom, gw_diff_zf, ro_adjust)
 
      call gw_diff_solver_codon_wrap(2, ncol, pver, pver+1, size(q,3), band%ngwv, &
           kbot_tend, ktop, dt, gravit, gwut, ubm, nm, rhoi, c, tend_level, &
@@ -965,7 +965,7 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
           band%effkwv, band%kwv, gravit, rog, dt, alpha, p%del, p%rdel, &
           t, piln, rhoi, ni, ubm, ubi, xv, yv, effgw, c, kvtt, src_level, tend_level, tau, &
           utgw, vtgw, ttgw, gwut, dttdf, dttke, d, mi, taudmp, tausat, ubmc, ubmc2, &
-          ubt, ubtl, wrk, ubt_lim_ratio)
+          ubt, ubtl, wrk, ubt_lim_ratio, ro_adjust)
   end if
 
   ! Deallocate decomp.
@@ -1043,10 +1043,10 @@ subroutine gw_drag_prof_note_entered(mask_c)
   if (masterproc) then
      write(iulog,'(A,I0)') &
           'gw_drag_prof direct = codon; shell/mask direct = codon; ' // &
-          'core and diff solver direct = codon when ro_adjust absent; ro_adjust IGW native island; mask=', mask_c
+          'core and diff solver direct = codon including ro_adjust IGW branch; mask=', mask_c
      call gw_drag_prof_append_proof( &
           'gw_drag_prof direct = codon; shell/mask direct = codon; ' // &
-          'core and diff solver direct = codon when ro_adjust absent; ro_adjust IGW native island')
+          'core and diff solver direct = codon including ro_adjust IGW branch')
      call flush(iulog)
   end if
 
@@ -1134,9 +1134,9 @@ subroutine gw_drag_prof_core_codon_wrap(stage, ncol_local, pver_local, pverp_loc
      ubm_local, ubi_local, xv_local, yv_local, effgw_local, c_local, kvtt_local, src_level_local, &
      tend_level_local, tau_local, utgw_local, vtgw_local, ttgw_local, gwut_local, dttdf_local, &
      dttke_local, d_local, mi_local, taudmp_local, tausat_local, ubmc_local, ubmc2_local, &
-     ubt_local, ubtl_local, wrk_local, ubt_lim_ratio_local)
+     ubt_local, ubtl_local, wrk_local, ubt_lim_ratio_local, ro_adjust_local)
 
-  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   integer, intent(in) :: stage
   integer, intent(in) :: ncol_local, pver_local, pverp_local, ngwv_local
@@ -1162,8 +1162,10 @@ subroutine gw_drag_prof_core_codon_wrap(stage, ncol_local, pver_local, pverp_loc
   real(r8), target, intent(inout) :: tausat_local(ncol_local), ubmc_local(ncol_local), ubmc2_local(ncol_local)
   real(r8), target, intent(inout) :: ubt_local(ncol_local,pver_local), ubtl_local(ncol_local)
   real(r8), target, intent(inout) :: wrk_local(ncol_local), ubt_lim_ratio_local(ncol_local)
+  real(r8), target, intent(in), optional :: ro_adjust_local(ncol_local,-ngwv_local:ngwv_local,pverp_local)
 
   integer(c_int64_t), target :: src_level_i8(ncol_local), tend_level_i8(ncol_local)
+  type(c_ptr) :: ro_adjust_ptr
   integer :: i
 
   interface
@@ -1173,20 +1175,24 @@ subroutine gw_drag_prof_core_codon_wrap(stage, ncol_local, pver_local, pverp_loc
           p_del_p, p_rdel_p, t_p, piln_p, rhoi_p, ni_p, ubm_p, ubi_p, xv_p, yv_p, &
           effgw_p, c_p, kvtt_p, src_level_p, tend_level_p, tau_p, utgw_p, vtgw_p, &
           ttgw_p, gwut_p, dttdf_p, dttke_p, d_p, mi_p, taudmp_p, tausat_p, ubmc_p, &
-          ubmc2_p, ubt_p, ubtl_p, wrk_p, ubt_lim_ratio_p) &
+          ubmc2_p, ubt_p, ubtl_p, wrk_p, ubt_lim_ratio_p, ro_adjust_present_c, ro_adjust_p) &
           bind(c, name="gw_drag_prof_core_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: stage_c, ncol_c, pver_c, pverp_c, ngwv_c
        integer(c_int64_t), value :: ktop_c, kbot_tend_c, kbot_src_c, tau_0_ubc_c
+       integer(c_int64_t), value :: ro_adjust_present_c
        real(c_double), value :: dback_c, taumin_c, tndmax_c, umcfac_c, ubmc2mn_c
        real(c_double), value :: effkwv_c, kwv_c, gravit_c, rog_c, dt_c
        type(c_ptr), value :: alpha_p, p_del_p, p_rdel_p, t_p, piln_p, rhoi_p, ni_p
        type(c_ptr), value :: ubm_p, ubi_p, xv_p, yv_p, effgw_p, c_p, kvtt_p
        type(c_ptr), value :: src_level_p, tend_level_p, tau_p, utgw_p, vtgw_p, ttgw_p, gwut_p
        type(c_ptr), value :: dttdf_p, dttke_p, d_p, mi_p, taudmp_p, tausat_p, ubmc_p, ubmc2_p
-       type(c_ptr), value :: ubt_p, ubtl_p, wrk_p, ubt_lim_ratio_p
+       type(c_ptr), value :: ubt_p, ubtl_p, wrk_p, ubt_lim_ratio_p, ro_adjust_p
      end subroutine gw_drag_prof_core_codon
   end interface
+
+  ro_adjust_ptr = c_null_ptr
+  if (present(ro_adjust_local)) ro_adjust_ptr = c_loc(ro_adjust_local)
 
   do i = 1, ncol_local
      src_level_i8(i) = int(src_level_local(i), c_int64_t)
@@ -1206,7 +1212,7 @@ subroutine gw_drag_prof_core_codon_wrap(stage, ncol_local, pver_local, pverp_loc
        c_loc(utgw_local), c_loc(vtgw_local), c_loc(ttgw_local), c_loc(gwut_local), c_loc(dttdf_local), &
        c_loc(dttke_local), c_loc(d_local), c_loc(mi_local), c_loc(taudmp_local), c_loc(tausat_local), &
        c_loc(ubmc_local), c_loc(ubmc2_local), c_loc(ubt_local), c_loc(ubtl_local), c_loc(wrk_local), &
-       c_loc(ubt_lim_ratio_local))
+       c_loc(ubt_lim_ratio_local), merge(1_c_int64_t, 0_c_int64_t, present(ro_adjust_local)), ro_adjust_ptr)
 
 end subroutine gw_drag_prof_core_codon_wrap
 
@@ -1289,9 +1295,9 @@ subroutine gw_diff_solver_codon_wrap(stage, ncol_local, pver_local, pverp_local,
      kbot_local, ktop_local, dt_local, gravit_local, gwut_local, ubm_local, nm_local, rho_local, c_local, &
      tend_level_local, p_del_local, p_rdel_local, p_rdst_local, q_local, dse_local, egwdffi_local, &
      qtgw_local, dttdf_local, egwdffm_local, egwdff_lev_local, dpidz_sq_local, coef_q_diff_local, &
-     qnew_local, spr_local, sub_local, diag_local, ca_local, ze_local, dnom_local, zf_local)
+     qnew_local, spr_local, sub_local, diag_local, ca_local, ze_local, dnom_local, zf_local, ro_adjust_local)
 
-  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   integer, intent(in) :: stage
   integer, intent(in) :: ncol_local, pver_local, pverp_local, pcnst_local, ngwv_local
@@ -1322,8 +1328,10 @@ subroutine gw_diff_solver_codon_wrap(stage, ncol_local, pver_local, pverp_local,
   real(r8), target, intent(inout) :: ze_local(ncol_local,pver_local)
   real(r8), target, intent(inout) :: dnom_local(ncol_local,pver_local)
   real(r8), target, intent(inout) :: zf_local(ncol_local,pver_local)
+  real(r8), target, intent(in), optional :: ro_adjust_local(ncol_local,-ngwv_local:ngwv_local,pverp_local)
 
   integer(c_int64_t), target :: tend_level_i8(ncol_local)
+  type(c_ptr) :: ro_adjust_ptr
   integer :: i
 
   interface
@@ -1331,18 +1339,23 @@ subroutine gw_diff_solver_codon_wrap(stage, ncol_local, pver_local, pverp_local,
           kbot_c, ktop_c, dt_c, gravit_c, gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p, &
           p_del_p, p_rdel_p, p_rdst_p, q_p, dse_p, egwdffi_p, qtgw_p, dttdf_p, &
           egwdffm_p, egwdff_lev_p, dpidz_sq_p, coef_q_diff_p, qnew_p, spr_p, sub_p, &
-          diag_p, ca_p, ze_p, dnom_p, zf_p) &
+          diag_p, ca_p, ze_p, dnom_p, zf_p, ro_adjust_present_c, ro_adjust_p) &
           bind(c, name="gw_diff_solver_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: stage_c, ncol_c, pver_c, pverp_c, pcnst_c, ngwv_c
        integer(c_int64_t), value :: kbot_c, ktop_c
+       integer(c_int64_t), value :: ro_adjust_present_c
        real(c_double), value :: dt_c, gravit_c
        type(c_ptr), value :: gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p
        type(c_ptr), value :: p_del_p, p_rdel_p, p_rdst_p, q_p, dse_p, egwdffi_p
        type(c_ptr), value :: qtgw_p, dttdf_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p
        type(c_ptr), value :: coef_q_diff_p, qnew_p, spr_p, sub_p, diag_p, ca_p, ze_p, dnom_p, zf_p
+       type(c_ptr), value :: ro_adjust_p
      end subroutine gw_diff_solver_codon
   end interface
+
+  ro_adjust_ptr = c_null_ptr
+  if (present(ro_adjust_local)) ro_adjust_ptr = c_loc(ro_adjust_local)
 
   do i = 1, ncol_local
      tend_level_i8(i) = int(tend_level_local(i), c_int64_t)
@@ -1357,7 +1370,7 @@ subroutine gw_diff_solver_codon_wrap(stage, ncol_local, pver_local, pverp_local,
        c_loc(qtgw_local), c_loc(dttdf_local), c_loc(egwdffm_local), c_loc(egwdff_lev_local), &
        c_loc(dpidz_sq_local), c_loc(coef_q_diff_local), c_loc(qnew_local), c_loc(spr_local), &
        c_loc(sub_local), c_loc(diag_local), c_loc(ca_local), c_loc(ze_local), c_loc(dnom_local), &
-       c_loc(zf_local))
+       c_loc(zf_local), merge(1_c_int64_t, 0_c_int64_t, present(ro_adjust_local)), ro_adjust_ptr)
 
 end subroutine gw_diff_solver_codon_wrap
 

@@ -478,6 +478,8 @@ def _gw_drag_prof_core_impl(
     ubtl_p: cobj,
     wrk_p: cobj,
     ubt_lim_ratio_p: cobj,
+    ro_adjust_present: int,
+    ro_adjust_p: cobj,
 ):
     alpha = Ptr[float](alpha_p)
     p_del = Ptr[float](p_del_p)
@@ -512,6 +514,7 @@ def _gw_drag_prof_core_impl(
     ubtl = Ptr[float](ubtl_p)
     wrk = Ptr[float](wrk_p)
     ubt_lim_ratio = Ptr[float](ubt_lim_ratio_p)
+    ro_adjust = Ptr[float](ro_adjust_p)
 
     if stage == 1:
         for k in range(1, pver + 1):
@@ -554,6 +557,11 @@ def _gw_drag_prof_core_impl(
                                 effkwv * rhoi[_idx2(i, k, ncol)] * ubmc[i - 1] ** 3
                                 / (2.0 * ni[_idx2(i, k, ncol)])
                             )
+
+                if ro_adjust_present != 0:
+                    for i in range(1, ncol + 1):
+                        if src_level[i - 1] >= k:
+                            tausat[i - 1] = tausat[i - 1] * sqrt(ro_adjust[_idx_tau(i, l, k, ncol, ngwv)])
 
                 for i in range(1, ncol + 1):
                     if src_level[i - 1] >= k:
@@ -675,6 +683,8 @@ def gw_ediff_prep_codon(
     egwdffm_p: cobj,
     egwdff_lev_p: cobj,
     dpidz_sq_p: cobj,
+    ro_adjust_present: int,
+    ro_adjust_p: cobj,
 ):
     gwut = Ptr[float](gwut_p)
     ubm = Ptr[float](ubm_p)
@@ -686,6 +696,7 @@ def gw_ediff_prep_codon(
     egwdffm = Ptr[float](egwdffm_p)
     egwdff_lev = Ptr[float](egwdff_lev_p)
     dpidz_sq = Ptr[float](dpidz_sq_p)
+    ro_adjust = Ptr[float](ro_adjust_p)
 
     for k in range(1, pverp + 1):
         for i in range(1, ncol + 1):
@@ -706,6 +717,11 @@ def gw_ediff_prep_codon(
                     * (c[_idx_c(i, l, ncol, ngwv)] - ubm[idx])
                     / (nm[idx] ** 2)
                 )
+
+            if ro_adjust_present != 0:
+                for i in range(1, ncol + 1):
+                    ro = ro_adjust[_idx_tau(i, l, k, ncol, ngwv)]
+                    egwdff_lev[i - 1] = egwdff_lev[i - 1] * 4.0 * ro ** 2
 
             for i in range(1, ncol + 1):
                 idx = _idx2(i, k, ncol)
@@ -796,6 +812,8 @@ def _gw_diff_solver_impl(
     ze_p: cobj,
     dnom_p: cobj,
     zf_p: cobj,
+    ro_adjust_present: int,
+    ro_adjust_p: cobj,
 ):
     gwut = Ptr[float](gwut_p)
     ubm = Ptr[float](ubm_p)
@@ -823,6 +841,7 @@ def _gw_diff_solver_impl(
     ze = Ptr[float](ze_p)
     dnom = Ptr[float](dnom_p)
     zf = Ptr[float](zf_p)
+    ro_adjust = Ptr[float](ro_adjust_p)
 
     prndl = 0.25
     ncel = kbot - ktop + 1
@@ -847,6 +866,10 @@ def _gw_diff_solver_impl(
                         * (c[_idx_c(i, l, ncol, ngwv)] - ubm[idx])
                         / (nm[idx] ** 2)
                     )
+
+                    if ro_adjust_present != 0:
+                        ro = ro_adjust[_idx_tau(i, l, k, ncol, ngwv)]
+                        egwdff_lev[i - 1] = egwdff_lev[i - 1] * 4.0 * ro ** 2
 
                 for i in range(1, ncol + 1):
                     idx = _idx2(i, k, ncol)
@@ -1084,6 +1107,8 @@ def _gw_common_driver_dispatch(
     ze_p: cobj,
     dnom_p: cobj,
     zf_p: cobj,
+    ro_adjust_present: int,
+    ro_adjust_p: cobj,
 ):
     if group == 1:
         _gw_drag_prof_core_impl(
@@ -1094,6 +1119,8 @@ def _gw_common_driver_dispatch(
             utgw_p, vtgw_p, ttgw_p, gwut_p, dttdf_p, dttke_p, d_p, mi_p,
             taudmp_p, tausat_p, ubmc_p, ubmc2_p, ubt_p, ubtl_p, wrk_p,
             ubt_lim_ratio_p,
+            ro_adjust_present,
+            ro_adjust_p,
         )
     elif group == 2:
         _gw_diff_solver_impl(
@@ -1102,6 +1129,7 @@ def _gw_common_driver_dispatch(
             q_p, dse_p, egwdffi_p, qtgw_p, dttdf_p, egwdffm_p, egwdff_lev_p,
             dpidz_sq_p, coef_q_diff_p, qnew_p, spr_p, sub_p, diag_p, ca_p, ze_p,
             dnom_p, zf_p,
+            ro_adjust_present, ro_adjust_p,
         )
 
 
@@ -1159,6 +1187,8 @@ def gw_drag_prof_core_codon(
     ubtl_p: cobj,
     wrk_p: cobj,
     ubt_lim_ratio_p: cobj,
+    ro_adjust_present: int,
+    ro_adjust_p: cobj,
 ):
     _gw_common_driver_dispatch(
         1, stage, ncol, pver, pverp, 0, ngwv, ktop, kbot_tend, kbot_src, 0,
@@ -1169,7 +1199,7 @@ def gw_drag_prof_core_codon(
         taudmp_p, tausat_p, ubmc_p, ubmc2_p, ubt_p, ubtl_p, wrk_p,
         ubt_lim_ratio_p, ni_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, d_p,
         dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p,
-        dttdf_p, dttdf_p,
+        dttdf_p, dttdf_p, ro_adjust_present, ro_adjust_p,
     )
 
 
@@ -1211,6 +1241,8 @@ def gw_diff_solver_codon(
     ze_p: cobj,
     dnom_p: cobj,
     zf_p: cobj,
+    ro_adjust_present: int,
+    ro_adjust_p: cobj,
 ):
     _gw_common_driver_dispatch(
         2, stage, ncol, pver, pverp, pcnst, ngwv, ktop, 0, 0, kbot, 0,
@@ -1222,6 +1254,7 @@ def gw_diff_solver_codon(
         egwdff_lev_p, qnew_p, egwdff_lev_p, egwdff_lev_p, egwdff_lev_p, nm_p,
         q_p, dse_p, egwdffi_p, qtgw_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p,
         coef_q_diff_p, qnew_p, spr_p, sub_p, diag_p, ca_p, ze_p, dnom_p, zf_p,
+        ro_adjust_present, ro_adjust_p,
     )
 
 
