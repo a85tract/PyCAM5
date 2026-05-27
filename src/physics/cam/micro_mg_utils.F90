@@ -200,6 +200,7 @@ real(r8), target :: gamma_half_bs_plus5
 logical :: use_native_micro_mg_utils_init_impl = .false.
 logical :: micro_mg_utils_init_impl_selected = .false.
 logical :: micro_mg_utils_init_proof_written = .false.
+logical :: newmghydrometeorprops_proof_written = .false.
 
 interface
   subroutine micro_mg_utils_init_scalars_codon(rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c, &
@@ -336,6 +337,19 @@ subroutine micro_mg_utils_init_proof_once()
   end if
 
 end subroutine micro_mg_utils_init_proof_once
+
+!==========================================================================
+
+subroutine newmghydrometeorprops_proof_once()
+
+  if (newmghydrometeorprops_proof_written) return
+  newmghydrometeorprops_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'newmghydrometeorprops direct = codon; hydrometeor property field fill'
+  end if
+
+end subroutine newmghydrometeorprops_proof_once
 
 !==========================================================================
 
@@ -618,6 +632,7 @@ function NewMGHydrometeorProps(rho, eff_dim, lambda_bounds, min_mean_mass) &
      has_min_mean_mass = 0_c_int64_t
   end if
 
+  call newmghydrometeorprops_proof_once()
   call newmghydrometeorprops_codon(real(rho, c_double), real(eff_dim, c_double), &
        has_lambda_bounds, real(lambda_bounds_arg(1), c_double), real(lambda_bounds_arg(2), c_double), &
        has_min_mean_mass, real(min_mean_mass_arg, c_double), real(pi, c_double), &
