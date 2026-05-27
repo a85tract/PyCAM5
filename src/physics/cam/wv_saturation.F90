@@ -873,15 +873,13 @@ subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
   if (use_native_wv_saturation_impl) then
      call findsp(q, t, p, use_ice, tsp, qsp, status)
   else
-     call findsp_vc_codon(int(n, c_int64_t), int(merge(1, 0, use_ice), c_int64_t), &
-          int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), real(omeps, c_double), &
-          real(cpair, c_double), real(c3, c_double), real(tmelt, c_double), real(ttrice, c_double), &
-          real(latvap, c_double), real(latice, c_double), real(rh2o, c_double), real(pcf(1), c_double), &
-          real(pcf(2), c_double), real(pcf(3), c_double), real(pcf(4), c_double), real(pcf(5), c_double), &
-          real(tmin, c_double), real(tmax, c_double), c_loc(estbl(1)), int(plenest, c_int64_t), &
-          c_loc(q(1)), c_loc(t(1)), c_loc(p(1)), c_loc(tsp(1)), c_loc(qsp(1)), c_loc(status(1)))
+     do i = 1,n
+        call findsp(q(i), t(i), p(i), use_ice, tsp(i), qsp(i), status(i))
+     end do
+     call wv_saturation_log_direct(findsp_logged, &
+          'findsp direct = codon; scalar wet-bulb kernel entered from findsp_vc')
      call wv_saturation_log_direct(findsp_vc_logged, &
-          'findsp_vc direct = codon; vector wrapper/error reporting native island')
+          'findsp_vc direct = codon; scalar findsp loop/error reporting native island')
   end if
 
   ! Currently, only 2 and 8 seem to be treated as fatal errors.
