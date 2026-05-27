@@ -9217,6 +9217,43 @@ def constituent_burden_comp_codon(flag: int) -> int:
 
 
 @export
+def constituent_burden_comp_integral_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    dry: int,
+    rga: float,
+    q_p: cobj,
+    pdel_p: cobj,
+    pdeldry_p: cobj,
+    ftem_p: cobj,
+):
+    q = Ptr[float](q_p)
+    pdel = Ptr[float](pdel_p)
+    pdeldry = Ptr[float](pdeldry_p)
+    ftem = Ptr[float](ftem_p)
+    m0 = m - 1
+    q_m_base = m0 * psetcols * pver
+
+    if dry != 0:
+        for i in range(ncol):
+            acc = 0.0
+            for k in range(pver):
+                idx2 = k * psetcols + i
+                acc += q[q_m_base + idx2] * pdeldry[idx2]
+            ftem[i] = acc * rga
+    else:
+        for i in range(ncol):
+            acc = 0.0
+            for k in range(pver):
+                idx2 = k * psetcols + i
+                acc += q[q_m_base + idx2] * pdel[idx2]
+            ftem[i] = acc * rga
+
+
+@export
 def ghg_data_register_codon(flag: int) -> int:
     if flag != 0:
         return 1
