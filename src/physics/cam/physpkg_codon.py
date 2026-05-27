@@ -2590,6 +2590,238 @@ def physics_ptend_sum_field_codon(
         dst_flx_top[idx] = dst_flx_top[idx] + src_flx_top[idx]
 
 
+@inline
+def _physics_ptend_zero_field(
+    psetcols: int,
+    pver: int,
+    field_p: cobj,
+    flx_srf_p: cobj,
+    flx_top_p: cobj,
+):
+    _physics_types_zero_2d(psetcols, pver, Ptr[float](field_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](flx_srf_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](flx_top_p))
+
+
+@inline
+def _physics_ptend_scale_field(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    top_level: int,
+    bot_level: int,
+    fac: float,
+    field_kind: int,
+    qidx: int,
+    field_p: cobj,
+    flx_srf_p: cobj,
+    flx_top_p: cobj,
+):
+    field = Ptr[float](field_p)
+    flx_srf = Ptr[float](flx_srf_p)
+    flx_top = Ptr[float](flx_top_p)
+
+    if field_kind == 3:
+        for k in range(top_level, bot_level + 1):
+            for i in range(1, ncol + 1):
+                idx = _field3_idx(i, k, qidx, psetcols, pver)
+                field[idx] = field[idx] * fac
+        for i in range(1, ncol + 1):
+            flx_srf[_field2_idx(i, qidx, psetcols)] = flx_srf[_field2_idx(i, qidx, psetcols)] * fac
+            flx_top[_field2_idx(i, qidx, psetcols)] = flx_top[_field2_idx(i, qidx, psetcols)] * fac
+    else:
+        for k in range(top_level, bot_level + 1):
+            for i in range(1, ncol + 1):
+                idx = _field2_idx(i, k, psetcols)
+                field[idx] = field[idx] * fac
+        for i in range(1, ncol + 1):
+            flx_srf[_idx(i)] = flx_srf[_idx(i)] * fac
+            flx_top[_idx(i)] = flx_top[_idx(i)] * fac
+
+
+@inline
+def _physics_ptend_sum_field(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    top_level: int,
+    bot_level: int,
+    field_kind: int,
+    qidx: int,
+    src_field_p: cobj,
+    dst_field_p: cobj,
+    src_flx_srf_p: cobj,
+    dst_flx_srf_p: cobj,
+    src_flx_top_p: cobj,
+    dst_flx_top_p: cobj,
+):
+    src_field = Ptr[float](src_field_p)
+    dst_field = Ptr[float](dst_field_p)
+    src_flx_srf = Ptr[float](src_flx_srf_p)
+    dst_flx_srf = Ptr[float](dst_flx_srf_p)
+    src_flx_top = Ptr[float](src_flx_top_p)
+    dst_flx_top = Ptr[float](dst_flx_top_p)
+
+    if field_kind == 3:
+        for k in range(top_level, bot_level + 1):
+            for i in range(1, ncol + 1):
+                idx = _field3_idx(i, k, qidx, psetcols, pver)
+                dst_field[idx] = dst_field[idx] + src_field[idx]
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, qidx, psetcols)
+            dst_flx_srf[idx] = dst_flx_srf[idx] + src_flx_srf[idx]
+            dst_flx_top[idx] = dst_flx_top[idx] + src_flx_top[idx]
+    else:
+        for k in range(top_level, bot_level + 1):
+            for i in range(1, ncol + 1):
+                idx = _field2_idx(i, k, psetcols)
+                dst_field[idx] = dst_field[idx] + src_field[idx]
+        for i in range(1, ncol + 1):
+            idx = _idx(i)
+            dst_flx_srf[idx] = dst_flx_srf[idx] + src_flx_srf[idx]
+            dst_flx_top[idx] = dst_flx_top[idx] + src_flx_top[idx]
+
+
+@export
+def physics_ptend_reset_shell_codon(
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    ls: int,
+    lu: int,
+    lv: int,
+    lq_p: cobj,
+    s_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    hflux_srf_p: cobj,
+    hflux_top_p: cobj,
+    taux_srf_p: cobj,
+    taux_top_p: cobj,
+    tauy_srf_p: cobj,
+    tauy_top_p: cobj,
+    cflx_srf_p: cobj,
+    cflx_top_p: cobj,
+):
+    lq = Ptr[int](lq_p)
+
+    if ls != 0:
+        _physics_ptend_zero_field(psetcols, pver, s_p, hflux_srf_p, hflux_top_p)
+    if lu != 0:
+        _physics_ptend_zero_field(psetcols, pver, u_p, taux_srf_p, taux_top_p)
+    if lv != 0:
+        _physics_ptend_zero_field(psetcols, pver, v_p, tauy_srf_p, tauy_top_p)
+
+    any_lq = False
+    for m in range(1, pcnst + 1):
+        if lq[_idx(m)] != 0:
+            any_lq = True
+    if any_lq:
+        _physics_types_zero_3d(psetcols, pver, pcnst, Ptr[float](q_p))
+        _physics_types_zero_2d(psetcols, pcnst, Ptr[float](cflx_srf_p))
+        _physics_types_zero_2d(psetcols, pcnst, Ptr[float](cflx_top_p))
+
+
+@export
+def physics_ptend_scale_shell_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_level: int,
+    bot_level: int,
+    fac: float,
+    ls: int,
+    lu: int,
+    lv: int,
+    lq_p: cobj,
+    s_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    hflux_srf_p: cobj,
+    hflux_top_p: cobj,
+    taux_srf_p: cobj,
+    taux_top_p: cobj,
+    tauy_srf_p: cobj,
+    tauy_top_p: cobj,
+    cflx_srf_p: cobj,
+    cflx_top_p: cobj,
+):
+    lq = Ptr[int](lq_p)
+
+    if lu != 0:
+        _physics_ptend_scale_field(ncol, psetcols, pver, top_level, bot_level, fac, 2, 0, u_p, taux_srf_p, taux_top_p)
+    if lv != 0:
+        _physics_ptend_scale_field(ncol, psetcols, pver, top_level, bot_level, fac, 2, 0, v_p, tauy_srf_p, tauy_top_p)
+    if ls != 0:
+        _physics_ptend_scale_field(ncol, psetcols, pver, top_level, bot_level, fac, 2, 0, s_p, hflux_srf_p, hflux_top_p)
+
+    for m in range(1, pcnst + 1):
+        if lq[_idx(m)] != 0:
+            _physics_ptend_scale_field(ncol, psetcols, pver, top_level, bot_level, fac, 3, m, q_p, cflx_srf_p, cflx_top_p)
+
+
+@export
+def physics_ptend_sum_shell_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_level: int,
+    bot_level: int,
+    ls: int,
+    lu: int,
+    lv: int,
+    lq_p: cobj,
+    src_s_p: cobj,
+    dst_s_p: cobj,
+    src_u_p: cobj,
+    dst_u_p: cobj,
+    src_v_p: cobj,
+    dst_v_p: cobj,
+    src_q_p: cobj,
+    dst_q_p: cobj,
+    src_hflux_srf_p: cobj,
+    dst_hflux_srf_p: cobj,
+    src_hflux_top_p: cobj,
+    dst_hflux_top_p: cobj,
+    src_taux_srf_p: cobj,
+    dst_taux_srf_p: cobj,
+    src_taux_top_p: cobj,
+    dst_taux_top_p: cobj,
+    src_tauy_srf_p: cobj,
+    dst_tauy_srf_p: cobj,
+    src_tauy_top_p: cobj,
+    dst_tauy_top_p: cobj,
+    src_cflx_srf_p: cobj,
+    dst_cflx_srf_p: cobj,
+    src_cflx_top_p: cobj,
+    dst_cflx_top_p: cobj,
+):
+    lq = Ptr[int](lq_p)
+
+    if lu != 0:
+        _physics_ptend_sum_field(ncol, psetcols, pver, top_level, bot_level, 2, 0,
+                                 src_u_p, dst_u_p, src_taux_srf_p, dst_taux_srf_p,
+                                 src_taux_top_p, dst_taux_top_p)
+    if lv != 0:
+        _physics_ptend_sum_field(ncol, psetcols, pver, top_level, bot_level, 2, 0,
+                                 src_v_p, dst_v_p, src_tauy_srf_p, dst_tauy_srf_p,
+                                 src_tauy_top_p, dst_tauy_top_p)
+    if ls != 0:
+        _physics_ptend_sum_field(ncol, psetcols, pver, top_level, bot_level, 2, 0,
+                                 src_s_p, dst_s_p, src_hflux_srf_p, dst_hflux_srf_p,
+                                 src_hflux_top_p, dst_hflux_top_p)
+
+    for m in range(1, pcnst + 1):
+        if lq[_idx(m)] != 0:
+            _physics_ptend_sum_field(ncol, psetcols, pver, top_level, bot_level, 3, m,
+                                     src_q_p, dst_q_p, src_cflx_srf_p, dst_cflx_srf_p,
+                                     src_cflx_top_p, dst_cflx_top_p)
+
+
 @export
 def physics_set_state_pdry_codon(
     ncol: int,

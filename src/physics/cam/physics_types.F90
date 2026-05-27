@@ -302,6 +302,45 @@ module physics_types
        type(c_ptr), value :: src_flx_top_p, dst_flx_top_p
      end subroutine physics_ptend_sum_field_codon_raw
 
+     subroutine physics_ptend_reset_shell_codon_raw(psetcols_c, pver_c, pcnst_c, ls_c, lu_c, lv_c, lq_p, &
+          s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p, &
+          cflx_srf_p, cflx_top_p) bind(c, name="physics_ptend_reset_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c, pcnst_c, ls_c, lu_c, lv_c
+       type(c_ptr), value :: lq_p, s_p, u_p, v_p, q_p
+       type(c_ptr), value :: hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p
+       type(c_ptr), value :: tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p
+     end subroutine physics_ptend_reset_shell_codon_raw
+
+     subroutine physics_ptend_scale_shell_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, &
+          bot_level_c, fac_c, ls_c, lu_c, lv_c, lq_p, s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, &
+          taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p) &
+          bind(c, name="physics_ptend_scale_shell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c
+       integer(c_int64_t), value :: ls_c, lu_c, lv_c
+       real(c_double), value :: fac_c
+       type(c_ptr), value :: lq_p, s_p, u_p, v_p, q_p
+       type(c_ptr), value :: hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p
+       type(c_ptr), value :: tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p
+     end subroutine physics_ptend_scale_shell_codon_raw
+
+     subroutine physics_ptend_sum_shell_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c, &
+          ls_c, lu_c, lv_c, lq_p, src_s_p, dst_s_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_q_p, dst_q_p, &
+          src_hflux_srf_p, dst_hflux_srf_p, src_hflux_top_p, dst_hflux_top_p, src_taux_srf_p, &
+          dst_taux_srf_p, src_taux_top_p, dst_taux_top_p, src_tauy_srf_p, dst_tauy_srf_p, &
+          src_tauy_top_p, dst_tauy_top_p, src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, &
+          dst_cflx_top_p) bind(c, name="physics_ptend_sum_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c
+       integer(c_int64_t), value :: ls_c, lu_c, lv_c
+       type(c_ptr), value :: lq_p, src_s_p, dst_s_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_q_p, dst_q_p
+       type(c_ptr), value :: src_hflux_srf_p, dst_hflux_srf_p, src_hflux_top_p, dst_hflux_top_p
+       type(c_ptr), value :: src_taux_srf_p, dst_taux_srf_p, src_taux_top_p, dst_taux_top_p
+       type(c_ptr), value :: src_tauy_srf_p, dst_tauy_srf_p, src_tauy_top_p, dst_tauy_top_p
+       type(c_ptr), value :: src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, dst_cflx_top_p
+     end subroutine physics_ptend_sum_shell_codon_raw
+
      subroutine physics_set_state_pdry_codon_raw(ncol_c, psetcols_c, pver_c, do_pdeld_calc_c, psdry_p, pint_p, &
           pdel_p, q_p, pdeldry_p, pintdry_p, pmiddry_p, rpdeldry_p, lnpmiddry_p, lnpintdry_p) &
           bind(c, name="physics_set_state_pdry_codon")
@@ -1257,15 +1296,15 @@ contains
 !===============================================================================
 
   subroutine physics_ptend_sum(ptend, ptend_sum, ncol)
-    use iso_c_binding, only: c_int64_t, c_loc
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_null_ptr
 !-----------------------------------------------------------------------
 ! Add ptend fields to ptend_sum for ptend logical flags = .true.
 ! Where ptend logical flags = .false, don't change ptend_sum
 !-----------------------------------------------------------------------
 
 !------------------------------Arguments--------------------------------
-    type(physics_ptend), intent(in)     :: ptend   ! New parameterization tendencies
-    type(physics_ptend), intent(inout)  :: ptend_sum   ! Sum of incoming ptend_sum and ptend
+    type(physics_ptend), target, intent(in)     :: ptend   ! New parameterization tendencies
+    type(physics_ptend), target, intent(inout)  :: ptend_sum   ! Sum of incoming ptend_sum and ptend
     integer, intent(in)                 :: ncol    ! number of columns
 
 !---------------------------Local storage-------------------------------
@@ -1273,6 +1312,12 @@ contains
     integer :: psetcols                            ! maximum number of columns
     integer :: ierr = 0
     logical :: used_codon
+    integer(c_int64_t), target :: lq_mask(pcnst)
+    type(c_ptr) :: src_s_p, dst_s_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_q_p, dst_q_p
+    type(c_ptr) :: src_hflux_srf_p, dst_hflux_srf_p, src_hflux_top_p, dst_hflux_top_p
+    type(c_ptr) :: src_taux_srf_p, dst_taux_srf_p, src_taux_top_p, dst_taux_top_p
+    type(c_ptr) :: src_tauy_srf_p, dst_tauy_srf_p, src_tauy_top_p, dst_tauy_top_p
+    type(c_ptr) :: src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, dst_cflx_top_p
 
 !-----------------------------------------------------------------------
     if (ptend%psetcols /= ptend_sum%psetcols) then
@@ -1285,6 +1330,7 @@ contains
 
     psetcols = ptend_sum%psetcols
     used_codon = .false.
+    lq_mask = 0_c_int64_t
     call physics_types_zero_select_impl()
 
     ptend_sum%top_level = ptend%top_level
@@ -1318,8 +1364,6 @@ contains
              ptend_sum%taux_top(i) = ptend_sum%taux_top(i) + ptend%taux_top(i)
           end do
        else
-          call physics_ptend_sum_field_codon(ncol, psetcols, ptend%top_level, ptend%bot_level, &
-               ptend%u, ptend_sum%u, ptend%taux_srf, ptend_sum%taux_srf, ptend%taux_top, ptend_sum%taux_top)
           used_codon = .true.
        end if
     end if
@@ -1351,8 +1395,6 @@ contains
              ptend_sum%tauy_top(i) = ptend_sum%tauy_top(i) + ptend%tauy_top(i)
           end do
        else
-          call physics_ptend_sum_field_codon(ncol, psetcols, ptend%top_level, ptend%bot_level, &
-               ptend%v, ptend_sum%v, ptend%tauy_srf, ptend_sum%tauy_srf, ptend%tauy_top, ptend_sum%tauy_top)
           used_codon = .true.
        end if
     end if
@@ -1385,8 +1427,6 @@ contains
              ptend_sum%hflux_top(i) = ptend_sum%hflux_top(i) + ptend%hflux_top(i)
           end do
        else
-          call physics_ptend_sum_field_codon(ncol, psetcols, ptend%top_level, ptend%bot_level, &
-               ptend%s, ptend_sum%s, ptend%hflux_srf, ptend_sum%hflux_srf, ptend%hflux_top, ptend_sum%hflux_top)
           used_codon = .true.
        end if
     end if
@@ -1410,6 +1450,7 @@ contains
        do m = 1, pcnst
           if(ptend%lq(m)) then
              ptend_sum%lq(m) = .true.
+             lq_mask(m) = 1_c_int64_t
              if (use_native_zero_impl) then
                 do k = ptend%top_level, ptend%bot_level
                    do i = 1,ncol
@@ -1421,9 +1462,6 @@ contains
                    ptend_sum%cflx_top(i,m) = ptend_sum%cflx_top(i,m) + ptend%cflx_top(i,m)
                 end do
              else
-                call physics_ptend_sum_field_codon(ncol, psetcols, ptend%top_level, ptend%bot_level, &
-                     ptend%q(:,:,m), ptend_sum%q(:,:,m), ptend%cflx_srf(:,m), ptend_sum%cflx_srf(:,m), &
-                     ptend%cflx_top(:,m), ptend_sum%cflx_top(:,m))
                 used_codon = .true.
              end if
           end if
@@ -1432,8 +1470,52 @@ contains
     end if
 
     if (used_codon) then
+       src_s_p = c_null_ptr; dst_s_p = c_null_ptr
+       src_u_p = c_null_ptr; dst_u_p = c_null_ptr
+       src_v_p = c_null_ptr; dst_v_p = c_null_ptr
+       src_q_p = c_null_ptr; dst_q_p = c_null_ptr
+       src_hflux_srf_p = c_null_ptr; dst_hflux_srf_p = c_null_ptr
+       src_hflux_top_p = c_null_ptr; dst_hflux_top_p = c_null_ptr
+       src_taux_srf_p = c_null_ptr; dst_taux_srf_p = c_null_ptr
+       src_taux_top_p = c_null_ptr; dst_taux_top_p = c_null_ptr
+       src_tauy_srf_p = c_null_ptr; dst_tauy_srf_p = c_null_ptr
+       src_tauy_top_p = c_null_ptr; dst_tauy_top_p = c_null_ptr
+       src_cflx_srf_p = c_null_ptr; dst_cflx_srf_p = c_null_ptr
+       src_cflx_top_p = c_null_ptr; dst_cflx_top_p = c_null_ptr
+
+       if (ptend%ls) then
+          src_s_p = c_loc(ptend%s); dst_s_p = c_loc(ptend_sum%s)
+          src_hflux_srf_p = c_loc(ptend%hflux_srf); dst_hflux_srf_p = c_loc(ptend_sum%hflux_srf)
+          src_hflux_top_p = c_loc(ptend%hflux_top); dst_hflux_top_p = c_loc(ptend_sum%hflux_top)
+       end if
+       if (ptend%lu) then
+          src_u_p = c_loc(ptend%u); dst_u_p = c_loc(ptend_sum%u)
+          src_taux_srf_p = c_loc(ptend%taux_srf); dst_taux_srf_p = c_loc(ptend_sum%taux_srf)
+          src_taux_top_p = c_loc(ptend%taux_top); dst_taux_top_p = c_loc(ptend_sum%taux_top)
+       end if
+       if (ptend%lv) then
+          src_v_p = c_loc(ptend%v); dst_v_p = c_loc(ptend_sum%v)
+          src_tauy_srf_p = c_loc(ptend%tauy_srf); dst_tauy_srf_p = c_loc(ptend_sum%tauy_srf)
+          src_tauy_top_p = c_loc(ptend%tauy_top); dst_tauy_top_p = c_loc(ptend_sum%tauy_top)
+       end if
+       if (any(ptend%lq(:))) then
+          src_q_p = c_loc(ptend%q); dst_q_p = c_loc(ptend_sum%q)
+          src_cflx_srf_p = c_loc(ptend%cflx_srf); dst_cflx_srf_p = c_loc(ptend_sum%cflx_srf)
+          src_cflx_top_p = c_loc(ptend%cflx_top); dst_cflx_top_p = c_loc(ptend_sum%cflx_top)
+       end if
+
+       call physics_ptend_sum_shell_codon_raw(int(ncol, c_int64_t), int(psetcols, c_int64_t), &
+            int(pver, c_int64_t), int(pcnst, c_int64_t), int(ptend%top_level, c_int64_t), &
+            int(ptend%bot_level, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, ptend%ls), &
+            merge(1_c_int64_t, 0_c_int64_t, ptend%lu), merge(1_c_int64_t, 0_c_int64_t, ptend%lv), &
+            c_loc(lq_mask), src_s_p, dst_s_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_q_p, dst_q_p, &
+            src_hflux_srf_p, dst_hflux_srf_p, src_hflux_top_p, dst_hflux_top_p, src_taux_srf_p, &
+            dst_taux_srf_p, src_taux_top_p, dst_taux_top_p, src_tauy_srf_p, dst_tauy_srf_p, &
+            src_tauy_top_p, dst_tauy_top_p, src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, &
+            dst_cflx_top_p)
        call physics_types_zero_proof_once()
-       call physics_types_log_direct(physics_ptend_sum_logged, 'physics_ptend_sum direct = codon')
+       call physics_types_log_direct(physics_ptend_sum_logged, &
+            'physics_ptend_sum direct = codon; allocation/flag setup native derived-type boundary')
     end if
 
   end subroutine physics_ptend_sum
@@ -1441,7 +1523,7 @@ contains
 !===============================================================================
 
   subroutine physics_ptend_scale(ptend, fac, ncol)
-    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 !-----------------------------------------------------------------------
 ! Scale ptend fields for ptend logical flags = .true.
 ! Where ptend logical flags = .false, don't change ptend.
@@ -1452,16 +1534,21 @@ contains
 !-----------------------------------------------------------------------
 
 !------------------------------Arguments--------------------------------
-    type(physics_ptend), intent(inout)  :: ptend   ! Incoming ptend
+    type(physics_ptend), target, intent(inout)  :: ptend   ! Incoming ptend
     real(r8), intent(in) :: fac                    ! Factor to multiply ptend by.
     integer, intent(in)                 :: ncol    ! number of columns
 
 !---------------------------Local storage-------------------------------
     integer :: m                                   ! constituent index
+    integer(c_int64_t), target :: lq_mask(pcnst)
+    type(c_ptr) :: s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p
+    type(c_ptr) :: taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p
+    type(c_ptr) :: cflx_srf_p, cflx_top_p
 
 !-----------------------------------------------------------------------
 
     call physics_types_zero_select_impl()
+    lq_mask = 0_c_int64_t
 
     if (use_native_zero_impl) then
 
@@ -1488,32 +1575,51 @@ contains
 
     else
 
-       if (ptend%lu) then
-          call physics_ptend_scale_field_codon(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
-               ptend%u, ptend%taux_srf, ptend%taux_top)
-       end if
-
-       if (ptend%lv) then
-          call physics_ptend_scale_field_codon(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
-               ptend%v, ptend%tauy_srf, ptend%tauy_top)
-       end if
-
-       if (ptend%ls) then
-          call physics_ptend_scale_field_codon(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
-               ptend%s, ptend%hflux_srf, ptend%hflux_top)
-       end if
-
        do m = 1, pcnst
           if (ptend%lq(m)) then
-             call physics_ptend_scale_field_codon(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
-                  ptend%q(:,:,m), ptend%cflx_srf(:,m), ptend%cflx_top(:,m))
+             lq_mask(m) = 1_c_int64_t
           end if
        end do
+
+       s_p = c_null_ptr; u_p = c_null_ptr; v_p = c_null_ptr; q_p = c_null_ptr
+       hflux_srf_p = c_null_ptr; hflux_top_p = c_null_ptr
+       taux_srf_p = c_null_ptr; taux_top_p = c_null_ptr
+       tauy_srf_p = c_null_ptr; tauy_top_p = c_null_ptr
+       cflx_srf_p = c_null_ptr; cflx_top_p = c_null_ptr
+
+       if (ptend%ls) then
+          s_p = c_loc(ptend%s)
+          hflux_srf_p = c_loc(ptend%hflux_srf)
+          hflux_top_p = c_loc(ptend%hflux_top)
+       end if
+       if (ptend%lu) then
+          u_p = c_loc(ptend%u)
+          taux_srf_p = c_loc(ptend%taux_srf)
+          taux_top_p = c_loc(ptend%taux_top)
+       end if
+       if (ptend%lv) then
+          v_p = c_loc(ptend%v)
+          tauy_srf_p = c_loc(ptend%tauy_srf)
+          tauy_top_p = c_loc(ptend%tauy_top)
+       end if
+       if (any(ptend%lq(:))) then
+          q_p = c_loc(ptend%q)
+          cflx_srf_p = c_loc(ptend%cflx_srf)
+          cflx_top_p = c_loc(ptend%cflx_top)
+       end if
+
+       call physics_ptend_scale_shell_codon_raw(int(ncol, c_int64_t), int(ptend%psetcols, c_int64_t), &
+            int(pver, c_int64_t), int(pcnst, c_int64_t), int(ptend%top_level, c_int64_t), &
+            int(ptend%bot_level, c_int64_t), real(fac, c_double), &
+            merge(1_c_int64_t, 0_c_int64_t, ptend%ls), merge(1_c_int64_t, 0_c_int64_t, ptend%lu), &
+            merge(1_c_int64_t, 0_c_int64_t, ptend%lv), c_loc(lq_mask), s_p, u_p, v_p, q_p, &
+            hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p, &
+            cflx_srf_p, cflx_top_p)
 
        call physics_types_zero_proof_once()
        call physics_types_log_direct(physics_ptend_scale_logged, 'physics_ptend_scale direct = codon')
        call physics_types_log_direct(multiply_tendency_logged, &
-            'multiply_tendency direct = codon via physics_ptend_scale_field_codon; ' // &
+            'multiply_tendency direct = codon via physics_ptend_scale_shell_codon; ' // &
             'native internal subroutine used only by native selector')
     end if
 
@@ -1621,18 +1727,23 @@ end subroutine physics_ptend_copy
 !===============================================================================
 
   subroutine physics_ptend_reset(ptend)
-    use iso_c_binding, only: c_int64_t, c_loc
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_null_ptr
 !-----------------------------------------------------------------------
 ! Reset the parameterization tendency structure to "empty"
 !-----------------------------------------------------------------------
 
 !------------------------------Arguments--------------------------------
-    type(physics_ptend), intent(inout)  :: ptend   ! Parameterization tendencies
+    type(physics_ptend), target, intent(inout)  :: ptend   ! Parameterization tendencies
 !-----------------------------------------------------------------------
     integer :: m             ! Index for constiuent
+    integer(c_int64_t), target :: lq_mask(pcnst)
+    type(c_ptr) :: s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p
+    type(c_ptr) :: taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p
+    type(c_ptr) :: cflx_srf_p, cflx_top_p
 !-----------------------------------------------------------------------
 
     call physics_types_zero_select_impl()
+    lq_mask = 0_c_int64_t
 
     if (use_native_zero_impl) then
        if(ptend%ls) then
@@ -1656,18 +1767,42 @@ end subroutine physics_ptend_copy
           ptend%cflx_top = 0._r8
        end if
     else
-       if(ptend%ls) then
-          call physics_ptend_reset_s_codon(ptend%psetcols, ptend%s, ptend%hflux_srf, ptend%hflux_top)
-       endif
-       if(ptend%lu) then
-          call physics_ptend_reset_u_codon(ptend%psetcols, ptend%u, ptend%taux_srf, ptend%taux_top)
-       endif
-       if(ptend%lv) then
-          call physics_ptend_reset_v_codon(ptend%psetcols, ptend%v, ptend%tauy_srf, ptend%tauy_top)
-       endif
-       if(any (ptend%lq(:))) then
-          call physics_ptend_reset_q_codon(ptend%psetcols, ptend%q, ptend%cflx_srf, ptend%cflx_top)
+       do m = 1, pcnst
+          if (ptend%lq(m)) lq_mask(m) = 1_c_int64_t
+       end do
+
+       s_p = c_null_ptr; u_p = c_null_ptr; v_p = c_null_ptr; q_p = c_null_ptr
+       hflux_srf_p = c_null_ptr; hflux_top_p = c_null_ptr
+       taux_srf_p = c_null_ptr; taux_top_p = c_null_ptr
+       tauy_srf_p = c_null_ptr; tauy_top_p = c_null_ptr
+       cflx_srf_p = c_null_ptr; cflx_top_p = c_null_ptr
+
+       if (ptend%ls) then
+          s_p = c_loc(ptend%s)
+          hflux_srf_p = c_loc(ptend%hflux_srf)
+          hflux_top_p = c_loc(ptend%hflux_top)
        end if
+       if (ptend%lu) then
+          u_p = c_loc(ptend%u)
+          taux_srf_p = c_loc(ptend%taux_srf)
+          taux_top_p = c_loc(ptend%taux_top)
+       end if
+       if (ptend%lv) then
+          v_p = c_loc(ptend%v)
+          tauy_srf_p = c_loc(ptend%tauy_srf)
+          tauy_top_p = c_loc(ptend%tauy_top)
+       end if
+       if (any(ptend%lq(:))) then
+          q_p = c_loc(ptend%q)
+          cflx_srf_p = c_loc(ptend%cflx_srf)
+          cflx_top_p = c_loc(ptend%cflx_top)
+       end if
+
+       call physics_ptend_reset_shell_codon_raw(int(ptend%psetcols, c_int64_t), int(pver, c_int64_t), &
+            int(pcnst, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, ptend%ls), &
+            merge(1_c_int64_t, 0_c_int64_t, ptend%lu), merge(1_c_int64_t, 0_c_int64_t, ptend%lv), &
+            c_loc(lq_mask), s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p, &
+            tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p)
        call physics_types_zero_proof_once()
        call physics_types_log_direct(physics_ptend_reset_logged, 'physics_ptend_reset direct = codon')
     end if
