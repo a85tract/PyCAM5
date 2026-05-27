@@ -106,6 +106,25 @@ interface
      type(c_ptr), value :: a_p, ga_p
    end subroutine cldfrc2m_astg_pdf_zero_codon
 
+   subroutine cldfrc2m_astg_pdf_single_codon(u_c, p_c, qv_c, landfrac_c, snowh_c, &
+        rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c, a_p, ga_p, rhmin_p) &
+        bind(c, name="cldfrc2m_astg_pdf_single_codon")
+     use iso_c_binding, only: c_double, c_ptr
+     real(c_double), value :: u_c, p_c, qv_c, landfrac_c, snowh_c
+     real(c_double), value :: rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c
+     type(c_ptr), value :: a_p, ga_p, rhmin_p
+   end subroutine cldfrc2m_astg_pdf_single_codon
+
+   subroutine cldfrc2m_astg_pdf_codon(pcols_c, ncol_c, premib_c, premit_c, u_p, p_p, qv_p, &
+        landfrac_p, snowh_p, rhminl_p, rhminl_adj_land_p, rhminh_p, a_p, ga_p) &
+        bind(c, name="cldfrc2m_astg_pdf_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     integer(c_int64_t), value :: pcols_c, ncol_c
+     real(c_double), value :: premib_c, premit_c
+     type(c_ptr), value :: u_p, p_p, qv_p, landfrac_p, snowh_p
+     type(c_ptr), value :: rhminl_p, rhminl_adj_land_p, rhminh_p, a_p, ga_p
+   end subroutine cldfrc2m_astg_pdf_codon
+
    function cldfrc2m_aist_single_codon(iceopt_c, qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, qs_c, esl_c, esi_c, &
         rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c, icecrit_c, rair_c) &
         result(aist_c) bind(c, name="cldfrc2m_aist_single_codon")
@@ -308,7 +327,7 @@ subroutine cldfrc2m_astg_pdf_proof_once()
    cldfrc2m_astg_pdf_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cldfrc2m_astg_pdf entered (pressure regime and zero init helpers = codon)'
+      write(iulog,'(A)') 'cldfrc2m_astg_pdf direct = codon; PDF formula body = codon'
    end if
 
 end subroutine cldfrc2m_astg_pdf_proof_once
@@ -444,7 +463,7 @@ end subroutine cldfrc2m_init
 subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
                            rhminl_in, rhminl_adj_land_in, rhminh_in )
 
-   use iso_c_binding, only: c_double
+   use iso_c_binding, only: c_double, c_loc
 
    ! --------------------------------------------------------- !
    ! Compute 'stratus fraction(a)' and Gs=(dU/da) from the     !
@@ -481,6 +500,7 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
    real(r8) rhmin                                 ! Critical RH
    real(r8) rhwght
    integer :: pressure_regime
+   real(c_double), target :: a_c, ga_c, rhmin_c
                             
    real(r8) :: rhminl
    real(r8) :: rhminl_adj_land
@@ -508,18 +528,24 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
    ! ---------------- !
 
    call cldfrc2m_astg_pdf_select_impl()
-   if (use_native_cldfrc2m_astg_pdf_impl) then
-      if (p .ge. premib) then
-         pressure_regime = 0
-      elseif (p .lt. premit) then
-         pressure_regime = 1
-      else
-         pressure_regime = 2
-      end if
-   else
+   if (.not. use_native_cldfrc2m_astg_pdf_impl) then
       call cldfrc2m_astg_pdf_proof_once()
-      pressure_regime = int(cldfrc2m_pressure_regime_codon(real(p, c_double), &
-           real(premib, c_double), real(premit, c_double)))
+      call cldfrc2m_astg_pdf_single_codon(real(U, c_double), real(p, c_double), &
+           real(qv, c_double), real(landfrac, c_double), real(snowh, c_double), &
+           real(rhminl, c_double), real(rhminl_adj_land, c_double), real(rhminh, c_double), &
+           real(premib, c_double), real(premit, c_double), c_loc(a_c), c_loc(ga_c), c_loc(rhmin_c))
+      a = real(a_c, r8)
+      Ga = real(ga_c, r8)
+      if (present(orhmin)) orhmin = real(rhmin_c, r8)
+      return
+   end if
+
+   if (p .ge. premib) then
+      pressure_regime = 0
+   elseif (p .lt. premit) then
+      pressure_regime = 1
+   else
+      pressure_regime = 2
    end if
 
    if( pressure_regime == 0 ) then
@@ -626,11 +652,11 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    ! they will produce the same results.                       !
    ! --------------------------------------------------------- !
 
-   real(r8), intent(in)  :: U_in(pcols)           ! Relative humidity
-   real(r8), intent(in)  :: p_in(pcols)           ! Pressure [Pa]
-   real(r8), intent(in)  :: qv_in(pcols)          ! Grid-mean water vapor specific humidity [kg/kg]
-   real(r8), intent(in)  :: landfrac_in(pcols)    ! Land fraction
-   real(r8), intent(in)  :: snowh_in(pcols)       ! Snow depth (liquid water equivalent)
+   real(r8), target, intent(in)  :: U_in(pcols)        ! Relative humidity
+   real(r8), target, intent(in)  :: p_in(pcols)        ! Pressure [Pa]
+   real(r8), target, intent(in)  :: qv_in(pcols)       ! Grid-mean water vapor specific humidity [kg/kg]
+   real(r8), target, intent(in)  :: landfrac_in(pcols) ! Land fraction
+   real(r8), target, intent(in)  :: snowh_in(pcols)    ! Snow depth (liquid water equivalent)
 
    real(r8), target, intent(out) :: a_out(pcols)  ! Stratus fraction
    real(r8), target, intent(out) :: Ga_out(pcols) ! dU/da
@@ -660,7 +686,9 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    real(r8) rhmin                                 ! Critical RH
    real(r8) rhwght
    integer :: pressure_regime
-   logical :: use_codon_astg_pdf
+   real(c_double), target :: rhminl_work(pcols)
+   real(c_double), target :: rhminl_adj_land_work(pcols)
+   real(c_double), target :: rhminh_work(pcols)
                             
    ! Statement functions
    logical land
@@ -681,15 +709,28 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    ! ---------------- !
 
    call cldfrc2m_astg_pdf_select_impl()
-   use_codon_astg_pdf = .not. use_native_cldfrc2m_astg_pdf_impl
-
-   if (use_codon_astg_pdf) then
+   if (.not. use_native_cldfrc2m_astg_pdf_impl) then
       call cldfrc2m_astg_pdf_proof_once()
-      call cldfrc2m_astg_pdf_zero_codon(int(pcols, c_int64_t), c_loc(a_out(1)), c_loc(Ga_out(1)))
-   else
-      a_out(:)  = 0._r8
-      Ga_out(:) = 0._r8
+
+      rhminl_work(:) = real(rhminl_const, c_double)
+      rhminl_adj_land_work(:) = real(rhminl_adj_land_const, c_double)
+      rhminh_work(:) = real(rhminh_const, c_double)
+      do i = 1, ncol
+         if (present(rhminl_in))          rhminl_work(i)          = real(rhminl_in(i), c_double)
+         if (present(rhminl_adj_land_in)) rhminl_adj_land_work(i) = real(rhminl_adj_land_in(i), c_double)
+         if (present(rhminh_in))          rhminh_work(i)          = real(rhminh_in(i), c_double)
+      end do
+
+      call cldfrc2m_astg_pdf_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+           real(premib, c_double), real(premit, c_double), &
+           c_loc(U_in(1)), c_loc(p_in(1)), c_loc(qv_in(1)), c_loc(landfrac_in(1)), &
+           c_loc(snowh_in(1)), c_loc(rhminl_work(1)), c_loc(rhminl_adj_land_work(1)), &
+           c_loc(rhminh_work(1)), c_loc(a_out(1)), c_loc(Ga_out(1)))
+      return
    end if
+
+   a_out(:)  = 0._r8
+   Ga_out(:) = 0._r8
 
    do i = 1, ncol
 
@@ -703,17 +744,12 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    if (present(rhminl_adj_land_in)) rhminl_adj_land = rhminl_adj_land_in(i)
    if (present(rhminh_in))          rhminh          = rhminh_in(i)
 
-   if (use_codon_astg_pdf) then
-      pressure_regime = int(cldfrc2m_pressure_regime_codon(real(p, c_double), &
-           real(premib, c_double), real(premit, c_double)))
+   if (p .ge. premib) then
+      pressure_regime = 0
+   elseif (p .lt. premit) then
+      pressure_regime = 1
    else
-      if (p .ge. premib) then
-         pressure_regime = 0
-      elseif (p .lt. premit) then
-         pressure_regime = 1
-      else
-         pressure_regime = 2
-      end if
+      pressure_regime = 2
    end if
 
    if( pressure_regime == 0 ) then

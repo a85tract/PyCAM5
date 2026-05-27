@@ -4445,6 +4445,144 @@ def cldfrc2m_astg_pdf_zero_codon(pcols: int, a_p: cobj, ga_p: cobj):
 
 
 @inline
+def _cldfrc2m_astg_pdf_core(
+    u: float,
+    p: float,
+    qv: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    premib: float,
+    premit: float,
+):
+    cldrh = 1.0
+    pressure_regime = cldfrc2m_pressure_regime_codon(p, premib, premit)
+
+    if pressure_regime == 0:
+        if int(landfrac + 0.5) == 1 and snowh <= 0.000001:
+            rhmin = rhminl - rhminl_adj_land
+        else:
+            rhmin = rhminl
+    elif pressure_regime == 1:
+        rhmin = rhminh
+    else:
+        rhwght = (premib - max(p, premit)) / (premib - premit)
+        rhmin = rhminh * rhwght + rhminl * (1.0 - rhwght)
+
+    dv = cldrh - rhmin
+    if u >= 1.0:
+        a = 1.0
+        ga = 1.0e10
+    elif u > (cldrh - dv / 6.0) and u < 1.0:
+        a = 1.0 - (-3.0 / sqrt(2.0) * (u - cldrh) / dv) ** (2.0 / 3.0)
+        ga = dv / sqrt(2.0) * sqrt(1.0 - a)
+    elif u > (cldrh - dv) and u <= (cldrh - dv / 6.0):
+        a = 4.0 * (
+            cos(
+                (1.0 / 3.0)
+                * (
+                    acos((3.0 / 2.0 / sqrt(2.0)) * (1.0 + (u - cldrh) / dv))
+                    - 2.0 * 3.141592
+                )
+            )
+        ) ** 2.0
+        ga = dv / sqrt(2.0) * (1.0 / sqrt(a) - sqrt(a))
+    else:
+        a = 0.0
+        ga = 1.0e10
+
+    return (a, ga, rhmin)
+
+
+@export
+def cldfrc2m_astg_pdf_single_codon(
+    u: float,
+    p: float,
+    qv: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    premib: float,
+    premit: float,
+    a_p: cobj,
+    ga_p: cobj,
+    rhmin_p: cobj,
+):
+    a_out = Ptr[float](a_p)
+    ga_out = Ptr[float](ga_p)
+    rhmin_out = Ptr[float](rhmin_p)
+
+    a, ga, rhmin = _cldfrc2m_astg_pdf_core(
+        u,
+        p,
+        qv,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        premib,
+        premit,
+    )
+    a_out[0] = a
+    ga_out[0] = ga
+    rhmin_out[0] = rhmin
+
+
+@export
+def cldfrc2m_astg_pdf_codon(
+    pcols: int,
+    ncol: int,
+    premib: float,
+    premit: float,
+    u_p: cobj,
+    p_p: cobj,
+    qv_p: cobj,
+    landfrac_p: cobj,
+    snowh_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+    a_p: cobj,
+    ga_p: cobj,
+):
+    u = Ptr[float](u_p)
+    pressure = Ptr[float](p_p)
+    qv = Ptr[float](qv_p)
+    landfrac = Ptr[float](landfrac_p)
+    snowh = Ptr[float](snowh_p)
+    rhminl = Ptr[float](rhminl_p)
+    rhminl_adj_land = Ptr[float](rhminl_adj_land_p)
+    rhminh = Ptr[float](rhminh_p)
+    a_out = Ptr[float](a_p)
+    ga_out = Ptr[float](ga_p)
+
+    for i0 in range(pcols):
+        a_out[i0] = 0.0
+        ga_out[i0] = 0.0
+
+    for i0 in range(ncol):
+        a, ga, _ = _cldfrc2m_astg_pdf_core(
+            u[i0],
+            pressure[i0],
+            qv[i0],
+            landfrac[i0],
+            snowh[i0],
+            rhminl[i0],
+            rhminl_adj_land[i0],
+            rhminh[i0],
+            premib,
+            premit,
+        )
+        a_out[i0] = a
+        ga_out[i0] = ga
+
+
+@inline
 def _cldfrc2m_aist_core(
     iceopt: int,
     qv: float,
