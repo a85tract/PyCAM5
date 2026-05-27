@@ -74,6 +74,8 @@ module tracers
   logical :: tracers_register_logged = .false.
   logical :: tracers_implements_cnst_logged = .false.
   logical :: tracers_init_logged = .false.
+  logical :: tracers_timestep_init_logged = .false.
+  logical :: tracers_timestep_tend_logged = .false.
 
   interface
      subroutine tracers_timestep_init_codon() bind(c, name="tracers_timestep_init_codon")
@@ -381,12 +383,21 @@ subroutine tracers_timestep_init( phys_state )
 
   call tracers_tstep_init_select_impl()
 
-  if (use_native_tstep_init_impl .or. tracers_flag) then
+  if (use_native_tstep_init_impl) then
+     call tracers_timestep_init_native(phys_state)
+     return
+  end if
+
+  if (tracers_flag) then
+     call tracers_log_direct(tracers_timestep_init_logged, &
+          'tracers_timestep_init direct = codon control shell; native enabled timestep_init_tr island')
      call tracers_timestep_init_native(phys_state)
      return
   end if
 
   call tracers_timestep_init_codon()
+  call tracers_log_direct(tracers_timestep_init_logged, &
+       'tracers_timestep_init direct = codon flag-off no-op')
 
 end subroutine tracers_timestep_init
 
@@ -460,12 +471,20 @@ subroutine tracers_timestep_tend(state, ptend, cflx, landfrac, deltat)
    end interface
 !-----------------------------------------------------------------------
 
+  call tracers_select_impl()
+
   if (.not. tracers_flag) then
+       if (.not. use_native_impl) then
+          if (tracers_flag_codon(0_c_int64_t) /= 0_c_int64_t) then
+             call tracers_timestep_tend_native(state, ptend, cflx, landfrac, deltat)
+             return
+          end if
+          call tracers_log_direct(tracers_timestep_tend_logged, &
+               'tracers_timestep_tend direct = codon flag-off control shell; native empty ptend allocation boundary')
+       end if
        call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
        return
   endif
-
-  call tracers_select_impl()
 
   if (use_native_impl) then
      call tracers_timestep_tend_native(state, ptend, cflx, landfrac, deltat)
@@ -481,6 +500,8 @@ subroutine tracers_timestep_tend(state, ptend, cflx, landfrac, deltat)
        int(state%psetcols, c_int64_t), int(ixtrct, c_int64_t), int(trac_ncnst, c_int64_t), &
        c_loc(ptend%q), c_loc(cflx) &
   )
+  call tracers_log_direct(tracers_timestep_tend_logged, &
+       'tracers_timestep_tend direct = codon tendency/flux body; native ptend/history/debug boundaries')
 
   do  m = 1,trac_ncnst
      if (debug) write(iulog,*)'tracers.F90 calling for tracer ',m

@@ -52,6 +52,7 @@ logical :: use_native_ghg_data_trcmix_scale_impl = .false.
 logical :: ghg_data_trcmix_scale_impl_selected = .false.
 logical :: ghg_data_trcmix_scale_proof_written = .false.
 logical :: ghg_data_trcmix_direct_logged = .false.
+logical :: ghg_data_timestep_init_direct_logged = .false.
 
 interface
   subroutine ghg_data_mw_ratios_codon(mwdry_c, mwn2o_c, mwch4_c, mwf11_c, mwf12_c, mwco2_c, &
@@ -193,6 +194,19 @@ subroutine ghg_data_trcmix_direct_proof_once()
 
 end subroutine ghg_data_trcmix_direct_proof_once
 
+subroutine ghg_data_timestep_init_direct_proof_once()
+
+  if (ghg_data_timestep_init_direct_logged) return
+  ghg_data_timestep_init_direct_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'ghg_data_timestep_init direct = codon control shell; ' // &
+         'native pbuf chunk API boundary; trcmix body direct = codon'
+    call flush(iulog)
+  end if
+
+end subroutine ghg_data_timestep_init_direct_proof_once
+
 subroutine ghg_data_update_mw_ratios()
 !-------------------------------------------------------------------------------
 ! update molecular-weight ratios used by the greenhouse-gas profile helper
@@ -260,6 +274,7 @@ subroutine ghg_data_timestep_init(pbuf2d, state)
   integer iconst
   integer lchnk
   if (ghg_data_timestep_init_codon(1_c_int64_t) == 0_c_int64_t) return
+  call ghg_data_timestep_init_direct_proof_once()
 
   call ghg_data_update_mw_ratios()
 

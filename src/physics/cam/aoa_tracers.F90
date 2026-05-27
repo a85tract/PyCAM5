@@ -52,6 +52,8 @@ module aoa_tracers
   logical :: aoa_tracers_register_logged = .false.
   logical :: aoa_tracers_implements_cnst_logged = .false.
   logical :: aoa_tracers_init_logged = .false.
+  logical :: aoa_tracers_timestep_init_logged = .false.
+  logical :: aoa_tracers_timestep_tend_logged = .false.
 
   interface
      function aoa_tracers_readnl_codon(flag_c, read_from_ic_c) result(out_c) &
@@ -359,12 +361,16 @@ contains
     end interface
     !--------------------------------------------------------------------------
 
-    if (.not. aoa_tracers_flag) return
-
     call aoa_tracers_tstep_init_select_impl()
 
     if (use_native_tstep_init_impl) then
        call aoa_tracers_timestep_init_native(phys_state)
+       return
+    end if
+
+    if (aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag)) == 0_c_int64_t) then
+       call aoa_tracers_log_direct(aoa_tracers_timestep_init_logged, &
+            'aoa_tracers_timestep_init direct = codon flag-off no-op')
        return
     end if
 
@@ -383,6 +389,11 @@ contains
                c_loc(phys_state(c)%lat), c_loc(phys_state(c)%q) &
           )
        end do
+       call aoa_tracers_log_direct(aoa_tracers_timestep_init_logged, &
+            'aoa_tracers_timestep_init direct = codon HORZ/VERT reset body')
+    else
+       call aoa_tracers_log_direct(aoa_tracers_timestep_init_logged, &
+            'aoa_tracers_timestep_init direct = codon date-control no-op')
 
     end if
 
@@ -548,12 +559,20 @@ contains
        end subroutine aoa_tracers_timestep_tend_codon
     end interface
 
+    call aoa_tracers_select_impl()
+
     if (.not. aoa_tracers_flag) then
+       if (.not. use_native_impl) then
+          if (aoa_tracers_flag_codon(0_c_int64_t) /= 0_c_int64_t) then
+             call aoa_tracers_timestep_tend_native(state, ptend, cflx, landfrac, dt)
+             return
+          end if
+          call aoa_tracers_log_direct(aoa_tracers_timestep_tend_logged, &
+               'aoa_tracers_timestep_tend direct = codon flag-off control shell; native empty ptend allocation boundary')
+       end if
        call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
        return
     end if
-
-    call aoa_tracers_select_impl()
 
     if (use_native_impl) then
        call aoa_tracers_timestep_tend_native(state, ptend, cflx, landfrac, dt)
@@ -577,6 +596,8 @@ contains
          int(nstep, c_int64_t), real(dt, c_double), c_loc(qrel_vert), c_loc(state%lat), &
          c_loc(state%q), c_loc(ptend%q), c_loc(cflx), c_loc(landfrac) &
     )
+    call aoa_tracers_log_direct(aoa_tracers_timestep_tend_logged, &
+         'aoa_tracers_timestep_tend direct = codon tendency/flux body; native ptend/history boundaries')
 
     ! record tendencies on history files
     call outfld (src_names(1), ptend%q(:,:,ixaoa1), pcols, lchnk)
