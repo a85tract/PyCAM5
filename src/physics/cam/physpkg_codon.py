@@ -7115,6 +7115,42 @@ def ghg_data_trcmix_scale_codon(gas_id: int, dlat: float) -> float:
 
 
 @export
+def ghg_data_trcmix_codon(
+    gas_id: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    trop_mmr: float,
+    constant_mmr: float,
+    clat_p: cobj,
+    pmid_p: cobj,
+    q_p: cobj,
+):
+    clat = Ptr[float](clat_p)
+    pmid = Ptr[float](pmid_p)
+    q = Ptr[float](q_p)
+
+    if gas_id >= 5:
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                q[_field2_idx(i, k, pcols)] = constant_mmr
+        return
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            coslat = cos(clat[_idx(i)])
+            dlat = abs(57.2958 * clat[_idx(i)])
+            scale = ghg_data_trcmix_scale_codon(gas_id, dlat)
+            ptrop = 250.0e2 - 150.0e2 * coslat ** 2.0
+            idx = _field2_idx(i, k, pcols)
+            if pmid[idx] >= ptrop:
+                q[idx] = trop_mmr
+            else:
+                pratio = pmid[idx] / ptrop
+                q[idx] = trop_mmr * (pratio) ** scale
+
+
+@export
 def rad_cnst_out_mass_cb_codon(
     ncol: int,
     pcols: int,

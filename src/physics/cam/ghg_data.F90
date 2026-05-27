@@ -51,6 +51,7 @@ logical :: ghg_data_mw_ratios_proof_written = .false.
 logical :: use_native_ghg_data_trcmix_scale_impl = .false.
 logical :: ghg_data_trcmix_scale_impl_selected = .false.
 logical :: ghg_data_trcmix_scale_proof_written = .false.
+logical :: ghg_data_trcmix_direct_logged = .false.
 
 interface
   subroutine ghg_data_mw_ratios_codon(mwdry_c, mwn2o_c, mwch4_c, mwf11_c, mwf12_c, mwco2_c, &
@@ -77,6 +78,13 @@ interface
 	    integer(c_int64_t), value :: flag_c
 	    integer(c_int64_t) :: out_c
 	  end function ghg_data_timestep_init_codon
+	  subroutine ghg_data_trcmix_codon(gas_id_c, ncol_c, pcols_c, pver_c, trop_mmr_c, constant_mmr_c, &
+	       clat_p, pmid_p, q_p) bind(c, name="ghg_data_trcmix_codon")
+	    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+	    integer(c_int64_t), value :: gas_id_c, ncol_c, pcols_c, pver_c
+	    real(c_double), value :: trop_mmr_c, constant_mmr_c
+	    type(c_ptr), value :: clat_p, pmid_p, q_p
+	  end subroutine ghg_data_trcmix_codon
 	end interface
 
 !================================================================================================
@@ -172,6 +180,18 @@ subroutine ghg_data_trcmix_scale_proof_once()
   end if
 
 end subroutine ghg_data_trcmix_scale_proof_once
+
+subroutine ghg_data_trcmix_direct_proof_once()
+
+  if (ghg_data_trcmix_direct_logged) return
+  ghg_data_trcmix_direct_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'trcmix direct = codon'
+    call flush(iulog)
+  end if
+
+end subroutine ghg_data_trcmix_direct_proof_once
 
 subroutine ghg_data_update_mw_ratios()
 !-------------------------------------------------------------------------------
@@ -277,14 +297,14 @@ subroutine trcmix(name, ncol, clat, pmid, q)
 ! 
 !-----------------------------------------------------------------------
 
-   use iso_c_binding, only: c_int64_t, c_double
+   use iso_c_binding, only: c_int64_t, c_double, c_loc
 
    ! Arguments
    character(len=*), intent(in)  :: name              ! constituent name
    integer,          intent(in)  :: ncol              ! number of columns
-   real(r8),         intent(in)  :: clat(pcols)       ! latitude in radians for columns
-   real(r8),         intent(in)  :: pmid(pcols,pver)  ! model pressures
-   real(r8),         intent(out) :: q(pcols,pver)     ! constituent mass mixing ratio
+   real(r8), target, intent(in)  :: clat(pcols)       ! latitude in radians for columns
+   real(r8), target, intent(in)  :: pmid(pcols,pver)  ! model pressures
+   real(r8), target, intent(out) :: q(pcols,pver)     ! constituent mass mixing ratio
 
    integer i                ! longitude loop index
    integer k                ! level index
@@ -295,11 +315,47 @@ subroutine trcmix(name, ncol, clat, pmid, q)
    real(r8) pratio          ! pressure divided by ptrop
    real(r8) trop_mmr        ! tropospheric mass mixing ratio
    real(r8) scale           ! pressure scale height
+   real(r8) constant_mmr    ! spatially constant mass mixing ratio
+   integer(c_int64_t) :: gas_id
    logical :: use_codon_scale
 !-----------------------------------------------------------------------
 
    call ghg_data_trcmix_scale_select_impl()
-   use_codon_scale = .not. use_native_ghg_data_trcmix_scale_impl
+   if (.not. use_native_ghg_data_trcmix_scale_impl) then
+      gas_id = 0_c_int64_t
+      trop_mmr = 0.0_r8
+      constant_mmr = 0.0_r8
+
+      if (name == 'O2') then
+         gas_id = 5_c_int64_t
+         constant_mmr = chem_surfvals_get('O2MMR')
+      else if (name == 'CO2') then
+         gas_id = 6_c_int64_t
+         constant_mmr = chem_surfvals_co2_rad()
+      else if (name == 'CH4') then
+         gas_id = 1_c_int64_t
+         trop_mmr = rmwch4 * chem_surfvals_get('CH4VMR')
+      else if (name == 'N2O') then
+         gas_id = 2_c_int64_t
+         trop_mmr = rmwn2o * chem_surfvals_get('N2OVMR')
+      else if (name == 'CFC11') then
+         gas_id = 3_c_int64_t
+         trop_mmr = rmwf11 * chem_surfvals_get('F11VMR')
+      else if (name == 'CFC12') then
+         gas_id = 4_c_int64_t
+         trop_mmr = rmwf12 * chem_surfvals_get('F12VMR')
+      end if
+
+      if (gas_id /= 0_c_int64_t) then
+         call ghg_data_trcmix_codon(gas_id, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+              int(pver, c_int64_t), real(trop_mmr, c_double), real(constant_mmr, c_double), &
+              c_loc(clat(1)), c_loc(pmid(1,1)), c_loc(q(1,1)))
+         call ghg_data_trcmix_direct_proof_once()
+         return
+      end if
+   end if
+
+   use_codon_scale = .false.
 
    do i = 1, ncol
       coslat(i) = cos(clat(i))

@@ -52,6 +52,7 @@ integer  :: conv_water_mode
 real(r8) :: frac_limit
 logical :: use_native_impl = .false.
 logical :: impl_selected = .false.
+logical :: conv_water_4rad_logged = .false.
 
 interface
    subroutine conv_water_4rad_codon(ncol_c, pcols_c, pver_c, conv_water_mode_c, microp_is_rk_c, frac_limit_c, gravit_c, &
@@ -88,6 +89,18 @@ end interface
 !=============================================================================================
 contains
 !=============================================================================================
+
+subroutine conv_water_4rad_log_direct()
+
+   if (conv_water_4rad_logged) return
+   conv_water_4rad_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'conv_water_4rad direct = codon; pbuf/outfld native CAM API island'
+      call flush(iulog)
+   end if
+
+end subroutine conv_water_4rad_log_direct
 
 subroutine conv_water_select_impl()
 
@@ -338,6 +351,7 @@ end subroutine conv_water_readnl
         c_loc(conv_liq), c_loc(tot_ice), c_loc(tot_liq), c_loc(totg_ice_sh), c_loc(totg_liq_sh), c_loc(totg_ice_dp), &
         c_loc(totg_liq_dp), c_loc(fresh), c_loc(fredp), c_loc(frecu), c_loc(fretot), c_loc(sh_cldliq), c_loc(sh_cldice) &
    )
+   call conv_water_4rad_log_direct()
 
    call outfld( 'ICLMRCU ', conv_liq  , pcols, lchnk )
    call outfld( 'ICIMRCU ', conv_ice  , pcols, lchnk )
