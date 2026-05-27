@@ -9,7 +9,7 @@ module cloud_cover_diags
   use phys_control,  only: phys_getopts
   use cam_logfile,   only: iulog
   use spmd_utils,    only: masterproc
-  use iso_c_binding, only: c_int64_t
+  use iso_c_binding, only: c_int64_t, c_loc
 
   implicit none
 
@@ -124,21 +124,37 @@ end subroutine cloud_cover_diags_init
 subroutine cloud_cover_diags_out(lchnk, ncol, cld, pmid, nmxrgn, pmxrgn )
 
   integer,  intent(in) :: lchnk, ncol
-  real(r8), intent(in) :: cld(pcols,pver)
-  real(r8), intent(in) :: pmid(pcols,pver)
-  integer,  intent(in) :: nmxrgn(pcols)
-  real(r8), intent(in) :: pmxrgn(pcols,pverp)
+  real(r8), target, intent(in) :: cld(pcols,pver)
+  real(r8), target, intent(in) :: pmid(pcols,pver)
+  integer,  target, intent(in) :: nmxrgn(pcols)
+  real(r8), target, intent(in) :: pmxrgn(pcols,pverp)
 
-  real(r8) :: cltot(pcols)            ! Diagnostic total cloud cover
-  real(r8) :: cllow(pcols)            !       "     low  cloud cover
-  real(r8) :: clmed(pcols)            !       "     mid  cloud cover
-  real(r8) :: clhgh(pcols)            !       "     hgh  cloud cover
+  real(r8), target :: cltot(pcols)            ! Diagnostic total cloud cover
+  real(r8), target :: cllow(pcols)            !       "     low  cloud cover
+  real(r8), target :: clmed(pcols)            !       "     mid  cloud cover
+  real(r8), target :: clhgh(pcols)            !       "     hgh  cloud cover
+  integer, target :: irgn(pcols)
+  real(r8), target :: clrsky(pcols)
+  real(r8), target :: clrskymax(pcols)
   integer(c_int64_t) :: active_c
 
   active_c = cloud_cover_diags_out_codon(1_c_int64_t)
   if (active_c == 0_c_int64_t) return
 
-  call cldsav (lchnk, ncol, cld, pmid, cltot, cllow, clmed, clhgh, nmxrgn, pmxrgn)
+  call cloud_cover_diags_select_impl()
+  if (use_native_cloud_cover_diags_impl) then
+     call cldsav (lchnk, ncol, cld, pmid, cltot, cllow, clmed, clhgh, nmxrgn, pmxrgn)
+  else
+     call cloud_cover_diags_proof_once()
+     call cloud_cover_cldsav_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+          int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(cld(1,1)), c_loc(pmid(1,1)), &
+          c_loc(pmxrgn(1,1)), c_loc(nmxrgn(1)), c_loc(cltot(1)), c_loc(cllow(1)), &
+          c_loc(clmed(1)), c_loc(clhgh(1)), c_loc(irgn(1)), c_loc(clrsky(1)), &
+          c_loc(clrskymax(1)))
+     if (masterproc) then
+        write(iulog,'(A)') 'cloud_cover_diags_out direct = codon; history outfld native'
+     end if
+  end if
 
   !
   ! Dump cloud field information to history tape buffer (diagnostics)
