@@ -2160,10 +2160,13 @@ subroutine explmix( q, src, ekkp, ekkm, overlapp, overlapm, &
 
    call ndrop_explmix_select_impl()
 
-   if (use_native_ndrop_explmix_impl .or. (is_unact .and. .not. present(qactold))) then
+   if (use_native_ndrop_explmix_impl) then
       call explmix_native(q, src, ekkp, ekkm, overlapp, overlapm, &
            qold, surfrate, flxconv, pver, dt, is_unact, qactold)
    else if (is_unact) then
+      if (.not. present(qactold)) then
+         call endrun('explmix: qactold is required when is_unact is true')
+      end if
       call ndrop_explmix_proof_once()
       call ndrop_explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
            surfrate, flxconv, dt, 1_c_int64_t, c_loc(q(1)), c_loc(src(1)), &
