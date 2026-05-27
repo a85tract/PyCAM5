@@ -9167,6 +9167,35 @@ def sslt_rebin_register_codon(pcols: int, pver: int) -> int:
 
 
 @export
+def sslt_rebin_adv_codon(
+    ncol: int,
+    pver: int,
+    pcols: int,
+    wgt_sscm: float,
+    sslt1_p: cobj,
+    sslt2_p: cobj,
+    sslt3_p: cobj,
+    sslt4_p: cobj,
+    sslta_p: cobj,
+    ssltc_p: cobj,
+):
+    sslt1 = Ptr[float](sslt1_p)
+    sslt2 = Ptr[float](sslt2_p)
+    sslt3 = Ptr[float](sslt3_p)
+    sslt4 = Ptr[float](sslt4_p)
+    sslta = Ptr[float](sslta_p)
+    ssltc = Ptr[float](ssltc_p)
+    accum_wgt = 1.0 - wgt_sscm
+    for k in range(pver):
+        base = k * pcols
+        for i in range(ncol):
+            idx = base + i
+            sslt_sum = sslt1[idx] + sslt2[idx] + sslt3[idx] + sslt4[idx]
+            sslta[idx] = accum_wgt * sslt_sum
+            ssltc[idx] = wgt_sscm * sslt_sum
+
+
+@export
 def constituent_burden_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1

@@ -55,6 +55,15 @@ module sslt_rebin
        integer(c_int64_t), value :: pcols_c, pver_c
        integer(c_int64_t) :: mask_c
      end function sslt_rebin_register_codon
+     subroutine sslt_rebin_adv_codon(ncol_c, pver_c, pcols_c, wgt_sscm_c, &
+          sslt1_p, sslt2_p, sslt3_p, sslt4_p, sslta_p, ssltc_p) &
+          bind(c, name="sslt_rebin_adv_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, pcols_c
+       real(c_double), value :: wgt_sscm_c
+       type(c_ptr), value :: sslt1_p, sslt2_p, sslt3_p, sslt4_p
+       type(c_ptr), value :: sslta_p, ssltc_p
+     end subroutine sslt_rebin_adv_codon
   end interface
 
   private
@@ -226,6 +235,7 @@ contains
     use ppgrid,       only : pver, pcols
     use cam_history,  only : outfld
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field
+    use iso_c_binding, only : c_double, c_loc
 
     implicit none
 
@@ -237,8 +247,8 @@ contains
 !    real(r8), parameter :: wgt_sscm = 6.0_r8 / 7.0_r8 ! Fraction of total seasalt mass in coarse mode 
     real(r8), parameter :: wgt_sscm = 6.0_r8 / 7.0_r8 ! Fraction of total seasalt mass in coarse mode 
 
-    real(r8), dimension(:,:), pointer :: sslt1, sslt2, sslt3, sslt4
-    real(r8), dimension(:,:), pointer :: sslta, ssltc
+    real(r8), dimension(:,:), pointer, contiguous :: sslt1, sslt2, sslt3, sslt4
+    real(r8), dimension(:,:), pointer, contiguous :: sslta, ssltc
     integer :: lchnk, ncol
     integer(c_int64_t) :: active_c
     real(r8) :: sslt_sum(pcols,pver)
@@ -272,9 +282,15 @@ contains
     call pbuf_get_field(pbuf, sslta_idx, sslta )
     call pbuf_get_field(pbuf, ssltc_idx, ssltc )
 
-    sslt_sum(:ncol,:) = sslt1(:ncol,:) + sslt2(:ncol,:) + sslt3(:ncol,:) + sslt4(:ncol,:)
-    sslta(:ncol,:) = (1._r8-wgt_sscm)*sslt_sum(:ncol,:) ! fraction of seasalt mass in accumulation mode
-    ssltc(:ncol,:) = wgt_sscm*sslt_sum(:ncol,:) ! fraction of seasalt mass in coagulation mode
+    if (use_native_sslt_rebin_impl) then
+       sslt_sum(:ncol,:) = sslt1(:ncol,:) + sslt2(:ncol,:) + sslt3(:ncol,:) + sslt4(:ncol,:)
+       sslta(:ncol,:) = (1._r8-wgt_sscm)*sslt_sum(:ncol,:) ! fraction of seasalt mass in accumulation mode
+       ssltc(:ncol,:) = wgt_sscm*sslt_sum(:ncol,:) ! fraction of seasalt mass in coagulation mode
+    else
+       call sslt_rebin_adv_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(pcols, c_int64_t), &
+            real(wgt_sscm, c_double), c_loc(sslt1(1,1)), c_loc(sslt2(1,1)), &
+            c_loc(sslt3(1,1)), c_loc(sslt4(1,1)), c_loc(sslta(1,1)), c_loc(ssltc(1,1)))
+    end if
 
     call outfld( 'SSLTA', sslta(:ncol,:), ncol, lchnk )
     call outfld( 'SSLTC', ssltc(:ncol,:), ncol, lchnk )
