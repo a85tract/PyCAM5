@@ -78,6 +78,8 @@ module check_energy
   logical  :: check_energy_defaultopts_logged = .false.
   logical  :: check_energy_setopts_logged = .false.
   logical  :: check_energy_init_logged = .false.
+  logical  :: check_energy_timestep_init_logged = .false.
+  logical  :: check_energy_chng_logged = .false.
 
   real(r8) :: teout_glob           ! global mean energy of output state
   real(r8) :: teinp_glob           ! global mean energy of input state
@@ -694,6 +696,8 @@ end subroutine check_energy_get_integrals
     call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
 
     call check_energy_batch_log_entered()
+    call check_energy_log_direct(check_energy_timestep_init_logged, &
+         'check_energy_timestep_init direct = codon; native cnst lookup/pbuf boundary')
     call check_energy_timestep_init_codon( &
          int(ncol, c_int64_t), int(pver, c_int64_t), &
          int(state%psetcols, c_int64_t), int(pcnst, c_int64_t), &
@@ -862,6 +866,8 @@ end subroutine check_energy_get_integrals
     call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
 
     call check_energy_batch_log_entered()
+    call check_energy_log_direct(check_energy_chng_logged, &
+         'check_energy_chng direct = codon; native print_energy_errors debug fallback')
     call check_energy_chng_codon( &
          int(ncol, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
          real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
