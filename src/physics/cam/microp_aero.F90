@@ -116,6 +116,7 @@ logical  :: run_linear_entered_logged = .false.
 logical  :: run_npccn_copy_entered_logged = .false.
 logical  :: microp_aero_register_logged = .false.
 logical  :: microp_aero_init_logged = .false.
+logical  :: microp_aero_readnl_logged = .false.
 
 interface
    function microp_aero_register_codon(flag_c) result(out_c) bind(c, name="microp_aero_register_codon")
@@ -369,6 +370,8 @@ subroutine microp_aero_readnl(nlfile)
 
    ! set local variables
    bulk_scale = microp_aero_readnl_codon(real(microp_aero_bulk_scale, c_double))
+   call microp_aero_log_direct(microp_aero_readnl_logged, &
+        'microp_aero_readnl direct = codon; namelist I/O and child readnl native islands')
 
    call nucleate_ice_cam_readnl(nlfile)
    call hetfrz_classnuc_cam_readnl(nlfile)

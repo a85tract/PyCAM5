@@ -83,6 +83,8 @@ module chem_surfvals
    type(time_ramp)    :: flbc_timing     != time_ramp( "CYCLICAL",  19970101, 0 )
    logical :: use_native_impl = .false.
    logical :: impl_selected = .false.
+   logical :: chem_surfvals_readnl_logged = .false.
+   logical :: chem_surfvals_init_logged = .false.
    logical :: chem_surfvals_get_logged = .false.
    logical :: chem_surfvals_co2_rad_logged = .false.
 
@@ -151,6 +153,8 @@ subroutine chem_surfvals_readnl(nlfile)
    !-----------------------------------------------------------------------------
    active_c = chem_surfvals_readnl_codon(1_c_int64_t)
    if (active_c == 0_c_int64_t) return
+   call chem_surfvals_log_direct(chem_surfvals_readnl_logged, &
+        'chem_surfvals_readnl direct = codon; namelist I/O and MPI broadcast native islands')
 
    if (masterproc) then
       unitn = getunit()
@@ -235,6 +239,8 @@ subroutine chem_surfvals_init()
    !-----------------------------------------------------------------------
    active_c = chem_surfvals_init_codon(1_c_int64_t)
    if (active_c == 0_c_int64_t) return
+   call chem_surfvals_log_direct(chem_surfvals_init_logged, &
+        'chem_surfvals_init direct = codon; time/ramp/FLBC native API islands')
 
    if (scenario_ghg == 'FIXED') then
       doRamp_ghg = .false.

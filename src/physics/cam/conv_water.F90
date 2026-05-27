@@ -52,6 +52,8 @@ integer  :: conv_water_mode
 real(r8) :: frac_limit
 logical :: use_native_impl = .false.
 logical :: impl_selected = .false.
+logical :: conv_water_readnl_logged = .false.
+logical :: conv_water_init_logged = .false.
 logical :: conv_water_4rad_logged = .false.
 
 interface
@@ -88,6 +90,23 @@ end interface
 
 !=============================================================================================
 contains
+!=============================================================================================
+
+subroutine conv_water_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine conv_water_log_direct
+
 !=============================================================================================
 
 subroutine conv_water_4rad_log_direct()
@@ -175,6 +194,8 @@ subroutine conv_water_readnl(nlfile)
 
    conv_water_mode = conv_water_in_rad
    frac_limit      = conv_water_readnl_codon(real(conv_water_frac_limit, c_double))
+   call conv_water_log_direct(conv_water_readnl_logged, &
+        'conv_water_readnl direct = codon; namelist I/O and MPI broadcast native islands')
 
 end subroutine conv_water_readnl
 
@@ -223,6 +244,8 @@ end subroutine conv_water_readnl
 
    implicit none
    if (conv_water_init_codon(1_c_int64_t) == 0_c_int64_t) return
+   call conv_water_log_direct(conv_water_init_logged, &
+        'conv_water_init direct = codon; pbuf/cnst/history native CAM API islands')
 
    call cnst_get_ind('CLDICE', ixcldice)
    call cnst_get_ind('CLDLIQ', ixcldliq)

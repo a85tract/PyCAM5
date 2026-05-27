@@ -98,6 +98,7 @@ module cloud_fraction
   logical :: cldfrc_getparams_impl_selected = .false.
   logical :: cldfrc_batch_entered_logged = .false.
   logical :: cldfrc_register_logged = .false.
+  logical :: cldfrc_getparams_logged = .false.
 
   interface
      subroutine cldfrc_batch_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, top_lev_c, flag_c, &
@@ -814,6 +815,8 @@ subroutine cldfrc_getparams(rhminl_out, rhminl_adj_land_out, rhminh_out,  premit
         real(rhminh, c_double), real(rhminp, c_double), real(premit, c_double), real(premib, c_double), &
         int(iceopt, c_int64_t), real(icecrit, c_double), rhminl_p, rhminl_adj_land_p, rhminh_p, &
         rhminp_p, premit_p, premib_p, iceopt_p, icecrit_p)
+   call cldfrc_log_direct(cldfrc_getparams_logged, &
+        'cldfrc_getparams direct = codon; optional-argument pointer setup native boundary')
 
 end subroutine cldfrc_getparams
 

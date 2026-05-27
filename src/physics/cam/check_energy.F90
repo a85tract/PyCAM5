@@ -77,6 +77,7 @@ module check_energy
   logical  :: tracers_batch_entered_logged = .false.
   logical  :: check_energy_defaultopts_logged = .false.
   logical  :: check_energy_setopts_logged = .false.
+  logical  :: check_energy_init_logged = .false.
 
   real(r8) :: teout_glob           ! global mean energy of output state
   real(r8) :: teinp_glob           ! global mean energy of input state
@@ -630,6 +631,8 @@ end subroutine check_energy_get_integrals
 
 !-----------------------------------------------------------------------
     if (check_energy_init_codon(1_c_int64_t) == 0_c_int64_t) return
+    call check_energy_log_direct(check_energy_init_logged, &
+         'check_energy_init direct = codon; phys_getopts/history native CAM API islands')
 
     call phys_getopts( history_budget_out = history_budget, &
                        history_budget_histfile_num_out = history_budget_histfile_num)

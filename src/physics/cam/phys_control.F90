@@ -99,6 +99,8 @@ logical :: phys_control_bool_helpers_proof_written = .false.
 logical :: cam_physpkg_is_logged = .false.
 logical :: cam_chempkg_is_logged = .false.
 logical :: waccmx_is_logged = .false.
+logical :: phys_ctl_readnl_logged = .false.
+logical :: phys_getopts_logged = .false.
 logical :: phys_deepconv_pbl_logged = .false.
 logical :: phys_do_flux_avg_logged = .false.
 
@@ -369,6 +371,8 @@ subroutine phys_ctl_readnl(nlfile)
    else
       call phys_control_bool_helpers_proof_once()
       prog_modal_aero = (phys_control_index_positive_codon(int(index(cam_chempkg,'_mam'), c_int64_t)) /= 0_c_int64_t)
+      call phys_control_log_direct(phys_ctl_readnl_logged, &
+           'phys_ctl_readnl direct = codon; namelist/MPI/compatibility native islands')
    end if
 
 end subroutine phys_ctl_readnl
@@ -528,6 +532,8 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, mi
 
    if (.not. use_native_phys_control_bool_helpers_impl) then
       call phys_control_bool_helpers_proof_once()
+      call phys_control_log_direct(phys_getopts_logged, &
+           'phys_getopts direct = codon; optional output assignment native boundary')
       if (present(use_subcol_microp_out)) &
          use_subcol_microp_out = (phys_control_bool_flag_codon( &
          merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp_out)) /= 0_c_int64_t)
