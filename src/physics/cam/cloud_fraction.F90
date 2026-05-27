@@ -97,6 +97,7 @@ module cloud_fraction
   logical :: use_native_cldfrc_getparams_impl = .false.
   logical :: cldfrc_getparams_impl_selected = .false.
   logical :: cldfrc_batch_entered_logged = .false.
+  logical :: cldfrc_register_logged = .false.
 
   interface
      subroutine cldfrc_batch_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, top_lev_c, flag_c, &
@@ -208,6 +209,23 @@ subroutine cldfrc_log_entered()
    end if
 
 end subroutine cldfrc_log_entered
+
+!================================================================================================
+
+subroutine cldfrc_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_log_direct
 
 !================================================================================================
 
@@ -705,6 +723,8 @@ subroutine cldfrc_register
 
    !-----------------------------------------------------------------------
    if (cldfrc_register_codon(1_c_int64_t) == 0_c_int64_t) return
+   call cldfrc_log_direct(cldfrc_register_logged, &
+        'cldfrc_register direct = codon; pbuf_add_field native CAM API island')
 
    call pbuf_add_field('SH_FRAC', 'physpkg', dtype_r8, (/pcols,pver/), sh_frac_idx) 
    call pbuf_add_field('DP_FRAC', 'physpkg', dtype_r8, (/pcols,pver/), dp_frac_idx) 

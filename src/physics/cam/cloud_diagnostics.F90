@@ -40,6 +40,8 @@ module cloud_diagnostics
    logical :: use_native_mg_diag_impl = .false.
    logical :: mg_diag_impl_selected = .false.
    logical :: mg_diag_entered_logged = .false.
+   logical :: cloud_diagnostics_register_logged = .false.
+   logical :: cloud_diagnostics_init_logged = .false.
    
    integer :: cicewp_idx = -1
    integer :: cliqwp_idx = -1
@@ -109,6 +111,20 @@ subroutine cloud_diagnostics_log_calc_entry()
 end subroutine cloud_diagnostics_log_calc_entry
 
 !===============================================================================
+subroutine cloud_diagnostics_log_direct(logged, proof_line)
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+end subroutine cloud_diagnostics_log_direct
+
+!===============================================================================
   subroutine cloud_diagnostics_register
 
     use phys_control,  only: phys_getopts
@@ -120,6 +136,8 @@ end subroutine cloud_diagnostics_log_calc_entry
     call phys_getopts(radiation_scheme_out=rad_pkg,microp_scheme_out=microp_pgk)
     active_c = cloud_diagnostics_register_codon(1_c_int64_t)
     if (active_c == 0_c_int64_t) return
+    call cloud_diagnostics_log_direct(cloud_diagnostics_register_logged, &
+         'cloud_diagnostics_register direct = codon; phys_getopts/pbuf_add_field native CAM API islands')
     camrt_rad = rad_pkg .eq. 'camrt'
     rk_clouds = microp_pgk == 'RK'
     mg_clouds = microp_pgk == 'MG'
@@ -161,6 +179,8 @@ end subroutine cloud_diagnostics_log_calc_entry
     !-----------------------------------------------------------------------
     active_c = cloud_diagnostics_init_codon(1_c_int64_t)
     if (active_c == 0_c_int64_t) return
+    call cloud_diagnostics_log_direct(cloud_diagnostics_init_logged, &
+         'cloud_diagnostics_init direct = codon; pbuf/history/cloud_cover init native CAM API islands')
 
     cld_idx    = pbuf_get_index('CLD')
 

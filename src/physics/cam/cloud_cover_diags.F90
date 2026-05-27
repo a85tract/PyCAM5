@@ -21,6 +21,7 @@ module cloud_cover_diags
   logical :: use_native_cloud_cover_diags_impl = .false.
   logical :: cloud_cover_diags_impl_selected = .false.
   logical :: cloud_cover_diags_proof_written = .false.
+  logical :: cloud_cover_diags_init_logged = .false.
 
   interface
      function cloud_cover_diags_init_codon(flag_c) result(out_c) bind(c, name="cloud_cover_diags_init_codon")
@@ -89,6 +90,20 @@ subroutine cloud_cover_diags_proof_once()
 end subroutine cloud_cover_diags_proof_once
 
 !===============================================================================
+subroutine cloud_cover_diags_log_direct(logged, proof_line)
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+end subroutine cloud_cover_diags_log_direct
+
+!===============================================================================
 !===============================================================================
 subroutine cloud_cover_diags_init(sampling_seq)
 
@@ -98,6 +113,8 @@ subroutine cloud_cover_diags_init(sampling_seq)
 
   active_c = cloud_cover_diags_init_codon(1_c_int64_t)
   if (active_c == 0_c_int64_t) return
+  call cloud_cover_diags_log_direct(cloud_cover_diags_init_logged, &
+       'cloud_cover_diags_init direct = codon; history registration native CAM API island')
 
   call addfld ('CLOUD   ','fraction',pver, 'A','Cloud fraction'                        ,phys_decomp, sampling_seq=sampling_seq)
   call addfld ('CLDTOT  ','fraction',1,    'A','Vertically-integrated total cloud'     ,phys_decomp, sampling_seq=sampling_seq)

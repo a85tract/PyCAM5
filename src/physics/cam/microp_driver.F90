@@ -39,6 +39,9 @@ logical :: impl_selected = .false.
 integer :: codon_scheme_code = 0
 logical :: codon_scheme_selected = .false.
 logical :: microp_driver_implements_cnst_logged = .false.
+logical :: microp_driver_readnl_logged = .false.
+logical :: microp_driver_register_logged = .false.
+logical :: microp_driver_init_logged = .false.
 
 interface
    function microp_driver_readnl_codon(flag_c) result(out_c) bind(c, name="microp_driver_readnl_codon")
@@ -82,6 +85,8 @@ subroutine microp_driver_readnl(nlfile)
    call phys_getopts(microp_scheme_out=microp_scheme)
    active_c = microp_driver_readnl_codon(1_c_int64_t)
    if (active_c == 0_c_int64_t) return
+   call microp_driver_log_direct(microp_driver_readnl_logged, &
+        'microp_driver_readnl direct = codon; scheme dispatch direct = codon; micro_mg_cam_readnl native/Codon child boundary')
 
    select case (microp_scheme)
    case ('MG')
@@ -106,6 +111,8 @@ subroutine microp_driver_register
 
    active_c = microp_driver_register_codon(1_c_int64_t)
    if (active_c == 0_c_int64_t) return
+   call microp_driver_log_direct(microp_driver_register_logged, &
+        'microp_driver_register direct = codon; scheme dispatch direct = codon; micro_mg_cam_register child boundary')
 
    select case (microp_scheme)
    case ('MG')
@@ -211,6 +218,8 @@ subroutine microp_driver_init(pbuf2d)
    !-----------------------------------------------------------------------
    active_c = microp_driver_init_codon(1_c_int64_t)
    if (active_c == 0_c_int64_t) return
+   call microp_driver_log_direct(microp_driver_init_logged, &
+        'microp_driver_init direct = codon; scheme dispatch direct = codon; micro_mg_cam_init child boundary')
 
    select case (microp_scheme)
    case ('MG')

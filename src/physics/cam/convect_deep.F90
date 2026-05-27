@@ -39,6 +39,8 @@ module convect_deep
    logical :: codon_scheme_selected = .false.
    logical :: convect_deep_tend_logged = .false.
    logical :: convect_deep_tend_2_logged = .false.
+   logical :: convect_deep_register_logged = .false.
+   logical :: convect_deep_init_logged = .false.
 ! Physics buffer indices 
    integer     ::  icwmrdp_idx      = 0 
    integer     ::  rprddp_idx       = 0 
@@ -138,6 +140,8 @@ subroutine convect_deep_register
   call phys_getopts(deep_scheme_out = deep_scheme)
   active_c = convect_deep_register_codon(1_c_int64_t)
   if (active_c == 0_c_int64_t) return
+  call convect_deep_log_direct(convect_deep_register_logged, &
+       'convect_deep_register direct = codon; zm_conv_register/pbuf_add_field native CAM API islands')
 
   select case ( deep_scheme )
   case('ZM') !    Zhang-McFarlane (default)
@@ -182,6 +186,8 @@ subroutine convect_deep_init(pref_edge)
 
   active_c = convect_deep_init_codon(1_c_int64_t)
   if (active_c == 0_c_int64_t) return
+  call convect_deep_log_direct(convect_deep_init_logged, &
+       'convect_deep_init direct = codon; scheme/action shell direct = codon; zm_conv_init/pbuf/history native CAM API islands')
 
   select case ( deep_scheme )
   case('off')
@@ -482,6 +488,24 @@ subroutine convect_deep_log_tend_2_direct()
    end if
 
 end subroutine convect_deep_log_tend_2_direct
+
+!=========================================================================================
+
+subroutine convect_deep_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call convect_deep_append_proof(trim(proof_line))
+      call flush(iulog)
+   end if
+
+end subroutine convect_deep_log_direct
 
 !=========================================================================================
 

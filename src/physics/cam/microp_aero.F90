@@ -114,6 +114,8 @@ logical  :: run_impl_selected = .false.
 logical  :: run_direct_entered_logged = .false.
 logical  :: run_linear_entered_logged = .false.
 logical  :: run_npccn_copy_entered_logged = .false.
+logical  :: microp_aero_register_logged = .false.
+logical  :: microp_aero_init_logged = .false.
 
 interface
    function microp_aero_register_codon(flag_c) result(out_c) bind(c, name="microp_aero_register_codon")
@@ -150,6 +152,8 @@ subroutine microp_aero_register
    use physics_buffer, only: pbuf_add_field, dtype_r8
 
    if (microp_aero_register_codon(1_c_int64_t) == 0_c_int64_t) return
+   call microp_aero_log_direct(microp_aero_register_logged, &
+        'microp_aero_register direct = codon; pbuf_add_field/nucleation registration native CAM API islands')
 
    call pbuf_add_field('NPCCN',      'physpkg',dtype_r8,(/pcols,pver/), npccn_idx)
 
@@ -185,6 +189,8 @@ subroutine microp_aero_init
    !-----------------------------------------------------------------------
    active_c = microp_aero_init_codon(1_c_int64_t)
    if (active_c == 0_c_int64_t) return
+   call microp_aero_log_direct(microp_aero_init_logged, &
+        'microp_aero_init direct = codon; aerosol init shell direct = codon; rad_constituents/pbuf/history native CAM API islands')
 
    ! Query the PBL eddy scheme
    call phys_getopts(eddy_scheme_out          = eddy_scheme,  &
@@ -448,6 +454,23 @@ subroutine microp_aero_run_npccn_copy_log_entered()
    end if
 
 end subroutine microp_aero_run_npccn_copy_log_entered
+
+!=========================================================================================
+
+subroutine microp_aero_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine microp_aero_log_direct
 
 !=========================================================================================
 

@@ -100,6 +100,8 @@ logical :: nucleate_ice_cam_prep_entered_logged = .false.
 logical :: nucleate_ice_cam_post_entered_logged = .false.
 logical :: nucleate_ice_cam_modal_dust_entered_logged = .false.
 logical :: nucleate_ice_cam_modal_so4_entered_logged = .false.
+logical :: nucleate_ice_cam_readnl_logged = .false.
+logical :: nucleate_ice_cam_register_logged = .false.
 
 interface
    function nucleate_ice_cam_readnl_codon(flag_c) result(out_c) bind(c, name="nucleate_ice_cam_readnl_codon")
@@ -148,6 +150,8 @@ subroutine nucleate_ice_cam_readnl(nlfile)
   !-----------------------------------------------------------------------------
   active_c = nucleate_ice_cam_readnl_codon(1_c_int64_t)
   if (active_c == 0_c_int64_t) return
+  call nucleate_ice_cam_log_direct(nucleate_ice_cam_readnl_logged, &
+       'nucleate_ice_cam_readnl direct = codon; namelist/MPI native islands')
 
   if (masterproc) then
      unitn = getunit()
@@ -178,6 +182,8 @@ end subroutine nucleate_ice_cam_readnl
 subroutine nucleate_ice_cam_register()
 
    if (nucleate_ice_cam_register_codon(1_c_int64_t) == 0_c_int64_t) return
+   call nucleate_ice_cam_log_direct(nucleate_ice_cam_register_logged, &
+        'nucleate_ice_cam_register direct = codon; pbuf_add_field native CAM API island')
 
    call pbuf_add_field('NAAI',     'physpkg', dtype_r8, (/pcols,pver/), naai_idx)
    call pbuf_add_field('NAAI_HOM', 'physpkg', dtype_r8, (/pcols,pver/), naai_hom_idx)
@@ -441,6 +447,23 @@ subroutine nucleate_ice_cam_modal_so4_log_entered()
    end if
 
 end subroutine nucleate_ice_cam_modal_so4_log_entered
+
+!================================================================================================
+
+subroutine nucleate_ice_cam_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine nucleate_ice_cam_log_direct
 
 !================================================================================================
 

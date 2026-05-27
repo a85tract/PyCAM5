@@ -27,6 +27,7 @@ module constituent_burden
   logical :: constituent_burden_impl_selected = .false.
   logical :: constituent_burden_proof_written = .false.
   logical :: constituent_burden_comp_logged = .false.
+  logical :: constituent_burden_init_logged = .false.
 
   interface
      function constituent_burden_flag_codon(flag_c) result(active_c) &
@@ -121,6 +122,21 @@ subroutine constituent_burden_log_comp_direct()
 
 end subroutine constituent_burden_log_comp_direct
 
+subroutine constituent_burden_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine constituent_burden_log_direct
+
 logical function constituent_burden_flag(flag) result(active)
   logical, intent(in) :: flag
   integer(c_int64_t) :: flag_c
@@ -148,6 +164,8 @@ subroutine constituent_burden_init
 
   integer :: m
   if (constituent_burden_init_codon(1_c_int64_t) == 0_c_int64_t) return
+  call constituent_burden_log_direct(constituent_burden_init_logged, &
+       'constituent_burden_init direct = codon; history registration native CAM API island')
 
   do m = 2, pcnst
     burdennam(m) = 'TM'//cnst_name(m)
