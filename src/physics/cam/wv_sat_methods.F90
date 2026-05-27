@@ -59,6 +59,8 @@ integer, target :: default_idx = initial_default_idx
 logical :: use_native_wv_sat_methods_impl = .false.
 logical :: wv_sat_methods_impl_selected = .false.
 logical :: wv_sat_methods_proof_written = .false.
+logical :: wv_sat_methods_init_logged = .false.
+logical :: wv_sat_set_default_logged = .false.
 
 interface
   function wv_sat_methods_value_codon(value_c) result(value_out) &
@@ -268,6 +270,21 @@ subroutine wv_sat_methods_proof_once()
 
 end subroutine wv_sat_methods_proof_once
 
+subroutine wv_sat_methods_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine wv_sat_methods_log_direct
+
 real(r8) function wv_sat_methods_value(value) result(out)
   real(r8), intent(in) :: value
 
@@ -339,6 +356,8 @@ subroutine wv_sat_methods_init(kind, tmelt_in, h2otrip_in, tboil_in, &
   call wv_sat_methods_init_codon(real(tmelt_in, c_double), real(h2otrip_in, c_double), &
        real(tboil_in, c_double), real(ttrice_in, c_double), real(epsilo_in, c_double), &
        c_loc(tmelt), c_loc(h2otrip), c_loc(tboil), c_loc(ttrice), c_loc(epsilo), c_loc(omeps))
+  call wv_sat_methods_log_direct(wv_sat_methods_init_logged, &
+       'wv_sat_methods_init direct = codon; native argument validation/error-string island')
 
 end subroutine wv_sat_methods_init
 
@@ -380,6 +399,8 @@ function wv_sat_set_default(name) result(status)
   tmp_idx = wv_sat_get_scheme_idx(name)
 
   status = wv_sat_set_default_codon(int(tmp_idx, c_int64_t), c_loc(default_idx)) /= 0_c_int64_t
+  if (status) call wv_sat_methods_log_direct(wv_sat_set_default_logged, &
+       'wv_sat_set_default direct = codon')
 
 end function wv_sat_set_default
 

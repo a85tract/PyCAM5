@@ -197,6 +197,26 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c
        type(c_ptr), value :: estbl_p, tsp_p, qsp_p, status_p
      end subroutine wv_saturation_findsp_codon
+
+     subroutine wv_sat_init_table_codon(plenest_c, tmin_c, tmelt_c, ttrice_c, idx_c, estbl_p) &
+          bind(c, name="wv_sat_init_table_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: plenest_c, idx_c
+       real(c_double), value :: tmin_c, tmelt_c, ttrice_c
+       type(c_ptr), value :: estbl_p
+     end subroutine wv_sat_init_table_codon
+
+     subroutine findsp_vc_codon(n_c, use_ice_c, idx_c, epsilo_c, omeps_c, cpair_c, c3_c, &
+          tmelt_c, ttrice_c, latvap_c, latice_c, rh2o_c, pcf1_c, pcf2_c, pcf3_c, pcf4_c, &
+          pcf5_c, tmin_c, tmax_c, estbl_p, plenest_c, q_p, t_p, p_p, tsp_p, qsp_p, status_p) &
+          bind(c, name="findsp_vc_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: n_c, use_ice_c, idx_c, plenest_c
+       real(c_double), value :: epsilo_c, omeps_c, cpair_c, c3_c, tmelt_c, ttrice_c
+       real(c_double), value :: latvap_c, latice_c, rh2o_c
+       real(c_double), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c
+       type(c_ptr), value :: estbl_p, q_p, t_p, p_p, tsp_p, qsp_p, status_p
+     end subroutine findsp_vc_codon
   end interface
 
   ! Set coefficients for polynomial approximation of difference
@@ -408,7 +428,8 @@ subroutine wv_sat_init
 
   use wv_sat_methods, only: wv_sat_methods_init, &
                             wv_sat_get_scheme_idx, &
-                            wv_sat_valid_idx
+                            wv_sat_valid_idx, &
+                            wv_sat_get_default_idx
   use spmd_utils,     only: masterproc
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
@@ -463,9 +484,15 @@ subroutine wv_sat_init
      return
   end if
 
-  do i = 1, plenest
-    estbl(i) = svp_trans(tmin + real(i-1,r8))
-  end do
+  if (use_native_wv_saturation_impl) then
+     do i = 1, plenest
+       estbl(i) = svp_trans(tmin + real(i-1,r8))
+     end do
+  else
+     call wv_sat_init_table_codon(int(plenest, c_int64_t), real(tmin, c_double), &
+          real(tmelt, c_double), real(ttrice, c_double), int(wv_sat_get_default_idx(), c_int64_t), &
+          c_loc(estbl(1)))
+  end if
 
   if (masterproc) then
      write(iulog,*)' *** SATURATION VAPOR PRESSURE TABLE COMPLETED ***'
@@ -813,6 +840,7 @@ subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
 
   use cam_logfile,      only: iulog
   use cam_abortutils,   only: endrun
+  use wv_sat_methods,   only: wv_sat_get_default_idx
 
   ! Wrapper for findsp which is 1D and handles the output status.
   ! Changing findsp to elemental restricted debugging output.
@@ -820,16 +848,16 @@ subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
   ! but to change the existing version.
 
   ! input arguments
-  real(r8), intent(in) :: q(:)        ! water vapor (kg/kg)
-  real(r8), intent(in) :: t(:)        ! temperature (K)
-  real(r8), intent(in) :: p(:)        ! pressure    (Pa)
+  real(r8), target, intent(in) :: q(:)        ! water vapor (kg/kg)
+  real(r8), target, intent(in) :: t(:)        ! temperature (K)
+  real(r8), target, intent(in) :: p(:)        ! pressure    (Pa)
   logical,  intent(in) :: use_ice     ! flag to include ice phase in calculations
 
   ! output arguments
-  real(r8), intent(out) :: tsp(:)     ! saturation temp (K)
-  real(r8), intent(out) :: qsp(:)     ! saturation mixing ratio (kg/kg)
+  real(r8), target, intent(out) :: tsp(:)     ! saturation temp (K)
+  real(r8), target, intent(out) :: qsp(:)     ! saturation mixing ratio (kg/kg)
 
-  integer :: status(size(q))   ! flag representing state of output
+  integer, target :: status(size(q))   ! flag representing state of output
                                ! 0 => Successful convergence
                                ! 1 => No calculation done: pressure or specific
                                !      humidity not within usable range
@@ -841,9 +869,17 @@ subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
 
   n = size(q)
 
-  call findsp(q, t, p, use_ice, tsp, qsp, status)
-
-  if (.not. use_native_wv_saturation_impl) then
+  call wv_saturation_select_impl()
+  if (use_native_wv_saturation_impl) then
+     call findsp(q, t, p, use_ice, tsp, qsp, status)
+  else
+     call findsp_vc_codon(int(n, c_int64_t), int(merge(1, 0, use_ice), c_int64_t), &
+          int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), real(omeps, c_double), &
+          real(cpair, c_double), real(c3, c_double), real(tmelt, c_double), real(ttrice, c_double), &
+          real(latvap, c_double), real(latice, c_double), real(rh2o, c_double), real(pcf(1), c_double), &
+          real(pcf(2), c_double), real(pcf(3), c_double), real(pcf(4), c_double), real(pcf(5), c_double), &
+          real(tmin, c_double), real(tmax, c_double), c_loc(estbl(1)), int(plenest, c_int64_t), &
+          c_loc(q(1)), c_loc(t(1)), c_loc(p(1)), c_loc(tsp(1)), c_loc(qsp(1)), c_loc(status(1)))
      call wv_saturation_log_direct(findsp_vc_logged, &
           'findsp_vc direct = codon; vector wrapper/error reporting native island')
   end if

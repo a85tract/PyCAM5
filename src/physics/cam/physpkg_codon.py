@@ -9250,6 +9250,13 @@ def wv_sat_svp_trans_codon(t: float, idx: int, tmelt: float, ttrice: float) -> f
 
 
 @export
+def wv_sat_init_table_codon(plenest: int, tmin: float, tmelt: float, ttrice: float, idx: int, estbl_p: cobj):
+    estbl = Ptr[float](estbl_p)
+    for i in range(plenest):
+        estbl[i] = wv_sat_svp_trans_codon(tmin + float(i), idx, tmelt, ttrice)
+
+
+@export
 def svp_water_codon(t: float, idx: int) -> float:
     return wv_sat_svp_water_codon(t, idx)
 
@@ -9845,8 +9852,8 @@ def _wv_saturation_qsat_gam_enthalpy_codon(
     gam_p[0] = dqsdt * (hltalt / cpair)
 
 
-@export
-def wv_saturation_findsp_codon(
+@inline
+def _wv_saturation_findsp_impl(
     q: float,
     t: float,
     p: float,
@@ -9870,14 +9877,10 @@ def wv_saturation_findsp_codon(
     tmax: float,
     estbl_p: cobj,
     plenest: int,
-    tsp_p: cobj,
-    qsp_p: cobj,
-    status_p: cobj,
+    tsp_out: Ptr[float],
+    qsp_out: Ptr[float],
+    status_out: Ptr[i32],
 ):
-    tsp_out = Ptr[float](tsp_p)
-    qsp_out = Ptr[float](qsp_p)
-    status_out = Ptr[int](status_p)
-
     es = 0.0
     qs = 0.0
     if use_ice != 0:
@@ -9886,7 +9889,7 @@ def wv_saturation_findsp_codon(
         _wv_saturation_qsat_water_ptr_codon(t, p, idx, epsilo, omeps, __ptr__(es), __ptr__(qs))
 
     if p <= 5.0 * es or qs <= 0.0 or qs >= 0.5 or t < tmin or t > tmax:
-        status_out[0] = 1
+        status_out[0] = i32(1)
         tsp_out[0] = t
         qsp_out[0] = q
         return
@@ -10024,7 +10027,134 @@ def wv_saturation_findsp_codon(
         status = 8
 
     tsp_out[0] = tsp
-    status_out[0] = status
+    status_out[0] = i32(status)
+
+
+@export
+def wv_saturation_findsp_codon(
+    q: float,
+    t: float,
+    p: float,
+    use_ice: int,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    cpair: float,
+    c3: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    rh2o: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    tmin: float,
+    tmax: float,
+    estbl_p: cobj,
+    plenest: int,
+    tsp_p: cobj,
+    qsp_p: cobj,
+    status_p: cobj,
+):
+    _wv_saturation_findsp_impl(
+        q,
+        t,
+        p,
+        use_ice,
+        idx,
+        epsilo,
+        omeps,
+        cpair,
+        c3,
+        tmelt,
+        ttrice,
+        latvap,
+        latice,
+        rh2o,
+        pcf1,
+        pcf2,
+        pcf3,
+        pcf4,
+        pcf5,
+        tmin,
+        tmax,
+        estbl_p,
+        plenest,
+        Ptr[float](tsp_p),
+        Ptr[float](qsp_p),
+        Ptr[i32](status_p),
+    )
+
+
+@export
+def findsp_vc_codon(
+    n: int,
+    use_ice: int,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    cpair: float,
+    c3: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    rh2o: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    tmin: float,
+    tmax: float,
+    estbl_p: cobj,
+    plenest: int,
+    q_p: cobj,
+    t_p: cobj,
+    p_p: cobj,
+    tsp_p: cobj,
+    qsp_p: cobj,
+    status_p: cobj,
+):
+    q = Ptr[float](q_p)
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    tsp = Ptr[float](tsp_p)
+    qsp = Ptr[float](qsp_p)
+    status = Ptr[i32](status_p)
+
+    for i in range(n):
+        _wv_saturation_findsp_impl(
+            q[i],
+            t[i],
+            p[i],
+            use_ice,
+            idx,
+            epsilo,
+            omeps,
+            cpair,
+            c3,
+            tmelt,
+            ttrice,
+            latvap,
+            latice,
+            rh2o,
+            pcf1,
+            pcf2,
+            pcf3,
+            pcf4,
+            pcf5,
+            tmin,
+            tmax,
+            estbl_p,
+            plenest,
+            tsp + i,
+            qsp + i,
+            status + i,
+        )
 
 
 @export
