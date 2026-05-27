@@ -112,7 +112,7 @@ subroutine hkconv_readnl_proof_once()
    hkconv_readnl_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'hkconv_readnl entered (namelist scalar helpers = codon)'
+      write(iulog,'(A)') 'hkconv_readnl direct = codon; namelist I/O and MPI broadcast native islands'
    end if
 
 end subroutine hkconv_readnl_proof_once

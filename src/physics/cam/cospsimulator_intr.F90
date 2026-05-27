@@ -115,34 +115,34 @@ module cospsimulator_intr
    real(r8), target :: dbzemid_cosp(ndbze_cosp)          ! dbze midpoints of COSP radar output
    real(r8), target :: srmid_cosp(nsr_cosp)              ! sr midpoints of COSP lidar output                                     
    real(r8), target :: htmisrmid_cosp(nhtmisr_cosp)      ! htmisr midpoints of COSP misr simulator output
-   real(r8) :: htmlmid_cosp(nhtml_cosp)                  ! model level height midpoints for output
+   real(r8), target :: htmlmid_cosp(nhtml_cosp)          ! model level height midpoints for output
 
-   integer :: prstau_cosp(nprs_cosp*ntau_cosp)           ! ISCCP mixed output dimension index
-   integer :: prstau_cosp_modis(nprs_cosp*ntau_cosp_modis)       ! MODIS mixed output dimension index
-   integer :: htmisrtau_cosp(nhtmisr_cosp*ntau_cosp)     ! misr mixed output dimension index
+   integer, target :: prstau_cosp(nprs_cosp*ntau_cosp)           ! ISCCP mixed output dimension index
+   integer, target :: prstau_cosp_modis(nprs_cosp*ntau_cosp_modis)       ! MODIS mixed output dimension index
+   integer, target :: htmisrtau_cosp(nhtmisr_cosp*ntau_cosp)     ! misr mixed output dimension index
 
    ! real values associated with the collapsed mixed dimensions
-   real(r8) :: prstau_prsmid_cosp(nprs_cosp*ntau_cosp)
-   real(r8) :: prstau_taumid_cosp(nprs_cosp*ntau_cosp)
-   real(r8) :: prstau_prsmid_cosp_modis(nprs_cosp*ntau_cosp_modis)
-   real(r8) :: prstau_taumid_cosp_modis(nprs_cosp*ntau_cosp_modis)
-   real(r8) :: htmisrtau_htmisrmid_cosp(nhtmisr_cosp*ntau_cosp)
-   real(r8) :: htmisrtau_taumid_cosp(nhtmisr_cosp*ntau_cosp)
+   real(r8), target :: prstau_prsmid_cosp(nprs_cosp*ntau_cosp)
+   real(r8), target :: prstau_taumid_cosp(nprs_cosp*ntau_cosp)
+   real(r8), target :: prstau_prsmid_cosp_modis(nprs_cosp*ntau_cosp_modis)
+   real(r8), target :: prstau_taumid_cosp_modis(nprs_cosp*ntau_cosp_modis)
+   real(r8), target :: htmisrtau_htmisrmid_cosp(nhtmisr_cosp*ntau_cosp)
+   real(r8), target :: htmisrtau_taumid_cosp(nhtmisr_cosp*ntau_cosp)
 
    ! variable declarations - allocatable sizes
    real(r8),allocatable, target :: htlim_cosp(:,:)       ! height limits for COSP outputs (nht_cosp+1)
-   real(r8),allocatable :: htlim_cosp_1d(:)              ! height limits for COSP outputs (nht_cosp+1)
+   real(r8),allocatable, target :: htlim_cosp_1d(:)      ! height limits for COSP outputs (nht_cosp+1)
    real(r8),allocatable, target :: htmid_cosp(:)         ! height midpoints of COSP radar/lidar output (nht_cosp)
    integer,allocatable, target :: scol_cosp(:)           ! sub-column number (nscol_cosp)
-   integer,allocatable :: htdbze_cosp(:)                 ! radar CFAD mixed output dimension index (nht_cosp*ndbze_cosp)
-   integer,allocatable :: htsr_cosp(:)                   ! lidar CFAD mixed output dimension index (nht_cosp*nsr_cosp)
-   integer,allocatable :: htmlscol_cosp(:)               ! html-subcolumn mixed output dimension index (nhtml_cosp*nscol_cosp)
-   real(r8),allocatable :: htdbze_htmid_cosp(:)          ! (nht_cosp*ndbze_cosp)
-   real(r8),public,allocatable :: htdbze_dbzemid_cosp(:)        ! (nht_cosp*ndbze_cosp)
-   real(r8),allocatable :: htsr_htmid_cosp(:)            ! (nht_cosp*nsr_cosp)
-   real(r8),allocatable :: htsr_srmid_cosp(:)            ! (nht_cosp*nsr_cosp)
-   real(r8),allocatable:: htmlscol_htmlmid_cosp(:)       ! (nhtml_cosp*nscol_cosp)
-   real(r8),allocatable :: htmlscol_scol_cosp(:)         ! (nhtml_cosp*nscol_cosp)
+   integer,allocatable, target :: htdbze_cosp(:)         ! radar CFAD mixed output dimension index (nht_cosp*ndbze_cosp)
+   integer,allocatable, target :: htsr_cosp(:)           ! lidar CFAD mixed output dimension index (nht_cosp*nsr_cosp)
+   integer,allocatable, target :: htmlscol_cosp(:)       ! html-subcolumn mixed output dimension index (nhtml_cosp*nscol_cosp)
+   real(r8),allocatable, target :: htdbze_htmid_cosp(:)  ! (nht_cosp*ndbze_cosp)
+   real(r8),public,allocatable, target :: htdbze_dbzemid_cosp(:)        ! (nht_cosp*ndbze_cosp)
+   real(r8),allocatable, target :: htsr_htmid_cosp(:)    ! (nht_cosp*nsr_cosp)
+   real(r8),allocatable, target :: htsr_srmid_cosp(:)    ! (nht_cosp*nsr_cosp)
+   real(r8),allocatable, target :: htmlscol_htmlmid_cosp(:)       ! (nhtml_cosp*nscol_cosp)
+   real(r8),allocatable, target :: htmlscol_scol_cosp(:) ! (nhtml_cosp*nscol_cosp)
 
 !! The CAM and COSP namelists defaults are set below.  Some of the COSP namelist 
 !! variables are part of the CAM namelist - they all begin with "cosp_" to keep their 
@@ -347,6 +347,36 @@ module cospsimulator_intr
          integer(c_int64_t), value :: nradsteps_c, nht_current_c
          type(c_ptr), value :: nht_p, nscol_p, nradsteps_p, zstep_p
       end subroutine cosp_set_values_basic_codon
+      subroutine cosp_set_values_tables_codon(nht_c, nhtml_c, nscol_c, nprs_c, ntau_c, ntau_modis_c, &
+           ndbze_c, nsr_c, nhtmisr_c, zstep_c, use_vgrid_c, prslim_1d_p, taulim_1d_p, &
+           taulim_modis_1d_p, dbzelim_1d_p, srlim_1d_p, htmisrlim_1d_p, htlim_1d_p, &
+           prsmid_p, prslim_p, taumid_p, taulim_p, taumid_modis_p, taulim_modis_p, &
+           dbzemid_p, dbzelim_p, srmid_p, srlim_p, htmisrmid_p, htmisrlim_p, htmid_p, &
+           htlim_p, scol_p, htmlmid_p, prstau_p, prstau_modis_p, htdbze_p, htsr_p, &
+           htmlscol_p, htmisrtau_p, prstau_prsmid_p, prstau_taumid_p, &
+           prstau_prsmid_modis_p, prstau_taumid_modis_p, htdbze_htmid_p, &
+           htdbze_dbzemid_p, htsr_htmid_p, htsr_srmid_p, htmlscol_htmlmid_p, &
+           htmlscol_scol_p, htmisrtau_htmisrmid_p, htmisrtau_taumid_p) &
+           bind(c, name="cosp_set_values_tables_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: nht_c, nhtml_c, nscol_c, nprs_c, ntau_c, ntau_modis_c
+         integer(c_int64_t), value :: ndbze_c, nsr_c, nhtmisr_c, use_vgrid_c
+         real(c_double), value :: zstep_c
+         type(c_ptr), value :: prslim_1d_p, taulim_1d_p, taulim_modis_1d_p
+         type(c_ptr), value :: dbzelim_1d_p, srlim_1d_p, htmisrlim_1d_p, htlim_1d_p
+         type(c_ptr), value :: prsmid_p, prslim_p, taumid_p, taulim_p
+         type(c_ptr), value :: taumid_modis_p, taulim_modis_p, dbzemid_p, dbzelim_p
+         type(c_ptr), value :: srmid_p, srlim_p, htmisrmid_p, htmisrlim_p
+         type(c_ptr), value :: htmid_p, htlim_p, scol_p, htmlmid_p
+         type(c_ptr), value :: prstau_p, prstau_modis_p, htdbze_p, htsr_p
+         type(c_ptr), value :: htmlscol_p, htmisrtau_p
+         type(c_ptr), value :: prstau_prsmid_p, prstau_taumid_p
+         type(c_ptr), value :: prstau_prsmid_modis_p, prstau_taumid_modis_p
+         type(c_ptr), value :: htdbze_htmid_p, htdbze_dbzemid_p
+         type(c_ptr), value :: htsr_htmid_p, htsr_srmid_p
+         type(c_ptr), value :: htmlscol_htmlmid_p, htmlscol_scol_p
+         type(c_ptr), value :: htmisrtau_htmisrmid_p, htmisrtau_taumid_p
+      end subroutine cosp_set_values_tables_codon
       function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t), value :: stage_c
@@ -403,6 +433,22 @@ subroutine cosp_set_values_proof_once()
    end if
 
 end subroutine cosp_set_values_proof_once
+
+!------------------------------------------------------------------------------
+
+subroutine cosp_set_values_table_proof_once()
+
+   logical, save :: table_proof_written = .false.
+
+   if (table_proof_written) return
+   table_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'setcospvalues direct = codon; allocation native island'
+      call flush(iulog)
+   end if
+
+end subroutine cosp_set_values_table_proof_once
 
 !------------------------------------------------------------------------------
 
@@ -488,6 +534,8 @@ end subroutine cosp_set_values_basic_native
 
 subroutine setcospvalues(Nlr_in,use_vgrid_in,csat_vgrid_in,Ncolumns_in,docosp_in,cosp_nradsteps_in)
 
+   use iso_c_binding, only: c_double, c_int64_t, c_loc
+
    ! input arguments
    integer, intent(in) :: Nlr_in
    logical, intent(in) :: use_vgrid_in
@@ -498,7 +546,14 @@ subroutine setcospvalues(Nlr_in,use_vgrid_in,csat_vgrid_in,Ncolumns_in,docosp_in
 
    ! Local variables
    integer :: i,k		! indices
+   integer(c_int64_t) :: use_vgrid_c
    real(r8) :: zstep
+   real(r8), target :: prslim_cosp_1d_work(nprs_cosp+1)
+   real(r8), target :: taulim_cosp_1d_work(ntau_cosp+1)
+   real(r8), target :: taulim_cosp_modis_1d_work(ntau_cosp_modis+1)
+   real(r8), target :: dbzelim_cosp_1d_work(ndbze_cosp+1)
+   real(r8), target :: srlim_cosp_1d_work(nsr_cosp+1)
+   real(r8), target :: htmisrlim_cosp_1d_work(nhtmisr_cosp+1)
 
    call cosp_set_values_basic(Nlr_in, use_vgrid_in, csat_vgrid_in, Ncolumns_in, cosp_nradsteps_in, zstep)
 
@@ -513,6 +568,42 @@ subroutine setcospvalues(Nlr_in,use_vgrid_in,csat_vgrid_in,Ncolumns_in,docosp_in
 	htdbze_htmid_cosp(nht_cosp*ndbze_cosp),htdbze_dbzemid_cosp(nht_cosp*ndbze_cosp),&
 	htsr_htmid_cosp(nht_cosp*nsr_cosp),htsr_srmid_cosp(nht_cosp*nsr_cosp),&
 	htmlscol_htmlmid_cosp(nhtml_cosp*nscol_cosp),htmlscol_scol_cosp(nhtml_cosp*nscol_cosp))
+
+   if (.not. use_native_cosp_set_values_impl) then
+      if (use_vgrid_in) then
+         use_vgrid_c = 1_c_int64_t
+      else
+         use_vgrid_c = 0_c_int64_t
+      end if
+      prslim_cosp_1d_work = prslim_cosp_1d
+      taulim_cosp_1d_work = taulim_cosp_1d
+      taulim_cosp_modis_1d_work = taulim_cosp_modis_1d
+      dbzelim_cosp_1d_work = dbzelim_cosp_1d
+      srlim_cosp_1d_work = srlim_cosp_1d
+      htmisrlim_cosp_1d_work = htmisrlim_cosp_1d
+      call cosp_set_values_table_proof_once()
+      call cosp_set_values_tables_codon(int(nht_cosp, c_int64_t), int(nhtml_cosp, c_int64_t), &
+           int(nscol_cosp, c_int64_t), int(nprs_cosp, c_int64_t), int(ntau_cosp, c_int64_t), &
+           int(ntau_cosp_modis, c_int64_t), int(ndbze_cosp, c_int64_t), int(nsr_cosp, c_int64_t), &
+           int(nhtmisr_cosp, c_int64_t), real(zstep, c_double), use_vgrid_c, &
+           c_loc(prslim_cosp_1d_work(1)), c_loc(taulim_cosp_1d_work(1)), &
+           c_loc(taulim_cosp_modis_1d_work(1)), c_loc(dbzelim_cosp_1d_work(1)), &
+           c_loc(srlim_cosp_1d_work(1)), c_loc(htmisrlim_cosp_1d_work(1)), &
+           c_loc(htlim_cosp_1d(1)), c_loc(prsmid_cosp(1)), c_loc(prslim_cosp(1,1)), &
+           c_loc(taumid_cosp(1)), c_loc(taulim_cosp(1,1)), c_loc(taumid_cosp_modis(1)), &
+           c_loc(taulim_cosp_modis(1,1)), c_loc(dbzemid_cosp(1)), c_loc(dbzelim_cosp(1,1)), &
+           c_loc(srmid_cosp(1)), c_loc(srlim_cosp(1,1)), c_loc(htmisrmid_cosp(1)), &
+           c_loc(htmisrlim_cosp(1,1)), c_loc(htmid_cosp(1)), c_loc(htlim_cosp(1,1)), &
+           c_loc(scol_cosp(1)), c_loc(htmlmid_cosp(1)), c_loc(prstau_cosp(1)), &
+           c_loc(prstau_cosp_modis(1)), c_loc(htdbze_cosp(1)), c_loc(htsr_cosp(1)), &
+           c_loc(htmlscol_cosp(1)), c_loc(htmisrtau_cosp(1)), c_loc(prstau_prsmid_cosp(1)), &
+           c_loc(prstau_taumid_cosp(1)), c_loc(prstau_prsmid_cosp_modis(1)), &
+           c_loc(prstau_taumid_cosp_modis(1)), c_loc(htdbze_htmid_cosp(1)), &
+           c_loc(htdbze_dbzemid_cosp(1)), c_loc(htsr_htmid_cosp(1)), c_loc(htsr_srmid_cosp(1)), &
+           c_loc(htmlscol_htmlmid_cosp(1)), c_loc(htmlscol_scol_cosp(1)), &
+           c_loc(htmisrtau_htmisrmid_cosp(1)), c_loc(htmisrtau_taumid_cosp(1)))
+      return
+   end if
 
    if (use_vgrid_in) then		!! using fixed vertical grid
       htlim_cosp_1d(1)= 0.0_r8

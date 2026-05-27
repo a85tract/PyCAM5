@@ -226,6 +226,12 @@
         real(c_double) :: mumin2_c
      end function uwshcu_compute_mumin2_codon
 
+     function uwshcu_readnl_param_codon(value_c) result(out_c) bind(c, name="uwshcu_readnl_param_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: value_c
+        real(c_double) :: out_c
+     end function uwshcu_readnl_param_codon
+
      subroutine uwshcu_compute_parent_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, dt_c, &
           ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p, &
           t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p, &
@@ -476,6 +482,23 @@ contains
     end if
 
   end subroutine uwshcu_log_compute_public_output_parent_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_readnl_direct()
+
+    logical, save :: readnl_logged = .false.
+
+    if (readnl_logged) return
+    readnl_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu_readnl direct = codon; namelist I/O and MPI broadcast native islands'
+       call uwshcu_append_proof('uwshcu_readnl direct = codon; namelist I/O and MPI broadcast native islands')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_readnl_direct
 
 !===============================================================================
 
@@ -2697,6 +2720,7 @@ contains
 
 subroutine uwshcu_readnl(nlfile)
 
+   use iso_c_binding,  only: c_double
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
@@ -2732,7 +2756,8 @@ subroutine uwshcu_readnl(nlfile)
    call mpibcast(uwshcu_rpen,            1, mpir8,  0, mpicom)
 #endif
    
-   rpen=uwshcu_rpen
+   rpen = uwshcu_readnl_param_codon(real(uwshcu_rpen, c_double))
+   call uwshcu_log_readnl_direct()
   
 
 end subroutine uwshcu_readnl

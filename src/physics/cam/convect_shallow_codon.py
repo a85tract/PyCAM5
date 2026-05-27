@@ -131,6 +131,11 @@ def convect_shallow_init_action_codon(scheme_len: int, scheme_ascii_p: cobj) -> 
     return 0
 
 
+@export
+def uwshcu_readnl_param_codon(value: float) -> float:
+    return value
+
+
 _UWSHCU_XLV = 0.0
 _UWSHCU_XLS = 0.0
 _UWSHCU_CP = 0.0

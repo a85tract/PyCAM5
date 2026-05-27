@@ -150,7 +150,7 @@ subroutine cldwat_readnl_proof_once()
    cldwat_readnl_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cldwat_readnl entered (namelist scalar helpers = codon)'
+      write(iulog,'(A)') 'cldwat_readnl direct = codon; namelist I/O and MPI broadcast native islands'
    end if
 
 end subroutine cldwat_readnl_proof_once

@@ -120,7 +120,7 @@ contains
     carma_flags_proof_written = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'carma_flags entered (runtime namelist boolean helpers = codon)'
+       write(iulog,'(A)') 'carma_readnl direct = codon; namelist I/O and MPI broadcast native islands'
     end if
 
   end subroutine carma_flags_proof_once

@@ -8632,6 +8632,205 @@ def cosp_set_values_basic_codon(
     zstep[0] = zstep_value
 
 
+@inline
+def _idx2(r: int, c: int, ld1: int) -> int:
+    return (r - 1) + (c - 1) * ld1
+
+
+@export
+def cosp_set_values_tables_codon(
+    nht: int,
+    nhtml: int,
+    nscol: int,
+    nprs: int,
+    ntau: int,
+    ntau_modis: int,
+    ndbze: int,
+    nsr: int,
+    nhtmisr: int,
+    zstep: float,
+    use_vgrid: int,
+    prslim_1d_p: cobj,
+    taulim_1d_p: cobj,
+    taulim_modis_1d_p: cobj,
+    dbzelim_1d_p: cobj,
+    srlim_1d_p: cobj,
+    htmisrlim_1d_p: cobj,
+    htlim_1d_p: cobj,
+    prsmid_p: cobj,
+    prslim_p: cobj,
+    taumid_p: cobj,
+    taulim_p: cobj,
+    taumid_modis_p: cobj,
+    taulim_modis_p: cobj,
+    dbzemid_p: cobj,
+    dbzelim_p: cobj,
+    srmid_p: cobj,
+    srlim_p: cobj,
+    htmisrmid_p: cobj,
+    htmisrlim_p: cobj,
+    htmid_p: cobj,
+    htlim_p: cobj,
+    scol_p: cobj,
+    htmlmid_p: cobj,
+    prstau_p: cobj,
+    prstau_modis_p: cobj,
+    htdbze_p: cobj,
+    htsr_p: cobj,
+    htmlscol_p: cobj,
+    htmisrtau_p: cobj,
+    prstau_prsmid_p: cobj,
+    prstau_taumid_p: cobj,
+    prstau_prsmid_modis_p: cobj,
+    prstau_taumid_modis_p: cobj,
+    htdbze_htmid_p: cobj,
+    htdbze_dbzemid_p: cobj,
+    htsr_htmid_p: cobj,
+    htsr_srmid_p: cobj,
+    htmlscol_htmlmid_p: cobj,
+    htmlscol_scol_p: cobj,
+    htmisrtau_htmisrmid_p: cobj,
+    htmisrtau_taumid_p: cobj,
+):
+    prslim_1d = Ptr[float](prslim_1d_p)
+    taulim_1d = Ptr[float](taulim_1d_p)
+    taulim_modis_1d = Ptr[float](taulim_modis_1d_p)
+    dbzelim_1d = Ptr[float](dbzelim_1d_p)
+    srlim_1d = Ptr[float](srlim_1d_p)
+    htmisrlim_1d = Ptr[float](htmisrlim_1d_p)
+    htlim_1d = Ptr[float](htlim_1d_p)
+    prsmid = Ptr[float](prsmid_p)
+    prslim = Ptr[float](prslim_p)
+    taumid = Ptr[float](taumid_p)
+    taulim = Ptr[float](taulim_p)
+    taumid_modis = Ptr[float](taumid_modis_p)
+    taulim_modis = Ptr[float](taulim_modis_p)
+    dbzemid = Ptr[float](dbzemid_p)
+    dbzelim = Ptr[float](dbzelim_p)
+    srmid = Ptr[float](srmid_p)
+    srlim = Ptr[float](srlim_p)
+    htmisrmid = Ptr[float](htmisrmid_p)
+    htmisrlim = Ptr[float](htmisrlim_p)
+    htmid = Ptr[float](htmid_p)
+    htlim = Ptr[float](htlim_p)
+    scol = Ptr[i32](scol_p)
+    htmlmid = Ptr[float](htmlmid_p)
+    prstau = Ptr[i32](prstau_p)
+    prstau_modis = Ptr[i32](prstau_modis_p)
+    htdbze = Ptr[i32](htdbze_p)
+    htsr = Ptr[i32](htsr_p)
+    htmlscol = Ptr[i32](htmlscol_p)
+    htmisrtau = Ptr[i32](htmisrtau_p)
+    prstau_prsmid = Ptr[float](prstau_prsmid_p)
+    prstau_taumid = Ptr[float](prstau_taumid_p)
+    prstau_prsmid_modis = Ptr[float](prstau_prsmid_modis_p)
+    prstau_taumid_modis = Ptr[float](prstau_taumid_modis_p)
+    htdbze_htmid = Ptr[float](htdbze_htmid_p)
+    htdbze_dbzemid = Ptr[float](htdbze_dbzemid_p)
+    htsr_htmid = Ptr[float](htsr_htmid_p)
+    htsr_srmid = Ptr[float](htsr_srmid_p)
+    htmlscol_htmlmid = Ptr[float](htmlscol_htmlmid_p)
+    htmlscol_scol = Ptr[float](htmlscol_scol_p)
+    htmisrtau_htmisrmid = Ptr[float](htmisrtau_htmisrmid_p)
+    htmisrtau_taumid = Ptr[float](htmisrtau_taumid_p)
+
+    if use_vgrid != 0:
+        htlim_1d[0] = 0.0
+        for i in range(2, nht + 2):
+            htlim_1d[i - 1] = float(i - 1) * zstep
+
+    for k in range(1, nprs + 1):
+        prsmid[k - 1] = 0.5 * (prslim_1d[k - 1] + prslim_1d[k])
+        prslim[_idx2(1, k, 2)] = prslim_1d[k - 1]
+        prslim[_idx2(2, k, 2)] = prslim_1d[k]
+
+    for k in range(1, ntau + 1):
+        taumid[k - 1] = 0.5 * (taulim_1d[k - 1] + taulim_1d[k])
+        taulim[_idx2(1, k, 2)] = taulim_1d[k - 1]
+        taulim[_idx2(2, k, 2)] = taulim_1d[k]
+
+    for k in range(1, ntau_modis + 1):
+        taumid_modis[k - 1] = 0.5 * (taulim_modis_1d[k - 1] + taulim_modis_1d[k])
+        taulim_modis[_idx2(1, k, 2)] = taulim_modis_1d[k - 1]
+        taulim_modis[_idx2(2, k, 2)] = taulim_modis_1d[k]
+
+    for k in range(1, ndbze + 1):
+        dbzemid[k - 1] = 0.5 * (dbzelim_1d[k - 1] + dbzelim_1d[k])
+        dbzelim[_idx2(1, k, 2)] = dbzelim_1d[k - 1]
+        dbzelim[_idx2(2, k, 2)] = dbzelim_1d[k]
+
+    for k in range(1, nsr + 1):
+        srmid[k - 1] = 0.5 * (srlim_1d[k - 1] + srlim_1d[k])
+        srlim[_idx2(1, k, 2)] = srlim_1d[k - 1]
+        srlim[_idx2(2, k, 2)] = srlim_1d[k]
+
+    htmisrmid[0] = -99.0
+    htmisrlim[_idx2(1, 1, 2)] = htmisrlim_1d[0]
+    htmisrlim[_idx2(2, 1, 2)] = htmisrlim_1d[1]
+    for k in range(2, nhtmisr + 1):
+        htmisrmid[k - 1] = 0.5 * (htmisrlim_1d[k - 1] + htmisrlim_1d[k])
+        htmisrlim[_idx2(1, k, 2)] = htmisrlim_1d[k - 1]
+        htmisrlim[_idx2(2, k, 2)] = htmisrlim_1d[k]
+
+    for k in range(1, nht + 1):
+        htmid[k - 1] = 0.5 * (htlim_1d[k - 1] + htlim_1d[k])
+        htlim[_idx2(1, k, 2)] = htlim_1d[k - 1]
+        htlim[_idx2(2, k, 2)] = htlim_1d[k]
+
+    for k in range(1, nscol + 1):
+        scol[k - 1] = i32(k)
+
+    for k in range(1, nhtml + 1):
+        htmlmid[k - 1] = float(k)
+
+    for k in range(1, nprs * ntau + 1):
+        prstau[k - 1] = i32(k)
+    for k in range(1, nprs * ntau_modis + 1):
+        prstau_modis[k - 1] = i32(k)
+    for k in range(1, nht * ndbze + 1):
+        htdbze[k - 1] = i32(k)
+    for k in range(1, nht * nsr + 1):
+        htsr[k - 1] = i32(k)
+    for k in range(1, nhtml * nscol + 1):
+        htmlscol[k - 1] = i32(k)
+    for k in range(1, nhtmisr * ntau + 1):
+        htmisrtau[k - 1] = i32(k)
+
+    for k in range(1, nprs + 1):
+        for j in range(1, ntau + 1):
+            idx = j + ntau * (k - 1) - 1
+            prstau_taumid[idx] = taumid[j - 1]
+            prstau_prsmid[idx] = prsmid[k - 1]
+        for j in range(1, ntau_modis + 1):
+            idx = j + ntau_modis * (k - 1) - 1
+            prstau_taumid_modis[idx] = taumid_modis[j - 1]
+            prstau_prsmid_modis[idx] = prsmid[k - 1]
+
+    for k in range(1, nht + 1):
+        for j in range(1, ndbze + 1):
+            idx = j + ndbze * (k - 1) - 1
+            htdbze_dbzemid[idx] = dbzemid[j - 1]
+            htdbze_htmid[idx] = htmid[k - 1]
+
+    for k in range(1, nht + 1):
+        for j in range(1, nsr + 1):
+            idx = j + nsr * (k - 1) - 1
+            htsr_srmid[idx] = srmid[j - 1]
+            htsr_htmid[idx] = htmid[k - 1]
+
+    for k in range(1, nhtml + 1):
+        for j in range(1, nscol + 1):
+            idx = j + nscol * (k - 1) - 1
+            htmlscol_scol[idx] = float(scol[j - 1])
+            htmlscol_htmlmid[idx] = htmlmid[k - 1]
+
+    for k in range(1, nhtmisr + 1):
+        for j in range(1, ntau + 1):
+            idx = j + ntau * (k - 1) - 1
+            htmisrtau_taumid[idx] = taumid[j - 1]
+            htmisrtau_htmisrmid[idx] = htmisrmid[k - 1]
+
+
 @export
 def carma_flags_bool_codon(flag: int) -> int:
     if flag != 0:
