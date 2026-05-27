@@ -130,6 +130,7 @@ logical :: diag_init_logged = .false.
 logical :: diag_allocate_logged = .false.
 logical :: diag_deallocate_logged = .false.
 logical :: diag_phys_writeout_logged = .false.
+logical :: diag_surf_logged = .false.
 logical :: diag_export_logged = .false.
 logical :: diag_state_b4_phys_write_logged = .false.
 
@@ -2766,6 +2767,8 @@ subroutine diag_surf (cam_in, cam_out, ps, trefmxav, trefmnav )
         c_loc(cam_in%qref), c_loc(ftem), c_loc(cam_in%tref), &
         c_loc(trefmxav), c_loc(trefmnav), c_loc(trefmx_day), c_loc(trefmn_day) &
    )
+   call cam_diag_log_direct(diag_surf_logged, &
+        'diag_surf direct = codon; RHREFHT/daily TREF minmax numeric body direct = codon; outfld/qsat/CO2 native CAM API islands')
 
 
     call outfld('RHREFHT',   ftem,      pcols, lchnk)
