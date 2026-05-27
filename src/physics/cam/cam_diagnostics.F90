@@ -160,6 +160,13 @@ interface
       type(c_ptr), value :: a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p
       type(c_ptr), value :: out1_p, out2_p, out3_p, out4_p, out5_p, aux1_p, aux2_p
    end subroutine diag_conv_batch_dispatch_codon
+   subroutine diag_conv_scale_2d_codon(ncol_c, pcols_c, pver_c, scale_c, src_p, out_p) &
+        bind(c, name="diag_conv_scale_2d_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+      real(c_double), value :: scale_c
+      type(c_ptr), value :: src_p, out_p
+   end subroutine diag_conv_scale_2d_codon
 end interface
 
 contains
@@ -2450,6 +2457,7 @@ subroutine diag_conv(state, ztodt, pbuf)
    real(r8), target :: snowl(pcols)       ! stratiform snow rate
    real(r8), target :: prect(pcols)       ! total (conv+large scale) precip rate
    real(r8), target :: dqcond_work(pcols,pver)
+   real(r8), target :: tidal_work(pcols,pver)
    real(r8) :: dcoef(4)                   ! for tidal component of T tend
 
    lchnk = state%lchnk
@@ -2552,10 +2560,25 @@ subroutine diag_conv(state, ztodt, pbuf)
 
    ! output tidal coefficients
    call get_tidal_coeffs( dcoef )
-   call outfld( 'DTCOND_24_SIN', dtcond(:ncol,:,lchnk)*dcoef(1), ncol, lchnk )
-   call outfld( 'DTCOND_24_COS', dtcond(:ncol,:,lchnk)*dcoef(2), ncol, lchnk )
-   call outfld( 'DTCOND_12_SIN', dtcond(:ncol,:,lchnk)*dcoef(3), ncol, lchnk )
-   call outfld( 'DTCOND_12_COS', dtcond(:ncol,:,lchnk)*dcoef(4), ncol, lchnk )
+   if (cam_diag_conv_batch_use_native_impl) then
+      call outfld( 'DTCOND_24_SIN', dtcond(:ncol,:,lchnk)*dcoef(1), ncol, lchnk )
+      call outfld( 'DTCOND_24_COS', dtcond(:ncol,:,lchnk)*dcoef(2), ncol, lchnk )
+      call outfld( 'DTCOND_12_SIN', dtcond(:ncol,:,lchnk)*dcoef(3), ncol, lchnk )
+      call outfld( 'DTCOND_12_COS', dtcond(:ncol,:,lchnk)*dcoef(4), ncol, lchnk )
+   else
+      call diag_conv_scale_2d_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           real(dcoef(1), c_double), c_loc(dtcond(1,1,lchnk)), c_loc(tidal_work(1,1)))
+      call outfld( 'DTCOND_24_SIN', tidal_work, ncol, lchnk )
+      call diag_conv_scale_2d_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           real(dcoef(2), c_double), c_loc(dtcond(1,1,lchnk)), c_loc(tidal_work(1,1)))
+      call outfld( 'DTCOND_24_COS', tidal_work, ncol, lchnk )
+      call diag_conv_scale_2d_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           real(dcoef(3), c_double), c_loc(dtcond(1,1,lchnk)), c_loc(tidal_work(1,1)))
+      call outfld( 'DTCOND_12_SIN', tidal_work, ncol, lchnk )
+      call diag_conv_scale_2d_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           real(dcoef(4), c_double), c_loc(dtcond(1,1,lchnk)), c_loc(tidal_work(1,1)))
+      call outfld( 'DTCOND_12_COS', tidal_work, ncol, lchnk )
+   end if
 
    do m = 1, dqcond_num
       if ( cnst_cam_outfld(m) ) then

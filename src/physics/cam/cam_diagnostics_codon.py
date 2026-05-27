@@ -382,6 +382,24 @@ def diag_conv_dqcond_codon(
 
 
 @export
+def diag_conv_scale_2d_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    scale: float,
+    src_p: cobj,
+    out_p: cobj,
+):
+    src = Ptr[float](src_p)
+    out = Ptr[float](out_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            out[idx] = src[idx] * scale
+
+
+@export
 def diag_conv_update_batch_codon(
     mode: int,
     ncol: int,
