@@ -106,19 +106,25 @@ interface
      type(c_ptr), value :: a_p, ga_p
    end subroutine cldfrc2m_astg_pdf_zero_codon
 
-   function cldfrc2m_aist_single_option5_codon(qv_c, qi_c, qs_c, esl_c, esi_c, &
-        rhmini_c, rhmaxi_c) result(aist_c) bind(c, name="cldfrc2m_aist_single_option5_codon")
-     use iso_c_binding, only: c_double
-     real(c_double), value :: qv_c, qi_c, qs_c, esl_c, esi_c, rhmini_c, rhmaxi_c
+   function cldfrc2m_aist_single_codon(iceopt_c, qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, qs_c, esl_c, esi_c, &
+        rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c, icecrit_c, rair_c) &
+        result(aist_c) bind(c, name="cldfrc2m_aist_single_codon")
+     use iso_c_binding, only: c_double, c_int64_t
+     integer(c_int64_t), value :: iceopt_c
+     real(c_double), value :: qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, qs_c, esl_c, esi_c
+     real(c_double), value :: rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c
+     real(c_double), value :: premib_c, premit_c, icecrit_c, rair_c
      real(c_double) :: aist_c
-   end function cldfrc2m_aist_single_option5_codon
+   end function cldfrc2m_aist_single_codon
 
-   subroutine cldfrc2m_aist_vector_codon(pcols_c, ncol_c, rhmaxi_c, qv_p, qi_p, qsat_p, esl_p, esi_p, &
-        rhmini_p, aist_p) bind(c, name="cldfrc2m_aist_vector_codon")
+   subroutine cldfrc2m_aist_vector_codon(pcols_c, ncol_c, iceopt_c, rhmaxi_c, premib_c, premit_c, icecrit_c, rair_c, &
+        qv_p, t_p, p_p, qi_p, ni_p, landfrac_p, snowh_p, qsat_p, esl_p, esi_p, rhmini_p, rhminl_p, &
+        rhminl_adj_land_p, rhminh_p, aist_p) bind(c, name="cldfrc2m_aist_vector_codon")
      use iso_c_binding, only: c_int64_t, c_double, c_ptr
-     integer(c_int64_t), value :: pcols_c, ncol_c
-     real(c_double), value :: rhmaxi_c
-     type(c_ptr), value :: qv_p, qi_p, qsat_p, esl_p, esi_p, rhmini_p, aist_p
+     integer(c_int64_t), value :: pcols_c, ncol_c, iceopt_c
+     real(c_double), value :: rhmaxi_c, premib_c, premit_c, icecrit_c, rair_c
+     type(c_ptr), value :: qv_p, t_p, p_p, qi_p, ni_p, landfrac_p, snowh_p, qsat_p, esl_p, esi_p
+     type(c_ptr), value :: rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, aist_p
    end subroutine cldfrc2m_aist_vector_codon
 end interface
 
@@ -276,7 +282,7 @@ subroutine cldfrc2m_aist_proof_once()
    cldfrc2m_aist_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cldfrc2m_aist_vector entered (ice stratus option 5 helper = codon)'
+      write(iulog,'(A)') 'cldfrc2m_aist_vector direct = codon; native saturation lookup API'
    end if
 
 end subroutine cldfrc2m_aist_proof_once
@@ -289,7 +295,7 @@ subroutine cldfrc2m_aist_single_proof_once()
    cldfrc2m_aist_single_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cldfrc2m_aist_single entered (ice stratus option 5 helper = codon)'
+      write(iulog,'(A)') 'cldfrc2m_aist_single direct = codon; native saturation lookup API'
    end if
 
 end subroutine cldfrc2m_aist_single_proof_once
@@ -1039,7 +1045,7 @@ end subroutine astG_RHU
 subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
                        rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in)
 
-   use iso_c_binding, only: c_double
+   use iso_c_binding, only: c_double, c_int64_t
 
    ! --------------------------------------------------------- !
    ! Compute non-physical ice stratus fraction                 ! 
@@ -1127,6 +1133,18 @@ subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
      call qsat_water(T, p, es, qs)
      esl = svp_water(T)
      esi = svp_ice(T)
+
+     call cldfrc2m_aist_select_impl()
+     if (.not. use_native_cldfrc2m_aist_impl) then
+        call cldfrc2m_aist_single_proof_once()
+        aist = real(cldfrc2m_aist_single_codon(int(iceopt, c_int64_t), real(qv, c_double), &
+             real(T, c_double), real(p, c_double), real(qi, c_double), real(landfrac, c_double), &
+             real(snowh, c_double), real(qs, c_double), real(esl, c_double), real(esi, c_double), &
+             real(rhmaxi, c_double), real(rhmini, c_double), real(rhminl, c_double), &
+             real(rhminl_adj_land, c_double), real(rhminh, c_double), real(premib, c_double), &
+             real(premit, c_double), real(icecrit, c_double), real(rair, c_double)), r8)
+        return
+     end if
           
      if( iceopt.lt.3 ) then
          if( iceopt.eq.1 ) then
@@ -1173,51 +1191,41 @@ subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
          endif
              aist = max(0._r8,min(aist,1._r8))
      elseif (iceopt.eq.5) then
-        call cldfrc2m_aist_select_impl()
-        if (use_native_cldfrc2m_aist_impl) then
-           ! set rh ice cloud fraction
-           rhi= (qv+qi)/qs * (esl/esi)
-           rhdif= (rhi-rhmini) / (rhmaxi - rhmini)
-           aist = min(1.0_r8, max(rhdif,0._r8)**2)
+        ! set rh ice cloud fraction
+        rhi= (qv+qi)/qs * (esl/esi)
+        rhdif= (rhi-rhmini) / (rhmaxi - rhmini)
+        aist = min(1.0_r8, max(rhdif,0._r8)**2)
 
 
-           ! limiter to remove empty cloud and ice with no cloud
-           ! and set icecld fraction to mincld if ice exists
+        ! limiter to remove empty cloud and ice with no cloud
+        ! and set icecld fraction to mincld if ice exists
 
-           if (qi.lt.minice) then
-              aist=0._r8
-           else
-              aist=max(mincld,aist)
-           endif
-
-           ! enforce limits on icimr
-           if (qi.ge.minice) then
-              icimr=qi/aist
-
-              !minimum
-              if (icimr.lt.qist_min) then
-                 aist = max(0._r8,min(1._r8,qi/qist_min))
-              endif
-              !maximum
-              if (icimr.gt.qist_max) then
-                 aist = max(0._r8,min(1._r8,qi/qist_max))
-              endif
-
-           endif
+        if (qi.lt.minice) then
+           aist=0._r8
         else
-           call cldfrc2m_aist_single_proof_once()
-           aist = real(cldfrc2m_aist_single_option5_codon(real(qv, c_double), real(qi, c_double), &
-                real(qs, c_double), real(esl, c_double), real(esi, c_double), real(rhmini, c_double), &
-                real(rhmaxi, c_double)), r8)
+           aist=max(mincld,aist)
+        endif
+
+        ! enforce limits on icimr
+        if (qi.ge.minice) then
+           icimr=qi/aist
+
+           !minimum
+           if (icimr.lt.qist_min) then
+              aist = max(0._r8,min(1._r8,qi/qist_min))
+           endif
+           !maximum
+           if (icimr.gt.qist_max) then
+              aist = max(0._r8,min(1._r8,qi/qist_max))
+           endif
+
         endif
      endif 
 
    ! 0.999_r8 is added to prevent infinite 'ql_st' at the end of instratus_condensate
    ! computed after updating 'qi_st'.  
 
-     if (iceopt /= 5 .or. use_native_cldfrc2m_aist_impl) then
-        aist = max(0._r8,min(aist,0.999_r8))
-     end if
+     aist = max(0._r8,min(aist,0.999_r8))
 
 end subroutine aist_single
 
@@ -1226,7 +1234,7 @@ end subroutine aist_single
 subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, aist_out, ncol, &
                        rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in )
 
-   use iso_c_binding, only: c_int64_t, c_loc
+   use iso_c_binding, only: c_double, c_int64_t, c_loc
 
    real(r8), target, intent(in)  :: qv_in(pcols)
    real(r8), target, intent(in)  :: T_in(pcols)
@@ -1250,12 +1258,15 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
    real(r8), target :: esl_in(pcols)
    real(r8), target :: esi_in(pcols)
    real(r8), target :: rhmini_work(pcols)
+   real(r8), target :: rhminl_work(pcols)
+   real(r8), target :: rhminl_adj_land_work(pcols)
+   real(r8), target :: rhminh_work(pcols)
    real(r8) :: rhmaxi
    integer :: i
 
    call cldfrc2m_aist_select_impl()
 
-   if (use_native_cldfrc2m_aist_impl .or. iceopt /= 5) then
+   if (use_native_cldfrc2m_aist_impl) then
       call aist_vector_native(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, aist_out, ncol, &
            rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in)
       return
@@ -1266,6 +1277,12 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
 
    rhmini_work(:) = rhmini_const
    if (present(rhmini_in)) rhmini_work(:ncol) = rhmini_in(:ncol)
+   rhminl_work(:) = rhminl_const
+   if (present(rhminl_in)) rhminl_work(:ncol) = rhminl_in(:ncol)
+   rhminl_adj_land_work(:) = rhminl_adj_land_const
+   if (present(rhminl_adj_land_in)) rhminl_adj_land_work(:ncol) = rhminl_adj_land_in(:ncol)
+   rhminh_work(:) = rhminh_const
+   if (present(rhminh_in)) rhminh_work(:ncol) = rhminh_in(:ncol)
 
    call qsat_water(T_in(1:ncol), p_in(1:ncol), esat_in(1:ncol), qsat_in(1:ncol))
    do i = 1, ncol
@@ -1274,8 +1291,11 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
    end do
 
    call cldfrc2m_aist_proof_once()
-   call cldfrc2m_aist_vector_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), rhmaxi, c_loc(qv_in(1)), &
-        c_loc(qi_in(1)), c_loc(qsat_in(1)), c_loc(esl_in(1)), c_loc(esi_in(1)), c_loc(rhmini_work(1)), &
+   call cldfrc2m_aist_vector_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), int(iceopt, c_int64_t), &
+        rhmaxi, real(premib, c_double), real(premit, c_double), real(icecrit, c_double), real(rair, c_double), &
+        c_loc(qv_in(1)), c_loc(T_in(1)), c_loc(p_in(1)), c_loc(qi_in(1)), c_loc(ni_in(1)), &
+        c_loc(landfrac_in(1)), c_loc(snowh_in(1)), c_loc(qsat_in(1)), c_loc(esl_in(1)), c_loc(esi_in(1)), &
+        c_loc(rhmini_work(1)), c_loc(rhminl_work(1)), c_loc(rhminl_adj_land_work(1)), c_loc(rhminh_work(1)), &
         c_loc(aist_out(1)))
 
 end subroutine aist_vector

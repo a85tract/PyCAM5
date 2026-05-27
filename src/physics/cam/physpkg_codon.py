@@ -17,7 +17,7 @@ from C import murphykoop_svp_water_native_cb(float) -> float
 from C import oldgoffgratch_svp_ice_native_cb(float) -> float
 from C import oldgoffgratch_svp_water_native_cb(float) -> float
 from C import zm_entropy_expr_native_cb(float, float, float, float, float, float, float, float, float, float, float, float) -> float
-from math import cos, exp, floor, log, sin, sqrt
+from math import acos, cos, exp, floor, log, sin, sqrt
 
 @export
 def physpkg_orch_stage_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
@@ -4444,6 +4444,156 @@ def cldfrc2m_astg_pdf_zero_codon(pcols: int, a_p: cobj, ga_p: cobj):
         ga[i] = 0.0
 
 
+@inline
+def _cldfrc2m_aist_core(
+    iceopt: int,
+    qv: float,
+    t: float,
+    p: float,
+    qi: float,
+    qsat: float,
+    esl: float,
+    esi: float,
+    rhmaxi: float,
+    rhmini: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    landfrac: float,
+    snowh: float,
+    ni: float,
+    premib: float,
+    premit: float,
+    icecrit: float,
+    rair: float,
+) -> float:
+    a = 26.87
+    b = 0.569
+    c = 0.002892
+    as_fit = -68.4202
+    bs = 0.983917
+    cs = 2.81795
+    kc = 75.0
+    minice = 1.0e-12
+    mincld = 1.0e-4
+    qist_min = 1.0e-7
+    qist_max = 5.0e-3
+
+    aist = 0.0
+    if iceopt < 3:
+        if iceopt == 1:
+            ttmp = max(195.0, min(t, 253.0)) - 273.16
+            icicval = a + b * ttmp + c * ttmp**2.0
+            rho = p / (rair * t)
+            icicval = icicval * 1.0e-6 / rho
+        else:
+            ttmp = max(190.0, min(t, 273.16))
+            icicval = 10.0 ** (as_fit * bs**ttmp + cs)
+            icicval = icicval * 1.0e-6 * 18.0 / 28.97
+        aist = max(0.0, min(qi / icicval, 1.0))
+    elif iceopt == 3:
+        aist = 1.0 - exp(-kc * qi / (qsat * (esi / esl)))
+        aist = max(0.0, min(aist, 1.0))
+    elif iceopt == 4:
+        if p >= premib:
+            if int(landfrac + 0.5) == 1 and snowh <= 0.000001:
+                rhmin = rhminl - rhminl_adj_land
+            else:
+                rhmin = rhminl
+        elif p < premit:
+            rhmin = rhminh
+        else:
+            rhwght = (premib - max(p, premit)) / (premib - premit)
+            rhmin = rhminh * rhwght + rhminl * (1.0 - rhwght)
+
+        ncf = qi / ((1.0 - icecrit) * qsat)
+        if ncf <= 0.0:
+            aist = 0.0
+        elif ncf > 0.0 and ncf <= 1.0 / 6.0:
+            aist = 0.5 * (6.0 * ncf) ** (2.0 / 3.0)
+        elif ncf > 1.0 / 6.0 and ncf < 1.0:
+            phi = (acos(3.0 * (1.0 - ncf) / 2.0 ** (3.0 / 2.0)) + 4.0 * 3.1415927) / 3.0
+            aist = 1.0 - 4.0 * cos(phi) * cos(phi)
+        else:
+            aist = 1.0
+        aist = max(0.0, min(aist, 1.0))
+    elif iceopt == 5:
+        rhi = (qv + qi) / qsat * (esl / esi)
+        rhdif = (rhi - rhmini) / (rhmaxi - rhmini)
+        aist = min(1.0, max(rhdif, 0.0) ** 2)
+    elif iceopt == 6:
+        ah = 6.73834e-08
+        bh = 0.0533110
+        ch = 0.3493813
+        rho = p / (rair * t)
+        nil = ni * rho / 1000.0
+        icicval = ah * exp(bh * t) * nil**ch
+        icicval = icicval / rho / 1000.0
+        aist = max(0.0, min(qi / icicval, 1.0))
+        aist = min(aist, 1.0)
+
+    if iceopt == 5 or iceopt == 6:
+        if qi < minice:
+            aist = 0.0
+        else:
+            aist = max(mincld, aist)
+
+        if qi >= minice:
+            icimr = qi / aist
+            if icimr < qist_min:
+                aist = max(0.0, min(1.0, qi / qist_min))
+            if icimr > qist_max:
+                aist = max(0.0, min(1.0, qi / qist_max))
+
+    return max(0.0, min(aist, 0.999))
+
+
+@export
+def cldfrc2m_aist_single_codon(
+    iceopt: int,
+    qv: float,
+    t: float,
+    p: float,
+    qi: float,
+    landfrac: float,
+    snowh: float,
+    qsat: float,
+    esl: float,
+    esi: float,
+    rhmaxi: float,
+    rhmini: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    premib: float,
+    premit: float,
+    icecrit: float,
+    rair: float,
+) -> float:
+    return _cldfrc2m_aist_core(
+        iceopt,
+        qv,
+        t,
+        p,
+        qi,
+        qsat,
+        esl,
+        esi,
+        rhmaxi,
+        rhmini,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        landfrac,
+        snowh,
+        0.0,
+        premib,
+        premit,
+        icecrit,
+        rair,
+    )
+
+
 @export
 def cldfrc2m_aist_single_option5_codon(
     qv: float,
@@ -4454,26 +4604,21 @@ def cldfrc2m_aist_single_option5_codon(
     rhmini: float,
     rhmaxi: float,
 ) -> float:
-    qist_min = 1.0e-7
-    qist_max = 5.0e-3
-    minice = 1.0e-12
-    mincld = 1.0e-4
-
     rhi = (qv + qi) / qsat * (esl / esi)
     rhdif = (rhi - rhmini) / (rhmaxi - rhmini)
     aist = min(1.0, max(rhdif, 0.0) ** 2)
 
-    if qi < minice:
+    if qi < 1.0e-12:
         aist = 0.0
     else:
-        aist = max(mincld, aist)
+        aist = max(1.0e-4, aist)
 
-    if qi >= minice:
+    if qi >= 1.0e-12:
         icimr = qi / aist
-        if icimr < qist_min:
-            aist = max(0.0, min(1.0, qi / qist_min))
-        if icimr > qist_max:
-            aist = max(0.0, min(1.0, qi / qist_max))
+        if icimr < 1.0e-7:
+            aist = max(0.0, min(1.0, qi / 1.0e-7))
+        if icimr > 5.0e-3:
+            aist = max(0.0, min(1.0, qi / 5.0e-3))
 
     return max(0.0, min(aist, 0.999))
 
@@ -4482,52 +4627,71 @@ def cldfrc2m_aist_single_option5_codon(
 def cldfrc2m_aist_vector_codon(
     pcols: int,
     ncol: int,
+    iceopt: int,
     rhmaxi: float,
+    premib: float,
+    premit: float,
+    icecrit: float,
+    rair: float,
     qv_p: cobj,
+    t_p: cobj,
+    p_p: cobj,
     qi_p: cobj,
+    ni_p: cobj,
+    landfrac_p: cobj,
+    snowh_p: cobj,
     qsat_p: cobj,
     esl_p: cobj,
     esi_p: cobj,
     rhmini_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
     aist_p: cobj,
 ):
     qv = Ptr[float](qv_p)
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
     qi = Ptr[float](qi_p)
+    ni = Ptr[float](ni_p)
+    landfrac = Ptr[float](landfrac_p)
+    snowh = Ptr[float](snowh_p)
     qsat = Ptr[float](qsat_p)
     esl = Ptr[float](esl_p)
     esi = Ptr[float](esi_p)
     rhmini = Ptr[float](rhmini_p)
+    rhminl = Ptr[float](rhminl_p)
+    rhminl_adj_land = Ptr[float](rhminl_adj_land_p)
+    rhminh = Ptr[float](rhminh_p)
     aist_out = Ptr[float](aist_p)
-
-    qist_min = 1.0e-7
-    qist_max = 5.0e-3
-    minice = 1.0e-12
-    mincld = 1.0e-4
 
     for i0 in range(pcols):
         aist_out[i0] = 0.0
 
     for i in range(1, ncol + 1):
         i0 = i - 1
-        rhi = (qv[i0] + qi[i0]) / qsat[i0] * (esl[i0] / esi[i0])
-        rhdif = (rhi - rhmini[i0]) / (rhmaxi - rhmini[i0])
-        aist = min(1.0, max(rhdif, 0.0) ** 2)
-
-        if qi[i0] < minice:
-            aist = 0.0
-        else:
-            aist = max(mincld, aist)
-
-        if qi[i0] >= minice:
-            icimr = qi[i0] / aist
-
-            if icimr < qist_min:
-                aist = max(0.0, min(1.0, qi[i0] / qist_min))
-
-            if icimr > qist_max:
-                aist = max(0.0, min(1.0, qi[i0] / qist_max))
-
-        aist_out[i0] = max(0.0, min(aist, 0.999))
+        aist_out[i0] = _cldfrc2m_aist_core(
+            iceopt,
+            qv[i0],
+            t[i0],
+            p[i0],
+            qi[i0],
+            qsat[i0],
+            esl[i0],
+            esi[i0],
+            rhmaxi,
+            rhmini[i0],
+            rhminl[i0],
+            rhminl_adj_land[i0],
+            rhminh[i0],
+            landfrac[i0],
+            snowh[i0],
+            ni[i0],
+            premib,
+            premit,
+            icecrit,
+            rair,
+        )
 
 
 @inline
