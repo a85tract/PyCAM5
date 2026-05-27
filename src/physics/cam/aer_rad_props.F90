@@ -72,13 +72,13 @@ interface
       integer(c_int64_t), value :: stage_c
       integer(c_int64_t) :: stage_out
    end function final_cam_cleanup_touch_codon
-   subroutine aer_vis_diag_prepare_codon(ncol_c, pcols_c, tau_nlev_c, nnite_c, fillvalue_c, &
-        idxnite_p, tau_p, troplev_p, tmp_p, tmp2_p) bind(c, name="aer_vis_diag_prepare_codon")
+   subroutine aer_vis_diag_out_codon(ncol_c, pcols_c, tau_nlev_c, nnite_c, fillvalue_c, &
+        idxnite_p, tau_p, troplev_p, tmp_p, tmp2_p) bind(c, name="aer_vis_diag_out_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: ncol_c, pcols_c, tau_nlev_c, nnite_c
       real(c_double), value :: fillvalue_c
       type(c_ptr), value :: idxnite_p, tau_p, troplev_p, tmp_p, tmp2_p
-   end subroutine aer_vis_diag_prepare_codon
+   end subroutine aer_vis_diag_out_codon
 end interface
 
 !==============================================================================
@@ -929,7 +929,7 @@ subroutine aer_vis_diag_out(lchnk, ncol, nnite, idxnite, iaer, tau, diag_idx, tr
            'aer_vis_diag_out direct = codon; outfld native history island')
       if (nnite > 0) idxnite_i8(1:nnite) = int(idxnite(1:nnite), c_int64_t)
       troplev_i8(1:pcols) = int(troplev(1:pcols), c_int64_t)
-      call aer_vis_diag_prepare_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call aer_vis_diag_out_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(size(tau, 2), c_int64_t), int(nnite, c_int64_t), real(fillvalue, c_double), &
            c_loc(idxnite_i8(1)), c_loc(tau(1,1)), c_loc(troplev_i8(1)), c_loc(tmp(1)), c_loc(tmp2(1)))
    else

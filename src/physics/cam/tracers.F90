@@ -388,16 +388,9 @@ subroutine tracers_timestep_init( phys_state )
      return
   end if
 
-  if (tracers_flag) then
-     call tracers_log_direct(tracers_timestep_init_logged, &
-          'tracers_timestep_init direct = codon control shell; native enabled timestep_init_tr island')
-     call tracers_timestep_init_native(phys_state)
-     return
-  end if
-
   call tracers_timestep_init_codon()
   call tracers_log_direct(tracers_timestep_init_logged, &
-       'tracers_timestep_init direct = codon flag-off no-op')
+       'tracers_timestep_init direct = codon no-op/control shell')
 
 end subroutine tracers_timestep_init
 

@@ -8261,6 +8261,33 @@ def aer_vis_diag_prepare_codon(
 
 
 @export
+def aer_vis_diag_out_codon(
+    ncol: int,
+    pcols: int,
+    tau_nlev: int,
+    nnite: int,
+    fillvalue: float,
+    idxnite_p: cobj,
+    tau_p: cobj,
+    troplev_p: cobj,
+    tmp_p: cobj,
+    tmp2_p: cobj,
+):
+    aer_vis_diag_prepare_codon(
+        ncol,
+        pcols,
+        tau_nlev,
+        nnite,
+        fillvalue,
+        idxnite_p,
+        tau_p,
+        troplev_p,
+        tmp_p,
+        tmp2_p,
+    )
+
+
+@export
 def micro_mg_utils_init_scalars_codon(
     rh2o: float,
     cpair: float,
