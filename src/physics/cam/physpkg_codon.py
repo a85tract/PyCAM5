@@ -8670,6 +8670,25 @@ def get_tidal_coeffs_codon(tod: int, pi: float, cday: float, dcoef_p: cobj):
 
 
 @export
+def tidal_diag_scale_2d_codon(ncol: int, pcols: int, pver: int, coef: float, src_p: cobj, dst_p: cobj):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+    for k in range(pver):
+        base = k * pcols
+        for i in range(ncol):
+            idx = base + i
+            dst[idx] = src[idx] * coef
+
+
+@export
+def tidal_diag_scale_1d_codon(ncol: int, coef: float, src_p: cobj, dst_p: cobj):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+    for i in range(ncol):
+        dst[i] = src[i] * coef
+
+
+@export
 def co2_cycle_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1

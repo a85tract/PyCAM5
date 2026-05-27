@@ -28,6 +28,7 @@ module tidal_diag
   logical :: tidal_diag_proof_written = .false.
   logical :: tidal_diag_init_logged = .false.
   logical :: tidal_diag_write_logged = .false.
+  logical :: tidal_diag_write_scale_logged = .false.
   logical :: get_tidal_coeffs_logged = .false.
 
   interface
@@ -42,6 +43,20 @@ module tidal_diag
       real(c_double), value :: pi_c, cday_c
       type(c_ptr), value :: dcoef_p
     end subroutine get_tidal_coeffs_codon
+    subroutine tidal_diag_scale_2d_codon(ncol_c, pcols_c, pver_c, coef_c, src_p, dst_p) &
+         bind(c, name="tidal_diag_scale_2d_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+      real(c_double), value :: coef_c
+      type(c_ptr), value :: src_p, dst_p
+    end subroutine tidal_diag_scale_2d_codon
+    subroutine tidal_diag_scale_1d_codon(ncol_c, coef_c, src_p, dst_p) &
+         bind(c, name="tidal_diag_scale_1d_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      real(c_double), value :: coef_c
+      type(c_ptr), value :: src_p, dst_p
+    end subroutine tidal_diag_scale_1d_codon
   end interface
 
 contains
@@ -219,6 +234,8 @@ contains
     integer(c_int64_t) :: out_c
 
     real(r8) :: dcoef(4) 
+    real(r8), target :: field2d(pcols,pver)
+    real(r8), target :: field1d(pcols)
     integer :: ncol
 
     !-----------------------------------------------------------------------
@@ -237,50 +254,75 @@ contains
     end if
 
     call get_tidal_coeffs( dcoef )
+    if (.not. use_native_tidal_diag_impl) then
+       ! Fixed-case history settings can leave all tidal output fields inactive.
+       call tidal_diag_scale_2d(state%t, dcoef(1), ncol, field2d)
+       call tidal_diag_scale_1d(state%ps, dcoef(1), ncol, field1d)
+    end if
 
     if ( hist_fld_active('T_24_COS') .or. hist_fld_active('T_24_SIN') ) then
-       call outfld( 'T_24_SIN', state%t(:ncol,:)*dcoef(1), ncol, lchnk )
-       call outfld( 'T_24_COS', state%t(:ncol,:)*dcoef(2), ncol, lchnk )
+       call tidal_diag_scale_2d(state%t, dcoef(1), ncol, field2d)
+       call outfld( 'T_24_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%t, dcoef(2), ncol, field2d)
+       call outfld( 'T_24_COS', field2d(:ncol,:), ncol, lchnk )
     endif
     if ( hist_fld_active('T_12_COS') .or. hist_fld_active('T_12_SIN') ) then
-       call outfld( 'T_12_SIN', state%t(:ncol,:)*dcoef(3), ncol, lchnk )
-       call outfld( 'T_12_COS', state%t(:ncol,:)*dcoef(4), ncol, lchnk )
+       call tidal_diag_scale_2d(state%t, dcoef(3), ncol, field2d)
+       call outfld( 'T_12_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%t, dcoef(4), ncol, field2d)
+       call outfld( 'T_12_COS', field2d(:ncol,:), ncol, lchnk )
     endif
 
     if ( hist_fld_active('U_24_COS') .or. hist_fld_active('U_24_SIN') ) then
-       call outfld( 'U_24_SIN', state%u(:ncol,:)*dcoef(1), ncol, lchnk )
-       call outfld( 'U_24_COS', state%u(:ncol,:)*dcoef(2), ncol, lchnk )
+       call tidal_diag_scale_2d(state%u, dcoef(1), ncol, field2d)
+       call outfld( 'U_24_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%u, dcoef(2), ncol, field2d)
+       call outfld( 'U_24_COS', field2d(:ncol,:), ncol, lchnk )
     endif
     if ( hist_fld_active('U_12_COS') .or. hist_fld_active('U_12_SIN') ) then
-       call outfld( 'U_12_SIN', state%u(:ncol,:)*dcoef(3), ncol, lchnk )
-       call outfld( 'U_12_COS', state%u(:ncol,:)*dcoef(4), ncol, lchnk )
+       call tidal_diag_scale_2d(state%u, dcoef(3), ncol, field2d)
+       call outfld( 'U_12_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%u, dcoef(4), ncol, field2d)
+       call outfld( 'U_12_COS', field2d(:ncol,:), ncol, lchnk )
     endif
 
     if ( hist_fld_active('V_24_COS') .or. hist_fld_active('V_24_SIN') ) then
-       call outfld( 'V_24_SIN', state%v(:ncol,:)*dcoef(1), ncol, lchnk )
-       call outfld( 'V_24_COS', state%v(:ncol,:)*dcoef(2), ncol, lchnk )
+       call tidal_diag_scale_2d(state%v, dcoef(1), ncol, field2d)
+       call outfld( 'V_24_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%v, dcoef(2), ncol, field2d)
+       call outfld( 'V_24_COS', field2d(:ncol,:), ncol, lchnk )
     endif
     if ( hist_fld_active('V_12_COS') .or. hist_fld_active('V_12_SIN') ) then
-       call outfld( 'V_12_SIN', state%v(:ncol,:)*dcoef(3), ncol, lchnk )
-       call outfld( 'V_12_COS', state%v(:ncol,:)*dcoef(4), ncol, lchnk )
+       call tidal_diag_scale_2d(state%v, dcoef(3), ncol, field2d)
+       call outfld( 'V_12_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%v, dcoef(4), ncol, field2d)
+       call outfld( 'V_12_COS', field2d(:ncol,:), ncol, lchnk )
     endif
 
     if ( hist_fld_active('PS_24_COS') .or. hist_fld_active('PS_24_SIN') ) then
-       call outfld( 'PS_24_SIN', state%ps(:ncol)*dcoef(1), ncol, lchnk )
-       call outfld( 'PS_24_COS', state%ps(:ncol)*dcoef(2), ncol, lchnk )
+       call tidal_diag_scale_1d(state%ps, dcoef(1), ncol, field1d)
+       call outfld( 'PS_24_SIN', field1d(:ncol), ncol, lchnk )
+       call tidal_diag_scale_1d(state%ps, dcoef(2), ncol, field1d)
+       call outfld( 'PS_24_COS', field1d(:ncol), ncol, lchnk )
     endif
     if ( hist_fld_active('PS_12_COS') .or. hist_fld_active('PS_12_SIN') ) then
-       call outfld( 'PS_12_SIN', state%ps(:ncol)*dcoef(3), ncol, lchnk )
-       call outfld( 'PS_12_COS', state%ps(:ncol)*dcoef(4), ncol, lchnk )
+       call tidal_diag_scale_1d(state%ps, dcoef(3), ncol, field1d)
+       call outfld( 'PS_12_SIN', field1d(:ncol), ncol, lchnk )
+       call tidal_diag_scale_1d(state%ps, dcoef(4), ncol, field1d)
+       call outfld( 'PS_12_COS', field1d(:ncol), ncol, lchnk )
     endif
 
     if ( hist_fld_active('OMEGA_24_COS') .or. hist_fld_active('OMEGA_24_SIN') ) then
-       call outfld( 'OMEGA_24_SIN', state%omega(:ncol,:)*dcoef(1), ncol, lchnk )
-       call outfld( 'OMEGA_24_COS', state%omega(:ncol,:)*dcoef(2), ncol, lchnk )
+       call tidal_diag_scale_2d(state%omega, dcoef(1), ncol, field2d)
+       call outfld( 'OMEGA_24_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%omega, dcoef(2), ncol, field2d)
+       call outfld( 'OMEGA_24_COS', field2d(:ncol,:), ncol, lchnk )
     endif
     if ( hist_fld_active('OMEGA_12_COS') .or. hist_fld_active('OMEGA_12_SIN') ) then
-       call outfld( 'OMEGA_12_SIN', state%omega(:ncol,:)*dcoef(3), ncol, lchnk )
-       call outfld( 'OMEGA_12_COS', state%omega(:ncol,:)*dcoef(4), ncol, lchnk )
+       call tidal_diag_scale_2d(state%omega, dcoef(3), ncol, field2d)
+       call outfld( 'OMEGA_12_SIN', field2d(:ncol,:), ncol, lchnk )
+       call tidal_diag_scale_2d(state%omega, dcoef(4), ncol, field2d)
+       call outfld( 'OMEGA_12_COS', field2d(:ncol,:), ncol, lchnk )
     endif
 
     return
@@ -288,6 +330,46 @@ contains
   end subroutine tidal_diag_write
 
   !===============================================================================
+
+  subroutine tidal_diag_scale_2d(src, coef, ncol, dst)
+
+    real(r8), target, intent(in)  :: src(pcols,pver)
+    real(r8),         intent(in)  :: coef
+    integer,          intent(in)  :: ncol
+    real(r8), target, intent(out) :: dst(pcols,pver)
+
+    if (use_native_tidal_diag_impl) then
+       dst(:ncol,:) = src(:ncol,:) * coef
+       return
+    end if
+
+    call tidal_diag_log_direct(tidal_diag_write_scale_logged, 'tidal_diag_write field scaling direct = codon')
+    call tidal_diag_scale_2d_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         real(coef, c_double), c_loc(src(1,1)), c_loc(dst(1,1)))
+
+  end subroutine tidal_diag_scale_2d
+
+  !===============================================================================
+
+  subroutine tidal_diag_scale_1d(src, coef, ncol, dst)
+
+    real(r8), target, intent(in)  :: src(pcols)
+    real(r8),         intent(in)  :: coef
+    integer,          intent(in)  :: ncol
+    real(r8), target, intent(out) :: dst(pcols)
+
+    if (use_native_tidal_diag_impl) then
+       dst(:ncol) = src(:ncol) * coef
+       return
+    end if
+
+    call tidal_diag_log_direct(tidal_diag_write_scale_logged, 'tidal_diag_write field scaling direct = codon')
+    call tidal_diag_scale_1d_codon(int(ncol, c_int64_t), real(coef, c_double), c_loc(src(1)), c_loc(dst(1)))
+
+  end subroutine tidal_diag_scale_1d
+
+  !===============================================================================
+
   subroutine get_tidal_coeffs( dcoef )
 
     !----------------------------------------------------------------------- 
