@@ -386,6 +386,41 @@ def phys_grid_zero_int_array_codon(n: int, values_p: cobj):
         values[i] = i32(0)
 
 
+def get_gcol_all_p_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_gcol_all_codon(ncols, out_dim, src_p, dst_p)
+
+
+def get_lat_all_p_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_int_all_codon(ncols, src_p, dst_p)
+
+
+def get_lon_all_p_codon(
+    ncols: int,
+    lat_p: cobj,
+    gcol_p: cobj,
+    map_p: cobj,
+    clat_idx_p: cobj,
+    dst_p: cobj,
+):
+    phys_grid_get_lon_all_codon(ncols, lat_p, gcol_p, map_p, clat_idx_p, dst_p)
+
+
+def get_rlat_all_p_codon(ncols: int, idx_p: cobj, lookup_p: cobj, dst_p: cobj):
+    phys_grid_get_lookup_real_all_codon(ncols, idx_p, lookup_p, dst_p)
+
+
+def get_area_all_p_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_real_all_codon(ncols, src_p, dst_p)
+
+
+def get_wght_all_p_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_real_all_codon(ncols, src_p, dst_p)
+
+
+def get_rlon_all_p_codon(ncols: int, idx_p: cobj, lookup_p: cobj, dst_p: cobj):
+    phys_grid_get_lookup_real_all_codon(ncols, idx_p, lookup_p, dst_p)
+
+
 def phys_grid_assign_chunks_zero_column_count_codon(
     smp: int,
     nsmpx: int,

@@ -2788,6 +2788,11 @@ def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: c
 
 
 @export
+def get_gcol_all_p_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_gcol_all_codon(ncols, out_dim, src_p, dst_p)
+
+
+@export
 def phys_grid_int_scalar_codon(value: int) -> int:
     return value
 
@@ -3298,6 +3303,11 @@ def phys_grid_get_int_all_codon(ncols: int, src_p: cobj, dst_p: cobj):
 
 
 @export
+def get_lat_all_p_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_int_all_codon(ncols, src_p, dst_p)
+
+
+@export
 def phys_grid_get_int_vec_codon(lth: int, cols_p: cobj, src_p: cobj, dst_p: cobj):
     cols = Ptr[i32](cols_p)
     src = Ptr[i32](src_p)
@@ -3327,6 +3337,18 @@ def phys_grid_get_lon_all_codon(
         lat = int(lat_src[i])
         gcol = int(dyn_to_latlon_gcol_map[int(gcol_src[i]) - 1])
         dst[i] = i32((gcol - int(clat_p_idx[lat - 1])) + 1)
+
+
+@export
+def get_lon_all_p_codon(
+    ncols: int,
+    lat_p: cobj,
+    gcol_p: cobj,
+    dyn_to_latlon_gcol_map_p: cobj,
+    clat_p_idx_p: cobj,
+    dst_p: cobj,
+):
+    phys_grid_get_lon_all_codon(ncols, lat_p, gcol_p, dyn_to_latlon_gcol_map_p, clat_p_idx_p, dst_p)
 
 
 @export
@@ -3363,6 +3385,16 @@ def phys_grid_get_real_all_codon(ncols: int, src_p: cobj, dst_p: cobj):
 
 
 @export
+def get_area_all_p_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_real_all_codon(ncols, src_p, dst_p)
+
+
+@export
+def get_wght_all_p_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    phys_grid_get_real_all_codon(ncols, src_p, dst_p)
+
+
+@export
 def phys_grid_get_lookup_real_all_codon(ncols: int, idx_p: cobj, lookup_p: cobj, dst_p: cobj):
     idx = Ptr[i32](idx_p)
     lookup = Ptr[float](lookup_p)
@@ -3370,6 +3402,16 @@ def phys_grid_get_lookup_real_all_codon(ncols: int, idx_p: cobj, lookup_p: cobj,
 
     for i in range(ncols):
         dst[i] = lookup[int(idx[i]) - 1]
+
+
+@export
+def get_rlat_all_p_codon(ncols: int, idx_p: cobj, lookup_p: cobj, dst_p: cobj):
+    phys_grid_get_lookup_real_all_codon(ncols, idx_p, lookup_p, dst_p)
+
+
+@export
+def get_rlon_all_p_codon(ncols: int, idx_p: cobj, lookup_p: cobj, dst_p: cobj):
+    phys_grid_get_lookup_real_all_codon(ncols, idx_p, lookup_p, dst_p)
 
 
 @export
