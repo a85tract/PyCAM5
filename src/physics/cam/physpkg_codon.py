@@ -9632,6 +9632,37 @@ def gmean_fixed_repro_codon(arr_p: cobj, nflds: int, pi_value: float):
 
 
 @export
+def gmean_fixed_repro_preweight_chunk_codon(
+    pcols: int,
+    begchunk: int,
+    endchunk: int,
+    lchnk: int,
+    ncols: int,
+    ifld: int,
+    nlcols: int,
+    count: int,
+    arr_p: cobj,
+    wght_p: cobj,
+    xfld_p: cobj,
+) -> int:
+    arr = Ptr[float](arr_p)
+    wght = Ptr[float](wght_p)
+    xfld = Ptr[float](xfld_p)
+
+    field0 = ifld - 1
+    chunk0 = lchnk - begchunk
+    chunk_count = endchunk - begchunk + 1
+    arr_base = field0 * pcols * chunk_count + chunk0 * pcols
+    xfld_base = field0 * nlcols
+
+    for i0 in range(ncols):
+        xfld[xfld_base + count] = arr[arr_base + i0] * wght[i0]
+        count += 1
+
+    return count
+
+
+@export
 def gmean_arr_recompute_flags_codon(
     rel_diff_p: cobj,
     nflds: int,

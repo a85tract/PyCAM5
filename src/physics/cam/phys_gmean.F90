@@ -70,6 +70,16 @@ module phys_gmean
         integer(c_int64_t), value :: nflds_c
         real(c_double), value :: pi_c
       end subroutine gmean_fixed_repro_codon
+
+      function gmean_fixed_repro_preweight_chunk_codon(pcols_c, begchunk_c, endchunk_c, &
+           lchnk_c, ncols_c, ifld_c, nlcols_c, count_c, arr_p, wght_p, xfld_p) &
+           result(count_out_c) bind(c, name="gmean_fixed_repro_preweight_chunk_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: pcols_c, begchunk_c, endchunk_c
+        integer(c_int64_t), value :: lchnk_c, ncols_c, ifld_c, nlcols_c, count_c
+        type(c_ptr), value :: arr_p, wght_p, xfld_p
+        integer(c_int64_t) :: count_out_c
+      end function gmean_fixed_repro_preweight_chunk_codon
    end interface
 
    CONTAINS
@@ -118,7 +128,7 @@ module phys_gmean
       phys_gmean_proof_written = .true.
 
       if (masterproc) then
-         write(iulog,'(A)') 'phys_gmean entered (fixed-repro normalization = codon)'
+         write(iulog,'(A)') 'phys_gmean entered (fixed-repro pre-weight and normalization = codon)'
       end if
 
    end subroutine phys_gmean_proof_once
@@ -495,7 +505,7 @@ module phys_gmean
 ! Arguments
 !
       integer, intent(in)  :: nflds             ! number of fields
-      real(r8), intent(in) :: &
+      real(r8), intent(in), target :: &
          arr(pcols,begchunk:endchunk,nflds)     ! Input array, chunked
       real(r8), intent(out), target :: arr_gmean(nflds)  ! global means
       real(r8), intent(out):: rel_diff(2,nflds) ! relative and absolute
@@ -505,16 +515,17 @@ module phys_gmean
 !
 ! Local workspace
 !
-      integer :: lchnk, i, ifld                 ! chunk, column, field indices
+      integer :: lchnk, ifld                    ! chunk and field indices
       integer :: ncols                          ! number of columns in current chunk
       integer :: count                          ! summand count
+      integer(c_int64_t) :: count64             ! Codon-updated summand count
       integer :: ierr                           ! MPI error return
 #if (! defined SPMD)
       integer  :: mpicom = 0
 #endif
       
-      real(r8) :: wght(pcols)                   ! column for integration weights
-      real(r8), allocatable :: xfld(:,:)        ! weighted summands
+      real(r8), target :: wght(pcols)           ! column for integration weights
+      real(r8), allocatable, target :: xfld(:,:) ! weighted summands
       integer :: nlcols
 !
 !-----------------------------------------------------------------------
@@ -524,16 +535,18 @@ module phys_gmean
 
 ! pre-weight summands
       do ifld=1,nflds
-         count = 0
+         count64 = 0_c_int64_t
          do lchnk=begchunk,endchunk
             ncols = get_ncols_p(lchnk)
             call get_wght_all_p(lchnk, ncols, wght)
-            do i=1,ncols
-               count = count + 1
-               xfld(count,ifld) = arr(i,lchnk,ifld)*wght(i)
-            end do
+            count64 = gmean_fixed_repro_preweight_chunk_codon( &
+                 int(pcols, c_int64_t), int(begchunk, c_int64_t), int(endchunk, c_int64_t), &
+                 int(lchnk, c_int64_t), int(ncols, c_int64_t), int(ifld, c_int64_t), &
+                 int(nlcols, c_int64_t), count64, c_loc(arr(1,begchunk,1)), &
+                 c_loc(wght(1)), c_loc(xfld(1,1)))
          end do
       end do
+      count = int(count64)
 
 ! call fixed-point algorithm
       call shr_reprosum_calc (xfld, arr_gmean, count, nlcols, nflds, &
@@ -548,7 +561,8 @@ module phys_gmean
          call phys_gmean_proof_once()
          call gmean_fixed_repro_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
               real(pi, c_double))
-         call phys_gmean_log_direct(gmean_fixed_repro_logged, 'gmean_fixed_repro direct = codon')
+         call phys_gmean_log_direct(gmean_fixed_repro_logged, &
+              'gmean_fixed_repro direct = codon pre-weight summands and final normalization; native shr_reprosum_calc API')
       end if
 
       return
