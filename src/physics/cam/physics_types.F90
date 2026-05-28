@@ -457,6 +457,31 @@ module physics_types
        real(c_double), value :: lim_c
        type(c_ptr), value :: q_p
      end subroutine state_cnst_min_nz_codon_raw
+
+     subroutine physics_update_field_codon_raw(ncol_c, psetcols_c, pver_c, top_level_c, bot_level_c, dt_c, &
+          update_tend_c, state_field_p, ptend_field_p, tend_field_p) bind(c, name="physics_update_field_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, top_level_c, bot_level_c, update_tend_c
+       real(c_double), value :: dt_c
+       type(c_ptr), value :: state_field_p, ptend_field_p, tend_field_p
+     end subroutine physics_update_field_codon_raw
+
+     subroutine physics_update_q_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c, &
+          dt_c, m_c, is_number_c, state_q_p, ptend_q_p) bind(c, name="physics_update_q_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c
+       integer(c_int64_t), value :: m_c, is_number_c
+       real(c_double), value :: dt_c
+       type(c_ptr), value :: state_q_p, ptend_q_p
+     end subroutine physics_update_q_codon_raw
+
+     subroutine physics_update_s_codon_raw(ncol_c, psetcols_c, pver_c, top_level_c, bot_level_c, dt_c, &
+          update_tend_c, state_s_p, ptend_s_p, tend_dtdt_p, cpairv_loc_p) bind(c, name="physics_update_s_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, top_level_c, bot_level_c, update_tend_c
+       real(c_double), value :: dt_c
+       type(c_ptr), value :: state_s_p, ptend_s_p, tend_dtdt_p, cpairv_loc_p
+     end subroutine physics_update_s_codon_raw
   end interface
 
 
@@ -851,6 +876,53 @@ contains
          int(qix, c_int64_t), int(numix, c_int64_t))
   end subroutine state_cnst_min_nz_codon
 
+  subroutine physics_update_field_codon(ncol_local, psetcols_local, top_level_local, bot_level_local, &
+       dt_local, update_tend, state_field, ptend_field, tend_field)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local, top_level_local, bot_level_local
+    real(r8), intent(in) :: dt_local
+    logical, intent(in) :: update_tend
+    real(r8), target, intent(inout) :: state_field(:,:)
+    real(r8), target, intent(in) :: ptend_field(:,:)
+    real(r8), target, intent(inout) :: tend_field(:,:)
+
+    call physics_update_field_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), int(top_level_local, c_int64_t), int(bot_level_local, c_int64_t), &
+         real(dt_local, c_double), merge(1_c_int64_t, 0_c_int64_t, update_tend), &
+         c_loc(state_field), c_loc(ptend_field), c_loc(tend_field))
+  end subroutine physics_update_field_codon
+
+  subroutine physics_update_q_codon(ncol_local, psetcols_local, top_level_local, bot_level_local, dt_local, &
+       m_local, is_number, state_q, ptend_q)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local, top_level_local, bot_level_local, m_local
+    logical, intent(in) :: is_number
+    real(r8), intent(in) :: dt_local
+    real(r8), target, intent(inout) :: state_q(:,:,:)
+    real(r8), target, intent(in) :: ptend_q(:,:,:)
+
+    call physics_update_q_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_level_local, c_int64_t), &
+         int(bot_level_local, c_int64_t), real(dt_local, c_double), int(m_local, c_int64_t), &
+         merge(1_c_int64_t, 0_c_int64_t, is_number), c_loc(state_q), c_loc(ptend_q))
+  end subroutine physics_update_q_codon
+
+  subroutine physics_update_s_codon(ncol_local, psetcols_local, top_level_local, bot_level_local, &
+       dt_local, update_tend, state_s, ptend_s, tend_dtdt, cpairv_loc_chunk)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local, top_level_local, bot_level_local
+    real(r8), intent(in) :: dt_local
+    logical, intent(in) :: update_tend
+    real(r8), target, intent(inout) :: state_s(:,:)
+    real(r8), target, intent(in) :: ptend_s(:,:), cpairv_loc_chunk(:,:)
+    real(r8), target, intent(inout) :: tend_dtdt(:,:)
+
+    call physics_update_s_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), int(top_level_local, c_int64_t), int(bot_level_local, c_int64_t), &
+         real(dt_local, c_double), merge(1_c_int64_t, 0_c_int64_t, update_tend), &
+         c_loc(state_s), c_loc(ptend_s), c_loc(tend_dtdt), c_loc(cpairv_loc_chunk))
+  end subroutine physics_update_s_codon
+
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
     use iso_c_binding, only: c_int64_t
@@ -937,6 +1009,7 @@ contains
 
     real(r8),allocatable :: cpairv_loc(:,:,:)
     real(r8),allocatable :: rairv_loc(:,:,:)
+    real(r8), target :: dummy_tend_field(1,1)
 
     ! PERGRO limits cldliq/ice for macro/microphysics:
     character(len=24), parameter :: pergro_cldlim_names(4) = &
@@ -956,8 +1029,8 @@ contains
        if (physics_types_touch_codon(2_c_int64_t) == 2_c_int64_t) then
           call physics_types_zero_proof_once()
           call physics_types_log_direct(physics_update_logged, &
-               'physics_update direct = codon; state_cnst_min_nz/update helper selectors direct = codon; ' // &
-               'native coupled physics/geopotential/WACCM islands')
+               'physics_update direct = codon; active state/tendency update loops direct = codon; ' // &
+               'qneg3/geopotential/WACCM native boundaries')
        end if
     end if
 
@@ -1017,19 +1090,35 @@ contains
 
     ! Update u,v fields
     if(ptend%lu) then
-       do k = ptend%top_level, ptend%bot_level
-          state%u  (:ncol,k) = state%u  (:ncol,k) + ptend%u(:ncol,k) * dt
-          if (present(tend)) &
-               tend%dudt(:ncol,k) = tend%dudt(:ncol,k) + ptend%u(:ncol,k)
-       end do
+       if (use_native_zero_impl) then
+          do k = ptend%top_level, ptend%bot_level
+             state%u  (:ncol,k) = state%u  (:ncol,k) + ptend%u(:ncol,k) * dt
+             if (present(tend)) &
+                  tend%dudt(:ncol,k) = tend%dudt(:ncol,k) + ptend%u(:ncol,k)
+          end do
+       else if (present(tend)) then
+          call physics_update_field_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+               dt, .true., state%u, ptend%u, tend%dudt)
+       else
+          call physics_update_field_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+               dt, .false., state%u, ptend%u, dummy_tend_field)
+       end if
     end if
 
     if(ptend%lv) then
-       do k = ptend%top_level, ptend%bot_level
-          state%v  (:ncol,k) = state%v  (:ncol,k) + ptend%v(:ncol,k) * dt
-          if (present(tend)) &
-               tend%dvdt(:ncol,k) = tend%dvdt(:ncol,k) + ptend%v(:ncol,k)
-       end do
+       if (use_native_zero_impl) then
+          do k = ptend%top_level, ptend%bot_level
+             state%v  (:ncol,k) = state%v  (:ncol,k) + ptend%v(:ncol,k) * dt
+             if (present(tend)) &
+                  tend%dvdt(:ncol,k) = tend%dvdt(:ncol,k) + ptend%v(:ncol,k)
+          end do
+       else if (present(tend)) then
+          call physics_update_field_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+               dt, .true., state%v, ptend%v, tend%dvdt)
+       else
+          call physics_update_field_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+               dt, .false., state%v, ptend%v, dummy_tend_field)
+       end if
     end if
 
    ! Update constituents, all schemes use time split q: no tendency kept
@@ -1044,22 +1133,32 @@ contains
 
     do m = 1, pcnst
        if(ptend%lq(m)) then
-          do k = ptend%top_level, ptend%bot_level
-             state%q(:ncol,k,m) = state%q(:ncol,k,m) + ptend%q(:ncol,k,m) * dt
-          end do
-
           ! now test for mixing ratios which are too small
           ! don't call qneg3 for number concentration variables
           if (m /= ixnumice  .and.  m /= ixnumliq .and. &
               m /= ixnumrain .and.  m /= ixnumsnow ) then
+             if (use_native_zero_impl) then
+                do k = ptend%top_level, ptend%bot_level
+                   state%q(:ncol,k,m) = state%q(:ncol,k,m) + ptend%q(:ncol,k,m) * dt
+                end do
+             else
+                call physics_update_q_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+                     dt, m, .false., state%q, ptend%q)
+             end if
              name = trim(ptend%name) // '/' // trim(cnst_name(m))
              call qneg3(trim(name), state%lchnk, ncol, state%psetcols, pver, m, m, qmin(m), state%q(1,1,m))
           else
-             do k = ptend%top_level, ptend%bot_level
-                ! checks for number concentration
-                state%q(:ncol,k,m) = max(1.e-12_r8,state%q(:ncol,k,m))
-                state%q(:ncol,k,m) = min(1.e10_r8,state%q(:ncol,k,m))
-             end do
+             if (use_native_zero_impl) then
+                do k = ptend%top_level, ptend%bot_level
+                   state%q(:ncol,k,m) = state%q(:ncol,k,m) + ptend%q(:ncol,k,m) * dt
+                   ! checks for number concentration
+                   state%q(:ncol,k,m) = max(1.e-12_r8,state%q(:ncol,k,m))
+                   state%q(:ncol,k,m) = min(1.e10_r8,state%q(:ncol,k,m))
+                end do
+             else
+                call physics_update_q_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+                     dt, m, .true., state%q, ptend%q)
+             end if
           end if
 
        end if
@@ -1171,11 +1270,19 @@ contains
     ! Update dry static energy(moved from above for WACCM-X so updating after cpairv_loc update)
     !-------------------------------------------------------------------------------------------
     if(ptend%ls) then
-       do k = ptend%top_level, ptend%bot_level
-          state%s(:ncol,k)   = state%s(:ncol,k)   + ptend%s(:ncol,k) * dt
-          if (present(tend)) &
-               tend%dtdt(:ncol,k) = tend%dtdt(:ncol,k) + ptend%s(:ncol,k)/cpairv_loc(:ncol,k,state%lchnk)
-       end do
+       if (use_native_zero_impl) then
+          do k = ptend%top_level, ptend%bot_level
+             state%s(:ncol,k)   = state%s(:ncol,k)   + ptend%s(:ncol,k) * dt
+             if (present(tend)) &
+                  tend%dtdt(:ncol,k) = tend%dtdt(:ncol,k) + ptend%s(:ncol,k)/cpairv_loc(:ncol,k,state%lchnk)
+          end do
+       else if (present(tend)) then
+          call physics_update_s_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+               dt, .true., state%s, ptend%s, tend%dtdt, cpairv_loc(:,:,state%lchnk))
+       else
+          call physics_update_s_codon(ncol, state%psetcols, ptend%top_level, ptend%bot_level, &
+               dt, .false., state%s, ptend%s, dummy_tend_field, cpairv_loc(:,:,state%lchnk))
+       end if
     end if
 
     ! Derive new temperature and geopotential fields if heating or water tendency not 0.

@@ -2885,6 +2885,84 @@ def state_cnst_min_nz_codon(
 
 
 @export
+def physics_update_field_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    top_level: int,
+    bot_level: int,
+    dt: float,
+    update_tend: int,
+    state_field_p: cobj,
+    ptend_field_p: cobj,
+    tend_field_p: cobj,
+):
+    state_field = Ptr[float](state_field_p)
+    ptend_field = Ptr[float](ptend_field_p)
+    tend_field = Ptr[float](tend_field_p)
+
+    for k in range(top_level, bot_level + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, psetcols)
+            state_field[idx] = state_field[idx] + ptend_field[idx] * dt
+            if update_tend != 0:
+                tend_field[idx] = tend_field[idx] + ptend_field[idx]
+
+
+@export
+def physics_update_q_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_level: int,
+    bot_level: int,
+    dt: float,
+    m: int,
+    is_number: int,
+    state_q_p: cobj,
+    ptend_q_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    ptend_q = Ptr[float](ptend_q_p)
+
+    for k in range(top_level, bot_level + 1):
+        for i in range(1, ncol + 1):
+            idx = _field3_idx(i, k, m, psetcols, pver)
+            state_q[idx] = state_q[idx] + ptend_q[idx] * dt
+            if is_number != 0:
+                state_q[idx] = max(1.0e-12, state_q[idx])
+                state_q[idx] = min(1.0e10, state_q[idx])
+
+
+@export
+def physics_update_s_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    top_level: int,
+    bot_level: int,
+    dt: float,
+    update_tend: int,
+    state_s_p: cobj,
+    ptend_s_p: cobj,
+    tend_dtdt_p: cobj,
+    cpairv_loc_p: cobj,
+):
+    state_s = Ptr[float](state_s_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    tend_dtdt = Ptr[float](tend_dtdt_p)
+    cpairv_loc = Ptr[float](cpairv_loc_p)
+
+    for k in range(top_level, bot_level + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, psetcols)
+            state_s[idx] = state_s[idx] + ptend_s[idx] * dt
+            if update_tend != 0:
+                tend_dtdt[idx] = tend_dtdt[idx] + ptend_s[idx] / cpairv_loc[idx]
+
+
+@export
 def physics_ptend_sum_field_codon(
     ncol: int,
     psetcols: int,
