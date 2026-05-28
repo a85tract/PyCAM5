@@ -227,6 +227,26 @@ module water_tracers
       integer(c_int64_t), value :: stage_c, enabled_c
       type(c_ptr), value :: status_p
     end subroutine wtrc_control_stage_codon
+    function wtrc_init_codon(stage_c) result(stage_out) bind(c, name="wtrc_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_init_codon
+    function wtrc_register_codon(stage_c) result(stage_out) bind(c, name="wtrc_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_register_codon
+    function wtrc_setup_diag_codon(stage_c) result(stage_out) bind(c, name="wtrc_setup_diag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_setup_diag_codon
+    function wtrc_output_precip_codon(stage_c) result(stage_out) bind(c, name="wtrc_output_precip_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_output_precip_codon
     function wtrc_implements_cnst_codon(name_len_c, name_ascii_p, cnst_name_len_c, names_ascii_p, ncnst_c) &
          result(result_c) bind(c, name="wtrc_implements_cnst_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -341,6 +361,115 @@ module water_tracers
       integer(c_int64_t), value :: pcols_c, pver_c, pwtype_c, top_lev_c
       type(c_ptr), value :: process_rates_p
     end subroutine wtrc_init_rates_codon
+    subroutine wtrc_precip_evap_init_shell_codon(pcols_c, pver_c, pverp_c, nwvap_c, &
+         evp_p, mlt_p, frz_p, sub_p, fice_p, fsnow_p, rnbulk_p, flxpr_p, flxsn_p, totrnfx_p, dz_p) &
+         bind(c, name="wtrc_precip_evap_init_shell_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, pverp_c, nwvap_c
+      type(c_ptr), value :: evp_p, mlt_p, frz_p, sub_p, fice_p, fsnow_p, rnbulk_p, flxpr_p, flxsn_p
+      type(c_ptr), value :: totrnfx_p, dz_p
+    end subroutine wtrc_precip_evap_init_shell_codon
+    subroutine wtrc_precip_evap_prep_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, state_q_p, qst_p, rh_p, &
+         state_zi_p, dz_p, evpbulk_p, subbulk_p, rnbulk_p) &
+         bind(c, name="wtrc_precip_evap_prep_shell_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+      type(c_ptr), value :: state_q_p, qst_p, rh_p, state_zi_p, dz_p, evpbulk_p, subbulk_p, rnbulk_p
+    end subroutine wtrc_precip_evap_prep_shell_codon
+    subroutine wtrc_precip_evap_tail_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, &
+         wtrc_nwset_c, iwtvap_c, wtrc_qmin_c, prec_p, snow_p, flxpr_p, flxsn_p, wtrc_iatype_p, iwspec_p, rstd_p) &
+         bind(c, name="wtrc_precip_evap_tail_shell_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, wtrc_nwset_c, iwtvap_c
+      real(c_double), value :: wtrc_qmin_c
+      type(c_ptr), value :: prec_p, snow_p, flxpr_p, flxsn_p, wtrc_iatype_p, iwspec_p, rstd_p
+    end subroutine wtrc_precip_evap_tail_shell_codon
+    function wtrc_precip_evap_codon(stage_c) result(stage_out) bind(c, name="wtrc_precip_evap_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_precip_evap_codon
+    subroutine wtrc_q1q2_init_qhat_shell_codon(lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
+         wtrc_nwset_c, msg_c, iwtvap_c, ideep_p, wtrc_iatype_p, q_p, dqdt_p, wtrprd_p, wtdlf_p, &
+         qhat_p, qu_p, qd_p, wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p, &
+         gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p) &
+         bind(c, name="wtrc_q1q2_init_qhat_shell_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c
+      integer(c_int64_t), value :: wtrc_nwset_c, msg_c, iwtvap_c
+      type(c_ptr), value :: ideep_p, wtrc_iatype_p, q_p, dqdt_p, wtrprd_p, wtdlf_p, qhat_p, qu_p, qd_p
+      type(c_ptr), value :: wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p
+      type(c_ptr), value :: gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p
+    end subroutine wtrc_q1q2_init_qhat_shell_codon
+    subroutine wtrc_q1q2_tail_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c, &
+         wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, dp_p, dsubcld_p, &
+         dz_p, mdpc_p, qd_p, totpcp_p, totevp_p, wtcu_p, dupc_p, ql_p, c0mask_p, mupc_p, wtevp_p, &
+         rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p, dqdt_p, wtdlf_p, du_p, pevp_p, &
+         rprd_p, eps0_p) bind(c, name="wtrc_q1q2_tail_shell_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+      real(c_double), value :: wtrc_qmin_c
+      type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, dp_p, dsubcld_p
+      type(c_ptr), value :: dz_p, mdpc_p, qd_p, totpcp_p, totevp_p, wtcu_p, dupc_p, ql_p, c0mask_p
+      type(c_ptr), value :: mupc_p, wtevp_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p
+      type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p, eps0_p
+    end subroutine wtrc_q1q2_tail_shell_codon
+    subroutine wtrc_q1q2_downdraft_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
+         iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, &
+         qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p) &
+         bind(c, name="wtrc_q1q2_downdraft_shell_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+      real(c_double), value :: wtrc_qmin_c
+      type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, qu_p, qds_p
+      type(c_ptr), value :: rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p
+    end subroutine wtrc_q1q2_downdraft_shell_codon
+    subroutine wtrc_q1q2_downdraft_tail_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
+         iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, eps0_p, &
+         qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p, &
+         dp_p, dsubcld_p, totpcp_p, wtcu_p, dupc_p, ql_p, c0mask_p, mupc_p, rpdpc_p, wtrprd_p, &
+         cu_p, evp_p, mu_p, md_p, qhat_p, dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p) &
+         bind(c, name="wtrc_q1q2_downdraft_tail_shell_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+      real(c_double), value :: wtrc_qmin_c
+      type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, eps0_p
+      type(c_ptr), value :: qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p
+      type(c_ptr), value :: qdb_p, totevp_p, dp_p, dsubcld_p, totpcp_p, wtcu_p, dupc_p, ql_p
+      type(c_ptr), value :: c0mask_p, mupc_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qhat_p
+      type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p
+    end subroutine wtrc_q1q2_downdraft_tail_shell_codon
+    subroutine wtrc_q1q2_updraft_h2o_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
+         iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, &
+         tu_p, mupc_p, qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p, &
+         c0mask_p, oval_work_p, uqdiff_work_p) bind(c, name="wtrc_q1q2_updraft_h2o_shell_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+      real(c_double), value :: wtrc_qmin_c
+      type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, tu_p, mupc_p
+      type(c_ptr), value :: qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p
+      type(c_ptr), value :: c0mask_p, oval_work_p, uqdiff_work_p
+    end subroutine wtrc_q1q2_updraft_h2o_shell_codon
+    subroutine wtrc_q1q2_stage_dispatch_codon(stage_c, lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
+         wtrc_nwset_c, msg_c, iwtvap_c, wtrc_qmin_c, p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, &
+         p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, &
+         p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, &
+         p30_p, p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p) &
+         bind(c, name="wtrc_q1q2_stage_dispatch_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: stage_c, lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c
+      integer(c_int64_t), value :: wtrc_nwset_c, msg_c, iwtvap_c
+      real(c_double), value :: wtrc_qmin_c
+      type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
+      type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p
+      type(c_ptr), value :: p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p
+      type(c_ptr), value :: p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p
+    end subroutine wtrc_q1q2_stage_dispatch_codon
+    function wtrc_q1q2_pjr_codon(stage_c) result(stage_out) bind(c, name="wtrc_q1q2_pjr_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_q1q2_pjr_codon
   end interface
 
 contains
@@ -1195,7 +1324,7 @@ end subroutine wtrc_readnl
   character(len=128) :: longname
 !-----------------------------------------------------------------------
 
-    call wtrc_control_enter(2, water_tracer_model /= "none", wtrc_init_logged, &
+    call wtrc_control_enter(int(wtrc_init_codon(2_c_int64_t)), water_tracer_model /= "none", wtrc_init_logged, &
          'wtrc_init direct = codon; history registration and isotope/type init native CAM API islands')
 
     if (water_tracer_model /= "none") then
@@ -1316,7 +1445,7 @@ end subroutine wtrc_init
 
 !-----------------------------------------------------------------------
 !
-    call wtrc_control_enter(3, water_tracer_model /= "none", wtrc_register_logged, &
+    call wtrc_control_enter(int(wtrc_register_codon(3_c_int64_t)), water_tracer_model /= "none", wtrc_register_logged, &
          'wtrc_register direct = codon; cnst_add/pbuf/init-file/name lookup native CAM API islands')
 
 ! Initialize all tracers as non-water, with unknown species
@@ -2355,6 +2484,14 @@ end subroutine wtrc_register
       integer(c_int64_t), value :: pre_present_c, sed_present_c, post_present_c, wisotope_c
       integer(c_int64_t) :: mask_c
     end function wtrc_apply_rates_mask_codon
+    function wtrc_apply_rates_codon(ncol_c, trace_water_c, do_stprecip_c, micro_c, &
+         pre_present_c, sed_present_c, post_present_c, wisotope_c) result(mask_c) &
+         bind(c, name="wtrc_apply_rates_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: ncol_c, trace_water_c, do_stprecip_c, micro_c
+      integer(c_int64_t), value :: pre_present_c, sed_present_c, post_present_c, wisotope_c
+      integer(c_int64_t) :: mask_c
+    end function wtrc_apply_rates_codon
     subroutine wtrc_apply_rates_copy_state_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, &
          pstate_q_p, pstate_t_p, qloc_p, qloc0_p, tloc_p) bind(c, name="wtrc_apply_rates_copy_state_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -2586,7 +2723,7 @@ end subroutine wtrc_register
     ncol = pstate%ncol
     call wtrc_apply_rates_select_impl()
     if (.not. use_native_wtrc_apply_rates_impl) then
-      apply_rates_mask_c = wtrc_apply_rates_mask_codon(int(ncol, c_int64_t), &
+      apply_rates_mask_c = wtrc_apply_rates_codon(int(ncol, c_int64_t), &
            merge(1_c_int64_t, 0_c_int64_t, trace_water), &
            merge(1_c_int64_t, 0_c_int64_t, ldo_stprecip), &
            merge(1_c_int64_t, 0_c_int64_t, micro), &
@@ -4662,7 +4799,7 @@ end subroutine wtrc_diagnose_bulk_precip_native
 
 !-----------------------------------------------------------------------
 !
-  call wtrc_control_enter(5, trace_water, wtrc_output_precip_logged, &
+  call wtrc_control_enter(int(wtrc_output_precip_codon(5_c_int64_t)), trace_water, wtrc_output_precip_logged, &
        'wtrc_output_precip direct = codon; pbuf_get_field/outfld native CAM API islands')
 
   ! Output fields for the isotopes.
@@ -6068,34 +6205,6 @@ integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
 integer(c_int64_t), target :: iwspec64(pcnst)
 real(c_double), target :: rstd(pwtspec)
 
-interface
-  subroutine wtrc_precip_evap_init_shell_codon(pcols_c, pver_c, pverp_c, nwvap_c, &
-       evp_p, mlt_p, frz_p, sub_p, fice_p, fsnow_p, rnbulk_p, flxpr_p, flxsn_p, totrnfx_p, dz_p) &
-       bind(c, name="wtrc_precip_evap_init_shell_codon")
-    use iso_c_binding, only: c_int64_t, c_ptr
-    integer(c_int64_t), value :: pcols_c, pver_c, pverp_c, nwvap_c
-    type(c_ptr), value :: evp_p, mlt_p, frz_p, sub_p, fice_p, fsnow_p, rnbulk_p, flxpr_p, flxsn_p
-    type(c_ptr), value :: totrnfx_p, dz_p
-  end subroutine wtrc_precip_evap_init_shell_codon
-
-  subroutine wtrc_precip_evap_prep_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, state_q_p, qst_p, rh_p, &
-       state_zi_p, dz_p, evpbulk_p, subbulk_p, rnbulk_p) &
-       bind(c, name="wtrc_precip_evap_prep_shell_codon")
-    use iso_c_binding, only: c_int64_t, c_ptr
-    integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
-    type(c_ptr), value :: state_q_p, qst_p, rh_p, state_zi_p, dz_p, evpbulk_p, subbulk_p, rnbulk_p
-  end subroutine wtrc_precip_evap_prep_shell_codon
-
-  subroutine wtrc_precip_evap_tail_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, &
-       wtrc_nwset_c, iwtvap_c, wtrc_qmin_c, prec_p, snow_p, flxpr_p, flxsn_p, wtrc_iatype_p, iwspec_p, rstd_p) &
-       bind(c, name="wtrc_precip_evap_tail_shell_codon")
-    use iso_c_binding, only: c_double, c_int64_t, c_ptr
-    integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, wtrc_nwset_c, iwtvap_c
-    real(c_double), value :: wtrc_qmin_c
-    type(c_ptr), value :: prec_p, snow_p, flxpr_p, flxsn_p, wtrc_iatype_p, iwspec_p, rstd_p
-  end subroutine wtrc_precip_evap_tail_shell_codon
-end interface
-
 !********************
 !Initialize variables
 !********************
@@ -6111,7 +6220,7 @@ if (.not. use_native_wtrc_precip_evap_shell_impl) then
     wtrc_precip_evap_init_logged = .true.
   end if
   call wtrc_stage_dispatch_codon( &
-       5_c_int64_t, 0_c_int64_t, int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+       wtrc_precip_evap_codon(5_c_int64_t), 0_c_int64_t, int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(wtrc_ntype(iwtvap), c_int64_t), 0_c_int64_t, &
        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, &
        0._c_double, 0._c_double, 0._c_double, 0._c_double, c_loc(evp), c_loc(mlt), c_loc(frz), &
@@ -6162,7 +6271,7 @@ if (.not. use_native_wtrc_precip_evap_shell_impl) then
   qvap(:ncol,:) = state%q(:ncol,:,1)
   zi_work(:ncol,:) = state%zi(:ncol,:)
   call wtrc_stage_dispatch_codon( &
-       6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       wtrc_precip_evap_codon(6_c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(pverp, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, &
        0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, c_loc(qvap), &
@@ -6429,7 +6538,7 @@ if (.not. use_native_wtrc_precip_evap_shell_impl) then
   end if
 
   call wtrc_stage_dispatch_codon( &
-       7_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       wtrc_precip_evap_codon(7_c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(pverp, c_int64_t), int(pcnst, c_int64_t), 0_c_int64_t, int(wtrc_nwset, c_int64_t), &
        int(wtrc_ntype(iwtvap), c_int64_t), int(iwtvap, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
        0_c_int64_t, real(wtrc_qmin, c_double), 0._c_double, 0._c_double, 0._c_double, &
@@ -6915,90 +7024,6 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(c_double), target :: rstd(pwtspec)
    integer :: ispec
 
-   interface
-      subroutine wtrc_q1q2_init_qhat_shell_codon(lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
-           wtrc_nwset_c, msg_c, iwtvap_c, ideep_p, wtrc_iatype_p, q_p, dqdt_p, wtrprd_p, wtdlf_p, &
-           qhat_p, qu_p, qd_p, wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p, &
-           gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p) &
-           bind(c, name="wtrc_q1q2_init_qhat_shell_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c
-         integer(c_int64_t), value :: wtrc_nwset_c, msg_c, iwtvap_c
-         type(c_ptr), value :: ideep_p, wtrc_iatype_p, q_p, dqdt_p, wtrprd_p, wtdlf_p, qhat_p, qu_p, qd_p
-         type(c_ptr), value :: wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p
-         type(c_ptr), value :: gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p
-      end subroutine wtrc_q1q2_init_qhat_shell_codon
-
-      subroutine wtrc_q1q2_tail_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c, &
-           wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, dp_p, dsubcld_p, &
-           dz_p, mdpc_p, qd_p, totpcp_p, totevp_p, wtcu_p, dupc_p, ql_p, c0mask_p, mupc_p, wtevp_p, &
-           rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p, dqdt_p, wtdlf_p, du_p, pevp_p, &
-           rprd_p, eps0_p) bind(c, name="wtrc_q1q2_tail_shell_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
-         real(c_double), value :: wtrc_qmin_c
-         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, dp_p, dsubcld_p
-         type(c_ptr), value :: dz_p, mdpc_p, qd_p, totpcp_p, totevp_p, wtcu_p, dupc_p, ql_p, c0mask_p
-         type(c_ptr), value :: mupc_p, wtevp_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p
-         type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p, eps0_p
-      end subroutine wtrc_q1q2_tail_shell_codon
-
-      subroutine wtrc_q1q2_downdraft_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
-           iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, &
-           qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p) &
-           bind(c, name="wtrc_q1q2_downdraft_shell_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
-         real(c_double), value :: wtrc_qmin_c
-         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, qu_p, qds_p
-         type(c_ptr), value :: rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p
-      end subroutine wtrc_q1q2_downdraft_shell_codon
-
-      subroutine wtrc_q1q2_downdraft_tail_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
-           iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, eps0_p, &
-           qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p, &
-           dp_p, dsubcld_p, totpcp_p, wtcu_p, dupc_p, ql_p, c0mask_p, mupc_p, rpdpc_p, wtrprd_p, &
-           cu_p, evp_p, mu_p, md_p, qhat_p, dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p) &
-           bind(c, name="wtrc_q1q2_downdraft_tail_shell_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
-         real(c_double), value :: wtrc_qmin_c
-         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, eps0_p
-         type(c_ptr), value :: qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p
-         type(c_ptr), value :: qdb_p, totevp_p, dp_p, dsubcld_p, totpcp_p, wtcu_p, dupc_p, ql_p
-         type(c_ptr), value :: c0mask_p, mupc_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qhat_p
-         type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p
-      end subroutine wtrc_q1q2_downdraft_tail_shell_codon
-
-      subroutine wtrc_q1q2_updraft_h2o_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
-           iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, &
-           tu_p, mupc_p, qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p, &
-           c0mask_p, oval_work_p, uqdiff_work_p) bind(c, name="wtrc_q1q2_updraft_h2o_shell_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
-         real(c_double), value :: wtrc_qmin_c
-         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, tu_p, mupc_p
-         type(c_ptr), value :: qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p
-         type(c_ptr), value :: c0mask_p, oval_work_p, uqdiff_work_p
-      end subroutine wtrc_q1q2_updraft_h2o_shell_codon
-
-      subroutine wtrc_q1q2_stage_dispatch_codon(stage_c, lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
-           wtrc_nwset_c, msg_c, iwtvap_c, wtrc_qmin_c, p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, &
-           p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, &
-           p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, &
-           p30_p, p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p) &
-           bind(c, name="wtrc_q1q2_stage_dispatch_codon")
-        use iso_c_binding, only: c_double, c_int64_t, c_ptr
-        integer(c_int64_t), value :: stage_c, lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c
-        integer(c_int64_t), value :: wtrc_nwset_c, msg_c, iwtvap_c
-        real(c_double), value :: wtrc_qmin_c
-        type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
-        type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p
-        type(c_ptr), value :: p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p
-        type(c_ptr), value :: p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p
-      end subroutine wtrc_q1q2_stage_dispatch_codon
-   end interface
-
 !***************************************
 !Exit if no deep convection is occurring
 !***************************************
@@ -7048,7 +7073,7 @@ else
       wtrc_q1q2_init_logged = .true.
     end if
 
-    call wtrc_q1q2_stage_dispatch_codon(1_c_int64_t, int(lengath, c_int64_t), int(pcols, c_int64_t), &
+    call wtrc_q1q2_stage_dispatch_codon(wtrc_q1q2_pjr_codon(1_c_int64_t), int(lengath, c_int64_t), int(pcols, c_int64_t), &
          int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
          int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), 0._c_double, &
          c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(q), c_loc(dqdt), c_loc(wtrprd), c_loc(wtdlf), &
@@ -7151,7 +7176,7 @@ if (.not. use_native_wtrc_batch_impl) then
     wtrc_q1q2_updraft_h2o_logged = .true.
   end if
 
-  call wtrc_q1q2_stage_dispatch_codon(2_c_int64_t, int(lengath, c_int64_t), int(pcols, c_int64_t), &
+  call wtrc_q1q2_stage_dispatch_codon(wtrc_q1q2_pjr_codon(2_c_int64_t), int(lengath, c_int64_t), int(pcols, c_int64_t), &
        int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
        int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
        real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
@@ -7375,7 +7400,7 @@ if (.not. use_native_wtrc_batch_impl) then
      wtrc_q1q2_downdraft_tail_logged = .true.
    end if
 
-   call wtrc_q1q2_stage_dispatch_codon(3_c_int64_t, int(lengath, c_int64_t), int(pcols, c_int64_t), &
+   call wtrc_q1q2_stage_dispatch_codon(wtrc_q1q2_pjr_codon(3_c_int64_t), int(lengath, c_int64_t), int(pcols, c_int64_t), &
         int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
         int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
         real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
@@ -7607,7 +7632,7 @@ end subroutine wtrc_q1q2_pjr
 2         format(i4,' ',a8)
 3         format(i4,' ',a8,' ',i4,a10)
 
-    call wtrc_control_enter(4, .true., wtrc_setup_diag_logged, &
+    call wtrc_control_enter(int(wtrc_setup_diag_codon(4_c_int64_t)), .true., wtrc_setup_diag_logged, &
          'wtrc_setup_diag direct = codon; formatted diagnostic output and CAM name lookups native islands')
 
     write(iulog,*) ' ' 

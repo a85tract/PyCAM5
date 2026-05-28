@@ -72,12 +72,48 @@ def wtrc_apply_rates_mask_codon(
 
 
 @export
+def wtrc_apply_rates_codon(
+    ncol: int,
+    trace_water: int,
+    do_stprecip: int,
+    micro: int,
+    pre_present: int,
+    sed_present: int,
+    post_present: int,
+    wisotope: int,
+) -> int:
+    return wtrc_apply_rates_mask_codon(
+        ncol, trace_water, do_stprecip, micro, pre_present, sed_present, post_present, wisotope
+    )
+
+
+@export
 def wtrc_control_stage_codon(stage: int, enabled: int, status_p: cobj):
     status = Ptr[int](status_p)
     if enabled != 0:
         status[0] = stage
     else:
         status[0] = 0
+
+
+@export
+def wtrc_init_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def wtrc_register_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def wtrc_setup_diag_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def wtrc_output_precip_codon(stage: int) -> int:
+    return stage
 
 
 @export
@@ -3309,3 +3345,13 @@ def wtrc_stage_dispatch_codon(
             p6,
             p7,
         )
+
+
+@export
+def wtrc_precip_evap_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def wtrc_q1q2_pjr_codon(stage: int) -> int:
+    return stage

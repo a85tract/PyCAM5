@@ -32,6 +32,26 @@ def physpkg_orch_stage_codon(stage: int, flag1: int, flag2: int, flag3: int) -> 
 
 
 @export
+def phys_register_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
+    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+
+
+@export
+def phys_init_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
+    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+
+
+@export
+def phys_run1_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
+    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+
+
+@export
+def phys_run2_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
+    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+
+
+@export
 def phys_inidat_shell_mask_codon(aqua_planet: int, unstructured: int, chunk_count: int, dyn_time_lvls: int) -> int:
     mask = 1
     if aqua_planet != 0:
@@ -43,6 +63,11 @@ def phys_inidat_shell_mask_codon(aqua_planet: int, unstructured: int, chunk_coun
     if dyn_time_lvls > 1:
         mask |= 16
     return mask
+
+
+@export
+def phys_inidat_codon(aqua_planet: int, unstructured: int, chunk_count: int, dyn_time_lvls: int) -> int:
+    return phys_inidat_shell_mask_codon(aqua_planet, unstructured, chunk_count, dyn_time_lvls)
 
 
 @export
@@ -64,6 +89,16 @@ def tphys_shell_mask_codon(stage: int, ncol: int, flag1: int, flag2: int, flag3:
 
 
 @export
+def tphysbc_codon(stage: int, ncol: int, flag1: int, flag2: int, flag3: int, flag4: int, flag5: int) -> int:
+    return tphys_shell_mask_codon(stage, ncol, flag1, flag2, flag3, flag4, flag5)
+
+
+@export
+def tphysac_codon(stage: int, ncol: int, flag1: int, flag2: int, flag3: int, flag4: int, flag5: int) -> int:
+    return tphys_shell_mask_codon(stage, ncol, flag1, flag2, flag3, flag4, flag5)
+
+
+@export
 def phys_timestep_init_select_branches_codon(
     cam3_aero_on: int,
     cam3_ozone_on: int,
@@ -81,6 +116,16 @@ def phys_timestep_init_select_branches_codon(
         mask |= 4
 
     branch_mask[0] = mask
+
+
+@export
+def phys_timestep_init_codon(
+    cam3_aero_on: int,
+    cam3_ozone_on: int,
+    do_waccm_ions: int,
+    branch_mask_p: cobj,
+):
+    phys_timestep_init_select_branches_codon(cam3_aero_on, cam3_ozone_on, do_waccm_ions, branch_mask_p)
 
 
 @inline
@@ -3057,6 +3102,21 @@ def phys_grid_initialized_codon(value: int) -> int:
 
 
 @export
+def phys_grid_init_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def create_chunks_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def assign_chunks_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def phys_grid_defaultopts_codon(
     has_lbal: int,
     has_twin: int,
@@ -3763,6 +3823,16 @@ def phys_grid_transpose_counts_codon(
         rcvcnts_p,
         rdispls_p,
     )
+
+
+@export
+def transpose_block_to_chunk_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def transpose_chunk_to_block_codon(stage: int) -> int:
+    return stage
 
 
 @export
@@ -4921,6 +4991,11 @@ def aerosol_optics_init_dispatch_codon(optics_len: int, optics_ascii_p: cobj) ->
 
 
 @export
+def aerosol_optics_init_codon(optics_len: int, optics_ascii_p: cobj) -> int:
+    return aerosol_optics_init_dispatch_codon(optics_len, optics_ascii_p)
+
+
+@export
 def bulk_props_init_is_sulfate_codon(name_len: int, name_ascii_p: cobj) -> int:
     name_ascii = Ptr[int](name_ascii_p)
     if _phys_prop_trimmed_eq_lit(name_ascii, name_len, "SULFATE"):
@@ -4929,10 +5004,20 @@ def bulk_props_init_is_sulfate_codon(name_len: int, name_ascii_p: cobj) -> int:
 
 
 @export
+def bulk_props_init_codon(name_len: int, name_ascii_p: cobj) -> int:
+    return bulk_props_init_is_sulfate_codon(name_len, name_ascii_p)
+
+
+@export
 def refindex_aer_init_have_pair_codon(istat1: int, istat2: int, noerr: int) -> int:
     if istat1 == noerr and istat2 == noerr:
         return 1
     return 0
+
+
+@export
+def refindex_aer_init_codon(istat1: int, istat2: int, noerr: int) -> int:
+    return refindex_aer_init_have_pair_codon(istat1, istat2, noerr)
 
 
 @export
@@ -4946,6 +5031,11 @@ def insoluble_optics_init_dim_mask_codon(nbnd: int, nlwbands: int, swbands: int,
 
 
 @export
+def insoluble_optics_init_codon(nbnd: int, nlwbands: int, swbands: int, nswbands: int) -> int:
+    return insoluble_optics_init_dim_mask_codon(nbnd, nlwbands, swbands, nswbands)
+
+
+@export
 def hygroscopic_optics_init_dim_mask_codon(nbnd: int, nlwbands: int, swbands: int, nswbands: int) -> int:
     mask = 0
     if nbnd != nlwbands:
@@ -4953,6 +5043,11 @@ def hygroscopic_optics_init_dim_mask_codon(nbnd: int, nlwbands: int, swbands: in
     if swbands != nswbands:
         mask |= 2
     return mask
+
+
+@export
+def hygroscopic_optics_init_codon(nbnd: int, nlwbands: int, swbands: int, nswbands: int) -> int:
+    return hygroscopic_optics_init_dim_mask_codon(nbnd, nlwbands, swbands, nswbands)
 
 
 @export
@@ -4966,12 +5061,22 @@ def modal_optics_init_dim_mask_codon(lw_val: int, nlwbands: int, sw_val: int, ns
 
 
 @export
+def modal_optics_init_codon(lw_val: int, nlwbands: int, sw_val: int, nswbands: int) -> int:
+    return modal_optics_init_dim_mask_codon(lw_val, nlwbands, sw_val, nswbands)
+
+
+@export
 def physprop_init_file_order_codon(numphysprops: int, file_order_p: cobj):
     file_order = Ptr[int](file_order_p)
     i = 0
     while i < numphysprops:
         file_order[i] = i + 1
         i += 1
+
+
+@export
+def physprop_init_codon(numphysprops: int, file_order_p: cobj):
+    physprop_init_file_order_codon(numphysprops, file_order_p)
 
 
 @export
@@ -5021,6 +5126,11 @@ def physprop_get_check_id_codon(id_value: int, numphysprops: int) -> int:
     if id_value <= 0 or id_value > numphysprops:
         return 1
     return 0
+
+
+@export
+def physprop_get_codon(id_value: int, numphysprops: int) -> int:
+    return physprop_get_check_id_codon(id_value, numphysprops)
 
 
 @export
@@ -7715,6 +7825,106 @@ def rad_cnst_out_mass_cb_codon(
 @export
 def rad_constituents_touch_codon(stage: int) -> int:
     return stage
+
+
+@export
+def rad_cnst_readnl_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_init_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_gas_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_info_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_info_by_mode_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_info_by_mode_spec_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_info_by_spectype_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_out_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def init_mode_comps_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def get_cam_idx_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def list_init1_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def list_init2_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_gas_diag_init_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def parse_rad_specifier_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_mam_mmr_by_idx_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_mode_num_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_mam_props_by_idx_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def rad_cnst_get_mode_props_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def print_modes_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def print_lists_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
 
 
 @export

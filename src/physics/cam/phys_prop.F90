@@ -147,6 +147,12 @@ interface
      integer(c_int64_t), value :: numphysprops_c
      type(c_ptr), value :: file_order_p
    end subroutine physprop_init_file_order_codon
+   subroutine physprop_init_codon(numphysprops_c, file_order_p) &
+        bind(c, name="physprop_init_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: numphysprops_c
+     type(c_ptr), value :: file_order_p
+   end subroutine physprop_init_codon
 
    function modal_optics_init_dim_mask_codon(lw_val_c, nlwbands_c, sw_val_c, nswbands_c) &
         result(mask_c) bind(c, name="modal_optics_init_dim_mask_codon")
@@ -154,6 +160,12 @@ interface
      integer(c_int64_t), value :: lw_val_c, nlwbands_c, sw_val_c, nswbands_c
      integer(c_int64_t) :: mask_c
    end function modal_optics_init_dim_mask_codon
+   function modal_optics_init_codon(lw_val_c, nlwbands_c, sw_val_c, nswbands_c) &
+        result(mask_c) bind(c, name="modal_optics_init_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: lw_val_c, nlwbands_c, sw_val_c, nswbands_c
+     integer(c_int64_t) :: mask_c
+   end function modal_optics_init_codon
 
    subroutine modal_optics_init_copy_mode1_codon(ncoef_c, prefr_c, prefi_c, nbands_c, &
         src_p, dst_p) bind(c, name="modal_optics_init_copy_mode1_codon")
@@ -168,6 +180,12 @@ interface
      integer(c_int64_t), value :: nbnd_c, nlwbands_c, swbands_c, nswbands_c
      integer(c_int64_t) :: mask_c
    end function hygroscopic_optics_init_dim_mask_codon
+   function hygroscopic_optics_init_codon(nbnd_c, nlwbands_c, swbands_c, nswbands_c) &
+        result(mask_c) bind(c, name="hygroscopic_optics_init_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: nbnd_c, nlwbands_c, swbands_c, nswbands_c
+     integer(c_int64_t) :: mask_c
+   end function hygroscopic_optics_init_codon
 
    function insoluble_optics_init_dim_mask_codon(nbnd_c, nlwbands_c, swbands_c, nswbands_c) &
         result(mask_c) bind(c, name="insoluble_optics_init_dim_mask_codon")
@@ -175,6 +193,12 @@ interface
      integer(c_int64_t), value :: nbnd_c, nlwbands_c, swbands_c, nswbands_c
      integer(c_int64_t) :: mask_c
    end function insoluble_optics_init_dim_mask_codon
+   function insoluble_optics_init_codon(nbnd_c, nlwbands_c, swbands_c, nswbands_c) &
+        result(mask_c) bind(c, name="insoluble_optics_init_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: nbnd_c, nlwbands_c, swbands_c, nswbands_c
+     integer(c_int64_t) :: mask_c
+   end function insoluble_optics_init_codon
 
    function refindex_aer_init_have_pair_codon(istat1_c, istat2_c, noerr_c) result(have_pair_c) &
         bind(c, name="refindex_aer_init_have_pair_codon")
@@ -182,6 +206,12 @@ interface
      integer(c_int64_t), value :: istat1_c, istat2_c, noerr_c
      integer(c_int64_t) :: have_pair_c
    end function refindex_aer_init_have_pair_codon
+   function refindex_aer_init_codon(istat1_c, istat2_c, noerr_c) result(have_pair_c) &
+        bind(c, name="refindex_aer_init_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: istat1_c, istat2_c, noerr_c
+     integer(c_int64_t) :: have_pair_c
+   end function refindex_aer_init_codon
 
    subroutine refindex_aer_init_fill_complex_codon(n_c, ref_real_p, ref_im_p, refindex_p) &
         bind(c, name="refindex_aer_init_fill_complex_codon")
@@ -197,6 +227,13 @@ interface
      type(c_ptr), value :: name_ascii_p
      integer(c_int64_t) :: is_sulfate_c
    end function bulk_props_init_is_sulfate_codon
+   function bulk_props_init_codon(name_len_c, name_ascii_p) result(is_sulfate_c) &
+        bind(c, name="bulk_props_init_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: name_len_c
+     type(c_ptr), value :: name_ascii_p
+     integer(c_int64_t) :: is_sulfate_c
+   end function bulk_props_init_codon
 
    function aerosol_optics_init_dispatch_codon(optics_len_c, optics_ascii_p) result(dispatch_c) &
         bind(c, name="aerosol_optics_init_dispatch_codon")
@@ -205,6 +242,13 @@ interface
      type(c_ptr), value :: optics_ascii_p
      integer(c_int64_t) :: dispatch_c
    end function aerosol_optics_init_dispatch_codon
+   function aerosol_optics_init_codon(optics_len_c, optics_ascii_p) result(dispatch_c) &
+        bind(c, name="aerosol_optics_init_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: optics_len_c
+     type(c_ptr), value :: optics_ascii_p
+     integer(c_int64_t) :: dispatch_c
+   end function aerosol_optics_init_codon
 
    function physprop_get_check_id_codon(id_c, numphysprops_c) result(invalid_c) &
         bind(c, name="physprop_get_check_id_codon")
@@ -212,6 +256,12 @@ interface
      integer(c_int64_t), value :: id_c, numphysprops_c
      integer(c_int64_t) :: invalid_c
    end function physprop_get_check_id_codon
+   function physprop_get_codon(id_c, numphysprops_c) result(invalid_c) &
+        bind(c, name="physprop_get_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: id_c, numphysprops_c
+     integer(c_int64_t) :: invalid_c
+   end function physprop_get_codon
 
    subroutine physprop_accum_unique_files_codon(ncnst_c, name_len_c, numphysprops_c, &
         radname_ascii_p, type_ascii_p, names_ascii_p, append_flags_p) &
@@ -951,7 +1001,7 @@ subroutine physprop_init()
          file_order(fileindex) = int(fileindex, c_int64_t)
       end do
    else
-      call physprop_init_file_order_codon(int(numphysprops, c_int64_t), c_loc(file_order(1)))
+      call physprop_init_codon(int(numphysprops, c_int64_t), c_loc(file_order(1)))
       call physprop_init_log_direct()
    end if
 
@@ -1121,7 +1171,7 @@ subroutine physprop_get(id, sourcefile, opticstype, &
    if (use_native_physprop_get_impl) then
       invalid_id = merge(1_c_int64_t, 0_c_int64_t, id <= 0 .or. id > numphysprops)
    else
-      invalid_id = physprop_get_check_id_codon(int(id, c_int64_t), int(numphysprops, c_int64_t))
+      invalid_id = physprop_get_codon(int(id, c_int64_t), int(numphysprops, c_int64_t))
       call physprop_get_log_direct()
    end if
 
@@ -1238,7 +1288,7 @@ subroutine aerosol_optics_init(phys_prop, nc_id)
       do i = 1, ot_length
          optics_ascii(i) = int(iachar(phys_prop%opticsmethod(i:i)), c_int64_t)
       end do
-      dispatch_c = aerosol_optics_init_dispatch_codon(int(ot_length, c_int64_t), c_loc(optics_ascii(1)))
+      dispatch_c = aerosol_optics_init_codon(int(ot_length, c_int64_t), c_loc(optics_ascii(1)))
       call aerosol_optics_init_log_direct()
    end if
 
@@ -1446,7 +1496,7 @@ subroutine insoluble_optics_init(phys_prop, nc_id)
       if (nbnd .ne. nlwbands) dim_mask = ior(dim_mask, 1_c_int64_t)
       if (swbands .ne. nswbands) dim_mask = ior(dim_mask, 2_c_int64_t)
    else
-      dim_mask = insoluble_optics_init_dim_mask_codon(int(nbnd, c_int64_t), &
+      dim_mask = insoluble_optics_init_codon(int(nbnd, c_int64_t), &
            int(nlwbands, c_int64_t), int(swbands, c_int64_t), int(nswbands, c_int64_t))
       call insoluble_optics_init_log_direct()
    end if
@@ -1639,7 +1689,7 @@ subroutine hygroscopic_optics_init(phys_prop, nc_id)
       if (nbnd .ne. nlwbands) dim_mask = ior(dim_mask, 1_c_int64_t)
       if (swbands .ne. nswbands) dim_mask = ior(dim_mask, 2_c_int64_t)
    else
-      dim_mask = hygroscopic_optics_init_dim_mask_codon(int(nbnd, c_int64_t), &
+      dim_mask = hygroscopic_optics_init_codon(int(nbnd, c_int64_t), &
            int(nlwbands, c_int64_t), int(swbands, c_int64_t), int(nswbands, c_int64_t))
       call hygroscopic_optics_init_log_direct()
    end if
@@ -1792,7 +1842,7 @@ subroutine refindex_aer_init(phys_prop, nc_id)
    if (use_native_refindex_aer_init_impl) then
       have_ref_pair = istat1 == PIO_NOERR  .and. istat2 == PIO_NOERR
    else
-      have_ref_pair = refindex_aer_init_have_pair_codon(int(istat1, c_int64_t), &
+      have_ref_pair = refindex_aer_init_codon(int(istat1, c_int64_t), &
            int(istat2, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t
       call refindex_aer_init_log_direct()
    end if
@@ -1833,7 +1883,7 @@ subroutine refindex_aer_init(phys_prop, nc_id)
    if (use_native_refindex_aer_init_impl) then
       have_ref_pair = istat1 == PIO_NOERR  .and. istat2 == PIO_NOERR
    else
-      have_ref_pair = refindex_aer_init_have_pair_codon(int(istat1, c_int64_t), &
+      have_ref_pair = refindex_aer_init_codon(int(istat1, c_int64_t), &
            int(istat2, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t
       call refindex_aer_init_log_direct()
    end if
@@ -1912,7 +1962,7 @@ subroutine modal_optics_init(props, ncid)
       if (lw_val .ne. nlwbands) dim_mask = ior(dim_mask, 1_c_int64_t)
       if (sw_val .ne. nswbands) dim_mask = ior(dim_mask, 2_c_int64_t)
    else
-      dim_mask = modal_optics_init_dim_mask_codon(int(lw_val, c_int64_t), &
+      dim_mask = modal_optics_init_codon(int(lw_val, c_int64_t), &
            int(nlwbands, c_int64_t), int(sw_val, c_int64_t), int(nswbands, c_int64_t))
       call modal_optics_init_log_direct()
    end if
@@ -2078,7 +2128,7 @@ subroutine bulk_props_init(physprop, nc_id)
       do i = 1, len(physprop%aername)
          aername_ascii(i) = int(iachar(physprop%aername(i:i)), c_int64_t)
       end do
-      log_rh = bulk_props_init_is_sulfate_codon(int(len(physprop%aername), c_int64_t), &
+      log_rh = bulk_props_init_codon(int(len(physprop%aername), c_int64_t), &
            c_loc(aername_ascii(1))) /= 0_c_int64_t
       call bulk_props_init_log_direct()
    end if

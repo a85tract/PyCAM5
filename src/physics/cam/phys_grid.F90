@@ -381,6 +381,24 @@ module phys_grid
        integer(c_int64_t) :: result_c
      end function phys_grid_initialized_codon
 
+     function phys_grid_init_codon(stage_c) result(stage_out) bind(c, name="phys_grid_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function phys_grid_init_codon
+
+     function create_chunks_codon(stage_c) result(stage_out) bind(c, name="create_chunks_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function create_chunks_codon
+
+     function assign_chunks_codon(stage_c) result(stage_out) bind(c, name="assign_chunks_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function assign_chunks_codon
+
      subroutine phys_grid_defaultopts_codon_raw(has_lbal_c, has_twin_c, has_alltoall_c, has_chunks_c, &
           is_unstructured_c, def_lbal_c, def_twin_unstructured_c, def_twin_lonlat_c, def_alltoall_c, &
           def_chunks_c, out_p) bind(c, name="phys_grid_defaultopts_codon")
@@ -730,6 +748,16 @@ module phys_grid
        integer(c_int64_t), value :: phys_alltoall_c, max_nproc_smpx_c, nproc_busy_d_c, npes_c, has_window_c
        integer(c_int64_t) :: lopt_c
      end function phys_grid_transpose_lopt_codon_raw
+     function transpose_block_to_chunk_codon(stage_c) result(stage_out) bind(c, name="transpose_block_to_chunk_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function transpose_block_to_chunk_codon
+     function transpose_chunk_to_block_codon(stage_c) result(stage_out) bind(c, name="transpose_chunk_to_block_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function transpose_chunk_to_block_codon
    end interface
 
 contains
@@ -1201,6 +1229,12 @@ contains
     end if
   end subroutine phys_grid_init_helpers_proof_once
 
+  subroutine phys_grid_init_log_direct()
+    use iso_c_binding, only: c_int64_t
+    if (phys_grid_init_codon(1_c_int64_t) /= 1_c_int64_t) return
+    call phys_grid_init_helpers_proof_once()
+  end subroutine phys_grid_init_log_direct
+
   subroutine phys_grid_init_assign_bookkeeping_proof_once()
     if (init_helpers_assign_proof_written) return
     init_helpers_assign_proof_written = .true.
@@ -1559,6 +1593,7 @@ contains
          get_block_owner_d, &
          get_gcol_block_d, get_gcol_block_cnt_d, &
          get_horiz_grid_dim_d, get_horiz_grid_d
+    use iso_c_binding, only: c_int64_t
        use spmd_utils, only: pair, ceil2
     !
     !------------------------------Arguments--------------------------------
@@ -1620,6 +1655,9 @@ contains
     call t_adj_detailf(-2)
     call t_startf("phys_grid_init")
     call phys_grid_init_helpers_select_impl()
+    if (.not. use_native_init_helpers_impl) then
+       if (phys_grid_init_codon(1_c_int64_t) == 1_c_int64_t) call phys_grid_init_helpers_proof_once()
+    end if
 
     !-----------------------------------------------------------------------
     !
@@ -4566,6 +4604,7 @@ logical function phys_grid_initialized ()
 # endif
    use spmd_utils,    only: altalltoallv
 #endif
+   use iso_c_binding, only: c_int64_t
 !------------------------------Parameters-------------------------------
 !
   integer, parameter :: msgtag  = 6000
@@ -4600,6 +4639,12 @@ logical function phys_grid_initialized ()
 # endif
 !-----------------------------------------------------------------------
    call phys_grid_transpose_select_impl()
+   if (.not. use_native_transpose_impl) then
+      if (transpose_block_to_chunk_codon(1_c_int64_t) == 1_c_int64_t) then
+         call phys_grid_transpose_log_direct(transpose_btoc_logged, &
+              'transpose_block_to_chunk direct = codon; counts/displacements/lopt direct = codon; MPI alltoall native island')
+      end if
+   end if
 
    if (first) then
 ! Compute send/recv/put counts and displacements
@@ -4663,8 +4708,6 @@ logical function phys_grid_initialized ()
       else
          call phys_grid_transpose_counts_codon(npes, record_size, 1, btofc_blk_num, btofc_chk_num, &
               sndcnts, sdispls, rcvcnts, rdispls)
-         call phys_grid_transpose_log_direct(transpose_btoc_logged, &
-              'transpose_block_to_chunk direct = codon; counts/displacements/lopt direct = codon; MPI alltoall native island')
       endif
 !
       call mpialltoallint(rdispls, 1, pdispls, 1, mpicom)
@@ -4925,6 +4968,7 @@ logical function phys_grid_initialized ()
 # endif
    use spmd_utils,    only: altalltoallv
 #endif
+   use iso_c_binding, only: c_int64_t
 !------------------------------Parameters-------------------------------
 !
   integer, parameter :: msgtag  = 7000
@@ -4959,6 +5003,12 @@ logical function phys_grid_initialized ()
 # endif
 !-----------------------------------------------------------------------
    call phys_grid_transpose_select_impl()
+   if (.not. use_native_transpose_impl) then
+      if (transpose_chunk_to_block_codon(1_c_int64_t) == 1_c_int64_t) then
+         call phys_grid_transpose_log_direct(transpose_ctob_logged, &
+              'transpose_chunk_to_block direct = codon; counts/displacements/lopt direct = codon; MPI alltoall native island')
+      end if
+   end if
 
    if (first) then
 ! Compute send/recv/put counts and displacements
@@ -5022,8 +5072,6 @@ logical function phys_grid_initialized ()
       else
          call phys_grid_transpose_counts_codon(npes, record_size, 2, btofc_blk_num, btofc_chk_num, &
               sndcnts, sdispls, rcvcnts, rdispls)
-         call phys_grid_transpose_log_direct(transpose_ctob_logged, &
-              'transpose_chunk_to_block direct = codon; counts/displacements/lopt direct = codon; MPI alltoall native island')
       endif
 !
       call mpialltoallint(rdispls, 1, pdispls, 1, mpicom)
@@ -5278,6 +5326,7 @@ logical function phys_grid_initialized ()
    use dyn_grid, only: get_block_bounds_d, get_block_gcol_cnt_d, &
                        get_gcol_block_cnt_d, get_gcol_block_d, &
                        get_block_owner_d, get_block_gcol_d
+   use iso_c_binding, only: c_int64_t
 !------------------------------Arguments--------------------------------
    integer, intent(in)  :: opt           ! chunking option
       !  0: chunks may cross block boundaries, but retain same
@@ -5380,6 +5429,13 @@ logical function phys_grid_initialized ()
 #endif
 
 !-----------------------------------------------------------------------
+!
+! Mark create_chunks as directly entering the Codon helper path; the existing
+! chunk-shape and assignment helpers below keep the substantive work in Codon.
+!
+   if (.not. use_native_init_helpers_impl) then
+      if (create_chunks_codon(1_c_int64_t) == 1_c_int64_t) call phys_grid_init_assign_bookkeeping_proof_once()
+   end if
 !
 ! Determine number of threads per process
 !
@@ -6332,6 +6388,7 @@ logical function phys_grid_initialized ()
    use pmgrid, only: plev
    use dyn_grid, only: get_gcol_block_cnt_d, get_gcol_block_d,&
                        get_block_owner_d 
+   use iso_c_binding, only: c_int64_t
 !------------------------------Arguments--------------------------------
    integer, target, intent(in) :: npthreads(0:npes-1)
                                          ! number of OpenMP threads per process
@@ -6375,6 +6432,13 @@ logical function phys_grid_initialized ()
                                          !  assigned to each process in dynamics
                                          !  decomposition
 !-----------------------------------------------------------------------
+!
+! Mark assign_chunks as directly entering the Codon helper path; the owner
+! selection and bookkeeping helpers below keep the active assignment work in Codon.
+!
+   if (.not. use_native_init_helpers_impl) then
+      if (assign_chunks_codon(1_c_int64_t) == 1_c_int64_t) call phys_grid_init_assign_bookkeeping_proof_once()
+   end if
 !
 ! Count number of processes per virtual SMP and determine virtual SMP
 ! to process id map

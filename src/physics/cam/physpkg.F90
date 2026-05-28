@@ -184,18 +184,60 @@ module physpkg
        integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
        integer(c_int64_t) :: mask_c
      end function physpkg_orch_stage_codon
+     function phys_register_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
+          bind(c, name="phys_register_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
+       integer(c_int64_t) :: mask_c
+     end function phys_register_codon
+     function phys_init_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
+          bind(c, name="phys_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
+       integer(c_int64_t) :: mask_c
+     end function phys_init_codon
+     function phys_run1_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
+          bind(c, name="phys_run1_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
+       integer(c_int64_t) :: mask_c
+     end function phys_run1_codon
+     function phys_run2_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
+          bind(c, name="phys_run2_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
+       integer(c_int64_t) :: mask_c
+     end function phys_run2_codon
      function phys_inidat_shell_mask_codon(aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c) &
           result(mask_c) bind(c, name="phys_inidat_shell_mask_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c
        integer(c_int64_t) :: mask_c
      end function phys_inidat_shell_mask_codon
+     function phys_inidat_codon(aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c) &
+          result(mask_c) bind(c, name="phys_inidat_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: aqua_planet_c, unstructured_c, chunk_count_c, dyn_time_lvls_c
+       integer(c_int64_t) :: mask_c
+     end function phys_inidat_codon
      function tphys_shell_mask_codon(stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c) &
           result(mask_c) bind(c, name="tphys_shell_mask_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c
        integer(c_int64_t) :: mask_c
      end function tphys_shell_mask_codon
+     function tphysbc_codon(stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c) &
+          result(mask_c) bind(c, name="tphysbc_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c
+       integer(c_int64_t) :: mask_c
+     end function tphysbc_codon
+     function tphysac_codon(stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c) &
+          result(mask_c) bind(c, name="tphysac_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c, ncol_c, flag1_c, flag2_c, flag3_c, flag4_c, flag5_c
+       integer(c_int64_t) :: mask_c
+     end function tphysac_codon
   end interface
 
 !======================================================================= 
@@ -273,7 +315,7 @@ subroutine phys_register
 
     call physpkg_orch_select_impl()
     if (.not. use_native_phys_orch_impl) then
-       orch_mask_c = physpkg_orch_stage_codon( &
+       orch_mask_c = phys_register_codon( &
             1_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, moist_physics), 0_c_int64_t, 0_c_int64_t)
        call physpkg_orch_log_phys_register(orch_mask_c)
     end if
@@ -497,7 +539,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
 
     call phys_inidat_select_impl()
     if (.not. use_native_phys_inidat_impl) then
-       inidat_mask_c = phys_inidat_shell_mask_codon( &
+       inidat_mask_c = phys_inidat_codon( &
             merge(1_c_int64_t, 0_c_int64_t, aqua_planet), &
             merge(1_c_int64_t, 0_c_int64_t, dycore_is('UNSTRUCTURED')), &
             int(endchunk-begchunk+1, c_int64_t), int(dyn_time_lvls, c_int64_t))
@@ -868,7 +910,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
 
     call physpkg_orch_select_impl()
     if (.not. use_native_phys_orch_impl) then
-       orch_mask_c = physpkg_orch_stage_codon( &
+       orch_mask_c = phys_init_codon( &
             2_c_int64_t, &
             merge(1_c_int64_t, 0_c_int64_t, adiabatic .or. ideal_phys), &
             int(nsrest, c_int64_t), 0_c_int64_t)
@@ -1086,7 +1128,7 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
 
     call physpkg_orch_select_impl()
     if (.not. use_native_phys_orch_impl) then
-       orch_mask_c = physpkg_orch_stage_codon( &
+       orch_mask_c = phys_run1_codon( &
             3_c_int64_t, &
             merge(1_c_int64_t, 0_c_int64_t, adiabatic .or. ideal_phys), &
             merge(1_c_int64_t, 0_c_int64_t, single_column .and. scm_crm_mode), &
@@ -1317,7 +1359,7 @@ subroutine phys_run2(phys_state, ztodt, phys_tend, pbuf2d,  cam_out, &
 
     call physpkg_orch_select_impl()
     if (.not. use_native_phys_orch_impl) then
-       orch_mask_c = physpkg_orch_stage_codon( &
+       orch_mask_c = phys_run2_codon( &
             4_c_int64_t, &
             merge(1_c_int64_t, 0_c_int64_t, adiabatic .or. ideal_phys), &
             merge(1_c_int64_t, 0_c_int64_t, single_column .and. scm_crm_mode), &
@@ -1890,7 +1932,7 @@ subroutine tphysac (ztodt,   cam_in,  &
 
     call tphys_shell_select_impl()
     if (.not. use_native_tphys_shell_impl) then
-       tphys_mask_c = tphys_shell_mask_codon( &
+       tphys_mask_c = tphysac_codon( &
             2_c_int64_t, int(ncol, c_int64_t), &
             merge(1_c_int64_t, 0_c_int64_t, trace_water), &
             merge(1_c_int64_t, 0_c_int64_t, chem_is_active()), &
@@ -2414,7 +2456,7 @@ subroutine tphysbc (ztodt,               &
 
     call tphys_shell_select_impl()
     if (.not. use_native_tphys_shell_impl) then
-       tphys_mask_c = tphys_shell_mask_codon( &
+       tphys_mask_c = tphysbc_codon( &
             1_c_int64_t, int(ncol, c_int64_t), &
             merge(1_c_int64_t, 0_c_int64_t, trace_water), &
             merge(1_c_int64_t, 0_c_int64_t, do_clubb_sgs), &
@@ -3045,12 +3087,12 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   type(physics_buffer_desc), pointer                 :: pbuf2d(:,:)
 
   interface
-     subroutine phys_timestep_init_select_branches_codon(cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c, branch_mask_p) &
-          bind(c, name="phys_timestep_init_select_branches_codon")
+     subroutine phys_timestep_init_codon(cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c, branch_mask_p) &
+          bind(c, name="phys_timestep_init_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c
        type(c_ptr), value :: branch_mask_p
-     end subroutine phys_timestep_init_select_branches_codon
+     end subroutine phys_timestep_init_codon
   end interface
 
   !-----------------------------------------------------------------------------
@@ -3059,7 +3101,7 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   if (.not. use_native_phys_tstep_impl) then
      if (.not. phys_tstep_branch_selected) then
         branch_mask = 0_c_int64_t
-        call phys_timestep_init_select_branches_codon( &
+        call phys_timestep_init_codon( &
              merge(1_c_int64_t, 0_c_int64_t, cam3_aero_data_on), &
              merge(1_c_int64_t, 0_c_int64_t, cam3_ozone_data_on), &
              merge(1_c_int64_t, 0_c_int64_t, do_waccm_ions), &
