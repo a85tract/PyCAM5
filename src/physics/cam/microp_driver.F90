@@ -42,6 +42,7 @@ logical :: microp_driver_implements_cnst_logged = .false.
 logical :: microp_driver_readnl_logged = .false.
 logical :: microp_driver_register_logged = .false.
 logical :: microp_driver_init_logged = .false.
+logical :: microp_driver_tend_logged = .false.
 
 interface
    function microp_driver_readnl_codon(flag_c) result(out_c) bind(c, name="microp_driver_readnl_codon")
@@ -59,6 +60,11 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function microp_driver_init_codon
+   function microp_driver_tend_codon(flag_c) result(out_c) bind(c, name="microp_driver_tend_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_driver_tend_codon
    function microp_driver_implements_cnst_codon(scheme_len_c, scheme_ascii_p, name_len_c, name_ascii_p) result(out_c) &
         bind(c, name="microp_driver_implements_cnst_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -240,6 +246,8 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf)
 
    ! Call the microphysics parameterization run methods.
 
+   use iso_c_binding, only: c_int64_t
+
    ! Input arguments
 
    type(physics_state), intent(in)    :: state       ! State variables
@@ -247,6 +255,7 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf)
    type(physics_buffer_desc), pointer :: pbuf(:)
 
    real(r8), intent(in)  :: dtime                    ! Timestep
+   integer(c_int64_t) :: tend_touch_c
 
    !======================================================================
 
@@ -258,6 +267,11 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf)
    end if
 
    call microp_driver_select_codon_scheme()
+   tend_touch_c = microp_driver_tend_codon(1_c_int64_t)
+   if (tend_touch_c /= 0_c_int64_t) then
+      call microp_driver_log_direct(microp_driver_tend_logged, &
+           'microp_driver_tend direct = codon; scheme dispatch direct = codon; micro_mg_cam_tend child boundary')
+   end if
 
    ! Call MG Microphysics
 

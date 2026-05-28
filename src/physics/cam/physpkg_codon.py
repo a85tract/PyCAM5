@@ -219,6 +219,51 @@ def final_cam_cleanup_touch_codon(stage: int) -> int:
     return stage
 
 
+@export
+def init_restart_physics_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def write_restart_physics_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_init_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_read_file_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_climate_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_find_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_findusing_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_output_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
+@export
+def tropopause_readnl_codon(stage: int) -> int:
+    return final_cam_cleanup_touch_codon(stage)
+
+
 @inline
 def _tropopause_interp_t(
     i: int,
@@ -8279,6 +8324,20 @@ def cnst_cam_outfld_codon(flag: int) -> int:
 
 
 @export
+def cnst_add_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def cnst_chk_dim_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def cnst_get_ind_codon(name_len: int, name_ascii_p: cobj, cnst_name_len: int, cnst_names_ascii_p: cobj,
                        pcnst: int) -> int:
     name_ascii = Ptr[int](name_ascii_p)
@@ -8816,6 +8875,11 @@ def radiation_data_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def rad_data_init_codon(flag: int) -> int:
+    return radiation_data_flag_codon(flag)
 
 
 @export

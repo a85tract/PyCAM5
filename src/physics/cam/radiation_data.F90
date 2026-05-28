@@ -126,6 +126,11 @@ module radiation_data
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
     end function radiation_data_flag_codon
+    function rad_data_init_codon(flag_c) result(out_c) bind(c, name="rad_data_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function rad_data_init_codon
     function rad_data_register_codon(flag_c) result(out_c) bind(c, name="rad_data_register_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -354,7 +359,7 @@ contains
        mg_microphys = trim(microp_scheme) == 'MG'
     else
        call radiation_data_flags_proof_once()
-       active_c = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, trim(microp_scheme) == 'MG'))
+       active_c = rad_data_init_codon(merge(1_c_int64_t, 0_c_int64_t, trim(microp_scheme) == 'MG'))
        mg_microphys = active_c /= 0_c_int64_t
        call radiation_data_flags_log_direct(rad_data_init_logged, 'rad_data_init direct = codon')
     end if

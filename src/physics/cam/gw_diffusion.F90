@@ -9,6 +9,7 @@ use gw_utils, only: r8
 use linear_1d_operators, only: TriDiagDecomp
 use spmd_utils, only: masterproc
 use cam_logfile, only: iulog
+use iso_c_binding, only: c_int64_t
 
 implicit none
 private
@@ -23,6 +24,19 @@ logical :: gw_ediff_prep_entered_logged = .false.
 logical :: use_native_gw_diff_tend_prepost_impl = .false.
 logical :: gw_diff_tend_prepost_impl_selected = .false.
 logical :: gw_diff_tend_prepost_entered_logged = .false.
+
+interface
+  function gw_ediff_codon(stage_c) result(stage_out) bind(c, name="gw_ediff_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: stage_c
+    integer(c_int64_t) :: stage_out
+  end function gw_ediff_codon
+  function gw_diff_tend_codon(stage_c) result(stage_out) bind(c, name="gw_diff_tend_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: stage_c
+    integer(c_int64_t) :: stage_out
+  end function gw_diff_tend_codon
+end interface
 
 contains
 
@@ -92,11 +106,13 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
   real(r8), parameter :: dscale=7000._r8
   ! Whether to keep the pre-decomposition diffusivity prep native.
   logical :: use_native_prep
+  integer(c_int64_t) :: gw_ediff_touch_c
 
 !--------------------------------------------------------------------------
 
   call gw_ediff_prep_select_impl()
   use_native_prep = use_native_gw_ediff_prep_impl
+  if (.not. use_native_prep) gw_ediff_touch_c = gw_ediff_codon(1601_c_int64_t)
 
   if (use_native_prep) then
 
@@ -331,11 +347,13 @@ subroutine gw_diff_tend(ncol, pver, kbot, ktop, q, dt, decomp, dq)
   real(r8), target :: qnew(ncol,pver)
   ! Whether to keep pre/post solve copies and tendency conversion native.
   logical :: use_native_prepost
+  integer(c_int64_t) :: gw_diff_tend_touch_c
 
 !--------------------------------------------------------------------------
 
   call gw_diff_tend_prepost_select_impl()
   use_native_prepost = use_native_gw_diff_tend_prepost_impl
+  if (.not. use_native_prepost) gw_diff_tend_touch_c = gw_diff_tend_codon(1602_c_int64_t)
 
   if (use_native_prepost) then
      dq   = 0.0_r8

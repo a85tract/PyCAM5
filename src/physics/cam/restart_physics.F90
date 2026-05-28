@@ -42,6 +42,7 @@ module restart_physics
 !
     integer :: nrg2 = -1         ! Abs/ems restart dataset unit number
     character(len=256) :: pname  ! Full abs-ems restart filepath
+    logical :: restart_write_entered_logged = .false.
 
     type(var_desc_t) :: trefmxav_desc, trefmnav_desc, flwds_desc, landm_desc, sgh_desc, &
          sgh30_desc, solld_desc, co2prog_desc, co2diag_desc, sols_desc, soll_desc, &
@@ -62,24 +63,41 @@ module restart_physics
     logical :: restart_pack_entered_logged = .false.
     logical :: restart_init_entered_logged = .false.
 
+    interface
+       function init_restart_physics_codon(stage_c) result(stage_out) bind(c, name="init_restart_physics_codon")
+         import c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function init_restart_physics_codon
+       function write_restart_physics_codon(stage_c) result(stage_out) bind(c, name="write_restart_physics_codon")
+         import c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function write_restart_physics_codon
+    end interface
+
   CONTAINS
     subroutine restart_physics_log_init_entry()
       integer(c_int64_t) :: touch_c
-      interface
-         function restart_physics_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
-           import c_int64_t
-           integer(c_int64_t), value :: stage_c
-           integer(c_int64_t) :: stage_out
-         end function restart_physics_touch_codon
-      end interface
 
       if (restart_init_entered_logged) return
-      touch_c = restart_physics_touch_codon(1101_c_int64_t)
+      touch_c = init_restart_physics_codon(1101_c_int64_t)
       if (masterproc .and. touch_c == 1101_c_int64_t) then
          write(iulog,'(A)') 'init_restart_physics direct = codon; PIO/chem/subcol restart definition native island'
       end if
       restart_init_entered_logged = .true.
     end subroutine restart_physics_log_init_entry
+
+    subroutine restart_physics_log_write_entry()
+      integer(c_int64_t) :: touch_c
+
+      if (restart_write_entered_logged) return
+      touch_c = write_restart_physics_codon(1102_c_int64_t)
+      if (masterproc .and. touch_c == 1102_c_int64_t) then
+         write(iulog,'(A)') 'write_restart_physics direct = codon; pack helpers direct = codon; PIO/chem/subcol restart native island'
+      end if
+      restart_write_entered_logged = .true.
+    end subroutine restart_physics_log_write_entry
 
     subroutine init_restart_physics ( File, pbuf2d, hdimids)
       
@@ -105,7 +123,9 @@ module restart_physics
     integer :: pver_id, pverp_id, pcnst_id
     integer, pointer :: ldof(:)
     character(len=4) :: num
+    integer(c_int64_t) :: init_touch_c
 
+    init_touch_c = init_restart_physics_codon(1101_c_int64_t)
     call restart_physics_log_init_entry()
 
     hdimcnt=size(hdimids)
@@ -258,7 +278,11 @@ module restart_physics
       integer :: ncol          ! number of vertical columns
       integer :: ierr
       type(io_desc_t), pointer :: iodesc
+      integer(c_int64_t) :: write_touch_c
       !-----------------------------------------------------------------------
+
+      write_touch_c = write_restart_physics_codon(1102_c_int64_t)
+      call restart_physics_log_write_entry()
 
       ! Physics buffer
       if (is_subcol_on()) then

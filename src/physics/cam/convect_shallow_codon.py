@@ -132,6 +132,11 @@ def convect_shallow_init_action_codon(scheme_len: int, scheme_ascii_p: cobj) -> 
 
 
 @export
+def convect_shallow_init_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
+    return convect_shallow_init_action_codon(scheme_len, scheme_ascii_p)
+
+
+@export
 def uwshcu_readnl_param_codon(value: float) -> float:
     return value
 
@@ -1903,6 +1908,61 @@ def convect_shallow_select_scheme_codon(
             return
 
     status[0] = 1
+
+
+@export
+def convect_shallow_tend_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
+    scheme_ascii = Ptr[int](scheme_ascii_p)
+    n = _convect_shallow_trimmed_ascii_len(scheme_len, scheme_ascii)
+
+    if n == 2:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        if c1 == 117 and c2 == 119:
+            return 3
+
+    if n == 3:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        if c1 == 111 and c2 == 102 and c3 == 102:
+            return 1
+
+    if n == 4:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        c4 = _lower_ascii_code(scheme_ascii[3])
+        if c1 == 104 and c2 == 97 and c3 == 99 and c4 == 107:
+            return 2
+
+    if n == 6:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        c4 = _lower_ascii_code(scheme_ascii[3])
+        c5 = _lower_ascii_code(scheme_ascii[4])
+        c6 = _lower_ascii_code(scheme_ascii[5])
+        if c1 == 117 and c2 == 110 and c3 == 105 and c4 == 99 and c5 == 111 and c6 == 110:
+            return 4
+
+    if n == 9:
+        c1 = _lower_ascii_code(scheme_ascii[0])
+        c2 = _lower_ascii_code(scheme_ascii[1])
+        c3 = _lower_ascii_code(scheme_ascii[2])
+        c4 = _lower_ascii_code(scheme_ascii[3])
+        c5 = _lower_ascii_code(scheme_ascii[4])
+        c6 = _lower_ascii_code(scheme_ascii[5])
+        c7 = _lower_ascii_code(scheme_ascii[6])
+        c8 = _lower_ascii_code(scheme_ascii[7])
+        c9 = _lower_ascii_code(scheme_ascii[8])
+        if (
+            c1 == 99 and c2 == 108 and c3 == 117 and c4 == 98 and c5 == 98
+            and c6 == 95 and c7 == 115 and c8 == 103 and c9 == 115
+        ):
+            return 1
+
+    return -1
 
 
 @export

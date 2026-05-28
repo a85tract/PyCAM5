@@ -154,6 +154,19 @@ module gw_drag
   logical          :: gw_tend_prep_impl_selected = .false.
   logical          :: gw_tend_prep_entered_logged = .false.
 
+  interface
+     function gw_init_codon(stage_c) result(stage_out) bind(c, name="gw_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function gw_init_codon
+     function gw_tend_codon(stage_c) result(stage_out) bind(c, name="gw_tend_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function gw_tend_codon
+  end interface
+
 !==========================================================================
 contains
 !==========================================================================
@@ -327,6 +340,7 @@ subroutine gw_init()
 
   ! Interpolated Newtonian cooling coefficients.
   real(r8) :: alpha(pver+1)
+  integer(c_int64_t) :: gw_init_touch_c
 
   ! Levels of pre-calculated Newtonian cooling (1/day).
   ! The following profile is digitized from:
@@ -382,6 +396,7 @@ subroutine gw_init()
   !-----------------------------------------------------------------------
 
   call gw_init_select_impl()
+  if (.not. use_native_gw_init_impl) gw_init_touch_c = gw_init_codon(1501_c_int64_t)
   if (.not. use_native_gw_init_impl) call gw_init_select_branches( &
        use_gw_oro, use_gw_front, use_gw_front_igw, use_gw_convect_dp, use_gw_convect_sh)
 
@@ -861,6 +876,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   !-----------------------------------------------------------------------
   use physics_buffer, only: physics_buffer_desc, pbuf_get_field
   use camsrfexch, only: cam_in_t
+  use iso_c_binding, only: c_int64_t
   ! Location-dependent cpair
   use physconst,  only: cpairv, pi
   use coords_1d,  only: Coords1D
@@ -987,11 +1003,13 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: ttgwsdf_oro(state%ncol,pver)
   real(r8) :: ttgwske_oro(state%ncol,pver)
   real(r8) :: ttgw_total(pcols,pver)
+  integer(c_int64_t) :: gw_tend_touch_c
 
   !------------------------------------------------------------------------
 
   call gw_tend_select_impl()
   if (.not. use_native_tend_impl) then
+     gw_tend_touch_c = gw_tend_codon(1502_c_int64_t)
      call gw_tend_select_branches(do_molec_diff, use_gw_convect_dp, use_gw_convect_sh, &
           use_gw_front, use_gw_front_igw, use_gw_oro)
      do_molec_diff_local = iand(gw_tend_branch_mask, 1) /= 0

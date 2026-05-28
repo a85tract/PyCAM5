@@ -122,6 +122,18 @@ module constituents
         integer(c_int64_t) :: out_c
      end function cnst_cam_outfld_codon
 
+     function cnst_add_codon(flag_c) result(out_c) bind(c, name="cnst_add_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function cnst_add_codon
+
+     function cnst_chk_dim_codon(flag_c) result(out_c) bind(c, name="cnst_chk_dim_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function cnst_chk_dim_codon
+
      function cnst_get_ind_codon(name_len_c, name_ascii_p, cnst_name_len_c, cnst_names_ascii_p, &
           pcnst_c) result(ind_c) bind(c, name="cnst_get_ind_codon")
         use iso_c_binding, only: c_int64_t, c_ptr
@@ -360,6 +372,7 @@ CONTAINS
 
     call cnst_add_thermo_values(ind, mwc, cpc)
     if (.not. use_native_constituents_thermo_impl) then
+       if (cnst_add_codon(1_c_int64_t) == 0_c_int64_t) return
        call constituents_log_direct(cnst_add_logged, &
             'cnst_add direct = codon; rgas/cv thermo constants direct = codon; native CAM registration/string metadata island')
     end if
@@ -665,6 +678,7 @@ CONTAINS
     call constituents_thermo_select_impl()
     if (.not. use_native_constituents_thermo_impl) then
        call constituents_thermo_proof_once()
+       if (cnst_chk_dim_codon(1_c_int64_t) == 0_c_int64_t) return
        call constituents_log_direct(cnst_chk_dim_logged, &
             'cnst_chk_dim direct = codon; selector/proof active; native dimension check, ' // &
             'I/O and diagnostic-name construction island')

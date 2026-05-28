@@ -35,6 +35,13 @@ def nucleate_ice_cam_register_codon(flag: int) -> int:
 
 
 @export
+def nucleate_ice_cam_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def nucleate_ice_cam_init_mincld_codon(value: float) -> float:
     return value
 

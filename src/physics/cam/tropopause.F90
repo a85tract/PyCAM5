@@ -95,28 +95,21 @@ module tropopause
   logical :: tropopause_init_logged = .false.
   logical :: tropopause_read_file_logged = .false.
   logical :: tropopause_climate_logged = .false.
+  logical :: tropopause_find_logged = .false.
   logical :: tropopause_findusing_logged = .false.
-
-  interface
-     function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
-       use iso_c_binding, only: c_int64_t
-       integer(c_int64_t), value :: stage_c
-       integer(c_int64_t) :: stage_out
-     end function final_cam_cleanup_touch_codon
-  end interface
+  logical :: tropopause_output_logged = .false.
 
 !================================================================================================
 contains
 !================================================================================================
 
-  subroutine tropopause_log_cleanup_touch(logged, stage, proof_line)
+  subroutine tropopause_log_cleanup_touch(logged, touch_c, stage, proof_line)
     logical, intent(inout) :: logged
+    integer(c_int64_t), intent(in) :: touch_c
     integer, intent(in) :: stage
     character(len=*), intent(in) :: proof_line
-    integer(c_int64_t) :: touch_c
 
     if (logged) return
-    touch_c = final_cam_cleanup_touch_codon(int(stage, c_int64_t))
     if (masterproc .and. touch_c == int(stage, c_int64_t)) then
        write(iulog,'(A)') trim(proof_line)
        call tropopause_find_append_proof(trim(proof_line))
@@ -138,10 +131,18 @@ contains
       integer :: unitn, ierr
       character(len=*), parameter :: subname = 'tropopause_readnl'
 
+      interface
+         function tropopause_readnl_codon(stage_c) result(stage_out) bind(c, name="tropopause_readnl_codon")
+           use iso_c_binding, only: c_int64_t
+           integer(c_int64_t), value :: stage_c
+           integer(c_int64_t) :: stage_out
+         end function tropopause_readnl_codon
+      end interface
+
       namelist /tropopause_nl/ tropopause_climo_file
       !-----------------------------------------------------------------------------
 
-      call tropopause_log_cleanup_touch(tropopause_readnl_logged, 1401, &
+      call tropopause_log_cleanup_touch(tropopause_readnl_logged, tropopause_readnl_codon(1401_c_int64_t), 1401, &
            'tropopause_readnl direct = codon; namelist/MPI native island')
 
       if (masterproc) then
@@ -180,7 +181,15 @@ contains
 
     implicit none
 
-    call tropopause_log_cleanup_touch(tropopause_init_logged, 1402, &
+    interface
+       function tropopause_init_codon(stage_c) result(stage_out) bind(c, name="tropopause_init_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function tropopause_init_codon
+    end interface
+
+    call tropopause_log_cleanup_touch(tropopause_init_logged, tropopause_init_codon(1402_c_int64_t), 1402, &
          'tropopause_init direct = codon; history registration/native file-read island; TWMO/interpolation helpers direct = codon')
 
     ! define physical constants
@@ -291,7 +300,15 @@ contains
     character(len=256) :: locfn
     integer  :: c, ncols
 
-    call tropopause_log_cleanup_touch(tropopause_read_file_logged, 1403, &
+    interface
+       function tropopause_read_file_codon(stage_c) result(stage_out) bind(c, name="tropopause_read_file_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function tropopause_read_file_codon
+    end interface
+
+    call tropopause_log_cleanup_touch(tropopause_read_file_logged, tropopause_read_file_codon(1403_c_int64_t), 1403, &
          'tropopause_read_file direct = codon; PIO/regridding/native climatology-load island; climate lookup helper direct = codon')
 
     plon = get_dyn_grid_parm('plon')
@@ -489,6 +506,14 @@ contains
     real(r8), target :: tropP_local(pcols)
 
     interface
+       function tropopause_climate_codon(stage_c) result(stage_out) bind(c, name="tropopause_climate_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function tropopause_climate_codon
+    end interface
+
+    interface
        subroutine tropopause_climate_find_codon(ncol_c, pcols_c, pver_c, chunk_pos_c, chunk_count_c, &
             last_month_c, next_month_c, notfound_c, dels_c, pint_p, tropp_p_loc_p, trop_lev_p, trop_p_p, &
             updated_p) bind(c, name="tropopause_climate_find_codon")
@@ -538,7 +563,7 @@ contains
 
       call tropopause_find_select_impl()
       if (.not. use_native_tropopause_find_impl) then
-        call tropopause_log_cleanup_touch(tropopause_climate_logged, 1404, &
+        call tropopause_log_cleanup_touch(tropopause_climate_logged, tropopause_climate_codon(1404_c_int64_t), 1404, &
              'tropopause_climate direct = codon; calendar/native interpolation output island')
         do i = 1, pcols
           tropLev_i8(i) = int(tropLev(i), c_int64_t)
@@ -1177,7 +1202,19 @@ contains
     integer       :: primAlg            ! Primary algorithm  
     integer       :: backAlg            ! Backup algorithm  
 
+    interface
+       function tropopause_find_codon(stage_c) result(stage_out) bind(c, name="tropopause_find_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function tropopause_find_codon
+    end interface
+
     call tropopause_find_select_impl()
+    if (.not. use_native_tropopause_find_impl) then
+      call tropopause_log_cleanup_touch(tropopause_find_logged, tropopause_find_codon(1406_c_int64_t), 1406, &
+           'tropopause_find direct = codon; default algorithm dispatch/native fallback islands')
+    end if
   
     ! Initialize the results to a missing value, so that the algorithms will
     ! attempt to find the tropopause for all of them.
@@ -1228,7 +1265,15 @@ contains
     real(r8), optional, intent(inout)   :: tropT(pcols)              ! tropopause temperature (K)
     real(r8), optional, intent(inout)   :: tropZ(pcols)              ! tropopause height (m)
 
-    call tropopause_log_cleanup_touch(tropopause_findusing_logged, 1405, &
+    interface
+       function tropopause_findusing_codon(stage_c) result(stage_out) bind(c, name="tropopause_findusing_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function tropopause_findusing_codon
+    end interface
+
+    call tropopause_log_cleanup_touch(tropopause_findusing_logged, tropopause_findusing_codon(1405_c_int64_t), 1405, &
          'tropopause_findUsing direct = codon; algorithm dispatch/native non-TWMO islands')
 
     ! Dispatch the request to the appropriate routine.
@@ -1681,7 +1726,7 @@ contains
     end if
     
     tropopause_interpolateZ = tropZ
-  end function tropopause_interpolateZ
+  end function
 
   
   ! Output the tropopause pressure and temperature to the history files. Two sets
@@ -1708,10 +1753,22 @@ contains
     real(r8)      :: tropDZ(pcols, pver)      ! relative tropopause height (m) 
     real(r8)      :: tropPdf(pcols, pver)     ! tropopause probability distribution  
 
+    interface
+       function tropopause_output_codon(stage_c) result(stage_out) bind(c, name="tropopause_output_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function tropopause_output_codon
+    end interface
+
     ! Information about the chunk.  
     lchnk = pstate%lchnk
     ncol  = pstate%ncol
     call tropopause_output_prep_select_impl()
+    if (.not. use_native_tropopause_output_prep_impl) then
+      call tropopause_log_cleanup_touch(tropopause_output_logged, tropopause_output_codon(1407_c_int64_t), 1407, &
+           'tropopause_output direct = codon; output prep direct = codon; outfld/native algorithm islands')
+    end if
 
     ! Find the tropopause using the default algorithm backed by the climatology.
     call tropopause_find(pstate, tropLev, tropP=tropP, tropT=tropT, tropZ=tropZ)

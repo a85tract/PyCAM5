@@ -80,12 +80,24 @@ module convect_deep
         integer(c_int64_t), value :: scheme_code_c
         integer(c_int64_t) :: action_c
       end function convect_deep_tend_2_action_codon
+      function convect_deep_tend_2_codon(scheme_code_c) result(action_c) &
+           bind(c, name="convect_deep_tend_2_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: scheme_code_c
+        integer(c_int64_t) :: action_c
+      end function convect_deep_tend_2_codon
       function convect_deep_tend_action_codon(scheme_code_c) result(action_c) &
            bind(c, name="convect_deep_tend_action_codon")
         use iso_c_binding, only: c_int64_t
         integer(c_int64_t), value :: scheme_code_c
         integer(c_int64_t) :: action_c
       end function convect_deep_tend_action_codon
+      function convect_deep_tend_codon(scheme_code_c) result(action_c) &
+           bind(c, name="convect_deep_tend_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: scheme_code_c
+        integer(c_int64_t) :: action_c
+      end function convect_deep_tend_codon
    end interface
 
 !=========================================================================================
@@ -314,7 +326,7 @@ subroutine convect_deep_tend( &
    end if
 
    if (.not. use_native_impl) then
-      tend_action_c = convect_deep_tend_action_codon(int(codon_scheme_code, c_int64_t))
+      tend_action_c = convect_deep_tend_codon(int(codon_scheme_code, c_int64_t))
       call convect_deep_log_tend_direct()
       if (tend_action_c == 1_c_int64_t) then
          scheme_code = 1
@@ -420,7 +432,7 @@ subroutine convect_deep_tend_2( state,  ptend,  ztodt, pbuf)
    if (.not. use_native_impl) call convect_deep_select_codon_scheme()
 
    if (.not. use_native_impl) then
-      action_c = convect_deep_tend_2_action_codon(int(codon_scheme_code, c_int64_t))
+      action_c = convect_deep_tend_2_codon(int(codon_scheme_code, c_int64_t))
       call convect_deep_log_tend_2_direct()
       if (action_c == 1_c_int64_t) then
          call zm_conv_tend_2( state,   ptend,  ztodt,  pbuf)

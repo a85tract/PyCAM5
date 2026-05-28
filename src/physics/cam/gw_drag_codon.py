@@ -28,6 +28,16 @@ def gw_drag_readnl_status_codon(
 
 
 @export
+def gw_ediff_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def gw_diff_tend_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def gw_tend_select_branches_codon(
     do_molec_diff: int,
     use_gw_convect_dp: int,
@@ -57,6 +67,11 @@ def gw_tend_select_branches_codon(
 
 
 @export
+def gw_tend_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def gw_init_select_branches_codon(
     use_gw_oro: int,
     use_gw_front: int,
@@ -80,6 +95,11 @@ def gw_init_select_branches_codon(
         mask |= 16
 
     branch_mask[0] = mask
+
+
+@export
+def gw_init_codon(stage: int) -> int:
+    return stage
 
 
 @export

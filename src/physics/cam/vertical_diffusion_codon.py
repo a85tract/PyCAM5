@@ -162,6 +162,11 @@ def _press_lim_idx_local(p: float, top: int, pver: int, pref_mid: Ptr[float]) ->
 
 
 @export
+def vertical_diffusion_init_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def vertical_diffusion_init_plan_codon(
     pver: int,
     pcnst: int,

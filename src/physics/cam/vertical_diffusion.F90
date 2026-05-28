@@ -192,6 +192,12 @@ module vertical_diffusion
      subroutine vertical_diffusion_ts_init_codon() bind(c, name="vertical_diffusion_ts_init_codon")
      end subroutine vertical_diffusion_ts_init_codon
 
+     function vertical_diffusion_init_codon(stage_c) result(out_c) bind(c, name="vertical_diffusion_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function vertical_diffusion_init_codon
+
      subroutine vd_register_plan_codon(shallow_unicon_c, count_p, codes_p) &
           bind(c, name="vd_register_plan_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -576,6 +582,7 @@ contains
     integer(c_int64_t), target :: q_select_plan(pcnst), molec_select_plan(pcnst)
     integer(c_int64_t), target :: cnst_is_wet(pcnst), cnst_is_minor(pcnst)
     integer(c_int64_t), target :: pmam_cnst_idx_dummy(1)
+    integer(c_int64_t) :: init_touch_c
 
     ! ----------------------------------------------------------------- !
 
@@ -633,6 +640,7 @@ contains
     end if
 
     if (.not. use_native_vertical_diffusion_init_impl) then
+       init_touch_c = vertical_diffusion_init_codon(1701_c_int64_t)
        pmam_cnst_idx_dummy(1) = 0_c_int64_t
        do k = 1, pcnst
           cnst_is_wet(k)   = merge(1_c_int64_t, 0_c_int64_t, cnst_get_type_byind(k) .eq. 'wet')

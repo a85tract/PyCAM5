@@ -254,12 +254,22 @@ def convect_deep_tend_2_action_codon(scheme_code: int) -> int:
 
 
 @export
+def convect_deep_tend_2_codon(scheme_code: int) -> int:
+    return convect_deep_tend_2_action_codon(scheme_code)
+
+
+@export
 def convect_deep_tend_action_codon(scheme_code: int) -> int:
     if scheme_code == 1:
         return 1
     if scheme_code == 2 or scheme_code == 3 or scheme_code == 4:
         return 2
     return 0
+
+
+@export
+def convect_deep_tend_codon(scheme_code: int) -> int:
+    return convect_deep_tend_action_codon(scheme_code)
 
 
 @export

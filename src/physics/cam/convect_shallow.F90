@@ -107,6 +107,20 @@
 	        integer(c_int64_t), value :: scheme_len_c
 	        type(c_ptr), value :: scheme_ascii_p, scheme_code_p, status_p
 	     end subroutine convect_shallow_select_scheme_codon
+	     function convect_shallow_init_codon(scheme_len_c, scheme_ascii_p) result(action_c) &
+	          bind(c, name="convect_shallow_init_codon")
+	       use iso_c_binding, only: c_int64_t, c_ptr
+	       integer(c_int64_t), value :: scheme_len_c
+	       type(c_ptr), value :: scheme_ascii_p
+	       integer(c_int64_t) :: action_c
+	     end function convect_shallow_init_codon
+	     function convect_shallow_tend_codon(scheme_len_c, scheme_ascii_p) result(scheme_c) &
+	          bind(c, name="convect_shallow_tend_codon")
+	       use iso_c_binding, only: c_int64_t, c_ptr
+	       integer(c_int64_t), value :: scheme_len_c
+	       type(c_ptr), value :: scheme_ascii_p
+	       integer(c_int64_t) :: scheme_c
+	     end function convect_shallow_tend_codon
 	  end interface
 
    contains
@@ -258,7 +272,7 @@
      do i = 1, len(shallow_scheme)
         scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
      end do
-     init_action_c = convect_shallow_init_action_codon(int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)))
+     init_action_c = convect_shallow_init_codon(int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)))
      scheme_action = int(init_action_c)
      call convect_shallow_log_init_direct()
   end if
@@ -563,6 +577,7 @@ end subroutine convect_shallow_init_cnst
    use wv_saturation,   only : qsat
    use physconst,       only : latice, latvap, rhoh2o
    use spmd_utils, only : iam
+   use iso_c_binding, only : c_int64_t, c_loc
 
   !water tracers:
    use water_tracer_vars,only: trace_water, wtrc_ntype, wtrc_srfpcp_indices,&
@@ -695,6 +710,8 @@ end subroutine convect_shallow_init_cnst
 
    type(unicon_out_t) :: unicon_out
    integer :: scheme_code
+   integer(c_int64_t) :: tend_scheme_c
+   integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
 
    ! ----------------------- !
    ! Main Computation Begins ! 
@@ -707,7 +724,12 @@ end subroutine convect_shallow_init_cnst
 
    call convect_shallow_select_impl()
    if (.not. use_native_impl) then
-      call convect_shallow_select_codon_scheme()
+      do i = 1, len(shallow_scheme)
+         scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
+      end do
+      tend_scheme_c = convect_shallow_tend_codon(int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)))
+      codon_scheme_code = int(tend_scheme_c)
+      codon_scheme_selected = .true.
       call convect_shallow_log_tend_direct()
    end if
   

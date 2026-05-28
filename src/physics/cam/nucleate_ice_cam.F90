@@ -102,6 +102,7 @@ logical :: nucleate_ice_cam_modal_dust_entered_logged = .false.
 logical :: nucleate_ice_cam_modal_so4_entered_logged = .false.
 logical :: nucleate_ice_cam_readnl_logged = .false.
 logical :: nucleate_ice_cam_register_logged = .false.
+logical :: nucleate_ice_cam_init_logged = .false.
 
 interface
    function nucleate_ice_cam_readnl_codon(flag_c) result(out_c) bind(c, name="nucleate_ice_cam_readnl_codon")
@@ -114,6 +115,11 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function nucleate_ice_cam_register_codon
+   function nucleate_ice_cam_init_codon(flag_c) result(out_c) bind(c, name="nucleate_ice_cam_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function nucleate_ice_cam_init_codon
    function nucleate_ice_cam_init_mincld_codon(value_c) result(out_c) bind(c, name="nucleate_ice_cam_init_mincld_codon")
       use iso_c_binding, only: c_double
       real(c_double), value :: value_c
@@ -203,7 +209,14 @@ subroutine nucleate_ice_cam_init(mincld_in, bulk_scale_in)
 
    character(len=32) :: str32
    character(len=*), parameter :: routine = 'nucleate_ice_cam_init'
+   integer(c_int64_t) :: init_touch_c
    !--------------------------------------------------------------------------------------------
+
+   init_touch_c = nucleate_ice_cam_init_codon(1_c_int64_t)
+   if (init_touch_c /= 0_c_int64_t) then
+      call nucleate_ice_cam_log_direct(nucleate_ice_cam_init_logged, &
+           'nucleate_ice_cam_init direct = codon; scalar init direct = codon; registration/nucleati native boundaries')
+   end if
 
    mincld     = nucleate_ice_cam_init_mincld_codon(real(mincld_in, c_double))
    bulk_scale = nucleate_ice_cam_init_bulk_scale_codon(real(bulk_scale_in, c_double))
