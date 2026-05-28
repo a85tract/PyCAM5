@@ -1153,6 +1153,79 @@ def ndrop_loadaer_number_codon(
         naerosol[idx1] = min(naerosol[idx1], vaerosol[idx1] * voltonumblo)
 
 
+def ndrop_loadaer_direct_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    nspec: int,
+    phase: int,
+    voltonumblo: float,
+    voltonumbhi: float,
+    species_raer_ptrs_p: cobj,
+    species_qqcw_ptrs_p: cobj,
+    specdens_p: cobj,
+    spechygro_p: cobj,
+    num_raer_p: cobj,
+    num_qqcw_p: cobj,
+    cs_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+    naerosol_p: cobj,
+):
+    species_raer_ptrs = Ptr[cobj](species_raer_ptrs_p)
+    species_qqcw_ptrs = Ptr[cobj](species_qqcw_ptrs_p)
+    specdens = Ptr[float](specdens_p)
+    spechygro = Ptr[float](spechygro_p)
+    num_raer = Ptr[float](num_raer_p)
+    num_qqcw = Ptr[float](num_qqcw_p)
+    cs = Ptr[float](cs_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+    naerosol = Ptr[float](naerosol_p)
+
+    for i in range(istart, istop + 1):
+        idx1 = i - 1
+        vaerosol[idx1] = 0.0
+        hygro[idx1] = 0.0
+
+    for l in range(1, nspec + 1):
+        raer = Ptr[float](species_raer_ptrs[l - 1])
+        qqcw = Ptr[float](species_qqcw_ptrs[l - 1])
+        specdens_l = specdens[l - 1]
+        spechygro_l = spechygro[l - 1]
+        for i in range(istart, istop + 1):
+            idx1 = i - 1
+            idx2 = _idx2(i, k, pcols)
+            if phase == 3:
+                vol = max(raer[idx2] + qqcw[idx2], 0.0) / specdens_l
+            elif phase == 2:
+                vol = max(qqcw[idx2], 0.0) / specdens_l
+            else:
+                vol = max(raer[idx2], 0.0) / specdens_l
+            vaerosol[idx1] = vaerosol[idx1] + vol
+            hygro[idx1] = hygro[idx1] + vol * spechygro_l
+
+    for i in range(istart, istop + 1):
+        idx1 = i - 1
+        idx2 = _idx2(i, k, pcols)
+        if vaerosol[idx1] > 1.0e-30:
+            hygro[idx1] = hygro[idx1] / vaerosol[idx1]
+            vaerosol[idx1] = vaerosol[idx1] * cs[idx2]
+        else:
+            hygro[idx1] = 0.0
+            vaerosol[idx1] = 0.0
+
+        if phase == 3:
+            naerosol[idx1] = (num_raer[idx2] + num_qqcw[idx2]) * cs[idx2]
+        elif phase == 2:
+            naerosol[idx1] = num_qqcw[idx2] * cs[idx2]
+        else:
+            naerosol[idx1] = num_raer[idx2] * cs[idx2]
+        naerosol[idx1] = max(naerosol[idx1], vaerosol[idx1] * voltonumbhi)
+        naerosol[idx1] = min(naerosol[idx1], vaerosol[idx1] * voltonumblo)
+
+
 def ndrop_ccncalc_zero_codon(
     pcols: int,
     pver: int,

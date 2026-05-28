@@ -416,6 +416,17 @@ interface
       type(c_ptr), value :: raer_p, qqcw_p, cs_p, vaerosol_p, naerosol_p
    end subroutine ndrop_loadaer_number_codon
 
+   subroutine ndrop_loadaer_direct_codon(istart_c, istop_c, k_c, pcols_c, nspec_c, phase_c, &
+        voltonumblo_c, voltonumbhi_c, species_raer_ptrs_p, species_qqcw_ptrs_p, specdens_p, &
+        spechygro_p, num_raer_p, num_qqcw_p, cs_p, vaerosol_p, hygro_p, naerosol_p) &
+        bind(c, name="ndrop_loadaer_direct_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: istart_c, istop_c, k_c, pcols_c, nspec_c, phase_c
+      real(c_double), value :: voltonumblo_c, voltonumbhi_c
+      type(c_ptr), value :: species_raer_ptrs_p, species_qqcw_ptrs_p, specdens_p, spechygro_p
+      type(c_ptr), value :: num_raer_p, num_qqcw_p, cs_p, vaerosol_p, hygro_p, naerosol_p
+   end subroutine ndrop_loadaer_direct_codon
+
    subroutine ndrop_ccncalc_zero_codon(pcols_c, pver_c, psat_c, ccn_p) &
         bind(c, name="ndrop_ccncalc_zero_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -681,7 +692,7 @@ subroutine ndrop_loadaer_helpers_proof_once()
    ndrop_loadaer_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_loadaer_helpers entered (species batch/volume/hygro/number adjust direct = codon)'
+      write(iulog,'(A)') 'ndrop_loadaer direct = codon; rad_constituents/pbuf pointer lookup native CAM API island'
    end if
 
 end subroutine ndrop_loadaer_helpers_proof_once
@@ -2957,8 +2968,6 @@ subroutine loadaer( &
          write(iulog,*)'phase=',phase,' in loadaer'
          call endrun('phase error in loadaer')
       end if
-      call ndrop_loadaer_zero_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
-           c_loc(vaerosol(1)), c_loc(hygro(1)))
    end if
 
    if (use_native_ndrop_loadaer_helpers_impl) then
@@ -3000,11 +3009,6 @@ subroutine loadaer( &
          species_raer_ptrs(l) = c_loc(raer(1,1))
          species_qqcw_ptrs(l) = c_loc(qqcw(1,1))
       end do
-      call ndrop_loadaer_helpers_proof_once()
-      call ndrop_loadaer_species_batch_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
-           int(k, c_int64_t), int(pcols, c_int64_t), int(nspec_amode(m), c_int64_t), int(phase, c_int64_t), &
-           c_loc(species_raer_ptrs(1)), c_loc(species_qqcw_ptrs(1)), c_loc(species_specdens(1)), &
-           c_loc(species_spechygro(1)), c_loc(vaerosol(1)), c_loc(hygro(1)))
    end if
 
    if (use_native_ndrop_loadaer_helpers_impl) then
@@ -3017,10 +3021,6 @@ subroutine loadaer( &
             vaerosol(i) = 0.0_r8
          end if
       end do
-   else
-      call ndrop_loadaer_helpers_proof_once()
-      call ndrop_loadaer_finalize_volume_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
-           int(k, c_int64_t), int(pcols, c_int64_t), c_loc(cs(1,1)), c_loc(vaerosol(1)), c_loc(hygro(1)))
    end if
 
    ! aerosol number
@@ -3029,10 +3029,12 @@ subroutine loadaer( &
 
    if (.not. use_native_ndrop_loadaer_helpers_impl) then
       call ndrop_loadaer_helpers_proof_once()
-      call ndrop_loadaer_number_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
-           int(k, c_int64_t), int(pcols, c_int64_t), int(phase, c_int64_t), &
-           voltonumblo_amode(m), voltonumbhi_amode(m), c_loc(raer(1,1)), c_loc(qqcw(1,1)), &
-           c_loc(cs(1,1)), c_loc(vaerosol(1)), c_loc(naerosol(1)))
+      call ndrop_loadaer_direct_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
+           int(k, c_int64_t), int(pcols, c_int64_t), int(nspec_amode(m), c_int64_t), &
+           int(phase, c_int64_t), voltonumblo_amode(m), voltonumbhi_amode(m), &
+           c_loc(species_raer_ptrs(1)), c_loc(species_qqcw_ptrs(1)), c_loc(species_specdens(1)), &
+           c_loc(species_spechygro(1)), c_loc(raer(1,1)), c_loc(qqcw(1,1)), c_loc(cs(1,1)), &
+           c_loc(vaerosol(1)), c_loc(hygro(1)), c_loc(naerosol(1)))
    else if (phase == 3) then
       do i = istart, istop
          naerosol(i) = (raer(i,k) + qqcw(i,k))*cs(i,k)

@@ -7725,6 +7725,49 @@ def ndrop_loadaer_number_codon(
 
 
 @export
+def ndrop_loadaer_direct_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    nspec: int,
+    phase: int,
+    voltonumblo: float,
+    voltonumbhi: float,
+    species_raer_ptrs_p: cobj,
+    species_qqcw_ptrs_p: cobj,
+    specdens_p: cobj,
+    spechygro_p: cobj,
+    num_raer_p: cobj,
+    num_qqcw_p: cobj,
+    cs_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+    naerosol_p: cobj,
+):
+    _ndrop.ndrop_loadaer_direct_codon(
+        istart,
+        istop,
+        k,
+        pcols,
+        nspec,
+        phase,
+        voltonumblo,
+        voltonumbhi,
+        species_raer_ptrs_p,
+        species_qqcw_ptrs_p,
+        specdens_p,
+        spechygro_p,
+        num_raer_p,
+        num_qqcw_p,
+        cs_p,
+        vaerosol_p,
+        hygro_p,
+        naerosol_p,
+    )
+
+
+@export
 def ndrop_ccncalc_zero_codon(
     pcols: int,
     pver: int,
