@@ -67,6 +67,14 @@ interface
       real(c_double), value :: rga_c
       type(c_ptr), value :: pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p
    end subroutine aer_rad_props_lw_setup_codon
+   subroutine aer_rad_props_init_plan_codon(history_amwg_c, history_aero_optics_c, prog_modal_aero_c, &
+        clim_modal_aero_top_lev_c, top_lev_p, add_amwg_default_p, add_aero_optics_default_p) &
+        bind(c, name="aer_rad_props_init_plan_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: history_amwg_c, history_aero_optics_c, prog_modal_aero_c
+      integer(c_int64_t), value :: clim_modal_aero_top_lev_c
+      type(c_ptr), value :: top_lev_p, add_amwg_default_p, add_aero_optics_default_p
+   end subroutine aer_rad_props_init_plan_codon
    function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: stage_c
@@ -160,21 +168,35 @@ subroutine aer_rad_props_init()
    logical                    :: history_amwg         ! output the variables used by the AMWG diag package
    logical                    :: history_aero_optics  ! Output aerosol optics diagnostics
    logical                    :: prog_modal_aero      ! Prognostic modal aerosols present
+   integer(c_int64_t), target :: planned_top_lev_c
+   integer(c_int64_t), target :: add_amwg_default_c
+   integer(c_int64_t), target :: add_aero_optics_default_c
 
    !----------------------------------------------------------------------------
 
    call aer_rad_props_setup_select_impl()
-   if (.not. use_native_aer_rad_props_setup_impl) then
-      call aer_rad_props_log_cleanup_touch(aer_rad_props_init_logged, 1501, &
-           'aer_rad_props_init direct = codon; history/rad_constituents native API island')
-   end if
 
    call phys_getopts( history_aero_optics_out    = history_aero_optics, &
                       history_amwg_out           = history_amwg,    &
                       prog_modal_aero_out        = prog_modal_aero )
 
    ! Limit modal aerosols with top_lev here.
-   if (prog_modal_aero) top_lev = clim_modal_aero_top_lev
+   if (use_native_aer_rad_props_setup_impl) then
+      if (prog_modal_aero) top_lev = clim_modal_aero_top_lev
+      add_amwg_default_c = merge(1_c_int64_t, 0_c_int64_t, history_amwg)
+      add_aero_optics_default_c = merge(1_c_int64_t, 0_c_int64_t, history_aero_optics)
+   else
+      planned_top_lev_c = int(top_lev, c_int64_t)
+      call aer_rad_props_init_plan_codon( &
+           merge(1_c_int64_t, 0_c_int64_t, history_amwg), &
+           merge(1_c_int64_t, 0_c_int64_t, history_aero_optics), &
+           merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &
+           int(clim_modal_aero_top_lev, c_int64_t), c_loc(planned_top_lev_c), &
+           c_loc(add_amwg_default_c), c_loc(add_aero_optics_default_c))
+      top_lev = int(planned_top_lev_c)
+      call aer_rad_props_log_cleanup_touch(aer_rad_props_init_logged, 1501, &
+           'aer_rad_props_init direct = codon registration plan; phys_getopts/rad_constituents/history/string native CAM API islands')
+   end if
 
    call addfld ('AEROD_v ', '1', 1, 'A', &
       'Total Aerosol Optical Depth in visible band', phys_decomp, flag_xyfill=.true.)
@@ -201,11 +223,11 @@ subroutine aer_rad_props_init()
    end do
 
    ! Determine default fields
-   if (history_amwg ) then 
+   if (add_amwg_default_c /= 0_c_int64_t) then
       call add_default ('AEROD_v', 1, ' ')
-   endif   
-   
-   if ( history_aero_optics ) then 
+   endif
+
+   if (add_aero_optics_default_c /= 0_c_int64_t) then
       call add_default ('AEROD_v', 1, ' ')
       do i = 1, numaerosols
          odv_names(i) = 'ODV_'//trim(aernames(i))

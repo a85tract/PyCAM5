@@ -8844,6 +8844,26 @@ def aer_rad_props_lw_setup_codon(
 
 
 @export
+def aer_rad_props_init_plan_codon(
+    history_amwg: int,
+    history_aero_optics: int,
+    prog_modal_aero: int,
+    clim_modal_aero_top_lev: int,
+    top_lev_p: cobj,
+    add_amwg_default_p: cobj,
+    add_aero_optics_default_p: cobj,
+):
+    top_lev = Ptr[int](top_lev_p)
+    add_amwg_default = Ptr[int](add_amwg_default_p)
+    add_aero_optics_default = Ptr[int](add_aero_optics_default_p)
+
+    if prog_modal_aero != 0:
+        top_lev[0] = clim_modal_aero_top_lev
+    add_amwg_default[0] = 1 if history_amwg != 0 else 0
+    add_aero_optics_default[0] = 1 if history_aero_optics != 0 else 0
+
+
+@export
 def aer_vis_diag_prepare_codon(
     ncol: int,
     pcols: int,
