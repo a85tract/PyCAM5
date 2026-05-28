@@ -1213,8 +1213,9 @@ subroutine diag_phys_tend_log_entered()
    diag_phys_tend_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'diag_phys_tend entered (unified tendency-update stage dispatch = codon)'
-      call diag_phys_tend_append_proof('diag_phys_tend entered (unified tendency-update stage dispatch = codon)')
+      write(iulog,'(A)') 'diag_phys_tend_writeout direct = codon; numeric tendency-update stages direct; cnst_get_ind/outfld/pbuf/check_energy native CAM API islands'
+      call diag_phys_tend_append_proof( &
+           'diag_phys_tend_writeout direct = codon; numeric tendency-update stages direct; cnst_get_ind/outfld/pbuf/check_energy native CAM API islands')
       call flush(iulog)
    end if
 
@@ -3163,7 +3164,7 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
       subroutine diag_phys_tend_update_batch_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, &
            ixcldliq_c, ixcldice_c, ztodt_c, rtdt_c, heat_glob_c, cpair_c, state_t_p, state_q_p, &
            tend_dtdt_p, tmp_t_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p, qini_p, cldliqini_p, &
-           cldiceini_p, ftem2_p, ftem3_p, t_ttend_p) bind(c, name="diag_phys_tend_update_batch_stage_dispatch_codon")
+           cldiceini_p, ftem2_p, ftem3_p, t_ttend_p) bind(c, name="diag_phys_tend_writeout_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pcnst_c
          integer(c_int64_t), value :: ixcldliq_c, ixcldice_c
