@@ -1,5 +1,6 @@
-from math import exp, log10
+from math import exp, log10, sqrt
 from C import cldwat2m_qsat_water_native_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
+from C import cldwat2m_qsat_ice_native_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import cldwat2m_astg_single_native_cb(
     int,
     float,
@@ -97,6 +98,14 @@ def _cldwat2m_qsat_water_native(t: float, p: float):
     dqsdt = 0.0
     cldwat2m_qsat_water_native_cb(t, p, __ptr__(es), __ptr__(qs), __ptr__(dqsdt))
     return es, qs, dqsdt
+
+
+@inline
+def _cldwat2m_qsat_ice_native(t: float, p: float):
+    es = 0.0
+    qs = 0.0
+    cldwat2m_qsat_ice_native_cb(t, p, __ptr__(es), __ptr__(qs))
+    return es, qs
 
 
 @inline
@@ -2473,6 +2482,143 @@ def cldwat2m_rhcrit_const_codon(
             rhminl[idx] = rhminl_const
             rhminl_adj_land[idx] = rhminl_adj_land_const
             rhminh[idx] = rhminh_const
+
+
+@export
+def cldwat2m_rhcrit_calc_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    i_rhmini: int,
+    i_rhminl: int,
+    rhmini_const: float,
+    rhminl_const: float,
+    rhminl_adj_land_const: float,
+    rhminh_const: float,
+    rhmaxi: float,
+    tau_deti: float,
+    tau_detw: float,
+    gravit: float,
+    qsmall: float,
+    c_aniso: float,
+    dp_p: cobj,
+    t0_p: cobj,
+    p_p: cobj,
+    clrw_old_p: cobj,
+    clri_old_p: cobj,
+    tke_p: cobj,
+    qtl_flx_p: cobj,
+    qti_flx_p: cobj,
+    cmfr_det_p: cobj,
+    qlr_det_p: cobj,
+    qir_det_p: cobj,
+    rhmini_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+    d_rhmin_liq_pbl_p: cobj,
+    d_rhmin_ice_pbl_p: cobj,
+    d_rhmin_liq_det_p: cobj,
+    d_rhmin_ice_det_p: cobj,
+):
+    dp = Ptr[float](dp_p)
+    t0 = Ptr[float](t0_p)
+    p = Ptr[float](p_p)
+    clrw_old = Ptr[float](clrw_old_p)
+    clri_old = Ptr[float](clri_old_p)
+    tke = Ptr[float](tke_p)
+    qtl_flx = Ptr[float](qtl_flx_p)
+    qti_flx = Ptr[float](qti_flx_p)
+    cmfr_det = Ptr[float](cmfr_det_p)
+    qlr_det = Ptr[float](qlr_det_p)
+    qir_det = Ptr[float](qir_det_p)
+    rhmini = Ptr[float](rhmini_p)
+    rhminl = Ptr[float](rhminl_p)
+    rhminl_adj_land = Ptr[float](rhminl_adj_land_p)
+    rhminh = Ptr[float](rhminh_p)
+    d_rhmin_liq_pbl = Ptr[float](d_rhmin_liq_pbl_p)
+    d_rhmin_ice_pbl = Ptr[float](d_rhmin_ice_pbl_p)
+    d_rhmin_liq_det = Ptr[float](d_rhmin_liq_det_p)
+    d_rhmin_ice_det = Ptr[float](d_rhmin_ice_det_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            rhmini[idx] = rhmini_const
+            rhminl[idx] = rhminl_const
+            rhminl_adj_land[idx] = rhminl_adj_land_const
+            rhminh[idx] = rhminh_const
+
+    if i_rhmini > 0:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                det = tau_deti * (gravit / dp[idx]) * cmfr_det[idx] * clri_old[idx] * qir_det[idx] * 3.6e6
+                d_rhmin_ice_det[idx] = max(0.0, min(0.5, det))
+
+        if i_rhmini == 1:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, pcols)
+                    rhmini[idx] = rhmini_const - d_rhmin_ice_det[idx]
+
+    if i_rhmini == 2:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                _, qsat_tmp = _cldwat2m_qsat_ice_native(t0[idx], p[idx])
+                sig_tmp = 0.5 * (
+                    qti_flx[idx] / sqrt(max(qsmall, tke[idx]))
+                    + qti_flx[_idx2(i, k + 1, pcols)] / sqrt(max(qsmall, tke[_idx2(i, k + 1, pcols)]))
+                )
+                pbl = c_aniso * sig_tmp / max(qsmall, qsat_tmp)
+                d_rhmin_ice_pbl[idx] = max(0.0, min(0.5, pbl))
+
+                rhmini[idx] = 1.0 - d_rhmin_ice_pbl[idx] - d_rhmin_ice_det[idx]
+
+    if i_rhmini > 0:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                rhmini[idx] = max(0.0, min(rhmaxi, rhmini[idx]))
+
+    if i_rhminl > 0:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                det = tau_detw * (gravit / dp[idx]) * cmfr_det[idx] * clrw_old[idx] * qlr_det[idx] * 3.6e6
+                d_rhmin_liq_det[idx] = max(0.0, min(0.5, det))
+
+        if i_rhminl == 1:
+            for k in range(top_lev, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, pcols)
+                    rhminl[idx] = rhminl_const - d_rhmin_liq_det[idx]
+                    rhminh[idx] = rhminh_const - d_rhmin_liq_det[idx]
+
+    if i_rhminl == 2:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                _, qsat_tmp, _ = _cldwat2m_qsat_water_native(t0[idx], p[idx])
+                sig_tmp = 0.5 * (
+                    qtl_flx[idx] / sqrt(max(qsmall, tke[idx]))
+                    + qtl_flx[_idx2(i, k + 1, pcols)] / sqrt(max(qsmall, tke[_idx2(i, k + 1, pcols)]))
+                )
+                pbl = c_aniso * sig_tmp / max(qsmall, qsat_tmp)
+                d_rhmin_liq_pbl[idx] = max(0.0, min(0.5, pbl))
+
+                rhminl[idx] = 1.0 - d_rhmin_liq_pbl[idx] - d_rhmin_liq_det[idx]
+                rhminl_adj_land[idx] = 0.0
+                rhminh[idx] = rhminl[idx]
+
+    if i_rhminl > 0:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                rhminl[idx] = max(rhminl_adj_land[idx], min(1.0, rhminl[idx]))
+                rhminh[idx] = max(0.0, min(1.0, rhminh[idx]))
 
 
 @export

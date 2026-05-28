@@ -22,7 +22,7 @@
    use cldfrc2m,         only: astG_PDF_single, astG_PDF, astG_RHU_single, &
                                astG_RHU, aist_single, aist_vector,         &
                                rhmini_const, rhmaxi=>rhmaxi_const
-   use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
+   use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
    implicit none
    private
@@ -94,6 +94,9 @@
    logical :: use_native_rhcrit_const_impl = .false.
    logical :: rhcrit_const_impl_selected = .false.
    logical :: rhcrit_const_entered_logged = .false.
+   logical :: use_native_rhcrit_calc_impl = .false.
+   logical :: rhcrit_calc_impl_selected = .false.
+   logical :: rhcrit_calc_entered_logged = .false.
    logical :: use_native_instratus_tendency_impl = .false.
    logical :: instratus_tendency_impl_selected = .false.
    logical :: instratus_tendency_entered_logged = .false.
@@ -286,6 +289,8 @@
       positive_moisture_impl_selected = .true.
       use_native_rhcrit_const_impl = .true.
       rhcrit_const_impl_selected = .true.
+      use_native_rhcrit_calc_impl = .true.
+      rhcrit_calc_impl_selected = .true.
       use_native_instratus_tendency_impl = .true.
       instratus_tendency_impl_selected = .true.
       use_native_dropnum_limit_impl = .true.
@@ -980,11 +985,11 @@ subroutine rhcrit_calc( &
    ! ------------------------------------------------- !
 
    integer,  intent(in) :: ncol                         ! Number of active columns
-   real(r8), intent(in) :: dp(pcols,pver)               ! Pressure thickness [Pa] > 0
-   real(r8), intent(in) :: T0(pcols,pver)               ! Temperature [K]
-   real(r8), intent(in) :: p(pcols,pver)                ! Pressure at the layer mid-point [Pa]
-   real(r8), intent(in) :: clrw_old(pcols,pver)         ! Clear sky fraction at the previous time step for liquid stratus process
-   real(r8), intent(in) :: clri_old(pcols,pver)         ! Clear sky fraction at the previous time step for    ice stratus process
+   real(r8), target, intent(in) :: dp(pcols,pver)       ! Pressure thickness [Pa] > 0
+   real(r8), target, intent(in) :: T0(pcols,pver)       ! Temperature [K]
+   real(r8), target, intent(in) :: p(pcols,pver)        ! Pressure at the layer mid-point [Pa]
+   real(r8), target, intent(in) :: clrw_old(pcols,pver) ! Clear sky fraction at the previous time step for liquid stratus process
+   real(r8), target, intent(in) :: clri_old(pcols,pver) ! Clear sky fraction at the previous time step for    ice stratus process
    real(r8), pointer    :: tke(:,:)                     ! (pcols,pverp) TKE from the PBL scheme
    real(r8), pointer    :: qtl_flx(:,:)                 ! (pcols,pverp) overbar(w'qtl') from PBL scheme where qtl = qv + ql
    real(r8), pointer    :: qti_flx(:,:)                 ! (pcols,pverp) overbar(w'qti') from PBL scheme where qti = qv + qi
@@ -996,20 +1001,37 @@ subroutine rhcrit_calc( &
    real(r8), target, intent(out) :: rhminl_arr(pcols,pver)
    real(r8), target, intent(out) :: rhminl_adj_land_arr(pcols,pver)
    real(r8), target, intent(out) :: rhminh_arr(pcols,pver)
-   real(r8), intent(out) :: d_rhmin_liq_PBL(pcols,pver)
-   real(r8), intent(out) :: d_rhmin_ice_PBL(pcols,pver)
-   real(r8), intent(out) :: d_rhmin_liq_det(pcols,pver)
-   real(r8), intent(out) :: d_rhmin_ice_det(pcols,pver)
+   real(r8), target, intent(out) :: d_rhmin_liq_PBL(pcols,pver)
+   real(r8), target, intent(out) :: d_rhmin_ice_PBL(pcols,pver)
+   real(r8), target, intent(out) :: d_rhmin_liq_det(pcols,pver)
+   real(r8), target, intent(out) :: d_rhmin_ice_det(pcols,pver)
 
    ! local variables
 
    integer :: i, k
+   type(c_ptr) :: tke_p, qtl_flx_p, qti_flx_p, cmfr_det_p, qlr_det_p, qir_det_p
 
    real(r8) :: esat_tmp(pcols)          ! Dummy for saturation vapor pressure calc.
    real(r8) :: qsat_tmp(pcols)          ! Saturation water vapor specific humidity [kg/kg]
    real(r8) :: sig_tmp
 
    interface
+      subroutine cldwat2m_rhcrit_calc_codon(ncol_c, pcols_c, pver_c, top_lev_c, i_rhmini_c, i_rhminl_c, &
+           rhmini_const_c, rhminl_const_c, rhminl_adj_land_const_c, rhminh_const_c, rhmaxi_c, &
+           tau_deti_c, tau_detw_c, gravit_c, qsmall_c, c_aniso_c, dp_p, t0_p, p_p, clrw_old_p, &
+           clri_old_p, tke_p, qtl_flx_p, qti_flx_p, cmfr_det_p, qlr_det_p, qir_det_p, rhmini_p, &
+           rhminl_p, rhminl_adj_land_p, rhminh_p, d_rhmin_liq_pbl_p, d_rhmin_ice_pbl_p, &
+           d_rhmin_liq_det_p, d_rhmin_ice_det_p) bind(c, name="cldwat2m_rhcrit_calc_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, i_rhmini_c, i_rhminl_c
+         real(c_double), value :: rhmini_const_c, rhminl_const_c, rhminl_adj_land_const_c, rhminh_const_c
+         real(c_double), value :: rhmaxi_c, tau_deti_c, tau_detw_c, gravit_c, qsmall_c, c_aniso_c
+         type(c_ptr), value :: dp_p, t0_p, p_p, clrw_old_p, clri_old_p, tke_p, qtl_flx_p, qti_flx_p
+         type(c_ptr), value :: cmfr_det_p, qlr_det_p, qir_det_p, rhmini_p, rhminl_p
+         type(c_ptr), value :: rhminl_adj_land_p, rhminh_p, d_rhmin_liq_pbl_p, d_rhmin_ice_pbl_p
+         type(c_ptr), value :: d_rhmin_liq_det_p, d_rhmin_ice_det_p
+      end subroutine cldwat2m_rhcrit_calc_codon
+
       subroutine cldwat2m_rhcrit_const_codon(pcols_c, pver_c, rhmini_const_c, rhminl_const_c, &
            rhminl_adj_land_const_c, rhminh_const_c, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p) &
            bind(c, name="cldwat2m_rhcrit_const_codon")
@@ -1020,6 +1042,33 @@ subroutine rhcrit_calc( &
       end subroutine cldwat2m_rhcrit_const_codon
    end interface
    !---------------------------------------------------------------------------------------------------
+
+   call rhcrit_calc_select_impl()
+   if (.not. use_native_rhcrit_calc_impl) then
+      tke_p = c_null_ptr
+      qtl_flx_p = c_null_ptr
+      qti_flx_p = c_null_ptr
+      cmfr_det_p = c_null_ptr
+      qlr_det_p = c_null_ptr
+      qir_det_p = c_null_ptr
+      if (associated(tke)) tke_p = c_loc(tke(1,1))
+      if (associated(qtl_flx)) qtl_flx_p = c_loc(qtl_flx(1,1))
+      if (associated(qti_flx)) qti_flx_p = c_loc(qti_flx(1,1))
+      if (associated(cmfr_det)) cmfr_det_p = c_loc(cmfr_det(1,1))
+      if (associated(qlr_det)) qlr_det_p = c_loc(qlr_det(1,1))
+      if (associated(qir_det)) qir_det_p = c_loc(qir_det(1,1))
+      call rhcrit_calc_log_entered()
+      call cldwat2m_rhcrit_calc_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), int(i_rhmini, c_int64_t), &
+           int(i_rhminl, c_int64_t), rhmini_const, rhminl_const, rhminl_adj_land_const, &
+           rhminh_const, rhmaxi, tau_deti, tau_detw, gravit, qsmall, c_aniso, &
+           c_loc(dp(1,1)), c_loc(T0(1,1)), c_loc(p(1,1)), c_loc(clrw_old(1,1)), &
+           c_loc(clri_old(1,1)), tke_p, qtl_flx_p, qti_flx_p, cmfr_det_p, qlr_det_p, qir_det_p, &
+           c_loc(rhmini_arr(1,1)), c_loc(rhminl_arr(1,1)), c_loc(rhminl_adj_land_arr(1,1)), &
+           c_loc(rhminh_arr(1,1)), c_loc(d_rhmin_liq_PBL(1,1)), c_loc(d_rhmin_ice_PBL(1,1)), &
+           c_loc(d_rhmin_liq_det(1,1)), c_loc(d_rhmin_ice_det(1,1)))
+      return
+   endif
 
    call rhcrit_const_select_impl()
    if (.not. use_native_rhcrit_const_impl) then
@@ -1137,6 +1186,43 @@ subroutine rhcrit_calc( &
    end if
 
 end subroutine rhcrit_calc
+
+!=======================================================================================================
+
+   subroutine rhcrit_calc_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (rhcrit_calc_impl_selected) return
+   call get_environment_variable('CLDWAT2M_RHCRIT_CALC_IMPL', value=impl_name, length=n, status=status)
+   use_native_rhcrit_calc_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_rhcrit_calc_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_rhcrit_calc_impl = .false.
+      case default
+         use_native_rhcrit_calc_impl = .false.
+      end select
+   end if
+   rhcrit_calc_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_rhcrit_calc_impl) then
+         write(iulog,*) 'cldwat2m_rhcrit_calc implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_rhcrit_calc implementation = codon'
+      end if
+   end if
+   end subroutine rhcrit_calc_select_impl
+
+   subroutine rhcrit_calc_log_entered()
+   if (rhcrit_calc_entered_logged) return
+   rhcrit_calc_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'rhcrit_calc direct = codon with native qsat_water/qsat_ice islands'
+   end if
+   end subroutine rhcrit_calc_log_entered
 
 !=======================================================================================================
 
@@ -3591,6 +3677,14 @@ end subroutine rhcrit_calc
 
    call qsat_water(real(t_c, r8), real(p_c, r8), es_c, qs_c, dqsdt=dqsdt_c)
    end subroutine cldwat2m_qsat_water_native_cb
+
+   subroutine cldwat2m_qsat_ice_native_cb(t_c, p_c, es_c, qs_c) &
+        bind(C, name="cldwat2m_qsat_ice_native_cb")
+   real(c_double), value :: t_c, p_c
+   real(c_double), intent(out) :: es_c, qs_c
+
+   call qsat_ice(real(t_c, r8), real(p_c, r8), es_c, qs_c)
+   end subroutine cldwat2m_qsat_ice_native_cb
 
    subroutine gridmean_RH( lchnk, icol, k, p, T, qv, ql, qi,       &
                            a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc, &
