@@ -232,6 +232,14 @@ module physics_types
        type(c_ptr), value :: dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p
      end subroutine physics_tend_alloc_codon_raw
 
+     function physics_ptend_init_codon_raw(ls_present_c, ls_value_c, lu_present_c, lu_value_c, &
+          lv_present_c, lv_value_c, lq_present_c) result(policy_c) bind(c, name="physics_ptend_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: ls_present_c, ls_value_c, lu_present_c, lu_value_c
+       integer(c_int64_t), value :: lv_present_c, lv_value_c, lq_present_c
+       integer(c_int64_t) :: policy_c
+     end function physics_ptend_init_codon_raw
+
      subroutine physics_fill_real_1d_codon_raw(n_c, value_c, arr_p) bind(c, name="physics_fill_real_1d_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: n_c
@@ -549,6 +557,17 @@ contains
          real(value_local, c_double), c_loc(tend%dtdt), c_loc(tend%dudt), c_loc(tend%dvdt), &
          c_loc(tend%flx_net), c_loc(tend%te_tnd), c_loc(tend%tw_tnd))
   end subroutine physics_tend_alloc_codon
+
+  function physics_ptend_init_codon(ls_present, ls_value, lu_present, lu_value, lv_present, lv_value, lq_present) result(policy)
+    use iso_c_binding, only: c_int64_t
+    logical, intent(in) :: ls_present, ls_value, lu_present, lu_value, lv_present, lv_value, lq_present
+    integer :: policy
+
+    policy = int(physics_ptend_init_codon_raw(merge(1_c_int64_t, 0_c_int64_t, ls_present), &
+         merge(1_c_int64_t, 0_c_int64_t, ls_value), merge(1_c_int64_t, 0_c_int64_t, lu_present), &
+         merge(1_c_int64_t, 0_c_int64_t, lu_value), merge(1_c_int64_t, 0_c_int64_t, lv_present), &
+         merge(1_c_int64_t, 0_c_int64_t, lv_value), merge(1_c_int64_t, 0_c_int64_t, lq_present)))
+  end function physics_ptend_init_codon
 
   subroutine physics_fill_real_1d_codon(n_local, value_local, arr)
     use iso_c_binding, only: c_double, c_int64_t, c_loc
@@ -1935,16 +1954,12 @@ end subroutine physics_ptend_copy
     logical, optional                   :: lv       ! if true, then fields to support dvdt are allocated
     logical, dimension(pcnst),optional  :: lq       ! if true, then fields to support dqdt are allocated
 
+    integer :: init_policy
+    logical :: ls_flag, lu_flag, lv_flag
+
 !-----------------------------------------------------------------------
 
     call physics_types_zero_select_impl()
-    if (.not. use_native_zero_impl) then
-       if (physics_types_touch_codon(3_c_int64_t) == 3_c_int64_t) then
-          call physics_types_zero_proof_once()
-          call physics_types_log_direct(physics_ptend_init_logged, &
-               'physics_ptend_init direct = codon; ptend reset/zero helper path direct = codon; native allocation/control island')
-       end if
-    end if
 
     if (allocated(ptend%s)) then
        call endrun(' physics_ptend_init: ptend should not be allocated before calling this routine')
@@ -1952,34 +1967,62 @@ end subroutine physics_ptend_copy
 
     ptend%name     = name
     ptend%psetcols =  psetcols
+    ls_flag = .false.
+    lu_flag = .false.
+    lv_flag = .false.
+    if (present(ls)) ls_flag = ls
+    if (present(lu)) lu_flag = lu
+    if (present(lv)) lv_flag = lv
 
     ! If no fields being stored, initialize all values to appropriate nulls and return
-    if (.not. present(ls) .and. .not. present(lu) .and. .not. present(lv) .and. .not. present(lq) ) then
-       ptend%ls       = .false.
-       ptend%lu       = .false.
-       ptend%lv       = .false.
-       ptend%lq(:)    = .false.
-       ptend%top_level = 1
-       ptend%bot_level = pver
-       return
-    end if
+    if (use_native_zero_impl) then
+       if (.not. present(ls) .and. .not. present(lu) .and. .not. present(lv) .and. .not. present(lq) ) then
+          ptend%ls       = .false.
+          ptend%lu       = .false.
+          ptend%lv       = .false.
+          ptend%lq(:)    = .false.
+          ptend%top_level = 1
+          ptend%bot_level = pver
+          return
+       end if
 
-    if (present(ls)) then
-       ptend%ls = ls
-    else
-       ptend%ls = .false.
-    end if
+       if (present(ls)) then
+          ptend%ls = ls
+       else
+          ptend%ls = .false.
+       end if
 
-    if (present(lu)) then
-       ptend%lu = lu
-    else
-       ptend%lu = .false.
-    end if
+       if (present(lu)) then
+          ptend%lu = lu
+       else
+          ptend%lu = .false.
+       end if
 
-    if (present(lv)) then
-       ptend%lv = lv
+       if (present(lv)) then
+          ptend%lv = lv
+       else
+          ptend%lv = .false.
+       end if
     else
-       ptend%lv = .false.
+       init_policy = physics_ptend_init_codon(present(ls), ls_flag, present(lu), lu_flag, &
+            present(lv), lv_flag, present(lq))
+       call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_ptend_init_logged, &
+            'physics_ptend_init direct = codon; optional flag/no-field policy direct; allocation/name/lq copy native Fortran boundary')
+
+       if (btest(init_policy, 3)) then
+          ptend%ls       = .false.
+          ptend%lu       = .false.
+          ptend%lv       = .false.
+          ptend%lq(:)    = .false.
+          ptend%top_level = 1
+          ptend%bot_level = pver
+          return
+       end if
+
+       ptend%ls = btest(init_policy, 0)
+       ptend%lu = btest(init_policy, 1)
+       ptend%lv = btest(init_policy, 2)
     end if
 
     if (present(lq)) then

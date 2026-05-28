@@ -2708,6 +2708,29 @@ def physics_state_copy_codon(
 
 
 @export
+def physics_ptend_init_codon(
+    ls_present: int,
+    ls_value: int,
+    lu_present: int,
+    lu_value: int,
+    lv_present: int,
+    lv_value: int,
+    lq_present: int,
+) -> int:
+    if ls_present == 0 and lu_present == 0 and lv_present == 0 and lq_present == 0:
+        return 8
+
+    policy = 0
+    if ls_present != 0 and ls_value != 0:
+        policy = policy | 1
+    if lu_present != 0 and lu_value != 0:
+        policy = policy | 2
+    if lv_present != 0 and lv_value != 0:
+        policy = policy | 4
+    return policy
+
+
+@export
 def physics_fill_real_1d_codon(n: int, value: float, arr_p: cobj):
     _physics_types_fill_1d(n, value, Ptr[float](arr_p))
 
