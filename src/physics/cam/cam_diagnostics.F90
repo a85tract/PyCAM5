@@ -168,6 +168,12 @@ interface
       real(c_double), value :: scale_c
       type(c_ptr), value :: src_p, out_p
    end subroutine diag_conv_scale_2d_codon
+   subroutine diag_conv_tend_ini_codon(mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c, src_p, dst_p) &
+        bind(c, name="diag_conv_tend_ini_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c
+      type(c_ptr), value :: src_p, dst_p
+   end subroutine diag_conv_tend_ini_codon
 end interface
 
 contains
@@ -1110,8 +1116,9 @@ subroutine cam_diag_conv_batch_log_tend_ini_entered()
    cam_diag_conv_tend_ini_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cam_diag_conv_batch entered (unified stage-dispatch tend_ini copy direct = codon)'
-      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (unified stage-dispatch tend_ini copy direct = codon)')
+      write(iulog,'(A)') 'diag_conv_tend_ini direct = codon; state/dqcond/T_TTEND copy body direct; pbuf_get_field native CAM API island'
+      call cam_diag_conv_batch_append_proof( &
+           'diag_conv_tend_ini direct = codon; state/dqcond/T_TTEND copy body direct; pbuf_get_field native CAM API island')
       call flush(iulog)
    end if
 
@@ -1255,24 +1262,15 @@ subroutine diag_conv_tend_ini(state,pbuf)
    else
       call cam_diag_conv_batch_log_tend_ini_entered()
 
-      call diag_conv_batch_dispatch_codon( &
-           1_c_int64_t, 1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
-           c_loc(state%s), c_loc(state%s), c_loc(state%s), c_loc(state%s), &
-           c_loc(state%s), c_loc(state%s), c_loc(state%s), c_loc(state%s), &
-           c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), &
-           c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
+      call diag_conv_tend_ini_codon( &
+           1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), 0_c_int64_t, c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
       )
 
       do m = 1, dqcond_num
-         call diag_conv_batch_dispatch_codon( &
-              1_c_int64_t, 2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), &
-              int(m, c_int64_t), 0._c_double, 0._c_double, &
-              c_loc(state%q), c_loc(state%q), c_loc(state%q), c_loc(state%q), &
-              c_loc(state%q), c_loc(state%q), c_loc(state%q), c_loc(state%q), &
-              c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), &
-              c_loc(dqcond_work), c_loc(state%q), c_loc(dqcond_work) &
+         call diag_conv_tend_ini_codon( &
+              2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(m, c_int64_t), c_loc(state%q), c_loc(dqcond_work) &
          )
          dqcond(m)%cnst(:,:,lchnk) = dqcond_work(:,:)
       end do
@@ -1285,13 +1283,9 @@ subroutine diag_conv_tend_ini(state,pbuf)
          if (cam_diag_conv_batch_use_native_impl) then
             t_ttend(:ncol,:) = state%t(:ncol,:)
          else
-            call diag_conv_batch_dispatch_codon( &
-                 1_c_int64_t, 3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-                 int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
-                 c_loc(state%t), c_loc(state%t), c_loc(state%t), c_loc(state%t), &
-                 c_loc(state%t), c_loc(state%t), c_loc(state%t), c_loc(state%t), &
-                 c_loc(t_ttend), c_loc(t_ttend), c_loc(t_ttend), c_loc(t_ttend), c_loc(t_ttend), &
-                 c_loc(state%t), c_loc(t_ttend) &
+            call diag_conv_tend_ini_codon( &
+                 3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                 int(pcnst, c_int64_t), 0_c_int64_t, c_loc(state%t), c_loc(t_ttend) &
             )
          end if
       end do

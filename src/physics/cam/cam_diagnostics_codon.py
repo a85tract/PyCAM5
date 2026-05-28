@@ -278,6 +278,29 @@ def diag_conv_tend_ini_copy_batch_codon(
 
 
 @export
+def diag_conv_tend_ini_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    diag_conv_tend_ini_copy_batch_codon(
+        mode,
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        m,
+        src_p,
+        dst_p,
+    )
+
+
+@export
 def diag_conv_precip_codon(
     ncol: int,
     pcols: int,
