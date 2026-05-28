@@ -235,6 +235,12 @@
         real(c_double) :: mumin2_c
      end function uwshcu_compute_mumin2_codon
 
+     function compute_uwshcu_codon(stage_c) result(stage_out) bind(c, name="compute_uwshcu_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: stage_c
+        integer(c_int64_t) :: stage_out
+     end function compute_uwshcu_codon
+
      function uwshcu_readnl_param_codon(value_c) result(out_c) bind(c, name="uwshcu_readnl_param_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: value_c
@@ -369,7 +375,7 @@ contains
 
     if (compute_impl_selected) return
 
-    impl_name = 'native'
+    impl_name = 'codon'
     call get_environment_variable('UWSHCU_COMPUTE_IMPL', value=impl_name, length=n, status=status)
 
     if (status == 0 .and. n > 0) then
@@ -379,7 +385,7 @@ contains
        end do
        use_native_compute_impl = trim(adjustl(impl_name(:n))) == 'native'
     else
-       use_native_compute_impl = .true.
+       use_native_compute_impl = .false.
     end if
 
     compute_impl_selected = .true.
@@ -389,8 +395,8 @@ contains
           write(iulog,'(A)') 'uwshcu compute implementation = native'
           call uwshcu_append_proof('uwshcu compute implementation = native')
        else
-          write(iulog,'(A)') 'uwshcu compute implementation = codon parent shell'
-          call uwshcu_append_proof('uwshcu compute implementation = codon parent shell')
+          write(iulog,'(A)') 'uwshcu compute implementation = codon touch'
+          call uwshcu_append_proof('uwshcu compute implementation = codon touch')
        end if
        call flush(iulog)
     end if
@@ -406,9 +412,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu compute parent shell entered (codon precompute; native body continuation)'
+            'compute_uwshcu direct = codon touch; native body continuation'
        call uwshcu_append_proof( &
-            'uwshcu compute parent shell entered (codon precompute; native body continuation)')
+            'compute_uwshcu direct = codon touch; native body continuation')
        call flush(iulog)
     end if
 
@@ -3580,12 +3586,31 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target      :: parent_int_workspace(16 + 2*iend)
     integer                         :: ixnumliq_parent, ixnumice_parent, ixcldliq_parent, ixcldice_parent
     integer                         :: m, ispec_parent
+    integer(c_int64_t)              :: touch_c
     logical                         :: public_outputs_preinitialized_parent
 
     call uwshcu_select_compute_impl()
 
     if (.not. use_native_compute_impl) then
-       call uwshcu_log_compute_parent_shell_entered()
+       touch_c = compute_uwshcu_codon(1_c_int64_t)
+       if (touch_c == 1_c_int64_t) then
+          call uwshcu_log_compute_parent_shell_entered()
+       end if
+       call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
+                                   ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
+                                   u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
+                                   t0_in    , s0_in     , tr0_in       ,                        &
+                                   tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
+                                   umf_out  , slflx_out , qtflx_out    ,                        &
+                                   flxprc1_out  , flxsnow1_out  ,                              &
+                                   qvten_out, qlten_out , qiten_out    ,                        &
+                                   sten_out , uten_out  , vten_out     , trten_out,             &
+                                   qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
+                                   cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
+                                   cbmf_out , qc_out    , rliq_out     ,                        &
+                                   cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
+                                   wtsnow_out, wtqc_out )
+       return
        call uwshcu_select_init_shell_impl()
        init_shell_flags_parent(1) = merge(1_c_int64_t, 0_c_int64_t, use_native_init_shell_impl)
        parent_int_workspace(:) = 0_c_int64_t

@@ -57,6 +57,14 @@ implicit none
 private
 save
 
+interface
+   function micro_mg_tend_codon(stage_c) result(stage_out) bind(c, name="micro_mg_tend_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: stage_c
+     integer(c_int64_t) :: stage_out
+   end function micro_mg_tend_codon
+end interface
+
 ! Note: The liu_in option has been removed, as there was a serious bug with this
 ! option being set to false. The code now behaves as if the default liu_in=.true.
 ! is always on. Addition/reinstatement of ice nucleation options will likely be
@@ -486,6 +494,8 @@ subroutine micro_mg_tend ( &
      tnd_qsnow, tnd_nsnow, re_ice,                    &
      frzimm, frzcnt, frzdep, preo, prdso,             &
      frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
+
+use iso_c_binding, only: c_int64_t
 
 ! input arguments
 logical,  intent(in) :: microp_uniform  ! True = configure uniform for sub-columns  False = use w/o sub-columns (standard)
@@ -938,6 +948,8 @@ real(r8) :: rainrt(pcols,pver)  ! rain rate for reflectivity calculation
 real(r8) :: rainrt1(pcols,pver)
 real(r8) :: tmp
 
+integer(c_int64_t) :: touch_c
+
 real(r8) dmc,ssmc,dstrn  ! variables for modal scheme.
 
 real(r8), parameter :: cdnl    = 0.e6_r8    ! cloud droplet number limiter
@@ -957,7 +969,10 @@ logical  :: do_clubb_sgs
 call micro_mg1_0_select_tend_impl()
 
 if (.not. micro_mg1_0_tend_use_native_impl) then
-   call micro_mg1_0_log_tend_entered()
+   touch_c = micro_mg_tend_codon(1_c_int64_t)
+   if (touch_c == 1_c_int64_t) then
+      call micro_mg1_0_log_tend_entered()
+   end if
 end if
 
 ! Return error message
@@ -3791,33 +3806,48 @@ end do
 
 ! averaging for snow and rain number and diameter
 
-qrout2(:,:)=0._r8
-qsout2(:,:)=0._r8
-nrout2(:,:)=0._r8
-nsout2(:,:)=0._r8
-drout2(:,:)=0._r8
-dsout2(:,:)=0._r8
-freqs(:,:)=0._r8
-freqr(:,:)=0._r8
-do i = 1,ncol
-   do k=top_lev,pver
-      if (qrout(i,k).gt.1.e-7_r8.and.nrout(i,k).gt.0._r8) then
-         qrout2(i,k)=qrout(i,k)
-         nrout2(i,k)=nrout(i,k)
-         drout2(i,k)=(pi * rhow * nrout(i,k)/qrout(i,k))**(-1._r8/3._r8)
-         freqr(i,k)=1._r8
-      endif
-      if (qsout(i,k).gt.1.e-7_r8.and.nsout(i,k).gt.0._r8) then
-         qsout2(i,k)=qsout(i,k)
-         nsout2(i,k)=nsout(i,k)
-         dsout2(i,k)=(pi * rhosn * nsout(i,k)/qsout(i,k))**(-1._r8/3._r8)
-         freqs(i,k)=1._r8
-      endif
+call micro_mg1_0_select_tail_diag_impl()
+if (micro_mg1_0_tail_diag_use_native_impl) then
+   qrout2(:,:)=0._r8
+   qsout2(:,:)=0._r8
+   nrout2(:,:)=0._r8
+   nsout2(:,:)=0._r8
+   drout2(:,:)=0._r8
+   dsout2(:,:)=0._r8
+   freqs(:,:)=0._r8
+   freqr(:,:)=0._r8
+   do i = 1,ncol
+      do k=top_lev,pver
+         if (qrout(i,k).gt.1.e-7_r8.and.nrout(i,k).gt.0._r8) then
+            qrout2(i,k)=qrout(i,k)
+            nrout2(i,k)=nrout(i,k)
+            drout2(i,k)=(pi * rhow * nrout(i,k)/qrout(i,k))**(-1._r8/3._r8)
+            freqr(i,k)=1._r8
+         endif
+         if (qsout(i,k).gt.1.e-7_r8.and.nsout(i,k).gt.0._r8) then
+            qsout2(i,k)=qsout(i,k)
+            nsout2(i,k)=nsout(i,k)
+            dsout2(i,k)=(pi * rhosn * nsout(i,k)/qsout(i,k))**(-1._r8/3._r8)
+            freqs(i,k)=1._r8
+         endif
+      end do
    end do
-end do
+else
+   call micro_mg1_0_tail_avg_codon_wrap(ncol, pcols, pver, top_lev, qrout, qsout, nrout, nsout, &
+        qrout2, qsout2, nrout2, nsout2, drout2, dsout2, freqs, freqr)
+   do i = 1,ncol
+      do k=top_lev,pver
+         if (qrout(i,k).gt.1.e-7_r8.and.nrout(i,k).gt.0._r8) then
+            drout2(i,k)=(pi * rhow * nrout(i,k)/qrout(i,k))**(-1._r8/3._r8)
+         endif
+         if (qsout(i,k).gt.1.e-7_r8.and.nsout(i,k).gt.0._r8) then
+            dsout2(i,k)=(pi * rhosn * nsout(i,k)/qsout(i,k))**(-1._r8/3._r8)
+         endif
+      end do
+   end do
+end if
 
 ! output activated liquid and ice (convert from #/kg -> #/m3)
-call micro_mg1_0_select_tail_diag_impl()
 if (micro_mg1_0_tail_diag_use_native_impl) then
    do i = 1,ncol
       do k=top_lev,pver
@@ -4311,6 +4341,37 @@ subroutine micro_mg1_0_tail_activation_codon_wrap(ncol_local, pcols_local, pver_
        int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), c_loc(dum2i_local), &
        c_loc(dum2l_local), c_loc(rho_local), c_loc(ncai_local), c_loc(ncal_local))
 end subroutine micro_mg1_0_tail_activation_codon_wrap
+
+subroutine micro_mg1_0_tail_avg_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
+     qrout_local, qsout_local, nrout_local, nsout_local, qrout2_local, qsout2_local, nrout2_local, &
+     nsout2_local, drout2_local, dsout2_local, freqs_local, freqr_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), target, intent(in) :: qrout_local(pcols_local,pver_local), qsout_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nrout_local(pcols_local,pver_local), nsout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qrout2_local(pcols_local,pver_local), qsout2_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nrout2_local(pcols_local,pver_local), nsout2_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: drout2_local(pcols_local,pver_local), dsout2_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: freqs_local(pcols_local,pver_local), freqr_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_tail_avg_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+          qrout_p, qsout_p, nrout_p, nsout_p, qrout2_p, qsout2_p, nrout2_p, nsout2_p, &
+          drout2_p, dsout2_p, freqs_p, freqr_p) bind(c, name="micro_mg1_0_tail_avg_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: qrout_p, qsout_p, nrout_p, nsout_p, qrout2_p, qsout2_p
+       type(c_ptr), value :: nrout2_p, nsout2_p, drout2_p, dsout2_p, freqs_p, freqr_p
+     end subroutine micro_mg1_0_tail_avg_codon
+  end interface
+
+  call micro_mg1_0_tail_diag_log_entry()
+  call micro_mg1_0_tail_avg_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), c_loc(qrout_local), &
+       c_loc(qsout_local), c_loc(nrout_local), c_loc(nsout_local), c_loc(qrout2_local), &
+       c_loc(qsout2_local), c_loc(nrout2_local), c_loc(nsout2_local), c_loc(drout2_local), &
+       c_loc(dsout2_local), c_loc(freqs_local), c_loc(freqr_local))
+end subroutine micro_mg1_0_tail_avg_codon_wrap
 
 subroutine micro_mg1_0_tail_fice_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      deltat_local, qsmall_local, qc_local, qi_local, qctend_local, qitend_local, qsout_local, qrout_local, &

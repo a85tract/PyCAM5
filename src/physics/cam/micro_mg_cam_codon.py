@@ -60,6 +60,16 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
 
 
 @export
+def micro_mg_tend_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def micro_mg_cam_tend_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def micro_mg_cam_readnl_codon(
     path_len: int,
     path_ascii_p: cobj,
@@ -1550,6 +1560,63 @@ def micro_mg1_0_tail_activation_codon(
 
 
 @export
+def micro_mg1_0_tail_avg_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    qrout_p: cobj,
+    qsout_p: cobj,
+    nrout_p: cobj,
+    nsout_p: cobj,
+    qrout2_p: cobj,
+    qsout2_p: cobj,
+    nrout2_p: cobj,
+    nsout2_p: cobj,
+    drout2_p: cobj,
+    dsout2_p: cobj,
+    freqs_p: cobj,
+    freqr_p: cobj,
+):
+    qrout = Ptr[float](qrout_p)
+    qsout = Ptr[float](qsout_p)
+    nrout = Ptr[float](nrout_p)
+    nsout = Ptr[float](nsout_p)
+    qrout2 = Ptr[float](qrout2_p)
+    qsout2 = Ptr[float](qsout2_p)
+    nrout2 = Ptr[float](nrout2_p)
+    nsout2 = Ptr[float](nsout2_p)
+    drout2 = Ptr[float](drout2_p)
+    dsout2 = Ptr[float](dsout2_p)
+    freqs = Ptr[float](freqs_p)
+    freqr = Ptr[float](freqr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            qrout2[idx] = 0.0
+            qsout2[idx] = 0.0
+            nrout2[idx] = 0.0
+            nsout2[idx] = 0.0
+            drout2[idx] = 0.0
+            dsout2[idx] = 0.0
+            freqs[idx] = 0.0
+            freqr[idx] = 0.0
+
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            if qrout[idx] > 1.0e-7 and nrout[idx] > 0.0:
+                qrout2[idx] = qrout[idx]
+                nrout2[idx] = nrout[idx]
+                freqr[idx] = 1.0
+            if qsout[idx] > 1.0e-7 and nsout[idx] > 0.0:
+                qsout2[idx] = qsout[idx]
+                nsout2[idx] = nsout[idx]
+                freqs[idx] = 1.0
+
+
+@export
 def micro_mg1_0_tail_fice_codon(
     ncol: int,
     pcols: int,
@@ -1755,6 +1822,62 @@ def micro_mg_cam_pack_state_inputs_codon(
             packed_nc[dst_idx] = state_q[_idx3(i, k, ixnumliq, psetcols, pver)]
             packed_qi[dst_idx] = state_q[_idx3(i, k, ixcldice, psetcols, pver)]
             packed_ni[dst_idx] = state_q[_idx3(i, k, ixnumice, psetcols, pver)]
+
+
+@export
+def micro_mg_cam_pack_three_2d_inputs_codon(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    top_lev: int,
+    mgcols_p: cobj,
+    src1_p: cobj,
+    src2_p: cobj,
+    src3_p: cobj,
+    dst1_p: cobj,
+    dst2_p: cobj,
+    dst3_p: cobj,
+):
+    mgcols = Ptr[int](mgcols_p)
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](src1_p), Ptr[float](dst1_p))
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](src2_p), Ptr[float](dst2_p))
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](src3_p), Ptr[float](dst3_p))
+
+
+@export
+def micro_mg_cam_pack_precip_state_inputs_codon(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    ixrain: int,
+    ixnumrain: int,
+    ixsnow: int,
+    ixnumsnow: int,
+    mgcols_p: cobj,
+    state_q_p: cobj,
+    packed_qr_p: cobj,
+    packed_nr_p: cobj,
+    packed_qs_p: cobj,
+    packed_ns_p: cobj,
+):
+    mgcols = Ptr[int](mgcols_p)
+    state_q = Ptr[float](state_q_p)
+    packed_qr = Ptr[float](packed_qr_p)
+    packed_nr = Ptr[float](packed_nr_p)
+    packed_qs = Ptr[float](packed_qs_p)
+    packed_ns = Ptr[float](packed_ns_p)
+
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            dst_idx = _idx2(j, kk, mgncol)
+            packed_qr[dst_idx] = state_q[_idx3(i, k, ixrain, psetcols, pver)]
+            packed_nr[dst_idx] = state_q[_idx3(i, k, ixnumrain, psetcols, pver)]
+            packed_qs[dst_idx] = state_q[_idx3(i, k, ixsnow, psetcols, pver)]
+            packed_ns[dst_idx] = state_q[_idx3(i, k, ixnumsnow, psetcols, pver)]
 
 
 @inline

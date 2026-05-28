@@ -3,6 +3,12 @@ from C import uwshcu_exnf_native_cb(float, float, float) -> float
 from C import uwshcu_qsat_native_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import uwshcu_qsat_gam_native_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
 
+
+@export
+def compute_uwshcu_codon(stage: int) -> int:
+    return stage
+
+
 @export
 def convect_shallow_use_shfrc_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
     scheme_ascii = Ptr[int](scheme_ascii_p)

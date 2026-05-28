@@ -356,6 +356,12 @@ interface
       integer(c_int64_t), value :: n1_c, n2_c
       integer(c_int64_t) :: out_c
    end function micro_mg_cam_p2_codon
+
+   function micro_mg_cam_tend_codon(stage_c) result(stage_out) bind(c, name="micro_mg_cam_tend_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function micro_mg_cam_tend_codon
 end interface
 
 
@@ -2369,6 +2375,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    character(128) :: errstring   ! return status (non-blank for error return)
    real(r8) :: rate_local
+   integer(c_int64_t) :: touch_c
 
    ! For rrtmg optics. specified distribution.
    real(r8), parameter :: dcon   = 25.e-6_r8         ! Convective size distribution effective radius (meters)
@@ -2432,8 +2439,11 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call micro_mg_cam_tend_select_impl()
 
    if (.not. use_native_micro_mg_cam_tend_impl) then
-      call micro_mg_cam_log_entered_once(micro_mg_cam_tend_logged, 'MICRO_MG_CAM_TEND_PROOF_FILE', &
-           'micro_mg_cam_tend direct = codon stage dispatch; native MG core/CAM API callbacks')
+      touch_c = micro_mg_cam_tend_codon(1_c_int64_t)
+      if (touch_c == 1_c_int64_t) then
+         call micro_mg_cam_log_entered_once(micro_mg_cam_tend_logged, 'MICRO_MG_CAM_TEND_PROOF_FILE', &
+              'micro_mg_cam_tend direct = codon stage dispatch; native MG core/CAM API callbacks')
+      end if
    end if
 
    ! Find the number of levels used in the microphysics.
@@ -2911,11 +2921,16 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    if (.not. do_cldice) then
       allocate(packed_tnd_qsnow(mgncol,nlev))
-      packed_tnd_qsnow = packer%pack(tnd_qsnow)
       allocate(packed_tnd_nsnow(mgncol,nlev))
-      packed_tnd_nsnow = packer%pack(tnd_nsnow)
       allocate(packed_re_ice(mgncol,nlev))
-      packed_re_ice = packer%pack(re_ice)
+      if (use_native_pack_inputs_impl) then
+         packed_tnd_qsnow = packer%pack(tnd_qsnow)
+         packed_tnd_nsnow = packer%pack(tnd_nsnow)
+         packed_re_ice = packer%pack(re_ice)
+      else
+         call micro_mg_cam_pack_three_2d_inputs_codon_wrap(mgncol, nlev, psetcols, mgcols64, &
+              tnd_qsnow, tnd_nsnow, re_ice, packed_tnd_qsnow, packed_tnd_nsnow, packed_re_ice)
+      end if
    else
       nullify(packed_tnd_qsnow)
       nullify(packed_tnd_nsnow)
@@ -2924,11 +2939,16 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    if (use_hetfrz_classnuc) then
       allocate(packed_frzimm(mgncol,nlev))
-      packed_frzimm = packer%pack(frzimm)
       allocate(packed_frzcnt(mgncol,nlev))
-      packed_frzcnt = packer%pack(frzcnt)
       allocate(packed_frzdep(mgncol,nlev))
-      packed_frzdep = packer%pack(frzdep)
+      if (use_native_pack_inputs_impl) then
+         packed_frzimm = packer%pack(frzimm)
+         packed_frzcnt = packer%pack(frzcnt)
+         packed_frzdep = packer%pack(frzdep)
+      else
+         call micro_mg_cam_pack_three_2d_inputs_codon_wrap(mgncol, nlev, psetcols, mgcols64, &
+              frzimm, frzcnt, frzdep, packed_frzimm, packed_frzcnt, packed_frzdep)
+      end if
    else
       nullify(packed_frzimm)
       nullify(packed_frzcnt)
@@ -2964,10 +2984,15 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
               ixnumice, state_loc%t, state_loc%q, packed_t, packed_q, packed_qc, packed_nc, packed_qi, packed_ni)
       end if
       if (micro_mg_version > 1) then
-         packed_qr = packer%pack(state_loc%q(:,:,ixrain))
-         packed_nr = packer%pack(state_loc%q(:,:,ixnumrain))
-         packed_qs = packer%pack(state_loc%q(:,:,ixsnow))
-         packed_ns = packer%pack(state_loc%q(:,:,ixnumsnow))
+         if (use_native_pack_inputs_impl) then
+            packed_qr = packer%pack(state_loc%q(:,:,ixrain))
+            packed_nr = packer%pack(state_loc%q(:,:,ixnumrain))
+            packed_qs = packer%pack(state_loc%q(:,:,ixsnow))
+            packed_ns = packer%pack(state_loc%q(:,:,ixnumsnow))
+         else
+            call micro_mg_cam_pack_precip_state_inputs_codon_wrap(mgncol, nlev, psetcols, mgcols64, &
+                 ixrain, ixnumrain, ixsnow, ixnumsnow, state_loc%q, packed_qr, packed_nr, packed_qs, packed_ns)
+         end if
       end if
 
       select case (micro_mg_version)
@@ -3917,6 +3942,76 @@ subroutine micro_mg_cam_pack_state_inputs_codon_wrap(mgncol_local, nlev_local, p
        c_loc(packed_qi_local), c_loc(packed_ni_local))
 
 end subroutine micro_mg_cam_pack_state_inputs_codon_wrap
+
+subroutine micro_mg_cam_pack_three_2d_inputs_codon_wrap(mgncol_local, nlev_local, psetcols_local, mgcols64_local, &
+     src1_local, src2_local, src3_local, dst1_local, dst2_local, dst3_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc
+
+  integer, intent(in) :: mgncol_local, nlev_local, psetcols_local
+  integer(c_int64_t), target, intent(in) :: mgcols64_local(mgncol_local)
+  real(r8), target, intent(in) :: src1_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: src2_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: src3_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: dst1_local(mgncol_local,nlev_local)
+  real(r8), target, intent(inout) :: dst2_local(mgncol_local,nlev_local)
+  real(r8), target, intent(inout) :: dst3_local(mgncol_local,nlev_local)
+
+  interface
+     subroutine micro_mg_cam_pack_three_2d_inputs_codon(mgncol_c, nlev_c, psetcols_c, top_lev_c, &
+          mgcols_p, src1_p, src2_p, src3_p, dst1_p, dst2_p, dst3_p) &
+          bind(c, name="micro_mg_cam_pack_three_2d_inputs_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: mgncol_c, nlev_c, psetcols_c, top_lev_c
+       type(c_ptr), value :: mgcols_p, src1_p, src2_p, src3_p, dst1_p, dst2_p, dst3_p
+     end subroutine micro_mg_cam_pack_three_2d_inputs_codon
+  end interface
+
+  call micro_mg_cam_log_entered_once(pack_inputs_entered_logged, 'MICRO_MG_CAM_PACK_INPUTS_PROOF_FILE', &
+       'micro_mg_cam_pack_inputs entered (MGPacker static/state/input extension gathers = codon)')
+
+  call micro_mg_cam_pack_three_2d_inputs_codon(int(mgncol_local, c_int64_t), int(nlev_local, c_int64_t), &
+       int(psetcols_local, c_int64_t), int(top_lev, c_int64_t), c_loc(mgcols64_local), c_loc(src1_local), &
+       c_loc(src2_local), c_loc(src3_local), c_loc(dst1_local), c_loc(dst2_local), c_loc(dst3_local))
+
+end subroutine micro_mg_cam_pack_three_2d_inputs_codon_wrap
+
+subroutine micro_mg_cam_pack_precip_state_inputs_codon_wrap(mgncol_local, nlev_local, psetcols_local, &
+     mgcols64_local, ixrain_local, ixnumrain_local, ixsnow_local, ixnumsnow_local, state_q_local, &
+     packed_qr_local, packed_nr_local, packed_qs_local, packed_ns_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc
+
+  integer, intent(in) :: mgncol_local, nlev_local, psetcols_local
+  integer, intent(in) :: ixrain_local, ixnumrain_local, ixsnow_local, ixnumsnow_local
+  integer(c_int64_t), target, intent(in) :: mgcols64_local(mgncol_local)
+  real(r8), target, intent(in) :: state_q_local(psetcols_local,pver,pcnst)
+  real(r8), target, intent(inout) :: packed_qr_local(mgncol_local,nlev_local)
+  real(r8), target, intent(inout) :: packed_nr_local(mgncol_local,nlev_local)
+  real(r8), target, intent(inout) :: packed_qs_local(mgncol_local,nlev_local)
+  real(r8), target, intent(inout) :: packed_ns_local(mgncol_local,nlev_local)
+
+  interface
+     subroutine micro_mg_cam_pack_precip_state_inputs_codon(mgncol_c, nlev_c, psetcols_c, pver_c, top_lev_c, &
+          ixrain_c, ixnumrain_c, ixsnow_c, ixnumsnow_c, mgcols_p, state_q_p, packed_qr_p, packed_nr_p, &
+          packed_qs_p, packed_ns_p) bind(c, name="micro_mg_cam_pack_precip_state_inputs_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: mgncol_c, nlev_c, psetcols_c, pver_c, top_lev_c
+       integer(c_int64_t), value :: ixrain_c, ixnumrain_c, ixsnow_c, ixnumsnow_c
+       type(c_ptr), value :: mgcols_p, state_q_p, packed_qr_p, packed_nr_p, packed_qs_p, packed_ns_p
+     end subroutine micro_mg_cam_pack_precip_state_inputs_codon
+  end interface
+
+  call micro_mg_cam_log_entered_once(pack_inputs_entered_logged, 'MICRO_MG_CAM_PACK_INPUTS_PROOF_FILE', &
+       'micro_mg_cam_pack_inputs entered (MGPacker static/state/input extension gathers = codon)')
+
+  call micro_mg_cam_pack_precip_state_inputs_codon(int(mgncol_local, c_int64_t), int(nlev_local, c_int64_t), &
+       int(psetcols_local, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+       int(ixrain_local, c_int64_t), int(ixnumrain_local, c_int64_t), int(ixsnow_local, c_int64_t), &
+       int(ixnumsnow_local, c_int64_t), c_loc(mgcols64_local), c_loc(state_q_local), c_loc(packed_qr_local), &
+       c_loc(packed_nr_local), c_loc(packed_qs_local), c_loc(packed_ns_local))
+
+end subroutine micro_mg_cam_pack_precip_state_inputs_codon_wrap
 
 subroutine micro_mg_cam_select_ptend_unpack_impl()
 
