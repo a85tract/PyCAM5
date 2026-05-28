@@ -397,6 +397,20 @@ interface
       type(c_ptr), value :: dopaer_p, tauxar_p
    end subroutine modal_aer_opt_lw_accumulate_tau_codon
 
+   subroutine modal_aero_lw_codon(stage_c, ncol_c, pcols_c, pver_c, k_c, ilw_c, ncoef_c, &
+        rhoh2o_c, crefwlw_re_c, crefwlw_im_c, specdens_c, specref_re_c, specref_im_c, &
+        specmmr_p, qaerwat_p, cheby_p, cabs_p, mass_p, vol_p, dryvol_p, watervol_p, &
+        wetvol_p, crefin_re_p, crefin_im_p, refr_p, refi_p, pabs_p, dopaer_p, tauxar_p) &
+        bind(c, name="modal_aero_lw_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, k_c, ilw_c, ncoef_c
+      real(c_double), value :: rhoh2o_c, crefwlw_re_c, crefwlw_im_c
+      real(c_double), value :: specdens_c, specref_re_c, specref_im_c
+      type(c_ptr), value :: specmmr_p, qaerwat_p, cheby_p, cabs_p, mass_p
+      type(c_ptr), value :: vol_p, dryvol_p, watervol_p, wetvol_p, crefin_re_p, crefin_im_p
+      type(c_ptr), value :: refr_p, refi_p, pabs_p, dopaer_p, tauxar_p
+   end subroutine modal_aero_lw_codon
+
    subroutine modal_aer_opt_read_water_refindex_codon(nswbands_c, nlwbands_c, refrwsw_p, refiwsw_p, &
         refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p) bind(c, name="modal_aer_opt_read_water_refindex_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -943,7 +957,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    ! calculates aerosol sw radiative properties
    
-   use iso_c_binding, only: c_int64_t, c_loc
+   use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr
    use tropopause,     only : tropopause_find
 
    integer,             intent(in) :: list_idx       ! index of the climate or a diagnostic list
@@ -1781,7 +1795,7 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
 
    ! calculates aerosol lw radiative properties
 
-   use iso_c_binding, only: c_int64_t, c_loc
+   use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr
 
    integer,             intent(in)  :: list_idx ! index of the climate or a diagnostic list
    type(physics_state), intent(in), target :: state    ! state variables
@@ -1816,19 +1830,20 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
    real(r8)             :: specdens            ! species density (kg/m3)
    complex(r8), pointer :: specrefindex(:)     ! species refractive index
 
-   real(r8) :: vol(pcols)       ! volume concentration of aerosol specie (m3/kg)
-   real(r8) :: dryvol(pcols)    ! volume concentration of aerosol mode (m3/kg)
+   real(r8), target :: vol(pcols)       ! volume concentration of aerosol specie (m3/kg)
+   real(r8), target :: dryvol(pcols)    ! volume concentration of aerosol mode (m3/kg)
    real(r8), target :: wetvol(pcols)    ! volume concentration of wet mode (m3/kg)
-   real(r8) :: watervol(pcols)  ! volume concentration of water in each mode (m3/kg)
-   real(r8) :: refr(pcols)      ! real part of refractive index
-   real(r8) :: refi(pcols)      ! imaginary part of refractive index
+   real(r8), target :: watervol(pcols)  ! volume concentration of water in each mode (m3/kg)
+   real(r8), target :: refr(pcols)      ! real part of refractive index
+   real(r8), target :: refi(pcols)      ! imaginary part of refractive index
    complex(r8) :: crefin(pcols) ! complex refractive index
    real(r8), pointer :: refrtablw(:,:) ! table of real refractive indices for aerosols
    real(r8), pointer :: refitablw(:,:) ! table of imag refractive indices for aerosols
    real(r8), pointer :: absplw(:,:,:,:) ! specific absorption
+   real(r8), target :: crefin_re(pcols), crefin_im(pcols)
 
-   integer  :: itab(pcols), jtab(pcols)
-   real(r8) :: ttab(pcols), utab(pcols)
+   integer, target :: itab(pcols), jtab(pcols)
+   real(r8), target :: ttab(pcols), utab(pcols)
    real(r8), target :: cabs(pcols,ncoef)
    real(r8), target :: pabs(pcols)      ! parameterized specific absorption (m2/kg)
    real(r8), target :: dopaer(pcols)    ! aerosol optical depth in layer
@@ -1893,8 +1908,19 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
          do k = top_lev, pver
 
             ! form bulk refractive index. Use volume mixing for infrared
-            crefin(:ncol) = (0._r8, 0._r8)
-            dryvol(:ncol) = 0._r8
+            if (use_native_modal_aer_opt_helpers_impl) then
+               crefin(:ncol) = (0._r8, 0._r8)
+               dryvol(:ncol) = 0._r8
+            else
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_lw_helpers_proof_once()
+               call modal_aero_lw_codon(1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(k, c_int64_t), int(ilw, c_int64_t), int(ncoef, c_int64_t), &
+                    rhoh2o, real(crefwlw(ilw), r8), aimag(crefwlw(ilw)), 0._r8, 0._r8, 0._r8, c_null_ptr, &
+                    c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(vol(1)), c_loc(dryvol(1)), &
+                    c_loc(watervol(1)), c_loc(wetvol(1)), c_loc(crefin_re(1)), c_loc(crefin_im(1)), &
+                    c_loc(refr(1)), c_loc(refi(1)), c_loc(pabs(1)), c_loc(dopaer(1)), c_loc(tauxar(1,1,1)))
+            end if
 
             ! aerosol species loop
             do l = 1, nspec
@@ -1902,36 +1928,72 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
                call rad_cnst_get_aer_props(list_idx, m, l, density_aer=specdens, &
                                            refindex_aer_lw=specrefindex)
 
-               do i = 1, ncol
-                  vol(i)    = specmmr(i,k)/specdens
-                  dryvol(i) = dryvol(i) + vol(i)
-                  crefin(i) = crefin(i) + vol(i)*specrefindex(ilw)
-               end do
-            end do
-
-            do i = 1, ncol
-               watervol(i) = qaerwat(i,k)/rhoh2o
-               wetvol(i)   = watervol(i) + dryvol(i)
-               if (watervol(i) < 0.0_r8) then
-                  if (abs(watervol(i)) .gt. 1.e-1_r8*wetvol(i)) then
-                     write(iulog,*) 'watervol,wetvol,dryvol=',watervol(i),wetvol(i),dryvol(i),' in '//subname
-                  end if
-                  watervol(i) = 0._r8
-                  wetvol(i)   = dryvol(i)
+               if (use_native_modal_aer_opt_helpers_impl) then
+                  do i = 1, ncol
+                     vol(i)    = specmmr(i,k)/specdens
+                     dryvol(i) = dryvol(i) + vol(i)
+                     crefin(i) = crefin(i) + vol(i)*specrefindex(ilw)
+                  end do
+               else
+                  call modal_aero_lw_codon(2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                       int(pver, c_int64_t), int(k, c_int64_t), int(ilw, c_int64_t), int(ncoef, c_int64_t), &
+                       rhoh2o, real(crefwlw(ilw), r8), aimag(crefwlw(ilw)), specdens, &
+                       real(specrefindex(ilw), r8), &
+                       aimag(specrefindex(ilw)), c_loc(specmmr(1,1)), c_null_ptr, c_null_ptr, c_null_ptr, &
+                       c_null_ptr, c_loc(vol(1)), c_loc(dryvol(1)), c_loc(watervol(1)), c_loc(wetvol(1)), &
+                       c_loc(crefin_re(1)), c_loc(crefin_im(1)), c_loc(refr(1)), c_loc(refi(1)), &
+                       c_loc(pabs(1)), c_loc(dopaer(1)), c_loc(tauxar(1,1,1)))
                end if
-
-               crefin(i) = crefin(i) + watervol(i)*crefwlw(ilw)
-               if (wetvol(i) > 1.e-40_r8) crefin(i) = crefin(i)/wetvol(i)
-               refr(i) = real(crefin(i))
-               refi(i) = aimag(crefin(i))
             end do
+
+            if (use_native_modal_aer_opt_helpers_impl) then
+               do i = 1, ncol
+                  watervol(i) = qaerwat(i,k)/rhoh2o
+                  wetvol(i)   = watervol(i) + dryvol(i)
+                  if (watervol(i) < 0.0_r8) then
+                     if (abs(watervol(i)) .gt. 1.e-1_r8*wetvol(i)) then
+                        write(iulog,*) 'watervol,wetvol,dryvol=',watervol(i),wetvol(i),dryvol(i),' in '//subname
+                     end if
+                     watervol(i) = 0._r8
+                     wetvol(i)   = dryvol(i)
+                  end if
+
+                  crefin(i) = crefin(i) + watervol(i)*crefwlw(ilw)
+                  if (wetvol(i) > 1.e-40_r8) crefin(i) = crefin(i)/wetvol(i)
+                  refr(i) = real(crefin(i))
+                  refi(i) = aimag(crefin(i))
+                  crefin_re(i) = real(crefin(i), r8)
+                  crefin_im(i) = aimag(crefin(i))
+               end do
+            else
+               call modal_aero_lw_codon(3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(k, c_int64_t), int(ilw, c_int64_t), int(ncoef, c_int64_t), &
+                    rhoh2o, real(crefwlw(ilw), r8), aimag(crefwlw(ilw)), 0._r8, 0._r8, 0._r8, c_null_ptr, &
+                    c_loc(qaerwat(1,1)), c_null_ptr, c_null_ptr, c_null_ptr, c_loc(vol(1)), c_loc(dryvol(1)), &
+                    c_loc(watervol(1)), c_loc(wetvol(1)), c_loc(crefin_re(1)), c_loc(crefin_im(1)), &
+                    c_loc(refr(1)), c_loc(refi(1)), c_loc(pabs(1)), c_loc(dopaer(1)), c_loc(tauxar(1,1,1)))
+               do i = 1, ncol
+                  crefin(i) = cmplx(crefin_re(i), crefin_im(i), kind=r8)
+               end do
+            end if
 
             ! interpolate coefficients linear in refractive index
             ! first call calcs itab,jtab,ttab,utab
-            itab(:ncol) = 0
-            call binterp(absplw(:,:,:,ilw), ncol, ncoef, prefr, prefi, &
-                         refr, refi, refrtablw(:,ilw), refitablw(:,ilw), &
-                         itab, jtab, ttab, utab, cabs)
+            if (use_native_modal_aer_opt_helpers_impl) then
+               itab(:ncol) = 0
+               call binterp(absplw(:,:,:,ilw), ncol, ncoef, prefr, prefi, &
+                            refr, refi, refrtablw(:,ilw), refitablw(:,ilw), &
+                            itab, jtab, ttab, utab, cabs)
+            else
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_lw_helpers_proof_once()
+               itab(:ncol) = 0
+               call modal_aer_opt_binterp_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+                    int(ncoef, c_int64_t), int(prefr, c_int64_t), int(prefi, c_int64_t), &
+                    c_loc(absplw(1,1,1,ilw)), c_loc(refr(1)), c_loc(refi(1)), &
+                    c_loc(refrtablw(1,ilw)), c_loc(refitablw(1,ilw)), c_loc(itab(1)), &
+                    c_loc(jtab(1)), c_loc(ttab(1)), c_loc(utab(1)), c_loc(cabs(1,1)))
+            end if
 
             ! parameterized optical properties
             if (use_native_modal_aer_opt_helpers_impl) then
@@ -1947,10 +2009,13 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
             else
                call modal_aer_opt_helpers_proof_once()
                call modal_aer_opt_lw_helpers_proof_once()
-               call modal_aer_opt_lw_optics_props_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-                    int(pver, c_int64_t), int(k, c_int64_t), int(ncoef, c_int64_t), rhoh2o, &
-                    c_loc(cheby(1,1,1)), c_loc(cabs(1,1)), c_loc(wetvol(1)), c_loc(mass(1,1)), &
-                    c_loc(pabs(1)), c_loc(dopaer(1)))
+               call modal_aero_lw_codon(4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(k, c_int64_t), int(ilw, c_int64_t), int(ncoef, c_int64_t), &
+                    rhoh2o, real(crefwlw(ilw), r8), aimag(crefwlw(ilw)), 0._r8, 0._r8, 0._r8, c_null_ptr, &
+                    c_null_ptr, c_loc(cheby(1,1,1)), c_loc(cabs(1,1)), c_loc(mass(1,1)), c_loc(vol(1)), &
+                    c_loc(dryvol(1)), c_loc(watervol(1)), c_loc(wetvol(1)), c_loc(crefin_re(1)), &
+                    c_loc(crefin_im(1)), c_loc(refr(1)), c_loc(refi(1)), c_loc(pabs(1)), c_loc(dopaer(1)), &
+                    c_loc(tauxar(1,1,1)))
             end if
 
             do i = 1, ncol
@@ -1970,7 +2035,7 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
                   write(iulog,*) 'wetvol=',wetvol(i),' dryvol=',dryvol(i),     &
                      ' watervol=',watervol(i)
                   write(iulog,*) 'cabs=', (cabs(i,l),l=1,ncoef)
-                  write(iulog,*) 'crefin=', crefin(i)
+                  write(iulog,*) 'crefin=', cmplx(crefin_re(i), crefin_im(i), kind=r8)
                   write(iulog,*) 'nspec=', nspec
                   do l = 1,nspec
                      call rad_cnst_get_aer_mmr(list_idx, m, l, 'a', state, pbuf, specmmr)
@@ -1998,9 +2063,7 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
             else
                call modal_aer_opt_helpers_proof_once()
                call modal_aer_opt_lw_helpers_proof_once()
-               call modal_aer_opt_lw_accumulate_tau_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-                    int(pver, c_int64_t), int(k, c_int64_t), int(ilw, c_int64_t), c_loc(dopaer(1)), &
-                    c_loc(tauxar(1,1,1)))
+               ! Tau accumulation is included in modal_aero_lw_codon stage 4.
             end if
 
          end do ! k = top_lev, pver

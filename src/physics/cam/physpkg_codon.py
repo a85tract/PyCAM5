@@ -6619,6 +6619,71 @@ def modal_aer_opt_lw_accumulate_tau_codon(
     )
 
 
+@export
+def modal_aero_lw_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    ilw: int,
+    ncoef: int,
+    rhoh2o: float,
+    crefwlw_re: float,
+    crefwlw_im: float,
+    specdens: float,
+    specref_re: float,
+    specref_im: float,
+    specmmr_p: cobj,
+    qaerwat_p: cobj,
+    cheby_p: cobj,
+    cabs_p: cobj,
+    mass_p: cobj,
+    vol_p: cobj,
+    dryvol_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+    pabs_p: cobj,
+    dopaer_p: cobj,
+    tauxar_p: cobj,
+):
+    _modal_aer_opt.modal_aero_lw_codon(
+        stage,
+        ncol,
+        pcols,
+        pver,
+        k,
+        ilw,
+        ncoef,
+        rhoh2o,
+        crefwlw_re,
+        crefwlw_im,
+        specdens,
+        specref_re,
+        specref_im,
+        specmmr_p,
+        qaerwat_p,
+        cheby_p,
+        cabs_p,
+        mass_p,
+        vol_p,
+        dryvol_p,
+        watervol_p,
+        wetvol_p,
+        crefin_re_p,
+        crefin_im_p,
+        refr_p,
+        refi_p,
+        pabs_p,
+        dopaer_p,
+        tauxar_p,
+    )
+
+
 @inline
 def _modal_aer_opt_2d_idx(i: int, k: int, pcols: int) -> int:
     """modal_aer_opt arrays declared as (pcols,pver)."""

@@ -1603,3 +1603,101 @@ def modal_aer_opt_lw_accumulate_tau_codon(
         idx1 = _idx1(i)
         idx3 = _lw_idx(i, k, ilw, pcols, pver)
         tauxar[idx3] = tauxar[idx3] + dopaer[idx1]
+
+
+def modal_aero_lw_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    ilw: int,
+    ncoef: int,
+    rhoh2o: float,
+    crefwlw_re: float,
+    crefwlw_im: float,
+    specdens: float,
+    specref_re: float,
+    specref_im: float,
+    specmmr_p: cobj,
+    qaerwat_p: cobj,
+    cheby_p: cobj,
+    cabs_p: cobj,
+    mass_p: cobj,
+    vol_p: cobj,
+    dryvol_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+    pabs_p: cobj,
+    dopaer_p: cobj,
+    tauxar_p: cobj,
+):
+    vol = Ptr[float](vol_p)
+    dryvol = Ptr[float](dryvol_p)
+    watervol = Ptr[float](watervol_p)
+    wetvol = Ptr[float](wetvol_p)
+    crefin_re = Ptr[float](crefin_re_p)
+    crefin_im = Ptr[float](crefin_im_p)
+    refr = Ptr[float](refr_p)
+    refi = Ptr[float](refi_p)
+    pabs = Ptr[float](pabs_p)
+    dopaer = Ptr[float](dopaer_p)
+    tauxar = Ptr[float](tauxar_p)
+
+    if stage == 1:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            crefin_re[idx1] = 0.0
+            crefin_im[idx1] = 0.0
+            dryvol[idx1] = 0.0
+        return
+
+    if stage == 2:
+        specmmr = Ptr[float](specmmr_p)
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            vol[idx1] = specmmr[idx2] / specdens
+            dryvol[idx1] = dryvol[idx1] + vol[idx1]
+            crefin_re[idx1] = crefin_re[idx1] + vol[idx1] * specref_re
+            crefin_im[idx1] = crefin_im[idx1] + vol[idx1] * specref_im
+        return
+
+    if stage == 3:
+        qaerwat = Ptr[float](qaerwat_p)
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            watervol[idx1] = qaerwat[idx2] / rhoh2o
+            wetvol[idx1] = watervol[idx1] + dryvol[idx1]
+            if watervol[idx1] < 0.0:
+                watervol[idx1] = 0.0
+                wetvol[idx1] = dryvol[idx1]
+
+            crefin_re[idx1] = crefin_re[idx1] + watervol[idx1] * crefwlw_re
+            crefin_im[idx1] = crefin_im[idx1] + watervol[idx1] * crefwlw_im
+            if wetvol[idx1] > 1.0e-40:
+                crefin_re[idx1] = crefin_re[idx1] / wetvol[idx1]
+                crefin_im[idx1] = crefin_im[idx1] / wetvol[idx1]
+            refr[idx1] = crefin_re[idx1]
+            refi[idx1] = crefin_im[idx1]
+        return
+
+    if stage == 4:
+        cheby = Ptr[float](cheby_p)
+        cabs = Ptr[float](cabs_p)
+        mass = Ptr[float](mass_p)
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            value = 0.5 * cabs[(i - 1)]
+            for nc in range(2, ncoef + 1):
+                value = value + cheby[_cheb_idx(nc, i, k, ncoef, pcols)] * cabs[(i - 1) + (nc - 1) * pcols]
+            value = value * wetvol[idx1] * rhoh2o
+            value = max(0.0, value)
+            pabs[idx1] = value
+            dopaer[idx1] = value * mass[_idx2(i, k, pcols)]
+            tauxar[_lw_idx(i, k, ilw, pcols, pver)] = tauxar[_lw_idx(i, k, ilw, pcols, pver)] + dopaer[idx1]
