@@ -21,7 +21,7 @@ use phys_prop,      only: physprop_accum_unique_files, physprop_init, &
                           physprop_get_id, physprop_get
 use cam_history,    only: addfld, fieldname_len, phys_decomp, outfld
 use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_get_index
-use iso_c_binding,  only: c_int64_t, c_double, c_ptr
+use iso_c_binding,  only: c_int64_t, c_double, c_ptr, c_loc
 
 
 use error_messages, only: alloc_err   
@@ -398,6 +398,19 @@ interface
       type(c_ptr), value :: text_p
       integer(c_int64_t) :: valid_c
    end function check_mode_type_codon
+   subroutine parse_mode_defs_plan_codon(n_mode_str_c, cs1_c, max_spec_c, nl_ascii_p, nl_clean_ascii_p, &
+        clean_len_p, nmodes_p, nstr_p, mode_nspec_p, mode_names_p, mode_types_p, source_num_a_p, &
+        camname_num_a_p, source_num_c_p, camname_num_c_p, source_mmr_a_p, camname_mmr_a_p, &
+        source_mmr_c_p, camname_mmr_c_p, spec_type_p, spec_props_p, status_p, err_string_p) &
+        bind(c, name="parse_mode_defs_plan_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: n_mode_str_c, cs1_c, max_spec_c
+      type(c_ptr), value :: nl_ascii_p, nl_clean_ascii_p, clean_len_p, nmodes_p, nstr_p
+      type(c_ptr), value :: mode_nspec_p, mode_names_p, mode_types_p, source_num_a_p, camname_num_a_p
+      type(c_ptr), value :: source_num_c_p, camname_num_c_p, source_mmr_a_p, camname_mmr_a_p
+      type(c_ptr), value :: source_mmr_c_p, camname_mmr_c_p, spec_type_p, spec_props_p
+      type(c_ptr), value :: status_p, err_string_p
+   end subroutine parse_mode_defs_plan_codon
    subroutine rad_cnst_mam_mmr_idx_codon(mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c, &
         idx_p, status_p) bind(c, name="rad_cnst_mam_mmr_idx_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -1816,48 +1829,66 @@ subroutine parse_mode_defs(nl_in, modes)
    ! Local variables
    integer :: i, m
    integer :: istat
-   integer :: nmodes, nstr, istr
-   integer :: mbeg, mcur
+   integer :: nmodes, nstr
    integer :: nspec, ispec
-   integer :: strlen, ibeg, iend, ipos
-   logical :: num_mr_found
+   integer, parameter :: max_parse_spec = n_mode_str
    character(len=*), parameter :: routine = 'parse_mode_defs'
-   character(len=len(nl_in(1))) :: tmpstr
-   character(len=1)  :: tmp_src_a
-   character(len=32) :: tmp_name_a
-   character(len=1)  :: tmp_src_c
-   character(len=32) :: tmp_name_c
-   character(len=32) :: tmp_type
+   character(len=cs1) :: err_string
+   integer(c_int64_t), target :: nl_ascii(n_mode_str, cs1)
+   integer(c_int64_t), target :: nl_clean_ascii(n_mode_str, cs1)
+   integer(c_int64_t), target :: clean_len(n_mode_str)
+   integer(c_int64_t), target :: nmodes_c(1), nstr_c(1), status_c(1)
+   integer(c_int64_t), target :: mode_nspec(n_mode_str)
+   integer(c_int64_t), target :: mode_names(32, n_mode_str)
+   integer(c_int64_t), target :: mode_types(32, n_mode_str)
+   integer(c_int64_t), target :: source_num_a(n_mode_str), source_num_c(n_mode_str)
+   integer(c_int64_t), target :: camname_num_a(32, n_mode_str)
+   integer(c_int64_t), target :: camname_num_c(32, n_mode_str)
+   integer(c_int64_t), target :: source_mmr_a(max_parse_spec, n_mode_str)
+   integer(c_int64_t), target :: source_mmr_c(max_parse_spec, n_mode_str)
+   integer(c_int64_t), target :: camname_mmr_a(32, max_parse_spec, n_mode_str)
+   integer(c_int64_t), target :: camname_mmr_c(32, max_parse_spec, n_mode_str)
+   integer(c_int64_t), target :: spec_type(32, max_parse_spec, n_mode_str)
+   integer(c_int64_t), target :: spec_props(cs1, max_parse_spec, n_mode_str)
+   integer(c_int64_t), target :: err_ascii(cs1)
    !-------------------------------------------------------------------------
 
-   call rad_constituents_touch_and_log(15_c_int64_t, parse_mode_defs_logged, &
-        'parse_mode_defs direct = codon; mode/spec validation helpers direct = codon; full string parser/allocation native island')
-  
-   ! Determine number of modes defined by counting number of strings that are
-   ! terminated by ':='
-   ! (algorithm stops counting at first blank element).
-   nmodes = 0
-   nstr = 0
+   call rad_constituents_parent_select_impl()
+   if (use_native_rad_constituents_parent_impl) then
+      call parse_mode_defs_native(nl_in, modes)
+      return
+   end if
+
    do m = 1, n_mode_str
-
-      if (len_trim(nl_in(m)) == 0) exit
-      nstr = nstr + 1
-      
-      ! There are no fields in the input strings in which a blank character is allowed.
-      ! To simplify the parsing go through the input strings and remove blanks.
-      tmpstr = adjustl(nl_in(m))
-      nl_in(m) = tmpstr
-      do
-         strlen = len_trim(nl_in(m))
-         ipos = index(nl_in(m), ' ')
-         if (ipos == 0 .or. ipos > strlen) exit
-         tmpstr = nl_in(m)(:ipos-1) // nl_in(m)(ipos+1:strlen)
-         nl_in(m) = tmpstr
+      do i = 1, cs1
+         nl_ascii(m,i) = int(iachar(nl_in(m)(i:i)), c_int64_t)
       end do
-      ! count strings with ':=' terminator
-      if (nl_in(m)(strlen-1:strlen) == ':=') nmodes = nmodes + 1
-
    end do
+
+   call parse_mode_defs_plan_codon(int(n_mode_str, c_int64_t), int(cs1, c_int64_t), &
+        int(max_parse_spec, c_int64_t), c_loc(nl_ascii(1,1)), c_loc(nl_clean_ascii(1,1)), &
+        c_loc(clean_len(1)), c_loc(nmodes_c(1)), c_loc(nstr_c(1)), c_loc(mode_nspec(1)), &
+        c_loc(mode_names(1,1)), c_loc(mode_types(1,1)), c_loc(source_num_a(1)), &
+        c_loc(camname_num_a(1,1)), c_loc(source_num_c(1)), c_loc(camname_num_c(1,1)), &
+        c_loc(source_mmr_a(1,1)), c_loc(camname_mmr_a(1,1,1)), c_loc(source_mmr_c(1,1)), &
+        c_loc(camname_mmr_c(1,1,1)), c_loc(spec_type(1,1,1)), c_loc(spec_props(1,1,1)), &
+        c_loc(status_c(1)), c_loc(err_ascii(1)))
+
+   call copy_ascii_to_string(err_ascii, cs1, err_string)
+   if (status_c(1) /= 0_c_int64_t) call parse_error(trim(err_string), trim(err_string))
+
+   nmodes = int(nmodes_c(1))
+   nstr = int(nstr_c(1))
+   do m = 1, nstr
+      call copy_ascii_to_string(nl_clean_ascii(m,:), cs1, nl_in(m))
+   end do
+   do m = nstr + 1, n_mode_str
+      nl_in(m) = ' '
+   end do
+
+   call rad_constituents_log_direct(parse_mode_defs_logged, &
+        'parse_mode_defs direct = codon; full mode_defs parse plan direct = codon; allocation/string fill native boundary')
+
    modes%nmodes = nmodes
 
    ! return if no modes defined
@@ -1875,30 +1906,9 @@ subroutine parse_mode_defs(nl_in, modes)
    end if
    
 
-   mcur = 1              ! index of current string being processed
-
-   ! loop over modes
    do m = 1, nmodes
 
-      mbeg = mcur  ! remember the first string of a mode
-
-      ! check that first string in mode definition is ':=' terminated
-      iend = len_trim(nl_in(mcur))
-      if (nl_in(mcur)(iend-1:iend) /= ':=') call parse_error('= not found', nl_in(mcur))
-
-      ! count species in mode definition.  definition will contain 1 string with
-      ! with a ':+' terminator for each specie
-      nspec = 0
-      mcur = mcur + 1
-      do
-         iend = len_trim(nl_in(mcur))
-         if (nl_in(mcur)(iend-1:iend) /= ':+') exit
-         nspec = nspec + 1
-         mcur = mcur + 1
-      end do
-      
-      ! a mode must have at least one specie
-      if (nspec == 0) call parse_error('mode must have at least one specie', nl_in(mbeg))
+      nspec = int(mode_nspec(m))
 
       ! allocate components that depend on number of species
       allocate( &
@@ -1915,143 +1925,22 @@ subroutine parse_mode_defs(nl_in, modes)
          call endrun(routine//': ERROR allocating storage for species')
       end if
 
-      ! initialize components
       modes%comps(m)%nspec         = nspec
-      modes%comps(m)%source_num_a  = ' '
-      modes%comps(m)%camname_num_a = ' '
-      modes%comps(m)%source_num_c  = ' '
-      modes%comps(m)%camname_num_c = ' '
+      call copy_ascii_to_string(mode_names(:,m), 32, modes%names(m))
+      call copy_ascii_to_string(mode_types(:,m), 32, modes%types(m))
+      call copy_ascii_to_string((/ source_num_a(m) /), 1, modes%comps(m)%source_num_a)
+      call copy_ascii_to_string(camname_num_a(:,m), 32, modes%comps(m)%camname_num_a)
+      call copy_ascii_to_string((/ source_num_c(m) /), 1, modes%comps(m)%source_num_c)
+      call copy_ascii_to_string(camname_num_c(:,m), 32, modes%comps(m)%camname_num_c)
+
       do ispec = 1, nspec
-         modes%comps(m)%source_mmr_a(ispec)  = ' '
-         modes%comps(m)%camname_mmr_a(ispec) = ' '
-         modes%comps(m)%source_mmr_c(ispec)  = ' '
-         modes%comps(m)%camname_mmr_c(ispec) = ' '
-         modes%comps(m)%type(ispec)          = ' '
-         modes%comps(m)%props(ispec)         = ' '
+         call copy_ascii_to_string((/ source_mmr_a(ispec,m) /), 1, modes%comps(m)%source_mmr_a(ispec))
+         call copy_ascii_to_string(camname_mmr_a(:,ispec,m), 32, modes%comps(m)%camname_mmr_a(ispec))
+         call copy_ascii_to_string((/ source_mmr_c(ispec,m) /), 1, modes%comps(m)%source_mmr_c(ispec))
+         call copy_ascii_to_string(camname_mmr_c(:,ispec,m), 32, modes%comps(m)%camname_mmr_c(ispec))
+         call copy_ascii_to_string(spec_type(:,ispec,m), 32, modes%comps(m)%type(ispec))
+         call copy_ascii_to_string(spec_props(:,ispec,m), cs1, modes%comps(m)%props(ispec))
       end do
-
-      ! return to first string in mode definition
-      mcur = mbeg
-      tmpstr = nl_in(mcur)
-      
-      ! mode name
-      ipos = index(tmpstr, ':')
-      if (ipos < 2) call parse_error('mode name not found', tmpstr)
-      modes%names(m) = tmpstr(:ipos-1)
-      tmpstr         = tmpstr(ipos+1:)
-
-      ! mode type
-      ipos = index(tmpstr, ':')
-      if (ipos == 0) call parse_error('mode type not found', tmpstr)
-      ! check for valid mode type
-      call check_mode_type(tmpstr, 1, ipos-1)
-      modes%types(m) = tmpstr(:ipos-1)
-      tmpstr         = tmpstr(ipos+1:)
-
-      ! mode type must be followed by '='
-      if (tmpstr(1:1) /= '=') call parse_error('= not found', tmpstr)
-
-      ! move to next string
-      mcur = mcur + 1
-      tmpstr = nl_in(mcur)
-
-      ! process mode component strings
-      num_mr_found = .false.   ! keep track of whether number mixing ratio component is found
-      ispec = 0                ! keep track of the number of species found
-      do
-
-         ! source of interstitial component
-         ipos = index(tmpstr, ':')
-         if (ipos < 2) call parse_error('expect to find source field first', tmpstr)
-         ! check for valid source
-         if (tmpstr(:ipos-1) /= 'A' .and. tmpstr(:ipos-1) /= 'N' .and. tmpstr(:ipos-1) /= 'Z') &
-            call parse_error('source must be A, N or Z', tmpstr)
-         tmp_src_a = tmpstr(:ipos-1)
-         tmpstr    = tmpstr(ipos+1:)
-
-         ! name of interstitial component
-         ipos = index(tmpstr, ':')
-         if (ipos == 0) call parse_error('next separator not found', tmpstr)
-         tmp_name_a = tmpstr(:ipos-1)
-         tmpstr     = tmpstr(ipos+1:)
-
-         ! source of cloud borne component
-         ipos = index(tmpstr, ':')
-         if (ipos < 2) call parse_error('expect to find a source field', tmpstr)
-         ! check for valid source
-         if (tmpstr(:ipos-1) /= 'A' .and. tmpstr(:ipos-1) /= 'N' .and. tmpstr(:ipos-1) /= 'Z') &
-            call parse_error('source must be A, N or Z', tmpstr)
-         tmp_src_c = tmpstr(:ipos-1)
-         tmpstr    = tmpstr(ipos+1:)
-
-         ! name of cloud borne component
-         ipos = index(tmpstr, ':')
-         if (ipos == 0) call parse_error('next separator not found', tmpstr)
-         tmp_name_c = tmpstr(:ipos-1)
-         tmpstr     = tmpstr(ipos+1:)
-
-         ! component type
-         ipos = scan(tmpstr, ': ')
-         if (ipos == 0) call parse_error('next separator not found', tmpstr)
-
-         if (tmpstr(:ipos-1) == 'num_mr') then
-
-            ! there can only be one number mixing ratio component
-            if (num_mr_found) call parse_error('more than 1 number component', nl_in(mcur))
-
-            num_mr_found = .true.
-            modes%comps(m)%source_num_a  = tmp_src_a
-            modes%comps(m)%camname_num_a = tmp_name_a
-            modes%comps(m)%source_num_c  = tmp_src_c
-            modes%comps(m)%camname_num_c = tmp_name_c
-            tmpstr                       = tmpstr(ipos+1:)
-
-         else
-
-            ! check for valid specie type
-            call check_specie_type(tmpstr, 1, ipos-1)
-            tmp_type = tmpstr(:ipos-1)
-            tmpstr   = tmpstr(ipos+1:)
-
-            ! get the properties file
-            ipos = scan(tmpstr, ': ')
-            if (ipos == 0) call parse_error('next separator not found', tmpstr)
-            ! check for valid filename -- must have .nc extension
-            if (tmpstr(ipos-3:ipos-1) /= '.nc') &
-               call parse_error('filename not valid', tmpstr)
-
-            ispec = ispec + 1
-            modes%comps(m)%source_mmr_a(ispec)  = tmp_src_a
-            modes%comps(m)%camname_mmr_a(ispec) = tmp_name_a
-            modes%comps(m)%source_mmr_c(ispec)  = tmp_src_c
-            modes%comps(m)%camname_mmr_c(ispec) = tmp_name_c
-            modes%comps(m)%type(ispec)          = tmp_type
-            modes%comps(m)%props(ispec)         = tmpstr(:ipos-1)
-            tmpstr                              = tmpstr(ipos+1:)
-         end if
-
-         ! check if there are more components.  either the current character is
-         ! a ' ' which means this string is the final mode component, or the character
-         ! is a '+' which means there are more components
-         if (tmpstr(1:1) == ' ') exit
-
-         if (tmpstr(1:1) /= '+') &
-               call parse_error('+ field not found', tmpstr)
-
-         ! continue to next component...
-         mcur = mcur + 1
-         tmpstr = nl_in(mcur)
-      end do
-
-      ! check that a number component was found
-      if (.not. num_mr_found) call parse_error('number component not found', nl_in(mbeg))
-
-      ! check that the right number of species were found
-      if (ispec /= nspec) call parse_error('component parsing got wrong number of species', nl_in(mbeg))
-
-      ! continue to next mode...
-      mcur = mcur + 1
-      tmpstr = nl_in(mcur)
    end do
 
    !------------------------------------------------------------------------------------------------
@@ -2070,6 +1959,23 @@ subroutine parse_mode_defs(nl_in, modes)
       call endrun(routine//': ERROR: '//msg)
 
    end subroutine parse_error
+
+   !------------------------------------------------------------------------------------------------
+
+   subroutine copy_ascii_to_string(ascii, n, str)
+
+      integer(c_int64_t), intent(in) :: ascii(:)
+      integer, intent(in) :: n
+      character(len=*), intent(out) :: str
+
+      integer :: j
+
+      str = ' '
+      do j = 1, min(n, len(str))
+         str(j:j) = achar(int(ascii(j)))
+      end do
+
+   end subroutine copy_ascii_to_string
 
    !------------------------------------------------------------------------------------------------
 
@@ -2136,6 +2042,195 @@ subroutine parse_mode_defs(nl_in, modes)
       call parse_error('mode type not valid', str(ib:ie))
 
    end subroutine check_mode_type
+
+   !------------------------------------------------------------------------------------------------
+
+   subroutine parse_mode_defs_native(nl_in, modes)
+
+      character(len=*), intent(inout) :: nl_in(:)
+      type(modes_t),    intent(inout) :: modes
+
+      integer :: i, m
+      integer :: istat
+      integer :: nmodes, nstr
+      integer :: mbeg, mcur
+      integer :: nspec, ispec
+      integer :: strlen, iend, ipos
+      logical :: num_mr_found
+      character(len=len(nl_in(1))) :: tmpstr
+      character(len=1)  :: tmp_src_a
+      character(len=32) :: tmp_name_a
+      character(len=1)  :: tmp_src_c
+      character(len=32) :: tmp_name_c
+      character(len=32) :: tmp_type
+
+      nmodes = 0
+      nstr = 0
+      do m = 1, n_mode_str
+         if (len_trim(nl_in(m)) == 0) exit
+         nstr = nstr + 1
+         tmpstr = adjustl(nl_in(m))
+         nl_in(m) = tmpstr
+         do
+            strlen = len_trim(nl_in(m))
+            ipos = index(nl_in(m), ' ')
+            if (ipos == 0 .or. ipos > strlen) exit
+            tmpstr = nl_in(m)(:ipos-1) // nl_in(m)(ipos+1:strlen)
+            nl_in(m) = tmpstr
+         end do
+         if (nl_in(m)(strlen-1:strlen) == ':=') nmodes = nmodes + 1
+      end do
+      modes%nmodes = nmodes
+
+      if (nmodes == 0) return
+
+      allocate( &
+         modes%names(nmodes),  &
+         modes%types(nmodes),  &
+         modes%comps(nmodes),  &
+         stat=istat )
+      if (istat > 0) then
+         write(iulog,*) routine//': ERROR: cannot allocate storage for modes.  nmodes=', nmodes
+         call endrun(routine//': ERROR allocating storage for modes')
+      end if
+
+      mcur = 1
+      do m = 1, nmodes
+
+         mbeg = mcur
+         iend = len_trim(nl_in(mcur))
+         if (nl_in(mcur)(iend-1:iend) /= ':=') call parse_error('= not found', nl_in(mcur))
+
+         nspec = 0
+         mcur = mcur + 1
+         do
+            iend = len_trim(nl_in(mcur))
+            if (nl_in(mcur)(iend-1:iend) /= ':+') exit
+            nspec = nspec + 1
+            mcur = mcur + 1
+         end do
+
+         if (nspec == 0) call parse_error('mode must have at least one specie', nl_in(mbeg))
+
+         allocate( &
+            modes%comps(m)%source_mmr_a(nspec),  &
+            modes%comps(m)%camname_mmr_a(nspec), &
+            modes%comps(m)%source_mmr_c(nspec),  &
+            modes%comps(m)%camname_mmr_c(nspec), &
+            modes%comps(m)%type(nspec),          &
+            modes%comps(m)%props(nspec),         &
+            stat=istat)
+
+         if (istat > 0) then
+            write(iulog,*) routine//': ERROR: cannot allocate storage for species.  nspec=', nspec
+            call endrun(routine//': ERROR allocating storage for species')
+         end if
+
+         modes%comps(m)%nspec         = nspec
+         modes%comps(m)%source_num_a  = ' '
+         modes%comps(m)%camname_num_a = ' '
+         modes%comps(m)%source_num_c  = ' '
+         modes%comps(m)%camname_num_c = ' '
+         do ispec = 1, nspec
+            modes%comps(m)%source_mmr_a(ispec)  = ' '
+            modes%comps(m)%camname_mmr_a(ispec) = ' '
+            modes%comps(m)%source_mmr_c(ispec)  = ' '
+            modes%comps(m)%camname_mmr_c(ispec) = ' '
+            modes%comps(m)%type(ispec)          = ' '
+            modes%comps(m)%props(ispec)         = ' '
+         end do
+
+         mcur = mbeg
+         tmpstr = nl_in(mcur)
+
+         ipos = index(tmpstr, ':')
+         if (ipos < 2) call parse_error('mode name not found', tmpstr)
+         modes%names(m) = tmpstr(:ipos-1)
+         tmpstr         = tmpstr(ipos+1:)
+
+         ipos = index(tmpstr, ':')
+         if (ipos == 0) call parse_error('mode type not found', tmpstr)
+         call check_mode_type(tmpstr, 1, ipos-1)
+         modes%types(m) = tmpstr(:ipos-1)
+         tmpstr         = tmpstr(ipos+1:)
+
+         if (tmpstr(1:1) /= '=') call parse_error('= not found', tmpstr)
+
+         mcur = mcur + 1
+         tmpstr = nl_in(mcur)
+
+         num_mr_found = .false.
+         ispec = 0
+         do
+            ipos = index(tmpstr, ':')
+            if (ipos < 2) call parse_error('expect to find source field first', tmpstr)
+            if (tmpstr(:ipos-1) /= 'A' .and. tmpstr(:ipos-1) /= 'N' .and. tmpstr(:ipos-1) /= 'Z') &
+               call parse_error('source must be A, N or Z', tmpstr)
+            tmp_src_a = tmpstr(:ipos-1)
+            tmpstr    = tmpstr(ipos+1:)
+
+            ipos = index(tmpstr, ':')
+            if (ipos == 0) call parse_error('next separator not found', tmpstr)
+            tmp_name_a = tmpstr(:ipos-1)
+            tmpstr     = tmpstr(ipos+1:)
+
+            ipos = index(tmpstr, ':')
+            if (ipos < 2) call parse_error('expect to find a source field', tmpstr)
+            if (tmpstr(:ipos-1) /= 'A' .and. tmpstr(:ipos-1) /= 'N' .and. tmpstr(:ipos-1) /= 'Z') &
+               call parse_error('source must be A, N or Z', tmpstr)
+            tmp_src_c = tmpstr(:ipos-1)
+            tmpstr    = tmpstr(ipos+1:)
+
+            ipos = index(tmpstr, ':')
+            if (ipos == 0) call parse_error('next separator not found', tmpstr)
+            tmp_name_c = tmpstr(:ipos-1)
+            tmpstr     = tmpstr(ipos+1:)
+
+            ipos = scan(tmpstr, ': ')
+            if (ipos == 0) call parse_error('next separator not found', tmpstr)
+
+            if (tmpstr(:ipos-1) == 'num_mr') then
+               if (num_mr_found) call parse_error('more than 1 number component', nl_in(mcur))
+               num_mr_found = .true.
+               modes%comps(m)%source_num_a  = tmp_src_a
+               modes%comps(m)%camname_num_a = tmp_name_a
+               modes%comps(m)%source_num_c  = tmp_src_c
+               modes%comps(m)%camname_num_c = tmp_name_c
+               tmpstr                       = tmpstr(ipos+1:)
+            else
+               call check_specie_type(tmpstr, 1, ipos-1)
+               tmp_type = tmpstr(:ipos-1)
+               tmpstr   = tmpstr(ipos+1:)
+
+               ipos = scan(tmpstr, ': ')
+               if (ipos == 0) call parse_error('next separator not found', tmpstr)
+               if (tmpstr(ipos-3:ipos-1) /= '.nc') &
+                  call parse_error('filename not valid', tmpstr)
+
+               ispec = ispec + 1
+               modes%comps(m)%source_mmr_a(ispec)  = tmp_src_a
+               modes%comps(m)%camname_mmr_a(ispec) = tmp_name_a
+               modes%comps(m)%source_mmr_c(ispec)  = tmp_src_c
+               modes%comps(m)%camname_mmr_c(ispec) = tmp_name_c
+               modes%comps(m)%type(ispec)          = tmp_type
+               modes%comps(m)%props(ispec)         = tmpstr(:ipos-1)
+               tmpstr                              = tmpstr(ipos+1:)
+            end if
+
+            if (tmpstr(1:1) == ' ') exit
+            if (tmpstr(1:1) /= '+') call parse_error('+ field not found', tmpstr)
+            mcur = mcur + 1
+            tmpstr = nl_in(mcur)
+         end do
+
+         if (.not. num_mr_found) call parse_error('number component not found', nl_in(mbeg))
+         if (ispec /= nspec) call parse_error('component parsing got wrong number of species', nl_in(mbeg))
+
+         mcur = mcur + 1
+         tmpstr = nl_in(mcur)
+      end do
+
+   end subroutine parse_mode_defs_native
 
    !------------------------------------------------------------------------------------------------
 

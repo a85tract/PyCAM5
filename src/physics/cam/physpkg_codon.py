@@ -8442,6 +8442,301 @@ def check_mode_type_codon(n: int, text_p: cobj) -> int:
     return rad_cnst_check_mode_type_codon(n, text_p)
 
 
+@inline
+def _parse_mode_defs_idx(row1: int, col1: int, ncols: int) -> int:
+    return (row1 - 1) + (col1 - 1) * ncols
+
+
+@inline
+def _parse_mode_defs_field_idx(mode1: int, spec1: int, max_spec: int) -> int:
+    return (mode1 - 1) * max_spec + (spec1 - 1)
+
+
+@inline
+def _parse_mode_defs_token_start(field: str, max_len: int, target: Ptr[int], offset: int):
+    for i in range(max_len):
+        target[offset + i] = 32
+    n = min(len(field), max_len)
+    for i in range(n):
+        target[offset + i] = ord(field[i])
+
+
+@inline
+def _parse_mode_defs_clean_input(src: Ptr[int], row1: int, cs1: int, n_mode_str: int,
+                                 clean: Ptr[int], clean_len: Ptr[int]) -> str:
+    started = False
+    out = ""
+    for j in range(cs1):
+        ch = src[_parse_mode_defs_idx(row1, j + 1, n_mode_str)]
+        if ch == 0:
+            ch = 32
+        if not started:
+            if ch == 32:
+                clean[_parse_mode_defs_idx(row1, j + 1, n_mode_str)] = 32
+                continue
+            started = True
+        if ch != 32:
+            out += chr(ch)
+
+    for j in range(cs1):
+        clean[_parse_mode_defs_idx(row1, j + 1, n_mode_str)] = 32
+
+    n = min(len(out), cs1)
+    for j in range(n):
+        clean[_parse_mode_defs_idx(row1, j + 1, n_mode_str)] = ord(out[j])
+    clean_len[row1 - 1] = n
+    return out
+
+
+@inline
+def _parse_mode_defs_write_error(msg: str, err: Ptr[int]):
+    for i in range(256):
+        err[i] = 32
+    n = min(len(msg), 256)
+    for i in range(n):
+        err[i] = ord(msg[i])
+
+
+@inline
+def _parse_mode_defs_valid_source(field: str) -> bool:
+    return field == "A" or field == "N" or field == "Z"
+
+
+@inline
+def _parse_mode_defs_valid_spec(field: str) -> bool:
+    if len(field) == 4:
+        return field == "dust"
+    if len(field) == 7:
+        return field == "nitrate" or field == "sulfate" or field == "seasalt" or field == "black-c"
+    if len(field) == 8:
+        return field == "ammonium"
+    if len(field) == 9:
+        return field == "p-organic" or field == "s-organic"
+    return False
+
+
+@inline
+def _parse_mode_defs_valid_mode(field: str) -> bool:
+    if len(field) == 5:
+        return field == "accum"
+    if len(field) == 6:
+        return field == "coarse" or field == "aitken"
+    if len(field) == 9:
+        return field == "fine_dust"
+    if len(field) == 11:
+        return field == "coarse_dust"
+    if len(field) == 12:
+        return field == "fine_seasalt"
+    if len(field) == 14:
+        return field == "primary_carbon" or field == "coarse_seasalt"
+    return False
+
+
+@inline
+def _parse_mode_defs_has_continue(fields: List[str]) -> bool:
+    return len(fields) > 0 and fields[len(fields) - 1] == "+"
+
+
+@export
+def parse_mode_defs_plan_codon(
+    n_mode_str: int,
+    cs1: int,
+    max_spec: int,
+    nl_ascii_p: cobj,
+    nl_clean_ascii_p: cobj,
+    clean_len_p: cobj,
+    nmodes_p: cobj,
+    nstr_p: cobj,
+    mode_nspec_p: cobj,
+    mode_names_p: cobj,
+    mode_types_p: cobj,
+    source_num_a_p: cobj,
+    camname_num_a_p: cobj,
+    source_num_c_p: cobj,
+    camname_num_c_p: cobj,
+    source_mmr_a_p: cobj,
+    camname_mmr_a_p: cobj,
+    source_mmr_c_p: cobj,
+    camname_mmr_c_p: cobj,
+    spec_type_p: cobj,
+    spec_props_p: cobj,
+    status_p: cobj,
+    err_string_p: cobj,
+):
+    nl_ascii = Ptr[int](nl_ascii_p)
+    nl_clean_ascii = Ptr[int](nl_clean_ascii_p)
+    clean_len = Ptr[int](clean_len_p)
+    nmodes_out = Ptr[int](nmodes_p)
+    nstr_out = Ptr[int](nstr_p)
+    mode_nspec = Ptr[int](mode_nspec_p)
+    mode_names = Ptr[int](mode_names_p)
+    mode_types = Ptr[int](mode_types_p)
+    source_num_a = Ptr[int](source_num_a_p)
+    camname_num_a = Ptr[int](camname_num_a_p)
+    source_num_c = Ptr[int](source_num_c_p)
+    camname_num_c = Ptr[int](camname_num_c_p)
+    source_mmr_a = Ptr[int](source_mmr_a_p)
+    camname_mmr_a = Ptr[int](camname_mmr_a_p)
+    source_mmr_c = Ptr[int](source_mmr_c_p)
+    camname_mmr_c = Ptr[int](camname_mmr_c_p)
+    spec_type = Ptr[int](spec_type_p)
+    spec_props = Ptr[int](spec_props_p)
+    status = Ptr[int](status_p)
+    err_string = Ptr[int](err_string_p)
+
+    status[0] = 0
+    nmodes_out[0] = 0
+    nstr_out[0] = 0
+    _parse_mode_defs_write_error("", err_string)
+
+    clean_strings = List[str]()
+    for m in range(1, n_mode_str + 1):
+        text = _parse_mode_defs_clean_input(nl_ascii, m, cs1, n_mode_str, nl_clean_ascii, clean_len)
+        if len(text) == 0:
+            break
+        clean_strings.append(text)
+        nstr_out[0] += 1
+        if len(text) >= 2 and text[len(text) - 2:] == ":=":
+            nmodes_out[0] += 1
+
+    for mode in range(1, n_mode_str + 1):
+        mode_nspec[mode - 1] = 0
+        _parse_mode_defs_token_start("", 32, mode_names, (mode - 1) * 32)
+        _parse_mode_defs_token_start("", 32, mode_types, (mode - 1) * 32)
+        _parse_mode_defs_token_start("", 1, source_num_a, mode - 1)
+        _parse_mode_defs_token_start("", 32, camname_num_a, (mode - 1) * 32)
+        _parse_mode_defs_token_start("", 1, source_num_c, mode - 1)
+        _parse_mode_defs_token_start("", 32, camname_num_c, (mode - 1) * 32)
+        for spec in range(1, max_spec + 1):
+            field_idx = _parse_mode_defs_field_idx(mode, spec, max_spec)
+            _parse_mode_defs_token_start("", 1, source_mmr_a, field_idx)
+            _parse_mode_defs_token_start("", 32, camname_mmr_a, field_idx * 32)
+            _parse_mode_defs_token_start("", 1, source_mmr_c, field_idx)
+            _parse_mode_defs_token_start("", 32, camname_mmr_c, field_idx * 32)
+            _parse_mode_defs_token_start("", 32, spec_type, field_idx * 32)
+            _parse_mode_defs_token_start("", cs1, spec_props, field_idx * cs1)
+
+    if nmodes_out[0] == 0:
+        return
+
+    mcur = 0
+    for mode in range(1, nmodes_out[0] + 1):
+        if mcur >= len(clean_strings):
+            status[0] = -1
+            _parse_mode_defs_write_error("mode definition missing", err_string)
+            return
+
+        first = clean_strings[mcur]
+        if len(first) < 2 or first[len(first) - 2:] != ":=":
+            status[0] = -2
+            _parse_mode_defs_write_error("= not found", err_string)
+            return
+
+        head = first[: len(first) - 2]
+        parts = head.split(":")
+        if len(parts) != 2 or len(parts[0]) == 0:
+            status[0] = -3
+            _parse_mode_defs_write_error("mode name/type not found", err_string)
+            return
+        if not _parse_mode_defs_valid_mode(parts[1]):
+            status[0] = -4
+            _parse_mode_defs_write_error("mode type not valid", err_string)
+            return
+
+        _parse_mode_defs_token_start(parts[0], 32, mode_names, (mode - 1) * 32)
+        _parse_mode_defs_token_start(parts[1], 32, mode_types, (mode - 1) * 32)
+
+        mcur += 1
+        nspec = 0
+        scan_idx = mcur
+        while scan_idx < len(clean_strings):
+            text = clean_strings[scan_idx]
+            fields = text.split(":")
+            if len(fields) < 6:
+                status[0] = -5
+                _parse_mode_defs_write_error("component field missing", err_string)
+                return
+            if _parse_mode_defs_has_continue(fields):
+                nspec += 1
+                scan_idx += 1
+            else:
+                break
+        if nspec == 0:
+            status[0] = -6
+            _parse_mode_defs_write_error("mode must have at least one specie", err_string)
+            return
+        if nspec > max_spec:
+            status[0] = -7
+            _parse_mode_defs_write_error("too many species in mode", err_string)
+            return
+        mode_nspec[mode - 1] = nspec
+
+        num_mr_found = False
+        ispec = 0
+        while mcur < len(clean_strings):
+            text = clean_strings[mcur]
+            fields = text.split(":")
+            if len(fields) < 6:
+                status[0] = -8
+                _parse_mode_defs_write_error("component field missing", err_string)
+                return
+            src_a = fields[0]
+            name_a = fields[1]
+            src_c = fields[2]
+            name_c = fields[3]
+            comp_type = fields[4]
+            if not _parse_mode_defs_valid_source(src_a) or not _parse_mode_defs_valid_source(src_c):
+                status[0] = -9
+                _parse_mode_defs_write_error("source must be A, N or Z", err_string)
+                return
+
+            if comp_type == "num_mr":
+                if num_mr_found:
+                    status[0] = -10
+                    _parse_mode_defs_write_error("more than 1 number component", err_string)
+                    return
+                num_mr_found = True
+                _parse_mode_defs_token_start(src_a, 1, source_num_a, mode - 1)
+                _parse_mode_defs_token_start(name_a, 32, camname_num_a, (mode - 1) * 32)
+                _parse_mode_defs_token_start(src_c, 1, source_num_c, mode - 1)
+                _parse_mode_defs_token_start(name_c, 32, camname_num_c, (mode - 1) * 32)
+            else:
+                if not _parse_mode_defs_valid_spec(comp_type):
+                    status[0] = -11
+                    _parse_mode_defs_write_error("specie type not valid", err_string)
+                    return
+                if len(fields) < 6 or len(fields[5]) < 3 or fields[5][len(fields[5]) - 3:] != ".nc":
+                    status[0] = -12
+                    _parse_mode_defs_write_error("filename not valid", err_string)
+                    return
+                ispec += 1
+                if ispec > nspec:
+                    status[0] = -13
+                    _parse_mode_defs_write_error("component parsing got wrong number of species", err_string)
+                    return
+                field_idx = _parse_mode_defs_field_idx(mode, ispec, max_spec)
+                _parse_mode_defs_token_start(src_a, 1, source_mmr_a, field_idx)
+                _parse_mode_defs_token_start(name_a, 32, camname_mmr_a, field_idx * 32)
+                _parse_mode_defs_token_start(src_c, 1, source_mmr_c, field_idx)
+                _parse_mode_defs_token_start(name_c, 32, camname_mmr_c, field_idx * 32)
+                _parse_mode_defs_token_start(comp_type, 32, spec_type, field_idx * 32)
+                _parse_mode_defs_token_start(fields[5], cs1, spec_props, field_idx * cs1)
+
+            mcur += 1
+            if _parse_mode_defs_has_continue(fields):
+                continue
+            break
+
+        if not num_mr_found:
+            status[0] = -14
+            _parse_mode_defs_write_error("number component not found", err_string)
+            return
+        if ispec != nspec:
+            status[0] = -15
+            _parse_mode_defs_write_error("component parsing got wrong number of species", err_string)
+            return
+
+
 @export
 def rad_cnst_mam_mmr_idx_codon(
     mode_idx: int,
