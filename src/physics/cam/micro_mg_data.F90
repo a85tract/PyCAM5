@@ -131,6 +131,13 @@ logical :: micro_mg_data_unpack_2d_direct_logged = .false.
 logical :: micro_mg_data_unpack_2d_array_fill_direct_logged = .false.
 logical :: micro_mg_data_accumulate_1d_direct_logged = .false.
 logical :: micro_mg_data_accumulate_2d_direct_logged = .false.
+logical :: micro_mg_data_new_mgpacker_direct_logged = .false.
+logical :: micro_mg_data_mgpacker_finalize_direct_logged = .false.
+logical :: micro_mg_data_mgfield_finalize_direct_logged = .false.
+logical :: micro_mg_data_new_mgpostproc_direct_logged = .false.
+logical :: micro_mg_data_mgpostproc_finalize_direct_logged = .false.
+logical :: micro_mg_data_add_field_1d_direct_logged = .false.
+logical :: micro_mg_data_add_field_2d_direct_logged = .false.
 
 interface
    subroutine micro_mg_data_pack_unpack_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
@@ -196,16 +203,16 @@ interface
       real(c_double), value :: fillvalue_c
       type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
    end subroutine unpack_2d_array_fill_codon
-   function new_mgpacker_codon(flag_c) result(out_c) bind(c, name="new_mgpacker_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function new_mgpacker_codon
-   function mgpacker_finalize_codon(flag_c) result(out_c) bind(c, name="mgpacker_finalize_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function mgpacker_finalize_codon
+   subroutine new_mgpacker_codon(pcols_c, pver_c, mgcols_count_c, top_lev_c, plan_p) &
+        bind(c, name="new_mgpacker_codon")
+      import c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, mgcols_count_c, top_lev_c
+      type(c_ptr), value :: plan_p
+   end subroutine new_mgpacker_codon
+   subroutine mgpacker_finalize_codon(plan_p) bind(c, name="mgpacker_finalize_codon")
+      import c_ptr
+      type(c_ptr), value :: plan_p
+   end subroutine mgpacker_finalize_codon
    function mgfieldpostproc_1d_codon(flag_c) result(out_c) bind(c, name="mgfieldpostproc_1d_codon")
       import c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -216,11 +223,10 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function mgfieldpostproc_2d_codon
-   function mgfieldpostproc_finalize_codon(flag_c) result(out_c) bind(c, name="mgfieldpostproc_finalize_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function mgfieldpostproc_finalize_codon
+   subroutine mgfieldpostproc_finalize_codon(plan_p) bind(c, name="mgfieldpostproc_finalize_codon")
+      import c_ptr
+      type(c_ptr), value :: plan_p
+   end subroutine mgfieldpostproc_finalize_codon
    function mgfieldpostproc_process_and_unpack_codon(flag_c) result(out_c) &
         bind(c, name="mgfieldpostproc_process_and_unpack_codon")
       import c_int64_t
@@ -232,26 +238,29 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function mgfieldpostproc_unpack_only_codon
-   function new_mgpostproc_codon(flag_c) result(out_c) bind(c, name="new_mgpostproc_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function new_mgpostproc_codon
-   function mgpostproc_finalize_codon(flag_c) result(out_c) bind(c, name="mgpostproc_finalize_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function mgpostproc_finalize_codon
-   function add_field_1d_codon(flag_c) result(out_c) bind(c, name="add_field_1d_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function add_field_1d_codon
-   function add_field_2d_codon(flag_c) result(out_c) bind(c, name="add_field_2d_codon")
-      import c_int64_t
-      integer(c_int64_t), value :: flag_c
-      integer(c_int64_t) :: out_c
-   end function add_field_2d_codon
+   subroutine new_mgpostproc_codon(plan_p) bind(c, name="new_mgpostproc_codon")
+      import c_ptr
+      type(c_ptr), value :: plan_p
+   end subroutine new_mgpostproc_codon
+   subroutine mgpostproc_finalize_codon(field_count_c, plan_p) bind(c, name="mgpostproc_finalize_codon")
+      import c_int64_t, c_ptr
+      integer(c_int64_t), value :: field_count_c
+      type(c_ptr), value :: plan_p
+   end subroutine mgpostproc_finalize_codon
+   subroutine add_field_1d_codon(fill_present_c, accum_present_c, fill_in_c, accum_in_c, &
+        plan_p, fill_out_p) bind(c, name="add_field_1d_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: fill_present_c, accum_present_c, accum_in_c
+      real(c_double), value :: fill_in_c
+      type(c_ptr), value :: plan_p, fill_out_p
+   end subroutine add_field_1d_codon
+   subroutine add_field_2d_codon(fill_present_c, accum_present_c, fill_in_c, accum_in_c, &
+        plan_p, fill_out_p) bind(c, name="add_field_2d_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: fill_present_c, accum_present_c, accum_in_c
+      real(c_double), value :: fill_in_c
+      type(c_ptr), value :: plan_p, fill_out_p
+   end subroutine add_field_2d_codon
    function mgpostproc_accumulate_codon(flag_c) result(out_c) bind(c, name="mgpostproc_accumulate_codon")
       import c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -332,12 +341,16 @@ function new_MGPacker(pcols, pver, mgcols, top_lev)
   integer, intent(in) :: top_lev
 
   type(MGPacker) :: new_MGPacker
-  if (new_mgpacker_codon(1_c_int64_t) == 0_c_int64_t) return
+  integer(c_int64_t), target :: plan(4)
 
-  new_MGPacker%pcols = pcols
-  new_MGPacker%pver = pver
-  new_MGPacker%mgncol = size(mgcols)
-  new_MGPacker%nlev = pver - top_lev + 1
+  call new_mgpacker_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(size(mgcols), c_int64_t), int(top_lev, c_int64_t), c_loc(plan))
+  call micro_mg_data_log_new_mgpacker_direct()
+
+  new_MGPacker%pcols = int(plan(1))
+  new_MGPacker%pver = int(plan(2))
+  new_MGPacker%mgncol = int(plan(3))
+  new_MGPacker%nlev = int(plan(4))
 
   allocate(new_MGPacker%mgcols(new_MGPacker%mgncol))
   new_MGPacker%mgcols = mgcols
@@ -351,9 +364,10 @@ end function new_MGPacker
 ! cases where all major compilers are reliable, and humans are not.
 subroutine MGPacker_finalize(self)
   class(MGPacker), intent(out) :: self
-  integer(c_int64_t) :: out_c
+  integer(c_int64_t), target :: plan(1)
 
-  out_c = mgpacker_finalize_codon(1_c_int64_t)
+  call mgpacker_finalize_codon(c_loc(plan))
+  if (plan(1) /= 0_c_int64_t) call micro_mg_data_log_mgpacker_finalize_direct()
 end subroutine MGPacker_finalize
 
 subroutine micro_mg_data_select_packer_impl()
@@ -466,6 +480,76 @@ subroutine micro_mg_data_log_accumulate_2d_direct()
      micro_mg_data_accumulate_2d_direct_logged = .true.
   end if
 end subroutine micro_mg_data_log_accumulate_2d_direct
+
+subroutine micro_mg_data_log_new_mgpacker_direct()
+  if (.not. micro_mg_data_new_mgpacker_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'new_MGPacker direct = codon; dimension plan direct = codon; mgcols allocation native boundary')
+     if (masterproc) write(iulog,*) &
+          'new_MGPacker direct = codon; dimension plan direct = codon; mgcols allocation native boundary'
+     micro_mg_data_new_mgpacker_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_new_mgpacker_direct
+
+subroutine micro_mg_data_log_mgpacker_finalize_direct()
+  if (.not. micro_mg_data_mgpacker_finalize_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'MGPacker_finalize direct = codon; finalization action plan direct = codon; allocatable cleanup native boundary')
+     if (masterproc) write(iulog,*) &
+          'MGPacker_finalize direct = codon; finalization action plan direct = codon; allocatable cleanup native boundary'
+     micro_mg_data_mgpacker_finalize_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_mgpacker_finalize_direct
+
+subroutine micro_mg_data_log_mgfield_finalize_direct()
+  if (.not. micro_mg_data_mgfield_finalize_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'MGFieldPostProc_finalize direct = codon; finalization action plan direct = codon; pointer cleanup native boundary')
+     if (masterproc) write(iulog,*) &
+          'MGFieldPostProc_finalize direct = codon; finalization action plan direct = codon; pointer cleanup native boundary'
+     micro_mg_data_mgfield_finalize_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_mgfield_finalize_direct
+
+subroutine micro_mg_data_log_new_mgpostproc_direct()
+  if (.not. micro_mg_data_new_mgpostproc_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'new_MGPostProc direct = codon; constructor action plan direct = codon; vector clear native boundary')
+     if (masterproc) write(iulog,*) &
+          'new_MGPostProc direct = codon; constructor action plan direct = codon; vector clear native boundary'
+     micro_mg_data_new_mgpostproc_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_new_mgpostproc_direct
+
+subroutine micro_mg_data_log_mgpostproc_finalize_direct()
+  if (.not. micro_mg_data_mgpostproc_finalize_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'MGPostProc_finalize direct = codon; recursive finalization plan direct = codon; vector cleanup native boundary')
+     if (masterproc) write(iulog,*) &
+          'MGPostProc_finalize direct = codon; recursive finalization plan direct = codon; vector cleanup native boundary'
+     micro_mg_data_mgpostproc_finalize_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_mgpostproc_finalize_direct
+
+subroutine micro_mg_data_log_add_field_1d_direct()
+  if (.not. micro_mg_data_add_field_1d_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'add_field_1D direct = codon; field registration defaults direct = codon; vector push native boundary')
+     if (masterproc) write(iulog,*) &
+          'add_field_1D direct = codon; field registration defaults direct = codon; vector push native boundary'
+     micro_mg_data_add_field_1d_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_add_field_1d_direct
+
+subroutine micro_mg_data_log_add_field_2d_direct()
+  if (.not. micro_mg_data_add_field_2d_direct_logged) then
+     call micro_mg_data_append_direct_proof( &
+          'add_field_2D direct = codon; field registration defaults direct = codon; vector push native boundary')
+     if (masterproc) write(iulog,*) &
+          'add_field_2D direct = codon; field registration defaults direct = codon; vector push native boundary'
+     micro_mg_data_add_field_2d_direct_logged = .true.
+  end if
+end subroutine micro_mg_data_log_add_field_2d_direct
 
 subroutine micro_mg_data_copy_mgcols_i64(self, mgcols_c)
   class(MGPacker), intent(in) :: self
@@ -1031,9 +1115,10 @@ end function MGFieldPostProc_2D
 ! useful here.
 subroutine MGFieldPostProc_finalize(self)
   class(MGFieldPostProc), intent(out) :: self
-  integer(c_int64_t) :: out_c
+  integer(c_int64_t), target :: plan(1)
 
-  out_c = mgfieldpostproc_finalize_codon(1_c_int64_t)
+  call mgfieldpostproc_finalize_codon(c_loc(plan))
+  if (plan(1) /= 0_c_int64_t) call micro_mg_data_log_mgfield_finalize_direct()
 end subroutine MGFieldPostProc_finalize
 
 subroutine MGFieldPostProc_accumulate(self)
@@ -1140,7 +1225,11 @@ function new_MGPostProc(packer) result(post_proc)
   type(MGPacker), intent(in) :: packer
 
   type(MGPostProc) :: post_proc
-  if (new_mgpostproc_codon(1_c_int64_t) == 0_c_int64_t) return
+  integer(c_int64_t), target :: plan(1)
+
+  call new_mgpostproc_codon(c_loc(plan))
+  if (plan(1) == 0_c_int64_t) return
+  call micro_mg_data_log_new_mgpostproc_direct()
 
   post_proc%packer = packer
   call post_proc%field_procs%clear()
@@ -1153,10 +1242,14 @@ subroutine MGPostProc_finalize(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
-  if (mgpostproc_finalize_codon(1_c_int64_t) == 0_c_int64_t) return
+  integer(c_int64_t), target :: plan(3)
 
-  call self%packer%finalize()
-  do i = 1, self%field_procs%vsize()
+  call mgpostproc_finalize_codon(int(self%field_procs%vsize(), c_int64_t), c_loc(plan))
+  if (plan(1) == 0_c_int64_t) return
+  call micro_mg_data_log_mgpostproc_finalize_direct()
+
+  if (plan(2) /= 0_c_int64_t) call self%packer%finalize()
+  do i = 1, int(plan(3))
      call self%field_procs%data(i)%finalize()
   end do
   call self%field_procs%clear()
@@ -1171,10 +1264,25 @@ subroutine add_field_1D(self, unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), pointer, intent(in) :: packed_ptr(:)
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
-  if (add_field_1d_codon(1_c_int64_t) == 0_c_int64_t) return
+  integer(c_int64_t), target :: plan(2)
+  real(r8), target :: fill_plan(1)
+  integer(c_int64_t) :: fill_present_c, accum_present_c, accum_in_c
+  real(c_double) :: fill_in_c
+
+  fill_present_c = merge(1_c_int64_t, 0_c_int64_t, present(fillvalue))
+  accum_present_c = merge(1_c_int64_t, 0_c_int64_t, present(accum_method))
+  fill_in_c = 0.0_c_double
+  if (present(fillvalue)) fill_in_c = real(fillvalue, c_double)
+  accum_in_c = 0_c_int64_t
+  if (present(accum_method)) accum_in_c = int(accum_method, c_int64_t)
+
+  call add_field_1d_codon(fill_present_c, accum_present_c, fill_in_c, accum_in_c, &
+       c_loc(plan), c_loc(fill_plan))
+  if (plan(1) == 0_c_int64_t) return
+  call micro_mg_data_log_add_field_1d_direct()
 
   call self%field_procs%push_back(MGFieldPostProc(unpacked_ptr, &
-       packed_ptr, fillvalue, accum_method))
+       packed_ptr, fill_plan(1), int(plan(2))))
 
 end subroutine add_field_1D
 
@@ -1185,10 +1293,25 @@ subroutine add_field_2D(self, unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), pointer, intent(in) :: packed_ptr(:,:)
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
-  if (add_field_2d_codon(1_c_int64_t) == 0_c_int64_t) return
+  integer(c_int64_t), target :: plan(2)
+  real(r8), target :: fill_plan(1)
+  integer(c_int64_t) :: fill_present_c, accum_present_c, accum_in_c
+  real(c_double) :: fill_in_c
+
+  fill_present_c = merge(1_c_int64_t, 0_c_int64_t, present(fillvalue))
+  accum_present_c = merge(1_c_int64_t, 0_c_int64_t, present(accum_method))
+  fill_in_c = 0.0_c_double
+  if (present(fillvalue)) fill_in_c = real(fillvalue, c_double)
+  accum_in_c = 0_c_int64_t
+  if (present(accum_method)) accum_in_c = int(accum_method, c_int64_t)
+
+  call add_field_2d_codon(fill_present_c, accum_present_c, fill_in_c, accum_in_c, &
+       c_loc(plan), c_loc(fill_plan))
+  if (plan(1) == 0_c_int64_t) return
+  call micro_mg_data_log_add_field_2d_direct()
 
   call self%field_procs%push_back(MGFieldPostProc(unpacked_ptr, &
-       packed_ptr, fillvalue, accum_method))
+       packed_ptr, fill_plan(1), int(plan(2))))
 
 end subroutine add_field_2D
 

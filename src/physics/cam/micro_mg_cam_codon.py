@@ -393,17 +393,24 @@ def _name_eq8(
 
 
 @export
-def new_mgpacker_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def new_mgpacker_codon(
+    pcols: int,
+    pver: int,
+    mgcols_count: int,
+    top_lev: int,
+    plan_p: cobj,
+):
+    plan = Ptr[int](plan_p)
+    plan[0] = pcols
+    plan[1] = pver
+    plan[2] = mgcols_count
+    plan[3] = pver - top_lev + 1
 
 
 @export
-def mgpacker_finalize_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def mgpacker_finalize_codon(plan_p: cobj):
+    plan = Ptr[int](plan_p)
+    plan[0] = 1
 
 
 @export
@@ -421,10 +428,9 @@ def mgfieldpostproc_2d_codon(flag: int) -> int:
 
 
 @export
-def mgfieldpostproc_finalize_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def mgfieldpostproc_finalize_codon(plan_p: cobj):
+    plan = Ptr[int](plan_p)
+    plan[0] = 1
 
 
 @export
@@ -442,31 +448,61 @@ def mgfieldpostproc_unpack_only_codon(flag: int) -> int:
 
 
 @export
-def new_mgpostproc_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def new_mgpostproc_codon(plan_p: cobj):
+    plan = Ptr[int](plan_p)
+    plan[0] = 1
 
 
 @export
-def mgpostproc_finalize_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def mgpostproc_finalize_codon(field_count: int, plan_p: cobj):
+    plan = Ptr[int](plan_p)
+    plan[0] = 1
+    plan[1] = 1
+    plan[2] = field_count
 
 
 @export
-def add_field_1d_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def add_field_1d_codon(
+    fill_present: int,
+    accum_present: int,
+    fill_in: float,
+    accum_in: int,
+    plan_p: cobj,
+    fill_out_p: cobj,
+):
+    plan = Ptr[int](plan_p)
+    fill_out = Ptr[float](fill_out_p)
+    plan[0] = 1
+    if accum_present != 0:
+        plan[1] = accum_in
+    else:
+        plan[1] = 1
+    if fill_present != 0:
+        fill_out[0] = fill_in
+    else:
+        fill_out[0] = 0.0
 
 
 @export
-def add_field_2d_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
-    return 0
+def add_field_2d_codon(
+    fill_present: int,
+    accum_present: int,
+    fill_in: float,
+    accum_in: int,
+    plan_p: cobj,
+    fill_out_p: cobj,
+):
+    plan = Ptr[int](plan_p)
+    fill_out = Ptr[float](fill_out_p)
+    plan[0] = 1
+    if accum_present != 0:
+        plan[1] = accum_in
+    else:
+        plan[1] = 1
+    if fill_present != 0:
+        fill_out[0] = fill_in
+    else:
+        fill_out[0] = 0.0
 
 
 @export
