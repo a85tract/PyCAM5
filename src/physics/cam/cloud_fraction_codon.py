@@ -8,6 +8,11 @@ def cldfrc_register_codon(flag: int) -> int:
     return 0
 
 
+@export
+def cldfrc_codon(stage: int) -> int:
+    return stage
+
+
 @inline
 def _ascii_ptr_to_str(n: int, ptr_p: cobj) -> str:
     ptr = Ptr[int](ptr_p)
@@ -408,6 +413,84 @@ def cldfrc_ice_wilson_codon(
 
             liqcldf[idx] = (1.0 - icecldf[idx]) * rhcloud[idx]
             cloud[idx] = liqcldf[idx] + icecldf[idx]
+
+
+@export
+def cldfrc_marine_stratus_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    k700: int,
+    inversion_cld_off: int,
+    premib: float,
+    theta_p: cobj,
+    thetas_p: cobj,
+    pmid_p: cobj,
+    ps_p: cobj,
+    ocnfrac_p: cobj,
+    rh_p: cobj,
+    rpdeli_p: cobj,
+    cldst_p: cobj,
+    dthdpmn_p: cobj,
+    kdthdp_p: cobj,
+):
+    theta = Ptr[float](theta_p)
+    thetas = Ptr[float](thetas_p)
+    pmid = Ptr[float](pmid_p)
+    ps = Ptr[float](ps_p)
+    ocnfrac = Ptr[float](ocnfrac_p)
+    rh = Ptr[float](rh_p)
+    rpdeli = Ptr[float](rpdeli_p)
+    cldst = Ptr[float](cldst_p)
+    dthdpmn = Ptr[float](dthdpmn_p)
+    kdthdp = Ptr[int](kdthdp_p)
+
+    if inversion_cld_off != 0:
+        return
+
+    for i in range(1, ncol + 1):
+        dthdpmn[i - 1] = -0.125
+        kdthdp[i - 1] = 0
+
+    for k in range(top_lev + 1, pver + 1):
+        for i in range(1, ncol + 1):
+            i0 = i - 1
+            idx = _field2_idx(i, k, pcols)
+            if pmid[idx] >= premib and ocnfrac[i0] > 0.01:
+                dthdp = 100.0 * (theta[idx] - theta[_field2_idx(i, k - 1, pcols)]) * rpdeli[_field2_idx(i, k - 1, pcols)]
+                if dthdp < dthdpmn[i0]:
+                    dthdpmn[i0] = dthdp
+                    kdthdp[i0] = k
+
+    for i in range(1, ncol + 1):
+        i0 = i - 1
+        if kdthdp[i0] == 0 and ocnfrac[i0] > 0.01:
+            dthdp = 100.0 * (thetas[i0] - theta[_field2_idx(i, pver, pcols)]) / (ps[i0] - pmid[_field2_idx(i, pver, pcols)])
+            if dthdp < dthdpmn[i0]:
+                dthdpmn[i0] = dthdp
+                kdthdp[i0] = pver
+
+    for i in range(1, ncol + 1):
+        i0 = i - 1
+        k = kdthdp[i0]
+        if k != 0:
+            kp1 = k + 1
+            if kp1 > pver:
+                kp1 = pver
+            strat = ocnfrac[i0] * ((theta[_field2_idx(i, k700, pcols)] - thetas[i0]) * 0.057 - 0.5573)
+            if strat < 0.0:
+                strat = 0.0
+            elif strat > 1.0:
+                strat = 1.0
+            max_rh = rh[_field2_idx(i, k, pcols)]
+            rh_kp1 = rh[_field2_idx(i, kp1, pcols)]
+            if rh_kp1 > max_rh:
+                max_rh = rh_kp1
+            if max_rh < strat:
+                cldst[_field2_idx(i, k, pcols)] = max_rh
+            else:
+                cldst[_field2_idx(i, k, pcols)] = strat
 
 
 @export

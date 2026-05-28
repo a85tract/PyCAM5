@@ -127,6 +127,11 @@ module cloud_fraction
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: out_c
      end function cldfrc_register_codon
+     function cldfrc_codon(stage_c) result(out_c) bind(c, name="cldfrc_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function cldfrc_codon
      function cldfrc_readnl_codon(path_len_c, path_ascii_p, reals_p, ints_p, logicals_p) &
           result(status_c) bind(c, name="cldfrc_readnl_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -149,6 +154,15 @@ module cloud_fraction
        real(c_double), value :: press_c, lat_c, rhminh_c, rhminp_c, cldfrc_rhminp_botmb_c, unset_r8_c, pi_c
        real(c_double) :: rh_c
      end function relhum_min_codon
+     subroutine cldfrc_marine_stratus_codon(ncol_c, pcols_c, pver_c, top_lev_c, k700_c, inversion_cld_off_c, &
+          premib_c, theta_p, thetas_p, pmid_p, ps_p, ocnfrac_p, rh_p, rpdeli_p, cldst_p, dthdpmn_p, kdthdp_p) &
+          bind(c, name="cldfrc_marine_stratus_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, k700_c, inversion_cld_off_c
+       real(c_double), value :: premib_c
+       type(c_ptr), value :: theta_p, thetas_p, pmid_p, ps_p, ocnfrac_p, rh_p, rpdeli_p, cldst_p
+       type(c_ptr), value :: dthdpmn_p, kdthdp_p
+     end subroutine cldfrc_marine_stratus_codon
   end interface
 
 !================================================================================================
@@ -204,7 +218,7 @@ subroutine cldfrc_log_entered()
    cldfrc_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cldfrc direct = codon state/layer/ice/convective/total/fice batch helpers; ' // &
+      write(iulog,'(A)') 'cldfrc direct = codon state/layer/ice/convective/marine-stratus/total/fice batch helpers; ' // &
            'native qsat/geolocation/pbuf/outfld and fractional-power prep callbacks'
       call flush(iulog)
    end if
@@ -925,7 +939,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     integer, intent(in) :: dindex                 ! 0 or 1 to perturb rh
     
     type(physics_buffer_desc), pointer :: pbuf(:)
-    real(r8), intent(in) :: pmid(pcols,pver)      ! midpoint pressures
+    real(r8), target, intent(in) :: pmid(pcols,pver)      ! midpoint pressures
     real(r8), intent(in) :: temp(pcols,pver)      ! temperature
     real(r8), intent(in) :: q(pcols,pver)         ! specific humidity
     real(r8), intent(in) :: omga(pcols,pver)      ! vertical pressure velocity
@@ -934,10 +948,10 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), intent(in) :: snowh(pcols)          ! snow depth (liquid water equivalent)
     real(r8), intent(in) :: pdel(pcols,pver)      ! pressure depth of layer
     real(r8), intent(in) :: landfrac(pcols)       ! Land fraction
-    real(r8), intent(in) :: ocnfrac(pcols)        ! Ocean fraction
+    real(r8), target, intent(in) :: ocnfrac(pcols)        ! Ocean fraction
     real(r8), intent(in) :: ts(pcols)             ! surface temperature
     real(r8), intent(in) :: sst(pcols)            ! sea surface temperature
-    real(r8), intent(in) :: ps(pcols)             ! surface pressure
+    real(r8), target, intent(in) :: ps(pcols)             ! surface pressure
     real(r8), intent(in) :: zdu(pcols,pver)       ! detrainment rate from deep convection
     real(r8), intent(in) :: phis(pcols)           ! surface geopotential
     real(r8), intent(in) :: shfrc(pcols,pver)     ! cloud fraction from convect_shallow
@@ -948,7 +962,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), intent(out) :: cloud(pcols,pver)     ! cloud fraction
     real(r8), intent(out) :: rhcloud(pcols,pver)   ! cloud fraction
     real(r8), intent(out) :: clc(pcols)            ! column convective cloud amount
-    real(r8), intent(out) :: cldst(pcols,pver)     ! cloud fraction
+    real(r8), target, intent(out) :: cldst(pcols,pver)     ! cloud fraction
     real(r8), intent(out) :: rhu00(pcols,pver)     ! RH threshold for cloud
     real(r8), intent(out) :: relhum(pcols,pver)    ! RH 
     real(r8), intent(out) :: icecldf(pcols,pver)   ! ice cloud fraction
@@ -958,19 +972,19 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     !
     real(r8) concld(pcols,pver)    ! convective cloud cover
     real(r8) cld                   ! intermediate scratch variable (low cld)
-    real(r8) dthdpmn(pcols)         ! most stable lapse rate below 750 mb
+    real(r8), target :: dthdpmn(pcols)         ! most stable lapse rate below 750 mb
     real(r8) dthdp                 ! lapse rate (intermediate variable)
     real(r8) es(pcols,pver)        ! saturation vapor pressure
     real(r8) qs(pcols,pver)        ! saturation specific humidity
     real(r8) rhwght                ! weighting function for rhlim transition
-    real(r8) rh(pcols,pver)        ! relative humidity
+    real(r8), target :: rh(pcols,pver)        ! relative humidity
     real(r8) rhdif                 ! intermediate scratch variable
     real(r8) strat                 ! intermediate scratch variable
-    real(r8) theta(pcols,pver)     ! potential temperature
+    real(r8), target :: theta(pcols,pver)     ! potential temperature
     real(r8) rhlim                 ! local rel. humidity threshold estimate
     real(r8) coef1                 ! coefficient to convert mass flux to mb/d
     real(r8) clrsky(pcols)         ! temporary used in random overlap calc
-    real(r8) rpdeli(pcols,pver-1) ! 1./(pmid(k+1)-pmid(k))
+    real(r8), target :: rpdeli(pcols,pver-1) ! 1./(pmid(k+1)-pmid(k))
     real(r8) rhpert                !the specified perturbation to rh
 
     real(r8), pointer, dimension(:,:) :: deepcu      ! deep convection cloud fraction
@@ -978,8 +992,9 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     integer i, ierror, k           ! column, level indices
     integer kp1, ifld
-    integer kdthdp(pcols)
+    integer(c_int64_t), target :: kdthdp(pcols)
     integer numkcld                ! number of levels in which to allow clouds
+    integer(c_int64_t) :: cldfrc_touch_c
 
     !  In Cloud Ice Content variables
     real(r8) :: a,b,c,as,bs,cs        !fit parameters
@@ -991,7 +1006,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8) :: esi(pcols,pver)       !ice sat vapor pressure
     real(r8) :: ncf,phi               !Wilson and Ballard parameters
 
-    real(r8) thetas(pcols)                    ! ocean surface potential temperature
+    real(r8), target :: thetas(pcols)                    ! ocean surface potential temperature
     real(r8) :: clat(pcols)                   ! current latitudes(radians)
     real(r8) :: clon(pcols)                   ! current longitudes(radians)
 
@@ -1000,6 +1015,11 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     land(i) = nint(landfrac(i)) == 1
 
     call cldfrc_select_impl()
+    if (.not. use_native_cldfrc_impl) then
+       cldfrc_touch_c = cldfrc_codon(7_c_int64_t)
+       if (cldfrc_touch_c /= 7_c_int64_t) &
+            call endrun('cldfrc: invalid Codon direct touch result')
+    end if
     call cldfrc_log_entered()
 
     call get_rlat_all_p(lchnk, ncol, clat)
@@ -1231,6 +1251,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     !             I didnt worry about it.
     !
     !==================================================================================
+    if (use_native_cldfrc_impl) then
     if (.not.inversion_cld_off) then
     !
     ! Find most stable level below 750 mb for evaluating stratus regimes
@@ -1238,7 +1259,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     do i=1,ncol
        ! Nothing triggers unless a stability greater than this minimum threshold is found
        dthdpmn(i) = -0.125_r8
-       kdthdp(i) = 0
+       kdthdp(i) = 0_c_int64_t
     end do
     !
     do k=top_lev+1,pver
@@ -1248,7 +1269,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
              dthdp = 100.0_r8*(theta(i,k) - theta(i,k-1))*rpdeli(i,k-1)
              if (dthdp < dthdpmn(i)) then
                 dthdpmn(i) = dthdp
-                kdthdp(i) = k     ! index of interface of max inversion
+                kdthdp(i) = int(k, c_int64_t)     ! index of interface of max inversion
              end if
           end if
        end do
@@ -1262,14 +1283,14 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
           dthdp = 100.0_r8 * (thetas(i) - theta(i,pver)) / (ps(i)-pmid(i,pver))
           if (dthdp < dthdpmn(i)) then
              dthdpmn(i) = dthdp
-             kdthdp(i) = pver     ! index of interface of max inversion
+             kdthdp(i) = int(pver, c_int64_t)     ! index of interface of max inversion
           endif
        endif
     enddo
 
     do i=1,ncol
-       if (kdthdp(i) /= 0) then
-          k = kdthdp(i)
+       if (kdthdp(i) /= 0_c_int64_t) then
+          k = int(kdthdp(i))
           kp1 = min(k+1,pver)
           ! Note: strat will be zero unless ocnfrac > 0.01
           strat = min(1._r8,max(0._r8, ocnfrac(i) * ((theta(i,k700)-thetas(i))*.057_r8-.5573_r8) ) )
@@ -1283,6 +1304,14 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
        end if
     end do
     end if  ! .not.inversion_cld_off
+    else
+       call cldfrc_marine_stratus_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            int(top_lev, c_int64_t), int(k700, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, inversion_cld_off), real(premib, c_double), &
+            c_loc(theta), c_loc(thetas), c_loc(pmid), c_loc(ps), c_loc(ocnfrac), c_loc(rh), &
+            c_loc(rpdeli), c_loc(cldst), c_loc(dthdpmn), c_loc(kdthdp))
+    end if
 
     call cldfrc_total_cloud(ncol, rhcloud, cldst, concld, cloud)
 
