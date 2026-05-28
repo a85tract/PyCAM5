@@ -839,7 +839,7 @@ subroutine ndrop_activate_modal_proof_once()
    ndrop_activate_modal_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_activate_modal entered (activation integral/maxsat core = codon)'
+      write(iulog,'(A)') 'ndrop_activate_modal direct = codon; qsat native thermo island'
    end if
 
 end subroutine ndrop_activate_modal_proof_once
@@ -2399,27 +2399,10 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
    data ndist/nx*0/
    save ndist
 
-   fn(:)=0._r8
-   fm(:)=0._r8
-   fluxn(:)=0._r8
-   fluxm(:)=0._r8
-   flux_fullact=0._r8
-
-   if(nmode.eq.1.and.na(1).lt.1.e-20_r8)return
-
-   if(sigw.le.1.e-5_r8.and.wbar.le.0._r8)return
-
-   pres=rair*rhoair*tair
-   diff0=0.211e-4_r8*(p0/pres)*(tair/t0)**1.94_r8
-   conduct0=(5.69_r8+0.017_r8*(tair-t0))*4.186e2_r8*1.e-5_r8 ! convert to J/m/s/deg
-   call qsat(tair, pres, es, qs)
-   dqsdt=latvap/(rh2o*tair*tair)*qs
-   alpha=gravit*(latvap/(cpair*rh2o*tair*tair)-1._r8/(rair*tair))
-   gamma=(1+latvap/cpair*dqsdt)/(rhoair*qs)
-   etafactor2max=1.e10_r8/(alpha*wmaxf)**1.5_r8 ! this should make eta big if na is very small.
-
    call ndrop_activate_modal_select_impl()
    if (.not. use_native_ndrop_activate_modal_impl) then
+      pres=rair*rhoair*tair
+      call qsat(tair, pres, es, qs)
       call ndrop_activate_modal_proof_once()
       codon_status = ndrop_activate_modal_core_codon(wbar, sigw, wdiab, wminf, wmaxf, &
            tair, rhoair, qs, int(nmode, c_int64_t), rair, p0, t0, rhoh2o, latvap, &
@@ -2440,6 +2423,25 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
          call endrun('activate: Codon activation returned unknown status')
       end if
    end if
+
+   fn(:)=0._r8
+   fm(:)=0._r8
+   fluxn(:)=0._r8
+   fluxm(:)=0._r8
+   flux_fullact=0._r8
+
+   if(nmode.eq.1.and.na(1).lt.1.e-20_r8)return
+
+   if(sigw.le.1.e-5_r8.and.wbar.le.0._r8)return
+
+   pres=rair*rhoair*tair
+   diff0=0.211e-4_r8*(p0/pres)*(tair/t0)**1.94_r8
+   conduct0=(5.69_r8+0.017_r8*(tair-t0))*4.186e2_r8*1.e-5_r8 ! convert to J/m/s/deg
+   call qsat(tair, pres, es, qs)
+   dqsdt=latvap/(rh2o*tair*tair)*qs
+   alpha=gravit*(latvap/(cpair*rh2o*tair*tair)-1._r8/(rair*tair))
+   gamma=(1+latvap/cpair*dqsdt)/(rhoair*qs)
+   etafactor2max=1.e10_r8/(alpha*wmaxf)**1.5_r8 ! this should make eta big if na is very small.
 
    do m=1,nmode
       if(volume(m).gt.1.e-39_r8.and.na(m).gt.1.e-39_r8)then
