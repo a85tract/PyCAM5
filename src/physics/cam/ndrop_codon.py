@@ -31,6 +31,43 @@ def _mam_idx(m: int, l: int, ntot_amode: int) -> int:
     return (m - 1) + l * ntot_amode
 
 
+def ndrop_init_scalars_codon(
+    mwh2o: float,
+    r_universal: float,
+    rhoh2o: float,
+    pi: float,
+    scalars_p: cobj,
+):
+    scalars = Ptr[float](scalars_p)
+
+    zero = 0.0
+    third = 1.0 / 3.0
+    twothird = 2.0 * third
+    sixth = 1.0 / 6.0
+    sq2 = sqrt(2.0)
+    sqpi = sqrt(pi)
+
+    t0 = 273.0
+    surften = 0.076
+    aten = 2.0 * mwh2o * surften / (r_universal * t0 * rhoh2o)
+    alogaten = log(aten)
+    alog2 = log(2.0)
+    alog3 = log(3.0)
+
+    scalars[0] = zero
+    scalars[1] = third
+    scalars[2] = twothird
+    scalars[3] = sixth
+    scalars[4] = sq2
+    scalars[5] = sqpi
+    scalars[6] = t0
+    scalars[7] = surften
+    scalars[8] = aten
+    scalars[9] = alogaten
+    scalars[10] = alog2
+    scalars[11] = alog3
+
+
 def ndrop_init_counts_codon(
     nmode: int,
     nspec_amode_p: cobj,

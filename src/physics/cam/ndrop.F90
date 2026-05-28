@@ -115,6 +115,13 @@ logical :: ndrop_maxsat_impl_selected = .false.
 logical :: ndrop_maxsat_proof_written = .false.
 
 interface
+   subroutine ndrop_init_scalars_codon(mwh2o_c, r_universal_c, rhoh2o_c, pi_c, scalars_p) &
+        bind(c, name="ndrop_init_scalars_codon")
+      use iso_c_binding, only: c_double, c_ptr
+      real(c_double), value :: mwh2o_c, r_universal_c, rhoh2o_c, pi_c
+      type(c_ptr), value :: scalars_p
+   end subroutine ndrop_init_scalars_codon
+
    subroutine ndrop_init_counts_codon(nmode_c, nspec_amode_p, nspec_max_p, ncnst_tot_p) &
         bind(c, name="ndrop_init_counts_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -526,7 +533,7 @@ subroutine ndrop_init_proof_once()
    ndrop_init_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_init direct = codon local mode counts and mam_idx plan; native rad_constituents, phys_getopts, history callbacks'
+      write(iulog,'(A)') 'ndrop_init direct = codon scalar constants, local mode counts, and mam_idx plan; native rad_constituents, phys_getopts, history callbacks'
    end if
 
 end subroutine ndrop_init_proof_once
@@ -884,6 +891,7 @@ subroutine ndrop_init
    integer  :: ii, l, lptr, m, mm
    integer  :: nspec_max            ! max number of species in a mode
    integer(c_int64_t), target :: nspec_max_c, ncnst_tot_c
+   real(r8), target :: init_scalars(12)
    character(len=32)   :: tmpname
    character(len=32)   :: tmpname_cw
    character(len=128)  :: long_name
@@ -899,19 +907,35 @@ subroutine ndrop_init
 
    kvh_idx      = pbuf_get_index('kvh')
 
-   zero     = 0._r8
-   third    = 1._r8/3._r8
-   twothird = 2._r8*third
-   sixth    = 1._r8/6._r8
-   sq2      = sqrt(2._r8)
-   sqpi     = sqrt(pi)
+   if (.not. use_native_ndrop_init_impl) then
+      call ndrop_init_scalars_codon(mwh2o, r_universal, rhoh2o, pi, c_loc(init_scalars(1)))
+      zero     = init_scalars(1)
+      third    = init_scalars(2)
+      twothird = init_scalars(3)
+      sixth    = init_scalars(4)
+      sq2      = init_scalars(5)
+      sqpi     = init_scalars(6)
+      t0       = init_scalars(7)
+      surften  = init_scalars(8)
+      aten     = init_scalars(9)
+      alogaten = init_scalars(10)
+      alog2    = init_scalars(11)
+      alog3    = init_scalars(12)
+   else
+      zero     = 0._r8
+      third    = 1._r8/3._r8
+      twothird = 2._r8*third
+      sixth    = 1._r8/6._r8
+      sq2      = sqrt(2._r8)
+      sqpi     = sqrt(pi)
 
-   t0       = 273._r8
-   surften  = 0.076_r8
-   aten     = 2._r8*mwh2o*surften/(r_universal*t0*rhoh2o)
-   alogaten = log(aten)
-   alog2    = log(2._r8)
-   alog3    = log(3._r8)
+      t0       = 273._r8
+      surften  = 0.076_r8
+      aten     = 2._r8*mwh2o*surften/(r_universal*t0*rhoh2o)
+      alogaten = log(aten)
+      alog2    = log(2._r8)
+      alog3    = log(3._r8)
+   end if
 
    ! get info about the modal aerosols
    ! get ntot_amode

@@ -6777,6 +6777,17 @@ def modal_aer_opt_sw_binterp3_codon(
 
 
 @export
+def ndrop_init_scalars_codon(
+    mwh2o: float,
+    r_universal: float,
+    rhoh2o: float,
+    pi: float,
+    scalars_p: cobj,
+):
+    _ndrop.ndrop_init_scalars_codon(mwh2o, r_universal, rhoh2o, pi, scalars_p)
+
+
+@export
 def ndrop_init_counts_codon(
     nmode: int,
     nspec_amode_p: cobj,
