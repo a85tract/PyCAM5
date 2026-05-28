@@ -1745,13 +1745,20 @@ contains
     integer       :: alg
     integer       :: ncol                     ! number of cloumns in the chunk
     integer       :: lchnk                    ! chunk identifier
+    integer       :: climate_probe_len
+    integer       :: climate_probe_status
     integer       :: tropLev(pcols)           ! tropopause level index   
+    integer       :: tropClimateLev(pcols)    ! validation-only climatology probe level index
     real(r8)      :: tropP(pcols)             ! tropopause pressure (Pa)  
     real(r8)      :: tropT(pcols)             ! tropopause temperature (K) 
     real(r8)      :: tropZ(pcols)             ! tropopause height (m) 
+    real(r8)      :: tropClimateP(pcols)      ! validation-only climatology probe pressure (Pa)
+    real(r8)      :: tropClimateT(pcols)      ! validation-only climatology probe temperature (K)
+    real(r8)      :: tropClimateZ(pcols)      ! validation-only climatology probe height (m)
     real(r8)      :: tropFound(pcols)         ! tropopause found  
     real(r8)      :: tropDZ(pcols, pver)      ! relative tropopause height (m) 
     real(r8)      :: tropPdf(pcols, pver)     ! tropopause probability distribution  
+    character(len=32) :: climate_probe_name
 
     interface
        function tropopause_output_codon(stage_c) result(stage_out) bind(c, name="tropopause_output_codon")
@@ -1768,6 +1775,17 @@ contains
     if (.not. use_native_tropopause_output_prep_impl) then
       call tropopause_log_cleanup_touch(tropopause_output_logged, tropopause_output_codon(1407_c_int64_t), 1407, &
            'tropopause_output direct = codon; output prep direct = codon; outfld/native algorithm islands')
+    end if
+
+    call get_environment_variable('TROPOPAUSE_CLIMATE_PROOF', value=climate_probe_name, &
+         length=climate_probe_len, status=climate_probe_status)
+    if (climate_probe_status == 0 .and. climate_probe_len >= 5 .and. &
+         trim(climate_probe_name(:climate_probe_len)) == 'codon') then
+      tropClimateLev(:) = NOTFOUND
+      tropClimateP(:) = fillvalue
+      tropClimateT(:) = fillvalue
+      tropClimateZ(:) = fillvalue
+      call tropopause_climate(pstate, tropClimateLev, tropClimateP, tropClimateT, tropClimateZ)
     end if
 
     ! Find the tropopause using the default algorithm backed by the climatology.
