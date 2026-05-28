@@ -455,6 +455,183 @@ def nucleati_codon(
 
 
 @inline
+def _nucleati_scalar_values(
+    wbar: float,
+    tair: float,
+    pmid: float,
+    relhum: float,
+    cldn: float,
+    qc: float,
+    qi: float,
+    ni_in: float,
+    rhoair: float,
+    so4_num: float,
+    dst_num: float,
+    soot_num: float,
+    svp_water_tair: float,
+    svp_ice_tair: float,
+    use_preexisting_ice: int,
+    use_hetfrz_classnuc: int,
+    mincld: float,
+    subgrid: float,
+    ci: float,
+    shet: float,
+    minweff: float,
+    gamma4: float,
+    pi_value: float,
+):
+    wbar1 = wbar
+    wbar2 = wbar
+    wpice = 0.0
+    weff = 0.0
+    fhom = 0.0
+    wpicehet = 0.0
+    ni_preice = 0.0
+
+    if use_preexisting_ice != 0:
+        ni_preice = ni_in * rhoair
+        ni_preice = ni_preice / max(mincld, cldn)
+
+        if ni_preice > 10.0:
+            shom = -1.5
+            lami = (gamma4 * ci * ni_in / qi) ** (1.0 / 3.0)
+            ri_preice = 0.5 / lami
+            ri_preice = max(ri_preice, 1.0e-8)
+            wpice = _nucleate_ice_vpreice(pmid, tair, ri_preice, ni_preice, shom)
+            wpicehet = _nucleate_ice_vpreice(pmid, tair, ri_preice, ni_preice, shet)
+        else:
+            wpice = 0.0
+            wpicehet = 0.0
+
+        weff = max(wbar - wpice, minweff)
+        wpice = min(wpice, wbar)
+        weffhet = max(wbar - wpicehet, minweff)
+        wpicehet = min(wpicehet, wbar)
+
+        wbar1 = weff
+        wbar2 = weffhet
+
+        detat = wbar / 0.23
+        rhimean = 1.0
+        fhom = _nucleate_ice_frachom(tair, rhimean, detat, pi_value)
+
+    ni = 0.0
+    tc = tair - 273.15
+    niimm = 0.0
+    nidep = 0.0
+    nihf = 0.0
+    deles = 0.0
+    esi = 0.0
+
+    if so4_num >= 1.0e-10 and (soot_num + dst_num) >= 1.0e-10 and cldn > 0.0:
+        rhi_gate = relhum * svp_water_tair / svp_ice_tair * subgrid
+        if (tc <= -35.0) and (rhi_gate >= 1.2):
+            a = -1.4938 * log(soot_num + dst_num) + 12.884
+            b = -10.41 * log(soot_num + dst_num) - 67.69
+            regm = a * log(wbar1) + b
+
+            if tc > regm:
+                if tc < -40.0 and wbar1 > 1.0:
+                    nihf = _nucleate_ice_hf_value(tc, wbar1, relhum, so4_num, subgrid)
+                    niimm = 0.0
+                    nidep = 0.0
+                    if use_preexisting_ice != 0:
+                        if nihf > 1.0e-3:
+                            niimm = min(dst_num, ni_preice * 1.0e-6)
+                            nihf = nihf + ni_preice * 1.0e-6 - niimm
+                        nihf = nihf * fhom
+                        n1 = nihf + niimm
+                    else:
+                        n1 = nihf
+                else:
+                    niimm = _nucleate_ice_hetero_nis(tc, wbar2, soot_num + dst_num)
+                    nidep = 0.0
+                    if use_preexisting_ice != 0:
+                        if niimm > 1.0e-6:
+                            niimm = niimm + ni_preice * 1.0e-6
+                            niimm = min(dst_num, niimm)
+                    nihf = 0.0
+                    n1 = niimm + nidep
+            elif tc < regm - 5.0:
+                nihf = _nucleate_ice_hf_value(tc, wbar1, relhum, so4_num, subgrid)
+                niimm = 0.0
+                nidep = 0.0
+                if use_preexisting_ice != 0:
+                    if nihf > 1.0e-3:
+                        niimm = min(dst_num, ni_preice * 1.0e-6)
+                        nihf = nihf + ni_preice * 1.0e-6 - niimm
+                    nihf = nihf * fhom
+                    n1 = nihf + niimm
+                else:
+                    n1 = nihf
+            else:
+                if tc < -40.0 and wbar1 > 1.0:
+                    nihf = _nucleate_ice_hf_value(tc, wbar1, relhum, so4_num, subgrid)
+                    niimm = 0.0
+                    nidep = 0.0
+                    if use_preexisting_ice != 0:
+                        if nihf > 1.0e-3:
+                            niimm = min(dst_num, ni_preice * 1.0e-6)
+                            nihf = nihf + ni_preice * 1.0e-6 - niimm
+                        nihf = nihf * fhom
+                        n1 = nihf + niimm
+                    else:
+                        n1 = nihf
+                else:
+                    nihf = _nucleate_ice_hf_value(regm - 5.0, wbar1, relhum, so4_num, subgrid)
+                    niimm = _nucleate_ice_hetero_nis(regm, wbar2, soot_num + dst_num)
+                    nidep = 0.0
+
+                    if use_preexisting_ice != 0:
+                        nihf = nihf * fhom
+
+                    if nihf <= (niimm + nidep):
+                        n1 = nihf
+                    else:
+                        n1 = (niimm + nidep) * (((niimm + nidep) / nihf) ** ((tc - regm) / 5.0))
+
+                    if use_preexisting_ice != 0:
+                        if n1 > 1.0e-3:
+                            n1 = n1 + ni_preice * 1.0e-6
+                            niimm = min(dst_num, n1)
+                            nihf = n1 - niimm
+                        else:
+                            n1 = 0.0
+                            niimm = 0.0
+                            nihf = 0.0
+            ni = n1
+
+    if tc < 0.0 and tc > -37.0 and qc > 1.0e-12:
+        esl = svp_water_tair
+        esi = svp_ice_tair
+        deles = esl - esi
+        nimey = 1.0e-3 * exp(12.96 * deles / esi - 0.639)
+    else:
+        nimey = 0.0
+
+    if use_hetfrz_classnuc != 0:
+        nimey = 0.0
+
+    nuci = ni + nimey
+    warn = 0
+    if nuci > 9999.0 or nuci < 0.0:
+        warn = 1
+        nuci = 0.0
+
+    return (
+        nuci * 1.0e6 / rhoair,
+        nihf * 1.0e6 / rhoair,
+        niimm * 1.0e6 / rhoair,
+        nidep * 1.0e6 / rhoair,
+        nimey * 1.0e6 / rhoair,
+        wpice,
+        weff,
+        fhom,
+        warn,
+    )
+
+
+@inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
 
@@ -929,6 +1106,110 @@ def nucleate_ice_cam_modal_so4_num_codon(
                     if val < 0.0:
                         val = 0.0
             so4_num[idx] = val
+
+
+@export
+def nucleate_ice_cam_modal_nucleati_batch_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    tmelt: float,
+    use_hetfrz_classnuc: int,
+    mincld: float,
+    subgrid: float,
+    ci: float,
+    shet: float,
+    minweff: float,
+    gamma4: float,
+    pi_value: float,
+    wsubi_p: cobj,
+    t_p: cobj,
+    pmid_p: cobj,
+    relhum_p: cobj,
+    icldm_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    ni_p: cobj,
+    rho_p: cobj,
+    so4_num_p: cobj,
+    dst_num_p: cobj,
+    svp_water_p: cobj,
+    svp_ice_p: cobj,
+    naai_p: cobj,
+    nihf_p: cobj,
+    niimm_p: cobj,
+    nidep_p: cobj,
+    nimey_p: cobj,
+    warn_p: cobj,
+):
+    wsubi = Ptr[float](wsubi_p)
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    relhum = Ptr[float](relhum_p)
+    icldm = Ptr[float](icldm_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    ni = Ptr[float](ni_p)
+    rho = Ptr[float](rho_p)
+    so4_num = Ptr[float](so4_num_p)
+    dst_num = Ptr[float](dst_num_p)
+    svp_water = Ptr[float](svp_water_p)
+    svp_ice = Ptr[float](svp_ice_p)
+    naai = Ptr[float](naai_p)
+    nihf = Ptr[float](nihf_p)
+    niimm = Ptr[float](niimm_p)
+    nidep = Ptr[float](nidep_p)
+    nimey = Ptr[float](nimey_p)
+    warn = Ptr[int](warn_p)
+
+    warn[0] = 0
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            if t[idx] < tmelt - 5.0:
+                (
+                    nuci,
+                    onihf,
+                    oniimm,
+                    onidep,
+                    onimey,
+                    _wpice,
+                    _weff,
+                    _fhom,
+                    warn_flag,
+                ) = _nucleati_scalar_values(
+                    wsubi[idx],
+                    t[idx],
+                    pmid[idx],
+                    relhum[idx],
+                    icldm[idx],
+                    qc[idx],
+                    qi[idx],
+                    ni[idx],
+                    rho[idx],
+                    so4_num[idx],
+                    dst_num[idx],
+                    0.0,
+                    svp_water[idx],
+                    svp_ice[idx],
+                    0,
+                    use_hetfrz_classnuc,
+                    mincld,
+                    subgrid,
+                    ci,
+                    shet,
+                    minweff,
+                    gamma4,
+                    pi_value,
+                )
+                naai[idx] = nuci
+                nihf[idx] = onihf
+                niimm[idx] = oniimm
+                nidep[idx] = onidep
+                nimey[idx] = onimey
+                if warn_flag != 0:
+                    warn[0] = 1
 
 
 @export
