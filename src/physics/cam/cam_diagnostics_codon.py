@@ -687,8 +687,8 @@ def diag_surf_codon(
 
 
 @export
-def diag_physvar_ic_codon():
-    return
+def diag_physvar_ic_codon() -> int:
+    return 1
 
 
 @export

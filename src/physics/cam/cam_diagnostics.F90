@@ -109,6 +109,7 @@ logical :: diag_phys_writeout_impl_selected = .false.
 logical :: diag_phys_writeout_batch_entered_logged = .false.
 logical :: diag_physvar_ic_use_native_impl = .false.
 logical :: diag_physvar_ic_impl_selected = .false.
+logical :: diag_physvar_ic_logged = .false.
 logical :: diag_phys_tend_use_native_impl = .false.
 logical :: diag_phys_tend_impl_selected = .false.
 logical :: diag_phys_tend_entered_logged = .false.
@@ -2991,6 +2992,7 @@ end subroutine diag_export
 !#######################################################################
 
    subroutine diag_physvar_ic (lchnk,  pbuf, cam_out, cam_in)
+   use iso_c_binding, only: c_int64_t
 !
 !---------------------------------------------
 !
@@ -3008,9 +3010,12 @@ end subroutine diag_export
    type(cam_out_t), intent(inout) :: cam_out
    type(cam_in_t),  intent(inout) :: cam_in
    interface
-      subroutine diag_physvar_ic_codon() bind(c, name="diag_physvar_ic_codon")
-      end subroutine diag_physvar_ic_codon
+      function diag_physvar_ic_codon() result(out_c) bind(c, name="diag_physvar_ic_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t) :: out_c
+      end function diag_physvar_ic_codon
    end interface
+   integer(c_int64_t) :: diag_physvar_ic_touch_c
 !
 !-----------------------------------------------------------------------
 !
@@ -3021,12 +3026,15 @@ end subroutine diag_export
       return
    end if
 
-   if (write_inithist()) then
-      call diag_physvar_ic_native(lchnk, pbuf, cam_out, cam_in)
-      return
+   diag_physvar_ic_touch_c = diag_physvar_ic_codon()
+   if (diag_physvar_ic_touch_c == 1_c_int64_t) then
+      call cam_diag_log_direct(diag_physvar_ic_logged, &
+           'diag_physvar_ic direct = codon; inithist branch selection direct; pbuf_get_field/outfld native CAM API island')
    end if
 
-   call diag_physvar_ic_codon()
+   if (write_inithist()) then
+      call diag_physvar_ic_native(lchnk, pbuf, cam_out, cam_in)
+   end if
 
    end subroutine diag_physvar_ic
 
