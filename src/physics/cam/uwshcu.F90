@@ -166,6 +166,9 @@
   logical :: qsinvert_rh_guard_impl_selected = .false.
   logical :: qsinvert_rh_guard_entered_logged = .false.
   logical :: qsinvert_native_iter_logged = .false.
+  logical :: use_native_qsinvert_impl = .false.
+  logical :: qsinvert_impl_selected = .false.
+  logical :: qsinvert_direct_entered_logged = .false.
   logical :: use_native_compute_impl = .true.
   logical :: compute_impl_selected = .false.
   logical :: compute_parent_shell_entered_logged = .false.
@@ -315,6 +318,14 @@
         real(c_double), value :: rhi_c
         integer(c_int64_t) :: is_dry_c
      end function uwshcu_qsinvert_rh_guard_codon
+
+     function uwshcu_qsinvert_codon(qt_c, thl_c, psfc_c, p00_c, rovcp_c, xlv_c, xls_c, &
+          cp_c, ep2_c, es_p, qs_p, gam_p) result(plcl_c) bind(c, name="uwshcu_qsinvert_codon")
+       use iso_c_binding, only: c_double, c_ptr
+       real(c_double), value :: qt_c, thl_c, psfc_c, p00_c, rovcp_c, xlv_c, xls_c, cp_c, ep2_c
+       type(c_ptr), value :: es_p, qs_p, gam_p
+       real(c_double) :: plcl_c
+     end function uwshcu_qsinvert_codon
 
      function exnf_codon(pressure_c, p00_c, rovcp_c) result(exnf_c) &
           bind(c, name="exnf_codon")
@@ -942,6 +953,61 @@ contains
     end if
 
   end subroutine uwshcu_select_qsinvert_rh_guard_impl
+
+!===============================================================================
+
+  subroutine uwshcu_select_qsinvert_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (qsinvert_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_QSINVERT_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_qsinvert_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_qsinvert_impl = .false.
+    end if
+
+    qsinvert_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_qsinvert_impl) then
+          write(iulog,'(A)') 'uwshcu qsinvert implementation = native'
+          call uwshcu_append_proof('uwshcu qsinvert implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu qsinvert implementation = codon'
+          call uwshcu_append_proof('uwshcu qsinvert implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_qsinvert_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_qsinvert_direct_entered()
+
+    if (qsinvert_direct_entered_logged) return
+    qsinvert_direct_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu qsinvert direct = codon; qsat/gam native island'
+       call uwshcu_append_proof('uwshcu qsinvert direct = codon; qsat/gam native island')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_qsinvert_direct_entered
 
 !===============================================================================
 
@@ -2844,6 +2910,37 @@ contains
     exnf_c = (pressure_c / p00_c) ** rovcp_c
 
   end function uwshcu_exnf_native_cb
+
+!===============================================================================
+
+  subroutine uwshcu_qsat_native_cb(t_c, p_c, es_p, qs_p) bind(C, name="uwshcu_qsat_native_cb")
+    use iso_c_binding, only: c_double, c_f_pointer, c_ptr
+
+    real(c_double), value :: t_c, p_c
+    type(c_ptr), value :: es_p, qs_p
+    real(c_double), pointer :: es, qs
+
+    call c_f_pointer(es_p, es)
+    call c_f_pointer(qs_p, qs)
+    call qsat(real(t_c, r8), real(p_c, r8), es, qs)
+
+  end subroutine uwshcu_qsat_native_cb
+
+!===============================================================================
+
+  subroutine uwshcu_qsat_gam_native_cb(t_c, p_c, es_p, qs_p, gam_p) bind(C, name="uwshcu_qsat_gam_native_cb")
+    use iso_c_binding, only: c_double, c_f_pointer, c_ptr
+
+    real(c_double), value :: t_c, p_c
+    type(c_ptr), value :: es_p, qs_p, gam_p
+    real(c_double), pointer :: es, qs, gam
+
+    call c_f_pointer(es_p, es)
+    call c_f_pointer(qs_p, qs)
+    call c_f_pointer(gam_p, gam)
+    call qsat(real(t_c, r8), real(p_c, r8), es, qs, gam=gam)
+
+  end subroutine uwshcu_qsat_gam_native_cb
 
 !===============================================================================
 
@@ -13508,7 +13605,7 @@ end subroutine uwshcu_readnl
   end function slope_native
 
   function qsinvert(qt,thl,psfc)
-    use iso_c_binding, only: c_double, c_int64_t
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
   ! ----------------------------------------------------------------- !
   ! Function calculating saturation pressure ps (or pLCL) from qt and !
   ! thl ( liquid potential temperature,  NOT liquid virtual potential ! 
@@ -13521,14 +13618,23 @@ end subroutine uwshcu_readnl
     real(r8)             dPisdps, dlnqsdps, derrdps, dps 
     real(r8)             Ti, rhi, TLCL, PiLCL, psmin, dpsmax
     integer              i
-    real(r8)          :: es                     ! saturation vapor pressure
-    real(r8)          :: qs                     ! saturation spec. humidity
-    real(r8)          :: gam                    ! (L/cp)*dqs/dT
+    real(r8), target  :: es                     ! saturation vapor pressure
+    real(r8), target  :: qs                     ! saturation spec. humidity
+    real(r8), target  :: gam                    ! (L/cp)*dqs/dT
     real(r8)          :: leff, nu
     integer(c_int64_t) :: dry_guard_c
 
     psmin  = 100._r8*100._r8 ! Default saturation pressure [Pa] if iteration does not converge
     dpsmax = 1._r8           ! Tolerance [Pa] for convergence of iteration
+
+    call uwshcu_select_qsinvert_impl()
+    if (.not. use_native_qsinvert_impl) then
+       call uwshcu_log_qsinvert_direct_entered()
+       qsinvert = real(uwshcu_qsinvert_codon(real(qt, c_double), real(thl, c_double), real(psfc, c_double), &
+            real(p00, c_double), real(rovcp, c_double), real(xlv, c_double), real(xls, c_double), &
+            real(cp, c_double), real(ep2, c_double), c_loc(es), c_loc(qs), c_loc(gam)), r8)
+       return
+    end if
 
     call uwshcu_select_qsinvert_rh_guard_impl()
 

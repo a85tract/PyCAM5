@@ -1,5 +1,7 @@
 from math import erfc, exp, log, log10, sqrt
 from C import uwshcu_exnf_native_cb(float, float, float) -> float
+from C import uwshcu_qsat_native_cb(float, float, Ptr[float], Ptr[float]) -> None
+from C import uwshcu_qsat_gam_native_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
 
 @export
 def convect_shallow_use_shfrc_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
@@ -14863,7 +14865,7 @@ def uwshcu_qsinvert_codon(
     dpsmax = 1.0
 
     Ti = thl * (psfc / p00_v) ** rovcp_v
-    uwshcu_qsat_codon(Ti, psfc, es_p, qs_p)
+    uwshcu_qsat_native_cb(Ti, psfc, es, qs)
     rhi = qt / qs[0]
     if uwshcu_qsinvert_rh_guard_codon(rhi) != 0:
         return psmin
@@ -14875,7 +14877,7 @@ def uwshcu_qsinvert_codon(
     for _ in range(10):
         Pis = (ps / p00_v) ** rovcp_v
         Ts = thl * Pis
-        uwshcu_qsat_gam_codon(Ts, ps, es_p, qs_p, gam_p)
+        uwshcu_qsat_gam_native_cb(Ts, ps, es, qs, gam)
         err = qt - qs[0]
         nu = max(min((268.0 - Ts) / 20.0, 1.0), 0.0)
         leff = (1.0 - nu) * xlv_v + nu * xls_v
