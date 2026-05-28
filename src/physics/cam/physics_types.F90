@@ -415,6 +415,33 @@ module physics_types
        type(c_ptr), value :: src_p, dst_p
      end subroutine physics_copy_real_3d_codon_raw
 
+     subroutine physics_state_copy_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, &
+          src_lat_p, dst_lat_p, src_lon_p, dst_lon_p, src_ps_p, dst_ps_p, src_phis_p, dst_phis_p, &
+          src_te_ini_p, dst_te_ini_p, src_te_cur_p, dst_te_cur_p, src_tw_ini_p, dst_tw_ini_p, &
+          src_tw_cur_p, dst_tw_cur_p, src_psdry_p, dst_psdry_p, &
+          src_t_p, dst_t_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_s_p, dst_s_p, &
+          src_omega_p, dst_omega_p, src_pmid_p, dst_pmid_p, src_pdel_p, dst_pdel_p, &
+          src_rpdel_p, dst_rpdel_p, src_lnpmid_p, dst_lnpmid_p, src_exner_p, dst_exner_p, &
+          src_zm_p, dst_zm_p, src_lnpmiddry_p, dst_lnpmiddry_p, src_pmiddry_p, dst_pmiddry_p, &
+          src_pdeldry_p, dst_pdeldry_p, src_rpdeldry_p, dst_rpdeldry_p, &
+          src_pint_p, dst_pint_p, src_lnpint_p, dst_lnpint_p, src_zi_p, dst_zi_p, &
+          src_pintdry_p, dst_pintdry_p, src_lnpintdry_p, dst_lnpintdry_p, &
+          src_q_p, dst_q_p) bind(c, name="physics_state_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c
+       type(c_ptr), value :: src_lat_p, dst_lat_p, src_lon_p, dst_lon_p, src_ps_p, dst_ps_p
+       type(c_ptr), value :: src_phis_p, dst_phis_p, src_te_ini_p, dst_te_ini_p, src_te_cur_p, dst_te_cur_p
+       type(c_ptr), value :: src_tw_ini_p, dst_tw_ini_p, src_tw_cur_p, dst_tw_cur_p, src_psdry_p, dst_psdry_p
+       type(c_ptr), value :: src_t_p, dst_t_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_s_p, dst_s_p
+       type(c_ptr), value :: src_omega_p, dst_omega_p, src_pmid_p, dst_pmid_p, src_pdel_p, dst_pdel_p
+       type(c_ptr), value :: src_rpdel_p, dst_rpdel_p, src_lnpmid_p, dst_lnpmid_p, src_exner_p, dst_exner_p
+       type(c_ptr), value :: src_zm_p, dst_zm_p, src_lnpmiddry_p, dst_lnpmiddry_p, src_pmiddry_p, dst_pmiddry_p
+       type(c_ptr), value :: src_pdeldry_p, dst_pdeldry_p, src_rpdeldry_p, dst_rpdeldry_p
+       type(c_ptr), value :: src_pint_p, dst_pint_p, src_lnpint_p, dst_lnpint_p, src_zi_p, dst_zi_p
+       type(c_ptr), value :: src_pintdry_p, dst_pintdry_p, src_lnpintdry_p, dst_lnpintdry_p
+       type(c_ptr), value :: src_q_p, dst_q_p
+     end subroutine physics_state_copy_codon_raw
+
      subroutine state_cnst_min_nz_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, q_p, lim_c, qix_c, numix_c) &
           bind(c, name="state_cnst_min_nz_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -767,6 +794,32 @@ contains
     call physics_copy_real_3d_codon_raw(int(ncol_local, c_int64_t), int(ld1_local, c_int64_t), &
          int(nlev_local, c_int64_t), int(n3_local, c_int64_t), c_loc(src), c_loc(dst))
   end subroutine physics_copy_real_3d_codon
+
+  subroutine physics_state_copy_codon(state_in, state_out, ncol_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    type(physics_state), intent(in), target :: state_in
+    type(physics_state), intent(inout), target :: state_out
+    integer, intent(in) :: ncol_local
+
+    call physics_state_copy_codon_raw(int(ncol_local, c_int64_t), int(state_in%psetcols, c_int64_t), &
+         int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         c_loc(state_in%lat), c_loc(state_out%lat), c_loc(state_in%lon), c_loc(state_out%lon), &
+         c_loc(state_in%ps), c_loc(state_out%ps), c_loc(state_in%phis), c_loc(state_out%phis), &
+         c_loc(state_in%te_ini), c_loc(state_out%te_ini), c_loc(state_in%te_cur), c_loc(state_out%te_cur), &
+         c_loc(state_in%tw_ini), c_loc(state_out%tw_ini), c_loc(state_in%tw_cur), c_loc(state_out%tw_cur), &
+         c_loc(state_in%psdry), c_loc(state_out%psdry), &
+         c_loc(state_in%t), c_loc(state_out%t), c_loc(state_in%u), c_loc(state_out%u), &
+         c_loc(state_in%v), c_loc(state_out%v), c_loc(state_in%s), c_loc(state_out%s), &
+         c_loc(state_in%omega), c_loc(state_out%omega), c_loc(state_in%pmid), c_loc(state_out%pmid), &
+         c_loc(state_in%pdel), c_loc(state_out%pdel), c_loc(state_in%rpdel), c_loc(state_out%rpdel), &
+         c_loc(state_in%lnpmid), c_loc(state_out%lnpmid), c_loc(state_in%exner), c_loc(state_out%exner), &
+         c_loc(state_in%zm), c_loc(state_out%zm), c_loc(state_in%lnpmiddry), c_loc(state_out%lnpmiddry), &
+         c_loc(state_in%pmiddry), c_loc(state_out%pmiddry), c_loc(state_in%pdeldry), c_loc(state_out%pdeldry), &
+         c_loc(state_in%rpdeldry), c_loc(state_out%rpdeldry), c_loc(state_in%pint), c_loc(state_out%pint), &
+         c_loc(state_in%lnpint), c_loc(state_out%lnpint), c_loc(state_in%zi), c_loc(state_out%zi), &
+         c_loc(state_in%pintdry), c_loc(state_out%pintdry), c_loc(state_in%lnpintdry), c_loc(state_out%lnpintdry), &
+         c_loc(state_in%q), c_loc(state_out%q))
+  end subroutine physics_state_copy_codon
 
   subroutine state_cnst_min_nz_codon(ncol_local, psetcols_local, q, lim, qix, numix)
     use iso_c_binding, only: c_double, c_int64_t, c_loc
@@ -1953,7 +2006,7 @@ end subroutine physics_ptend_copy
     type(physics_state), intent(inout) :: phys_state
 
     ! local variables
-    integer  :: i, ncol, ulatcnt, uloncnt
+    integer  :: i, ncol
     real(r8) :: rlon(pcols)
     real(r8) :: rlat(pcols)
 
@@ -1982,13 +2035,10 @@ end subroutine physics_ptend_copy
     if (use_native_zero_impl) then
        call init_geo_unique(phys_state,ncol)
     else
-       call physics_init_geo_unique_maps_codon(ncol, phys_state%psetcols, phys_state%lat, phys_state%lon, &
-            phys_state%ulat, phys_state%ulon, phys_state%latmapback, phys_state%lonmapback, ulatcnt, uloncnt)
-       phys_state%uloncnt=uloncnt
-       phys_state%ulatcnt=ulatcnt
+       call init_geo_unique(phys_state,ncol)
        call physics_types_zero_proof_once()
-       call physics_types_log_direct(physics_state_set_grid_logged, 'physics_state_set_grid direct = codon')
-       call get_gcol_all_p(phys_state%lchnk,pcols,phys_state%cid)
+       call physics_types_log_direct(physics_state_set_grid_logged, &
+            'physics_state_set_grid direct = codon; init_geo_unique direct; get_gcol_all_p native CAM API island')
     end if
 
   end subroutine physics_state_set_grid
@@ -2276,42 +2326,11 @@ end subroutine physics_ptend_copy
           end do
        end do
     else
-       call physics_copy_real_1d_codon(ncol, state_in%lat, state_out%lat)
-       call physics_copy_real_1d_codon(ncol, state_in%lon, state_out%lon)
-       call physics_copy_real_1d_codon(ncol, state_in%ps, state_out%ps)
-       call physics_copy_real_1d_codon(ncol, state_in%phis, state_out%phis)
-       call physics_copy_real_1d_codon(ncol, state_in%te_ini, state_out%te_ini)
-       call physics_copy_real_1d_codon(ncol, state_in%te_cur, state_out%te_cur)
-       call physics_copy_real_1d_codon(ncol, state_in%tw_ini, state_out%tw_ini)
-       call physics_copy_real_1d_codon(ncol, state_in%tw_cur, state_out%tw_cur)
-       call physics_copy_real_1d_codon(ncol, state_in%psdry, state_out%psdry)
-
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%t, state_out%t)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%u, state_out%u)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%v, state_out%v)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%s, state_out%s)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%omega, state_out%omega)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%pmid, state_out%pmid)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%pdel, state_out%pdel)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%rpdel, state_out%rpdel)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%lnpmid, state_out%lnpmid)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%exner, state_out%exner)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%zm, state_out%zm)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%lnpmiddry, state_out%lnpmiddry)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%pmiddry, state_out%pmiddry)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%pdeldry, state_out%pdeldry)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pver, state_in%rpdeldry, state_out%rpdeldry)
-
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pverp, state_in%pint, state_out%pint)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pverp, state_in%lnpint, state_out%lnpint)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pverp, state_in%zi, state_out%zi)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pverp, state_in%pintdry, state_out%pintdry)
-       call physics_copy_real_2d_codon(ncol, state_in%psetcols, pverp, state_in%lnpintdry, state_out%lnpintdry)
-
-       call physics_copy_real_3d_codon(ncol, state_in%psetcols, pver, pcnst, state_in%q, state_out%q)
+       call physics_state_copy_codon(state_in, state_out, ncol)
 
        call physics_types_zero_proof_once()
-       call physics_types_log_direct(physics_state_copy_logged, 'physics_state_copy direct = codon')
+       call physics_types_log_direct(physics_state_copy_logged, &
+            'physics_state_copy direct = codon; state field copy direct; allocation/setup native Fortran boundary')
     end if
 
   end subroutine physics_state_copy

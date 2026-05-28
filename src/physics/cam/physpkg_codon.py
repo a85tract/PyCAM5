@@ -2445,11 +2445,26 @@ def _physics_types_copy_2d(psetcols: int, pver: int, src: Ptr[float], dst: Ptr[f
 
 
 @inline
+def _physics_types_copy_2d_ncol(ncol: int, ld1: int, nlev: int, src: Ptr[float], dst: Ptr[float]):
+    for k in range(1, nlev + 1):
+        for i in range(1, ncol + 1):
+            dst[_field2_idx(i, k, ld1)] = src[_field2_idx(i, k, ld1)]
+
+
+@inline
 def _physics_types_copy_3d(psetcols: int, pver: int, pcnst: int, src: Ptr[float], dst: Ptr[float]):
     for m in range(1, pcnst + 1):
         for k in range(1, pver + 1):
             for i in range(1, psetcols + 1):
                 dst[_field3_idx(i, k, m, psetcols, pver)] = src[_field3_idx(i, k, m, psetcols, pver)]
+
+
+@inline
+def _physics_types_copy_3d_ncol(ncol: int, ld1: int, nlev: int, n3: int, src: Ptr[float], dst: Ptr[float]):
+    for m in range(1, n3 + 1):
+        for k in range(1, nlev + 1):
+            for i in range(1, ncol + 1):
+                dst[_field3_idx(i, k, m, ld1, nlev)] = src[_field3_idx(i, k, m, ld1, nlev)]
 
 
 @export
@@ -2588,6 +2603,108 @@ def physics_tend_alloc_codon(
     _physics_types_fill_1d(psetcols, value, Ptr[float](flx_net_p))
     _physics_types_fill_1d(psetcols, value, Ptr[float](te_tnd_p))
     _physics_types_fill_1d(psetcols, value, Ptr[float](tw_tnd_p))
+
+
+@export
+def physics_state_copy_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    src_lat_p: cobj,
+    dst_lat_p: cobj,
+    src_lon_p: cobj,
+    dst_lon_p: cobj,
+    src_ps_p: cobj,
+    dst_ps_p: cobj,
+    src_phis_p: cobj,
+    dst_phis_p: cobj,
+    src_te_ini_p: cobj,
+    dst_te_ini_p: cobj,
+    src_te_cur_p: cobj,
+    dst_te_cur_p: cobj,
+    src_tw_ini_p: cobj,
+    dst_tw_ini_p: cobj,
+    src_tw_cur_p: cobj,
+    dst_tw_cur_p: cobj,
+    src_psdry_p: cobj,
+    dst_psdry_p: cobj,
+    src_t_p: cobj,
+    dst_t_p: cobj,
+    src_u_p: cobj,
+    dst_u_p: cobj,
+    src_v_p: cobj,
+    dst_v_p: cobj,
+    src_s_p: cobj,
+    dst_s_p: cobj,
+    src_omega_p: cobj,
+    dst_omega_p: cobj,
+    src_pmid_p: cobj,
+    dst_pmid_p: cobj,
+    src_pdel_p: cobj,
+    dst_pdel_p: cobj,
+    src_rpdel_p: cobj,
+    dst_rpdel_p: cobj,
+    src_lnpmid_p: cobj,
+    dst_lnpmid_p: cobj,
+    src_exner_p: cobj,
+    dst_exner_p: cobj,
+    src_zm_p: cobj,
+    dst_zm_p: cobj,
+    src_lnpmiddry_p: cobj,
+    dst_lnpmiddry_p: cobj,
+    src_pmiddry_p: cobj,
+    dst_pmiddry_p: cobj,
+    src_pdeldry_p: cobj,
+    dst_pdeldry_p: cobj,
+    src_rpdeldry_p: cobj,
+    dst_rpdeldry_p: cobj,
+    src_pint_p: cobj,
+    dst_pint_p: cobj,
+    src_lnpint_p: cobj,
+    dst_lnpint_p: cobj,
+    src_zi_p: cobj,
+    dst_zi_p: cobj,
+    src_pintdry_p: cobj,
+    dst_pintdry_p: cobj,
+    src_lnpintdry_p: cobj,
+    dst_lnpintdry_p: cobj,
+    src_q_p: cobj,
+    dst_q_p: cobj,
+):
+    _physics_types_copy_1d(ncol, Ptr[float](src_lat_p), Ptr[float](dst_lat_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_lon_p), Ptr[float](dst_lon_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_ps_p), Ptr[float](dst_ps_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_phis_p), Ptr[float](dst_phis_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_te_ini_p), Ptr[float](dst_te_ini_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_te_cur_p), Ptr[float](dst_te_cur_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_tw_ini_p), Ptr[float](dst_tw_ini_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_tw_cur_p), Ptr[float](dst_tw_cur_p))
+    _physics_types_copy_1d(ncol, Ptr[float](src_psdry_p), Ptr[float](dst_psdry_p))
+
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_t_p), Ptr[float](dst_t_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_u_p), Ptr[float](dst_u_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_v_p), Ptr[float](dst_v_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_s_p), Ptr[float](dst_s_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_omega_p), Ptr[float](dst_omega_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_pmid_p), Ptr[float](dst_pmid_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_pdel_p), Ptr[float](dst_pdel_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_rpdel_p), Ptr[float](dst_rpdel_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_lnpmid_p), Ptr[float](dst_lnpmid_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_exner_p), Ptr[float](dst_exner_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_zm_p), Ptr[float](dst_zm_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_lnpmiddry_p), Ptr[float](dst_lnpmiddry_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_pmiddry_p), Ptr[float](dst_pmiddry_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_pdeldry_p), Ptr[float](dst_pdeldry_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver, Ptr[float](src_rpdeldry_p), Ptr[float](dst_rpdeldry_p))
+
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver + 1, Ptr[float](src_pint_p), Ptr[float](dst_pint_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver + 1, Ptr[float](src_lnpint_p), Ptr[float](dst_lnpint_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver + 1, Ptr[float](src_zi_p), Ptr[float](dst_zi_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver + 1, Ptr[float](src_pintdry_p), Ptr[float](dst_pintdry_p))
+    _physics_types_copy_2d_ncol(ncol, psetcols, pver + 1, Ptr[float](src_lnpintdry_p), Ptr[float](dst_lnpintdry_p))
+
+    _physics_types_copy_3d_ncol(ncol, psetcols, pver, pcnst, Ptr[float](src_q_p), Ptr[float](dst_q_p))
 
 
 @export
