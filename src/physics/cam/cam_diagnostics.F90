@@ -401,16 +401,13 @@ subroutine diag_init()
    integer :: conv_tend_code
 
    interface
-      function cam_diag_init_dqcond_num_codon(history_budget_c, conv_tend_code_c, pcnst_c) result(result_c) &
-           bind(c, name="cam_diag_init_dqcond_num_codon")
+      function diag_init_codon(history_budget_c, conv_tend_code_c, pcnst_c) result(result_c) &
+           bind(c, name="diag_init_codon")
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t), value :: history_budget_c, conv_tend_code_c, pcnst_c
          integer(c_int64_t) :: result_c
-      end function cam_diag_init_dqcond_num_codon
+      end function diag_init_codon
    end interface
-
-   call cam_diag_touch_and_log(2_c_int64_t, diag_init_logged, &
-        'diag_init direct = codon; dqcond policy helper direct = codon; addfld/add_default/pbuf/history native CAM API islands')
 
    ! outfld calls in diag_phys_writeout
 
@@ -693,7 +690,9 @@ subroutine diag_init()
       if (diag_cnst_conv_tend == 'q_only') conv_tend_code = 1
       if (diag_cnst_conv_tend == 'all')    conv_tend_code = 2
       call cam_diag_init_helpers_log_entered()
-      dqcond_num = int(cam_diag_init_dqcond_num_codon( &
+      call cam_diag_log_direct(diag_init_logged, &
+           'diag_init direct = codon; same-routine dqcond policy direct; addfld/add_default/pbuf/history native CAM API islands')
+      dqcond_num = int(diag_init_codon( &
            merge(1_c_int64_t, 0_c_int64_t, history_budget), int(conv_tend_code, c_int64_t), int(pcnst, c_int64_t)))
    else
       if (history_budget) then

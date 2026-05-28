@@ -61,6 +61,11 @@ def cam_diag_init_dqcond_num_codon(history_budget: int, conv_tend_code: int, pcn
 
 
 @export
+def diag_init_codon(history_budget: int, conv_tend_code: int, pcnst: int) -> int:
+    return _diag_init.cam_diag_init_dqcond_num_codon(history_budget, conv_tend_code, pcnst)
+
+
+@export
 def cloud_diagnostics_mg_paths_codon(
     ncol: int,
     pcols: int,
