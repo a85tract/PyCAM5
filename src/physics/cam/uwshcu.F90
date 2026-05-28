@@ -159,6 +159,9 @@
   logical :: use_native_conden_init_impl = .false.
   logical :: conden_init_impl_selected = .false.
   logical :: conden_init_entered_logged = .false.
+  logical :: use_native_conden_impl = .false.
+  logical :: conden_impl_selected = .false.
+  logical :: conden_direct_entered_logged = .false.
   logical :: use_native_qsinvert_rh_guard_impl = .false.
   logical :: qsinvert_rh_guard_impl_selected = .false.
   logical :: qsinvert_rh_guard_entered_logged = .false.
@@ -842,6 +845,63 @@ contains
     end if
 
   end subroutine uwshcu_log_conden_init_entered
+
+!===============================================================================
+
+  subroutine uwshcu_select_conden_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (conden_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_CONDEN_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_conden_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_conden_impl = .false.
+    end if
+
+    conden_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_conden_impl) then
+          write(iulog,'(A)') 'uwshcu conden implementation = native'
+          call uwshcu_append_proof('uwshcu conden implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu conden implementation = codon'
+          call uwshcu_append_proof('uwshcu conden implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_conden_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_conden_direct_entered()
+
+    if (conden_direct_entered_logged) return
+    conden_direct_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu conden direct = codon; qsat iteration and water-tracer fractionation direct = codon'
+       call uwshcu_append_proof( &
+            'uwshcu conden direct = codon; qsat iteration and water-tracer fractionation direct = codon')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_conden_direct_entered
 
 !===============================================================================
 
@@ -13135,9 +13195,12 @@ end subroutine uwshcu_readnl
   ! --------------------------- !
    !water tracer use statements
   ! --------------------------- !
-    use iso_c_binding, only: c_double, c_loc, c_ptr
-    use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, iwspec, wtrc_nwset
-    use water_tracers,     only : wtrc_ratio, wtrc_get_alpha
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+    use constituents, only: pcnst
+    use water_isotopes, only: pwtspec
+    use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, iwspec, wtrc_nwset, &
+                                  wtrc_qmin, wtrc_alpha_kinetic
+    use water_tracers,     only : wtrc_ratio, wtrc_get_alpha, wtrc_get_rstd
     use water_types,       only : iwtvap, iwtliq, iwtice
   ! --------------------------------------------------------------------- !
   ! Calculate thermodynamic properties from a given set of ( p, thl, qt ) !
@@ -13147,19 +13210,19 @@ end subroutine uwshcu_readnl
     real(r8), intent(in)  :: thl
     real(r8), intent(in)  :: qt
 
-    real(r8), intent(out) :: th
-    real(r8), intent(out) :: qv
-    real(r8), intent(out) :: ql
-    real(r8), intent(out) :: qi
-    real(r8), intent(out) :: rvls
+    real(r8), target, intent(out) :: th
+    real(r8), target, intent(out) :: qv
+    real(r8), target, intent(out) :: ql
+    real(r8), target, intent(out) :: qi
+    real(r8), target, intent(out) :: rvls
     integer , intent(out) :: id_check
 
     !Needed for water tracer output:
     !------------------------------
     integer,  intent(in)              :: ncnst               !number of constituents for ratio input
     real(r8), intent(in), optional    :: qv0                 !input bulk-water used for ratio calculations
-    real(r8), intent(in), optional    :: tr0(ncnst)          !environmental tracers pre-condensation
-    real(r8), intent(inout), optional :: wtout(wtrc_nwset,3) !water tracer output (1=vapor, 2=liquid, 3=ice)
+    real(r8), target, intent(in), optional    :: tr0(ncnst)  !environmental tracers pre-condensation
+    real(r8), target, intent(inout), optional :: wtout(wtrc_nwset,3) !water tracer output (1=vapor, 2=liquid, 3=ice)
     !------------------------------
 
     real(r8)              :: tc,temps,t
@@ -13184,8 +13247,33 @@ end subroutine uwshcu_readnl
     real(r8)             :: tavg !average temperature during phase change.
     integer              :: m    !Loop control variable
     !************************************
+    integer              :: ispec
+    integer(c_int64_t), target :: id_check_c
+    integer(c_int64_t), target :: wtrc_iatype64(max(1,wtrc_nwset),3), iwspec64(pcnst)
+    real(r8), target     :: rstd(pwtspec)
+    type(c_ptr)          :: wtrc_iatype_p, iwspec_p, rstd_p
 
     interface
+       subroutine uwshcu_conden_scalar_codon(p_c, thl_c, qt_c, th_p, qv_p, ql_p, qi_p, &
+            qse_p, id_check_p, ncnst_c) bind(c, name="uwshcu_conden_scalar_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          real(c_double), value :: p_c, thl_c, qt_c
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
+          integer(c_int64_t), value :: ncnst_c
+       end subroutine uwshcu_conden_scalar_codon
+
+       subroutine uwshcu_conden_wtout_codon(p_c, thl_c, qt_c, th_p, qv_p, ql_p, qi_p, &
+            qse_p, id_check_p, ncnst_c, qv0_c, tr0_p, tr0_stride_c, tr0_offset_c, &
+            wtout_p, wtrc_nwset_c, wisotope_c, wtrc_alpha_kinetic_c, wtrc_iatype_p, &
+            wtrc_qmin_c, iwspec_p, rstd_p) bind(c, name="uwshcu_conden_wtout_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          real(c_double), value :: p_c, thl_c, qt_c, qv0_c, wtrc_qmin_c
+          integer(c_int64_t), value :: ncnst_c, tr0_stride_c, tr0_offset_c, wtrc_nwset_c
+          integer(c_int64_t), value :: wisotope_c, wtrc_alpha_kinetic_c
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
+          type(c_ptr), value :: tr0_p, wtout_p, wtrc_iatype_p, iwspec_p, rstd_p
+       end subroutine uwshcu_conden_wtout_codon
+
        subroutine uwshcu_conden_init_codon(p_c, thl_c, xlv_c, xls_c, p00_c, rovcp_c, vals_p) &
             bind(c, name="uwshcu_conden_init_codon")
           use iso_c_binding, only: c_double, c_ptr
@@ -13193,6 +13281,42 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: vals_p
        end subroutine uwshcu_conden_init_codon
     end interface
+
+    call uwshcu_select_conden_impl()
+    if (.not. use_native_conden_impl) then
+       id_check_c = 0_c_int64_t
+       wtrc_iatype_p = c_null_ptr
+       iwspec_p = c_null_ptr
+       rstd_p = c_null_ptr
+       call uwshcu_log_conden_direct_entered()
+       if (trace_water .and. present(wtout) .and. present(tr0) .and. present(qv0)) then
+          do m = 1, wtrc_nwset
+             wtrc_iatype64(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+             wtrc_iatype64(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+             wtrc_iatype64(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+          end do
+          do m = 1, pcnst
+             iwspec64(m) = int(iwspec(m), c_int64_t)
+          end do
+          do ispec = 1, pwtspec
+             rstd(ispec) = wtrc_get_rstd(ispec)
+          end do
+          wtrc_iatype_p = c_loc(wtrc_iatype64(1,1))
+          iwspec_p = c_loc(iwspec64(1))
+          rstd_p = c_loc(rstd(1))
+          call uwshcu_conden_wtout_codon(real(p, c_double), real(thl, c_double), real(qt, c_double), &
+               c_loc(th), c_loc(qv), c_loc(ql), c_loc(qi), c_loc(rvls), c_loc(id_check_c), &
+               int(ncnst, c_int64_t), real(qv0, c_double), c_loc(tr0(1)), 1_c_int64_t, 0_c_int64_t, &
+               c_loc(wtout(1,1)), int(wtrc_nwset, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, wisotope), &
+               merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic), wtrc_iatype_p, real(wtrc_qmin, c_double), &
+               iwspec_p, rstd_p)
+       else
+          call uwshcu_conden_scalar_codon(real(p, c_double), real(thl, c_double), real(qt, c_double), &
+               c_loc(th), c_loc(qv), c_loc(ql), c_loc(qi), c_loc(rvls), c_loc(id_check_c), int(ncnst, c_int64_t))
+       end if
+       id_check = int(id_check_c)
+       return
+    end if
 
     call uwshcu_select_conden_init_impl()
     if (use_native_conden_init_impl) then
