@@ -125,6 +125,7 @@
   logical :: readnl_use_native_impl = .false.
   logical :: readnl_impl_selected = .false.
   logical :: macrop_driver_readnl_logged = .false.
+  logical :: macrop_driver_init_logged = .false.
 
   interface
     function macrop_driver_readnl_codon(flag_c) result(out_c) bind(c, name="macrop_driver_readnl_codon")
@@ -351,6 +352,14 @@ end subroutine macrop_driver_readnl_log_direct
     !-----------------------------------------------------------------------
     active_c = macrop_driver_init_codon(1_c_int64_t)
     if (active_c == 0_c_int64_t) return
+    if (.not. macrop_driver_init_logged) then
+       macrop_driver_init_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'macrop_driver_init direct = codon; ini_macro/phys_getopts/history/pbuf native CAM API islands'
+          call flush(iulog)
+       end if
+    end if
 
     ! Initialization routine for cloud macrophysics
     if (shallow_scheme .eq. 'UNICON') rhminl_opt = 1
