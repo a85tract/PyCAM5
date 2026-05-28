@@ -106,6 +106,7 @@
   logical :: wtrc_shell_impl_selected = .false.
   logical :: use_native_wtrc_process_impl = .false.
   logical :: wtrc_process_impl_selected = .false.
+  logical :: macrop_driver_register_logged = .false.
   logical :: mmacro_input_shell_logged = .false.
   logical :: mmacro_post_fields_shell_logged = .false.
   logical :: cfmip_diag_shell_logged = .false.
@@ -290,6 +291,14 @@ end subroutine macrop_driver_readnl_log_direct
 
   !-----------------------------------------------------------------------
     if (macrop_driver_register_codon(1_c_int64_t) == 0_c_int64_t) return
+    if (.not. macrop_driver_register_logged) then
+       macrop_driver_register_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'macrop_driver_register direct = codon; pbuf registration/phys_getopts native CAM API boundary'
+          call flush(iulog)
+       end if
+    end if
 
     call phys_getopts(shallow_scheme_out=shallow_scheme)
 
