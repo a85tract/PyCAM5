@@ -294,6 +294,60 @@ def micro_mg_cam_init_pbuf_set_plan_codon(
 
 
 @export
+def micro_mg_cam_init_default_plan_codon(
+    micro_mg_version: int,
+    micro_mg_sub_version: int,
+    history_amwg: int,
+    history_budget: int,
+    ncnst: int,
+    budget_histfile: int,
+    count_p: cobj,
+    codes_p: cobj,
+    files_p: cobj,
+):
+    count = Ptr[int](count_p)
+    codes = Ptr[int](codes_p)
+    files = Ptr[int](files_p)
+
+    n = 0
+    if history_amwg != 0:
+        for code in range(1, 17):
+            codes[n] = code
+            files[n] = 1
+            n += 1
+        for m in range(1, ncnst + 1):
+            codes[n] = 100 + m
+            files[n] = 1
+            n += 1
+
+    if history_budget != 0:
+        for code in range(201, 210):
+            codes[n] = code
+            files[n] = budget_histfile
+            n += 1
+        if micro_mg_version > 1:
+            for code in range(210, 212):
+                codes[n] = code
+                files[n] = budget_histfile
+                n += 1
+        for code in range(212, 239):
+            codes[n] = code
+            files[n] = budget_histfile
+            n += 1
+        for code in range(301, 307):
+            codes[n] = code
+            files[n] = budget_histfile
+            n += 1
+        if micro_mg_version > 1:
+            for code in range(307, 313):
+                codes[n] = code
+                files[n] = budget_histfile
+                n += 1
+
+    count[0] = n
+
+
+@export
 def micro_mg_cam_p1_codon(n: int) -> int:
     if n >= 0:
         return 1
