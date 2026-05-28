@@ -1318,6 +1318,137 @@ def ndrop_ccncalc_scale_codon(
                 ccn[idx] = ccn[idx] * 1.0e-6
 
 
+def ndrop_ccncalc_direct_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    psat: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    pi_value: float,
+    surften_coef: float,
+    smcoefcoef: float,
+    nspec_amode_p: cobj,
+    species_raer_ptrs_p: cobj,
+    species_qqcw_ptrs_p: cobj,
+    specdens_p: cobj,
+    spechygro_p: cobj,
+    num_raer_ptrs_p: cobj,
+    num_qqcw_ptrs_p: cobj,
+    voltonumblo_p: cobj,
+    voltonumbhi_p: cobj,
+    alogsig_p: cobj,
+    exp45logsig_p: cobj,
+    tair_p: cobj,
+    cs_p: cobj,
+    super_p: cobj,
+    naerosol_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+    amcube_p: cobj,
+    smcoef_p: cobj,
+    sm_p: cobj,
+    arg_p: cobj,
+    ccn_p: cobj,
+):
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    species_raer_ptrs = Ptr[cobj](species_raer_ptrs_p)
+    species_qqcw_ptrs = Ptr[cobj](species_qqcw_ptrs_p)
+    specdens = Ptr[float](specdens_p)
+    spechygro = Ptr[float](spechygro_p)
+    num_raer_ptrs = Ptr[cobj](num_raer_ptrs_p)
+    num_qqcw_ptrs = Ptr[cobj](num_qqcw_ptrs_p)
+    voltonumblo = Ptr[float](voltonumblo_p)
+    voltonumbhi = Ptr[float](voltonumbhi_p)
+    alogsig = Ptr[float](alogsig_p)
+    exp45logsig = Ptr[float](exp45logsig_p)
+    tair = Ptr[float](tair_p)
+    cs = Ptr[float](cs_p)
+    super_sat = Ptr[float](super_p)
+    naerosol = Ptr[float](naerosol_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+    amcube = Ptr[float](amcube_p)
+    smcoef = Ptr[float](smcoef_p)
+    sm = Ptr[float](sm_p)
+    arg = Ptr[float](arg_p)
+    ccn = Ptr[float](ccn_p)
+
+    twothird = 2.0 / 3.0
+    sq2 = sqrt(2.0)
+
+    for l in range(1, psat + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                ccn[_idx3(i, k, l, pcols, pver)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            a = surften_coef / tair[_idx2(i, k, pcols)]
+            smcoef[i - 1] = smcoefcoef * a * sqrt(a)
+
+        for m in range(1, ntot_amode + 1):
+            m0 = m - 1
+            amcubecoef_m = 3.0 / (4.0 * pi_value * exp45logsig[m0])
+            argfactor_m = twothird / (sq2 * alogsig[m0])
+
+            for i in range(1, ncol + 1):
+                idx1 = i - 1
+                vaerosol[idx1] = 0.0
+                hygro[idx1] = 0.0
+
+            nspec = int(nspec_amode[m0])
+            for l in range(1, nspec + 1):
+                aero_idx = (l - 1) + m0 * ncnst_tot
+                raer = Ptr[float](species_raer_ptrs[aero_idx])
+                qqcw = Ptr[float](species_qqcw_ptrs[aero_idx])
+                specdens_l = specdens[aero_idx]
+                spechygro_l = spechygro[aero_idx]
+                for i in range(1, ncol + 1):
+                    idx1 = i - 1
+                    idx2 = _idx2(i, k, pcols)
+                    vol = max(raer[idx2] + qqcw[idx2], 0.0) / specdens_l
+                    vaerosol[idx1] = vaerosol[idx1] + vol
+                    hygro[idx1] = hygro[idx1] + vol * spechygro_l
+
+            num_raer = Ptr[float](num_raer_ptrs[m0])
+            num_qqcw = Ptr[float](num_qqcw_ptrs[m0])
+            for i in range(1, ncol + 1):
+                idx1 = i - 1
+                idx2 = _idx2(i, k, pcols)
+                if vaerosol[idx1] > 1.0e-30:
+                    hygro[idx1] = hygro[idx1] / vaerosol[idx1]
+                    vaerosol[idx1] = vaerosol[idx1] * cs[idx2]
+                else:
+                    hygro[idx1] = 0.0
+                    vaerosol[idx1] = 0.0
+
+                naerosol[idx1] = (num_raer[idx2] + num_qqcw[idx2]) * cs[idx2]
+                naerosol[idx1] = max(naerosol[idx1], vaerosol[idx1] * voltonumbhi[m0])
+                naerosol[idx1] = min(naerosol[idx1], vaerosol[idx1] * voltonumblo[m0])
+
+                if naerosol[idx1] > 1.0e-3:
+                    amcube[idx1] = amcubecoef_m * vaerosol[idx1] / naerosol[idx1]
+                    sm[idx1] = smcoef[idx1] / sqrt(hygro[idx1] * amcube[idx1])
+                else:
+                    sm[idx1] = 1.0
+
+            for l in range(1, psat + 1):
+                for i in range(1, ncol + 1):
+                    idx1 = i - 1
+                    arg[idx1] = argfactor_m * log(sm[idx1] / super_sat[l - 1])
+                    ccn[_idx3(i, k, l, pcols, pver)] = ccn[_idx3(i, k, l, pcols, pver)] + (
+                        naerosol[idx1] * 0.5 * (1.0 - erf(arg[idx1]))
+                    )
+
+    for l in range(1, psat + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, l, pcols, pver)
+                ccn[idx] = ccn[idx] * 1.0e-6
+
+
 @inline
 def _ndrop_maxsat_codon(
     nmode: int,

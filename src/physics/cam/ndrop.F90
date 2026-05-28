@@ -459,6 +459,23 @@ interface
       type(c_ptr), value :: ccn_p
    end subroutine ndrop_ccncalc_scale_codon
 
+   subroutine ndrop_ccncalc_direct_codon(ncol_c, pcols_c, pver_c, top_lev_c, psat_c, &
+        ntot_amode_c, ncnst_tot_c, pi_c, surften_coef_c, smcoefcoef_c, nspec_amode_p, &
+        species_raer_ptrs_p, species_qqcw_ptrs_p, specdens_p, spechygro_p, num_raer_ptrs_p, &
+        num_qqcw_ptrs_p, voltonumblo_p, voltonumbhi_p, alogsig_p, exp45logsig_p, tair_p, &
+        cs_p, super_p, naerosol_p, vaerosol_p, hygro_p, amcube_p, smcoef_p, sm_p, arg_p, ccn_p) &
+        bind(c, name="ndrop_ccncalc_direct_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, psat_c
+      integer(c_int64_t), value :: ntot_amode_c, ncnst_tot_c
+      real(c_double), value :: pi_c, surften_coef_c, smcoefcoef_c
+      type(c_ptr), value :: nspec_amode_p, species_raer_ptrs_p, species_qqcw_ptrs_p
+      type(c_ptr), value :: specdens_p, spechygro_p, num_raer_ptrs_p, num_qqcw_ptrs_p
+      type(c_ptr), value :: voltonumblo_p, voltonumbhi_p, alogsig_p, exp45logsig_p
+      type(c_ptr), value :: tair_p, cs_p, super_p, naerosol_p, vaerosol_p, hygro_p
+      type(c_ptr), value :: amcube_p, smcoef_p, sm_p, arg_p, ccn_p
+   end subroutine ndrop_ccncalc_direct_codon
+
    function ndrop_activate_modal_core_codon(wbar_c, sigw_c, wdiab_c, wminf_c, wmaxf_c, &
         tair_c, rhoair_c, qs_c, nmode_c, rair_c, p0_c, t0_c, rhoh2o_c, latvap_c, &
         cpair_c, rh2o_c, gravit_c, pi_c, aten_c, twothird_c, sq2_c, sqpi_c, &
@@ -741,7 +758,7 @@ subroutine ndrop_ccncalc_helpers_proof_once()
    ndrop_ccncalc_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_ccncalc_helpers entered (zero/coefficients/accumulation/scale direct = codon)'
+      write(iulog,'(A)') 'ndrop_ccncalc direct = codon; allocation/state/rad_constituents/pbuf native CAM API islands'
    end if
 
 end subroutine ndrop_ccncalc_helpers_proof_once
@@ -2779,7 +2796,7 @@ end subroutine maxsat_native
 
 subroutine ccncalc(state, pbuf, cs, ccn)
 
-   use iso_c_binding, only: c_int64_t, c_loc
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
    ! calculates number concentration of aerosols activated as CCN at
    ! supersaturation supersat.
@@ -2794,7 +2811,7 @@ subroutine ccncalc(state, pbuf, cs, ccn)
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
 
-   real(r8), intent(in)  :: cs(pcols,pver)       ! air density (kg/m3)
+   real(r8), target, intent(in)  :: cs(pcols,pver)       ! air density (kg/m3)
    real(r8), target, intent(out) :: ccn(pcols,pver,psat) ! number conc of aerosols activated at supersat (#/m3)
 
    ! local
@@ -2802,6 +2819,7 @@ subroutine ccncalc(state, pbuf, cs, ccn)
    integer :: lchnk ! chunk index
    integer :: ncol  ! number of columns
    real(r8), pointer :: tair(:,:)     ! air temperature (K)
+   real(r8), pointer :: specmmr(:,:)
 
    real(r8), target :: naerosol(pcols) ! interstit+activated aerosol number conc (/m3)
    real(r8), target :: vaerosol(pcols) ! interstit+activated aerosol volume conc (m3/m3)
@@ -2816,6 +2834,7 @@ subroutine ccncalc(state, pbuf, cs, ccn)
    real(r8), target :: hygro(pcols)  ! aerosol hygroscopicity
    real(r8), target :: sm(pcols)  ! critical supersaturation at mode radius
    real(r8), target :: arg(pcols)
+   real(r8), pointer :: qqcw(:,:)
    !     mathematical constants
    real(r8) twothird,sq2
    integer l,m,n,i,k
@@ -2823,6 +2842,14 @@ subroutine ccncalc(state, pbuf, cs, ccn)
    real(r8) smcoefcoef
    real(r8), target :: smcoef(pcols)
    integer phase ! phase of aerosol
+   type(c_ptr), target :: ccn_species_raer_ptrs(ncnst_tot,ntot_amode)
+   type(c_ptr), target :: ccn_species_qqcw_ptrs(ncnst_tot,ntot_amode)
+   type(c_ptr), target :: ccn_num_raer_ptrs(ntot_amode)
+   type(c_ptr), target :: ccn_num_qqcw_ptrs(ntot_amode)
+   real(r8), target :: ccn_species_specdens(ncnst_tot,ntot_amode)
+   real(r8), target :: ccn_species_spechygro(ncnst_tot,ntot_amode)
+   real(r8), target :: ccn_voltonumblo(ntot_amode)
+   real(r8), target :: ccn_voltonumbhi(ntot_amode)
    !-------------------------------------------------------------------------------
 
    lchnk = state%lchnk
@@ -2832,6 +2859,8 @@ subroutine ccncalc(state, pbuf, cs, ccn)
    allocate( &
       amcubecoef(ntot_amode), &
       argfactor(ntot_amode)   )
+
+   call ndrop_ccncalc_helpers_select_impl()
 
    super(:)=supersat(:)*0.01_r8
    sq2=sqrt(2._r8)
@@ -2845,7 +2874,42 @@ subroutine ccncalc(state, pbuf, cs, ccn)
       argfactor(m)=twothird/(sq2*alogsig(m))
    end do
 
-   call ndrop_ccncalc_helpers_select_impl()
+   if (.not. use_native_ndrop_ccncalc_helpers_impl) then
+      do m=1,ntot_amode
+         do l=1,nspec_amode(m)
+            call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, specmmr)
+            call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw)
+            call rad_cnst_get_aer_props(0, m, l, density_aer=ccn_species_specdens(l,m), &
+                 hygro_aer=ccn_species_spechygro(l,m))
+            ccn_species_raer_ptrs(l,m) = c_loc(specmmr(1,1))
+            ccn_species_qqcw_ptrs(l,m) = c_loc(qqcw(1,1))
+         end do
+         call rad_cnst_get_mode_num(0, m, 'a', state, pbuf, specmmr)
+         call rad_cnst_get_mode_num(0, m, 'c', state, pbuf, qqcw)
+         ccn_num_raer_ptrs(m) = c_loc(specmmr(1,1))
+         ccn_num_qqcw_ptrs(m) = c_loc(qqcw(1,1))
+         ccn_voltonumblo(m) = voltonumblo_amode(m)
+         ccn_voltonumbhi(m) = voltonumbhi_amode(m)
+      end do
+
+      call ndrop_ccncalc_helpers_proof_once()
+      call ndrop_ccncalc_direct_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), int(psat, c_int64_t), &
+           int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), pi, surften_coef, &
+           smcoefcoef, c_loc(nspec_amode(1)), c_loc(ccn_species_raer_ptrs(1,1)), &
+           c_loc(ccn_species_qqcw_ptrs(1,1)), c_loc(ccn_species_specdens(1,1)), &
+           c_loc(ccn_species_spechygro(1,1)), c_loc(ccn_num_raer_ptrs(1)), &
+           c_loc(ccn_num_qqcw_ptrs(1)), c_loc(ccn_voltonumblo(1)), c_loc(ccn_voltonumbhi(1)), &
+           c_loc(alogsig(1)), c_loc(exp45logsig(1)), c_loc(tair(1,1)), c_loc(cs(1,1)), &
+           c_loc(super(1)), c_loc(naerosol(1)), c_loc(vaerosol(1)), c_loc(hygro(1)), &
+           c_loc(amcube(1)), c_loc(smcoef(1)), c_loc(sm(1)), c_loc(arg(1)), c_loc(ccn(1,1,1)))
+
+      deallocate( &
+         amcubecoef, &
+         argfactor   )
+      return
+   end if
+
    if (use_native_ndrop_ccncalc_helpers_impl) then
       ccn = 0._r8
    else
