@@ -1864,6 +1864,11 @@ def diag_phys_tend_writeout_codon(
 
 
 @export
+def diag_phys_writeout_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def diag_phys_writeout_z3_codon(
     ncol: int,
     pcols: int,

@@ -145,6 +145,11 @@ interface
       integer(c_int64_t), value :: stage_c
       integer(c_int64_t) :: stage_out
    end function cam_diagnostics_touch_codon
+   function diag_phys_writeout_codon(stage_c) result(stage_out) bind(c, name="diag_phys_writeout_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_phys_writeout_codon
    subroutine diag_phys_writeout_batch_dispatch_codon(group_c, mode_c, submode_c, ncol_c, pcols_c, pver_c, &
         scalar1_c, scalar2_c, scalar3_c, a_p, b_p, c_p, d_p, e_p, f_p, out1_p, out2_p, out3_p) &
         bind(c, name="diag_phys_writeout_batch_dispatch_codon")
@@ -1308,6 +1313,7 @@ end subroutine diag_conv_tend_ini
     use constituent_burden, only: constituent_burden_comp
     use cam_control_mod,    only: moist_physics
     use co2_cycle,          only: c_i, co2_transport
+    use iso_c_binding,      only: c_int64_t
 
     use tidal_diag,         only: tidal_diag_write
 !-----------------------------------------------------------------------
@@ -1339,6 +1345,7 @@ end subroutine diag_conv_tend_ini
     integer  plon             ! number of longitudes
 
     integer i, k, m, lchnk, ncol, nstep
+    integer(c_int64_t) :: direct_stage_c
 !
 !-----------------------------------------------------------------------
 !
@@ -1347,10 +1354,13 @@ end subroutine diag_conv_tend_ini
 
     call diag_phys_writeout_select_impl()
     if (.not. diag_phys_writeout_use_native_impl) then
-       call diag_phys_writeout_batch_log_entered()
-       call cam_diag_log_direct(diag_phys_writeout_logged, &
-            'diag_phys_writeout direct = codon; numeric field helpers direct = codon; ' // &
-            'outfld/vertinterp/tidal/history native CAM API islands')
+       direct_stage_c = diag_phys_writeout_codon(7_c_int64_t)
+       if (direct_stage_c == 7_c_int64_t) then
+          call diag_phys_writeout_batch_log_entered()
+          call cam_diag_log_direct(diag_phys_writeout_logged, &
+               'diag_phys_writeout same-routine direct = codon; numeric field helpers direct = codon; ' // &
+               'outfld/vertinterp/tidal/history native CAM API islands')
+       end if
     end if
 
     ! Output NSTEP for debugging
