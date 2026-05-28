@@ -2583,6 +2583,8 @@ def zm_q1q2_pjr_codon(
     pcols: int,
     pver: int,
     msg: int,
+    il1g: int,
+    il2g: int,
     cp: float,
     rl: float,
     q_p: cobj,
@@ -2630,9 +2632,9 @@ def zm_q1q2_pjr_codon(
     kk = msg + 1
     while kk <= pver:
         k = kk - 1
-        i = 0
-        while i < lengath:
-            idx = i + k * pcols
+        i = il1g
+        while i <= il2g:
+            idx = (i - 1) + k * pcols
             dsdt[idx] = 0.0
             dqdt[idx] = 0.0
             dl[idx] = 0.0
@@ -2641,20 +2643,20 @@ def zm_q1q2_pjr_codon(
 
     ktm = pver
     kbm = pver
-    i = 0
-    while i < lengath:
-        ktm = min(ktm, jt[i])
-        kbm = min(kbm, mx[i])
+    i = il1g
+    while i <= il2g:
+        ktm = min(ktm, jt[i - 1])
+        kbm = min(kbm, mx[i - 1])
         i += 1
 
     kk = ktm
     while kk <= pver - 1:
         k = kk - 1
         kp1 = kk
-        i = 0
-        while i < lengath:
-            idx = i + k * pcols
-            kp1idx = i + kp1 * pcols
+        i = il1g
+        while i <= il2g:
+            idx = (i - 1) + k * pcols
+            kp1idx = (i - 1) + kp1 * pcols
             emc = -cu[idx] + evp[idx]
             dsdt[idx] = -rl / cp * emc + (
                 +mu[kp1idx] * (su[kp1idx] - shat[kp1idx])
@@ -2675,20 +2677,20 @@ def zm_q1q2_pjr_codon(
     kk = kbm
     while kk <= pver:
         k = kk - 1
-        i = 0
-        while i < lengath:
-            idx = i + k * pcols
-            if kk == mx[i]:
-                dsdt[idx] = (1.0 / dsubcld[i]) * (
+        i = il1g
+        while i <= il2g:
+            idx = (i - 1) + k * pcols
+            if kk == mx[i - 1]:
+                dsdt[idx] = (1.0 / dsubcld[i - 1]) * (
                     -mu[idx] * (su[idx] - shat[idx])
                     - md[idx] * (sd[idx] - shat[idx])
                 )
-                dqdt[idx] = (1.0 / dsubcld[i]) * (
+                dqdt[idx] = (1.0 / dsubcld[i - 1]) * (
                     -mu[idx] * (qu[idx] - qhat[idx])
                     - md[idx] * (qd[idx] - qhat[idx])
                 )
-            elif kk > mx[i]:
-                km1idx = i + (k - 1) * pcols
+            elif kk > mx[i - 1]:
+                km1idx = (i - 1) + (k - 1) * pcols
                 dsdt[idx] = dsdt[km1idx]
                 dqdt[idx] = dqdt[km1idx]
             i += 1
@@ -2956,6 +2958,8 @@ def zm_convr_finish_stage_dispatch_codon(
         pcols,
         pver,
         msg,
+        1,
+        lengath,
         cpres,
         rl,
         qg_p,

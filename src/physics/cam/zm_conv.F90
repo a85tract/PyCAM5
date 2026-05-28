@@ -1178,11 +1178,11 @@ subroutine zm_convr(lchnk   ,ncol    , &
          type(c_ptr), value :: ideep_p, jt_p, zm_p, pblh_p, mu_p, dp_p, mb_p, mumax_p
       end subroutine zm_convr_closure_limit_shell_codon
 
-      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
+      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
            qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p, dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, &
            dqdt_p, dsdt_p) bind(c, name="zm_q1q2_pjr_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c
          real(c_double), value :: cpres_c, rl_c
          type(c_ptr), value :: q_p, qu_p, su_p, du_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p
          type(c_ptr), value :: dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, dqdt_p, dsdt_p
@@ -4721,11 +4721,11 @@ subroutine q1q2_pjr(lchnk   , &
    integer(c_int64_t), target :: mx64(pcols)
 
    interface
-      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
+      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
            qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p, dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, &
            dqdt_p, dsdt_p) bind(c, name="zm_q1q2_pjr_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c
          real(c_double), value :: cpres_c, rl_c
          type(c_ptr), value :: q_p, qu_p, su_p, du_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p
          type(c_ptr), value :: dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, dqdt_p, dsdt_p
@@ -4734,13 +4734,13 @@ subroutine q1q2_pjr(lchnk   , &
 
    call zm_q1q2_pjr_select_impl()
 
-   if (use_native_zm_q1q2_pjr .or. il1g /= 1) then
+   if (use_native_zm_q1q2_pjr) then
       call q1q2_pjr_native(lchnk, dqdt, dsdt, q, qs, qu, su, du, qhat, shat, dp, &
            mu, md, sd, qd, ql, dsubcld, jt, mx, il1g, il2g, cp, rl, msg, dl, evp, cu)
       return
    end if
 
-   do i = 1, il2g
+   do i = il1g, il2g
       jt64(i) = int(jt(i), c_int64_t)
       mx64(i) = int(mx(i), c_int64_t)
    end do
@@ -4752,8 +4752,9 @@ subroutine q1q2_pjr(lchnk   , &
       zm_q1q2_logged = .true.
    end if
 
-   call zm_q1q2_pjr_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        int(msg, c_int64_t), real(cp, c_double), real(rl, c_double), c_loc(q), c_loc(qu), c_loc(su), &
+   call zm_q1q2_pjr_codon(int(il2g-il1g+1, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(msg, c_int64_t), int(il1g, c_int64_t), int(il2g, c_int64_t), &
+        real(cp, c_double), real(rl, c_double), c_loc(q), c_loc(qu), c_loc(su), &
         c_loc(du), c_loc(qhat), c_loc(shat), c_loc(dp), c_loc(mu), c_loc(md), c_loc(sd), c_loc(qd), &
         c_loc(ql), c_loc(dsubcld), c_loc(jt64), c_loc(mx64), c_loc(dl), c_loc(evp), c_loc(cu), &
         c_loc(dqdt), c_loc(dsdt))
