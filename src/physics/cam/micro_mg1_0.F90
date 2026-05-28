@@ -202,16 +202,16 @@ integer k
 integer l,m, iaer
 real(r8) surften       ! surface tension of water w/respect to air (N/m)
 real(r8) arg
-real(r8), target :: init_scalars(13)
+real(r8), target :: init_scalars(55)
 
 interface
    subroutine micro_mg1_0_init_scalars_codon(gravit_c, rair_c, rh2o_c, &
         cpair_c, rhoh2o_c, tmelt_c, rhmini_c, berg_eff_c, latvap_c, &
-        latice_c, scalars_p) bind(c, name="micro_mg1_0_init_scalars_codon")
+        latice_c, micro_mg_dcs_c, scalars_p) bind(c, name="micro_mg1_0_init_scalars_codon")
       use iso_c_binding, only: c_double, c_ptr
       real(c_double), value :: gravit_c, rair_c, rh2o_c, cpair_c
       real(c_double), value :: rhoh2o_c, tmelt_c, rhmini_c, berg_eff_c
-      real(c_double), value :: latvap_c, latice_c
+      real(c_double), value :: latvap_c, latice_c, micro_mg_dcs_c
       type(c_ptr), value :: scalars_p
    end subroutine micro_mg1_0_init_scalars_codon
 end interface
@@ -251,11 +251,55 @@ if (micro_mg1_0_init_use_native_impl) then
 
    tmax_fsnow = tmelt
    tmin_fsnow = tmelt-5._r8
+
+   init_scalars(14) = 250._r8
+   init_scalars(15) = 500._r8
+   init_scalars(16) = 1000._r8
+   init_scalars(17) = 3.e7_r8
+   init_scalars(18) = 2._r8
+   init_scalars(19) = 11.72_r8
+   init_scalars(20) = 0.41_r8
+   init_scalars(21) = 700._r8
+   init_scalars(22) = 1._r8
+   init_scalars(23) = 841.99667_r8
+   init_scalars(24) = 0.8_r8
+   init_scalars(25) = 3.1415927_r8
+   init_scalars(26) = init_scalars(15)*init_scalars(25)/6._r8
+   init_scalars(27) = 3._r8
+   init_scalars(28) = init_scalars(14)*init_scalars(25)/6._r8
+   init_scalars(29) = 3._r8
+   init_scalars(30) = init_scalars(16)*init_scalars(25)/6._r8
+   init_scalars(31) = 3._r8
+   init_scalars(32) = 0.86_r8
+   init_scalars(33) = 0.28_r8
+   init_scalars(34) = 0.1_r8
+   init_scalars(35) = 1.0_r8
+   init_scalars(36) = 0.78_r8
+   init_scalars(37) = 0.32_r8
+   init_scalars(38) = micro_mg_dcs
+   init_scalars(39) = 1.e-18_r8
+   init_scalars(40) = 100._r8
+   init_scalars(41) = 0.66_r8
+   init_scalars(42) = 85000._r8/(rair * tmelt)
+   init_scalars(43) = 0.1e-6_r8
+   init_scalars(44) = 273.15_r8
+   init_scalars(45) = -30._r8
+   init_scalars(46) = 26._r8
+   init_scalars(47) = -99._r8
+   init_scalars(48) = 1.26e-10_r8
+   init_scalars(49) = 1._r8/10.e-6_r8
+   init_scalars(50) = 1._r8/(2._r8*micro_mg_dcs)
+   init_scalars(51) = 1._r8/20.e-6_r8
+   init_scalars(52) = 1._r8/500.e-6_r8
+   init_scalars(53) = 1._r8/10.e-6_r8
+   init_scalars(54) = 1._r8/2000.e-6_r8
+   init_scalars(55) = 4._r8/3._r8*init_scalars(25)*init_scalars(15)* &
+        (10.e-6_r8)*(10.e-6_r8)*(10.e-6_r8)
 else
    call micro_mg1_0_log_init_scalars_entered()
    call micro_mg1_0_init_scalars_codon(gravit, rair, rh2o, cpair, rhoh2o, &
         tmelt_in, rhmini_in, micro_mg_berg_eff_factor_in, latvap, latice, &
-        c_loc(init_scalars(1)))
+        micro_mg_dcs, c_loc(init_scalars(1)))
    g= init_scalars(1)         !gravity
    r= init_scalars(2)         !Dry air Gas constant: note units(phys_constants are in J/K/kmol)
    rv= init_scalars(3)        !water vapor gas contstant
@@ -284,106 +328,106 @@ end if
 ! parameters below from Reisner et al. (1998)
 ! density parameters (kg/m3)
 
-rhosn = 250._r8    ! bulk density snow  (++ ceh)
-rhoi = 500._r8     ! bulk density ice
-rhow = 1000._r8    ! bulk density liquid
+rhosn = init_scalars(14)    ! bulk density snow  (++ ceh)
+rhoi = init_scalars(15)     ! bulk density ice
+rhow = init_scalars(16)     ! bulk density liquid
 
 
 ! fall speed parameters, V = aD^b
 ! V is in m/s
 
 ! droplets
-ac = 3.e7_r8
-bc = 2._r8
+ac = init_scalars(17)
+bc = init_scalars(18)
 
 ! snow
-as = 11.72_r8
-bs = 0.41_r8
+as = init_scalars(19)
+bs = init_scalars(20)
 
 ! cloud ice
-ai = 700._r8
-bi = 1._r8
+ai = init_scalars(21)
+bi = init_scalars(22)
 
 ! rain
-ar = 841.99667_r8
-br = 0.8_r8
+ar = init_scalars(23)
+br = init_scalars(24)
 
 ! particle mass-diameter relationship
 ! currently we assume spherical particles for cloud ice/snow
 ! m = cD^d
 
-pi= 3.1415927_r8
+pi= init_scalars(25)
 
 ! cloud ice mass-diameter relationship
 
-ci = rhoi*pi/6._r8
-di = 3._r8
+ci = init_scalars(26)
+di = init_scalars(27)
 
 ! snow mass-diameter relationship
 
-cs = rhosn*pi/6._r8
-ds = 3._r8
+cs = init_scalars(28)
+ds = init_scalars(29)
 
 ! drop mass-diameter relationship
 
-cr = rhow*pi/6._r8
-dr = 3._r8
+cr = init_scalars(30)
+dr = init_scalars(31)
 
 ! ventilation parameters for snow
 ! hall and prupacher
 
-f1s = 0.86_r8
-f2s = 0.28_r8
+f1s = init_scalars(32)
+f2s = init_scalars(33)
 
 ! collection efficiency, aggregation of cloud ice and snow
 
-Eii = 0.1_r8
+Eii = init_scalars(34)
 
 ! collection efficiency, accretion of cloud water by rain
 
-Ecr = 1.0_r8
+Ecr = init_scalars(35)
 
 ! ventilation constants for rain
 
-f1r = 0.78_r8
-f2r = 0.32_r8
+f1r = init_scalars(36)
+f2r = init_scalars(37)
 
 ! autoconversion size threshold for cloud ice to snow (m)
 
-Dcs = micro_mg_dcs
+Dcs = init_scalars(38)
 
 ! smallest mixing ratio considered in microphysics
 
-qsmall = 1.e-18_r8  
+qsmall = init_scalars(39)
 
 ! immersion freezing parameters, bigg 1953
 
-bimm = 100._r8
-aimm = 0.66_r8
+bimm = init_scalars(40)
+aimm = init_scalars(41)
 
 ! typical air density at 850 mb
 
-rhosu = 85000._r8/(rair * tmelt)
+rhosu = init_scalars(42)
 
 ! mass of new crystal due to aerosol freezing and growth (kg)
 
-mi0 = 4._r8/3._r8*pi*rhoi*(10.e-6_r8)*(10.e-6_r8)*(10.e-6_r8)
+mi0 = init_scalars(55)
 
 ! radius of contact nuclei aerosol (m)
 
-rin = 0.1e-6_r8
+rin = init_scalars(43)
 
 ! freezing temperature
-tt0=273.15_r8
+tt0=init_scalars(44)
 
 pi=4._r8*atan(1.0_r8)
 
 !Range of cloudsat reflectivities (dBz) for analytic simulator
-csmin= -30._r8
-csmax= 26._r8
-mindbz = -99._r8
+csmin= init_scalars(45)
+csmax= init_scalars(46)
+mindbz = init_scalars(47)
 !      minrefl = 10._r8**(mindbz/10._r8)
-minrefl = 1.26e-10_r8
+minrefl = init_scalars(48)
 
 ! Define constants to help speed up code (limit calls to gamma function)
 
@@ -405,12 +449,12 @@ cons25=dcs**bs
 cons27=xxlv**2
 cons28=xxls**2
 
-lammaxi = 1._r8/10.e-6_r8
-lammini = 1._r8/(2._r8*dcs)
-lammaxr = 1._r8/20.e-6_r8
-lamminr = 1._r8/500.e-6_r8
-lammaxs = 1._r8/10.e-6_r8
-lammins = 1._r8/2000.e-6_r8
+lammaxi = init_scalars(49)
+lammini = init_scalars(50)
+lammaxr = init_scalars(51)
+lamminr = init_scalars(52)
+lammaxs = init_scalars(53)
+lammins = init_scalars(54)
 
 end subroutine micro_mg_init
 
@@ -3947,9 +3991,9 @@ subroutine micro_mg1_0_log_init_scalars_entered()
   if (micro_mg1_0_init_scalars_logged) return
   micro_mg1_0_init_scalars_logged = .true.
   if (masterproc) then
-     write(iulog,*) 'micro_mg1_0_init scalars entered (module scalar constants direct = codon)'
+     write(iulog,*) 'micro_mg1_0_init scalars entered (module constants direct = codon; gamma/atan/power native island)'
      call micro_mg1_0_append_impl_proof('MICRO_MG1_0_INIT_PROOF_FILE', &
-          'micro_mg1_0_init scalars entered (module scalar constants direct = codon)')
+          'micro_mg1_0_init scalars entered (module constants direct = codon; gamma/atan/power native island)')
   end if
 end subroutine micro_mg1_0_log_init_scalars_entered
 

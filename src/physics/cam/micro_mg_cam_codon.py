@@ -623,6 +623,7 @@ def micro_mg1_0_init_scalars_codon(
     micro_mg_berg_eff_factor_in: float,
     latvap: float,
     latice: float,
+    micro_mg_dcs: float,
     scalars_p: cobj,
 ):
     scalars = Ptr[float](scalars_p)
@@ -640,6 +641,48 @@ def micro_mg1_0_init_scalars_codon(
     scalars[10] = scalars[8] + scalars[9]
     scalars[11] = scalars[5]
     scalars[12] = scalars[5] - 5.0
+    scalars[13] = 250.0
+    scalars[14] = 500.0
+    scalars[15] = 1000.0
+    scalars[16] = 3.0e7
+    scalars[17] = 2.0
+    scalars[18] = 11.72
+    scalars[19] = 0.41
+    scalars[20] = 700.0
+    scalars[21] = 1.0
+    scalars[22] = 841.99667
+    scalars[23] = 0.8
+    scalars[24] = 3.1415927
+    scalars[25] = scalars[14] * scalars[24] / 6.0
+    scalars[26] = 3.0
+    scalars[27] = scalars[13] * scalars[24] / 6.0
+    scalars[28] = 3.0
+    scalars[29] = scalars[15] * scalars[24] / 6.0
+    scalars[30] = 3.0
+    scalars[31] = 0.86
+    scalars[32] = 0.28
+    scalars[33] = 0.1
+    scalars[34] = 1.0
+    scalars[35] = 0.78
+    scalars[36] = 0.32
+    scalars[37] = micro_mg_dcs
+    scalars[38] = 1.0e-18
+    scalars[39] = 100.0
+    scalars[40] = 0.66
+    scalars[41] = 85000.0 / (rair * tmelt_in)
+    scalars[42] = 0.1e-6
+    scalars[43] = 273.15
+    scalars[44] = -30.0
+    scalars[45] = 26.0
+    scalars[46] = -99.0
+    scalars[47] = 1.26e-10
+    scalars[48] = 1.0 / 10.0e-6
+    scalars[49] = 1.0 / (2.0 * micro_mg_dcs)
+    scalars[50] = 1.0 / 20.0e-6
+    scalars[51] = 1.0 / 500.0e-6
+    scalars[52] = 1.0 / 10.0e-6
+    scalars[53] = 1.0 / 2000.0e-6
+    scalars[54] = 4.0 / 3.0 * scalars[24] * scalars[14] * (10.0e-6) * (10.0e-6) * (10.0e-6)
 
 
 @inline
