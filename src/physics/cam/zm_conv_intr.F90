@@ -2055,12 +2055,12 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
    logical   :: lq(pcnst)
 
    interface
-      subroutine zm_conv_tend_2_lq_mask_codon(pcnst_c, wtrc_nwset_c, iwtvap_c, iwtcvsnow_c, trace_water_c, &
-           convtran1_mask_p, wtrc_iatype_p, lq_mask_p) bind(c, name="zm_conv_tend_2_lq_mask_codon")
+      subroutine zm_conv_tend_2_codon(pcnst_c, wtrc_nwset_c, iwtvap_c, iwtcvsnow_c, trace_water_c, &
+           convtran1_mask_p, wtrc_iatype_p, lq_mask_p) bind(c, name="zm_conv_tend_2_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: pcnst_c, wtrc_nwset_c, iwtvap_c, iwtcvsnow_c, trace_water_c
          type(c_ptr), value :: convtran1_mask_p, wtrc_iatype_p, lq_mask_p
-      end subroutine zm_conv_tend_2_lq_mask_codon
+      end subroutine zm_conv_tend_2_codon
    end interface
 
    call zm_conv_tend_2_select_impl()
@@ -2074,7 +2074,7 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
             wtrc_iatype_c(i,m) = int(wtrc_iatype(i,m), c_int64_t)
          end do
       end do
-      call zm_conv_tend_2_lq_mask_codon(int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), &
+      call zm_conv_tend_2_codon(int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), &
            int(iwtvap, c_int64_t), int(iwtcvsnow, c_int64_t), &
            merge(1_c_int64_t, 0_c_int64_t, trace_water), c_loc(convtran1_mask_c), &
            c_loc(wtrc_iatype_c), c_loc(lq_mask_c))

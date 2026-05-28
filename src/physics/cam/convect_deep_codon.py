@@ -5320,6 +5320,29 @@ def zm_conv_tend_2_lq_mask_codon(
 
 
 @export
+def zm_conv_tend_2_codon(
+    pcnst: int,
+    wtrc_nwset: int,
+    iwtvap: int,
+    iwtcvsnow: int,
+    trace_water: int,
+    convtran1_mask_p: cobj,
+    wtrc_iatype_p: cobj,
+    lq_mask_p: cobj,
+):
+    zm_conv_tend_2_lq_mask_codon(
+        pcnst,
+        wtrc_nwset,
+        iwtvap,
+        iwtcvsnow,
+        trace_water,
+        convtran1_mask_p,
+        wtrc_iatype_p,
+        lq_mask_p,
+    )
+
+
+@export
 def zm_conv_tend_mask_codon(ncol: int, trace_water: int, zmconv_org: int, non_cam3: int) -> int:
     mask = 1
     if ncol > 0:
