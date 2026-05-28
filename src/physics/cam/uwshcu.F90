@@ -171,6 +171,9 @@
   logical :: compute_init_selector_parent_shell_entered_logged = .false.
   logical :: compute_wtrc_metadata_parent_shell_entered_logged = .false.
   logical :: compute_public_output_parent_shell_entered_logged = .false.
+  logical :: use_native_init_uwshcu_impl = .false.
+  logical :: init_uwshcu_impl_selected = .false.
+  logical :: init_uwshcu_direct_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -293,6 +296,15 @@
         real(c_double), value :: zvir_in_c, r_in_c, g_in_c, ep2_in_c
         type(c_ptr), value :: constants_p
      end subroutine uwshcu_init_constants_codon
+
+     subroutine init_uwshcu_codon(xlv_in_c, xlf_in_c, cp_in_c, &
+          zvir_in_c, r_in_c, g_in_c, ep2_in_c, constants_p) &
+          bind(c, name="init_uwshcu_codon")
+        use iso_c_binding, only: c_double, c_ptr
+        real(c_double), value :: xlv_in_c, xlf_in_c, cp_in_c
+        real(c_double), value :: zvir_in_c, r_in_c, g_in_c, ep2_in_c
+        type(c_ptr), value :: constants_p
+     end subroutine init_uwshcu_codon
 
      function uwshcu_qsinvert_rh_guard_codon(rhi_c) result(is_dry_c) &
           bind(c, name="uwshcu_qsinvert_rh_guard_codon")
@@ -573,6 +585,63 @@ contains
     end if
 
   end subroutine uwshcu_log_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_select_init_uwshcu_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (init_uwshcu_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('INIT_UWSHCU_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       impl_name = 'codon'
+       n = len_trim(impl_name)
+       status = 0
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_init_uwshcu_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_init_uwshcu_impl = .false.
+    end if
+
+    init_uwshcu_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_init_uwshcu_impl) then
+          write(iulog,'(A)') 'init_uwshcu implementation = native'
+          call uwshcu_append_proof('init_uwshcu implementation = native')
+       else
+          write(iulog,'(A)') 'init_uwshcu implementation = codon'
+          call uwshcu_append_proof('init_uwshcu implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_init_uwshcu_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_init_uwshcu_direct()
+
+    if (init_uwshcu_direct_logged) return
+    init_uwshcu_direct_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'init_uwshcu direct = codon; scalar constant initialization direct = codon; addfld/endrun/logging native CAM API islands'
+       call uwshcu_append_proof('init_uwshcu direct = codon; scalar constant initialization direct = codon; addfld/endrun/logging native CAM API islands')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_init_uwshcu_direct
 
 !===============================================================================
 
@@ -2895,7 +2964,8 @@ end subroutine uwshcu_readnl
     endif
 
     call uwshcu_select_init_shell_impl()
-    if (use_native_init_shell_impl) then
+    call uwshcu_select_init_uwshcu_impl()
+    if (use_native_init_uwshcu_impl) then
        xlv   = xlv_in
        xlf   = xlf_in
        xls   = xlv + xlf
@@ -2907,8 +2977,8 @@ end subroutine uwshcu_readnl
        p00   = 1.e5_r8
        rovcp = r/cp
     else
-       call uwshcu_log_init_constants_entered()
-       call uwshcu_init_constants_codon(xlv_in, xlf_in, cp_in, zvir_in, &
+       call uwshcu_log_init_uwshcu_direct()
+       call init_uwshcu_codon(xlv_in, xlf_in, cp_in, zvir_in, &
             r_in, g_in, ep2_in, c_loc(init_constants(1)))
        xlv   = init_constants(1)
        xlf   = init_constants(2)

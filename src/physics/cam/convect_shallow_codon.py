@@ -1780,6 +1780,29 @@ def uwshcu_init_constants_codon(
 
 
 @export
+def init_uwshcu_codon(
+    xlv_in: float,
+    xlf_in: float,
+    cp_in: float,
+    zvir_in: float,
+    r_in: float,
+    g_in: float,
+    ep2_in: float,
+    constants_p: cobj,
+):
+    uwshcu_init_constants_codon(
+        xlv_in,
+        xlf_in,
+        cp_in,
+        zvir_in,
+        r_in,
+        g_in,
+        ep2_in,
+        constants_p,
+    )
+
+
+@export
 def convect_shallow_select_scheme_codon(
     scheme_len: int,
     scheme_ascii_p: cobj,
