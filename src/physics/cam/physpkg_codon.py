@@ -2496,6 +2496,101 @@ def physics_tend_init_codon(
 
 
 @export
+def physics_state_alloc_codon(
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    value: float,
+    lat_p: cobj,
+    lon_p: cobj,
+    ulat_p: cobj,
+    ulon_p: cobj,
+    ps_p: cobj,
+    psdry_p: cobj,
+    phis_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    s_p: cobj,
+    omega_p: cobj,
+    pmid_p: cobj,
+    pmiddry_p: cobj,
+    pdel_p: cobj,
+    pdeldry_p: cobj,
+    rpdel_p: cobj,
+    rpdeldry_p: cobj,
+    lnpmid_p: cobj,
+    lnpmiddry_p: cobj,
+    exner_p: cobj,
+    zm_p: cobj,
+    q_p: cobj,
+    pint_p: cobj,
+    pintdry_p: cobj,
+    lnpint_p: cobj,
+    lnpintdry_p: cobj,
+    zi_p: cobj,
+    te_ini_p: cobj,
+    te_cur_p: cobj,
+    tw_ini_p: cobj,
+    tw_cur_p: cobj,
+):
+    _physics_types_fill_1d(psetcols, value, Ptr[float](lat_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](lon_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](ulat_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](ulon_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](ps_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](psdry_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](phis_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](t_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](u_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](v_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](s_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](omega_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](pmid_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](pmiddry_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](pdel_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](pdeldry_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](rpdel_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](rpdeldry_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](lnpmid_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](lnpmiddry_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](exner_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](zm_p))
+    _physics_types_fill_3d(psetcols, pver, pcnst, value, Ptr[float](q_p))
+
+    _physics_types_fill_2d(psetcols, pver + 1, value, Ptr[float](pint_p))
+    _physics_types_fill_2d(psetcols, pver + 1, value, Ptr[float](pintdry_p))
+    _physics_types_fill_2d(psetcols, pver + 1, value, Ptr[float](lnpint_p))
+    _physics_types_fill_2d(psetcols, pver + 1, value, Ptr[float](lnpintdry_p))
+    _physics_types_fill_2d(psetcols, pver + 1, value, Ptr[float](zi_p))
+
+    _physics_types_fill_1d(psetcols, value, Ptr[float](te_ini_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](te_cur_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](tw_ini_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](tw_cur_p))
+
+
+@export
+def physics_tend_alloc_codon(
+    psetcols: int,
+    pver: int,
+    value: float,
+    dtdt_p: cobj,
+    dudt_p: cobj,
+    dvdt_p: cobj,
+    flx_net_p: cobj,
+    te_tnd_p: cobj,
+    tw_tnd_p: cobj,
+):
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](dtdt_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](dudt_p))
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](dvdt_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](flx_net_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](te_tnd_p))
+    _physics_types_fill_1d(psetcols, value, Ptr[float](tw_tnd_p))
+
+
+@export
 def physics_fill_real_1d_codon(n: int, value: float, arr_p: cobj):
     _physics_types_fill_1d(n, value, Ptr[float](arr_p))
 

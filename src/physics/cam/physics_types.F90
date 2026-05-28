@@ -208,6 +208,30 @@ module physics_types
        type(c_ptr), value :: dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p
      end subroutine physics_tend_init_codon_raw
 
+     subroutine physics_state_alloc_codon_raw(psetcols_c, pver_c, pcnst_c, value_c, &
+          lat_p, lon_p, ulat_p, ulon_p, ps_p, psdry_p, phis_p, &
+          t_p, u_p, v_p, s_p, omega_p, pmid_p, pmiddry_p, pdel_p, pdeldry_p, rpdel_p, rpdeldry_p, &
+          lnpmid_p, lnpmiddry_p, exner_p, zm_p, q_p, &
+          pint_p, pintdry_p, lnpint_p, lnpintdry_p, zi_p, &
+          te_ini_p, te_cur_p, tw_ini_p, tw_cur_p) bind(c, name="physics_state_alloc_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c, pcnst_c
+       real(c_double), value :: value_c
+       type(c_ptr), value :: lat_p, lon_p, ulat_p, ulon_p, ps_p, psdry_p, phis_p
+       type(c_ptr), value :: t_p, u_p, v_p, s_p, omega_p, pmid_p, pmiddry_p, pdel_p, pdeldry_p, rpdel_p, rpdeldry_p
+       type(c_ptr), value :: lnpmid_p, lnpmiddry_p, exner_p, zm_p, q_p
+       type(c_ptr), value :: pint_p, pintdry_p, lnpint_p, lnpintdry_p, zi_p
+       type(c_ptr), value :: te_ini_p, te_cur_p, tw_ini_p, tw_cur_p
+     end subroutine physics_state_alloc_codon_raw
+
+     subroutine physics_tend_alloc_codon_raw(psetcols_c, pver_c, value_c, dtdt_p, dudt_p, dvdt_p, &
+          flx_net_p, te_tnd_p, tw_tnd_p) bind(c, name="physics_tend_alloc_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       real(c_double), value :: value_c
+       type(c_ptr), value :: dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p
+     end subroutine physics_tend_alloc_codon_raw
+
      subroutine physics_fill_real_1d_codon_raw(n_c, value_c, arr_p) bind(c, name="physics_fill_real_1d_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: n_c
@@ -470,6 +494,34 @@ contains
     call physics_tend_init_codon_raw(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
          c_loc(dtdt), c_loc(dudt), c_loc(dvdt), c_loc(flx_net), c_loc(te_tnd), c_loc(tw_tnd))
   end subroutine physics_tend_init_codon
+
+  subroutine physics_state_alloc_codon(state, psetcols_local, value_local)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    type(physics_state), intent(inout), target :: state
+    integer, intent(in) :: psetcols_local
+    real(r8), intent(in) :: value_local
+
+    call physics_state_alloc_codon_raw(int(psetcols_local, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         real(value_local, c_double), &
+         c_loc(state%lat), c_loc(state%lon), c_loc(state%ulat), c_loc(state%ulon), c_loc(state%ps), c_loc(state%psdry), &
+         c_loc(state%phis), c_loc(state%t), c_loc(state%u), c_loc(state%v), c_loc(state%s), c_loc(state%omega), &
+         c_loc(state%pmid), c_loc(state%pmiddry), c_loc(state%pdel), c_loc(state%pdeldry), &
+         c_loc(state%rpdel), c_loc(state%rpdeldry), c_loc(state%lnpmid), c_loc(state%lnpmiddry), &
+         c_loc(state%exner), c_loc(state%zm), c_loc(state%q), c_loc(state%pint), c_loc(state%pintdry), &
+         c_loc(state%lnpint), c_loc(state%lnpintdry), c_loc(state%zi), &
+         c_loc(state%te_ini), c_loc(state%te_cur), c_loc(state%tw_ini), c_loc(state%tw_cur))
+  end subroutine physics_state_alloc_codon
+
+  subroutine physics_tend_alloc_codon(tend, psetcols_local, value_local)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    type(physics_tend), intent(inout), target :: tend
+    integer, intent(in) :: psetcols_local
+    real(r8), intent(in) :: value_local
+
+    call physics_tend_alloc_codon_raw(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         real(value_local, c_double), c_loc(tend%dtdt), c_loc(tend%dudt), c_loc(tend%dvdt), &
+         c_loc(tend%flx_net), c_loc(tend%te_tnd), c_loc(tend%tw_tnd))
+  end subroutine physics_tend_alloc_codon
 
   subroutine physics_fill_real_1d_codon(n_local, value_local, arr)
     use iso_c_binding, only: c_double, c_int64_t, c_loc
@@ -2598,42 +2650,10 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
      state%tw_ini(:) = inf
      state%tw_cur(:) = inf
   else
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%lat)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%lon)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%ulat)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%ulon)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%ps)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%psdry)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%phis)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%t)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%u)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%v)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%s)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%omega)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%pmid)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%pmiddry)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%pdel)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%pdeldry)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%rpdel)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%rpdeldry)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%lnpmid)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%lnpmiddry)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%exner)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, state%zm)
-     call physics_fill_real_3d_codon(psetcols, pver, pcnst, inf_local, state%q)
-
-     call physics_fill_real_2d_codon(psetcols, pver+1, inf_local, state%pint)
-     call physics_fill_real_2d_codon(psetcols, pver+1, inf_local, state%pintdry)
-     call physics_fill_real_2d_codon(psetcols, pver+1, inf_local, state%lnpint)
-     call physics_fill_real_2d_codon(psetcols, pver+1, inf_local, state%lnpintdry)
-     call physics_fill_real_2d_codon(psetcols, pver+1, inf_local, state%zi)
-
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%te_ini)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%te_cur)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%tw_ini)
-     call physics_fill_real_1d_codon(psetcols, inf_local, state%tw_cur)
+     call physics_state_alloc_codon(state, psetcols, inf_local)
      call physics_types_zero_proof_once()
-     call physics_types_log_direct(physics_state_alloc_logged, 'physics_state_alloc inf fill = codon')
+     call physics_types_log_direct(physics_state_alloc_logged, &
+          'physics_state_alloc direct = codon; state inf-fill direct; allocation/error/derived-type setup native Fortran boundary')
   end if
 
 end subroutine physics_state_alloc
@@ -2810,14 +2830,10 @@ subroutine physics_tend_alloc(tend,psetcols)
      tend%te_tnd(:) = inf
      tend%tw_tnd(:) = inf
   else
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, tend%dtdt)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, tend%dudt)
-     call physics_fill_real_2d_codon(psetcols, pver, inf_local, tend%dvdt)
-     call physics_fill_real_1d_codon(psetcols, inf_local, tend%flx_net)
-     call physics_fill_real_1d_codon(psetcols, inf_local, tend%te_tnd)
-     call physics_fill_real_1d_codon(psetcols, inf_local, tend%tw_tnd)
+     call physics_tend_alloc_codon(tend, psetcols, inf_local)
      call physics_types_zero_proof_once()
-     call physics_types_log_direct(physics_tend_alloc_logged, 'physics_tend_alloc inf fill = codon')
+     call physics_types_log_direct(physics_tend_alloc_logged, &
+          'physics_tend_alloc direct = codon; tend inf-fill direct; allocation/error/derived-type setup native Fortran boundary')
   end if
 
 end subroutine physics_tend_alloc
