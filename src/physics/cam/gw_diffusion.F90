@@ -215,8 +215,8 @@ subroutine gw_ediff_prep_select_impl()
         write(iulog,*) 'gw_ediff_prep implementation = native'
         call gw_ediff_prep_append_proof('gw_ediff_prep selector entered implementation = native')
      else
-        write(iulog,*) 'gw_ediff_prep implementation = codon'
-        call gw_ediff_prep_append_proof('gw_ediff_prep selector entered implementation = codon')
+        write(iulog,*) 'gw_ediff implementation = codon'
+        call gw_ediff_prep_append_proof('gw_ediff selector entered implementation = codon')
      end if
      call flush(iulog)
   end if
@@ -231,8 +231,8 @@ subroutine gw_ediff_prep_note_entered()
   gw_ediff_prep_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_ediff_prep entered (diffusivity prep direct = codon)'
-     call gw_ediff_prep_append_proof('gw_ediff_prep entered (diffusivity prep direct = codon)')
+     write(iulog,*) 'gw_ediff direct = codon; diffusivity prep direct = codon; TriDiagDecomp native private-type island'
+     call gw_ediff_prep_append_proof('gw_ediff direct = codon; diffusivity prep direct = codon; TriDiagDecomp native private-type island')
      call flush(iulog)
   end if
 
@@ -424,8 +424,8 @@ subroutine gw_diff_tend_prepost_select_impl()
         write(iulog,*) 'gw_diff_tend_prepost implementation = native'
         call gw_diff_tend_prepost_append_proof('gw_diff_tend_prepost selector entered implementation = native')
      else
-        write(iulog,*) 'gw_diff_tend_prepost implementation = codon'
-        call gw_diff_tend_prepost_append_proof('gw_diff_tend_prepost selector entered implementation = codon')
+        write(iulog,*) 'gw_diff_tend implementation = codon'
+        call gw_diff_tend_prepost_append_proof('gw_diff_tend selector entered implementation = codon')
      end if
      call flush(iulog)
   end if
@@ -440,8 +440,8 @@ subroutine gw_diff_tend_prepost_note_entered()
   gw_diff_tend_prepost_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_diff_tend_prepost entered (copy/tendency direct = codon)'
-     call gw_diff_tend_prepost_append_proof('gw_diff_tend_prepost entered (copy/tendency direct = codon)')
+     write(iulog,*) 'gw_diff_tend direct = codon; copy/tendency direct = codon; left_div native private-type island'
+     call gw_diff_tend_prepost_append_proof('gw_diff_tend direct = codon; copy/tendency direct = codon; left_div native private-type island')
      call flush(iulog)
   end if
 
