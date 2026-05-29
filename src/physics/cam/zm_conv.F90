@@ -92,6 +92,9 @@ module zm_conv
    logical :: zm_q1q2_logged = .false.
    logical :: zm_convr_tail_logged = .false.
    logical :: zm_convr_finish_logged = .false.
+   logical :: use_native_zm_cldprp = .false.
+   logical :: zm_cldprp_selected = .false.
+   logical :: zm_cldprp_logged = .false.
    logical :: use_native_zm_cldprp_helpers = .false.
    logical :: zm_cldprp_helpers_selected = .false.
    logical :: zm_cldprp_helpers_logged = .false.
@@ -481,6 +484,44 @@ subroutine zm_convr_shell_select_impl()
    end if
 
 end subroutine zm_convr_shell_select_impl
+
+
+subroutine zm_cldprp_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_cldprp_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CLDPRP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_cldprp = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_cldprp = .false.
+   end if
+
+   zm_cldprp_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_cldprp) then
+         write(iulog,*) 'cldprp implementation = native'
+         call zm_conv_evap_append_impl_proof('cldprp implementation = native')
+      else
+         write(iulog,*) 'cldprp implementation = codon'
+         call zm_conv_evap_append_impl_proof('cldprp implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_cldprp_select_impl
 
 
 subroutine zm_cldprp_helpers_select_impl()
@@ -3264,6 +3305,7 @@ subroutine cldprp(lchnk   , &
 !-----------------------------------------------------------------------
 
    use iso_c_binding, only: c_int64_t, c_loc
+   use wv_sat_methods, only: wv_sat_get_default_idx
 
    implicit none
 
@@ -3393,6 +3435,7 @@ subroutine cldprp(lchnk   , &
    integer, target :: lcl_active(pcols)
    integer, target :: lcl_found(pcols)
    integer, target :: lcl_kount(1)
+   integer(c_int64_t), target :: wtdn_flag(pcols,pver)
    integer i,k
 
    logical doit(pcols)
@@ -3402,6 +3445,34 @@ subroutine cldprp(lchnk   , &
    real(r8), target :: lcl_qstu(pcols)
 
    interface
+      subroutine zm_cldprp_direct_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, limcnv_c, &
+           qsat_idx_c, c0_ocn_c, c0_lnd_c, tiedke_add_c, eps1_c, epsilo_c, omeps_c, &
+           rl_c, rd_c, cp_c, grav_c, q_p, t_p, p_p, z_p, s_p, zf_p, landfrac_p, &
+           jb_p, lel_p, jt_p, jlcl_p, mx_p, j0_p, jd_p, shat_p, rprd_p, du_p, ed_p, &
+           eu_p, hmn_p, hsat_p, mc_p, md_p, mu_p, pflx_p, qd_p, ql_p, qst_p, qu_p, &
+           sd_p, su_p, tut_p, tdt_p, dz_p, rppe_p, eps0_p, qsthat_p, hsthat_p, qds_p, &
+           wtmu_p, wtdu_p, wteu_p, wted_p, wtmd_p, wtevp_p, c0mask_p, gamma_p, iprm_p, &
+           hu_p, hd_p, eps_p, f_p, k1_p, i2_p, ihat_p, i3_p, idag_p, i4_p, gamhat_p, &
+           cu_p, evp_p, cmeg_p, hmin_p, expdif_p, expnum_p, ftemp_p, epsm_p, est_p, &
+           totpcp_p, totevp_p, alfa_p, lcl_done_p, lcl_active_p, lcl_found_p, &
+           lcl_kount_p, lcl_tu_p, lcl_qstu_p, wtdn_flag_p) bind(c, name="zm_cldprp_direct_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, pverp_c, msg_c, limcnv_c, qsat_idx_c
+         real(c_double), value :: c0_ocn_c, c0_lnd_c, tiedke_add_c, eps1_c, epsilo_c, omeps_c
+         real(c_double), value :: rl_c, rd_c, cp_c, grav_c
+         type(c_ptr), value :: q_p, t_p, p_p, z_p, s_p, zf_p, landfrac_p
+         type(c_ptr), value :: jb_p, lel_p, jt_p, jlcl_p, mx_p, j0_p, jd_p, shat_p
+         type(c_ptr), value :: rprd_p, du_p, ed_p, eu_p, hmn_p, hsat_p, mc_p, md_p, mu_p, pflx_p
+         type(c_ptr), value :: qd_p, ql_p, qst_p, qu_p, sd_p, su_p, tut_p, tdt_p, dz_p, rppe_p
+         type(c_ptr), value :: eps0_p, qsthat_p, hsthat_p, qds_p, wtmu_p, wtdu_p, wteu_p
+         type(c_ptr), value :: wted_p, wtmd_p, wtevp_p, c0mask_p, gamma_p, iprm_p, hu_p
+         type(c_ptr), value :: hd_p, eps_p, f_p, k1_p, i2_p, ihat_p, i3_p, idag_p, i4_p
+         type(c_ptr), value :: gamhat_p, cu_p, evp_p, cmeg_p, hmin_p, expdif_p, expnum_p
+         type(c_ptr), value :: ftemp_p, epsm_p, est_p, totpcp_p, totevp_p, alfa_p
+         type(c_ptr), value :: lcl_done_p, lcl_active_p, lcl_found_p, lcl_kount_p
+         type(c_ptr), value :: lcl_tu_p, lcl_qstu_p, wtdn_flag_p
+      end subroutine zm_cldprp_direct_codon
+
       subroutine zm_cldprp_init_arrays_codon(il2g_c, pcols_c, pver_c, c0_ocn_c, c0_lnd_c, landfrac_p, &
            zf_p, q_p, s_p, ftemp_p, expnum_p, expdif_p, c0mask_p, dz_p, pflx_p, k1_p, i2_p, i3_p, &
            i4_p, mu_p, f_p, eps_p, eu_p, du_p, ql_p, cu_p, evp_p, wtevp_p, cmeg_p, qds_p, md_p, ed_p, &
@@ -3660,6 +3731,41 @@ subroutine cldprp(lchnk   , &
 !
 !------------------------------------------------------------------------------
 !
+   call zm_cldprp_select_impl()
+
+   if (.not. use_native_zm_cldprp) then
+      call zm_conv_log_direct(zm_cldprp_logged, &
+           'cldprp direct = codon full helper driver; svp native callback thermo island')
+      call zm_cldprp_direct_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), &
+           int(limcnv, c_int64_t), int(wv_sat_get_default_idx(), c_int64_t), &
+           c0_ocn, c0_lnd, tiedke_add, eps1, epsilo, 1._r8 - epsilo, rl, rd, cp, grav, &
+           c_loc(q), c_loc(t), c_loc(p), c_loc(z), c_loc(s), c_loc(zf), c_loc(landfrac), &
+           c_loc(jb), c_loc(lel), c_loc(jt), c_loc(jlcl), c_loc(mx), c_loc(j0), c_loc(jd), &
+           c_loc(shat), c_loc(rprd), c_loc(du), c_loc(ed), c_loc(eu), c_loc(hmn), &
+           c_loc(hsat), c_loc(mc), c_loc(md), c_loc(mu), c_loc(pflx), c_loc(qd), &
+           c_loc(ql), c_loc(qst), c_loc(qu), c_loc(sd), c_loc(su), c_loc(tut), &
+           c_loc(tdt), c_loc(dz), c_loc(rppe), c_loc(eps0), c_loc(qsthat), &
+           c_loc(hsthat), c_loc(qds), c_loc(wtmu), c_loc(wtdu), c_loc(wteu), &
+           c_loc(wted), c_loc(wtmd), c_loc(wtevp), c_loc(c0mask), c_loc(gamma), &
+           c_loc(iprm), c_loc(hu), c_loc(hd), c_loc(eps), c_loc(f), c_loc(k1), &
+           c_loc(i2), c_loc(ihat), c_loc(i3), c_loc(idag), c_loc(i4), c_loc(gamhat), &
+           c_loc(cu), c_loc(evp), c_loc(cmeg), c_loc(hmin), c_loc(expdif), &
+           c_loc(expnum), c_loc(ftemp), c_loc(epsm), c_loc(est), c_loc(totpcp), &
+           c_loc(totevp), c_loc(alfa), c_loc(lcl_done), c_loc(lcl_active), &
+           c_loc(lcl_found), c_loc(lcl_kount), c_loc(lcl_tu), c_loc(lcl_qstu), &
+           c_loc(wtdn_flag))
+      do k = 1,pver
+         do i = 1,pcols
+            wtdn(i,k) = wtdn_flag(i,k) /= 0_c_int64_t
+         end do
+      end do
+      return
+   end if
+
+   use_native_zm_cldprp_helpers = .true.
+   zm_cldprp_helpers_selected = .true.
+
    call zm_cldprp_helpers_select_impl()
 
    if (.not. use_native_zm_cldprp_helpers) then

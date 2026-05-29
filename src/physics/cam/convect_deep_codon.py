@@ -5357,6 +5357,185 @@ def zm_conv_tend_mask_codon(ncol: int, trace_water: int, zmconv_org: int, non_ca
 
 
 @export
+def zm_cldprp_direct_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    limcnv: int,
+    qsat_idx: int,
+    c0_ocn: float,
+    c0_lnd: float,
+    tiedke_add: float,
+    eps1: float,
+    epsilo: float,
+    omeps: float,
+    rl: float,
+    rd: float,
+    cp: float,
+    grav: float,
+    q_p: cobj,
+    t_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    s_p: cobj,
+    zf_p: cobj,
+    landfrac_p: cobj,
+    jb_p: cobj,
+    lel_p: cobj,
+    jt_p: cobj,
+    jlcl_p: cobj,
+    mx_p: cobj,
+    j0_p: cobj,
+    jd_p: cobj,
+    shat_p: cobj,
+    rprd_p: cobj,
+    du_p: cobj,
+    ed_p: cobj,
+    eu_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    mc_p: cobj,
+    md_p: cobj,
+    mu_p: cobj,
+    pflx_p: cobj,
+    qd_p: cobj,
+    ql_p: cobj,
+    qst_p: cobj,
+    qu_p: cobj,
+    sd_p: cobj,
+    su_p: cobj,
+    tut_p: cobj,
+    tdt_p: cobj,
+    dz_p: cobj,
+    rppe_p: cobj,
+    eps0_p: cobj,
+    qsthat_p: cobj,
+    hsthat_p: cobj,
+    qds_p: cobj,
+    wtmu_p: cobj,
+    wtdu_p: cobj,
+    wteu_p: cobj,
+    wted_p: cobj,
+    wtmd_p: cobj,
+    wtevp_p: cobj,
+    c0mask_p: cobj,
+    gamma_p: cobj,
+    iprm_p: cobj,
+    hu_p: cobj,
+    hd_p: cobj,
+    eps_p: cobj,
+    f_p: cobj,
+    k1_p: cobj,
+    i2_p: cobj,
+    ihat_p: cobj,
+    i3_p: cobj,
+    idag_p: cobj,
+    i4_p: cobj,
+    gamhat_p: cobj,
+    cu_p: cobj,
+    evp_p: cobj,
+    cmeg_p: cobj,
+    hmin_p: cobj,
+    expdif_p: cobj,
+    expnum_p: cobj,
+    ftemp_p: cobj,
+    epsm_p: cobj,
+    est_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+    alfa_p: cobj,
+    lcl_done_p: cobj,
+    lcl_active_p: cobj,
+    lcl_found_p: cobj,
+    lcl_kount_p: cobj,
+    lcl_tu_p: cobj,
+    lcl_qstu_p: cobj,
+    wtdn_flag_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_init_arrays_codon(
+        il2g, pcols, pver, c0_ocn, c0_lnd, landfrac_p, zf_p, q_p, s_p,
+        ftemp_p, expnum_p, expdif_p, c0mask_p, dz_p, pflx_p, k1_p, i2_p,
+        i3_p, i4_p, mu_p, f_p, eps_p, eu_p, du_p, ql_p, cu_p, evp_p,
+        wtevp_p, cmeg_p, qds_p, md_p, ed_p, sd_p, qd_p, mc_p, qu_p, su_p,
+        rprd_p, totpcp_p, totevp_p,
+    )
+
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    est = Ptr[float](est_p)
+    qst = Ptr[float](qst_p)
+    lcl_active = Ptr[i32](lcl_active_p)
+    lcl_found = Ptr[i32](lcl_found_p)
+    lcl_tu = Ptr[float](lcl_tu_p)
+    lcl_qstu = Ptr[float](lcl_qstu_p)
+    lcl_kount = Ptr[i32](lcl_kount_p)
+    wtdn_flag = Ptr[int](wtdn_flag_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            wtdn_flag[(i - 1) + (k - 1) * pcols] = 0
+
+    for k in range(1, pver + 1):
+        for i in range(1, il2g + 1):
+            idx = (i - 1) + (k - 1) * pcols
+            _zm_qsat_hpa_ptr_codon(t[idx], p[idx], qsat_idx, epsilo, omeps, est + (i - 1), qst + idx)
+        _zm_cldprp.zm_cldprp_thermo_level_codon(
+            il2g, pcols, msg, k, eps1, rl, rd, cp, grav, t_p, p_p, z_p, zf_p,
+            q_p, qst_p, est_p, gamma_p, hmn_p, hsat_p, hu_p, hd_p, sd_p, su_p,
+            tdt_p, tut_p, rprd_p, hsthat_p, qsthat_p, gamhat_p,
+        )
+
+    _zm_cldprp.zm_cldprp_interface_interp_codon(
+        il2g, pcols, pver, msg, cp, rl, qst_p, gamma_p, shat_p, qsthat_p,
+        hsthat_p, gamhat_p, totpcp_p, totevp_p,
+    )
+
+    _zm_cldprp.zm_cldprp_pre_lcl_batch_codon(
+        il2g, pcols, pver, pverp, msg, limcnv, cp * tiedke_add, tiedke_add,
+        1.0e-20, rl, cp, jb_p, lel_p, mx_p, hsat_p, hmn_p, s_p, jt_p, jd_p,
+        jlcl_p, hmin_p, j0_p, hu_p, su_p, dz_p, k1_p, ihat_p, i2_p, idag_p,
+        i3_p, iprm_p, i4_p, expdif_p, expnum_p, ftemp_p, zf_p, z_p, f_p,
+        eps_p, eps0_p, eu_p, du_p, mu_p, hd_p, epsm_p, alfa_p, md_p, ed_p,
+        wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p, qds_p, qsthat_p, gamhat_p,
+        hsthat_p, q_p, qu_p, lcl_done_p, lcl_active_p, lcl_found_p, lcl_tu_p,
+        lcl_qstu_p, lcl_kount_p,
+    )
+
+    for k in range(pver, msg + 2, -1):
+        _zm_cldprp.zm_cldprp_updraft_lcl_prepare_codon(
+            il2g, pcols, k, cp, grav, jt_p, jb_p, lcl_done_p, eps0_p, mu_p,
+            dz_p, eu_p, du_p, s_p, q_p, qst_p, zf_p, su_p, qu_p, lcl_active_p,
+            lcl_found_p, lcl_tu_p,
+        )
+        for i in range(1, il2g + 1):
+            i0 = i - 1
+            if int(lcl_active[i0]) != 0:
+                p_mid = (p[(i - 1) + (k - 1) * pcols] + p[(i - 1) + (k - 2) * pcols]) / 2.0
+                _zm_qsat_hpa_ptr_codon(
+                    lcl_tu[i0], p_mid, qsat_idx, epsilo, omeps, est + i0, lcl_qstu + i0
+                )
+        _zm_cldprp.zm_cldprp_updraft_lcl_finalize_codon(
+            il2g, pcols, k, lcl_active_p, lcl_qstu_p, lcl_tu_p, qu_p, tut_p,
+            jlcl_p, lcl_done_p, lcl_found_p, lcl_kount_p,
+        )
+        for i in range(1, il2g + 1):
+            if int(lcl_found[i - 1]) != 0:
+                wtdn_flag[(i - 1) + (k - 1) * pcols] = 1
+        if int(lcl_kount[0]) >= il2g:
+            break
+
+    _zm_cldprp.zm_cldprp_post_lcl_batch_codon(
+        il2g, pcols, pver, pverp, msg, cp, grav, rl, 1.0e-20, jt_p, jlcl_p,
+        eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p, qsthat_p, su_p, tut_p,
+        qu_p, jb_p, mu_p, dz_p, eu_p, du_p, s_p, cu_p, ql_p, c0mask_p,
+        totpcp_p, rprd_p, rppe_p, jd_p, qds_p, qd_p, hd_p, sd_p, tdt_p, q_p,
+        ed_p, md_p, evp_p, totevp_p, cmeg_p, pflx_p, mc_p, wtevp_p,
+    )
+
+
+@export
 def zm_conv_post_stage_dispatch_codon(
     stage: int,
     mode: int,
