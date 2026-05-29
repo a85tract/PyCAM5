@@ -89,6 +89,9 @@
   logical :: use_native_diffusion_solver_momentum_impl = .false.
   logical :: diffusion_solver_momentum_impl_selected = .false.
   logical :: diffusion_solver_momentum_logged = .false.
+  logical :: use_native_diffusion_solver_tridiag_impl = .false.
+  logical :: diffusion_solver_tridiag_impl_selected = .false.
+  logical :: diffusion_solver_tridiag_logged = .false.
   logical :: my_any_logged = .false.
   logical :: diffuse_logged = .false.
 
@@ -175,6 +178,18 @@
        type(c_ptr), value :: p_rdel_p, tmpi2_p, kvm_p, u_p, v_p, dinp_u_p, dinp_v_p
        type(c_ptr), value :: tautotx_p, tautoty_p, tmpi1_p, dtk_p, dse_p
      end subroutine diffusion_solver_momentum_ke_codon
+
+     subroutine diffusion_solver_tridiag_solve_codon(pcols_c, pver_c, ncol_c, ztodt_c, boundary_kind_c, &
+          p_del_p, p_rdel_p, p_rdst_p, coef_q_present_c, coef_q_p, coef_q_diff_p, coef_q_weight_present_c, &
+          coef_q_weight_p, l_data_present_c, l_data_p, q_p, ca_p, ze_p, dnom_p, zf_p) &
+          bind(c, name="diffusion_solver_tridiag_solve_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, boundary_kind_c
+       integer(c_int64_t), value :: coef_q_present_c, coef_q_weight_present_c, l_data_present_c
+       real(c_double), value :: ztodt_c
+       type(c_ptr), value :: p_del_p, p_rdel_p, p_rdst_p, coef_q_p, coef_q_diff_p, coef_q_weight_p
+       type(c_ptr), value :: l_data_p, q_p, ca_p, ze_p, dnom_p, zf_p
+     end subroutine diffusion_solver_tridiag_solve_codon
   end interface
 
   contains
@@ -256,6 +271,44 @@
     end if
 
   end subroutine diffusion_solver_momentum_select_impl
+
+  ! =============================================================================== !
+
+  subroutine diffusion_solver_tridiag_select_impl()
+
+    use spmd_utils, only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (diffusion_solver_tridiag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('DIFFUSION_SOLVER_TRIDIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_diffusion_solver_tridiag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_diffusion_solver_tridiag_impl = .false.
+    end if
+
+    diffusion_solver_tridiag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_diffusion_solver_tridiag_impl) then
+          write(iulog,*) 'diffusion_solver_tridiag implementation = native'
+       else
+          write(iulog,*) 'diffusion_solver_tridiag implementation = codon'
+       end if
+    end if
+
+  end subroutine diffusion_solver_tridiag_select_impl
 
   ! =============================================================================== !
 
@@ -397,6 +450,33 @@
          c_loc(tautoty(1)), c_loc(tmpi1(1,1)), c_loc(dtk(1,1)), c_loc(dse(1,1)))
 
   end subroutine compute_vdiff_momentum_ke_codon
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_tridiag_solve_codon(pcols, pver, ncol, ztodt, boundary_kind, p_del, p_rdel, &
+       p_rdst, coef_q_present, coef_q, coef_q_diff, coef_q_weight_present, coef_q_weight, l_data_present, &
+       l_data, q, ca, ze, dnom, zf)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol, boundary_kind
+    real(r8), intent(in) :: ztodt
+    logical, intent(in) :: coef_q_present, coef_q_weight_present, l_data_present
+    real(r8), target, intent(in) :: p_del(ncol,pver), p_rdel(ncol,pver), p_rdst(ncol,pver-1)
+    real(r8), target, intent(in) :: coef_q(ncol,pver), coef_q_diff(ncol,pver+1), coef_q_weight(ncol,pver)
+    real(r8), target, intent(in) :: l_data(pcols)
+    real(r8), target, intent(inout) :: q(pcols,pver)
+    real(r8), target, intent(inout) :: ca(ncol,pver), ze(ncol,pver), dnom(ncol,pver), zf(ncol,pver)
+
+    call diffusion_solver_tridiag_solve_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ncol, c_int64_t), real(ztodt, c_double), int(boundary_kind, c_int64_t), &
+         c_loc(p_del(1,1)), c_loc(p_rdel(1,1)), c_loc(p_rdst(1,1)), &
+         merge(1_c_int64_t, 0_c_int64_t, coef_q_present), c_loc(coef_q(1,1)), c_loc(coef_q_diff(1,1)), &
+         merge(1_c_int64_t, 0_c_int64_t, coef_q_weight_present), c_loc(coef_q_weight(1,1)), &
+         merge(1_c_int64_t, 0_c_int64_t, l_data_present), c_loc(l_data(1)), c_loc(q(1,1)), &
+         c_loc(ca(1,1)), c_loc(ze(1,1)), c_loc(dnom(1,1)), c_loc(zf(1,1)))
+
+  end subroutine compute_vdiff_tridiag_solve_codon
 
   ! =============================================================================== !
   !                                                                                 !
@@ -731,6 +811,17 @@
 
     ! Combined molecular and eddy diffusion.
     real(r8) :: kv_total(pcols,pver+1)
+    logical :: use_codon_tridiag
+
+    ! Work arrays for the Codon tridiagonal finite-volume solve.
+    real(r8), target :: tridiag_ca(ncol,pver)
+    real(r8), target :: tridiag_ze(ncol,pver)
+    real(r8), target :: tridiag_dnom(ncol,pver)
+    real(r8), target :: tridiag_zf(ncol,pver)
+    real(r8), target :: coef_q_work(ncol,pver)
+    real(r8), target :: coef_q_diff_work(ncol,pver+1)
+    real(r8), target :: coef_q_weight_work(ncol,pver)
+    real(r8), target :: zero_l_data(pcols)
 
     !--------------------------------
     ! Variables needed for WACCM-X
@@ -756,6 +847,7 @@
     ! ----------------------- !
 
     errstring = ''
+    zero_l_data(:) = 0._r8
     if( ( diffuse(fieldlist,'u') .or. diffuse(fieldlist,'v') ) .and. .not. diffuse(fieldlist,'s') ) then
           errstring = 'diffusion_solver.compute_vdiff: must diffuse s if diffusing u or v'
           return
@@ -767,6 +859,8 @@
     ! Boundary condition for a fixed concentration directly on a boundary
     ! interface (i.e. a boundary layer of size 0).
     interface_boundary = BoundaryFixedLayer(spread(0._r8, 1, ncol))
+
+    call diffusion_solver_tridiag_select_impl()
 
     ! Compute 'rho' and 'dt*(g*rho)^2/dp' at interfaces
 
@@ -845,6 +939,8 @@
         kvt_returned = .false.
 
     endif
+
+    use_codon_tridiag = (.not. use_native_diffusion_solver_tridiag_impl) .and. (.not. do_molec_diff)
 
     !---------------------------- !
     ! Diffuse Horizontal Momentum !
@@ -1113,12 +1209,25 @@
                timeres, p%del, p%rdel, tmp1, taux, tauy, tauresx, tauresy, ksrftms, u, v, dinp_u, dinp_v, &
                ws, tau, ksrfturb, ksrf, usum_in, vsum_in, usum_mid, vsum_mid, tau_damp_rate)
 
-          decomp = fin_vol_lu_decomp(ztodt, p, &
-               coef_q=tau_damp_rate, coef_q_diff=kvm(:ncol,:)*dpidz_sq)
+          if (.not. use_codon_tridiag) then
+             decomp = fin_vol_lu_decomp(ztodt, p, &
+                  coef_q=tau_damp_rate, coef_q_diff=kvm(:ncol,:)*dpidz_sq)
 
-          call decomp%left_div(u(:ncol,:))
-          call decomp%left_div(v(:ncol,:))
-          call decomp%finalize()
+             call decomp%left_div(u(:ncol,:))
+             call decomp%left_div(v(:ncol,:))
+             call decomp%finalize()
+          else
+             call diffusion_solver_log_direct(diffusion_solver_tridiag_logged, &
+                  'diffusion_solver_tridiag entered (finite-volume diffusion left_div = codon)')
+             coef_q_work(:,:) = tau_damp_rate(:,:)
+             coef_q_diff_work(:,:) = kvm(:ncol,:)*dpidz_sq(:,:)
+             call compute_vdiff_tridiag_solve_codon(pcols, pver, ncol, ztodt, 0, p%del, p%rdel, p%rdst, &
+                  .true., coef_q_work, coef_q_diff_work, .false., coef_q_weight_work, .false., zero_l_data, &
+                  u, tridiag_ca, tridiag_ze, tridiag_dnom, tridiag_zf)
+             call compute_vdiff_tridiag_solve_codon(pcols, pver, ncol, ztodt, 0, p%del, p%rdel, p%rdst, &
+                  .true., coef_q_work, coef_q_diff_work, .false., coef_q_weight_work, .false., zero_l_data, &
+                  v, tridiag_ca, tridiag_ze, tridiag_dnom, tridiag_zf)
+          end if
 
           call compute_vdiff_momentum_post_codon(pcols, pver, ncol, do_iss, itaures, ztodt, gravit, p%del, &
                u, v, taux, tauy, ksrftms, tauresx, tauresy, usum_in, vsum_in, usum_out, vsum_out, tauimpx, &
@@ -1213,14 +1322,24 @@
 
           ! Boundary layer thickness of "0._r8" signifies that the boundary
           ! condition is defined directly on the top interface.
-          decomp = fin_vol_lu_decomp(ztodt, p, &
-               coef_q_diff=kv_total(:ncol,:)*dpidz_sq, &
-               upper_bndry=interface_boundary)
+          if (.not. use_codon_tridiag) then
+             decomp = fin_vol_lu_decomp(ztodt, p, &
+                  coef_q_diff=kv_total(:ncol,:)*dpidz_sq, &
+                  upper_bndry=interface_boundary)
 
-          call decomp%left_div(dse(:ncol,:), &
-               l_cond=BoundaryData(dse_top(:ncol)))
+             call decomp%left_div(dse(:ncol,:), &
+                  l_cond=BoundaryData(dse_top(:ncol)))
 
-          call decomp%finalize()
+             call decomp%finalize()
+          else
+             call diffusion_solver_log_direct(diffusion_solver_tridiag_logged, &
+                  'diffusion_solver_tridiag entered (finite-volume diffusion left_div = codon)')
+             coef_q_work(:,:) = 0._r8
+             coef_q_diff_work(:,:) = kv_total(:ncol,:)*dpidz_sq(:,:)
+             call compute_vdiff_tridiag_solve_codon(pcols, pver, ncol, ztodt, 1, p%del, p%rdel, p%rdst, &
+                  .false., coef_q_work, coef_q_diff_work, .false., coef_q_weight_work, .true., dse_top, &
+                  dse, tridiag_ca, tridiag_ze, tridiag_dnom, tridiag_zf)
+          end if
 
           ! Calculate flux at top interface
 
@@ -1244,8 +1363,13 @@
 
     ! Loop through constituents
 
-    no_molec_decomp = fin_vol_lu_decomp(ztodt, p, &
-         coef_q_diff=kvq(:ncol,:)*dpidz_sq)
+    if (.not. use_codon_tridiag) then
+       no_molec_decomp = fin_vol_lu_decomp(ztodt, p, &
+            coef_q_diff=kvq(:ncol,:)*dpidz_sq)
+    else
+       coef_q_work(:,:) = 0._r8
+       coef_q_diff_work(:,:) = kvq(:ncol,:)*dpidz_sq(:,:)
+    end if
 
     do m = 1, ncnst
 
@@ -1311,14 +1435,24 @@
 
               ! Currently, no ubc for constituents without molecular
               ! diffusion (they cannot diffuse out the top of the model).
-              call no_molec_decomp%left_div(q(:ncol,:,m))
+              if (.not. use_codon_tridiag) then
+                 call no_molec_decomp%left_div(q(:ncol,:,m))
+              else
+                 call diffusion_solver_log_direct(diffusion_solver_tridiag_logged, &
+                      'diffusion_solver_tridiag entered (finite-volume diffusion left_div = codon)')
+                 call compute_vdiff_tridiag_solve_codon(pcols, pver, ncol, ztodt, 0, p%del, p%rdel, p%rdst, &
+                      .false., coef_q_work, coef_q_diff_work, .false., coef_q_weight_work, .false., zero_l_data, &
+                      q(:,:,m), tridiag_ca, tridiag_ze, tridiag_dnom, tridiag_zf)
+              end if
 
            end if
 
        end if
     end do
 
-    call no_molec_decomp%finalize()
+    if (.not. use_codon_tridiag) then
+       call no_molec_decomp%finalize()
+    end if
     call p%finalize()
 
   end subroutine compute_vdiff

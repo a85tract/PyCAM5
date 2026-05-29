@@ -5083,6 +5083,279 @@ def diffusion_solver_momentum_ke_codon(
 
 
 @inline
+def _compute_vdiff_tridiag_diag(
+    i: int,
+    k: int,
+    pver: int,
+    ncol: int,
+    ztodt: float,
+    boundary_kind: int,
+    p_del: Ptr[float],
+    p_rdel: Ptr[float],
+    p_rdst: Ptr[float],
+    coef_q_present: int,
+    coef_q: Ptr[float],
+    coef_q_diff: Ptr[float],
+    coef_q_weight_present: int,
+    coef_q_weight: Ptr[float],
+) -> float:
+    if k == 1:
+        if pver == 1:
+            diag = 0.0
+        else:
+            spr = (
+                coef_q_diff[_diff_solver_ncol_idx(i, 2, ncol)]
+                * p_rdst[_diff_solver_ncol_idx(i, 1, ncol)]
+                * p_rdel[_diff_solver_ncol_idx(i, 1, ncol)]
+            )
+            diag = -spr
+        if boundary_kind == 1:
+            left_bound = (
+                2.0
+                * coef_q_diff[_diff_solver_ncol_idx(i, 1, ncol)]
+                * p_rdel[_diff_solver_ncol_idx(i, 1, ncol)]
+                / p_del[_diff_solver_ncol_idx(i, 1, ncol)]
+            )
+            diag = diag - left_bound
+    elif k == pver:
+        sub_prev = (
+            coef_q_diff[_diff_solver_ncol_idx(i, k, ncol)]
+            * p_rdst[_diff_solver_ncol_idx(i, k - 1, ncol)]
+            * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+        )
+        diag = -sub_prev
+    else:
+        spr = (
+            coef_q_diff[_diff_solver_ncol_idx(i, k + 1, ncol)]
+            * p_rdst[_diff_solver_ncol_idx(i, k, ncol)]
+            * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+        )
+        sub_prev = (
+            coef_q_diff[_diff_solver_ncol_idx(i, k, ncol)]
+            * p_rdst[_diff_solver_ncol_idx(i, k - 1, ncol)]
+            * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+        )
+        diag = -spr - sub_prev
+
+    if coef_q_present != 0:
+        diag = diag + coef_q[_diff_solver_ncol_idx(i, k, ncol)]
+
+    if coef_q_weight_present != 0:
+        diag = diag * (-ztodt / coef_q_weight[_diff_solver_ncol_idx(i, k, ncol)])
+    else:
+        diag = diag * (-ztodt)
+
+    return diag + 1.0
+
+
+@inline
+def _compute_vdiff_tridiag_spr_lmult(
+    i: int,
+    k: int,
+    ncol: int,
+    ztodt: float,
+    p_rdel: Ptr[float],
+    p_rdst: Ptr[float],
+    coef_q_diff: Ptr[float],
+    coef_q_weight_present: int,
+    coef_q_weight: Ptr[float],
+) -> float:
+    spr = (
+        coef_q_diff[_diff_solver_ncol_idx(i, k + 1, ncol)]
+        * p_rdst[_diff_solver_ncol_idx(i, k, ncol)]
+        * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+    )
+    if coef_q_weight_present != 0:
+        return spr * (-ztodt / coef_q_weight[_diff_solver_ncol_idx(i, k, ncol)])
+    return spr * (-ztodt)
+
+
+@inline
+def _compute_vdiff_tridiag_sub_lmult(
+    i: int,
+    k: int,
+    ncol: int,
+    ztodt: float,
+    p_rdel: Ptr[float],
+    p_rdst: Ptr[float],
+    coef_q_diff: Ptr[float],
+    coef_q_weight_present: int,
+    coef_q_weight: Ptr[float],
+) -> float:
+    sub = (
+        coef_q_diff[_diff_solver_ncol_idx(i, k + 1, ncol)]
+        * p_rdst[_diff_solver_ncol_idx(i, k, ncol)]
+        * p_rdel[_diff_solver_ncol_idx(i, k + 1, ncol)]
+    )
+    if coef_q_weight_present != 0:
+        return sub * (-ztodt / coef_q_weight[_diff_solver_ncol_idx(i, k + 1, ncol)])
+    return sub * (-ztodt)
+
+
+@export
+def diffusion_solver_tridiag_solve_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    ztodt: float,
+    boundary_kind: int,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    p_rdst_p: cobj,
+    coef_q_present: int,
+    coef_q_p: cobj,
+    coef_q_diff_p: cobj,
+    coef_q_weight_present: int,
+    coef_q_weight_p: cobj,
+    l_data_present: int,
+    l_data_p: cobj,
+    q_p: cobj,
+    ca_p: cobj,
+    ze_p: cobj,
+    dnom_p: cobj,
+    zf_p: cobj,
+):
+    p_del = Ptr[float](p_del_p)
+    p_rdel = Ptr[float](p_rdel_p)
+    p_rdst = Ptr[float](p_rdst_p)
+    coef_q = Ptr[float](coef_q_p)
+    coef_q_diff = Ptr[float](coef_q_diff_p)
+    coef_q_weight = Ptr[float](coef_q_weight_p)
+    l_data = Ptr[float](l_data_p)
+    q = Ptr[float](q_p)
+    ca = Ptr[float](ca_p)
+    ze = Ptr[float](ze_p)
+    dnom = Ptr[float](dnom_p)
+    zf = Ptr[float](zf_p)
+
+    for k in range(1, pver):
+        for i in range(1, ncol + 1):
+            ca[_diff_solver_ncol_idx(i, k, ncol)] = -_compute_vdiff_tridiag_spr_lmult(
+                i,
+                k,
+                ncol,
+                ztodt,
+                p_rdel,
+                p_rdst,
+                coef_q_diff,
+                coef_q_weight_present,
+                coef_q_weight,
+            )
+
+    for i in range(1, ncol + 1):
+        ca[_diff_solver_ncol_idx(i, pver, ncol)] = -0.0
+
+    for i in range(1, ncol + 1):
+        diag = _compute_vdiff_tridiag_diag(
+            i,
+            pver,
+            pver,
+            ncol,
+            ztodt,
+            boundary_kind,
+            p_del,
+            p_rdel,
+            p_rdst,
+            coef_q_present,
+            coef_q,
+            coef_q_diff,
+            coef_q_weight_present,
+            coef_q_weight,
+        )
+        dnom[_diff_solver_ncol_idx(i, pver, ncol)] = 1.0 / diag
+
+    for k in range(pver - 1, 0, -1):
+        for i in range(1, ncol + 1):
+            sub_lmult = _compute_vdiff_tridiag_sub_lmult(
+                i,
+                k,
+                ncol,
+                ztodt,
+                p_rdel,
+                p_rdst,
+                coef_q_diff,
+                coef_q_weight_present,
+                coef_q_weight,
+            )
+            ze[_diff_solver_ncol_idx(i, k + 1, ncol)] = (
+                -sub_lmult * dnom[_diff_solver_ncol_idx(i, k + 1, ncol)]
+            )
+
+        for i in range(1, ncol + 1):
+            diag = _compute_vdiff_tridiag_diag(
+                i,
+                k,
+                pver,
+                ncol,
+                ztodt,
+                boundary_kind,
+                p_del,
+                p_rdel,
+                p_rdst,
+                coef_q_present,
+                coef_q,
+                coef_q_diff,
+                coef_q_weight_present,
+                coef_q_weight,
+            )
+            dnom[_diff_solver_ncol_idx(i, k, ncol)] = 1.0 / (
+                diag
+                - ca[_diff_solver_ncol_idx(i, k, ncol)]
+                * ze[_diff_solver_ncol_idx(i, k + 1, ncol)]
+            )
+
+    for i in range(1, ncol + 1):
+        if boundary_kind == 1:
+            left_bound = (
+                2.0
+                * coef_q_diff[_diff_solver_ncol_idx(i, 1, ncol)]
+                * p_rdel[_diff_solver_ncol_idx(i, 1, ncol)]
+                / p_del[_diff_solver_ncol_idx(i, 1, ncol)]
+            )
+            if coef_q_weight_present != 0:
+                left_bound = left_bound * (
+                    -ztodt / coef_q_weight[_diff_solver_ncol_idx(i, 1, ncol)]
+                )
+            else:
+                left_bound = left_bound * (-ztodt)
+            ze[_diff_solver_ncol_idx(i, 1, ncol)] = -left_bound
+        else:
+            ze[_diff_solver_ncol_idx(i, 1, ncol)] = -0.0
+
+    if l_data_present != 0:
+        for i in range(1, ncol + 1):
+            q[_diff_solver_pcols_idx(i, 1, pcols)] = (
+                q[_diff_solver_pcols_idx(i, 1, pcols)]
+                + ze[_diff_solver_ncol_idx(i, 1, ncol)] * l_data[i - 1]
+            )
+
+    for i in range(1, ncol + 1):
+        zf[_diff_solver_ncol_idx(i, pver, ncol)] = (
+            q[_diff_solver_pcols_idx(i, pver, pcols)]
+            * dnom[_diff_solver_ncol_idx(i, pver, ncol)]
+        )
+
+    for k in range(pver - 1, 0, -1):
+        for i in range(1, ncol + 1):
+            zf[_diff_solver_ncol_idx(i, k, ncol)] = (
+                q[_diff_solver_pcols_idx(i, k, pcols)]
+                + ca[_diff_solver_ncol_idx(i, k, ncol)]
+                * zf[_diff_solver_ncol_idx(i, k + 1, ncol)]
+            ) * dnom[_diff_solver_ncol_idx(i, k, ncol)]
+
+    for i in range(1, ncol + 1):
+        q[_diff_solver_pcols_idx(i, 1, pcols)] = zf[_diff_solver_ncol_idx(i, 1, ncol)]
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            q[_diff_solver_pcols_idx(i, k, pcols)] = (
+                zf[_diff_solver_ncol_idx(i, k, ncol)]
+                + ze[_diff_solver_ncol_idx(i, k, ncol)]
+                * q[_diff_solver_pcols_idx(i, k - 1, pcols)]
+            )
+
+
+@inline
 def _ptr_ascii_to_str(n: int, ptr_p: cobj) -> str:
     ptr = Ptr[int](ptr_p)
     out = ""
