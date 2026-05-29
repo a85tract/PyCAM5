@@ -92,6 +92,11 @@
   logical :: use_native_diffusion_solver_tridiag_impl = .false.
   logical :: diffusion_solver_tridiag_impl_selected = .false.
   logical :: diffusion_solver_tridiag_logged = .false.
+  logical :: use_native_diffusion_solver_scalar_impl = .false.
+  logical :: diffusion_solver_scalar_impl_selected = .false.
+  logical :: diffusion_solver_dse_logged = .false.
+  logical :: diffusion_solver_constituent_logged = .false.
+  logical :: compute_vdiff_parent_logged = .false.
   logical :: my_any_logged = .false.
   logical :: diffuse_logged = .false.
 
@@ -190,6 +195,24 @@
        type(c_ptr), value :: p_del_p, p_rdel_p, p_rdst_p, coef_q_p, coef_q_diff_p, coef_q_weight_p
        type(c_ptr), value :: l_data_p, q_p, ca_p, ze_p, dnom_p, zf_p
      end subroutine diffusion_solver_tridiag_solve_codon
+
+     subroutine diffusion_solver_dse_prepare_codon(pcols_c, pver_c, ncol_c, ztodt_c, gravit_c, &
+          p_rdel_p, rhoi_p, kvh_p, cgh_p, tmp1_p, shflx_p, dse_p) &
+          bind(c, name="diffusion_solver_dse_prepare_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+       real(c_double), value :: ztodt_c, gravit_c
+       type(c_ptr), value :: p_rdel_p, rhoi_p, kvh_p, cgh_p, tmp1_p, shflx_p, dse_p
+     end subroutine diffusion_solver_dse_prepare_codon
+
+     subroutine diffusion_solver_constituent_prepare_codon(pcols_c, pver_c, ncol_c, ztodt_c, gravit_c, &
+          qmincg_c, p_rdel_p, rrho_p, rhoi_p, kvh_p, cgs_p, tmp1_p, cflx_p, q_p, qtm_p) &
+          bind(c, name="diffusion_solver_constituent_prepare_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+       real(c_double), value :: ztodt_c, gravit_c, qmincg_c
+       type(c_ptr), value :: p_rdel_p, rrho_p, rhoi_p, kvh_p, cgs_p, tmp1_p, cflx_p, q_p, qtm_p
+     end subroutine diffusion_solver_constituent_prepare_codon
   end interface
 
   contains
@@ -312,6 +335,44 @@
 
   ! =============================================================================== !
 
+  subroutine diffusion_solver_scalar_select_impl()
+
+    use spmd_utils, only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (diffusion_solver_scalar_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('DIFFUSION_SOLVER_SCALAR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_diffusion_solver_scalar_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_diffusion_solver_scalar_impl = .false.
+    end if
+
+    diffusion_solver_scalar_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_diffusion_solver_scalar_impl) then
+          write(iulog,*) 'diffusion_solver_scalar implementation = native'
+       else
+          write(iulog,*) 'diffusion_solver_scalar implementation = codon'
+       end if
+    end if
+
+  end subroutine diffusion_solver_scalar_select_impl
+
+  ! =============================================================================== !
+
   subroutine diffusion_solver_setup_proof_once()
 
     use spmd_utils, only: masterproc
@@ -343,6 +404,23 @@
     end if
 
   end subroutine diffusion_solver_log_direct
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_parent_log_once(do_molec_diff_local)
+
+    logical, intent(in) :: do_molec_diff_local
+
+    if (do_molec_diff_local) return
+    if (use_native_diffusion_solver_setup_impl) return
+    if (use_native_diffusion_solver_momentum_impl) return
+    if (use_native_diffusion_solver_tridiag_impl) return
+    if (use_native_diffusion_solver_scalar_impl) return
+
+    call diffusion_solver_log_direct(compute_vdiff_parent_logged, &
+         'compute_vdiff parent active non-molecular path = codon; setup/momentum/scalar prep/tridiag direct = codon; molecular optional branch native')
+
+  end subroutine compute_vdiff_parent_log_once
 
   ! =============================================================================== !
 
@@ -477,6 +555,46 @@
          c_loc(ca(1,1)), c_loc(ze(1,1)), c_loc(dnom(1,1)), c_loc(zf(1,1)))
 
   end subroutine compute_vdiff_tridiag_solve_codon
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_dse_prepare_codon(pcols, pver, ncol, ztodt, gravit, p_rdel, rhoi, kvh, cgh, &
+       tmp1, shflx, dse)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol
+    real(r8), intent(in) :: ztodt, gravit
+    real(r8), target, intent(in) :: p_rdel(ncol,pver), rhoi(pcols,pver+1), kvh(pcols,pver+1)
+    real(r8), target, intent(in) :: cgh(pcols,pver+1), tmp1(pcols), shflx(pcols)
+    real(r8), target, intent(inout) :: dse(pcols,pver)
+
+    call diffusion_solver_dse_prepare_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+         real(ztodt, c_double), real(gravit, c_double), c_loc(p_rdel(1,1)), c_loc(rhoi(1,1)), c_loc(kvh(1,1)), &
+         c_loc(cgh(1,1)), c_loc(tmp1(1)), c_loc(shflx(1)), c_loc(dse(1,1)))
+
+  end subroutine compute_vdiff_dse_prepare_codon
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_constituent_prepare_codon(pcols, pver, ncol, ztodt, gravit, qmincg_local, p_rdel, &
+       rrho, rhoi, kvh, cgs, tmp1, cflx_col, q_col, qtm)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol
+    real(r8), intent(in) :: ztodt, gravit, qmincg_local
+    real(r8), target, intent(in) :: p_rdel(ncol,pver), rrho(pcols), rhoi(pcols,pver+1)
+    real(r8), target, intent(in) :: kvh(pcols,pver+1), cgs(pcols,pver+1), tmp1(pcols), cflx_col(pcols)
+    real(r8), target, intent(inout) :: q_col(pcols,pver), qtm(pcols,pver)
+
+    call diffusion_solver_constituent_prepare_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ncol, c_int64_t), real(ztodt, c_double), real(gravit, c_double), &
+         real(qmincg_local, c_double), c_loc(p_rdel(1,1)), c_loc(rrho(1)), c_loc(rhoi(1,1)), &
+         c_loc(kvh(1,1)), c_loc(cgs(1,1)), c_loc(tmp1(1)), c_loc(cflx_col(1)), c_loc(q_col(1,1)), &
+         c_loc(qtm(1,1)))
+
+  end subroutine compute_vdiff_constituent_prepare_codon
 
   ! =============================================================================== !
   !                                                                                 !
@@ -861,6 +979,7 @@
     interface_boundary = BoundaryFixedLayer(spread(0._r8, 1, ncol))
 
     call diffusion_solver_tridiag_select_impl()
+    call diffusion_solver_scalar_select_impl()
 
     ! Compute 'rho' and 'dt*(g*rho)^2/dp' at interfaces
 
@@ -941,6 +1060,7 @@
     endif
 
     use_codon_tridiag = (.not. use_native_diffusion_solver_tridiag_impl) .and. (.not. do_molec_diff)
+    call compute_vdiff_parent_log_once(do_molec_diff)
 
     !---------------------------- !
     ! Diffuse Horizontal Momentum !
@@ -1251,6 +1371,7 @@
 
       ! Add counter-gradient to input static energy profiles
 
+      if (use_native_diffusion_solver_scalar_impl) then
         do k = 1, pver
            dse(:ncol,k) = dse(:ncol,k) + ztodt * p%rdel(:,k) * gravit  * &
                                        ( rhoi(:ncol,k+1) * kvh(:ncol,k+1) * cgh(:ncol,k+1) &
@@ -1260,6 +1381,12 @@
      ! Add the explicit surface fluxes to the lowest layer
 
        dse(:ncol,pver) = dse(:ncol,pver) + tmp1(:ncol) * shflx(:ncol)
+      else
+        call diffusion_solver_log_direct(diffusion_solver_dse_logged, &
+             'diffusion_solver_dse_prepare entered (dry static energy countergradient and surface flux prep = codon)')
+        call compute_vdiff_dse_prepare_codon(pcols, pver, ncol, ztodt, gravit, p%rdel, rhoi, kvh, cgh, tmp1, &
+             shflx, dse)
+      end if
 
      ! Diffuse dry static energy
 
@@ -1381,6 +1508,7 @@
            ! quasi-equilibrium conditions assumed for the countergradient term are
            ! strongly violated.
 
+         if (use_native_diffusion_solver_scalar_impl) then
            qtm(:ncol,:pver) = q(:ncol,:pver,m)
 
            do k = 1, pver
@@ -1397,6 +1525,12 @@
            ! Add the explicit surface fluxes to the lowest layer
 
            q(:ncol,pver,m) = q(:ncol,pver,m) + tmp1(:ncol) * cflx(:ncol,m)
+         else
+           call diffusion_solver_log_direct(diffusion_solver_constituent_logged, &
+                'diffusion_solver_constituent_prepare entered (constituent countergradient/qmin/surface flux prep = codon)')
+           call compute_vdiff_constituent_prepare_codon(pcols, pver, ncol, ztodt, gravit, qmincg(m), p%rdel, &
+                rrho, rhoi, kvh, cgs, tmp1, cflx(:,m), q(:,:,m), qtm)
+         end if
 
            ! Diffuse constituents.
 

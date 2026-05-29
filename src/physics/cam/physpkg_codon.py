@@ -5355,6 +5355,118 @@ def diffusion_solver_tridiag_solve_codon(
             )
 
 
+@export
+def diffusion_solver_dse_prepare_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    ztodt: float,
+    gravit: float,
+    p_rdel_p: cobj,
+    rhoi_p: cobj,
+    kvh_p: cobj,
+    cgh_p: cobj,
+    tmp1_p: cobj,
+    shflx_p: cobj,
+    dse_p: cobj,
+):
+    p_rdel = Ptr[float](p_rdel_p)
+    rhoi = Ptr[float](rhoi_p)
+    kvh = Ptr[float](kvh_p)
+    cgh = Ptr[float](cgh_p)
+    tmp1 = Ptr[float](tmp1_p)
+    shflx = Ptr[float](shflx_p)
+    dse = Ptr[float](dse_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dse[_diff_solver_pcols_idx(i, k, pcols)] = (
+                dse[_diff_solver_pcols_idx(i, k, pcols)]
+                + ztodt
+                * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+                * gravit
+                * (
+                    rhoi[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    * kvh[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    * cgh[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    - rhoi[_diff_solver_pcols_idx(i, k, pcols)]
+                    * kvh[_diff_solver_pcols_idx(i, k, pcols)]
+                    * cgh[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+            )
+
+    for i in range(1, ncol + 1):
+        dse[_diff_solver_pcols_idx(i, pver, pcols)] = (
+            dse[_diff_solver_pcols_idx(i, pver, pcols)] + tmp1[i - 1] * shflx[i - 1]
+        )
+
+
+@export
+def diffusion_solver_constituent_prepare_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    ztodt: float,
+    gravit: float,
+    qmincg: float,
+    p_rdel_p: cobj,
+    rrho_p: cobj,
+    rhoi_p: cobj,
+    kvh_p: cobj,
+    cgs_p: cobj,
+    tmp1_p: cobj,
+    cflx_p: cobj,
+    q_p: cobj,
+    qtm_p: cobj,
+):
+    p_rdel = Ptr[float](p_rdel_p)
+    rrho = Ptr[float](rrho_p)
+    rhoi = Ptr[float](rhoi_p)
+    kvh = Ptr[float](kvh_p)
+    cgs = Ptr[float](cgs_p)
+    tmp1 = Ptr[float](tmp1_p)
+    cflx = Ptr[float](cflx_p)
+    q = Ptr[float](q_p)
+    qtm = Ptr[float](qtm_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qtm[_diff_solver_pcols_idx(i, k, pcols)] = q[_diff_solver_pcols_idx(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            q[_diff_solver_pcols_idx(i, k, pcols)] = (
+                q[_diff_solver_pcols_idx(i, k, pcols)]
+                + ztodt
+                * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+                * gravit
+                * (cflx[i - 1] * rrho[i - 1])
+                * (
+                    rhoi[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    * kvh[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    * cgs[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    - rhoi[_diff_solver_pcols_idx(i, k, pcols)]
+                    * kvh[_diff_solver_pcols_idx(i, k, pcols)]
+                    * cgs[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+            )
+
+    for i in range(1, ncol + 1):
+        valid = True
+        for k in range(1, pver + 1):
+            if q[_diff_solver_pcols_idx(i, k, pcols)] < qmincg:
+                valid = False
+                break
+        if not valid:
+            for k in range(1, pver + 1):
+                q[_diff_solver_pcols_idx(i, k, pcols)] = qtm[_diff_solver_pcols_idx(i, k, pcols)]
+
+    for i in range(1, ncol + 1):
+        q[_diff_solver_pcols_idx(i, pver, pcols)] = (
+            q[_diff_solver_pcols_idx(i, pver, pcols)] + tmp1[i - 1] * cflx[i - 1]
+        )
+
+
 @inline
 def _ptr_ascii_to_str(n: int, ptr_p: cobj) -> str:
     ptr = Ptr[int](ptr_p)
