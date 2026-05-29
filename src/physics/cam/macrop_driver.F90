@@ -122,6 +122,7 @@
   logical :: ptend_config_shell_logged = .false.
   logical :: ptend_lq_mask_shell_logged = .false.
   logical :: store_state_logged = .false.
+  logical :: macrop_driver_tend_parent_logged = .false.
   logical :: readnl_use_native_impl = .false.
   logical :: readnl_impl_selected = .false.
   logical :: macrop_driver_readnl_logged = .false.
@@ -1194,6 +1195,20 @@ end subroutine macrop_driver_readnl_log_direct
 
    ! ptend_loc is deallocated in physics_update above
    call physics_state_dealloc(state_loc)
+
+   if (.not. use_native_impl .and. .not. micro_do_icesupersat_local .and. &
+       (.not. trace_water_local .or. .not. use_native_wtrc_shell_impl) .and. &
+       .not. macrop_driver_tend_parent_logged) then
+      macrop_driver_tend_parent_logged = .true.
+      if (masterproc) then
+         write(iulog,'(A)') 'macrop_driver_tend parent active path = codon; branch selection + detrain/' // &
+              'cldfrc/mmacro_pcond/wtrc/cfmip/store-state dispatch direct = codon; native boundaries ' // &
+              'pbuf/history/timers/physics_ptend/physics_update/outfld and child qsat/findsp/astG/aist callbacks'
+         call macrop_driver_append_impl_proof('MACROP_DRIVER_PARENT_PROOF_FILE', &
+              'macrop_driver_tend parent active path = codon')
+         call flush(iulog)
+      end if
+   end if
 
 end subroutine macrop_driver_tend
 
