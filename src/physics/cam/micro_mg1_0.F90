@@ -157,6 +157,7 @@ logical :: micro_mg1_0_colzero_use_native_impl = .false.
 logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
 logical :: micro_mg1_0_rate1ord_logged = .false.
+logical :: micro_mg1_0_substep_setup_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -1621,6 +1622,11 @@ do i=1,ncol
       prect(i)=0._r8
       preci(i)=0._r8
 
+      if (.not. micro_mg1_0_colzero_use_native_impl) then
+         call micro_mg1_0_substep_setup_column_codon_wrap(i, pcols, pver, top_lev, qsmall, mincld, &
+              qc, qi, ni, cldm, cmei, cwml, cwmi, ums, uns, umr, unr, nsubi, nsubc)
+      end if
+
       do k=top_lev,pver
       
          qcvar=relvar(i,k)
@@ -1636,15 +1642,17 @@ do i=1,ncol
 
          ! set cwml and cwmi to current qc and qi
 
-         cwml(i,k)=qc(i,k)
-         cwmi(i,k)=qi(i,k)
+         if (micro_mg1_0_colzero_use_native_impl) then
+            cwml(i,k)=qc(i,k)
+            cwmi(i,k)=qi(i,k)
 
-         ! initialize precip fallspeeds to zero
+            ! initialize precip fallspeeds to zero
 
-         ums(k)=0._r8 
-         uns(k)=0._r8 
-         umr(k)=0._r8 
-         unr(k)=0._r8
+            ums(k)=0._r8
+            uns(k)=0._r8
+            umr(k)=0._r8
+            unr(k)=0._r8
+         end if
 
          ! calculate precip fraction based on maximum overlap assumption
 
@@ -1678,12 +1686,14 @@ do i=1,ncol
          ! divide by cloud fraction to get in-cloud decrease
          ! don't reduce Nc due to bergeron process
 
-         if (cmei(i,k) < 0._r8 .and. qi(i,k) > qsmall .and. cldm(i,k) > mincld) then
-            nsubi(k)=cmei(i,k)/qi(i,k)*ni(i,k)/cldm(i,k)
-         else
-            nsubi(k)=0._r8
+         if (micro_mg1_0_colzero_use_native_impl) then
+            if (cmei(i,k) < 0._r8 .and. qi(i,k) > qsmall .and. cldm(i,k) > mincld) then
+               nsubi(k)=cmei(i,k)/qi(i,k)*ni(i,k)/cldm(i,k)
+            else
+               nsubi(k)=0._r8
+            end if
+            nsubc(k)=0._r8
          end if
-         nsubc(k)=0._r8
 
 
          !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -4205,6 +4215,15 @@ subroutine micro_mg1_0_rate1ord_log_entry()
   end if
 end subroutine micro_mg1_0_rate1ord_log_entry
 
+subroutine micro_mg1_0_substep_setup_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_substep_setup_logged) then
+     write(iulog,*) 'micro_mg1_0_substep_setup entered (substep precip/cloud scratch setup = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_substep_setup entered (substep precip/cloud scratch setup = codon)')
+     micro_mg1_0_substep_setup_logged = .true.
+  end if
+end subroutine micro_mg1_0_substep_setup_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4380,6 +4399,50 @@ subroutine micro_mg1_0_substep_zero_column_codon_wrap(i_local, pcols_local, pver
        c_loc(qric_local), c_loc(nsic_local), c_loc(nric_local), c_loc(rainrt_local), &
        c_loc(qrtend_copy_local), c_loc(qnitend_copy_local))
 end subroutine micro_mg1_0_substep_zero_column_codon_wrap
+
+subroutine micro_mg1_0_substep_setup_column_codon_wrap(i_local, pcols_local, pver_local, &
+     top_lev_local, qsmall_local, mincld_local, qc_local, qi_local, ni_local, cldm_local, &
+     cmei_local, cwml_local, cwmi_local, ums_local, uns_local, umr_local, unr_local, &
+     nsubi_local, nsubc_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: qsmall_local, mincld_local
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: ni_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cmei_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cwml_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cwmi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ums_local(pver_local)
+  real(r8), target, intent(inout) :: uns_local(pver_local)
+  real(r8), target, intent(inout) :: umr_local(pver_local)
+  real(r8), target, intent(inout) :: unr_local(pver_local)
+  real(r8), target, intent(inout) :: nsubi_local(pver_local)
+  real(r8), target, intent(inout) :: nsubc_local(pver_local)
+
+  interface
+     subroutine micro_mg1_0_substep_setup_column_codon(i_c, pcols_c, pver_c, top_lev_c, &
+          qsmall_c, mincld_c, qc_p, qi_p, ni_p, cldm_p, cmei_p, cwml_p, cwmi_p, &
+          ums_p, uns_p, umr_p, unr_p, nsubi_p, nsubc_p) &
+          bind(c, name="micro_mg1_0_substep_setup_column_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: qsmall_c, mincld_c
+       type(c_ptr), value :: qc_p, qi_p, ni_p, cldm_p, cmei_p, cwml_p, cwmi_p
+       type(c_ptr), value :: ums_p, uns_p, umr_p, unr_p, nsubi_p, nsubc_p
+     end subroutine micro_mg1_0_substep_setup_column_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_substep_setup_log_entry()
+  call micro_mg1_0_substep_setup_column_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), &
+       real(qsmall_local, c_double), real(mincld_local, c_double), &
+       c_loc(qc_local), c_loc(qi_local), c_loc(ni_local), c_loc(cldm_local), c_loc(cmei_local), &
+       c_loc(cwml_local), c_loc(cwmi_local), c_loc(ums_local), c_loc(uns_local), c_loc(umr_local), &
+       c_loc(unr_local), c_loc(nsubi_local), c_loc(nsubc_local))
+end subroutine micro_mg1_0_substep_setup_column_codon_wrap
 
 subroutine micro_mg1_0_tail_activation_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      dum2i_local, dum2l_local, rho_local, ncai_local, ncal_local)

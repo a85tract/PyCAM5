@@ -1488,6 +1488,59 @@ def micro_mg1_0_substep_zero_column_codon(
 
 
 @export
+def micro_mg1_0_substep_setup_column_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    qsmall: float,
+    mincld: float,
+    qc_p: cobj,
+    qi_p: cobj,
+    ni_p: cobj,
+    cldm_p: cobj,
+    cmei_p: cobj,
+    cwml_p: cobj,
+    cwmi_p: cobj,
+    ums_p: cobj,
+    uns_p: cobj,
+    umr_p: cobj,
+    unr_p: cobj,
+    nsubi_p: cobj,
+    nsubc_p: cobj,
+):
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    ni = Ptr[float](ni_p)
+    cldm = Ptr[float](cldm_p)
+    cmei = Ptr[float](cmei_p)
+    cwml = Ptr[float](cwml_p)
+    cwmi = Ptr[float](cwmi_p)
+    ums = Ptr[float](ums_p)
+    uns = Ptr[float](uns_p)
+    umr = Ptr[float](umr_p)
+    unr = Ptr[float](unr_p)
+    nsubi = Ptr[float](nsubi_p)
+    nsubc = Ptr[float](nsubc_p)
+
+    for k in range(top_lev, pver + 1):
+        idx = _idx2(i, k, pcols)
+        cwml[idx] = qc[idx]
+        cwmi[idx] = qi[idx]
+
+        ums[k - 1] = 0.0
+        uns[k - 1] = 0.0
+        umr[k - 1] = 0.0
+        unr[k - 1] = 0.0
+
+        if cmei[idx] < 0.0 and qi[idx] > qsmall and cldm[idx] > mincld:
+            nsubi[k - 1] = cmei[idx] / qi[idx] * ni[idx] / cldm[idx]
+        else:
+            nsubi[k - 1] = 0.0
+        nsubc[k - 1] = 0.0
+
+
+@export
 def micro_mg1_0_flux_ltrue_init_codon(
     ncol: int,
     pcols: int,
