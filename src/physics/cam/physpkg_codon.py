@@ -4752,6 +4752,336 @@ def diffusion_solver_setup_codon(
         tmp1[i - 1] = ztodt * gravit * p_rdel[_diff_solver_ncol_idx(i, pver, ncol)]
 
 
+@export
+def diffusion_solver_momentum_prep_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    do_iss: int,
+    ztodt: float,
+    gravit: float,
+    wsmin: float,
+    ksrfmin: float,
+    timeres: float,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    tmp1_p: cobj,
+    taux_p: cobj,
+    tauy_p: cobj,
+    tauresx_p: cobj,
+    tauresy_p: cobj,
+    ksrftms_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    dinp_u_p: cobj,
+    dinp_v_p: cobj,
+    ws_p: cobj,
+    tau_p: cobj,
+    ksrfturb_p: cobj,
+    ksrf_p: cobj,
+    usum_in_p: cobj,
+    vsum_in_p: cobj,
+    usum_mid_p: cobj,
+    vsum_mid_p: cobj,
+    tau_damp_rate_p: cobj,
+):
+    p_del = Ptr[float](p_del_p)
+    p_rdel = Ptr[float](p_rdel_p)
+    tmp1 = Ptr[float](tmp1_p)
+    taux = Ptr[float](taux_p)
+    tauy = Ptr[float](tauy_p)
+    tauresx = Ptr[float](tauresx_p)
+    tauresy = Ptr[float](tauresy_p)
+    ksrftms = Ptr[float](ksrftms_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    dinp_u = Ptr[float](dinp_u_p)
+    dinp_v = Ptr[float](dinp_v_p)
+    ws = Ptr[float](ws_p)
+    tau = Ptr[float](tau_p)
+    ksrfturb = Ptr[float](ksrfturb_p)
+    ksrf = Ptr[float](ksrf_p)
+    usum_in = Ptr[float](usum_in_p)
+    vsum_in = Ptr[float](vsum_in_p)
+    usum_mid = Ptr[float](usum_mid_p)
+    vsum_mid = Ptr[float](vsum_mid_p)
+    tau_damp_rate = Ptr[float](tau_damp_rate_p)
+
+    for i in range(1, ncol + 1):
+        dinp_u[_diff_solver_pcols_idx(i, 1, pcols)] = 0.0
+        dinp_v[_diff_solver_pcols_idx(i, 1, pcols)] = 0.0
+        dinp_u[_diff_solver_pcols_idx(i, pver + 1, pcols)] = -u[
+            _diff_solver_pcols_idx(i, pver, pcols)
+        ]
+        dinp_v[_diff_solver_pcols_idx(i, pver + 1, pcols)] = -v[
+            _diff_solver_pcols_idx(i, pver, pcols)
+        ]
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            dinp_u[_diff_solver_pcols_idx(i, k, pcols)] = (
+                u[_diff_solver_pcols_idx(i, k, pcols)]
+                - u[_diff_solver_pcols_idx(i, k - 1, pcols)]
+            )
+            dinp_v[_diff_solver_pcols_idx(i, k, pcols)] = (
+                v[_diff_solver_pcols_idx(i, k, pcols)]
+                - v[_diff_solver_pcols_idx(i, k - 1, pcols)]
+            )
+
+    if do_iss != 0:
+        for i in range(1, ncol + 1):
+            ws[i - 1] = max(
+                sqrt(
+                    u[_diff_solver_pcols_idx(i, pver, pcols)] ** 2.0
+                    + v[_diff_solver_pcols_idx(i, pver, pcols)] ** 2.0
+                ),
+                wsmin,
+            )
+            tau[i - 1] = sqrt(taux[i - 1] ** 2.0 + tauy[i - 1] ** 2.0)
+            ksrfturb[i - 1] = max(tau[i - 1] / ws[i - 1], ksrfmin)
+
+        for i in range(1, ncol + 1):
+            ksrf[i - 1] = ksrfturb[i - 1] + ksrftms[i - 1]
+
+        for i in range(1, ncol + 1):
+            usum_in[i - 1] = 0.0
+            vsum_in[i - 1] = 0.0
+            for k in range(1, pver + 1):
+                usum_in[i - 1] = usum_in[i - 1] + (
+                    (1.0 / gravit)
+                    * u[_diff_solver_pcols_idx(i, k, pcols)]
+                    * p_del[_diff_solver_ncol_idx(i, k, ncol)]
+                )
+                vsum_in[i - 1] = vsum_in[i - 1] + (
+                    (1.0 / gravit)
+                    * v[_diff_solver_pcols_idx(i, k, pcols)]
+                    * p_del[_diff_solver_ncol_idx(i, k, ncol)]
+                )
+
+        ramda = ztodt / timeres
+        for i in range(1, ncol + 1):
+            u[_diff_solver_pcols_idx(i, pver, pcols)] = (
+                u[_diff_solver_pcols_idx(i, pver, pcols)]
+                + tmp1[i - 1] * tauresx[i - 1] * ramda
+            )
+            v[_diff_solver_pcols_idx(i, pver, pcols)] = (
+                v[_diff_solver_pcols_idx(i, pver, pcols)]
+                + tmp1[i - 1] * tauresy[i - 1] * ramda
+            )
+
+        for i in range(1, ncol + 1):
+            usum_mid[i - 1] = 0.0
+            vsum_mid[i - 1] = 0.0
+            for k in range(1, pver + 1):
+                usum_mid[i - 1] = usum_mid[i - 1] + (
+                    (1.0 / gravit)
+                    * u[_diff_solver_pcols_idx(i, k, pcols)]
+                    * p_del[_diff_solver_ncol_idx(i, k, ncol)]
+                )
+                vsum_mid[i - 1] = vsum_mid[i - 1] + (
+                    (1.0 / gravit)
+                    * v[_diff_solver_pcols_idx(i, k, pcols)]
+                    * p_del[_diff_solver_ncol_idx(i, k, ncol)]
+                )
+    else:
+        for i in range(1, ncol + 1):
+            ksrf[i - 1] = ksrftms[i - 1]
+
+        for i in range(1, ncol + 1):
+            u[_diff_solver_pcols_idx(i, pver, pcols)] = (
+                u[_diff_solver_pcols_idx(i, pver, pcols)] + tmp1[i - 1] * taux[i - 1]
+            )
+            v[_diff_solver_pcols_idx(i, pver, pcols)] = (
+                v[_diff_solver_pcols_idx(i, pver, pcols)] + tmp1[i - 1] * tauy[i - 1]
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tau_damp_rate[_diff_solver_ncol_idx(i, k, ncol)] = 0.0
+
+    for i in range(1, ncol + 1):
+        tau_damp_rate[_diff_solver_ncol_idx(i, pver, ncol)] = (
+            -gravit * ksrf[i - 1] * p_rdel[_diff_solver_ncol_idx(i, pver, ncol)]
+        )
+
+
+@export
+def diffusion_solver_momentum_post_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    do_iss: int,
+    itaures: int,
+    ztodt: float,
+    gravit: float,
+    p_del_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    taux_p: cobj,
+    tauy_p: cobj,
+    ksrftms_p: cobj,
+    tauresx_p: cobj,
+    tauresy_p: cobj,
+    usum_in_p: cobj,
+    vsum_in_p: cobj,
+    usum_out_p: cobj,
+    vsum_out_p: cobj,
+    tauimpx_p: cobj,
+    tauimpy_p: cobj,
+    tautotx_p: cobj,
+    tautoty_p: cobj,
+    tautmsx_p: cobj,
+    tautmsy_p: cobj,
+):
+    p_del = Ptr[float](p_del_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    taux = Ptr[float](taux_p)
+    tauy = Ptr[float](tauy_p)
+    ksrftms = Ptr[float](ksrftms_p)
+    tauresx = Ptr[float](tauresx_p)
+    tauresy = Ptr[float](tauresy_p)
+    usum_in = Ptr[float](usum_in_p)
+    vsum_in = Ptr[float](vsum_in_p)
+    usum_out = Ptr[float](usum_out_p)
+    vsum_out = Ptr[float](vsum_out_p)
+    tauimpx = Ptr[float](tauimpx_p)
+    tauimpy = Ptr[float](tauimpy_p)
+    tautotx = Ptr[float](tautotx_p)
+    tautoty = Ptr[float](tautoty_p)
+    tautmsx = Ptr[float](tautmsx_p)
+    tautmsy = Ptr[float](tautmsy_p)
+
+    for i in range(1, ncol + 1):
+        tautmsx[i - 1] = -ksrftms[i - 1] * u[_diff_solver_pcols_idx(i, pver, pcols)]
+        tautmsy[i - 1] = -ksrftms[i - 1] * v[_diff_solver_pcols_idx(i, pver, pcols)]
+
+        if do_iss != 0:
+            usum_out[i - 1] = 0.0
+            vsum_out[i - 1] = 0.0
+            for k in range(1, pver + 1):
+                usum_out[i - 1] = usum_out[i - 1] + (
+                    (1.0 / gravit)
+                    * u[_diff_solver_pcols_idx(i, k, pcols)]
+                    * p_del[_diff_solver_ncol_idx(i, k, ncol)]
+                )
+                vsum_out[i - 1] = vsum_out[i - 1] + (
+                    (1.0 / gravit)
+                    * v[_diff_solver_pcols_idx(i, k, pcols)]
+                    * p_del[_diff_solver_ncol_idx(i, k, ncol)]
+                )
+
+            tauimpx[i - 1] = (usum_out[i - 1] - usum_in[i - 1]) / ztodt
+            tauimpy[i - 1] = (vsum_out[i - 1] - vsum_in[i - 1]) / ztodt
+
+            tautotx[i - 1] = tauimpx[i - 1]
+            tautoty[i - 1] = tauimpy[i - 1]
+
+            if itaures == 1:
+                tauresx[i - 1] = (
+                    taux[i - 1] + tautmsx[i - 1] + tauresx[i - 1] - tauimpx[i - 1]
+                )
+                tauresy[i - 1] = (
+                    tauy[i - 1] + tautmsy[i - 1] + tauresy[i - 1] - tauimpy[i - 1]
+                )
+        else:
+            tautotx[i - 1] = tautmsx[i - 1] + taux[i - 1]
+            tautoty[i - 1] = tautmsy[i - 1] + tauy[i - 1]
+            tauresx[i - 1] = 0.0
+            tauresy[i - 1] = 0.0
+
+
+@export
+def diffusion_solver_momentum_ke_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    ztodt: float,
+    gravit: float,
+    p_rdel_p: cobj,
+    tmpi2_p: cobj,
+    kvm_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    dinp_u_p: cobj,
+    dinp_v_p: cobj,
+    tautotx_p: cobj,
+    tautoty_p: cobj,
+    tmpi1_p: cobj,
+    dtk_p: cobj,
+    dse_p: cobj,
+):
+    p_rdel = Ptr[float](p_rdel_p)
+    tmpi2 = Ptr[float](tmpi2_p)
+    kvm = Ptr[float](kvm_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    dinp_u = Ptr[float](dinp_u_p)
+    dinp_v = Ptr[float](dinp_v_p)
+    tautotx = Ptr[float](tautotx_p)
+    tautoty = Ptr[float](tautoty_p)
+    tmpi1 = Ptr[float](tmpi1_p)
+    dtk = Ptr[float](dtk_p)
+    dse = Ptr[float](dse_p)
+
+    k = pver + 1
+    for i in range(1, ncol + 1):
+        tmpi1[_diff_solver_pcols_idx(i, 1, pcols)] = 0.0
+        tmpi1[_diff_solver_pcols_idx(i, k, pcols)] = (
+            0.5
+            * ztodt
+            * gravit
+            * (
+                (
+                    -u[_diff_solver_pcols_idx(i, k - 1, pcols)]
+                    + dinp_u[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+                * tautotx[i - 1]
+                + (
+                    -v[_diff_solver_pcols_idx(i, k - 1, pcols)]
+                    + dinp_v[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+                * tautoty[i - 1]
+            )
+        )
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            dout_u = (
+                u[_diff_solver_pcols_idx(i, k, pcols)]
+                - u[_diff_solver_pcols_idx(i, k - 1, pcols)]
+            )
+            dout_v = (
+                v[_diff_solver_pcols_idx(i, k, pcols)]
+                - v[_diff_solver_pcols_idx(i, k - 1, pcols)]
+            )
+            tmpi1[_diff_solver_pcols_idx(i, k, pcols)] = (
+                0.25
+                * tmpi2[_diff_solver_pcols_idx(i, k, pcols)]
+                * kvm[_diff_solver_pcols_idx(i, k, pcols)]
+                * (
+                    dout_u**2
+                    + dout_v**2
+                    + dout_u * dinp_u[_diff_solver_pcols_idx(i, k, pcols)]
+                    + dout_v * dinp_v[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dtk[_diff_solver_pcols_idx(i, k, pcols)] = (
+                (
+                    tmpi1[_diff_solver_pcols_idx(i, k + 1, pcols)]
+                    + tmpi1[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+                * p_rdel[_diff_solver_ncol_idx(i, k, ncol)]
+            )
+            dse[_diff_solver_pcols_idx(i, k, pcols)] = (
+                dse[_diff_solver_pcols_idx(i, k, pcols)]
+                + dtk[_diff_solver_pcols_idx(i, k, pcols)]
+            )
+
+
 @inline
 def _ptr_ascii_to_str(n: int, ptr_p: cobj) -> str:
     ptr = Ptr[int](ptr_p)

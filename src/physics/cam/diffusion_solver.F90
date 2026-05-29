@@ -86,6 +86,9 @@
   logical :: use_native_diffusion_solver_setup_impl = .false.
   logical :: diffusion_solver_setup_impl_selected = .false.
   logical :: diffusion_solver_setup_proof_written = .false.
+  logical :: use_native_diffusion_solver_momentum_impl = .false.
+  logical :: diffusion_solver_momentum_impl_selected = .false.
+  logical :: diffusion_solver_momentum_logged = .false.
   logical :: my_any_logged = .false.
   logical :: diffuse_logged = .false.
 
@@ -138,6 +141,40 @@
        type(c_ptr), value :: t_p, rairi_p, p_ifc_p, p_mid_p, p_rdel_p, p_rdst_p
        type(c_ptr), value :: tint_p, rhoi_p, dpidz_sq_p, tmpi2_p, rrho_p, tmp1_p
      end subroutine diffusion_solver_setup_codon
+
+     subroutine diffusion_solver_momentum_prep_codon(pcols_c, pver_c, ncol_c, do_iss_c, ztodt_c, gravit_c, &
+          wsmin_c, ksrfmin_c, timeres_c, p_del_p, p_rdel_p, tmp1_p, taux_p, tauy_p, tauresx_p, tauresy_p, &
+          ksrftms_p, u_p, v_p, dinp_u_p, dinp_v_p, ws_p, tau_p, ksrfturb_p, ksrf_p, usum_in_p, &
+          vsum_in_p, usum_mid_p, vsum_mid_p, tau_damp_rate_p) bind(c, name="diffusion_solver_momentum_prep_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, do_iss_c
+       real(c_double), value :: ztodt_c, gravit_c, wsmin_c, ksrfmin_c, timeres_c
+       type(c_ptr), value :: p_del_p, p_rdel_p, tmp1_p, taux_p, tauy_p, tauresx_p, tauresy_p
+       type(c_ptr), value :: ksrftms_p, u_p, v_p, dinp_u_p, dinp_v_p, ws_p, tau_p, ksrfturb_p
+       type(c_ptr), value :: ksrf_p, usum_in_p, vsum_in_p, usum_mid_p, vsum_mid_p, tau_damp_rate_p
+     end subroutine diffusion_solver_momentum_prep_codon
+
+     subroutine diffusion_solver_momentum_post_codon(pcols_c, pver_c, ncol_c, do_iss_c, itaures_c, ztodt_c, &
+          gravit_c, p_del_p, u_p, v_p, taux_p, tauy_p, ksrftms_p, tauresx_p, tauresy_p, usum_in_p, &
+          vsum_in_p, usum_out_p, vsum_out_p, tauimpx_p, tauimpy_p, tautotx_p, tautoty_p, tautmsx_p, &
+          tautmsy_p) bind(c, name="diffusion_solver_momentum_post_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, do_iss_c, itaures_c
+       real(c_double), value :: ztodt_c, gravit_c
+       type(c_ptr), value :: p_del_p, u_p, v_p, taux_p, tauy_p, ksrftms_p, tauresx_p, tauresy_p
+       type(c_ptr), value :: usum_in_p, vsum_in_p, usum_out_p, vsum_out_p, tauimpx_p, tauimpy_p
+       type(c_ptr), value :: tautotx_p, tautoty_p, tautmsx_p, tautmsy_p
+     end subroutine diffusion_solver_momentum_post_codon
+
+     subroutine diffusion_solver_momentum_ke_codon(pcols_c, pver_c, ncol_c, ztodt_c, gravit_c, p_rdel_p, &
+          tmpi2_p, kvm_p, u_p, v_p, dinp_u_p, dinp_v_p, tautotx_p, tautoty_p, tmpi1_p, dtk_p, dse_p) &
+          bind(c, name="diffusion_solver_momentum_ke_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+       real(c_double), value :: ztodt_c, gravit_c
+       type(c_ptr), value :: p_rdel_p, tmpi2_p, kvm_p, u_p, v_p, dinp_u_p, dinp_v_p
+       type(c_ptr), value :: tautotx_p, tautoty_p, tmpi1_p, dtk_p, dse_p
+     end subroutine diffusion_solver_momentum_ke_codon
   end interface
 
   contains
@@ -181,6 +218,44 @@
     end if
 
   end subroutine diffusion_solver_setup_select_impl
+
+  ! =============================================================================== !
+
+  subroutine diffusion_solver_momentum_select_impl()
+
+    use spmd_utils, only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (diffusion_solver_momentum_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('DIFFUSION_SOLVER_MOMENTUM_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_diffusion_solver_momentum_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_diffusion_solver_momentum_impl = .false.
+    end if
+
+    diffusion_solver_momentum_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_diffusion_solver_momentum_impl) then
+          write(iulog,*) 'diffusion_solver_momentum implementation = native'
+       else
+          write(iulog,*) 'diffusion_solver_momentum implementation = codon'
+       end if
+    end if
+
+  end subroutine diffusion_solver_momentum_select_impl
 
   ! =============================================================================== !
 
@@ -244,6 +319,84 @@
          c_loc(tmpi2(1,1)), c_loc(rrho(1)), c_loc(tmp1(1)))
 
   end subroutine compute_vdiff_codon
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_momentum_prep_codon(pcols, pver, ncol, do_iss_local, ztodt, gravit, wsmin, &
+       ksrfmin, timeres, p_del, p_rdel, tmp1, taux, tauy, tauresx, tauresy, ksrftms, u, v, dinp_u, &
+       dinp_v, ws, tau, ksrfturb, ksrf, usum_in, vsum_in, usum_mid, vsum_mid, tau_damp_rate)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol
+    logical, intent(in) :: do_iss_local
+    real(r8), intent(in) :: ztodt, gravit, wsmin, ksrfmin, timeres
+    real(r8), target, intent(in) :: p_del(ncol,pver), p_rdel(ncol,pver)
+    real(r8), target, intent(in) :: tmp1(pcols), taux(pcols), tauy(pcols), tauresx(pcols), tauresy(pcols)
+    real(r8), target, intent(in) :: ksrftms(pcols)
+    real(r8), target, intent(inout) :: u(pcols,pver), v(pcols,pver)
+    real(r8), target, intent(inout) :: dinp_u(pcols,pver+1), dinp_v(pcols,pver+1)
+    real(r8), target, intent(inout) :: ws(pcols), tau(pcols), ksrfturb(pcols), ksrf(pcols)
+    real(r8), target, intent(inout) :: usum_in(pcols), vsum_in(pcols), usum_mid(pcols), vsum_mid(pcols)
+    real(r8), target, intent(inout) :: tau_damp_rate(ncol,pver)
+
+    call diffusion_solver_momentum_prep_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ncol, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_iss_local), real(ztodt, c_double), &
+         real(gravit, c_double), real(wsmin, c_double), real(ksrfmin, c_double), real(timeres, c_double), &
+         c_loc(p_del(1,1)), c_loc(p_rdel(1,1)), c_loc(tmp1(1)), c_loc(taux(1)), c_loc(tauy(1)), &
+         c_loc(tauresx(1)), c_loc(tauresy(1)), c_loc(ksrftms(1)), c_loc(u(1,1)), c_loc(v(1,1)), &
+         c_loc(dinp_u(1,1)), c_loc(dinp_v(1,1)), c_loc(ws(1)), c_loc(tau(1)), c_loc(ksrfturb(1)), &
+         c_loc(ksrf(1)), c_loc(usum_in(1)), c_loc(vsum_in(1)), c_loc(usum_mid(1)), c_loc(vsum_mid(1)), &
+         c_loc(tau_damp_rate(1,1)))
+
+  end subroutine compute_vdiff_momentum_prep_codon
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_momentum_post_codon(pcols, pver, ncol, do_iss_local, itaures, ztodt, gravit, &
+       p_del, u, v, taux, tauy, ksrftms, tauresx, tauresy, usum_in, vsum_in, usum_out, vsum_out, &
+       tauimpx, tauimpy, tautotx, tautoty, tautmsx, tautmsy)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol, itaures
+    logical, intent(in) :: do_iss_local
+    real(r8), intent(in) :: ztodt, gravit
+    real(r8), target, intent(in) :: p_del(ncol,pver), taux(pcols), tauy(pcols), ksrftms(pcols)
+    real(r8), target, intent(in) :: u(pcols,pver), v(pcols,pver), usum_in(pcols), vsum_in(pcols)
+    real(r8), target, intent(inout) :: tauresx(pcols), tauresy(pcols), usum_out(pcols), vsum_out(pcols)
+    real(r8), target, intent(inout) :: tauimpx(pcols), tauimpy(pcols), tautotx(pcols), tautoty(pcols)
+    real(r8), target, intent(inout) :: tautmsx(pcols), tautmsy(pcols)
+
+    call diffusion_solver_momentum_post_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ncol, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_iss_local), int(itaures, c_int64_t), &
+         real(ztodt, c_double), real(gravit, c_double), c_loc(p_del(1,1)), c_loc(u(1,1)), c_loc(v(1,1)), &
+         c_loc(taux(1)), c_loc(tauy(1)), c_loc(ksrftms(1)), c_loc(tauresx(1)), c_loc(tauresy(1)), &
+         c_loc(usum_in(1)), c_loc(vsum_in(1)), c_loc(usum_out(1)), c_loc(vsum_out(1)), c_loc(tauimpx(1)), &
+         c_loc(tauimpy(1)), c_loc(tautotx(1)), c_loc(tautoty(1)), c_loc(tautmsx(1)), c_loc(tautmsy(1)))
+
+  end subroutine compute_vdiff_momentum_post_codon
+
+  ! =============================================================================== !
+
+  subroutine compute_vdiff_momentum_ke_codon(pcols, pver, ncol, ztodt, gravit, p_rdel, tmpi2, kvm, u, v, &
+       dinp_u, dinp_v, tautotx, tautoty, tmpi1, dtk, dse)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol
+    real(r8), intent(in) :: ztodt, gravit
+    real(r8), target, intent(in) :: p_rdel(ncol,pver), tmpi2(pcols,pver+1), kvm(pcols,pver+1)
+    real(r8), target, intent(in) :: u(pcols,pver), v(pcols,pver), dinp_u(pcols,pver+1), dinp_v(pcols,pver+1)
+    real(r8), target, intent(in) :: tautotx(pcols), tautoty(pcols)
+    real(r8), target, intent(inout) :: tmpi1(pcols,pver+1), dtk(pcols,pver), dse(pcols,pver)
+
+    call diffusion_solver_momentum_ke_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+         real(ztodt, c_double), real(gravit, c_double), c_loc(p_rdel(1,1)), c_loc(tmpi2(1,1)), c_loc(kvm(1,1)), &
+         c_loc(u(1,1)), c_loc(v(1,1)), c_loc(dinp_u(1,1)), c_loc(dinp_v(1,1)), c_loc(tautotx(1)), &
+         c_loc(tautoty(1)), c_loc(tmpi1(1,1)), c_loc(dtk(1,1)), c_loc(dse(1,1)))
+
+  end subroutine compute_vdiff_momentum_ke_codon
 
   ! =============================================================================== !
   !                                                                                 !
@@ -699,6 +852,10 @@
 
     if( diffuse(fieldlist,'u') .or. diffuse(fieldlist,'v') ) then
 
+       call diffusion_solver_momentum_select_impl()
+
+       if (use_native_diffusion_solver_momentum_impl) then
+
         ! Compute the vertical upward differences of the input u,v for KE dissipation
         ! at each interface.
         ! Velocity = 0 at surface, so difference at the bottom interface is -u,v(pver)
@@ -946,6 +1103,31 @@
              dse(i,k) = dse(i,k) + dtk(i,k)
           end do
        end do
+
+       else
+
+          call diffusion_solver_log_direct(diffusion_solver_momentum_logged, &
+               'diffusion_solver_momentum entered (momentum surface-stress bookkeeping and KE dissipation = codon; TriDiagDecomp left_div native)')
+
+          call compute_vdiff_momentum_prep_codon(pcols, pver, ncol, do_iss, ztodt, gravit, wsmin, ksrfmin, &
+               timeres, p%del, p%rdel, tmp1, taux, tauy, tauresx, tauresy, ksrftms, u, v, dinp_u, dinp_v, &
+               ws, tau, ksrfturb, ksrf, usum_in, vsum_in, usum_mid, vsum_mid, tau_damp_rate)
+
+          decomp = fin_vol_lu_decomp(ztodt, p, &
+               coef_q=tau_damp_rate, coef_q_diff=kvm(:ncol,:)*dpidz_sq)
+
+          call decomp%left_div(u(:ncol,:))
+          call decomp%left_div(v(:ncol,:))
+          call decomp%finalize()
+
+          call compute_vdiff_momentum_post_codon(pcols, pver, ncol, do_iss, itaures, ztodt, gravit, p%del, &
+               u, v, taux, tauy, ksrftms, tauresx, tauresy, usum_in, vsum_in, usum_out, vsum_out, tauimpx, &
+               tauimpy, tautotx, tautoty, tautmsx, tautmsy)
+
+          call compute_vdiff_momentum_ke_codon(pcols, pver, ncol, ztodt, gravit, p%rdel, tmpi2, kvm, u, v, &
+               dinp_u, dinp_v, tautotx, tautoty, tmpi1, dtk, dse)
+
+       end if
 
     end if ! End of diffuse horizontal momentum, diffuse(fieldlist,'u') routine
 
