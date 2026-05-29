@@ -3174,6 +3174,370 @@ def zm_convr_finish_shell_codon(
 
 
 @export
+def zm_convr_core_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    limcnv: int,
+    zm_org: int,
+    no_deep_pbl_flag: int,
+    qsat_idx: int,
+    lchnk: int,
+    capelmt: float,
+    delt: float,
+    rgrav: float,
+    grav: float,
+    gravit: float,
+    cpres: float,
+    rl: float,
+    rgas: float,
+    tiedke_add: float,
+    eps1: float,
+    epsilo: float,
+    c0_ocn: float,
+    c0_lnd: float,
+    tfreez: float,
+    latice: float,
+    cpwv: float,
+    cpliq: float,
+    rh2o: float,
+    tau: float,
+    status_p: cobj,
+    qh_p: cobj,
+    t_p: cobj,
+    pap_p: cobj,
+    paph_p: cobj,
+    dpp_p: cobj,
+    zm_p: cobj,
+    geos_p: cobj,
+    zi_p: cobj,
+    pblh_p: cobj,
+    tpert_p: cobj,
+    landfrac_p: cobj,
+    org_p: cobj,
+    orgt_p: cobj,
+    org2d_p: cobj,
+    qtnd_p: cobj,
+    heat_p: cobj,
+    mcon_p: cobj,
+    rliq_p: cobj,
+    prec_p: cobj,
+    dlf_p: cobj,
+    pflx_p: cobj,
+    cme_p: cobj,
+    cape_p: cobj,
+    zdu_p: cobj,
+    rprd_p: cobj,
+    mu_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    md_p: cobj,
+    ed_p: cobj,
+    dp_p: cobj,
+    dsubcld_p: cobj,
+    jctop_p: cobj,
+    jcbot_p: cobj,
+    ql_p: cobj,
+    tu_p: cobj,
+    td_p: cobj,
+    cu_p: cobj,
+    evp_p: cobj,
+    rppe_p: cobj,
+    qsthat_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    hsthat_p: cobj,
+    dz_p: cobj,
+    eps0_p: cobj,
+    wteu_p: cobj,
+    wted_p: cobj,
+    wtdu_p: cobj,
+    wtmu_p: cobj,
+    wtmd_p: cobj,
+    wtevp_p: cobj,
+    wtcu_p: cobj,
+    wtrpd_p: cobj,
+    c0mask_p: cobj,
+    qd_p: cobj,
+    qu_p: cobj,
+    qs_p: cobj,
+    qds_p: cobj,
+    lel_p: cobj,
+    jlcl_p: cobj,
+    jd_p: cobj,
+    zs_p: cobj,
+    dlg_p: cobj,
+    pflxg_p: cobj,
+    cug_p: cobj,
+    evpg_p: cobj,
+    orgavg_p: cobj,
+    dptot_p: cobj,
+    mumax_p: cobj,
+    jt_p: cobj,
+    maxg_p: cobj,
+    ideep_p: cobj,
+    lengath_p: cobj,
+    pblt_p: cobj,
+    q_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    s_p: cobj,
+    tp_p: cobj,
+    zf_p: cobj,
+    pf_p: cobj,
+    qstp_p: cobj,
+    tl_p: cobj,
+    lcl_p: cobj,
+    lon_p: cobj,
+    maxi_p: cobj,
+    index_p: cobj,
+    qg_p: cobj,
+    tg_p: cobj,
+    pg_p: cobj,
+    zg_p: cobj,
+    sg_p: cobj,
+    tpg_p: cobj,
+    zfg_p: cobj,
+    qstpg_p: cobj,
+    ug_p: cobj,
+    vg_p: cobj,
+    cmeg_p: cobj,
+    rprdg_p: cobj,
+    capeg_p: cobj,
+    tlg_p: cobj,
+    landfracg_p: cobj,
+    lclg_p: cobj,
+    lelg_p: cobj,
+    dqdt_p: cobj,
+    dsdt_p: cobj,
+    sd_p: cobj,
+    mc_p: cobj,
+    qhat_p: cobj,
+    su_p: cobj,
+    shat_p: cobj,
+    qlg_p: cobj,
+    dudt_p: cobj,
+    dvdt_p: cobj,
+    mb_p: cobj,
+    j0_p: cobj,
+    tug_p: cobj,
+    tdg_p: cobj,
+    ideep64_p: cobj,
+    jt64_p: cobj,
+    maxg64_p: cobj,
+    gamma_p: cobj,
+    iprm_p: cobj,
+    hu_p: cobj,
+    hd_p: cobj,
+    eps_p: cobj,
+    f_p: cobj,
+    k1_p: cobj,
+    i2_p: cobj,
+    ihat_p: cobj,
+    i3_p: cobj,
+    idag_p: cobj,
+    i4_p: cobj,
+    gamhat_p: cobj,
+    hmin_p: cobj,
+    expdif_p: cobj,
+    expnum_p: cobj,
+    ftemp_p: cobj,
+    epsm_p: cobj,
+    est_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+    alfa_p: cobj,
+    lcl_done_p: cobj,
+    lcl_active_p: cobj,
+    lcl_found_p: cobj,
+    lcl_kount_p: cobj,
+    lcl_tu_p: cobj,
+    lcl_qstu_p: cobj,
+    wtdn_flag_p: cobj,
+    capeten_p: cobj,
+    tv_p: cobj,
+    tpv_p: cobj,
+    buoy_p: cobj,
+    pl_p: cobj,
+    hmax_p: cobj,
+    hmn_buoy_p: cobj,
+    knt_p: cobj,
+    lelten_p: cobj,
+    tmix_p: cobj,
+    qtmix_p: cobj,
+    qsmix_p: cobj,
+    smix_p: cobj,
+    xsh2o_p: cobj,
+    ds_xsh2o_p: cobj,
+    ds_freeze_p: cobj,
+    mp_p: cobj,
+    qtp_p: cobj,
+    sp_p: cobj,
+    sp0_p: cobj,
+    qtp0_p: cobj,
+    mp0_p: cobj,
+    dtpdt_p: cobj,
+    dqsdtp_p: cobj,
+    dtmdt_p: cobj,
+    dqmdt_p: cobj,
+    dboydt_p: cobj,
+    thetavp_p: cobj,
+    thetavm_p: cobj,
+    dtbdt_p: cobj,
+    dqbdt_p: cobj,
+    dtldt_p: cobj,
+    dadt_p: cobj,
+):
+    status = Ptr[int](status_p)
+    lengath = Ptr[i32](lengath_p)
+    org = Ptr[float](org_p)
+    orgt = Ptr[float](orgt_p)
+    org2d = Ptr[float](org2d_p)
+    orgavg = Ptr[float](orgavg_p)
+    dptot = Ptr[float](dptot_p)
+    wtdn_flag = Ptr[int](wtdn_flag_p)
+
+    status[0] = 1
+    if zm_org != 0:
+        k = 0
+        while k < pver:
+            i = 0
+            while i < pcols:
+                orgt[i + k * pcols] = 0.0
+                i += 1
+            k += 1
+
+    zm_convr_init_stage_dispatch_codon(
+        ncol, pcols, pver, pverp, qtnd_p, heat_p, mcon_p, rliq_p, prec_p,
+        dqdt_p, dsdt_p, dudt_p, dvdt_p, pflx_p, pflxg_p, cme_p, rprd_p,
+        zdu_p, ql_p, qlg_p, dlf_p, dlg_p, tug_p, tdg_p, tu_p, td_p,
+        cu_p, evp_p, wtcu_p, t_p, pblt_p, dsubcld_p, jctop_p, jcbot_p,
+    )
+
+    if zm_org != 0:
+        dpp = Ptr[float](dpp_p)
+        i = 0
+        while i < pcols:
+            orgavg[i] = 0.0
+            dptot[i] = 0.0
+            i += 1
+        k = 0
+        while k < pver:
+            i = 0
+            while i < ncol:
+                idx = i + k * pcols
+                if org[idx] > 0.0:
+                    orgavg[i] = orgavg[i] + dpp[idx] * org[idx]
+                    dptot[i] = dptot[i] + dpp[idx]
+                i += 1
+            k += 1
+        i = 0
+        while i < ncol:
+            if dptot[i] > 0.0:
+                orgavg[i] = orgavg[i] / dptot[i]
+            i += 1
+        k = 0
+        while k < pver:
+            i = 0
+            while i < ncol:
+                org2d[i + k * pcols] = orgavg[i]
+                i += 1
+            k += 1
+
+    zm_convr_pressure_state_stage_dispatch_codon(
+        ncol, pcols, pver, pverp, msg, rgrav, grav, cpres, geos_p, zi_p,
+        paph_p, pap_p, zm_p, pblh_p, t_p, qh_p, zs_p, pf_p, zf_p, p_p,
+        z_p, q_p, s_p, tp_p, shat_p, qhat_p, pblt_p,
+    )
+    zm_convr_control_stage_dispatch_codon(
+        1, ncol, pcols, pver, capelmt, cape_p, lcl_p, lel_p, maxi_p,
+        jt_p, capeg_p, lclg_p, lelg_p, maxg_p, tlg_p, dsubcld_p,
+        lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p,
+    )
+    zm_buoyan_dilute_codon(
+        lchnk, ncol, msg, pcols, pver, pverp, zm_org, tiedke_add, rl,
+        rgas, grav, cpres, rgas, cpliq, tfreez, latice, cpwv, cpres,
+        eps1, rh2o, epsilo, 1.0 - epsilo, qsat_idx, q_p, t_p, p_p,
+        z_p, pf_p, pblt_p, tpert_p, tp_p, qstp_p, tl_p, cape_p, lcl_p,
+        lel_p, lon_p, maxi_p, org2d_p, landfrac_p, capeten_p, tv_p,
+        tpv_p, buoy_p, pl_p, hmax_p, hmn_buoy_p, knt_p, lelten_p,
+        tmix_p, qtmix_p, qsmix_p, smix_p, xsh2o_p, ds_xsh2o_p,
+        ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p, status_p,
+    )
+    if status[0] == 0:
+        return
+
+    zm_convr_control_stage_dispatch_codon(
+        2, ncol, pcols, pver, capelmt, cape_p, lcl_p, lel_p, maxi_p,
+        jt_p, capeg_p, lclg_p, lelg_p, maxg_p, tlg_p, dsubcld_p,
+        lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p,
+    )
+    count = int(lengath[0])
+    if count == 0:
+        return
+
+    zm_convr_gather_interface_stage_dispatch_codon(
+        count, pcols, pver, pverp, msg, dpp_p, q_p, t_p, p_p, z_p, s_p,
+        tp_p, zf_p, qstp_p, ideep64_p, dp_p, qg_p, tg_p, pg_p, zg_p,
+        sg_p, tpg_p, zfg_p, qstpg_p, ug_p, vg_p, shat_p, qhat_p,
+    )
+    zm_convr_control_stage_dispatch_codon(
+        3, ncol, pcols, pver, capelmt, cape_p, lcl_p, lel_p, maxi_p,
+        jt_p, capeg_p, lclg_p, lelg_p, maxg_p, tlg_p, dsubcld_p,
+        lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p,
+    )
+    zm_convr_deep_state_stage_dispatch_codon(
+        count, pcols, pver, msg, ideep64_p, maxg64_p, cape_p, tl_p,
+        landfrac_p, dp_p, capeg_p, tlg_p, landfracg_p, dsubcld_p,
+    )
+    zm_cldprp_direct_codon(
+        count, pcols, pver, pverp, msg, limcnv, qsat_idx, c0_ocn, c0_lnd,
+        tiedke_add, eps1, epsilo, 1.0 - epsilo, rl, rgas, cpres, grav,
+        qg_p, tg_p, pg_p, zg_p, sg_p, zfg_p, landfracg_p, maxg_p, lelg_p,
+        jt_p, jlcl_p, maxg_p, j0_p, jd_p, shat_p, rprdg_p, du_p, ed_p,
+        eu_p, hmn_p, hsat_p, mc_p, md_p, mu_p, pflxg_p, qd_p, qlg_p,
+        qs_p, qu_p, sd_p, su_p, tug_p, tdg_p, dz_p, rppe_p, eps0_p,
+        qsthat_p, hsthat_p, qds_p, wtmu_p, wtdu_p, wteu_p, wted_p,
+        wtmd_p, wtevp_p, c0mask_p, gamma_p, iprm_p, hu_p, hd_p, eps_p,
+        f_p, k1_p, i2_p, ihat_p, i3_p, idag_p, i4_p, gamhat_p, cug_p,
+        evpg_p, cmeg_p, hmin_p, expdif_p, expnum_p, ftemp_p, epsm_p,
+        est_p, totpcp_p, totevp_p, alfa_p, lcl_done_p, lcl_active_p,
+        lcl_found_p, lcl_kount_p, lcl_tu_p, lcl_qstu_p, wtdn_flag_p,
+    )
+    zm_convr_cloud_copy_stage_dispatch_codon(pcols, pver, cug_p, rprdg_p, wtcu_p, wtrpd_p)
+    zm_convr_unit_stage_dispatch_codon(
+        count, pcols, pver, msg, zfg_p, dp_p, du_p, eu_p, ed_p, cug_p,
+        cmeg_p, rprdg_p, evpg_p, rppe_p,
+    )
+    zm_closure_codon(
+        pcols, pver, 1, count, msg, rgas, grav, cpres, rl, eps1, tau,
+        capelmt, qg_p, tg_p, pg_p, zg_p, sg_p, tpg_p, qs_p, qu_p,
+        su_p, mc_p, du_p, mu_p, md_p, qd_p, sd_p, qhat_p, shat_p,
+        dp_p, qstpg_p, zfg_p, qlg_p, dsubcld_p, mb_p, capeg_p, tlg_p,
+        lclg_p, lelg_p, jt_p, maxg_p, dtpdt_p, dqsdtp_p, dtmdt_p,
+        dqmdt_p, dboydt_p, thetavp_p, thetavm_p, dtbdt_p, dqbdt_p,
+        dtldt_p, dadt_p,
+    )
+    zm_convr_control_stage_dispatch_codon(
+        4, ncol, pcols, pver, capelmt, cape_p, lcl_p, lel_p, maxi_p,
+        jt_p, capeg_p, lclg_p, lelg_p, maxg_p, tlg_p, dsubcld_p,
+        lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p,
+    )
+    zm_convr_finish_stage_dispatch_codon(
+        ncol, count, pcols, pver, pverp, msg, no_deep_pbl_flag, delt,
+        cpres, rl, rgrav, grav, gravit, ideep64_p, jt64_p, maxg64_p,
+        zm_p, pblh_p, mb_p, mumax_p, qg_p, qu_p, su_p, qhat_p, shat_p,
+        dp_p, mu_p, md_p, sd_p, qd_p, qlg_p, dsubcld_p, dlg_p, evpg_p,
+        cug_p, dqdt_p, dsdt_p, mc_p, du_p, eu_p, ed_p, cmeg_p, rprdg_p,
+        pflxg_p, rppe_p, qh_p, dpp_p, q_p, tug_p, tdg_p, qtnd_p, cme_p,
+        rprd_p, zdu_p, mcon_p, heat_p, dlf_p, cu_p, evp_p, tu_p, td_p,
+        pflx_p, ql_p, jctop_p, jcbot_p, prec_p, rliq_p,
+    )
+
+
+@export
 def zm_conv_workspace_init_shell_codon(
     ncol: int,
     pcols: int,

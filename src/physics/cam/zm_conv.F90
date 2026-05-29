@@ -92,6 +92,8 @@ module zm_conv
    logical :: zm_q1q2_logged = .false.
    logical :: zm_convr_tail_logged = .false.
    logical :: zm_convr_finish_logged = .false.
+   logical :: zm_convr_core_logged = .false.
+   logical :: zm_convr_core_return_logged = .false.
    logical :: use_native_zm_cldprp = .false.
    logical :: zm_cldprp_selected = .false.
    logical :: zm_cldprp_logged = .false.
@@ -847,7 +849,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !
 !-----------------------------------------------------------------------
    use phys_control, only: cam_physpkg_is
-   use iso_c_binding, only: c_double, c_int64_t, c_loc
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+   use wv_sat_methods, only: wv_sat_get_default_idx
 
 !
 ! ************************ index of variables **********************
@@ -958,7 +961,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target, intent(in) :: geos(pcols)
    real(r8), target, intent(in) :: zi(pcols,pver+1)
    real(r8), target, intent(in) :: pblh(pcols)
-   real(r8), intent(in) :: tpert(pcols)
+   real(r8), target, intent(in) :: tpert(pcols)
    real(r8), target, intent(in) :: landfrac(pcols) ! RBN Landfrac
 
 ! output arguments
@@ -1019,8 +1022,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target :: pflxg(pcols,pverp) ! gather precip flux at each level
    real(r8), target :: cug(pcols,pver)    ! gathered condensation rate
    real(r8), target :: evpg(pcols,pver)   ! gathered evap rate of rain in downdraft
-   real(r8) orgavg(pcols)
-   real(r8) dptot(pcols)
+   real(r8), target :: orgavg(pcols)
+   real(r8), target :: dptot(pcols)
    real(r8), target :: mumax(pcols)
    integer, target :: jt(pcols)               ! wg top  level index of deep cumulus convection.
    integer, target :: maxg(pcols)             ! wg gathered values of maxi.
@@ -1053,7 +1056,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
    integer, target :: lcl(pcols)       ! w  base level index of deep cumulus convection.
  !  integer lel(pcols)                  ! w  index of highest theoretical convective plume.
 
-   integer lon(pcols)                  ! w  index of onset level for deep convection.
+   integer, target :: lon(pcols)       ! w  index of onset level for deep convection.
    integer, target :: maxi(pcols)      ! w  index of level with largest moist static energy.
    integer, target :: index(pcols)
    real(r8) precip
@@ -1092,12 +1095,12 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !Water tracers:
 !----------------------------
    integer, target, intent(out) :: lel(pcols) ! w  index of highest theoretical convective plume.
-   integer,intent(out) :: jlcl(pcols)         ! updraft LCL
-   integer, intent(out) :: jd(pcols)          !wg downdraft initiation level index
+   integer, target, intent(out) :: jlcl(pcols)         ! updraft LCL
+   integer, target, intent(out) :: jd(pcols)          !wg downdraft initiation level index
    real(r8), target, intent(out) :: qd(pcols,pver)    ! scattered grid slice of mixing ratio in downdraft.
    real(r8), target, intent(out) :: qu(pcols,pver)    ! scattered grid slice of mixing ratio in updraft.
-   real(r8), intent(out) :: qs(pcols,pver)    ! wg grid slice of saturation mixing ratio.
-   real(r8), intent(out) :: qds(pcols,pver)   ! wg downdraft saturation mixing ratio.
+   real(r8), target, intent(out) :: qs(pcols,pver)    ! wg grid slice of saturation mixing ratio.
+   real(r8), target, intent(out) :: qds(pcols,pver)   ! wg downdraft saturation mixing ratio.
 !----------------------------
    real(r8), target :: su(pcols,pver)             ! wg grid slice of dry static energy in updraft.
 !   real(r8) qs(pcols,pver)             ! wg grid slice of saturation mixing ratio.
@@ -1115,7 +1118,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target :: mb(pcols)                  ! wg cloud base mass flux.
 
 !   integer jlcl(pcols)
-   integer j0(pcols)                 ! wg detrainment initiation level index.
+   integer, target :: j0(pcols)       ! wg detrainment initiation level index.
 !   integer jd(pcols)                 ! wg downdraft initiation level index.
 
    real(r8) delt                     ! length of model time-step in seconds.
@@ -1132,10 +1135,127 @@ subroutine zm_convr(lchnk   ,ncol    , &
    integer k
    integer msg                      !  ic number of missing moisture levels at the top of model.
    integer(c_int64_t) :: no_deep_pbl_flag
+   integer(c_int64_t), target :: zm_convr_status_c
+   type(c_ptr) :: org_p, orgt_p, org2d_p
    real(r8) qdifr
    real(r8) sdifr
+   real(r8), target :: gamma(pcols,pver)
+   real(r8), target :: iprm(pcols,pver)
+   real(r8), target :: hu(pcols,pver)
+   real(r8), target :: hd(pcols,pver)
+   real(r8), target :: eps(pcols,pver)
+   real(r8), target :: f(pcols,pver)
+   real(r8), target :: k1(pcols,pver)
+   real(r8), target :: i2(pcols,pver)
+   real(r8), target :: ihat(pcols,pver)
+   real(r8), target :: i3(pcols,pver)
+   real(r8), target :: idag(pcols,pver)
+   real(r8), target :: i4(pcols,pver)
+   real(r8), target :: gamhat(pcols,pver)
+   real(r8), target :: hmin(pcols)
+   real(r8), target :: expdif(pcols)
+   real(r8), target :: expnum(pcols)
+   real(r8), target :: ftemp(pcols)
+   real(r8), target :: epsm(pcols)
+   real(r8), target :: est(pcols)
+   real(r8), target :: totpcp(pcols)
+   real(r8), target :: totevp(pcols)
+   real(r8), target :: alfa(pcols)
+   integer, target :: lcl_done(pcols)
+   integer, target :: lcl_active(pcols)
+   integer, target :: lcl_found(pcols)
+   integer, target :: lcl_kount(1)
+   real(r8), target :: lcl_tu(pcols)
+   real(r8), target :: lcl_qstu(pcols)
+   integer(c_int64_t), target :: wtdn_flag(pcols,pver)
+   real(r8), target :: capeten(pcols,5)
+   real(r8), target :: tv(pcols,pver)
+   real(r8), target :: tpv(pcols,pver)
+   real(r8), target :: buoy(pcols,pver)
+   real(r8), target :: pl(pcols)
+   real(r8), target :: hmax(pcols)
+   real(r8), target :: hmn_buoy(pcols)
+   integer, target :: knt(pcols)
+   integer, target :: lelten(pcols,5)
+   real(r8), target :: tmix(pcols,pver)
+   real(r8), target :: qtmix(pcols,pver)
+   real(r8), target :: qsmix(pcols,pver)
+   real(r8), target :: smix(pcols,pver)
+   real(r8), target :: xsh2o(pcols,pver)
+   real(r8), target :: ds_xsh2o(pcols,pver)
+   real(r8), target :: ds_freeze(pcols,pver)
+   real(r8), target :: mp(pcols)
+   real(r8), target :: qtp(pcols)
+   real(r8), target :: sp(pcols)
+   real(r8), target :: sp0(pcols)
+   real(r8), target :: qtp0(pcols)
+   real(r8), target :: mp0(pcols)
+   real(r8), target :: dtpdt_core(pcols,pver)
+   real(r8), target :: dqsdtp_core(pcols,pver)
+   real(r8), target :: dtmdt_core(pcols,pver)
+   real(r8), target :: dqmdt_core(pcols,pver)
+   real(r8), target :: dboydt_core(pcols,pver)
+   real(r8), target :: thetavp_core(pcols,pver)
+   real(r8), target :: thetavm_core(pcols,pver)
+   real(r8), target :: dtbdt_core(pcols)
+   real(r8), target :: dqbdt_core(pcols)
+   real(r8), target :: dtldt_core(pcols)
+   real(r8), target :: dadt_core(pcols)
 
    interface
+      subroutine zm_convr_core_codon(ncol_c, pcols_c, pver_c, pverp_c, msg_c, limcnv_c, zm_org_c, &
+           no_deep_pbl_c, qsat_idx_c, lchnk_c, capelmt_c, delt_c, rgrav_c, grav_c, gravit_c, cpres_c, &
+           rl_c, rgas_c, tiedke_add_c, eps1_c, epsilo_c, c0_ocn_c, c0_lnd_c, tfreez_c, latice_c, &
+           cpwv_c, cpliq_c, rh2o_c, tau_c, status_p, qh_p, t_p, pap_p, paph_p, dpp_p, zm_p, geos_p, zi_p, &
+           pblh_p, tpert_p, landfrac_p, org_p, orgt_p, org2d_p, qtnd_p, heat_p, mcon_p, rliq_p, &
+           prec_p, dlf_p, pflx_p, cme_p, cape_p, zdu_p, rprd_p, mu_p, eu_p, du_p, md_p, ed_p, dp_p, &
+           dsubcld_p, jctop_p, jcbot_p, ql_p, tu_p, td_p, cu_p, evp_p, rppe_p, qsthat_p, hmn_p, &
+           hsat_p, hsthat_p, dz_p, eps0_p, wteu_p, wted_p, wtdu_p, wtmu_p, wtmd_p, wtevp_p, wtcu_p, wtrpd_p, &
+           c0mask_p, qd_p, qu_p, qs_p, qds_p, lel_p, jlcl_p, jd_p, zs_p, dlg_p, pflxg_p, cug_p, &
+           evpg_p, orgavg_p, dptot_p, mumax_p, jt_p, maxg_p, ideep_p, lengath_p, pblt_p, q_p, p_p, &
+           z_p, s_p, tp_p, zf_p, pf_p, qstp_p, tl_p, lcl_p, lon_p, maxi_p, index_p, qg_p, tg_p, &
+           pg_p, zg_p, sg_p, tpg_p, zfg_p, qstpg_p, ug_p, vg_p, cmeg_p, rprdg_p, capeg_p, tlg_p, &
+           landfracg_p, lclg_p, lelg_p, dqdt_p, dsdt_p, sd_p, mc_p, qhat_p, su_p, shat_p, qlg_p, &
+           dudt_p, dvdt_p, mb_p, j0_p, tug_p, tdg_p, ideep64_p, jt64_p, maxg64_p, gamma_p, iprm_p, &
+           hu_p, hd_p, eps_p, f_p, k1_p, i2_p, ihat_p, i3_p, idag_p, i4_p, gamhat_p, hmin_p, &
+           expdif_p, expnum_p, ftemp_p, epsm_p, est_p, totpcp_p, totevp_p, alfa_p, lcl_done_p, &
+           lcl_active_p, lcl_found_p, lcl_kount_p, lcl_tu_p, lcl_qstu_p, wtdn_flag_p, capeten_p, &
+           tv_p, tpv_p, buoy_p, pl_p, hmax_p, hmn_buoy_p, knt_p, lelten_p, tmix_p, qtmix_p, qsmix_p, &
+           smix_p, xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p, &
+           dtpdt_p, dqsdtp_p, dtmdt_p, dqmdt_p, dboydt_p, thetavp_p, thetavm_p, dtbdt_p, dqbdt_p, &
+           dtldt_p, dadt_p) &
+           bind(c, name="zm_convr_core_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, msg_c, limcnv_c
+         integer(c_int64_t), value :: zm_org_c, no_deep_pbl_c, qsat_idx_c, lchnk_c
+         real(c_double), value :: capelmt_c, delt_c, rgrav_c, grav_c, gravit_c, cpres_c, rl_c
+         real(c_double), value :: rgas_c, tiedke_add_c, eps1_c, epsilo_c, c0_ocn_c, c0_lnd_c
+         real(c_double), value :: tfreez_c, latice_c, cpwv_c, cpliq_c, rh2o_c, tau_c
+         type(c_ptr), value :: status_p, qh_p, t_p, pap_p, paph_p, dpp_p, zm_p, geos_p, zi_p
+         type(c_ptr), value :: pblh_p, tpert_p, landfrac_p, org_p, orgt_p, org2d_p, qtnd_p, heat_p
+         type(c_ptr), value :: mcon_p, rliq_p, prec_p, dlf_p, pflx_p, cme_p, cape_p, zdu_p, rprd_p
+         type(c_ptr), value :: mu_p, eu_p, du_p, md_p, ed_p, dp_p, dsubcld_p, jctop_p, jcbot_p
+         type(c_ptr), value :: ql_p, tu_p, td_p, cu_p, evp_p, rppe_p, qsthat_p, hmn_p, hsat_p
+         type(c_ptr), value :: hsthat_p, dz_p, eps0_p, wteu_p, wted_p, wtdu_p, wtmu_p, wtmd_p
+         type(c_ptr), value :: wtevp_p, wtcu_p, wtrpd_p, c0mask_p, qd_p, qu_p, qs_p, qds_p, lel_p, jlcl_p
+         type(c_ptr), value :: jd_p, zs_p, dlg_p, pflxg_p, cug_p, evpg_p, orgavg_p, dptot_p
+         type(c_ptr), value :: mumax_p, jt_p, maxg_p, ideep_p, lengath_p, pblt_p, q_p, p_p, z_p
+         type(c_ptr), value :: s_p, tp_p, zf_p, pf_p, qstp_p, tl_p, lcl_p, lon_p, maxi_p, index_p
+         type(c_ptr), value :: qg_p, tg_p, pg_p, zg_p, sg_p, tpg_p, zfg_p, qstpg_p, ug_p, vg_p
+         type(c_ptr), value :: cmeg_p, rprdg_p, capeg_p, tlg_p, landfracg_p, lclg_p, lelg_p
+         type(c_ptr), value :: dqdt_p, dsdt_p, sd_p, mc_p, qhat_p, su_p, shat_p, qlg_p, dudt_p
+         type(c_ptr), value :: dvdt_p, mb_p, j0_p, tug_p, tdg_p, ideep64_p, jt64_p, maxg64_p
+         type(c_ptr), value :: gamma_p, iprm_p, hu_p, hd_p, eps_p, f_p, k1_p, i2_p, ihat_p
+         type(c_ptr), value :: i3_p, idag_p, i4_p, gamhat_p, hmin_p, expdif_p, expnum_p, ftemp_p
+         type(c_ptr), value :: epsm_p, est_p, totpcp_p, totevp_p, alfa_p, lcl_done_p, lcl_active_p
+         type(c_ptr), value :: lcl_found_p, lcl_kount_p, lcl_tu_p, lcl_qstu_p, wtdn_flag_p
+         type(c_ptr), value :: capeten_p, tv_p, tpv_p, buoy_p, pl_p, hmax_p, hmn_buoy_p, knt_p
+         type(c_ptr), value :: lelten_p, tmix_p, qtmix_p, qsmix_p, smix_p, xsh2o_p, ds_xsh2o_p
+         type(c_ptr), value :: ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p
+         type(c_ptr), value :: dtpdt_p, dqsdtp_p, dtmdt_p, dqmdt_p, dboydt_p, thetavp_p, thetavm_p
+         type(c_ptr), value :: dtbdt_p, dqbdt_p, dtldt_p, dadt_p
+      end subroutine zm_convr_core_codon
+
       subroutine zm_convr_init_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, qtnd_p, heat_p, mcon_p, rliq_p, &
            prec_p, dqdt_p, dsdt_p, dudt_p, dvdt_p, pflx_p, pflxg_p, cme_p, rprd_p, zdu_p, ql_p, qlg_p, &
            dlf_p, dlg_p, tug_p, tdg_p, tu_p, td_p, cu_p, evp_p, wtcu_p, t_p, pblt_p, dsubcld_p, &
@@ -1270,6 +1390,64 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !
    msg = limcnv - 1
    call zm_convr_shell_select_impl()
+
+   if ((.not. use_native_zm_convr_shell) .and. (.not. cam_physpkg_is('cam3'))) then
+      org_p = c_null_ptr
+      orgt_p = c_null_ptr
+      org2d_p = c_null_ptr
+      if (zm_org .and. associated(org)) org_p = c_loc(org(1,1))
+      if (zm_org .and. associated(orgt)) orgt_p = c_loc(orgt(1,1))
+      if (zm_org .and. associated(org2d)) org2d_p = c_loc(org2d(1,1))
+      no_deep_pbl_flag = merge(1_c_int64_t, 0_c_int64_t, no_deep_pbl)
+      zm_convr_status_c = 1_c_int64_t
+
+      call zm_conv_log_direct(zm_convr_core_logged, &
+           'zm_convr entered (parent direct core = codon; dilute ZM/cldprp/closure/q1q2 path)')
+      call zm_convr_core_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pverp, c_int64_t), int(msg, c_int64_t), int(limcnv, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, zm_org), no_deep_pbl_flag, &
+           int(wv_sat_get_default_idx(), c_int64_t), int(lchnk, c_int64_t), capelmt, delt, rgrav, grav, &
+           gravit, cpres, rl, rgas, tiedke_add, eps1, epsilo, c0_ocn, c0_lnd, tfreez, latice, cpwv, &
+           cpliq, rh2o, tau, c_loc(zm_convr_status_c), c_loc(qh), c_loc(t), c_loc(pap), c_loc(paph), &
+           c_loc(dpp), c_loc(zm), c_loc(geos), c_loc(zi), c_loc(pblh), c_loc(tpert), c_loc(landfrac), &
+           org_p, orgt_p, org2d_p, c_loc(qtnd), c_loc(heat), c_loc(mcon), c_loc(rliq), c_loc(prec), &
+           c_loc(dlf), c_loc(pflx), c_loc(cme), c_loc(cape), c_loc(zdu), c_loc(rprd), c_loc(mu), &
+           c_loc(eu), c_loc(du), c_loc(md), c_loc(ed), c_loc(dp), c_loc(dsubcld), c_loc(jctop), &
+           c_loc(jcbot), c_loc(ql), c_loc(tu), c_loc(td), c_loc(cu), c_loc(evp), c_loc(rppe), &
+           c_loc(qsthat), c_loc(hmn), c_loc(hsat), c_loc(hsthat), c_loc(dz), c_loc(eps0), c_loc(wteu), &
+           c_loc(wted), c_loc(wtdu), c_loc(wtmu), c_loc(wtmd), c_loc(wtevp), c_loc(wtcu), c_loc(wtrpd), c_loc(c0mask), &
+           c_loc(qd), c_loc(qu), c_loc(qs), c_loc(qds), c_loc(lel), c_loc(jlcl), c_loc(jd), c_loc(zs), &
+           c_loc(dlg), c_loc(pflxg), c_loc(cug), c_loc(evpg), c_loc(orgavg), c_loc(dptot), c_loc(mumax), &
+           c_loc(jt), c_loc(maxg), c_loc(ideep), c_loc(lengath), c_loc(pblt), c_loc(q), c_loc(p), &
+           c_loc(z), c_loc(s), c_loc(tp), c_loc(zf), c_loc(pf), c_loc(qstp), c_loc(tl), c_loc(lcl), &
+           c_loc(lon), c_loc(maxi), c_loc(index), c_loc(qg), c_loc(tg), c_loc(pg), c_loc(zg), c_loc(sg), &
+           c_loc(tpg), c_loc(zfg), c_loc(qstpg), c_loc(ug), c_loc(vg), c_loc(cmeg), c_loc(rprdg), &
+           c_loc(capeg), c_loc(tlg), c_loc(landfracg), c_loc(lclg), c_loc(lelg), c_loc(dqdt), &
+           c_loc(dsdt), c_loc(sd), c_loc(mc), c_loc(qhat), c_loc(su), c_loc(shat), c_loc(qlg), &
+           c_loc(dudt), c_loc(dvdt), c_loc(mb), c_loc(j0), c_loc(tug), c_loc(tdg), c_loc(ideep64), &
+           c_loc(jt64), c_loc(maxg64), c_loc(gamma), c_loc(iprm), c_loc(hu), c_loc(hd), c_loc(eps), &
+           c_loc(f), c_loc(k1), c_loc(i2), c_loc(ihat), c_loc(i3), c_loc(idag), c_loc(i4), c_loc(gamhat), &
+           c_loc(hmin), c_loc(expdif), c_loc(expnum), c_loc(ftemp), c_loc(epsm), c_loc(est), &
+           c_loc(totpcp), c_loc(totevp), c_loc(alfa), c_loc(lcl_done), c_loc(lcl_active), c_loc(lcl_found), &
+           c_loc(lcl_kount), c_loc(lcl_tu), c_loc(lcl_qstu), c_loc(wtdn_flag), c_loc(capeten), c_loc(tv), &
+           c_loc(tpv), c_loc(buoy), c_loc(pl), c_loc(hmax), c_loc(hmn_buoy), c_loc(knt), c_loc(lelten), &
+           c_loc(tmix), c_loc(qtmix), c_loc(qsmix), c_loc(smix), c_loc(xsh2o), c_loc(ds_xsh2o), &
+           c_loc(ds_freeze), c_loc(mp), c_loc(qtp), c_loc(sp), c_loc(sp0), c_loc(qtp0), c_loc(mp0), &
+           c_loc(dtpdt_core), c_loc(dqsdtp_core), c_loc(dtmdt_core), c_loc(dqmdt_core), &
+           c_loc(dboydt_core), c_loc(thetavp_core), c_loc(thetavm_core), c_loc(dtbdt_core), &
+           c_loc(dqbdt_core), c_loc(dtldt_core), c_loc(dadt_core))
+      if (zm_convr_status_c == 0_c_int64_t) then
+         call endrun('**** ZM_CONV IENTROPY: Tmix did not converge in Codon zm_convr core ****')
+      end if
+      do k = 1, pver
+         do i = 1, pcols
+            done(i,k) = wtdn_flag(i,k) /= 0_c_int64_t
+         end do
+      end do
+      call zm_conv_log_direct(zm_convr_core_return_logged, &
+           'zm_convr returned from parent direct core = codon')
+      return
+   end if
 !
 ! initialize necessary arrays.
 ! zero out variables not used in cam
