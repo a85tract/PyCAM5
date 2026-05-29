@@ -22,7 +22,7 @@
    use cldfrc2m,         only: astG_PDF_single, astG_PDF, astG_RHU_single, &
                                astG_RHU, aist_single, aist_vector,         &
                                rhmini_const, rhmaxi=>rhmaxi_const
-   use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+   use iso_c_binding,    only: c_double, c_int64_t, c_f_pointer, c_loc, c_null_ptr, c_ptr
 
    implicit none
    private
@@ -82,6 +82,7 @@
    real(r8), private, target :: premib                    ! Bottom height for mid-level liquid stratus fraction
 
    real(r8), parameter :: qsmall = 1.e-18_r8         ! Smallest mixing ratio considered in the macrophysics
+   integer, parameter :: mmacro_pcond_ptr_count = 189
    logical :: use_native_ini_macro_impl = .false.
    logical :: ini_macro_impl_selected = .false.
    logical :: ini_macro_entered_logged = .false.
@@ -375,47 +376,47 @@
 
    ! Input-Output variables
 
-   real(r8), intent(inout) :: T0(pcols,pver)               ! Temperature [K]
-   real(r8), intent(inout) :: qv0(pcols,pver)              ! Grid-mean water vapor specific humidity [kg/kg]
-   real(r8), intent(inout) :: ql0(pcols,pver)              ! Grid-mean liquid water content [kg/kg]
-   real(r8), intent(inout) :: qi0(pcols,pver)              ! Grid-mean ice water content [kg/kg]
-   real(r8), intent(inout) :: nl0(pcols,pver)              ! Grid-mean number concentration of cloud liquid droplet [#/kg]
-   real(r8), intent(inout) :: ni0(pcols,pver)              ! Grid-mean number concentration of cloud ice    droplet [#/kg]
+   real(r8), target, intent(inout) :: T0(pcols,pver)       ! Temperature [K]
+   real(r8), target, intent(inout) :: qv0(pcols,pver)      ! Grid-mean water vapor specific humidity [kg/kg]
+   real(r8), target, intent(inout) :: ql0(pcols,pver)      ! Grid-mean liquid water content [kg/kg]
+   real(r8), target, intent(inout) :: qi0(pcols,pver)      ! Grid-mean ice water content [kg/kg]
+   real(r8), target, intent(inout) :: nl0(pcols,pver)      ! Grid-mean number concentration of cloud liquid droplet [#/kg]
+   real(r8), target, intent(inout) :: ni0(pcols,pver)      ! Grid-mean number concentration of cloud ice    droplet [#/kg]
 
    ! Input variables
 
    real(r8), intent(in)    :: dt                           ! Model integration time step [s]
-   real(r8), intent(in)    :: p(pcols,pver)                ! Pressure at the layer mid-point [Pa]
-   real(r8), intent(in)    :: dp(pcols,pver)               ! Pressure thickness [Pa] > 0
+   real(r8), target, intent(in) :: p(pcols,pver)           ! Pressure at the layer mid-point [Pa]
+   real(r8), target, intent(in) :: dp(pcols,pver)          ! Pressure thickness [Pa] > 0
 
-   real(r8), intent(in)    :: A_T(pcols,pver)              ! Non-microphysical advective external forcing of T  [K/s]
-   real(r8), intent(in)    :: A_qv(pcols,pver)             ! Non-microphysical advective external forcing of qv [kg/kg/s]
-   real(r8), intent(in)    :: A_ql(pcols,pver)             ! Non-microphysical advective external forcing of ql [kg/kg/s]
-   real(r8), intent(in)    :: A_qi(pcols,pver)             ! Non-microphysical advective external forcing of qi [kg/kg/s]
-   real(r8), intent(in)    :: A_nl(pcols,pver)             ! Non-microphysical advective external forcing of nl [#/kg/s]
-   real(r8), intent(in)    :: A_ni(pcols,pver)             ! Non-microphysical advective external forcing of ni [#/kg/s] 
+   real(r8), target, intent(in) :: A_T(pcols,pver)         ! Non-microphysical advective external forcing of T  [K/s]
+   real(r8), target, intent(in) :: A_qv(pcols,pver)        ! Non-microphysical advective external forcing of qv [kg/kg/s]
+   real(r8), target, intent(in) :: A_ql(pcols,pver)        ! Non-microphysical advective external forcing of ql [kg/kg/s]
+   real(r8), target, intent(in) :: A_qi(pcols,pver)        ! Non-microphysical advective external forcing of qi [kg/kg/s]
+   real(r8), target, intent(in) :: A_nl(pcols,pver)        ! Non-microphysical advective external forcing of nl [#/kg/s]
+   real(r8), target, intent(in) :: A_ni(pcols,pver)        ! Non-microphysical advective external forcing of ni [#/kg/s]
 
-   real(r8), intent(in)    :: C_T(pcols,pver)              ! Microphysical advective external forcing of T  [K/s]
-   real(r8), intent(in)    :: C_qv(pcols,pver)             ! Microphysical advective external forcing of qv [kg/kg/s]
-   real(r8), intent(in)    :: C_ql(pcols,pver)             ! Microphysical advective external forcing of ql [kg/kg/s]
-   real(r8), intent(in)    :: C_qi(pcols,pver)             ! Microphysical advective external forcing of qi [kg/kg/s]
-   real(r8), intent(in)    :: C_nl(pcols,pver)             ! Microphysical advective external forcing of nl [#/kg/s]
-   real(r8), intent(in)    :: C_ni(pcols,pver)             ! Microphysical advective external forcing of ni [#/kg/s] 
-   real(r8), intent(in)    :: C_qlst(pcols,pver)           ! Microphysical advective external forcing of ql
+   real(r8), target, intent(in) :: C_T(pcols,pver)         ! Microphysical advective external forcing of T  [K/s]
+   real(r8), target, intent(in) :: C_qv(pcols,pver)        ! Microphysical advective external forcing of qv [kg/kg/s]
+   real(r8), target, intent(in) :: C_ql(pcols,pver)        ! Microphysical advective external forcing of ql [kg/kg/s]
+   real(r8), target, intent(in) :: C_qi(pcols,pver)        ! Microphysical advective external forcing of qi [kg/kg/s]
+   real(r8), target, intent(in) :: C_nl(pcols,pver)        ! Microphysical advective external forcing of nl [#/kg/s]
+   real(r8), target, intent(in) :: C_ni(pcols,pver)        ! Microphysical advective external forcing of ni [#/kg/s]
+   real(r8), target, intent(in) :: C_qlst(pcols,pver)      ! Microphysical advective external forcing of ql
                                                            ! within liquid stratus [kg/kg/s]
 
-   real(r8), intent(in)    :: D_T(pcols,pver)              ! Cumulus detrainment external forcing of T  [K/s]
-   real(r8), intent(in)    :: D_qv(pcols,pver)             ! Cumulus detrainment external forcing of qv [kg/kg/s]
-   real(r8), intent(in)    :: D_ql(pcols,pver)             ! Cumulus detrainment external forcing of ql [kg/kg/s]
-   real(r8), intent(in)    :: D_qi(pcols,pver)             ! Cumulus detrainment external forcing of qi [kg/kg/s]
-   real(r8), intent(in)    :: D_nl(pcols,pver)             ! Cumulus detrainment external forcing of nl [#/kg/s]
-   real(r8), intent(in)    :: D_ni(pcols,pver)             ! Cumulus detrainment external forcing of qi [#/kg/s] 
+   real(r8), target, intent(in) :: D_T(pcols,pver)         ! Cumulus detrainment external forcing of T  [K/s]
+   real(r8), target, intent(in) :: D_qv(pcols,pver)        ! Cumulus detrainment external forcing of qv [kg/kg/s]
+   real(r8), target, intent(in) :: D_ql(pcols,pver)        ! Cumulus detrainment external forcing of ql [kg/kg/s]
+   real(r8), target, intent(in) :: D_qi(pcols,pver)        ! Cumulus detrainment external forcing of qi [kg/kg/s]
+   real(r8), target, intent(in) :: D_nl(pcols,pver)        ! Cumulus detrainment external forcing of nl [#/kg/s]
+   real(r8), target, intent(in) :: D_ni(pcols,pver)        ! Cumulus detrainment external forcing of qi [#/kg/s]
 
-   real(r8), intent(in)    :: a_cud(pcols,pver)            ! Old cumulus fraction before update
-   real(r8), intent(in)    :: a_cu0(pcols,pver)            ! New cumulus fraction after update
+   real(r8), target, intent(in) :: a_cud(pcols,pver)       ! Old cumulus fraction before update
+   real(r8), target, intent(in) :: a_cu0(pcols,pver)       ! New cumulus fraction after update
 
-   real(r8), intent(in)    :: clrw_old(pcols,pver)         ! Clear sky fraction at the previous time step for liquid stratus process
-   real(r8), intent(in)    :: clri_old(pcols,pver)         ! Clear sky fraction at the previous time step for    ice stratus process
+   real(r8), target, intent(in) :: clrw_old(pcols,pver)    ! Clear sky fraction at the previous time step for liquid stratus process
+   real(r8), target, intent(in) :: clri_old(pcols,pver)    ! Clear sky fraction at the previous time step for    ice stratus process
    real(r8), pointer       :: tke(:,:)                     ! (pcols,pverp) TKE from the PBL scheme
    real(r8), pointer       :: qtl_flx(:,:)                 ! (pcols,pverp) overbar(w'qtl') from PBL scheme where qtl = qv + ql
    real(r8), pointer       :: qti_flx(:,:)                 ! (pcols,pverp) overbar(w'qti') from PBL scheme where qti = qv + qi
@@ -423,193 +424,196 @@
    real(r8), pointer       :: qlr_det(:,:)                 ! (pcols,pver)  Detrained        ql from the convection scheme
    real(r8), pointer       :: qir_det(:,:)                 ! (pcols,pver)  Detrained        qi from the convection scheme
 
-   real(r8), intent(in)    :: landfrac(pcols)              ! Land fraction
-   real(r8), intent(in)    :: snowh(pcols)                 ! Snow depth (liquid water equivalent)
+   real(r8), target, intent(in) :: landfrac(pcols)         ! Land fraction
+   real(r8), target, intent(in) :: snowh(pcols)            ! Snow depth (liquid water equivalent)
    logical,  intent(in)    :: do_cldice                    ! Whether or not cldice should be prognosed
 
    ! Output variables
 
-   real(r8), intent(out)   :: s_tendout(pcols,pver)        ! Net tendency of grid-mean s  from 'Micro+Macro' processes [J/kg/s]
-   real(r8), intent(out)   :: qv_tendout(pcols,pver)       ! Net tendency of grid-mean qv from 'Micro+Macro' processes [kg/kg/s]
-   real(r8), intent(out)   :: ql_tendout(pcols,pver)       ! Net tendency of grid-mean ql from 'Micro+Macro' processes [kg/kg/s]
-   real(r8), intent(out)   :: qi_tendout(pcols,pver)       ! Net tendency of grid-mean qi from 'Micro+Macro' processes [kg/kg/s]
-   real(r8), intent(out)   :: nl_tendout(pcols,pver)       ! Net tendency of grid-mean nl from 'Micro+Macro' processes [#/kg/s]
-   real(r8), intent(out)   :: ni_tendout(pcols,pver)       ! Net tendency of grid-mean ni from 'Micro+Macro' processes [#/kg/s]
+   real(r8), target, intent(out) :: s_tendout(pcols,pver)  ! Net tendency of grid-mean s  from 'Micro+Macro' processes [J/kg/s]
+   real(r8), target, intent(out) :: qv_tendout(pcols,pver) ! Net tendency of grid-mean qv from 'Micro+Macro' processes [kg/kg/s]
+   real(r8), target, intent(out) :: ql_tendout(pcols,pver) ! Net tendency of grid-mean ql from 'Micro+Macro' processes [kg/kg/s]
+   real(r8), target, intent(out) :: qi_tendout(pcols,pver) ! Net tendency of grid-mean qi from 'Micro+Macro' processes [kg/kg/s]
+   real(r8), target, intent(out) :: nl_tendout(pcols,pver) ! Net tendency of grid-mean nl from 'Micro+Macro' processes [#/kg/s]
+   real(r8), target, intent(out) :: ni_tendout(pcols,pver) ! Net tendency of grid-mean ni from 'Micro+Macro' processes [#/kg/s]
 
-   real(r8), intent(out)   :: qme  (pcols,pver)            ! Net condensation rate [kg/kg/s]
-   real(r8), intent(out)   :: qvadj(pcols,pver)            ! adjustment tendency from "positive_moisture" call (vapor)
-   real(r8), intent(out)   :: qladj(pcols,pver)            ! adjustment tendency from "positive_moisture" call (liquid)
-   real(r8), intent(out)   :: qiadj(pcols,pver)            ! adjustment tendency from "positive_moisture" call (ice)
-   real(r8), intent(out)   :: qllim(pcols,pver)            ! tendency from "instratus_condensate" call (liquid)
-   real(r8), intent(out)   :: qilim(pcols,pver)            ! tendency from "instratus_condensate" call (ice)
+   real(r8), target, intent(out) :: qme  (pcols,pver)      ! Net condensation rate [kg/kg/s]
+   real(r8), target, intent(out) :: qvadj(pcols,pver)      ! adjustment tendency from "positive_moisture" call (vapor)
+   real(r8), target, intent(out) :: qladj(pcols,pver)      ! adjustment tendency from "positive_moisture" call (liquid)
+   real(r8), target, intent(out) :: qiadj(pcols,pver)      ! adjustment tendency from "positive_moisture" call (ice)
+   real(r8), target, intent(out) :: qllim(pcols,pver)      ! tendency from "instratus_condensate" call (liquid)
+   real(r8), target, intent(out) :: qilim(pcols,pver)      ! tendency from "instratus_condensate" call (ice)
 
-   real(r8), intent(out)   :: cld(pcols,pver)              ! Net cloud fraction ( 0 <= cld <= 1 )
-   real(r8), intent(out)   :: al_st_star(pcols,pver)       ! Physical liquid stratus fraction
-   real(r8), intent(out)   :: ai_st_star(pcols,pver)       ! Physical ice stratus fraction
-   real(r8), intent(out)   :: ql_st_star(pcols,pver)       ! In-stratus LWC [kg/kg] 
-   real(r8), intent(out)   :: qi_st_star(pcols,pver)       ! In-stratus IWC [kg/kg] 
+   real(r8), target, intent(out) :: cld(pcols,pver)        ! Net cloud fraction ( 0 <= cld <= 1 )
+   real(r8), target, intent(out) :: al_st_star(pcols,pver) ! Physical liquid stratus fraction
+   real(r8), target, intent(out) :: ai_st_star(pcols,pver) ! Physical ice stratus fraction
+   real(r8), target, intent(out) :: ql_st_star(pcols,pver) ! In-stratus LWC [kg/kg]
+   real(r8), target, intent(out) :: qi_st_star(pcols,pver) ! In-stratus IWC [kg/kg]
 
    ! --------------- !
    ! Local variables !
    ! --------------- !
    integer :: ixcldliq, ixcldice
- 
+
    integer :: i, j, k, iter, ii, jj                        ! Loop indexes
+   integer(c_int64_t) :: do_cldice_c
+   integer(c_int64_t), target :: mmacro_status
+   type(c_ptr), target :: mmacro_ptrs(mmacro_pcond_ptr_count)
 
    ! Thermodynamic state variables
 
-   real(r8) T(pcols,pver)                                  ! Temperature of equilibrium reference state
+   real(r8), target :: T(pcols,pver)                       ! Temperature of equilibrium reference state
                                                            ! from which 'Micro & Macro' are computed [K]
-   real(r8) T1(pcols,pver)                                 ! Temperature after 'fice_force' on T01  
-   real(r8) T_0(pcols,pver)                                ! Temperature after 'instratus_condensate' on T1
-   real(r8) T_05(pcols,pver)                               ! Temperature after 'advection' on T_0 
-   real(r8) T_prime0(pcols,pver)                           ! Temperature after 'Macrophysics (QQ)' on T_05star
-   real(r8) T_dprime(pcols,pver)                           ! Temperature after 'fice_force' on T_prime
-   real(r8) T_star(pcols,pver)                             ! Temperature after 'instratus_condensate' on T_dprime
+   real(r8), target :: T1(pcols,pver)                      ! Temperature after 'fice_force' on T01
+   real(r8), target :: T_0(pcols,pver)                     ! Temperature after 'instratus_condensate' on T1
+   real(r8), target :: T_05(pcols,pver)                    ! Temperature after 'advection' on T_0
+   real(r8), target :: T_prime0(pcols,pver)                ! Temperature after 'Macrophysics (QQ)' on T_05star
+   real(r8), target :: T_dprime(pcols,pver)                ! Temperature after 'fice_force' on T_prime
+   real(r8), target :: T_star(pcols,pver)                  ! Temperature after 'instratus_condensate' on T_dprime
 
-   real(r8) qv(pcols,pver)                                 ! Grid-mean qv of equilibrium reference state from which
+   real(r8), target :: qv(pcols,pver)                      ! Grid-mean qv of equilibrium reference state from which
                                                            ! 'Micro & Macro' are computed [kg/kg]
-   real(r8) qv1(pcols,pver)                                ! Grid-mean qv after 'fice_force' on qv01  
-   real(r8) qv_0(pcols,pver)                               ! Grid-mean qv after 'instratus_condensate' on qv1
-   real(r8) qv_05(pcols,pver)                              ! Grid-mean qv after 'advection' on qv_0 
-   real(r8) qv_prime0(pcols,pver)                          ! Grid-mean qv after 'Macrophysics (QQ)' on qv_05star
-   real(r8) qv_dprime(pcols,pver)                          ! Grid-mean qv after 'fice_force' on qv_prime
-   real(r8) qv_star(pcols,pver)                            ! Grid-mean qv after 'instratus_condensate' on qv_dprime
+   real(r8), target :: qv1(pcols,pver)                     ! Grid-mean qv after 'fice_force' on qv01
+   real(r8), target :: qv_0(pcols,pver)                    ! Grid-mean qv after 'instratus_condensate' on qv1
+   real(r8), target :: qv_05(pcols,pver)                   ! Grid-mean qv after 'advection' on qv_0
+   real(r8), target :: qv_prime0(pcols,pver)               ! Grid-mean qv after 'Macrophysics (QQ)' on qv_05star
+   real(r8), target :: qv_dprime(pcols,pver)               ! Grid-mean qv after 'fice_force' on qv_prime
+   real(r8), target :: qv_star(pcols,pver)                 ! Grid-mean qv after 'instratus_condensate' on qv_dprime
 
-   real(r8) ql(pcols,pver)                                 ! Grid-mean ql of equilibrium reference state from which
+   real(r8), target :: ql(pcols,pver)                      ! Grid-mean ql of equilibrium reference state from which
                                                            ! 'Micro & Macro' are computed [kg/kg]
-   real(r8) ql1(pcols,pver)                                ! Grid-mean ql after 'fice_force' on ql01  
-   real(r8) ql_0(pcols,pver)                               ! Grid-mean ql after 'instratus_condensate' on ql1
-   real(r8) ql_05(pcols,pver)                              ! Grid-mean ql after 'advection' on ql_0 
-   real(r8) ql_prime0(pcols,pver)                          ! Grid-mean ql after 'Macrophysics (QQ)' on ql_05star
-   real(r8) ql_dprime(pcols,pver)                          ! Grid-mean ql after 'fice_force' on ql_prime
-   real(r8) ql_star(pcols,pver)                            ! Grid-mean ql after 'instratus_condensate' on ql_dprime
+   real(r8), target :: ql1(pcols,pver)                     ! Grid-mean ql after 'fice_force' on ql01
+   real(r8), target :: ql_0(pcols,pver)                    ! Grid-mean ql after 'instratus_condensate' on ql1
+   real(r8), target :: ql_05(pcols,pver)                   ! Grid-mean ql after 'advection' on ql_0
+   real(r8), target :: ql_prime0(pcols,pver)               ! Grid-mean ql after 'Macrophysics (QQ)' on ql_05star
+   real(r8), target :: ql_dprime(pcols,pver)               ! Grid-mean ql after 'fice_force' on ql_prime
+   real(r8), target :: ql_star(pcols,pver)                 ! Grid-mean ql after 'instratus_condensate' on ql_dprime
 
-   real(r8) qi(pcols,pver)                                 ! Grid-mean qi of equilibrium reference state from which
+   real(r8), target :: qi(pcols,pver)                      ! Grid-mean qi of equilibrium reference state from which
                                                            ! 'Micro & Macro' are computed [kg/kg]
-   real(r8) qi1(pcols,pver)                                ! Grid-mean qi after 'fice_force' on qi01  
-   real(r8) qi_0(pcols,pver)                               ! Grid-mean qi after 'instratus_condensate' on qi1
-   real(r8) qi_05(pcols,pver)                              ! Grid-mean qi after 'advection' on qi_0 
-   real(r8) qi_prime0(pcols,pver)                          ! Grid-mean qi after 'Macrophysics (QQ)' on qi_05star
-   real(r8) qi_dprime(pcols,pver)                          ! Grid-mean qi after 'fice_force' on qi_prime
-   real(r8) qi_star(pcols,pver)                            ! Grid-mean qi after 'instratus_condensate' on qi_dprime
+   real(r8), target :: qi1(pcols,pver)                     ! Grid-mean qi after 'fice_force' on qi01
+   real(r8), target :: qi_0(pcols,pver)                    ! Grid-mean qi after 'instratus_condensate' on qi1
+   real(r8), target :: qi_05(pcols,pver)                   ! Grid-mean qi after 'advection' on qi_0
+   real(r8), target :: qi_prime0(pcols,pver)               ! Grid-mean qi after 'Macrophysics (QQ)' on qi_05star
+   real(r8), target :: qi_dprime(pcols,pver)               ! Grid-mean qi after 'fice_force' on qi_prime
+   real(r8), target :: qi_star(pcols,pver)                 ! Grid-mean qi after 'instratus_condensate' on qi_dprime
 
-   real(r8) nl(pcols,pver)                                 ! Grid-mean nl of equilibrium reference state from which
+   real(r8), target :: nl(pcols,pver)                      ! Grid-mean nl of equilibrium reference state from which
                                                            ! 'Micro & Macro' are computed [kg/kg]
-   real(r8) nl1(pcols,pver)                                ! Grid-mean nl after 'fice_force' on nl01  
-   real(r8) nl_0(pcols,pver)                               ! Grid-mean nl after 'instratus_condensate' on nl1
-   real(r8) nl_05(pcols,pver)                              ! Grid-mean nl after 'advection' on nl_0 
-   real(r8) nl_prime0(pcols,pver)                          ! Grid-mean nl after 'Macrophysics (QQ)' on nl_05star
-   real(r8) nl_dprime(pcols,pver)                          ! Grid-mean nl after 'fice_force' on nl_prime
-   real(r8) nl_star(pcols,pver)                            ! Grid-mean nl after 'instratus_condensate' on nl_dprime
+   real(r8), target :: nl1(pcols,pver)                     ! Grid-mean nl after 'fice_force' on nl01
+   real(r8), target :: nl_0(pcols,pver)                    ! Grid-mean nl after 'instratus_condensate' on nl1
+   real(r8), target :: nl_05(pcols,pver)                   ! Grid-mean nl after 'advection' on nl_0
+   real(r8), target :: nl_prime0(pcols,pver)               ! Grid-mean nl after 'Macrophysics (QQ)' on nl_05star
+   real(r8), target :: nl_dprime(pcols,pver)               ! Grid-mean nl after 'fice_force' on nl_prime
+   real(r8), target :: nl_star(pcols,pver)                 ! Grid-mean nl after 'instratus_condensate' on nl_dprime
 
-   real(r8) ni(pcols,pver)                                 ! Grid-mean ni of equilibrium reference state from which
+   real(r8), target :: ni(pcols,pver)                      ! Grid-mean ni of equilibrium reference state from which
                                                            ! 'Micro & Macro' are computed [kg/kg]
-   real(r8) ni1(pcols,pver)                                ! Grid-mean ni after 'fice_force' on ni01  
-   real(r8) ni_0(pcols,pver)                               ! Grid-mean ni after 'instratus_condensate' on ni1
-   real(r8) ni_05(pcols,pver)                              ! Grid-mean ni after 'advection' on ni_0 
-   real(r8) ni_prime0(pcols,pver)                          ! Grid-mean ni after 'Macrophysics (QQ)' on ni_05star
-   real(r8) ni_dprime(pcols,pver)                          ! Grid-mean ni after 'fice_force' on ni_prime
-   real(r8) ni_star(pcols,pver)                            ! Grid-mean ni after 'instratus_condensate' on ni_dprime
+   real(r8), target :: ni1(pcols,pver)                     ! Grid-mean ni after 'fice_force' on ni01
+   real(r8), target :: ni_0(pcols,pver)                    ! Grid-mean ni after 'instratus_condensate' on ni1
+   real(r8), target :: ni_05(pcols,pver)                   ! Grid-mean ni after 'advection' on ni_0
+   real(r8), target :: ni_prime0(pcols,pver)               ! Grid-mean ni after 'Macrophysics (QQ)' on ni_05star
+   real(r8), target :: ni_dprime(pcols,pver)               ! Grid-mean ni after 'fice_force' on ni_prime
+   real(r8), target :: ni_star(pcols,pver)                 ! Grid-mean ni after 'instratus_condensate' on ni_dprime
 
-   real(r8) a_st(pcols,pver)                               ! Stratus fraction of equilibrium reference state 
-   real(r8) a_st_0(pcols,pver)                             ! Stratus fraction at '_0' state
-   real(r8) a_st_star(pcols,pver)                          ! Stratus fraction at '_star' state
+   real(r8), target :: a_st(pcols,pver)                    ! Stratus fraction of equilibrium reference state
+   real(r8), target :: a_st_0(pcols,pver)                  ! Stratus fraction at '_0' state
+   real(r8), target :: a_st_star(pcols,pver)               ! Stratus fraction at '_star' state
 
-   real(r8) al_st(pcols,pver)                              ! Liquid stratus fraction of equilibrium reference state 
-   real(r8) al_st_0(pcols,pver)                            ! Liquid stratus fraction at '_0' state
-   real(r8) al_st_nc(pcols,pver)                           ! Non-physical liquid stratus fraction in the non-cumulus pixels
+   real(r8), target :: al_st(pcols,pver)                   ! Liquid stratus fraction of equilibrium reference state
+   real(r8), target :: al_st_0(pcols,pver)                 ! Liquid stratus fraction at '_0' state
+   real(r8), target :: al_st_nc(pcols,pver)                ! Non-physical liquid stratus fraction in the non-cumulus pixels
 
-   real(r8) ai_st(pcols,pver)                              ! Ice stratus fraction of equilibrium reference state 
-   real(r8) ai_st_0(pcols,pver)                            ! Ice stratus fraction at '_0' state
-   real(r8) ai_st_nc(pcols,pver)                           ! Non-physical ice stratus fraction in the non-cumulus pixels
+   real(r8), target :: ai_st(pcols,pver)                   ! Ice stratus fraction of equilibrium reference state
+   real(r8), target :: ai_st_0(pcols,pver)                 ! Ice stratus fraction at '_0' state
+   real(r8), target :: ai_st_nc(pcols,pver)                ! Non-physical ice stratus fraction in the non-cumulus pixels
 
-   real(r8) ql_st(pcols,pver)                              ! In-stratus LWC of equilibrium reference state [kg/kg] 
-   real(r8) ql_st_0(pcols,pver)                            ! In-stratus LWC at '_0' state
+   real(r8), target :: ql_st(pcols,pver)                   ! In-stratus LWC of equilibrium reference state [kg/kg]
+   real(r8), target :: ql_st_0(pcols,pver)                 ! In-stratus LWC at '_0' state
 
-   real(r8) qi_st(pcols,pver)                              ! In-stratus IWC of equilibrium reference state [kg/kg] 
-   real(r8) qi_st_0(pcols,pver)                            ! In-stratus IWC at '_0' state
+   real(r8), target :: qi_st(pcols,pver)                   ! In-stratus IWC of equilibrium reference state [kg/kg]
+   real(r8), target :: qi_st_0(pcols,pver)                 ! In-stratus IWC at '_0' state
 
- ! Cumulus properties 
+ ! Cumulus properties
 
-   real(r8) dacudt(pcols,pver)
-   real(r8) a_cu(pcols,pver)
+   real(r8), target :: dacudt(pcols,pver)
+   real(r8), target :: a_cu(pcols,pver)
 
  ! Adjustment tendency in association with 'positive_moisture'
 
-   real(r8) Tten_pwi1(pcols,pver)                          ! Pre-process T  tendency of input equilibrium state [K/s] 
-   real(r8) qvten_pwi1(pcols,pver)                         ! Pre-process qv tendency of input equilibrium state [kg/kg/s]
-   real(r8) qlten_pwi1(pcols,pver)                         ! Pre-process ql tendency of input equilibrium state [kg/kg/s]
-   real(r8) qiten_pwi1(pcols,pver)                         ! Pre-process qi tendency of input equilibrium state [kg/kg/s]
-   real(r8) nlten_pwi1(pcols,pver)                         ! Pre-process nl tendency of input equilibrium state [#/kg/s]
-   real(r8) niten_pwi1(pcols,pver)                         ! Pre-process ni tendency of input equilibrium state [#/kg/s] 
+   real(r8), target :: Tten_pwi1(pcols,pver)               ! Pre-process T  tendency of input equilibrium state [K/s]
+   real(r8), target :: qvten_pwi1(pcols,pver)              ! Pre-process qv tendency of input equilibrium state [kg/kg/s]
+   real(r8), target :: qlten_pwi1(pcols,pver)              ! Pre-process ql tendency of input equilibrium state [kg/kg/s]
+   real(r8), target :: qiten_pwi1(pcols,pver)              ! Pre-process qi tendency of input equilibrium state [kg/kg/s]
+   real(r8), target :: nlten_pwi1(pcols,pver)              ! Pre-process nl tendency of input equilibrium state [#/kg/s]
+   real(r8), target :: niten_pwi1(pcols,pver)              ! Pre-process ni tendency of input equilibrium state [#/kg/s]
 
-   real(r8) Tten_pwi2(pcols,pver)                          ! Post-process T  tendency of provisional equilibrium state [K/s] 
-   real(r8) qvten_pwi2(pcols,pver)                         ! Post-process qv tendency of provisional equilibrium state [kg/kg/s]
-   real(r8) qlten_pwi2(pcols,pver)                         ! Post-process ql tendency of provisional equilibrium state [kg/kg/s]
-   real(r8) qiten_pwi2(pcols,pver)                         ! Post-process qi tendency of provisional equilibrium state [kg/kg/s]
-   real(r8) nlten_pwi2(pcols,pver)                         ! Post-process nl tendency of provisoonal equilibrium state [#/kg/s]
-   real(r8) niten_pwi2(pcols,pver)                         ! Post-process ni tendency of provisional equilibrium state [#/kg/s] 
+   real(r8), target :: Tten_pwi2(pcols,pver)               ! Post-process T  tendency of provisional equilibrium state [K/s]
+   real(r8), target :: qvten_pwi2(pcols,pver)              ! Post-process qv tendency of provisional equilibrium state [kg/kg/s]
+   real(r8), target :: qlten_pwi2(pcols,pver)              ! Post-process ql tendency of provisional equilibrium state [kg/kg/s]
+   real(r8), target :: qiten_pwi2(pcols,pver)              ! Post-process qi tendency of provisional equilibrium state [kg/kg/s]
+   real(r8), target :: nlten_pwi2(pcols,pver)              ! Post-process nl tendency of provisoonal equilibrium state [#/kg/s]
+   real(r8), target :: niten_pwi2(pcols,pver)              ! Post-process ni tendency of provisional equilibrium state [#/kg/s]
 
-   real(r8) A_T_adj(pcols,pver)                            ! After applying external advective forcing [K/s]
-   real(r8) A_qv_adj(pcols,pver)                           ! After applying external advective forcing [kg/kg/s]
-   real(r8) A_ql_adj(pcols,pver)                           ! After applying external advective forcing [kg/kg/s]
-   real(r8) A_qi_adj(pcols,pver)                           ! After applying external advective forcing [kg/kg/s]
-   real(r8) A_nl_adj(pcols,pver)                           ! After applying external advective forcing [#/kg/s]
-   real(r8) A_ni_adj(pcols,pver)                           ! After applying external advective forcing [#/kg/s]
+   real(r8), target :: A_T_adj(pcols,pver)                 ! After applying external advective forcing [K/s]
+   real(r8), target :: A_qv_adj(pcols,pver)                ! After applying external advective forcing [kg/kg/s]
+   real(r8), target :: A_ql_adj(pcols,pver)                ! After applying external advective forcing [kg/kg/s]
+   real(r8), target :: A_qi_adj(pcols,pver)                ! After applying external advective forcing [kg/kg/s]
+   real(r8), target :: A_nl_adj(pcols,pver)                ! After applying external advective forcing [#/kg/s]
+   real(r8), target :: A_ni_adj(pcols,pver)                ! After applying external advective forcing [#/kg/s]
 
  ! Adjustment tendency in association with 'instratus_condensate'
 
-   real(r8) QQw1(pcols,pver)           ! Effective adjustive condensation into water due to 'instratus_condensate' [kg/kg/s]
-   real(r8) QQi1(pcols,pver)           ! Effective adjustive condensation into ice   due to 'instratus_condensate' [kg/kg/s]
-   real(r8) QQw2(pcols,pver)           ! Effective adjustive condensation into water due to 'instratus_condensate' [kg/kg/s]
-   real(r8) QQi2(pcols,pver)           ! Effective adjustive condensation into ice   due to 'instratus_condensate' [kg/kg/s]
+   real(r8), target :: QQw1(pcols,pver) ! Effective adjustive condensation into water due to 'instratus_condensate' [kg/kg/s]
+   real(r8), target :: QQi1(pcols,pver) ! Effective adjustive condensation into ice   due to 'instratus_condensate' [kg/kg/s]
+   real(r8), target :: QQw2(pcols,pver) ! Effective adjustive condensation into water due to 'instratus_condensate' [kg/kg/s]
+   real(r8), target :: QQi2(pcols,pver) ! Effective adjustive condensation into ice   due to 'instratus_condensate' [kg/kg/s]
 
-   real(r8) QQnl1(pcols,pver)          ! Tendency of nl associated with QQw1 only when QQw1<0 (net evaporation) [#/kg/s]
-   real(r8) QQni1(pcols,pver)          ! Tendency of ni associated with QQi1 only when QQw1<0 (net evaporation) [#/kg/s]
-   real(r8) QQnl2(pcols,pver)          ! Tendency of nl associated with QQw2 only when QQw2<0 (net evaporation) [#/kg/s]
-   real(r8) QQni2(pcols,pver)          ! Tendency of ni associated with QQi2 only when QQw2<0 (net evaporation) [#/kg/s]
+   real(r8), target :: QQnl1(pcols,pver) ! Tendency of nl associated with QQw1 only when QQw1<0 (net evaporation) [#/kg/s]
+   real(r8), target :: QQni1(pcols,pver) ! Tendency of ni associated with QQi1 only when QQw1<0 (net evaporation) [#/kg/s]
+   real(r8), target :: QQnl2(pcols,pver) ! Tendency of nl associated with QQw2 only when QQw2<0 (net evaporation) [#/kg/s]
+   real(r8), target :: QQni2(pcols,pver) ! Tendency of ni associated with QQi2 only when QQw2<0 (net evaporation) [#/kg/s]
 
  ! Macrophysical process tendency variables
 
-   real(r8) QQ(pcols,pver)             ! Net condensation rate into water+ice           [kg/kg/s] 
-   real(r8) QQw(pcols,pver)            ! Net condensation rate into water               [kg/kg/s] 
-   real(r8) QQi(pcols,pver)            ! Net condensation rate into ice                 [kg/kg/s]
-   real(r8) QQnl(pcols,pver)           ! Tendency of nl associated with QQw both for condensation and evaporation [#/kg/s]
-   real(r8) QQni(pcols,pver)           ! Tendency of ni associated with QQi both for condensation and evaporation [#/kg/s]
-   real(r8) ACnl(pcols,pver)           ! Cloud liquid droplet (nl) activation tendency [#/kg/s]
-   real(r8) ACni(pcols,pver)           ! Cloud ice    droplet (ni) activation tendency [#/kg/s]
+   real(r8), target :: QQ(pcols,pver)   ! Net condensation rate into water+ice           [kg/kg/s]
+   real(r8), target :: QQw(pcols,pver)  ! Net condensation rate into water               [kg/kg/s]
+   real(r8), target :: QQi(pcols,pver)  ! Net condensation rate into ice                 [kg/kg/s]
+   real(r8), target :: QQnl(pcols,pver) ! Tendency of nl associated with QQw both for condensation and evaporation [#/kg/s]
+   real(r8), target :: QQni(pcols,pver) ! Tendency of ni associated with QQi both for condensation and evaporation [#/kg/s]
+   real(r8), target :: ACnl(pcols,pver) ! Cloud liquid droplet (nl) activation tendency [#/kg/s]
+   real(r8), target :: ACni(pcols,pver) ! Cloud ice    droplet (ni) activation tendency [#/kg/s]
 
-   real(r8) QQw_prev(pcols,pver)   
-   real(r8) QQi_prev(pcols,pver)   
-   real(r8) QQnl_prev(pcols,pver)  
-   real(r8) QQni_prev(pcols,pver)  
+   real(r8), target :: QQw_prev(pcols,pver)
+   real(r8), target :: QQi_prev(pcols,pver)
+   real(r8), target :: QQnl_prev(pcols,pver)
+   real(r8), target :: QQni_prev(pcols,pver)
 
-   real(r8) QQw_prog(pcols,pver)   
-   real(r8) QQi_prog(pcols,pver)   
-   real(r8) QQnl_prog(pcols,pver)  
-   real(r8) QQni_prog(pcols,pver)  
+   real(r8), target :: QQw_prog(pcols,pver)
+   real(r8), target :: QQi_prog(pcols,pver)
+   real(r8), target :: QQnl_prog(pcols,pver)
+   real(r8), target :: QQni_prog(pcols,pver)
 
-   real(r8) QQ_final(pcols,pver)                           
-   real(r8) QQw_final(pcols,pver)                           
-   real(r8) QQi_final(pcols,pver)                           
-   real(r8) QQn_final(pcols,pver)                           
-   real(r8) QQnl_final(pcols,pver)                          
-   real(r8) QQni_final(pcols,pver)                          
+   real(r8), target :: QQ_final(pcols,pver)
+   real(r8), target :: QQw_final(pcols,pver)
+   real(r8), target :: QQi_final(pcols,pver)
+   real(r8), target :: QQn_final(pcols,pver)
+   real(r8), target :: QQnl_final(pcols,pver)
+   real(r8), target :: QQni_final(pcols,pver)
 
-   real(r8) QQ_all(pcols,pver)         ! QQw_all    + QQi_all
-   real(r8) QQw_all(pcols,pver)        ! QQw_final  + QQw1  + QQw2  + qlten_pwi1 + qlten_pwi2 + A_ql_adj [kg/kg/s]
-   real(r8) QQi_all(pcols,pver)        ! QQi_final  + QQi1  + QQi2  + qiten_pwi1 + qiten_pwi2 + A_qi_adj [kg/kg/s]
-   real(r8) QQn_all(pcols,pver)        ! QQnl_all   + QQni_all
-   real(r8) QQnl_all(pcols,pver)       ! QQnl_final + QQnl1 + QQnl2 + nlten_pwi1 + nlten_pwi2 + ACnl [#/kg/s]
-   real(r8) QQni_all(pcols,pver)       ! QQni_final + QQni1 + QQni2 + niten_pwi1 + niten_pwi2 + ACni [#/kg/s]
+   real(r8), target :: QQ_all(pcols,pver)   ! QQw_all    + QQi_all
+   real(r8), target :: QQw_all(pcols,pver)  ! QQw_final  + QQw1  + QQw2  + qlten_pwi1 + qlten_pwi2 + A_ql_adj [kg/kg/s]
+   real(r8), target :: QQi_all(pcols,pver)  ! QQi_final  + QQi1  + QQi2  + qiten_pwi1 + qiten_pwi2 + A_qi_adj [kg/kg/s]
+   real(r8), target :: QQn_all(pcols,pver)  ! QQnl_all   + QQni_all
+   real(r8), target :: QQnl_all(pcols,pver) ! QQnl_final + QQnl1 + QQnl2 + nlten_pwi1 + nlten_pwi2 + ACnl [#/kg/s]
+   real(r8), target :: QQni_all(pcols,pver) ! QQni_final + QQni1 + QQni2 + niten_pwi1 + niten_pwi2 + ACni [#/kg/s]
 
  ! Coefficient for computing QQ and related processes
 
-   real(r8) U(pcols,pver)                                  ! Grid-mean RH
-   real(r8) U_nc(pcols,pver)                               ! Mean RH of non-cumulus pixels
-   real(r8) G_nc(pcols,pver)                               ! d(U_nc)/d(a_st_nc)
-   real(r8) F_nc(pcols,pver)                               ! A function of second parameter for a_st_nc
+   real(r8), target :: U(pcols,pver)                       ! Grid-mean RH
+   real(r8), target :: U_nc(pcols,pver)                    ! Mean RH of non-cumulus pixels
+   real(r8), target :: G_nc(pcols,pver)                    ! d(U_nc)/d(a_st_nc)
+   real(r8), target :: F_nc(pcols,pver)                    ! A function of second parameter for a_st_nc
    real(r8) alpha                                          ! = 1/qs
    real(r8) beta                                           ! = (qv/qs**2)*dqsdT
    real(r8) betast                                         ! = alpha*dqsdT
@@ -637,42 +641,59 @@
    real(r8) aa(2,2)
    real(r8) bb(2,1)
 
-   real(r8) zeros(pcols,pver)
+   real(r8), target :: zeros(pcols,pver)
 
-   real(r8) qmin1(pcols,pver)
-   real(r8) qmin2(pcols,pver)
-   real(r8) qmin3(pcols,pver)
+   real(r8), target :: qmin1(pcols,pver)
+   real(r8), target :: qmin2(pcols,pver)
+   real(r8), target :: qmin3(pcols,pver)
 
-   real(r8) esat_a(pcols)                             ! Saturation water vapor pressure [Pa]
-   real(r8) qsat_a(pcols,pver)                        ! Saturation water vapor specific humidity [kg/kg]
-   real(r8) Twb_aw(pcols)                             ! Wet-bulb temperature [K]
-   real(r8) qvwb_aw(pcols,pver)                       ! Wet-bulb water vapor specific humidity [kg/kg]
+   real(r8), target :: esat_a(pcols)                  ! Saturation water vapor pressure [Pa]
+   real(r8), target :: qsat_a(pcols,pver)             ! Saturation water vapor specific humidity [kg/kg]
+   real(r8), target :: Twb_aw(pcols)                  ! Wet-bulb temperature [K]
+   real(r8), target :: qvwb_aw(pcols,pver)            ! Wet-bulb water vapor specific humidity [kg/kg]
 
-   real(r8) esat_b(pcols)                                 
-   real(r8) qsat_b(pcols)                                 
-   real(r8) dqsdT_b(pcols)                                 
+   real(r8), target :: esat_b(pcols)
+   real(r8), target :: qsat_b(pcols)
+   real(r8), target :: dqsdT_b(pcols)
 
    logical  land
    real(r8) tmp
 
-   real(r8) d_rhmin_liq_PBL(pcols,pver)
-   real(r8) d_rhmin_ice_PBL(pcols,pver)
-   real(r8) d_rhmin_liq_det(pcols,pver)
-   real(r8) d_rhmin_ice_det(pcols,pver)
-   real(r8) rhmini_arr(pcols,pver)
-   real(r8) rhminl_arr(pcols,pver)
-   real(r8) rhminl_adj_land_arr(pcols,pver)
-   real(r8) rhminh_arr(pcols,pver) 
+   real(r8), target :: d_rhmin_liq_PBL(pcols,pver)
+   real(r8), target :: d_rhmin_ice_PBL(pcols,pver)
+   real(r8), target :: d_rhmin_liq_det(pcols,pver)
+   real(r8), target :: d_rhmin_ice_det(pcols,pver)
+   real(r8), target :: rhmini_arr(pcols,pver)
+   real(r8), target :: rhminl_arr(pcols,pver)
+   real(r8), target :: rhminl_adj_land_arr(pcols,pver)
+   real(r8), target :: rhminh_arr(pcols,pver)
    real(r8) rhmin_liq_diag(pcols,pver)
    real(r8) rhmin_ice_diag(pcols,pver)
 
    real(r8) QQmax,QQmin,QQwmin,QQimin                      ! For limiting QQ
-	   real(r8) cone                                           ! Number close to but smaller than 1
+   real(r8) cone                                           ! Number close to but smaller than 1
 
-	   call mmacro_pcond_select_impl()
-	   if (.not. use_native_mmacro_pcond_impl) call mmacro_pcond_log_entered()
-	   cone            = 0.999_r8
-	   call zero16_ncol_codon_wrap(ncol, zeros, s_tendout, qv_tendout, ql_tendout, qi_tendout, &
+   interface
+      subroutine cldwat2m_mmacro_pcond_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
+           i_rhmini_c, i_rhminl_c, camstfrac_c, niter_c, dt_c, cone_c, qsmall_c, latvap_c, &
+           latice_c, cpair_c, gravit_c, rhmaxi_c, rhmini_const_c, rhminl_const_c, &
+           rhminl_adj_land_const_c, rhminh_const_c, tau_deti_c, tau_detw_c, c_aniso_c, &
+           qvmin_c, qlmin_c, qimin_c, ptrs_p, status_p) bind(c, name="cldwat2m_mmacro_pcond_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c
+         integer(c_int64_t), value :: i_rhmini_c, i_rhminl_c, camstfrac_c, niter_c
+         real(c_double), value :: dt_c, cone_c, qsmall_c, latvap_c, latice_c, cpair_c, gravit_c
+         real(c_double), value :: rhmaxi_c, rhmini_const_c, rhminl_const_c
+         real(c_double), value :: rhminl_adj_land_const_c, rhminh_const_c
+         real(c_double), value :: tau_deti_c, tau_detw_c, c_aniso_c, qvmin_c, qlmin_c, qimin_c
+         type(c_ptr), value :: ptrs_p, status_p
+      end subroutine cldwat2m_mmacro_pcond_codon
+   end interface
+
+   call mmacro_pcond_select_impl()
+   if (.not. use_native_mmacro_pcond_impl) call mmacro_pcond_log_entered()
+   cone            = 0.999_r8
+   call zero16_ncol_codon_wrap(ncol, zeros, s_tendout, qv_tendout, ql_tendout, qi_tendout, &
 	        nl_tendout, ni_tendout, qme, cld, al_st_star, ai_st_star, ql_st_star, qi_st_star, T, T1, T_0)
 	   call zero16_ncol_codon_wrap(ncol, T_05, T_prime0, T_dprime, T_star, qv, qv1, qv_0, qv_05, &
 	        qv_prime0, qv_dprime, qv_star, ql, ql1, ql_0, ql_05, ql_prime0)
@@ -691,6 +712,151 @@
 	        QQn_final, QQnl_final, QQni_final, QQ_all, QQw_all, QQi_all, QQn_all, QQnl_all, QQni_all, U, U_nc)
 	   call zero16_ncol_codon_wrap(ncol, G_nc, F_nc, qmin1, qmin2, qmin3, QQ, QQw, QQi, &
 	        QQnl, QQni, ACnl, ACni, T, qv, ql, qi)
+
+   if (.not. use_native_mmacro_pcond_impl) then
+      call cnst_get_ind( 'CLDLIQ', ixcldliq )
+      call cnst_get_ind( 'CLDICE', ixcldice )
+      mmacro_ptrs(:) = c_null_ptr
+      mmacro_ptrs(1) = c_loc(p(1,1)); mmacro_ptrs(2) = c_loc(dp(1,1))
+      mmacro_ptrs(3) = c_loc(T0(1,1)); mmacro_ptrs(4) = c_loc(qv0(1,1))
+      mmacro_ptrs(5) = c_loc(ql0(1,1)); mmacro_ptrs(6) = c_loc(qi0(1,1))
+      mmacro_ptrs(7) = c_loc(nl0(1,1)); mmacro_ptrs(8) = c_loc(ni0(1,1))
+      mmacro_ptrs(9) = c_loc(A_T(1,1)); mmacro_ptrs(10) = c_loc(A_qv(1,1))
+      mmacro_ptrs(11) = c_loc(A_ql(1,1)); mmacro_ptrs(12) = c_loc(A_qi(1,1))
+      mmacro_ptrs(13) = c_loc(A_nl(1,1)); mmacro_ptrs(14) = c_loc(A_ni(1,1))
+      mmacro_ptrs(15) = c_loc(C_T(1,1)); mmacro_ptrs(16) = c_loc(C_qv(1,1))
+      mmacro_ptrs(17) = c_loc(C_ql(1,1)); mmacro_ptrs(18) = c_loc(C_qi(1,1))
+      mmacro_ptrs(19) = c_loc(C_nl(1,1)); mmacro_ptrs(20) = c_loc(C_ni(1,1))
+      mmacro_ptrs(21) = c_loc(C_qlst(1,1)); mmacro_ptrs(22) = c_loc(D_T(1,1))
+      mmacro_ptrs(23) = c_loc(D_qv(1,1)); mmacro_ptrs(24) = c_loc(D_ql(1,1))
+      mmacro_ptrs(25) = c_loc(D_qi(1,1)); mmacro_ptrs(26) = c_loc(D_nl(1,1))
+      mmacro_ptrs(27) = c_loc(D_ni(1,1)); mmacro_ptrs(28) = c_loc(a_cud(1,1))
+      mmacro_ptrs(29) = c_loc(a_cu0(1,1)); mmacro_ptrs(30) = c_loc(clrw_old(1,1))
+      mmacro_ptrs(31) = c_loc(clri_old(1,1)); mmacro_ptrs(32) = c_loc(landfrac(1))
+      mmacro_ptrs(33) = c_loc(snowh(1))
+      if (associated(tke)) mmacro_ptrs(34) = c_loc(tke(1,1))
+      if (associated(qtl_flx)) mmacro_ptrs(35) = c_loc(qtl_flx(1,1))
+      if (associated(qti_flx)) mmacro_ptrs(36) = c_loc(qti_flx(1,1))
+      if (associated(cmfr_det)) mmacro_ptrs(37) = c_loc(cmfr_det(1,1))
+      if (associated(qlr_det)) mmacro_ptrs(38) = c_loc(qlr_det(1,1))
+      if (associated(qir_det)) mmacro_ptrs(39) = c_loc(qir_det(1,1))
+      mmacro_ptrs(40) = c_loc(s_tendout(1,1)); mmacro_ptrs(41) = c_loc(qv_tendout(1,1))
+      mmacro_ptrs(42) = c_loc(ql_tendout(1,1)); mmacro_ptrs(43) = c_loc(qi_tendout(1,1))
+      mmacro_ptrs(44) = c_loc(nl_tendout(1,1)); mmacro_ptrs(45) = c_loc(ni_tendout(1,1))
+      mmacro_ptrs(46) = c_loc(qme(1,1)); mmacro_ptrs(47) = c_loc(qvadj(1,1))
+      mmacro_ptrs(48) = c_loc(qladj(1,1)); mmacro_ptrs(49) = c_loc(qiadj(1,1))
+      mmacro_ptrs(50) = c_loc(qllim(1,1)); mmacro_ptrs(51) = c_loc(qilim(1,1))
+      mmacro_ptrs(52) = c_loc(cld(1,1)); mmacro_ptrs(53) = c_loc(al_st_star(1,1))
+      mmacro_ptrs(54) = c_loc(ai_st_star(1,1)); mmacro_ptrs(55) = c_loc(ql_st_star(1,1))
+      mmacro_ptrs(56) = c_loc(qi_st_star(1,1)); mmacro_ptrs(57) = c_loc(zeros(1,1))
+      mmacro_ptrs(58) = c_loc(T(1,1)); mmacro_ptrs(59) = c_loc(T1(1,1))
+      mmacro_ptrs(60) = c_loc(T_0(1,1)); mmacro_ptrs(61) = c_loc(T_05(1,1))
+      mmacro_ptrs(62) = c_loc(T_prime0(1,1)); mmacro_ptrs(63) = c_loc(T_dprime(1,1))
+      mmacro_ptrs(64) = c_loc(T_star(1,1)); mmacro_ptrs(65) = c_loc(qv(1,1))
+      mmacro_ptrs(66) = c_loc(qv1(1,1)); mmacro_ptrs(67) = c_loc(qv_0(1,1))
+      mmacro_ptrs(68) = c_loc(qv_05(1,1)); mmacro_ptrs(69) = c_loc(qv_prime0(1,1))
+      mmacro_ptrs(70) = c_loc(qv_dprime(1,1)); mmacro_ptrs(71) = c_loc(qv_star(1,1))
+      mmacro_ptrs(72) = c_loc(ql(1,1)); mmacro_ptrs(73) = c_loc(ql1(1,1))
+      mmacro_ptrs(74) = c_loc(ql_0(1,1)); mmacro_ptrs(75) = c_loc(ql_05(1,1))
+      mmacro_ptrs(76) = c_loc(ql_prime0(1,1)); mmacro_ptrs(77) = c_loc(ql_dprime(1,1))
+      mmacro_ptrs(78) = c_loc(ql_star(1,1)); mmacro_ptrs(79) = c_loc(qi(1,1))
+      mmacro_ptrs(80) = c_loc(qi1(1,1)); mmacro_ptrs(81) = c_loc(qi_0(1,1))
+      mmacro_ptrs(82) = c_loc(qi_05(1,1)); mmacro_ptrs(83) = c_loc(qi_prime0(1,1))
+      mmacro_ptrs(84) = c_loc(qi_dprime(1,1)); mmacro_ptrs(85) = c_loc(qi_star(1,1))
+      mmacro_ptrs(86) = c_loc(nl(1,1)); mmacro_ptrs(87) = c_loc(nl1(1,1))
+      mmacro_ptrs(88) = c_loc(nl_0(1,1)); mmacro_ptrs(89) = c_loc(nl_05(1,1))
+      mmacro_ptrs(90) = c_loc(nl_prime0(1,1)); mmacro_ptrs(91) = c_loc(nl_dprime(1,1))
+      mmacro_ptrs(92) = c_loc(nl_star(1,1)); mmacro_ptrs(93) = c_loc(ni(1,1))
+      mmacro_ptrs(94) = c_loc(ni1(1,1)); mmacro_ptrs(95) = c_loc(ni_0(1,1))
+      mmacro_ptrs(96) = c_loc(ni_05(1,1)); mmacro_ptrs(97) = c_loc(ni_prime0(1,1))
+      mmacro_ptrs(98) = c_loc(ni_dprime(1,1)); mmacro_ptrs(99) = c_loc(ni_star(1,1))
+      mmacro_ptrs(100) = c_loc(a_st(1,1)); mmacro_ptrs(101) = c_loc(a_st_0(1,1))
+      mmacro_ptrs(102) = c_loc(a_st_star(1,1)); mmacro_ptrs(103) = c_loc(al_st(1,1))
+      mmacro_ptrs(104) = c_loc(al_st_0(1,1)); mmacro_ptrs(105) = c_loc(al_st_nc(1,1))
+      mmacro_ptrs(106) = c_loc(ai_st(1,1)); mmacro_ptrs(107) = c_loc(ai_st_0(1,1))
+      mmacro_ptrs(108) = c_loc(ai_st_nc(1,1)); mmacro_ptrs(109) = c_loc(ql_st(1,1))
+      mmacro_ptrs(110) = c_loc(ql_st_0(1,1)); mmacro_ptrs(111) = c_loc(qi_st(1,1))
+      mmacro_ptrs(112) = c_loc(qi_st_0(1,1)); mmacro_ptrs(113) = c_loc(dacudt(1,1))
+      mmacro_ptrs(114) = c_loc(a_cu(1,1)); mmacro_ptrs(115) = c_loc(Tten_pwi1(1,1))
+      mmacro_ptrs(116) = c_loc(qvten_pwi1(1,1)); mmacro_ptrs(117) = c_loc(qlten_pwi1(1,1))
+      mmacro_ptrs(118) = c_loc(qiten_pwi1(1,1)); mmacro_ptrs(119) = c_loc(nlten_pwi1(1,1))
+      mmacro_ptrs(120) = c_loc(niten_pwi1(1,1)); mmacro_ptrs(121) = c_loc(Tten_pwi2(1,1))
+      mmacro_ptrs(122) = c_loc(qvten_pwi2(1,1)); mmacro_ptrs(123) = c_loc(qlten_pwi2(1,1))
+      mmacro_ptrs(124) = c_loc(qiten_pwi2(1,1)); mmacro_ptrs(125) = c_loc(nlten_pwi2(1,1))
+      mmacro_ptrs(126) = c_loc(niten_pwi2(1,1)); mmacro_ptrs(127) = c_loc(A_T_adj(1,1))
+      mmacro_ptrs(128) = c_loc(A_qv_adj(1,1)); mmacro_ptrs(129) = c_loc(A_ql_adj(1,1))
+      mmacro_ptrs(130) = c_loc(A_qi_adj(1,1)); mmacro_ptrs(131) = c_loc(A_nl_adj(1,1))
+      mmacro_ptrs(132) = c_loc(A_ni_adj(1,1)); mmacro_ptrs(133) = c_loc(QQw1(1,1))
+      mmacro_ptrs(134) = c_loc(QQi1(1,1)); mmacro_ptrs(135) = c_loc(QQw2(1,1))
+      mmacro_ptrs(136) = c_loc(QQi2(1,1)); mmacro_ptrs(137) = c_loc(QQnl1(1,1))
+      mmacro_ptrs(138) = c_loc(QQni1(1,1)); mmacro_ptrs(139) = c_loc(QQnl2(1,1))
+      mmacro_ptrs(140) = c_loc(QQni2(1,1)); mmacro_ptrs(141) = c_loc(QQnl(1,1))
+      mmacro_ptrs(142) = c_loc(QQni(1,1)); mmacro_ptrs(143) = c_loc(QQ(1,1))
+      mmacro_ptrs(144) = c_loc(QQw(1,1)); mmacro_ptrs(145) = c_loc(QQi(1,1))
+      mmacro_ptrs(146) = c_loc(ACnl(1,1)); mmacro_ptrs(147) = c_loc(ACni(1,1))
+      mmacro_ptrs(148) = c_loc(QQw_prev(1,1)); mmacro_ptrs(149) = c_loc(QQi_prev(1,1))
+      mmacro_ptrs(150) = c_loc(QQnl_prev(1,1)); mmacro_ptrs(151) = c_loc(QQni_prev(1,1))
+      mmacro_ptrs(152) = c_loc(QQw_prog(1,1)); mmacro_ptrs(153) = c_loc(QQi_prog(1,1))
+      mmacro_ptrs(154) = c_loc(QQnl_prog(1,1)); mmacro_ptrs(155) = c_loc(QQni_prog(1,1))
+      mmacro_ptrs(156) = c_loc(QQ_final(1,1)); mmacro_ptrs(157) = c_loc(QQw_final(1,1))
+      mmacro_ptrs(158) = c_loc(QQi_final(1,1)); mmacro_ptrs(159) = c_loc(QQn_final(1,1))
+      mmacro_ptrs(160) = c_loc(QQnl_final(1,1)); mmacro_ptrs(161) = c_loc(QQni_final(1,1))
+      mmacro_ptrs(162) = c_loc(QQ_all(1,1)); mmacro_ptrs(163) = c_loc(QQw_all(1,1))
+      mmacro_ptrs(164) = c_loc(QQi_all(1,1)); mmacro_ptrs(165) = c_loc(QQn_all(1,1))
+      mmacro_ptrs(166) = c_loc(QQnl_all(1,1)); mmacro_ptrs(167) = c_loc(QQni_all(1,1))
+      mmacro_ptrs(168) = c_loc(U(1,1)); mmacro_ptrs(169) = c_loc(U_nc(1,1))
+      mmacro_ptrs(170) = c_loc(G_nc(1,1)); mmacro_ptrs(171) = c_loc(F_nc(1,1))
+      mmacro_ptrs(172) = c_loc(qmin1(1,1)); mmacro_ptrs(173) = c_loc(qmin2(1,1))
+      mmacro_ptrs(174) = c_loc(qmin3(1,1)); mmacro_ptrs(175) = c_loc(qsat_a(1,1))
+      mmacro_ptrs(176) = c_loc(Twb_aw(1)); mmacro_ptrs(177) = c_loc(qvwb_aw(1,1))
+      mmacro_ptrs(178) = c_loc(esat_a(1)); mmacro_ptrs(179) = c_loc(esat_b(1))
+      mmacro_ptrs(180) = c_loc(qsat_b(1)); mmacro_ptrs(181) = c_loc(dqsdT_b(1))
+      mmacro_ptrs(182) = c_loc(d_rhmin_liq_PBL(1,1)); mmacro_ptrs(183) = c_loc(d_rhmin_ice_PBL(1,1))
+      mmacro_ptrs(184) = c_loc(d_rhmin_liq_det(1,1)); mmacro_ptrs(185) = c_loc(d_rhmin_ice_det(1,1))
+      mmacro_ptrs(186) = c_loc(rhmini_arr(1,1)); mmacro_ptrs(187) = c_loc(rhminl_arr(1,1))
+      mmacro_ptrs(188) = c_loc(rhminl_adj_land_arr(1,1)); mmacro_ptrs(189) = c_loc(rhminh_arr(1,1))
+      do_cldice_c = 0_c_int64_t
+      if (do_cldice) do_cldice_c = 1_c_int64_t
+      mmacro_status = 0_c_int64_t
+      call cldwat2m_mmacro_pcond_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), do_cldice_c, &
+           int(i_rhmini, c_int64_t), int(i_rhminl, c_int64_t), int(merge(1, 0, CAMstfrac), c_int64_t), &
+           int(niter, c_int64_t), dt, cone, qsmall, latvap, latice, cpair, gravit, rhmaxi, &
+           rhmini_const, rhminl_const, rhminl_adj_land_const, rhminh_const, tau_deti, tau_detw, &
+           c_aniso, qmin(1), qmin(ixcldliq), qmin(ixcldice), c_loc(mmacro_ptrs(1)), c_loc(mmacro_status))
+      if (mmacro_status /= 0_c_int64_t) then
+         write(iulog,*) 'mmacro_pcond_codon status = ', mmacro_status
+         call endrun ('cldwat2m_macro::mmacro_pcond_codon failed')
+      end if
+      if (hist_fld_active('RHMIN_LIQ')) then
+         rhmin_liq_diag(:,:) = 0._r8
+         do k = top_lev, pver
+            do i = 1, ncol
+               land = nint(landfrac(i)) == 1
+               if( p(i,k) .ge. premib ) then
+                  if( land .and. (snowh(i).le.0.000001_r8) ) then
+                     rhmin_liq_diag(i,k) = rhminl_const - rhminl_adj_land_const
+                  else
+                     rhmin_liq_diag(i,k) = rhminl_const
+                  endif
+               elseif( p(i,k) .lt. premit ) then
+                  rhmin_liq_diag(i,k) = rhminh_const
+               else
+                  tmp = (premib-(max(p(i,k),premit)))/(premib-premit)
+                  rhmin_liq_diag(i,k) = rhminh_const*tmp + rhminl_const*(1.0_r8-tmp)
+               endif
+            end do
+         end do
+         call outfld( 'RHMIN_LIQ',      rhmin_liq_diag,  pcols, lchnk )
+      end if
+      rhmin_ice_diag(:,:) = rhminh_const
+      call outfld( 'RHMIN_ICE',      rhmin_ice_diag,  pcols, lchnk )
+      call outfld( 'DRHMINPBL_LIQ', d_rhmin_liq_PBL,  pcols, lchnk )
+      call outfld( 'DRHMINPBL_ICE', d_rhmin_ice_PBL,  pcols, lchnk )
+      call outfld( 'DRHMINDET_LIQ', d_rhmin_liq_det,  pcols, lchnk )
+      call outfld( 'DRHMINDET_ICE', d_rhmin_ice_det,  pcols, lchnk )
+      return
+   end if
 
    ! ---------------- !
    ! Main computation ! 
@@ -3630,6 +3796,73 @@ end subroutine rhcrit_calc
    call aist_single(qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, aist_c, &
         rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c)
    end subroutine cldwat2m_aist_single_native_cb
+
+   subroutine cldwat2m_findsp_vc_native_cb(n_c, q_p, t_p, p_p, tsp_p, qsp_p) &
+        bind(C, name="cldwat2m_findsp_vc_native_cb")
+   use wv_saturation, only: findsp_vc
+   integer(c_int64_t), value :: n_c
+   type(c_ptr), value :: q_p, t_p, p_p, tsp_p, qsp_p
+   real(r8), pointer :: q(:), t(:), p_loc(:), tsp(:), qsp(:)
+
+   call c_f_pointer(q_p, q, [int(n_c)])
+   call c_f_pointer(t_p, t, [int(n_c)])
+   call c_f_pointer(p_p, p_loc, [int(n_c)])
+   call c_f_pointer(tsp_p, tsp, [int(n_c)])
+   call c_f_pointer(qsp_p, qsp, [int(n_c)])
+   call findsp_vc(q, t, p_loc, .false., tsp, qsp)
+   end subroutine cldwat2m_findsp_vc_native_cb
+
+   subroutine cldwat2m_astg_vector_native_cb(use_rhu_c, ncol_c, u_p, p_p, qv_p, landfrac_p, snowh_p, &
+        rhminl_p, rhminl_adj_land_p, rhminh_p, a_p, ga_p) bind(C, name="cldwat2m_astg_vector_native_cb")
+   integer(c_int64_t), value :: use_rhu_c, ncol_c
+   type(c_ptr), value :: u_p, p_p, qv_p, landfrac_p, snowh_p, rhminl_p, rhminl_adj_land_p, rhminh_p, a_p, ga_p
+   real(r8), pointer :: u(:), p_loc(:), qv(:), landfrac(:), snowh(:)
+   real(r8), pointer :: rhminl(:), rhminl_adj_land(:), rhminh(:), a(:), ga(:)
+
+   call c_f_pointer(u_p, u, [pcols])
+   call c_f_pointer(p_p, p_loc, [pcols])
+   call c_f_pointer(qv_p, qv, [pcols])
+   call c_f_pointer(landfrac_p, landfrac, [pcols])
+   call c_f_pointer(snowh_p, snowh, [pcols])
+   call c_f_pointer(rhminl_p, rhminl, [pcols])
+   call c_f_pointer(rhminl_adj_land_p, rhminl_adj_land, [pcols])
+   call c_f_pointer(rhminh_p, rhminh, [pcols])
+   call c_f_pointer(a_p, a, [pcols])
+   call c_f_pointer(ga_p, ga, [pcols])
+   if (use_rhu_c /= 0_c_int64_t) then
+      call astG_RHU(u, p_loc, qv, landfrac, snowh, a, ga, int(ncol_c), &
+           rhminl_in=rhminl, rhminl_adj_land_in=rhminl_adj_land, rhminh_in=rhminh)
+   else
+      call astG_PDF(u, p_loc, qv, landfrac, snowh, a, ga, int(ncol_c), &
+           rhminl_in=rhminl, rhminl_adj_land_in=rhminl_adj_land, rhminh_in=rhminh)
+   end if
+   end subroutine cldwat2m_astg_vector_native_cb
+
+   subroutine cldwat2m_aist_vector_native_cb(ncol_c, qv_p, t_p, p_p, qi_p, ni_p, landfrac_p, snowh_p, &
+        rhmaxi_c, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, aist_p) &
+        bind(C, name="cldwat2m_aist_vector_native_cb")
+   integer(c_int64_t), value :: ncol_c
+   real(c_double), value :: rhmaxi_c
+   type(c_ptr), value :: qv_p, t_p, p_p, qi_p, ni_p, landfrac_p, snowh_p
+   type(c_ptr), value :: rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, aist_p
+   real(r8), pointer :: qv(:), t(:), p_loc(:), qi(:), ni(:), landfrac(:), snowh(:)
+   real(r8), pointer :: rhmini(:), rhminl(:), rhminl_adj_land(:), rhminh(:), aist(:)
+
+   call c_f_pointer(qv_p, qv, [pcols])
+   call c_f_pointer(t_p, t, [pcols])
+   call c_f_pointer(p_p, p_loc, [pcols])
+   call c_f_pointer(qi_p, qi, [pcols])
+   call c_f_pointer(ni_p, ni, [pcols])
+   call c_f_pointer(landfrac_p, landfrac, [pcols])
+   call c_f_pointer(snowh_p, snowh, [pcols])
+   call c_f_pointer(rhmini_p, rhmini, [pcols])
+   call c_f_pointer(rhminl_p, rhminl, [pcols])
+   call c_f_pointer(rhminl_adj_land_p, rhminl_adj_land, [pcols])
+   call c_f_pointer(rhminh_p, rhminh, [pcols])
+   call c_f_pointer(aist_p, aist, [pcols])
+   call aist_vector(qv, t, p_loc, qi, ni, landfrac, snowh, aist, int(ncol_c), &
+        real(rhmaxi_c, r8), rhmini, rhminl, rhminl_adj_land, rhminh)
+   end subroutine cldwat2m_aist_vector_native_cb
 
    ! ----------------- !
    ! End of subroutine !

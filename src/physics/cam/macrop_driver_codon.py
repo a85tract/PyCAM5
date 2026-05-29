@@ -28,6 +28,37 @@ from C import cldwat2m_aist_single_native_cb(
     float,
     Ptr[float],
 ) -> None
+from C import cldwat2m_findsp_vc_native_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
+from C import cldwat2m_astg_vector_native_cb(
+    int,
+    int,
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+) -> None
+from C import cldwat2m_aist_vector_native_cb(
+    int,
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    float,
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+    Ptr[float],
+) -> None
 
 
 @export
@@ -81,6 +112,370 @@ def cldwat2m_ini_macro_codon(
     rhminh[0] = rhminh_in
     premit[0] = premit_in
     premib[0] = premib_in
+
+
+@export
+def cldwat2m_mmacro_pcond_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    do_cldice: int,
+    i_rhmini: int,
+    i_rhminl: int,
+    camstfrac: int,
+    niter: int,
+    dt: float,
+    cone: float,
+    qsmall: float,
+    latvap: float,
+    latice: float,
+    cpair: float,
+    gravit: float,
+    rhmaxi: float,
+    rhmini_const: float,
+    rhminl_const: float,
+    rhminl_adj_land_const: float,
+    rhminh_const: float,
+    tau_deti: float,
+    tau_detw: float,
+    c_aniso: float,
+    qvmin: float,
+    qlmin: float,
+    qimin: float,
+    ptrs_p: cobj,
+    status_p: cobj,
+):
+    ptrs = Ptr[cobj](ptrs_p)
+    status = Ptr[int](status_p)
+    status[0] = 0
+
+    p = Ptr[float](ptrs[0])
+    dp = Ptr[float](ptrs[1])
+    t0 = Ptr[float](ptrs[2])
+    qv0 = Ptr[float](ptrs[3])
+    ql0 = Ptr[float](ptrs[4])
+    qi0 = Ptr[float](ptrs[5])
+    nl0 = Ptr[float](ptrs[6])
+    ni0 = Ptr[float](ptrs[7])
+    a_t = Ptr[float](ptrs[8])
+    a_qv = Ptr[float](ptrs[9])
+    a_ql = Ptr[float](ptrs[10])
+    a_qi = Ptr[float](ptrs[11])
+    a_nl = Ptr[float](ptrs[12])
+    a_ni = Ptr[float](ptrs[13])
+    c_t = Ptr[float](ptrs[14])
+    c_qv = Ptr[float](ptrs[15])
+    c_ql = Ptr[float](ptrs[16])
+    c_qi = Ptr[float](ptrs[17])
+    c_nl = Ptr[float](ptrs[18])
+    c_ni = Ptr[float](ptrs[19])
+    c_qlst = Ptr[float](ptrs[20])
+    d_t = Ptr[float](ptrs[21])
+    d_qv = Ptr[float](ptrs[22])
+    d_ql = Ptr[float](ptrs[23])
+    d_qi = Ptr[float](ptrs[24])
+    d_nl = Ptr[float](ptrs[25])
+    d_ni = Ptr[float](ptrs[26])
+    a_cud = Ptr[float](ptrs[27])
+    a_cu0 = Ptr[float](ptrs[28])
+    clrw_old = Ptr[float](ptrs[29])
+    clri_old = Ptr[float](ptrs[30])
+    landfrac = Ptr[float](ptrs[31])
+    snowh = Ptr[float](ptrs[32])
+    tke = Ptr[float](ptrs[33])
+    qtl_flx = Ptr[float](ptrs[34])
+    qti_flx = Ptr[float](ptrs[35])
+    cmfr_det = Ptr[float](ptrs[36])
+    qlr_det = Ptr[float](ptrs[37])
+    qir_det = Ptr[float](ptrs[38])
+    s_tendout = Ptr[float](ptrs[39])
+    qv_tendout = Ptr[float](ptrs[40])
+    ql_tendout = Ptr[float](ptrs[41])
+    qi_tendout = Ptr[float](ptrs[42])
+    nl_tendout = Ptr[float](ptrs[43])
+    ni_tendout = Ptr[float](ptrs[44])
+    qme = Ptr[float](ptrs[45])
+    qvadj = Ptr[float](ptrs[46])
+    qladj = Ptr[float](ptrs[47])
+    qiadj = Ptr[float](ptrs[48])
+    qllim = Ptr[float](ptrs[49])
+    qilim = Ptr[float](ptrs[50])
+    cld = Ptr[float](ptrs[51])
+    al_st_star_out = Ptr[float](ptrs[52])
+    ai_st_star_out = Ptr[float](ptrs[53])
+    ql_st_star_out = Ptr[float](ptrs[54])
+    qi_st_star_out = Ptr[float](ptrs[55])
+    zeros = Ptr[float](ptrs[56])
+    t = Ptr[float](ptrs[57])
+    t1 = Ptr[float](ptrs[58])
+    t_0 = Ptr[float](ptrs[59])
+    t_05 = Ptr[float](ptrs[60])
+    t_prime0 = Ptr[float](ptrs[61])
+    t_dprime = Ptr[float](ptrs[62])
+    t_star = Ptr[float](ptrs[63])
+    qv = Ptr[float](ptrs[64])
+    qv1 = Ptr[float](ptrs[65])
+    qv_0 = Ptr[float](ptrs[66])
+    qv_05 = Ptr[float](ptrs[67])
+    qv_prime0 = Ptr[float](ptrs[68])
+    qv_dprime = Ptr[float](ptrs[69])
+    qv_star = Ptr[float](ptrs[70])
+    ql = Ptr[float](ptrs[71])
+    ql1 = Ptr[float](ptrs[72])
+    ql_0 = Ptr[float](ptrs[73])
+    ql_05 = Ptr[float](ptrs[74])
+    ql_prime0 = Ptr[float](ptrs[75])
+    ql_dprime = Ptr[float](ptrs[76])
+    ql_star = Ptr[float](ptrs[77])
+    qi = Ptr[float](ptrs[78])
+    qi1 = Ptr[float](ptrs[79])
+    qi_0 = Ptr[float](ptrs[80])
+    qi_05 = Ptr[float](ptrs[81])
+    qi_prime0 = Ptr[float](ptrs[82])
+    qi_dprime = Ptr[float](ptrs[83])
+    qi_star = Ptr[float](ptrs[84])
+    nl = Ptr[float](ptrs[85])
+    nl1 = Ptr[float](ptrs[86])
+    nl_0 = Ptr[float](ptrs[87])
+    nl_05 = Ptr[float](ptrs[88])
+    nl_prime0 = Ptr[float](ptrs[89])
+    nl_dprime = Ptr[float](ptrs[90])
+    nl_star = Ptr[float](ptrs[91])
+    ni = Ptr[float](ptrs[92])
+    ni1 = Ptr[float](ptrs[93])
+    ni_0 = Ptr[float](ptrs[94])
+    ni_05 = Ptr[float](ptrs[95])
+    ni_prime0 = Ptr[float](ptrs[96])
+    ni_dprime = Ptr[float](ptrs[97])
+    ni_star = Ptr[float](ptrs[98])
+    a_st = Ptr[float](ptrs[99])
+    a_st_0 = Ptr[float](ptrs[100])
+    a_st_star = Ptr[float](ptrs[101])
+    al_st = Ptr[float](ptrs[102])
+    al_st_0 = Ptr[float](ptrs[103])
+    al_st_nc = Ptr[float](ptrs[104])
+    ai_st = Ptr[float](ptrs[105])
+    ai_st_0 = Ptr[float](ptrs[106])
+    ai_st_nc = Ptr[float](ptrs[107])
+    ql_st = Ptr[float](ptrs[108])
+    ql_st_0 = Ptr[float](ptrs[109])
+    qi_st = Ptr[float](ptrs[110])
+    qi_st_0 = Ptr[float](ptrs[111])
+    dacudt = Ptr[float](ptrs[112])
+    a_cu = Ptr[float](ptrs[113])
+    tten_pwi1 = Ptr[float](ptrs[114])
+    qvten_pwi1 = Ptr[float](ptrs[115])
+    qlten_pwi1 = Ptr[float](ptrs[116])
+    qiten_pwi1 = Ptr[float](ptrs[117])
+    nlten_pwi1 = Ptr[float](ptrs[118])
+    niten_pwi1 = Ptr[float](ptrs[119])
+    tten_pwi2 = Ptr[float](ptrs[120])
+    qvten_pwi2 = Ptr[float](ptrs[121])
+    qlten_pwi2 = Ptr[float](ptrs[122])
+    qiten_pwi2 = Ptr[float](ptrs[123])
+    nlten_pwi2 = Ptr[float](ptrs[124])
+    niten_pwi2 = Ptr[float](ptrs[125])
+    a_t_adj = Ptr[float](ptrs[126])
+    a_qv_adj = Ptr[float](ptrs[127])
+    a_ql_adj = Ptr[float](ptrs[128])
+    a_qi_adj = Ptr[float](ptrs[129])
+    a_nl_adj = Ptr[float](ptrs[130])
+    a_ni_adj = Ptr[float](ptrs[131])
+    qqw1 = Ptr[float](ptrs[132])
+    qqi1 = Ptr[float](ptrs[133])
+    qqw2 = Ptr[float](ptrs[134])
+    qqi2 = Ptr[float](ptrs[135])
+    qqnl1 = Ptr[float](ptrs[136])
+    qqni1 = Ptr[float](ptrs[137])
+    qqnl2 = Ptr[float](ptrs[138])
+    qqni2 = Ptr[float](ptrs[139])
+    qqnl = Ptr[float](ptrs[140])
+    qqni = Ptr[float](ptrs[141])
+    qq = Ptr[float](ptrs[142])
+    qqw = Ptr[float](ptrs[143])
+    qqi = Ptr[float](ptrs[144])
+    acnl = Ptr[float](ptrs[145])
+    acni = Ptr[float](ptrs[146])
+    qqw_prev = Ptr[float](ptrs[147])
+    qqi_prev = Ptr[float](ptrs[148])
+    qqnl_prev = Ptr[float](ptrs[149])
+    qqni_prev = Ptr[float](ptrs[150])
+    qqw_prog = Ptr[float](ptrs[151])
+    qqi_prog = Ptr[float](ptrs[152])
+    qqnl_prog = Ptr[float](ptrs[153])
+    qqni_prog = Ptr[float](ptrs[154])
+    qq_final = Ptr[float](ptrs[155])
+    qqw_final = Ptr[float](ptrs[156])
+    qqi_final = Ptr[float](ptrs[157])
+    qqn_final = Ptr[float](ptrs[158])
+    qqnl_final = Ptr[float](ptrs[159])
+    qqni_final = Ptr[float](ptrs[160])
+    qq_all = Ptr[float](ptrs[161])
+    qqw_all = Ptr[float](ptrs[162])
+    qqi_all = Ptr[float](ptrs[163])
+    qqn_all = Ptr[float](ptrs[164])
+    qqnl_all = Ptr[float](ptrs[165])
+    qqni_all = Ptr[float](ptrs[166])
+    u = Ptr[float](ptrs[167])
+    u_nc = Ptr[float](ptrs[168])
+    g_nc = Ptr[float](ptrs[169])
+    f_nc = Ptr[float](ptrs[170])
+    qmin1 = Ptr[float](ptrs[171])
+    qmin2 = Ptr[float](ptrs[172])
+    qmin3 = Ptr[float](ptrs[173])
+    qsat_a = Ptr[float](ptrs[174])
+    twb_aw = Ptr[float](ptrs[175])
+    qvwb_aw = Ptr[float](ptrs[176])
+    esat_a = Ptr[float](ptrs[177])
+    esat_b = Ptr[float](ptrs[178])
+    qsat_b = Ptr[float](ptrs[179])
+    dqsdt_b = Ptr[float](ptrs[180])
+    d_rhmin_liq_pbl = Ptr[float](ptrs[181])
+    d_rhmin_ice_pbl = Ptr[float](ptrs[182])
+    d_rhmin_liq_det = Ptr[float](ptrs[183])
+    d_rhmin_ice_det = Ptr[float](ptrs[184])
+    rhmini = Ptr[float](ptrs[185])
+    rhminl = Ptr[float](ptrs[186])
+    rhminl_adj_land = Ptr[float](ptrs[187])
+    rhminh = Ptr[float](ptrs[188])
+
+    cldwat2m_rhcrit_calc_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        i_rhmini,
+        i_rhminl,
+        rhmini_const,
+        rhminl_const,
+        rhminl_adj_land_const,
+        rhminh_const,
+        rhmaxi,
+        tau_deti,
+        tau_detw,
+        gravit,
+        qsmall,
+        c_aniso,
+        ptrs[1],
+        ptrs[2],
+        ptrs[0],
+        ptrs[29],
+        ptrs[30],
+        ptrs[33],
+        ptrs[34],
+        ptrs[35],
+        ptrs[36],
+        ptrs[37],
+        ptrs[38],
+        ptrs[185],
+        ptrs[186],
+        ptrs[187],
+        ptrs[188],
+        ptrs[181],
+        ptrs[182],
+        ptrs[183],
+        ptrs[184],
+    )
+    cldwat2m_input_state_codon(ncol, pcols, pver, top_lev, dt, ptrs[28], ptrs[27], ptrs[2], ptrs[3], ptrs[4], ptrs[5], ptrs[6], ptrs[7], ptrs[112], ptrs[58], ptrs[65], ptrs[72], ptrs[79], ptrs[86], ptrs[93])
+    cldwat2m_qmin_fill_codon(ncol, pcols, pver, qvmin, qlmin, qimin, ptrs[171], ptrs[172], ptrs[173])
+    cldwat2m_positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[65], ptrs[72], ptrs[79], ptrs[58], ptrs[115], ptrs[116], ptrs[117], ptrs[114])
+    cldwat2m_dropnum_limit_codon(1, ncol, pcols, pver, top_lev, dt, qsmall, ptrs[72], ptrs[79], ptrs[86], ptrs[93], ptrs[118], ptrs[119])
+
+    for k in range(top_lev, pver + 1):
+        col = (k - 1) * pcols
+        cldwat2m_instratus_condensate_codon(
+            ncol, pcols, camstfrac, cpair, latvap, latice, 2.0e-5, 3.0e-3, rhmaxi,
+            ptrs[0] + col * 8, ptrs[58] + col * 8, ptrs[65] + col * 8, ptrs[72] + col * 8,
+            ptrs[79] + col * 8, ptrs[93] + col * 8, ptrs[27] + col * 8, ptrs[56] + col * 8,
+            ptrs[56] + col * 8, ptrs[56] + col * 8, ptrs[56] + col * 8, ptrs[56] + col * 8,
+            ptrs[31], ptrs[32], ptrs[185] + col * 8, ptrs[186] + col * 8, ptrs[187] + col * 8,
+            ptrs[188] + col * 8, ptrs[59] + col * 8, ptrs[66] + col * 8, ptrs[73] + col * 8,
+            ptrs[80] + col * 8, ptrs[103] + col * 8, ptrs[106] + col * 8, ptrs[109] + col * 8,
+            ptrs[111] + col * 8, status_p,
+        )
+        if status[0] != 0:
+            return
+        cldwat2m_instratus_tendency_codon(
+            1, ncol, dt, qsmall, cone, ptrs[73] + col * 8, ptrs[80] + col * 8,
+            ptrs[72] + col * 8, ptrs[79] + col * 8, ptrs[86] + col * 8, ptrs[93] + col * 8,
+            ptrs[103] + col * 8, ptrs[106] + col * 8, ptrs[100] + col * 8, ptrs[132] + col * 8,
+            ptrs[133] + col * 8, ptrs[136] + col * 8, ptrs[137] + col * 8, ptrs[87] + col * 8,
+            ptrs[94] + col * 8,
+        )
+
+    cldwat2m_advective_state_codon(ncol, pcols, pver, top_lev, dt, ptrs[59], ptrs[66], ptrs[73], ptrs[80], ptrs[87], ptrs[94], ptrs[8], ptrs[14], ptrs[9], ptrs[15], ptrs[10], ptrs[16], ptrs[11], ptrs[17], ptrs[12], ptrs[18], ptrs[13], ptrs[19], ptrs[60], ptrs[67], ptrs[74], ptrs[81], ptrs[88], ptrs[95])
+    cldwat2m_positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[67], ptrs[74], ptrs[81], ptrs[60], ptrs[127], ptrs[128], ptrs[129], ptrs[126])
+    cldwat2m_ref_state_codon(ncol, pcols, pver, top_lev, ptrs[59], ptrs[66], ptrs[73], ptrs[80], ptrs[103], ptrs[106], ptrs[100], ptrs[109], ptrs[111], ptrs[87], ptrs[94], ptrs[57], ptrs[64], ptrs[71], ptrs[78], ptrs[102], ptrs[105], ptrs[99], ptrs[108], ptrs[110], ptrs[85], ptrs[92])
+
+    for k in range(top_lev, pver + 1):
+        col = (k - 1) * pcols
+        cldwat2m_findsp_vc_native_cb(ncol, qv_05 + col, t_05 + col, p + col, twb_aw, qvwb_aw + col)
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx1 = i - 1
+            es, qs, _ = _cldwat2m_qsat_water_native(t_05[idx], p[idx])
+            esat_a[idx1] = es
+            qsat_a[idx] = qs
+
+    for iter_num in range(1, niter + 1):
+        cldwat2m_iter_zero_codon(pcols, pver, ptrs[142], ptrs[143], ptrs[144], ptrs[140], ptrs[141], ptrs[134], ptrs[135], ptrs[138], ptrs[139], ptrs[124], ptrs[125], ptrs[145], ptrs[146], ptrs[56], ptrs[56])
+        for k in range(top_lev, pver + 1):
+            col = (k - 1) * pcols
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                idx1 = i - 1
+                es, qs, dqsdt = _cldwat2m_qsat_water_native(t[idx], p[idx])
+                esat_b[idx1] = es
+                qsat_b[idx1] = qs
+                dqsdt_b[idx1] = dqsdt
+
+            cldwat2m_iter_column_state_codon(iter_num, ncol, ptrs[179], ptrs[64] + col * 8, ptrs[27] + col * 8, ptrs[28] + col * 8, ptrs[113] + col * 8, ptrs[167] + col * 8, ptrs[168] + col * 8)
+            cldwat2m_astg_vector_native_cb(camstfrac, ncol, u_nc + col, p + col, qv + col, landfrac, snowh, rhminl + col, rhminl_adj_land + col, rhminh + col, al_st_nc + col, g_nc + col)
+            cldwat2m_aist_vector_native_cb(ncol, qv + col, t + col, p + col, qi + col, ni + col, landfrac, snowh, rhmaxi, rhmini + col, rhminl + col, rhminl_adj_land + col, rhminh + col, ai_st_nc + col)
+            cldwat2m_iter_column_stratus_codon(ncol, ptrs[113] + col * 8, ptrs[104] + col * 8, ptrs[107] + col * 8, ptrs[102] + col * 8, ptrs[105] + col * 8, ptrs[99] + col * 8)
+            coeff_status = cldwat2m_qq_coeff_solve_codon(
+                k, ncol, pcols, pver, latvap, latice, cpair, 0.1, ptrs[179], ptrs[180],
+                ptrs[64], ptrs[8], ptrs[126], ptrs[10], ptrs[128], ptrs[11], ptrs[129],
+                ptrs[9], ptrs[127], ptrs[14], ptrs[16], ptrs[17], ptrs[15], ptrs[20],
+                ptrs[113], ptrs[169], ptrs[102], ptrs[108], ptrs[104], ptrs[112], ptrs[170], ptrs[142],
+            )
+            if coeff_status != 0:
+                status[0] = coeff_status
+                return
+
+        cldwat2m_qq_limiter_codon(ncol, pcols, pver, top_lev, dt, qsmall, cone, qvmin, ptrs[67], ptrs[74], ptrs[81], ptrs[88], ptrs[95], ptrs[174], ptrs[176], ptrs[142], ptrs[143], ptrs[144], ptrs[140], ptrs[141])
+        cldwat2m_iter_state_codon(iter_num, ncol, pcols, pver, top_lev, dt, 0.5, qsmall, latvap, latice, cpair, ptrs[143], ptrs[144], ptrs[140], ptrs[141], ptrs[147], ptrs[148], ptrs[149], ptrs[150], ptrs[151], ptrs[152], ptrs[153], ptrs[154], ptrs[59], ptrs[66], ptrs[73], ptrs[80], ptrs[87], ptrs[94], ptrs[8], ptrs[126], ptrs[14], ptrs[9], ptrs[127], ptrs[15], ptrs[10], ptrs[128], ptrs[16], ptrs[11], ptrs[129], ptrs[17], ptrs[12], ptrs[18], ptrs[13], ptrs[19], ptrs[61], ptrs[68], ptrs[75], ptrs[82], ptrs[89], ptrs[96])
+        cldwat2m_detrain_state_codon(ncol, pcols, pver, top_lev, dt, ptrs[61], ptrs[68], ptrs[75], ptrs[82], ptrs[89], ptrs[96], ptrs[21], ptrs[22], ptrs[23], ptrs[24], ptrs[25], ptrs[26], ptrs[62], ptrs[69], ptrs[76], ptrs[83], ptrs[90], ptrs[97])
+        cldwat2m_positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[69], ptrs[76], ptrs[83], ptrs[62], ptrs[121], ptrs[122], ptrs[123], ptrs[120])
+        cldwat2m_dropnum_limit_codon(2, ncol, pcols, pver, top_lev, dt, qsmall, ptrs[76], ptrs[83], ptrs[90], ptrs[97], ptrs[124], ptrs[125])
+
+        for k in range(top_lev, pver + 1):
+            col = (k - 1) * pcols
+            cldwat2m_instratus_condensate_codon(
+                ncol, pcols, camstfrac, cpair, latvap, latice, 2.0e-5, 3.0e-3, rhmaxi,
+                ptrs[0] + col * 8, ptrs[62] + col * 8, ptrs[69] + col * 8, ptrs[76] + col * 8,
+                ptrs[83] + col * 8, ptrs[97] + col * 8, ptrs[28] + col * 8, ptrs[56] + col * 8,
+                ptrs[56] + col * 8, ptrs[56] + col * 8, ptrs[56] + col * 8, ptrs[56] + col * 8,
+                ptrs[31], ptrs[32], ptrs[185] + col * 8, ptrs[186] + col * 8, ptrs[187] + col * 8,
+                ptrs[188] + col * 8, ptrs[63] + col * 8, ptrs[70] + col * 8, ptrs[77] + col * 8,
+                ptrs[84] + col * 8, ptrs[52] + col * 8, ptrs[53] + col * 8, ptrs[54] + col * 8,
+                ptrs[55] + col * 8, status_p,
+            )
+            if status[0] != 0:
+                return
+            cldwat2m_instratus_tendency_codon(
+                2, ncol, dt, qsmall, cone, ptrs[77] + col * 8, ptrs[84] + col * 8,
+                ptrs[76] + col * 8, ptrs[83] + col * 8, ptrs[90] + col * 8, ptrs[97] + col * 8,
+                ptrs[52] + col * 8, ptrs[53] + col * 8, ptrs[101] + col * 8, ptrs[134] + col * 8,
+                ptrs[135] + col * 8, ptrs[138] + col * 8, ptrs[139] + col * 8, ptrs[91] + col * 8,
+                ptrs[98] + col * 8,
+            )
+
+        cldwat2m_dropnum_limit_codon(3, ncol, pcols, pver, top_lev, dt, qsmall, ptrs[77], ptrs[84], ptrs[91], ptrs[98], ptrs[145], ptrs[146])
+        cldwat2m_ref_state_codon(ncol, pcols, pver, top_lev, ptrs[63], ptrs[70], ptrs[77], ptrs[84], ptrs[52], ptrs[53], ptrs[101], ptrs[54], ptrs[55], ptrs[91], ptrs[98], ptrs[57], ptrs[64], ptrs[71], ptrs[78], ptrs[102], ptrs[105], ptrs[99], ptrs[108], ptrs[110], ptrs[85], ptrs[92])
+
+    cldwat2m_final_tendency_codon(ncol, pcols, pver, top_lev, do_cldice, dt, cpair, ptrs[151], ptrs[152], ptrs[153], ptrs[154], ptrs[132], ptrs[133], ptrs[134], ptrs[135], ptrs[116], ptrs[122], ptrs[117], ptrs[123], ptrs[128], ptrs[129], ptrs[136], ptrs[137], ptrs[138], ptrs[139], ptrs[118], ptrs[124], ptrs[119], ptrs[125], ptrs[145], ptrs[146], ptrs[130], ptrs[131], ptrs[115], ptrs[121], ptrs[127], ptrs[63], ptrs[70], ptrs[77], ptrs[84], ptrs[91], ptrs[98], ptrs[8], ptrs[14], ptrs[9], ptrs[15], ptrs[10], ptrs[16], ptrs[11], ptrs[17], ptrs[12], ptrs[18], ptrs[13], ptrs[19], ptrs[101], ptrs[28], ptrs[156], ptrs[157], ptrs[155], ptrs[162], ptrs[163], ptrs[161], ptrs[159], ptrs[160], ptrs[158], ptrs[165], ptrs[166], ptrs[164], ptrs[45], ptrs[46], ptrs[47], ptrs[48], ptrs[49], ptrs[50], ptrs[39], ptrs[40], ptrs[41], ptrs[42], ptrs[43], ptrs[44], ptrs[51], ptrs[2], ptrs[3], ptrs[4], ptrs[5], ptrs[6], ptrs[7])
 
 
 def _idx2(i: int, k: int, pcols: int):
