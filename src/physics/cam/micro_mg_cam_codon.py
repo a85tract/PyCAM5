@@ -1541,6 +1541,128 @@ def micro_mg1_0_substep_setup_column_codon(
 
 
 @export
+def micro_mg1_0_substep_accum_column_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    deltat: float,
+    cpp: float,
+    qric_p: cobj,
+    qniic_p: cobj,
+    nric_p: cobj,
+    nsic_p: cobj,
+    rho_p: cobj,
+    cldmax_p: cobj,
+    qrout_p: cobj,
+    qsout_p: cobj,
+    nrout_p: cobj,
+    nsout_p: cobj,
+    tlat_p: cobj,
+    qvlat_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    tlat1_p: cobj,
+    qvlat1_p: cobj,
+    qctend1_p: cobj,
+    qitend1_p: cobj,
+    nctend1_p: cobj,
+    nitend1_p: cobj,
+    t_p: cobj,
+    q_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    rainrt_p: cobj,
+    rainrt1_p: cobj,
+    arcld_p: cobj,
+    rercld_p: cobj,
+    rflx_p: cobj,
+    sflx_p: cobj,
+    rflx1_p: cobj,
+    sflx1_p: cobj,
+    umr_p: cobj,
+    ums_p: cobj,
+):
+    qric = Ptr[float](qric_p)
+    qniic = Ptr[float](qniic_p)
+    nric = Ptr[float](nric_p)
+    nsic = Ptr[float](nsic_p)
+    rho = Ptr[float](rho_p)
+    cldmax = Ptr[float](cldmax_p)
+    qrout = Ptr[float](qrout_p)
+    qsout = Ptr[float](qsout_p)
+    nrout = Ptr[float](nrout_p)
+    nsout = Ptr[float](nsout_p)
+    tlat = Ptr[float](tlat_p)
+    qvlat = Ptr[float](qvlat_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    nctend = Ptr[float](nctend_p)
+    nitend = Ptr[float](nitend_p)
+    tlat1 = Ptr[float](tlat1_p)
+    qvlat1 = Ptr[float](qvlat1_p)
+    qctend1 = Ptr[float](qctend1_p)
+    qitend1 = Ptr[float](qitend1_p)
+    nctend1 = Ptr[float](nctend1_p)
+    nitend1 = Ptr[float](nitend1_p)
+    t = Ptr[float](t_p)
+    q = Ptr[float](q_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    rainrt = Ptr[float](rainrt_p)
+    rainrt1 = Ptr[float](rainrt1_p)
+    arcld = Ptr[float](arcld_p)
+    rercld = Ptr[float](rercld_p)
+    rflx = Ptr[float](rflx_p)
+    sflx = Ptr[float](sflx_p)
+    rflx1 = Ptr[float](rflx1_p)
+    sflx1 = Ptr[float](sflx1_p)
+    umr = Ptr[float](umr_p)
+    ums = Ptr[float](ums_p)
+
+    rflx[_idx2(i, 1, pcols)] = 0.0
+    sflx[_idx2(i, 1, pcols)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        idx = _idx2(i, k, pcols)
+        qrout[idx] = qrout[idx] + qric[idx] * cldmax[idx]
+        qsout[idx] = qsout[idx] + qniic[idx] * cldmax[idx]
+        nrout[idx] = nrout[idx] + nric[idx] * rho[idx] * cldmax[idx]
+        nsout[idx] = nsout[idx] + nsic[idx] * rho[idx] * cldmax[idx]
+
+        tlat1[idx] = tlat1[idx] + tlat[idx]
+        qvlat1[idx] = qvlat1[idx] + qvlat[idx]
+        qctend1[idx] = qctend1[idx] + qctend[idx]
+        qitend1[idx] = qitend1[idx] + qitend[idx]
+        nctend1[idx] = nctend1[idx] + nctend[idx]
+        nitend1[idx] = nitend1[idx] + nitend[idx]
+
+        t[idx] = t[idx] + tlat[idx] * deltat / cpp
+        q[idx] = q[idx] + qvlat[idx] * deltat
+        qc[idx] = qc[idx] + qctend[idx] * deltat
+        qi[idx] = qi[idx] + qitend[idx] * deltat
+        nc[idx] = nc[idx] + nctend[idx] * deltat
+        ni[idx] = ni[idx] + nitend[idx] * deltat
+
+        rainrt1[idx] = rainrt1[idx] + rainrt[idx]
+
+        if arcld[idx] > 0.0:
+            rercld[idx] = rercld[idx] / arcld[idx]
+
+        idx_flux = _idx2(i, k + 1, pcols)
+        rflx[idx_flux] = qrout[idx] * rho[idx] * umr[k - 1]
+        sflx[idx_flux] = qsout[idx] * rho[idx] * ums[k - 1]
+        rflx1[idx_flux] = rflx1[idx_flux] + rflx[idx_flux]
+        sflx1[idx_flux] = sflx1[idx_flux] + sflx[idx_flux]
+
+
+@export
 def micro_mg1_0_flux_ltrue_init_codon(
     ncol: int,
     pcols: int,

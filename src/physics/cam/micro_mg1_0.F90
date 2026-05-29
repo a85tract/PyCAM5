@@ -158,6 +158,7 @@ logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
 logical :: micro_mg1_0_rate1ord_logged = .false.
 logical :: micro_mg1_0_substep_setup_logged = .false.
+logical :: micro_mg1_0_substep_accum_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3043,54 +3044,63 @@ do i=1,ncol
             uns(k) = 0._r8
          end if
 
-         !c........................................................................
-         ! sum over sub-step for average process rates
+         if (micro_mg1_0_colzero_use_native_impl) then
+            !c........................................................................
+            ! sum over sub-step for average process rates
 
-         ! convert rain/snow q and N for output to history, note, 
-         ! output is for gridbox average
+            ! convert rain/snow q and N for output to history, note,
+            ! output is for gridbox average
 
-         qrout(i,k)=qrout(i,k)+qric(i,k)*cldmax(i,k)
-         qsout(i,k)=qsout(i,k)+qniic(i,k)*cldmax(i,k)
-         nrout(i,k)=nrout(i,k)+nric(i,k)*rho(i,k)*cldmax(i,k)
-         nsout(i,k)=nsout(i,k)+nsic(i,k)*rho(i,k)*cldmax(i,k)
+            qrout(i,k)=qrout(i,k)+qric(i,k)*cldmax(i,k)
+            qsout(i,k)=qsout(i,k)+qniic(i,k)*cldmax(i,k)
+            nrout(i,k)=nrout(i,k)+nric(i,k)*rho(i,k)*cldmax(i,k)
+            nsout(i,k)=nsout(i,k)+nsic(i,k)*rho(i,k)*cldmax(i,k)
 
-         tlat1(i,k)=tlat1(i,k)+tlat(i,k)
-         qvlat1(i,k)=qvlat1(i,k)+qvlat(i,k)
-         qctend1(i,k)=qctend1(i,k)+qctend(i,k)
-         qitend1(i,k)=qitend1(i,k)+qitend(i,k)
-         nctend1(i,k)=nctend1(i,k)+nctend(i,k)
-         nitend1(i,k)=nitend1(i,k)+nitend(i,k)
+            tlat1(i,k)=tlat1(i,k)+tlat(i,k)
+            qvlat1(i,k)=qvlat1(i,k)+qvlat(i,k)
+            qctend1(i,k)=qctend1(i,k)+qctend(i,k)
+            qitend1(i,k)=qitend1(i,k)+qitend(i,k)
+            nctend1(i,k)=nctend1(i,k)+nctend(i,k)
+            nitend1(i,k)=nitend1(i,k)+nitend(i,k)
 
-         t(i,k)=t(i,k)+tlat(i,k)*deltat/cpp
-         q(i,k)=q(i,k)+qvlat(i,k)*deltat
-         qc(i,k)=qc(i,k)+qctend(i,k)*deltat
-         qi(i,k)=qi(i,k)+qitend(i,k)*deltat
-         nc(i,k)=nc(i,k)+nctend(i,k)*deltat
-         ni(i,k)=ni(i,k)+nitend(i,k)*deltat
+            t(i,k)=t(i,k)+tlat(i,k)*deltat/cpp
+            q(i,k)=q(i,k)+qvlat(i,k)*deltat
+            qc(i,k)=qc(i,k)+qctend(i,k)*deltat
+            qi(i,k)=qi(i,k)+qitend(i,k)*deltat
+            nc(i,k)=nc(i,k)+nctend(i,k)*deltat
+            ni(i,k)=ni(i,k)+nitend(i,k)*deltat
 
-         rainrt1(i,k)=rainrt1(i,k)+rainrt(i,k)
+            rainrt1(i,k)=rainrt1(i,k)+rainrt(i,k)
 
-         !divide rain radius over substeps for average
-         if (arcld(i,k) .gt. 0._r8) then
-            rercld(i,k)=rercld(i,k)/arcld(i,k)
+            !divide rain radius over substeps for average
+            if (arcld(i,k) .gt. 0._r8) then
+               rercld(i,k)=rercld(i,k)/arcld(i,k)
+            end if
+
+            !calculate precip fluxes and adding them to summing sub-stepping variables
+            !! flux is zero at top interface
+            rflx(i,1)=0.0_r8
+            sflx(i,1)=0.0_r8
+
+            !! calculating the precip flux (kg/m2/s) as mixingratio(kg/kg)*airdensity(kg/m3)*massweightedfallspeed(m/s)
+            rflx(i,k+1)=qrout(i,k)*rho(i,k)*umr(k)
+            sflx(i,k+1)=qsout(i,k)*rho(i,k)*ums(k)
+
+            !! add to summing sub-stepping variable
+            rflx1(i,k+1)=rflx1(i,k+1)+rflx(i,k+1)
+            sflx1(i,k+1)=sflx1(i,k+1)+sflx(i,k+1)
          end if
-
-         !calculate precip fluxes and adding them to summing sub-stepping variables
-         !! flux is zero at top interface
-         rflx(i,1)=0.0_r8
-         sflx(i,1)=0.0_r8
-
-         !! calculating the precip flux (kg/m2/s) as mixingratio(kg/kg)*airdensity(kg/m3)*massweightedfallspeed(m/s)
-         rflx(i,k+1)=qrout(i,k)*rho(i,k)*umr(k)
-         sflx(i,k+1)=qsout(i,k)*rho(i,k)*ums(k)
-
-         !! add to summing sub-stepping variable
-         rflx1(i,k+1)=rflx1(i,k+1)+rflx(i,k+1)
-         sflx1(i,k+1)=sflx1(i,k+1)+sflx(i,k+1)
 
          !c........................................................................
 
       end do ! k loop
+
+      if (.not. micro_mg1_0_colzero_use_native_impl) then
+         call micro_mg1_0_substep_accum_column_codon_wrap(i, pcols, pver, top_lev, deltat, cpp, &
+              qric, qniic, nric, nsic, rho, cldmax, qrout, qsout, nrout, nsout, tlat, qvlat, qctend, &
+              qitend, nctend, nitend, tlat1, qvlat1, qctend1, qitend1, nctend1, nitend1, t, q, qc, qi, &
+              nc, ni, rainrt, rainrt1, arcld, rercld, rflx, sflx, rflx1, sflx1, umr, ums)
+      end if
 
       prect1(i)=prect1(i)+prect(i)
       preci1(i)=preci1(i)+preci(i)
@@ -4224,6 +4234,15 @@ subroutine micro_mg1_0_substep_setup_log_entry()
   end if
 end subroutine micro_mg1_0_substep_setup_log_entry
 
+subroutine micro_mg1_0_substep_accum_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_substep_accum_logged) then
+     write(iulog,*) 'micro_mg1_0_substep_accum entered (substep tendency/state/flux accumulation = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_substep_accum entered (substep tendency/state/flux accumulation = codon)')
+     micro_mg1_0_substep_accum_logged = .true.
+  end if
+end subroutine micro_mg1_0_substep_accum_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4443,6 +4462,87 @@ subroutine micro_mg1_0_substep_setup_column_codon_wrap(i_local, pcols_local, pve
        c_loc(cwml_local), c_loc(cwmi_local), c_loc(ums_local), c_loc(uns_local), c_loc(umr_local), &
        c_loc(unr_local), c_loc(nsubi_local), c_loc(nsubc_local))
 end subroutine micro_mg1_0_substep_setup_column_codon_wrap
+
+subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
+     top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &
+     cldmax_local, qrout_local, qsout_local, nrout_local, nsout_local, tlat_local, qvlat_local, &
+     qctend_local, qitend_local, nctend_local, nitend_local, tlat1_local, qvlat1_local, &
+     qctend1_local, qitend1_local, nctend1_local, nitend1_local, t_local, q_local, qc_local, qi_local, &
+     nc_local, ni_local, rainrt_local, rainrt1_local, arcld_local, rercld_local, rflx_local, sflx_local, &
+     rflx1_local, sflx1_local, umr_local, ums_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: deltat_local, cpp_local
+  real(r8), target, intent(in) :: qric_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qniic_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nric_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nsic_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cldmax_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: tlat_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qvlat_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qctend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nctend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rainrt_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: arcld_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: umr_local(pver_local), ums_local(pver_local)
+  real(r8), target, intent(inout) :: qrout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qsout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nrout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nsout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: tlat1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qvlat1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qctend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qitend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: t_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: q_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ni_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rainrt1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rercld_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rflx_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: sflx_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: rflx1_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: sflx1_local(pcols_local,pver_local+1)
+
+  interface
+     subroutine micro_mg1_0_substep_accum_column_codon(i_c, pcols_c, pver_c, top_lev_c, &
+          deltat_c, cpp_c, qric_p, qniic_p, nric_p, nsic_p, rho_p, cldmax_p, qrout_p, qsout_p, &
+          nrout_p, nsout_p, tlat_p, qvlat_p, qctend_p, qitend_p, nctend_p, nitend_p, tlat1_p, &
+          qvlat1_p, qctend1_p, qitend1_p, nctend1_p, nitend1_p, t_p, q_p, qc_p, qi_p, nc_p, &
+          ni_p, rainrt_p, rainrt1_p, arcld_p, rercld_p, rflx_p, sflx_p, rflx1_p, sflx1_p, &
+          umr_p, ums_p) bind(c, name="micro_mg1_0_substep_accum_column_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: deltat_c, cpp_c
+       type(c_ptr), value :: qric_p, qniic_p, nric_p, nsic_p, rho_p, cldmax_p, qrout_p, qsout_p
+       type(c_ptr), value :: nrout_p, nsout_p, tlat_p, qvlat_p, qctend_p, qitend_p, nctend_p, nitend_p
+       type(c_ptr), value :: tlat1_p, qvlat1_p, qctend1_p, qitend1_p, nctend1_p, nitend1_p
+       type(c_ptr), value :: t_p, q_p, qc_p, qi_p, nc_p, ni_p, rainrt_p, rainrt1_p, arcld_p, rercld_p
+       type(c_ptr), value :: rflx_p, sflx_p, rflx1_p, sflx1_p, umr_p, ums_p
+     end subroutine micro_mg1_0_substep_accum_column_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_substep_accum_log_entry()
+  call micro_mg1_0_substep_accum_column_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), &
+       real(deltat_local, c_double), real(cpp_local, c_double), c_loc(qric_local), c_loc(qniic_local), &
+       c_loc(nric_local), c_loc(nsic_local), c_loc(rho_local), c_loc(cldmax_local), c_loc(qrout_local), &
+       c_loc(qsout_local), c_loc(nrout_local), c_loc(nsout_local), c_loc(tlat_local), c_loc(qvlat_local), &
+       c_loc(qctend_local), c_loc(qitend_local), c_loc(nctend_local), c_loc(nitend_local), &
+       c_loc(tlat1_local), c_loc(qvlat1_local), c_loc(qctend1_local), c_loc(qitend1_local), &
+       c_loc(nctend1_local), c_loc(nitend1_local), c_loc(t_local), c_loc(q_local), c_loc(qc_local), &
+       c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), c_loc(rainrt_local), c_loc(rainrt1_local), &
+       c_loc(arcld_local), c_loc(rercld_local), c_loc(rflx_local), c_loc(sflx_local), c_loc(rflx1_local), &
+       c_loc(sflx1_local), c_loc(umr_local), c_loc(ums_local))
+end subroutine micro_mg1_0_substep_accum_column_codon_wrap
 
 subroutine micro_mg1_0_tail_activation_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      dum2i_local, dum2l_local, rho_local, ncai_local, ncal_local)
