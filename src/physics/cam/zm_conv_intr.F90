@@ -312,11 +312,13 @@ subroutine zm_conv_tend_log_direct(mask_c)
    if (masterproc) then
       write(iulog,'(A,I0)') &
            'zm_conv_tend direct = codon; orchestration mask and post-stage shells direct = codon; ' // &
-           'zm_convr/wtrc_q1q2_pjr/zm_conv_evap/wtrc_precip_evap/momtran/convtran/pbuf/outfld/physics_update native CAM API islands; mask=', &
+           'zm_convr parent core plus q1q2/evap/momtran/convtran helpers direct = codon; ' // &
+           'wtrc/pbuf/outfld/physics_update/native callback CAM API islands; mask=', &
            mask_c
       call zm_conv_append_post_shell_proof( &
            'zm_conv_tend direct = codon; orchestration mask and post-stage shells direct = codon; ' // &
-           'zm_convr/wtrc_q1q2_pjr/zm_conv_evap/wtrc_precip_evap/momtran/convtran/pbuf/outfld/physics_update native CAM API islands')
+           'zm_convr parent core plus q1q2/evap/momtran/convtran helpers direct = codon; ' // &
+           'wtrc/pbuf/outfld/physics_update/native callback CAM API islands')
       call flush(iulog)
    end if
 
