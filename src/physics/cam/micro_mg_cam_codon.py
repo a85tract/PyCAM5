@@ -1541,6 +1541,91 @@ def micro_mg1_0_substep_setup_column_codon(
 
 
 @export
+def micro_mg1_0_incloud_activation_prep_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    deltat: float,
+    qsmall: float,
+    omsm: float,
+    cdnl: float,
+    do_cldice: int,
+    cwml_p: cobj,
+    cwmi_p: cobj,
+    lcldm_p: cobj,
+    icldm_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    berg_p: cobj,
+    cmei_p: cobj,
+    cmeout_p: cobj,
+    npccnin_p: cobj,
+    rho_p: cobj,
+    qcic_p: cobj,
+    qiic_p: cobj,
+    ncic_p: cobj,
+    niic_p: cobj,
+    npccn_p: cobj,
+    dum2l_p: cobj,
+) -> float:
+    cwml = Ptr[float](cwml_p)
+    cwmi = Ptr[float](cwmi_p)
+    lcldm = Ptr[float](lcldm_p)
+    icldm = Ptr[float](icldm_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    berg = Ptr[float](berg_p)
+    cmei = Ptr[float](cmei_p)
+    cmeout = Ptr[float](cmeout_p)
+    npccnin = Ptr[float](npccnin_p)
+    rho = Ptr[float](rho_p)
+    qcic = Ptr[float](qcic_p)
+    qiic = Ptr[float](qiic_p)
+    ncic = Ptr[float](ncic_p)
+    niic = Ptr[float](niic_p)
+    npccn = Ptr[float](npccn_p)
+    dum2l = Ptr[float](dum2l_p)
+
+    idx = _idx2(i, k, pcols)
+    qcic[idx] = min(cwml[idx] / lcldm[idx], 5.0e-3)
+    qiic[idx] = min(cwmi[idx] / icldm[idx], 5.0e-3)
+    ncic[idx] = max(nc[idx] / lcldm[idx], 0.0)
+    niic[idx] = max(ni[idx] / icldm[idx], 0.0)
+
+    if qc[idx] - berg[idx] * deltat < qsmall:
+        qcic[idx] = 0.0
+        ncic[idx] = 0.0
+        if qc[idx] - berg[idx] * deltat < 0.0:
+            berg[idx] = qc[idx] / deltat * omsm
+
+    if do_cldice != 0 and qi[idx] + (cmei[idx] + berg[idx]) * deltat < qsmall:
+        qiic[idx] = 0.0
+        niic[idx] = 0.0
+        if qi[idx] + (cmei[idx] + berg[idx]) * deltat < 0.0:
+            cmei[idx] = (-qi[idx] / deltat - berg[idx]) * omsm
+
+    cmeout[idx] = cmeout[idx] + cmei[idx]
+
+    ncmax = 0.0
+    if qcic[idx] >= qsmall:
+        npccn[k - 1] = max(0.0, npccnin[idx])
+        dum2l[idx] = (nc[idx] + npccn[k - 1] * deltat) / lcldm[idx]
+        dum2l[idx] = max(dum2l[idx], cdnl / rho[idx])
+        ncmax = dum2l[idx] * lcldm[idx]
+    else:
+        npccn[k - 1] = 0.0
+        dum2l[idx] = 0.0
+        ncmax = 0.0
+
+    return ncmax
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,

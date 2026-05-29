@@ -159,6 +159,7 @@ logical :: micro_mg1_0_colzero_wrapper_logged = .false.
 logical :: micro_mg1_0_rate1ord_logged = .false.
 logical :: micro_mg1_0_substep_setup_logged = .false.
 logical :: micro_mg1_0_substep_accum_logged = .false.
+logical :: micro_mg1_0_incloud_activation_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -1744,49 +1745,55 @@ do i=1,ncol
 
          ! limit in-cloud values to 0.005 kg/kg
 
-         qcic(i,k)=min(cwml(i,k)/lcldm(i,k),5.e-3_r8)
-         qiic(i,k)=min(cwmi(i,k)/icldm(i,k),5.e-3_r8)
-         ncic(i,k)=max(nc(i,k)/lcldm(i,k),0._r8)
-         niic(i,k)=max(ni(i,k)/icldm(i,k),0._r8)
+         if (micro_mg1_0_colzero_use_native_impl) then
+            qcic(i,k)=min(cwml(i,k)/lcldm(i,k),5.e-3_r8)
+            qiic(i,k)=min(cwmi(i,k)/icldm(i,k),5.e-3_r8)
+            ncic(i,k)=max(nc(i,k)/lcldm(i,k),0._r8)
+            niic(i,k)=max(ni(i,k)/icldm(i,k),0._r8)
 
-         if (qc(i,k) - berg(i,k)*deltat.lt.qsmall) then
-            qcic(i,k)=0._r8
-            ncic(i,k)=0._r8
-            if (qc(i,k)-berg(i,k)*deltat.lt.0._r8) then
-               berg(i,k)=qc(i,k)/deltat*omsm
+            if (qc(i,k) - berg(i,k)*deltat.lt.qsmall) then
+               qcic(i,k)=0._r8
+               ncic(i,k)=0._r8
+               if (qc(i,k)-berg(i,k)*deltat.lt.0._r8) then
+                  berg(i,k)=qc(i,k)/deltat*omsm
+               end if
             end if
-         end if
 
-         if (do_cldice .and. qi(i,k)+(cmei(i,k)+berg(i,k))*deltat.lt.qsmall) then
-            qiic(i,k)=0._r8
-            niic(i,k)=0._r8
-            if (qi(i,k)+(cmei(i,k)+berg(i,k))*deltat.lt.0._r8) then
-               cmei(i,k)=(-qi(i,k)/deltat-berg(i,k))*omsm
+            if (do_cldice .and. qi(i,k)+(cmei(i,k)+berg(i,k))*deltat.lt.qsmall) then
+               qiic(i,k)=0._r8
+               niic(i,k)=0._r8
+               if (qi(i,k)+(cmei(i,k)+berg(i,k))*deltat.lt.0._r8) then
+                  cmei(i,k)=(-qi(i,k)/deltat-berg(i,k))*omsm
+               end if
             end if
-         end if
 
-         ! add to cme output
+            ! add to cme output
 
-         cmeout(i,k) = cmeout(i,k)+cmei(i,k)
+            cmeout(i,k) = cmeout(i,k)+cmei(i,k)
 
-         !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-         ! droplet activation
-         ! calculate potential for droplet activation if cloud water is present
-         ! formulation from Abdul-Razzak and Ghan (2000) and Abdul-Razzak et al. (1998), AR98
-         ! number tendency (npccnin) is read in from companion routine
+            !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+            ! droplet activation
+            ! calculate potential for droplet activation if cloud water is present
+            ! formulation from Abdul-Razzak and Ghan (2000) and Abdul-Razzak et al. (1998), AR98
+            ! number tendency (npccnin) is read in from companion routine
 
-         ! assume aerosols already activated are equal to number of existing droplets for simplicity
-         ! multiply by cloud fraction to obtain grid-average tendency
+            ! assume aerosols already activated are equal to number of existing droplets for simplicity
+            ! multiply by cloud fraction to obtain grid-average tendency
 
-         if (qcic(i,k).ge.qsmall) then   
-            npccn(k) = max(0._r8,npccnin(i,k))  
-            dum2l(i,k)=(nc(i,k)+npccn(k)*deltat)/lcldm(i,k)
-            dum2l(i,k)=max(dum2l(i,k),cdnl/rho(i,k)) ! sghan minimum in #/cm3  
-            ncmax = dum2l(i,k)*lcldm(i,k)
+            if (qcic(i,k).ge.qsmall) then
+               npccn(k) = max(0._r8,npccnin(i,k))
+               dum2l(i,k)=(nc(i,k)+npccn(k)*deltat)/lcldm(i,k)
+               dum2l(i,k)=max(dum2l(i,k),cdnl/rho(i,k)) ! sghan minimum in #/cm3
+               ncmax = dum2l(i,k)*lcldm(i,k)
+            else
+               npccn(k)=0._r8
+               dum2l(i,k)=0._r8
+               ncmax = 0._r8
+            end if
          else
-            npccn(k)=0._r8
-            dum2l(i,k)=0._r8
-            ncmax = 0._r8
+            ncmax = micro_mg1_0_incloud_activation_prep_codon_wrap(i, k, pcols, pver, deltat, qsmall, &
+                 omsm, cdnl, do_cldice, cwml, cwmi, lcldm, icldm, nc, ni, qc, qi, berg, cmei, cmeout, &
+                 npccnin, rho, qcic, qiic, ncic, niic, npccn, dum2l)
          end if
 
          !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -4243,6 +4250,15 @@ subroutine micro_mg1_0_substep_accum_log_entry()
   end if
 end subroutine micro_mg1_0_substep_accum_log_entry
 
+subroutine micro_mg1_0_incloud_activation_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_incloud_activation_logged) then
+     write(iulog,*) 'micro_mg1_0_incloud_activation entered (in-cloud state and droplet activation prep = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_incloud_activation entered (in-cloud state and droplet activation prep = codon)')
+     micro_mg1_0_incloud_activation_logged = .true.
+  end if
+end subroutine micro_mg1_0_incloud_activation_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4462,6 +4478,62 @@ subroutine micro_mg1_0_substep_setup_column_codon_wrap(i_local, pcols_local, pve
        c_loc(cwml_local), c_loc(cwmi_local), c_loc(ums_local), c_loc(uns_local), c_loc(umr_local), &
        c_loc(unr_local), c_loc(nsubi_local), c_loc(nsubc_local))
 end subroutine micro_mg1_0_substep_setup_column_codon_wrap
+
+real(r8) function micro_mg1_0_incloud_activation_prep_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     deltat_local, qsmall_local, omsm_local, cdnl_local, do_cldice_local, cwml_local, cwmi_local, &
+     lcldm_local, icldm_local, nc_local, ni_local, qc_local, qi_local, berg_local, cmei_local, cmeout_local, &
+     npccnin_local, rho_local, qcic_local, qiic_local, ncic_local, niic_local, npccn_local, dum2l_local) &
+     result(ncmax_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: deltat_local, qsmall_local, omsm_local, cdnl_local
+  logical, intent(in) :: do_cldice_local
+  real(r8), target, intent(in) :: cwml_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cwmi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: lcldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: icldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nc_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: ni_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: berg_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cmei_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cmeout_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: npccnin_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qcic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qiic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ncic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: niic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: npccn_local(pver_local)
+  real(r8), target, intent(inout) :: dum2l_local(pcols_local,pver_local)
+
+  interface
+     function micro_mg1_0_incloud_activation_prep_codon(i_c, k_c, pcols_c, pver_c, deltat_c, qsmall_c, &
+          omsm_c, cdnl_c, do_cldice_c, cwml_p, cwmi_p, lcldm_p, icldm_p, nc_p, ni_p, qc_p, qi_p, &
+          berg_p, cmei_p, cmeout_p, npccnin_p, rho_p, qcic_p, qiic_p, ncic_p, niic_p, npccn_p, &
+          dum2l_p) result(ncmax_c) bind(c, name="micro_mg1_0_incloud_activation_prep_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, do_cldice_c
+       real(c_double), value :: deltat_c, qsmall_c, omsm_c, cdnl_c
+       type(c_ptr), value :: cwml_p, cwmi_p, lcldm_p, icldm_p, nc_p, ni_p, qc_p, qi_p
+       type(c_ptr), value :: berg_p, cmei_p, cmeout_p, npccnin_p, rho_p
+       type(c_ptr), value :: qcic_p, qiic_p, ncic_p, niic_p, npccn_p, dum2l_p
+       real(c_double) :: ncmax_c
+     end function micro_mg1_0_incloud_activation_prep_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_incloud_activation_log_entry()
+  ncmax_local = real(micro_mg1_0_incloud_activation_prep_codon(int(i_local, c_int64_t), &
+       int(k_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+       real(deltat_local, c_double), real(qsmall_local, c_double), real(omsm_local, c_double), &
+       real(cdnl_local, c_double), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), c_loc(cwml_local), &
+       c_loc(cwmi_local), c_loc(lcldm_local), c_loc(icldm_local), c_loc(nc_local), c_loc(ni_local), &
+       c_loc(qc_local), c_loc(qi_local), c_loc(berg_local), c_loc(cmei_local), c_loc(cmeout_local), &
+       c_loc(npccnin_local), c_loc(rho_local), c_loc(qcic_local), c_loc(qiic_local), c_loc(ncic_local), &
+       c_loc(niic_local), c_loc(npccn_local), c_loc(dum2l_local)), r8)
+end function micro_mg1_0_incloud_activation_prep_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &
