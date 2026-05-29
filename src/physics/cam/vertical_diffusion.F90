@@ -176,6 +176,7 @@ module vertical_diffusion
   logical              :: tend_misc_batch_entered_logged = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
+  logical              :: tend_parent_active_logged = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
   integer, allocatable, target :: pmam_cnst_idx(:)     ! constituent indices of prognostic modal aerosols
   integer(c_int64_t), allocatable, target :: pmam_cnst_idx_c(:) ! 64-bit indices for Codon interop
@@ -3578,6 +3579,18 @@ contains
     end if
     if( do_molec_diff_local ) then
         call outfld( 'TTPXMLC'  , topflx,                    pcols, lchnk )
+    end if
+
+    if (.not. use_native_tend_impl .and. do_tms_local .and. use_diag_tke_local .and. &
+        .not. use_hb_family_local .and. .not. do_molec_diff_local .and. &
+        .not. waccmx_special_local .and. .not. tend_parent_active_logged) then
+       tend_parent_active_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') 'vertical_diffusion_tend parent active diag_TKE non-molecular path = codon; ' // &
+               'branch selection + tend-misc/core/diag dispatch + TMS + compute_eddy_diff + ' // &
+               'compute_vdiff non-molecular solver; native boundaries pbuf/outfld/qsat/positive_moisture/' // &
+               'mass-check/optional molecular/HB/WACCM-X'
+       end if
     end if
 
     return
