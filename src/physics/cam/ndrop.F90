@@ -64,8 +64,8 @@ integer,  allocatable, target :: nspec_amode(:) ! number of chemical species in 
 real(r8), allocatable :: sigmag_amode(:)! geometric standard deviation for each aerosol mode
 real(r8), allocatable :: dgnumlo_amode(:)
 real(r8), allocatable :: dgnumhi_amode(:)
-real(r8), allocatable :: voltonumblo_amode(:)
-real(r8), allocatable :: voltonumbhi_amode(:)
+real(r8), allocatable, target :: voltonumblo_amode(:)
+real(r8), allocatable, target :: voltonumbhi_amode(:)
 
 logical :: history_aerosol      ! Output the MAM aerosol tendencies
 character(len=fieldname_len), allocatable :: fieldname(:)    ! names for drop nuc tendency output fields
@@ -316,6 +316,38 @@ interface
       type(c_ptr), value :: fluxn_p, fluxm_p, nact_p, mact_p, mam_idx_p
       type(c_ptr), value :: raercol_p, raercol_cw_p, srcn_p, nsource_p
    end subroutine ndrop_dropmixnuc_old_cloud_activate_update_codon
+
+   function ndrop_dropmixnuc_activation_loops_codon(i_c, pcols_c, pver_c, top_lev_c, &
+        ntot_amode_c, ncnst_tot_c, nsav_c, dtmicro_c, dtinv_c, rair_c, p0_c, t0_c, &
+        rhoh2o_c, latvap_c, cpair_c, rh2o_c, gravit_c, pi_c, aten_c, twothird_c, &
+        sq2_c, sqpi_c, sixth_c, zero_c, cldn_p, cldo_p, cldn_regen_p, temp_p, cs_p, &
+        dz_p, wtke_p, wtke_cen_p, zs_p, ekd_p, csbot_cscen_p, qs_act_p, qcld_p, &
+        srcn_p, nsource_p, factnum_p, nact_p, mact_p, taumix_internal_pver_inv_p, raer_ptrs_p, &
+        qqcw_ptrs_p, nspec_amode_p, mam_idx_p, species_specdens_p, species_spechygro_p, &
+        voltonumblo_p, voltonumbhi_p, alogsig_p, exp45logsig_p, f1_p, f2_p, raercol_p, &
+        raercol_cw_p, naermod_p, vaerosol_p, hygro_p, fn_p, fm_p, fluxn_p, fluxm_p, &
+        flux_fullact_p, zeta_p, eta_p, etafactor2_p, sqrtg_p, amcube_p, smc_p, lnsm_p, &
+        sumflxn_p, sumflxm_p, sumfn_p, sumfm_p, fnold_p, fmold_p) result(status_c) &
+        bind(c, name="ndrop_dropmixnuc_activation_loops_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c
+      integer(c_int64_t), value :: ncnst_tot_c, nsav_c
+      real(c_double), value :: dtmicro_c, dtinv_c, rair_c, p0_c, t0_c, rhoh2o_c
+      real(c_double), value :: latvap_c, cpair_c, rh2o_c, gravit_c, pi_c, aten_c
+      real(c_double), value :: twothird_c, sq2_c, sqpi_c, sixth_c, zero_c
+      type(c_ptr), value :: cldn_p, cldo_p, cldn_regen_p, temp_p, cs_p, dz_p
+      type(c_ptr), value :: wtke_p, wtke_cen_p, zs_p, ekd_p, csbot_cscen_p, qs_act_p
+      type(c_ptr), value :: qcld_p, srcn_p, nsource_p, factnum_p, nact_p, mact_p
+      type(c_ptr), value :: taumix_internal_pver_inv_p, raer_ptrs_p, qqcw_ptrs_p
+      type(c_ptr), value :: nspec_amode_p, mam_idx_p, species_specdens_p, species_spechygro_p
+      type(c_ptr), value :: voltonumblo_p, voltonumbhi_p, alogsig_p, exp45logsig_p
+      type(c_ptr), value :: f1_p, f2_p, raercol_p, raercol_cw_p, naermod_p
+      type(c_ptr), value :: vaerosol_p, hygro_p, fn_p, fm_p, fluxn_p, fluxm_p
+      type(c_ptr), value :: flux_fullact_p, zeta_p, eta_p, etafactor2_p, sqrtg_p
+      type(c_ptr), value :: amcube_p, smc_p, lnsm_p, sumflxn_p, sumflxm_p
+      type(c_ptr), value :: sumfn_p, sumfm_p, fnold_p, fmold_p
+      integer(c_int64_t) :: status_c
+   end function ndrop_dropmixnuc_activation_loops_codon
 
    subroutine ndrop_dropmixnuc_srcn_from_nact_codon(pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, &
         nsav_c, taumix_internal_pver_inv_c, nact_p, mam_idx_p, raercol_p, raercol_cw_p, srcn_p) &
@@ -659,8 +691,8 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
    ndrop_dropmixnuc_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/submix all/aero pointer-table batches/grow batch/aero tend all/clear/finalize direct = codon)'
+      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/activation/grow-shrink/' // &
+           'oldcloud/mix/source/submix all/aero pointer-table batches/grow batch/aero tend all/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -1219,7 +1251,7 @@ subroutine dropmixnuc( &
    ! arguments
    real(r8), target, intent(in) :: wsub(pcols,pver) ! subgrid vertical velocity
    real(r8), target, intent(in) :: cldn(pcols,pver) ! cloud fraction
-   real(r8), intent(in) :: cldo(pcols,pver)    ! cloud fraction on previous time step
+   real(r8), target, intent(in) :: cldo(pcols,pver)    ! cloud fraction on previous time step
 
    ! output arguments
    real(r8), target, intent(out) :: tendnd(pcols,pver) ! change in droplet number concentration (#/kg/s)
@@ -1301,7 +1333,7 @@ subroutine dropmixnuc( &
    real(r8) :: cldo_tmp, cldn_tmp
    real(r8), target :: coltend_tmp, coltend_cw_tmp
    real(r8) :: tau_cld_regenerate
-   real(r8) :: taumix_internal_pver_inv ! 1/(internal mixing time scale for k=pver) (1/s)
+   real(r8), target :: taumix_internal_pver_inv ! 1/(internal mixing time scale for k=pver) (1/s)
 
 
    real(r8), allocatable, target :: nact(:,:) ! fractional aero. number  activation rate (/s)
@@ -1312,9 +1344,11 @@ subroutine dropmixnuc( &
 
 
    real(r8) :: na(pcols), va(pcols), hy(pcols)
-   real(r8), allocatable :: naermod(:)  ! (1/m3)
-   real(r8), allocatable :: hygro(:)    ! hygroscopicity of aerosol mode
-   real(r8), allocatable :: vaerosol(:) ! interstit+activated aerosol volume conc (cm3/cm3)
+   real(r8), allocatable, target :: naermod(:)  ! (1/m3)
+   real(r8), allocatable, target :: hygro(:)    ! hygroscopicity of aerosol mode
+   real(r8), allocatable, target :: vaerosol(:) ! interstit+activated aerosol volume conc (cm3/cm3)
+   real(r8), allocatable, target :: dropmixnuc_species_specdens(:,:)
+   real(r8), allocatable, target :: dropmixnuc_species_spechygro(:,:)
 
    real(r8), target :: source(pver)
 
@@ -1323,7 +1357,7 @@ subroutine dropmixnuc( &
 
    real(r8), allocatable, target :: fluxn(:)   ! number  activation fraction flux (cm/s)
    real(r8), allocatable, target :: fluxm(:)   ! mass    activation fraction flux (cm/s)
-   real(r8)              :: flux_fullact(pver) ! 100%    activation fraction flux (cm/s)
+   real(r8), target      :: flux_fullact(pver) ! 100%    activation fraction flux (cm/s)
    !     note:  activation fraction fluxes are defined as 
    !     fluxn = [flux of activated aero. number into cloud (#/cm2/s)]
    !           / [aero. number conc. in updraft, just below cloudbase (#/cm3)]
@@ -1332,6 +1366,23 @@ subroutine dropmixnuc( &
    real(r8), allocatable, target :: coltend(:,:)    ! column tendency for diagnostic output
    real(r8), allocatable, target :: coltend_cw(:,:) ! column tendency
    real(r8) :: ccn(pcols,pver,psat)    ! number conc of aerosols activated at supersat
+   real(r8), target :: es_act(pver)
+   real(r8), target :: qs_act(pver)
+   real(r8), target :: cldn_regen(pver)
+   real(r8), allocatable, target :: act_zeta(:)
+   real(r8), allocatable, target :: act_eta(:)
+   real(r8), allocatable, target :: act_etafactor2(:)
+   real(r8), allocatable, target :: act_sqrtg(:)
+   real(r8), allocatable, target :: act_amcube(:)
+   real(r8), allocatable, target :: act_smc(:)
+   real(r8), allocatable, target :: act_lnsm(:)
+   real(r8), allocatable, target :: act_sumflxn(:)
+   real(r8), allocatable, target :: act_sumflxm(:)
+   real(r8), allocatable, target :: act_sumfn(:)
+   real(r8), allocatable, target :: act_sumfm(:)
+   real(r8), allocatable, target :: act_fnold(:)
+   real(r8), allocatable, target :: act_fmold(:)
+   integer(c_int64_t) :: activation_status_c
 
    !-------------------------------------------------------------------------------
 
@@ -1379,10 +1430,28 @@ subroutine dropmixnuc( &
       naermod(ntot_amode),            &
       hygro(ntot_amode),              &
       vaerosol(ntot_amode),           &
+      dropmixnuc_species_specdens(ntot_amode,0:size(mam_idx,2)-1), &
+      dropmixnuc_species_spechygro(ntot_amode,0:size(mam_idx,2)-1), &
       fn(ntot_amode),                 &
       fm(ntot_amode),                 &
       fluxn(ntot_amode),              &
-      fluxm(ntot_amode)               )
+      fluxm(ntot_amode),              &
+      act_zeta(ntot_amode),           &
+      act_eta(ntot_amode),            &
+      act_etafactor2(ntot_amode),     &
+      act_sqrtg(ntot_amode),          &
+      act_amcube(ntot_amode),         &
+      act_smc(ntot_amode),            &
+      act_lnsm(ntot_amode),           &
+      act_sumflxn(ntot_amode),        &
+      act_sumflxm(ntot_amode),        &
+      act_sumfn(ntot_amode),          &
+      act_sumfm(ntot_amode),          &
+      act_fnold(ntot_amode),          &
+      act_fmold(ntot_amode)           )
+
+   dropmixnuc_species_specdens = 0._r8
+   dropmixnuc_species_spechygro = 0._r8
 
    ! Init pointers to mode number and specie mass mixing ratios in 
    ! intersitial and cloud borne phases.
@@ -1398,6 +1467,8 @@ subroutine dropmixnuc( &
          mm = mam_idx(m, l)
          call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, raer(mm)%fld)
          call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw(mm)%fld)  ! cloud-borne aerosol
+         call rad_cnst_get_aer_props(0, m, l, density_aer=dropmixnuc_species_specdens(m,l), &
+              hygro_aer=dropmixnuc_species_spechygro(m,l))
          raer_ptrs(mm) = c_loc(raer(mm)%fld(1,1))
          qqcw_ptrs(mm) = c_loc(qqcw(mm)%fld(1,1))
       end do
@@ -1513,6 +1584,42 @@ subroutine dropmixnuc( &
       ! tau_cld_regenerate = time scale for regeneration of cloudy air 
       !    by (horizontal) exchange with clear air
       tau_cld_regenerate = 3600.0_r8 * 3.0_r8 
+
+      if (.not. use_native_ndrop_dropmixnuc_helpers_impl) then
+         do k = top_lev, pver
+            call qsat(temp(i,k), rair*cs(i,k)*temp(i,k), es_act(k), qs_act(k))
+         end do
+         taumix_internal_pver_inv = 0.0_r8
+         call ndrop_dropmixnuc_helpers_proof_once()
+         activation_status_c = ndrop_dropmixnuc_activation_loops_codon(int(i, c_int64_t), &
+              int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+              int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), &
+              dtmicro, dtinv, rair, 1013.25e2_r8, t0, rhoh2o, latvap, cpair, rh2o, gravit, &
+              pi, aten, twothird, sq2, sqpi, sixth, zero, c_loc(cldn(1,1)), c_loc(cldo(1,1)), &
+              c_loc(cldn_regen(1)), c_loc(temp(1,1)), c_loc(cs(1,1)), c_loc(dz(1,1)), &
+              c_loc(wtke(1,1)), c_loc(wtke_cen(1,1)), c_loc(zs(1)), c_loc(ekd(1)), &
+              c_loc(csbot_cscen(1)), c_loc(qs_act(1)), c_loc(qcld(1)), c_loc(srcn(1)), &
+              c_loc(nsource(1,1)), c_loc(factnum(1,1,1)), c_loc(nact(1,1)), c_loc(mact(1,1)), &
+              c_loc(taumix_internal_pver_inv), c_loc(raer_ptrs(1)), c_loc(qqcw_ptrs(1)), &
+              c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)), c_loc(dropmixnuc_species_specdens(1,0)), &
+              c_loc(dropmixnuc_species_spechygro(1,0)), c_loc(voltonumblo_amode(1)), &
+              c_loc(voltonumbhi_amode(1)), c_loc(alogsig(1)), c_loc(exp45logsig(1)), &
+              c_loc(f1(1)), c_loc(f2(1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), &
+              c_loc(naermod(1)), c_loc(vaerosol(1)), c_loc(hygro(1)), c_loc(fn(1)), &
+              c_loc(fm(1)), c_loc(fluxn(1)), c_loc(fluxm(1)), c_loc(flux_fullact(1)), &
+              c_loc(act_zeta(1)), c_loc(act_eta(1)), c_loc(act_etafactor2(1)), &
+              c_loc(act_sqrtg(1)), c_loc(act_amcube(1)), c_loc(act_smc(1)), c_loc(act_lnsm(1)), &
+              c_loc(act_sumflxn(1)), c_loc(act_sumflxm(1)), c_loc(act_sumfn(1)), c_loc(act_sumfm(1)), &
+              c_loc(act_fnold(1)), c_loc(act_fmold(1)))
+         if (activation_status_c == 1_c_int64_t) then
+            call endrun('dropmixnuc: Codon activation integration loop did not converge')
+         else if (activation_status_c == 2_c_int64_t) then
+            call endrun('dropmixnuc: Codon activation fraction exceeded one')
+         else if (activation_status_c /= 0_c_int64_t) then
+            call endrun('dropmixnuc: Codon activation loops returned unknown status')
+         end if
+         go to 220
+      end if
 
       ! k-loop for growing/shrinking cloud calcs .............................
       ! grow_shrink_main_k_loop: &
@@ -1811,6 +1918,8 @@ subroutine dropmixnuc( &
          end if
 
       end do  ! old_cloud_main_k_loop
+
+220   continue
 
       ! switch nsav, nnew so that nnew is the updated aerosol
       if (use_native_ndrop_dropmixnuc_helpers_impl) then

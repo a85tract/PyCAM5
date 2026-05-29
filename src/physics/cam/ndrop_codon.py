@@ -867,6 +867,465 @@ def ndrop_dropmixnuc_old_cloud_activate_update_codon(
     nsource[_idx2(i, k, pcols)] = nsource[_idx2(i, k, pcols)] + fluxntot / (cs_ik * dz_ik)
 
 
+def _dropmixnuc_loadaer_one_col_mode(
+    i: int,
+    k: int,
+    pcols: int,
+    m: int,
+    phase: int,
+    ntot_amode: int,
+    raer_ptrs: Ptr[cobj],
+    qqcw_ptrs: Ptr[cobj],
+    nspec_amode: Ptr[i32],
+    mam_idx: Ptr[i32],
+    species_specdens: Ptr[float],
+    species_spechygro: Ptr[float],
+    voltonumblo: Ptr[float],
+    voltonumbhi: Ptr[float],
+    cs: Ptr[float],
+    naermod: Ptr[float],
+    vaerosol: Ptr[float],
+    hygro: Ptr[float],
+):
+    va = 0.0
+    hy = 0.0
+    for l in range(1, int(nspec_amode[m - 1]) + 1):
+        mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+        raer = Ptr[float](raer_ptrs[mm - 1])
+        qqcw = Ptr[float](qqcw_ptrs[mm - 1])
+        fld_idx = _idx2(i, k, pcols)
+        prop_idx = _mam_idx(m, l, ntot_amode)
+        specdens = species_specdens[prop_idx]
+        if phase == 3:
+            vol = max(raer[fld_idx] + qqcw[fld_idx], 0.0) / specdens
+        elif phase == 2:
+            vol = max(qqcw[fld_idx], 0.0) / specdens
+        else:
+            vol = max(raer[fld_idx], 0.0) / specdens
+        va = va + vol
+        hy = hy + vol * species_spechygro[prop_idx]
+
+    fld_idx = _idx2(i, k, pcols)
+    if va > 1.0e-30:
+        hy = hy / va
+        va = va * cs[fld_idx]
+    else:
+        hy = 0.0
+        va = 0.0
+
+    mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+    num_raer = Ptr[float](raer_ptrs[mm - 1])
+    num_qqcw = Ptr[float](qqcw_ptrs[mm - 1])
+    if phase == 3:
+        na = (num_raer[fld_idx] + num_qqcw[fld_idx]) * cs[fld_idx]
+    elif phase == 2:
+        na = num_qqcw[fld_idx] * cs[fld_idx]
+    else:
+        na = num_raer[fld_idx] * cs[fld_idx]
+    na = max(na, va * voltonumbhi[m - 1])
+    na = min(na, va * voltonumblo[m - 1])
+
+    naermod[m - 1] = na
+    vaerosol[m - 1] = va
+    hygro[m - 1] = hy
+
+
+def ndrop_dropmixnuc_activation_loops_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtmicro: float,
+    dtinv: float,
+    rair: float,
+    p0: float,
+    t0: float,
+    rhoh2o: float,
+    latvap: float,
+    cpair: float,
+    rh2o: float,
+    gravit: float,
+    pi_value: float,
+    aten: float,
+    twothird: float,
+    sq2: float,
+    sqpi: float,
+    sixth: float,
+    zero_value: float,
+    cldn_p: cobj,
+    cldo_p: cobj,
+    cldn_regen_p: cobj,
+    temp_p: cobj,
+    cs_p: cobj,
+    dz_p: cobj,
+    wtke_p: cobj,
+    wtke_cen_p: cobj,
+    zs_p: cobj,
+    ekd_p: cobj,
+    csbot_cscen_p: cobj,
+    qs_act_p: cobj,
+    qcld_p: cobj,
+    srcn_p: cobj,
+    nsource_p: cobj,
+    factnum_p: cobj,
+    nact_p: cobj,
+    mact_p: cobj,
+    taumix_internal_pver_inv_p: cobj,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    species_specdens_p: cobj,
+    species_spechygro_p: cobj,
+    voltonumblo_p: cobj,
+    voltonumbhi_p: cobj,
+    alogsig_p: cobj,
+    exp45logsig_p: cobj,
+    f1_p: cobj,
+    f2_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    naermod_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+    fn_p: cobj,
+    fm_p: cobj,
+    fluxn_p: cobj,
+    fluxm_p: cobj,
+    flux_fullact_p: cobj,
+    zeta_p: cobj,
+    eta_p: cobj,
+    etafactor2_p: cobj,
+    sqrtg_p: cobj,
+    amcube_p: cobj,
+    smc_p: cobj,
+    lnsm_p: cobj,
+    sumflxn_p: cobj,
+    sumflxm_p: cobj,
+    sumfn_p: cobj,
+    sumfm_p: cobj,
+    fnold_p: cobj,
+    fmold_p: cobj,
+) -> int:
+    cldn = Ptr[float](cldn_p)
+    cldo = Ptr[float](cldo_p)
+    cldn_regen = Ptr[float](cldn_regen_p)
+    temp = Ptr[float](temp_p)
+    cs = Ptr[float](cs_p)
+    dz = Ptr[float](dz_p)
+    wtke = Ptr[float](wtke_p)
+    wtke_cen = Ptr[float](wtke_cen_p)
+    zs = Ptr[float](zs_p)
+    ekd = Ptr[float](ekd_p)
+    csbot_cscen = Ptr[float](csbot_cscen_p)
+    qs_act = Ptr[float](qs_act_p)
+    qcld = Ptr[float](qcld_p)
+    srcn = Ptr[float](srcn_p)
+    nsource = Ptr[float](nsource_p)
+    factnum = Ptr[float](factnum_p)
+    nact = Ptr[float](nact_p)
+    mact = Ptr[float](mact_p)
+    taumix_internal_pver_inv_ref = Ptr[float](taumix_internal_pver_inv_p)
+    raer_ptrs = Ptr[cobj](raer_ptrs_p)
+    qqcw_ptrs = Ptr[cobj](qqcw_ptrs_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    species_specdens = Ptr[float](species_specdens_p)
+    species_spechygro = Ptr[float](species_spechygro_p)
+    voltonumblo = Ptr[float](voltonumblo_p)
+    voltonumbhi = Ptr[float](voltonumbhi_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    naermod = Ptr[float](naermod_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+    fn = Ptr[float](fn_p)
+    fm = Ptr[float](fm_p)
+    fluxn = Ptr[float](fluxn_p)
+    fluxm = Ptr[float](fluxm_p)
+    flux_fullact = Ptr[float](flux_fullact_p)
+
+    tau_cld_regenerate = 3600.0 * 3.0
+
+    for k in range(top_lev, pver + 1):
+        idx = _idx2(i, k, pcols)
+        cldo_tmp = cldo[idx]
+        cldn_tmp = cldn[idx] * exp(-dtmicro / tau_cld_regenerate)
+        cldn_regen[k - 1] = cldn_tmp
+
+        if cldn_tmp < cldo_tmp:
+            ndrop_dropmixnuc_shrink_cloud_codon(
+                i,
+                k,
+                pcols,
+                pver,
+                ntot_amode,
+                ncnst_tot,
+                nsav,
+                dtinv,
+                cldn_tmp,
+                cldo_tmp,
+                qcld_p,
+                nsource_p,
+                nspec_amode_p,
+                mam_idx_p,
+                raercol_p,
+                raercol_cw_p,
+            )
+
+        cldo_tmp = cldn_tmp
+        cldn_tmp = cldn[idx]
+        if cldn_tmp - cldo_tmp > 0.01:
+            for m in range(1, ntot_amode + 1):
+                _dropmixnuc_loadaer_one_col_mode(
+                    i,
+                    k,
+                    pcols,
+                    m,
+                    1,
+                    ntot_amode,
+                    raer_ptrs,
+                    qqcw_ptrs,
+                    nspec_amode,
+                    mam_idx,
+                    species_specdens,
+                    species_spechygro,
+                    voltonumblo,
+                    voltonumbhi,
+                    cs,
+                    naermod,
+                    vaerosol,
+                    hygro,
+                )
+
+            status = ndrop_activate_modal_core_codon(
+                wtke_cen[idx],
+                0.0,
+                0.0,
+                0.0,
+                10.0,
+                temp[idx],
+                cs[idx],
+                qs_act[k - 1],
+                ntot_amode,
+                rair,
+                p0,
+                t0,
+                rhoh2o,
+                latvap,
+                cpair,
+                rh2o,
+                gravit,
+                pi_value,
+                aten,
+                twothird,
+                sq2,
+                sqpi,
+                sixth,
+                zero_value,
+                naermod_p,
+                vaerosol_p,
+                hygro_p,
+                alogsig_p,
+                exp45logsig_p,
+                f1_p,
+                f2_p,
+                fn_p,
+                fm_p,
+                fluxn_p,
+                fluxm_p,
+                flux_fullact_p,
+                zeta_p,
+                eta_p,
+                etafactor2_p,
+                sqrtg_p,
+                amcube_p,
+                smc_p,
+                lnsm_p,
+                sumflxn_p,
+                sumflxm_p,
+                sumfn_p,
+                sumfm_p,
+                fnold_p,
+                fmold_p,
+            )
+            if status != 0:
+                return status
+
+            ndrop_dropmixnuc_grow_cloud_update_all_codon(
+                i,
+                k,
+                pcols,
+                pver,
+                ntot_amode,
+                ncnst_tot,
+                nsav,
+                dtinv,
+                cldn_tmp - cldo_tmp,
+                raer_ptrs_p,
+                nspec_amode_p,
+                mam_idx_p,
+                fn_p,
+                fm_p,
+                qcld_p,
+                nsource_p,
+                raercol_p,
+                raercol_cw_p,
+                factnum_p,
+            )
+
+    for k in range(top_lev, pver + 1):
+        kp1 = min(k + 1, pver)
+        taumix_internal_pver_inv = 0.0
+        idx = _idx2(i, k, pcols)
+
+        if cldn[idx] > 0.01:
+            wbar = wtke[idx]
+            if k == pver:
+                wbar = wtke_cen[idx]
+
+            if cldn[idx] - cldn[_idx2(i, kp1, pcols)] > 0.01 or k == pver:
+                ekd[k - 1] = wbar / zs[k - 1]
+                alogarg = max(1.0e-20, 1.0 / cldn[idx] - 1.0)
+                wmin = wbar + 0.0 * 0.25 * sq2 * pi_value * log(alogarg)
+
+                for m in range(1, ntot_amode + 1):
+                    _dropmixnuc_loadaer_one_col_mode(
+                        i,
+                        kp1,
+                        pcols,
+                        m,
+                        1,
+                        ntot_amode,
+                        raer_ptrs,
+                        qqcw_ptrs,
+                        nspec_amode,
+                        mam_idx,
+                        species_specdens,
+                        species_spechygro,
+                        voltonumblo,
+                        voltonumbhi,
+                        cs,
+                        naermod,
+                        vaerosol,
+                        hygro,
+                    )
+
+                status = ndrop_activate_modal_core_codon(
+                    wbar,
+                    0.0,
+                    0.0,
+                    wmin,
+                    10.0,
+                    temp[idx],
+                    cs[idx],
+                    qs_act[k - 1],
+                    ntot_amode,
+                    rair,
+                    p0,
+                    t0,
+                    rhoh2o,
+                    latvap,
+                    cpair,
+                    rh2o,
+                    gravit,
+                    pi_value,
+                    aten,
+                    twothird,
+                    sq2,
+                    sqpi,
+                    sixth,
+                    zero_value,
+                    naermod_p,
+                    vaerosol_p,
+                    hygro_p,
+                    alogsig_p,
+                    exp45logsig_p,
+                    f1_p,
+                    f2_p,
+                    fn_p,
+                    fm_p,
+                    fluxn_p,
+                    fluxm_p,
+                    flux_fullact_p,
+                    zeta_p,
+                    eta_p,
+                    etafactor2_p,
+                    sqrtg_p,
+                    amcube_p,
+                    smc_p,
+                    lnsm_p,
+                    sumflxn_p,
+                    sumflxm_p,
+                    sumfn_p,
+                    sumfm_p,
+                    fnold_p,
+                    fmold_p,
+                )
+                if status != 0:
+                    return status
+
+                for m in range(1, ntot_amode + 1):
+                    factnum[_idx3(i, k, m, pcols, pver)] = fn[m - 1]
+
+                if k < pver:
+                    dumc = cldn[idx] - cldn[_idx2(i, kp1, pcols)]
+                else:
+                    dumc = cldn[idx]
+
+                dum = csbot_cscen[k - 1] / dz[idx]
+                if k == pver:
+                    taumix_internal_pver_inv = flux_fullact[0] / dz[idx]
+                    taumix_internal_pver_inv_ref[0] = taumix_internal_pver_inv
+
+                ndrop_dropmixnuc_old_cloud_activate_update_codon(
+                    i,
+                    k,
+                    kp1,
+                    pcols,
+                    pver,
+                    ntot_amode,
+                    ncnst_tot,
+                    nsav,
+                    dumc,
+                    dum,
+                    cs[idx],
+                    dz[idx],
+                    taumix_internal_pver_inv,
+                    fluxn_p,
+                    fluxm_p,
+                    nact_p,
+                    mact_p,
+                    mam_idx_p,
+                    raercol_p,
+                    raercol_cw_p,
+                    srcn_p,
+                    nsource_p,
+                )
+        else:
+            ndrop_dropmixnuc_clear_old_cloud_codon(
+                i,
+                k,
+                pcols,
+                pver,
+                ntot_amode,
+                ncnst_tot,
+                nsav,
+                dtinv,
+                qcld_p,
+                nsource_p,
+                nspec_amode_p,
+                mam_idx_p,
+                raercol_p,
+                raercol_cw_p,
+            )
+
+    return 0
+
+
 def ndrop_dropmixnuc_srcn_from_nact_codon(
     pver: int,
     top_lev: int,
