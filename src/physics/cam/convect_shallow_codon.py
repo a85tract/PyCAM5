@@ -1298,7 +1298,7 @@ def uwshcu_compute_parent_prefix_workspace_codon(
 
     nlevp = mkx + 1
     wtrc_slots = max(1, wtrc_nwset)
-    per_col_stride = 4 * nlevp + 21 * mkx + 2 * mkx * ncnst + 2 * mkx * wtrc_slots + 4 * mkx + 8
+    per_col_stride = 4 * nlevp + 21 * mkx + 2 * mkx * ncnst + 2 * mkx * wtrc_slots + 4 * mkx + 10
 
     i_col = 1
     while i_col <= iend:

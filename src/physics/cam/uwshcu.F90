@@ -387,13 +387,13 @@ contains
           if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
        end do
        use_native_compute_impl = trim(adjustl(impl_name(:n))) == 'native'
-       use_parent_shell_compute_impl = trim(adjustl(impl_name(:n))) == 'parent_shell' .or. &
-            trim(adjustl(impl_name(:n))) == 'codon_parent_shell'
-       use_touch_compute_impl = .not. use_native_compute_impl .and. .not. use_parent_shell_compute_impl
+       use_touch_compute_impl = trim(adjustl(impl_name(:n))) == 'touch' .or. &
+            trim(adjustl(impl_name(:n))) == 'codon_touch'
+       use_parent_shell_compute_impl = .not. use_native_compute_impl .and. .not. use_touch_compute_impl
     else
        use_native_compute_impl = .false.
-       use_parent_shell_compute_impl = .false.
-       use_touch_compute_impl = .true.
+       use_parent_shell_compute_impl = .true.
+       use_touch_compute_impl = .false.
     end if
 
     compute_impl_selected = .true.
@@ -407,9 +407,9 @@ contains
           call uwshcu_append_proof('uwshcu compute implementation = codon touch (native body continuation)')
        else
           write(iulog,'(A)') &
-               'uwshcu compute implementation = codon parent shell (experimental; native body continuation)'
+               'uwshcu compute implementation = codon parent shell (default; native body continuation)'
           call uwshcu_append_proof( &
-               'uwshcu compute implementation = codon parent shell (experimental; native body continuation)')
+               'uwshcu compute implementation = codon parent shell (default; native body continuation)')
        end if
        call flush(iulog)
     end if
@@ -3612,7 +3612,7 @@ end subroutine uwshcu_readnl
     real(c_double), target          :: wtrc_scalar_metadata_parent(1)
     real(c_double), target          :: constant_metadata_parent(13)
     real(r8), target                :: parent_real_workspace(iend * (4*(mkx+1) + 21*mkx + &
-                                            2*mkx*ncnst + 2*mkx*max(1,wtrc_nwset) + 4*mkx + 8))
+                                            2*mkx*ncnst + 2*mkx*max(1,wtrc_nwset) + 4*mkx + 10))
     integer(c_int64_t), target      :: parent_int_workspace(16 + 2*iend)
     integer                         :: ixnumliq_parent, ixnumice_parent, ixcldliq_parent, ixcldice_parent
     integer                         :: m, ispec_parent
