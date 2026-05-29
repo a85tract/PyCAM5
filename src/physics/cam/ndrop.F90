@@ -98,6 +98,7 @@ logical :: ndrop_init_props_proof_written = .false.
 logical :: use_native_ndrop_dropmixnuc_helpers_impl = .false.
 logical :: ndrop_dropmixnuc_helpers_impl_selected = .false.
 logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
+logical :: ndrop_dropmixnuc_parent_proof_written = .false.
 logical :: use_native_ndrop_loadaer_helpers_impl = .false.
 logical :: ndrop_loadaer_helpers_impl_selected = .false.
 logical :: ndrop_loadaer_helpers_proof_written = .false.
@@ -2225,6 +2226,19 @@ subroutine dropmixnuc( &
             call outfld(fieldname_cw(mm), coltend_cw(:,mm), pcols, lchnk)
          end do
       end do
+   end if
+
+   if (.not. use_native_ndrop_dropmixnuc_helpers_impl .and. &
+       .not. use_native_ndrop_explmix_impl .and. &
+       .not. use_native_ndrop_ccncalc_helpers_impl .and. &
+       .not. ndrop_dropmixnuc_parent_proof_written) then
+      ndrop_dropmixnuc_parent_proof_written = .true.
+      if (masterproc) then
+         write(iulog,'(A)') 'dropmixnuc parent active path = codon; column setup + activation/grow-shrink/' // &
+              'oldcloud/submix/aero-tend/ccncalc direct = codon; activation core uses inlined loadaer/' // &
+              'activate_modal math; native boundaries qsat/rad_constituents/pbuf/physics_ptend/outfld/allocation/endrun'
+         call flush(iulog)
+      end if
    end if
 
    deallocate( &
