@@ -170,8 +170,11 @@
   logical :: qsinvert_impl_selected = .false.
   logical :: qsinvert_direct_entered_logged = .false.
   logical :: use_native_compute_impl = .true.
+  logical :: use_touch_compute_impl = .false.
+  logical :: use_parent_shell_compute_impl = .false.
   logical :: compute_impl_selected = .false.
   logical :: compute_parent_shell_entered_logged = .false.
+  logical :: compute_touch_entered_logged = .false.
   logical :: compute_wetbulb_parent_shell_entered_logged = .false.
   logical :: compute_cnst_indices_parent_shell_entered_logged = .false.
   logical :: compute_init_selector_parent_shell_entered_logged = .false.
@@ -384,8 +387,13 @@ contains
           if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
        end do
        use_native_compute_impl = trim(adjustl(impl_name(:n))) == 'native'
+       use_parent_shell_compute_impl = trim(adjustl(impl_name(:n))) == 'parent_shell' .or. &
+            trim(adjustl(impl_name(:n))) == 'codon_parent_shell'
+       use_touch_compute_impl = .not. use_native_compute_impl .and. .not. use_parent_shell_compute_impl
     else
        use_native_compute_impl = .false.
+       use_parent_shell_compute_impl = .false.
+       use_touch_compute_impl = .true.
     end if
 
     compute_impl_selected = .true.
@@ -394,9 +402,14 @@ contains
        if (use_native_compute_impl) then
           write(iulog,'(A)') 'uwshcu compute implementation = native'
           call uwshcu_append_proof('uwshcu compute implementation = native')
+       else if (use_touch_compute_impl) then
+          write(iulog,'(A)') 'uwshcu compute implementation = codon touch (native body continuation)'
+          call uwshcu_append_proof('uwshcu compute implementation = codon touch (native body continuation)')
        else
-          write(iulog,'(A)') 'uwshcu compute implementation = codon touch'
-          call uwshcu_append_proof('uwshcu compute implementation = codon touch')
+          write(iulog,'(A)') &
+               'uwshcu compute implementation = codon parent shell (experimental; native body continuation)'
+          call uwshcu_append_proof( &
+               'uwshcu compute implementation = codon parent shell (experimental; native body continuation)')
        end if
        call flush(iulog)
     end if
@@ -412,13 +425,30 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'compute_uwshcu direct = codon touch; native body continuation'
+            'uwshcu compute parent shell entered (codon precompute; native body continuation)'
        call uwshcu_append_proof( &
-            'compute_uwshcu direct = codon touch; native body continuation')
+            'uwshcu compute parent shell entered (codon precompute; native body continuation)')
        call flush(iulog)
     end if
 
   end subroutine uwshcu_log_compute_parent_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_touch_entered()
+
+    if (compute_touch_entered_logged) return
+    compute_touch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'compute_uwshcu codon touch only; native body continuation'
+       call uwshcu_append_proof( &
+            'compute_uwshcu codon touch only; native body continuation')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_touch_entered
 
 !===============================================================================
 
@@ -3593,24 +3623,29 @@ end subroutine uwshcu_readnl
 
     if (.not. use_native_compute_impl) then
        touch_c = compute_uwshcu_codon(1_c_int64_t)
+       if (.not. use_parent_shell_compute_impl) then
+          if (touch_c == 1_c_int64_t) then
+             call uwshcu_log_compute_touch_entered()
+          end if
+          call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
+                                      ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
+                                      u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
+                                      t0_in    , s0_in     , tr0_in       ,                        &
+                                      tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
+                                      umf_out  , slflx_out , qtflx_out    ,                        &
+                                      flxprc1_out  , flxsnow1_out  ,                              &
+                                      qvten_out, qlten_out , qiten_out    ,                        &
+                                      sten_out , uten_out  , vten_out     , trten_out,             &
+                                      qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
+                                      cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
+                                      cbmf_out , qc_out    , rliq_out     ,                        &
+                                      cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
+                                      wtsnow_out, wtqc_out )
+          return
+       end if
        if (touch_c == 1_c_int64_t) then
           call uwshcu_log_compute_parent_shell_entered()
        end if
-       call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
-                                   ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
-                                   u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
-                                   t0_in    , s0_in     , tr0_in       ,                        &
-                                   tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
-                                   umf_out  , slflx_out , qtflx_out    ,                        &
-                                   flxprc1_out  , flxsnow1_out  ,                              &
-                                   qvten_out, qlten_out , qiten_out    ,                        &
-                                   sten_out , uten_out  , vten_out     , trten_out,             &
-                                   qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
-                                   cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
-                                   cbmf_out , qc_out    , rliq_out     ,                        &
-                                   cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                                   wtsnow_out, wtqc_out )
-       return
        call uwshcu_select_init_shell_impl()
        init_shell_flags_parent(1) = merge(1_c_int64_t, 0_c_int64_t, use_native_init_shell_impl)
        parent_int_workspace(:) = 0_c_int64_t
