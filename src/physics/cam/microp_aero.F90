@@ -114,6 +114,7 @@ logical  :: run_impl_selected = .false.
 logical  :: run_direct_entered_logged = .false.
 logical  :: run_linear_entered_logged = .false.
 logical  :: run_npccn_copy_entered_logged = .false.
+logical  :: run_parent_modal_entered_logged = .false.
 logical  :: microp_aero_register_logged = .false.
 logical  :: microp_aero_init_logged = .false.
 logical  :: microp_aero_readnl_logged = .false.
@@ -424,11 +425,58 @@ subroutine microp_aero_run_direct_log_entered()
 
    if (masterproc) then
       write(iulog,'(A)') 'microp_aero_run direct = codon init/rho/diag_TKE/lcloud/NPCCN/modal-contact helpers; ' // &
-           'native pbuf/rad_constituents/nucleation/dropmixnuc/outfld callbacks'
+           'native pbuf/rad_constituents/nucleation/outfld callbacks; child dropmixnuc proof logged separately'
       call flush(iulog)
    end if
 
 end subroutine microp_aero_run_direct_log_entered
+
+!=========================================================================================
+
+logical function microp_aero_selector_defaults_codon(env_name)
+
+   character(len=*), intent(in) :: env_name
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   impl_name = 'codon'
+   call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      microp_aero_selector_defaults_codon = trim(adjustl(impl_name(:n))) /= 'native'
+   else
+      microp_aero_selector_defaults_codon = .true.
+   end if
+
+end function microp_aero_selector_defaults_codon
+
+!=========================================================================================
+
+subroutine microp_aero_run_parent_modal_log_entered()
+
+   if (use_native_run_impl .or. run_parent_modal_entered_logged) return
+   if (.not. clim_modal_aero) return
+   if (trim(eddy_scheme) /= 'diag_TKE') return
+   if (.not. microp_aero_selector_defaults_codon('NDROP_DROPMIXNUC_HELPERS_IMPL')) return
+   if (.not. microp_aero_selector_defaults_codon('NDROP_CCNCALC_HELPERS_IMPL')) return
+   if (.not. microp_aero_selector_defaults_codon('NDROP_EXPLMIX_IMPL')) return
+
+   run_parent_modal_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'microp_aero_run parent active modal path = codon; init/rho/diag_TKE/lcloud/' // &
+           'dropmixnuc/NPCCN/modal-contact direct = codon; native boundaries pbuf/rad_constituents/' // &
+           'nucleate_ice/hetfrz/outfld/physics_ptend/allocation'
+      call flush(iulog)
+   end if
+
+end subroutine microp_aero_run_parent_modal_log_entered
 
 !=========================================================================================
 
@@ -965,6 +1013,10 @@ subroutine microp_aero_run_codon ( &
 
       call hetfrz_classnuc_cam_calc(state, deltatin, factnum, pbuf)
 
+   end if
+
+   if (.not. use_native_impl) then
+      call microp_aero_run_parent_modal_log_entered()
    end if
 
    if (clim_modal_aero) then
