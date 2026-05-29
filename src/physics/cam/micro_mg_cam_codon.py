@@ -1626,6 +1626,209 @@ def micro_mg1_0_incloud_activation_prep_codon(
 
 
 @export
+def micro_mg1_0_conservation_limiter_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    deltat: float,
+    omsm: float,
+    qsmall: float,
+    qce: float,
+    nce: float,
+    qie: float,
+    nie: float,
+    qrtot: float,
+    nrtot: float,
+    qstot: float,
+    nstot: float,
+    do_cldice: int,
+    use_hetfrz_classnuc: int,
+    lcldm_p: cobj,
+    icldm_p: cobj,
+    cldmax_p: cobj,
+    dz_p: cobj,
+    rho_p: cobj,
+    prc_p: cobj,
+    pra_p: cobj,
+    mnuccc_p: cobj,
+    mnucct_p: cobj,
+    msacwi_p: cobj,
+    psacws_p: cobj,
+    bergs_p: cobj,
+    nprc1_p: cobj,
+    npra_p: cobj,
+    nnuccc_p: cobj,
+    nnucct_p: cobj,
+    npsacws_p: cobj,
+    nsubc_p: cobj,
+    prci_p: cobj,
+    prai_p: cobj,
+    mnudep_p: cobj,
+    nprci_p: cobj,
+    nprai_p: cobj,
+    nsubi_p: cobj,
+    nnudep_p: cobj,
+    nsacwi_p: cobj,
+    mnuccr_p: cobj,
+    pre_p: cobj,
+    pracs_p: cobj,
+    nsubr_p: cobj,
+    npracs_p: cobj,
+    nnuccr_p: cobj,
+    nragg_p: cobj,
+    prds_p: cobj,
+    nsubs_p: cobj,
+    nsagg_p: cobj,
+    nprc_p: cobj,
+):
+    lcldm = Ptr[float](lcldm_p)
+    icldm = Ptr[float](icldm_p)
+    cldmax = Ptr[float](cldmax_p)
+    dz = Ptr[float](dz_p)
+    rho = Ptr[float](rho_p)
+    prc = Ptr[float](prc_p)
+    pra = Ptr[float](pra_p)
+    mnuccc = Ptr[float](mnuccc_p)
+    mnucct = Ptr[float](mnucct_p)
+    msacwi = Ptr[float](msacwi_p)
+    psacws = Ptr[float](psacws_p)
+    bergs = Ptr[float](bergs_p)
+    nprc1 = Ptr[float](nprc1_p)
+    npra = Ptr[float](npra_p)
+    nnuccc = Ptr[float](nnuccc_p)
+    nnucct = Ptr[float](nnucct_p)
+    npsacws = Ptr[float](npsacws_p)
+    nsubc = Ptr[float](nsubc_p)
+    prci = Ptr[float](prci_p)
+    prai = Ptr[float](prai_p)
+    mnudep = Ptr[float](mnudep_p)
+    nprci = Ptr[float](nprci_p)
+    nprai = Ptr[float](nprai_p)
+    nsubi = Ptr[float](nsubi_p)
+    nnudep = Ptr[float](nnudep_p)
+    nsacwi = Ptr[float](nsacwi_p)
+    mnuccr = Ptr[float](mnuccr_p)
+    pre = Ptr[float](pre_p)
+    pracs = Ptr[float](pracs_p)
+    nsubr = Ptr[float](nsubr_p)
+    npracs = Ptr[float](npracs_p)
+    nnuccr = Ptr[float](nnuccr_p)
+    nragg = Ptr[float](nragg_p)
+    prds = Ptr[float](prds_p)
+    nsubs = Ptr[float](nsubs_p)
+    nsagg = Ptr[float](nsagg_p)
+    nprc = Ptr[float](nprc_p)
+
+    idx = _idx2(i, k, pcols)
+    kk = k - 1
+
+    dum = (
+        prc[kk]
+        + pra[kk]
+        + mnuccc[kk]
+        + mnucct[kk]
+        + msacwi[kk]
+        + psacws[kk]
+        + bergs[kk]
+    ) * lcldm[idx] * deltat
+
+    if dum > qce:
+        ratio = (
+            qce
+            / deltat
+            / lcldm[idx]
+            / (prc[kk] + pra[kk] + mnuccc[kk] + mnucct[kk] + msacwi[kk] + psacws[kk] + bergs[kk])
+            * omsm
+        )
+        prc[kk] = prc[kk] * ratio
+        pra[kk] = pra[kk] * ratio
+        mnuccc[kk] = mnuccc[kk] * ratio
+        mnucct[kk] = mnucct[kk] * ratio
+        msacwi[kk] = msacwi[kk] * ratio
+        psacws[kk] = psacws[kk] * ratio
+        bergs[kk] = bergs[kk] * ratio
+
+    dum = (nprc1[kk] + npra[kk] + nnuccc[kk] + nnucct[kk] + npsacws[kk] - nsubc[kk]) * lcldm[idx] * deltat
+
+    if dum > nce:
+        ratio = nce / deltat / ((nprc1[kk] + npra[kk] + nnuccc[kk] + nnucct[kk] + npsacws[kk] - nsubc[kk]) * lcldm[idx]) * omsm
+        nprc1[kk] = nprc1[kk] * ratio
+        npra[kk] = npra[kk] * ratio
+        nnuccc[kk] = nnuccc[kk] * ratio
+        nnucct[kk] = nnucct[kk] * ratio
+        npsacws[kk] = npsacws[kk] * ratio
+        nsubc[kk] = nsubc[kk] * ratio
+
+    if do_cldice != 0:
+        frztmp = -mnuccc[kk] - mnucct[kk] - msacwi[kk]
+        if use_hetfrz_classnuc != 0:
+            frztmp = -mnuccc[kk] - mnucct[kk] - mnudep[kk] - msacwi[kk]
+        dum = (frztmp * lcldm[idx] + (prci[kk] + prai[kk]) * icldm[idx]) * deltat
+
+        if dum > qie:
+            frztmp = mnuccc[kk] + mnucct[kk] + msacwi[kk]
+            if use_hetfrz_classnuc != 0:
+                frztmp = mnuccc[kk] + mnucct[kk] + mnudep[kk] + msacwi[kk]
+            ratio = (qie / deltat + frztmp * lcldm[idx]) / ((prci[kk] + prai[kk]) * icldm[idx]) * omsm
+            prci[kk] = prci[kk] * ratio
+            prai[kk] = prai[kk] * ratio
+
+        frztmp = -nnucct[kk] - nsacwi[kk]
+        if use_hetfrz_classnuc != 0:
+            frztmp = -nnucct[kk] - nnuccc[kk] - nnudep[kk] - nsacwi[kk]
+        dum = (frztmp * lcldm[idx] + (nprci[kk] + nprai[kk] - nsubi[kk]) * icldm[idx]) * deltat
+
+        if dum > nie:
+            frztmp = nnucct[kk] + nsacwi[kk]
+            if use_hetfrz_classnuc != 0:
+                frztmp = nnucct[kk] + nnuccc[kk] + nnudep[kk] + nsacwi[kk]
+            ratio = (nie / deltat + frztmp * lcldm[idx]) / ((nprci[kk] + nprai[kk] - nsubi[kk]) * icldm[idx]) * omsm
+            nprci[kk] = nprci[kk] * ratio
+            nprai[kk] = nprai[kk] * ratio
+            nsubi[kk] = nsubi[kk] * ratio
+
+    if ((prc[kk] + pra[kk]) * lcldm[idx] + (-mnuccr[kk] + pre[kk] - pracs[kk]) * cldmax[idx]) * dz[idx] * rho[idx] + qrtot < 0.0:
+        if -pre[kk] + pracs[kk] + mnuccr[kk] >= qsmall:
+            ratio = (qrtot / (dz[idx] * rho[idx]) + (prc[kk] + pra[kk]) * lcldm[idx]) / ((-pre[kk] + pracs[kk] + mnuccr[kk]) * cldmax[idx]) * omsm
+            pre[kk] = pre[kk] * ratio
+            pracs[kk] = pracs[kk] * ratio
+            mnuccr[kk] = mnuccr[kk] * ratio
+
+    nsubr[kk] = 0.0
+
+    if (nprc[kk] * lcldm[idx] + (-nnuccr[kk] + nsubr[kk] - npracs[kk] + nragg[kk]) * cldmax[idx]) * dz[idx] * rho[idx] + nrtot < 0.0:
+        if -nsubr[kk] - nragg[kk] + npracs[kk] + nnuccr[kk] >= qsmall:
+            ratio = (nrtot / (dz[idx] * rho[idx]) + nprc[kk] * lcldm[idx]) / ((-nsubr[kk] - nragg[kk] + npracs[kk] + nnuccr[kk]) * cldmax[idx]) * omsm
+            nsubr[kk] = nsubr[kk] * ratio
+            npracs[kk] = npracs[kk] * ratio
+            nnuccr[kk] = nnuccr[kk] * ratio
+            nragg[kk] = nragg[kk] * ratio
+
+    if (
+        (bergs[kk] + psacws[kk]) * lcldm[idx]
+        + (prai[kk] + prci[kk]) * icldm[idx]
+        + (pracs[kk] + mnuccr[kk] + prds[kk]) * cldmax[idx]
+    ) * dz[idx] * rho[idx] + qstot < 0.0:
+        if -prds[kk] >= qsmall:
+            ratio = (
+                qstot / (dz[idx] * rho[idx])
+                + (bergs[kk] + psacws[kk]) * lcldm[idx]
+                + (prai[kk] + prci[kk]) * icldm[idx]
+                + (pracs[kk] + mnuccr[kk]) * cldmax[idx]
+            ) / (-prds[kk] * cldmax[idx]) * omsm
+            prds[kk] = prds[kk] * ratio
+
+    nsubs[kk] = 0.0
+
+    if (nprci[kk] * icldm[idx] + (nnuccr[kk] + nsubs[kk] + nsagg[kk]) * cldmax[idx]) * dz[idx] * rho[idx] + nstot < 0.0:
+        if -nsubs[kk] - nsagg[kk] >= qsmall:
+            ratio = (nstot / (dz[idx] * rho[idx]) + nprci[kk] * icldm[idx] + nnuccr[kk] * cldmax[idx]) / ((-nsubs[kk] - nsagg[kk]) * cldmax[idx]) * omsm
+            nsubs[kk] = nsubs[kk] * ratio
+            nsagg[kk] = nsagg[kk] * ratio
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,

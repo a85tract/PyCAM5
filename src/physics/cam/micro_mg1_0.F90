@@ -160,6 +160,7 @@ logical :: micro_mg1_0_rate1ord_logged = .false.
 logical :: micro_mg1_0_substep_setup_logged = .false.
 logical :: micro_mg1_0_substep_accum_logged = .false.
 logical :: micro_mg1_0_incloud_activation_logged = .false.
+logical :: micro_mg1_0_conservation_limiter_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -2542,141 +2543,150 @@ do i=1,ncol
 
          ! conservation of qc
 
-         dum = (prc(k)+pra(k)+mnuccc(k)+mnucct(k)+msacwi(k)+ &
-              psacws(k)+bergs(k))*lcldm(i,k)*deltat
+         if (micro_mg1_0_colzero_use_native_impl) then
+            dum = (prc(k)+pra(k)+mnuccc(k)+mnucct(k)+msacwi(k)+ &
+                 psacws(k)+bergs(k))*lcldm(i,k)*deltat
 
-         if (dum.gt.qce) then
-            ratio = qce/deltat/lcldm(i,k)/(prc(k)+pra(k)+mnuccc(k)+mnucct(k)+msacwi(k)+psacws(k)+bergs(k))*omsm 
+            if (dum.gt.qce) then
+               ratio = qce/deltat/lcldm(i,k)/(prc(k)+pra(k)+mnuccc(k)+mnucct(k)+msacwi(k)+psacws(k)+bergs(k))*omsm
 
-            prc(k) = prc(k)*ratio
-            pra(k) = pra(k)*ratio
-            mnuccc(k) = mnuccc(k)*ratio
-            mnucct(k) = mnucct(k)*ratio  
-            msacwi(k) = msacwi(k)*ratio  
-            psacws(k) = psacws(k)*ratio
-            bergs(k) = bergs(k)*ratio
-         end if
-
-         ! conservation of nc
-
-         dum = (nprc1(k)+npra(k)+nnuccc(k)+nnucct(k)+ &
-              npsacws(k)-nsubc(k))*lcldm(i,k)*deltat
-
-         if (dum.gt.nce) then
-            ratio = nce/deltat/((nprc1(k)+npra(k)+nnuccc(k)+nnucct(k)+&
-                 npsacws(k)-nsubc(k))*lcldm(i,k))*omsm
-
-            nprc1(k) = nprc1(k)*ratio
-            npra(k) = npra(k)*ratio
-            nnuccc(k) = nnuccc(k)*ratio
-            nnucct(k) = nnucct(k)*ratio  
-            npsacws(k) = npsacws(k)*ratio
-            nsubc(k)=nsubc(k)*ratio
-         end if
-
-         ! conservation of qi
-
-         if (do_cldice) then
-
-            frztmp = -mnuccc(k) - mnucct(k) - msacwi(k)
-            if (use_hetfrz_classnuc) frztmp = -mnuccc(k)-mnucct(k)-mnudep(k)-msacwi(k)
-            dum = ( frztmp*lcldm(i,k) + (prci(k)+prai(k))*icldm(i,k) )*deltat
-
-            if (dum.gt.qie) then
-
-               frztmp = mnuccc(k) + mnucct(k) + msacwi(k)
-               if (use_hetfrz_classnuc) frztmp = mnuccc(k) + mnucct(k) + mnudep(k) + msacwi(k)
-               ratio = (qie/deltat + frztmp*lcldm(i,k))/((prci(k)+prai(k))*icldm(i,k))*omsm 
-               prci(k) = prci(k)*ratio
-               prai(k) = prai(k)*ratio
+               prc(k) = prc(k)*ratio
+               pra(k) = pra(k)*ratio
+               mnuccc(k) = mnuccc(k)*ratio
+               mnucct(k) = mnucct(k)*ratio
+               msacwi(k) = msacwi(k)*ratio
+               psacws(k) = psacws(k)*ratio
+               bergs(k) = bergs(k)*ratio
             end if
 
-            ! conservation of ni
-            frztmp = -nnucct(k) - nsacwi(k)
-            if (use_hetfrz_classnuc) frztmp = -nnucct(k) - nnuccc(k) - nnudep(k) - nsacwi(k)
-            dum = ( frztmp*lcldm(i,k) + (nprci(k)+nprai(k)-nsubi(k))*icldm(i,k) )*deltat
+            ! conservation of nc
 
-            if (dum.gt.nie) then
+            dum = (nprc1(k)+npra(k)+nnuccc(k)+nnucct(k)+ &
+                 npsacws(k)-nsubc(k))*lcldm(i,k)*deltat
 
-               frztmp = nnucct(k) + nsacwi(k)
-               if (use_hetfrz_classnuc) frztmp = nnucct(k) + nnuccc(k) + nnudep(k) + nsacwi(k)
-               ratio = (nie/deltat + frztmp*lcldm(i,k))/ &  
-                     ((nprci(k)+nprai(k)-nsubi(k))*icldm(i,k))*omsm
-               nprci(k) = nprci(k)*ratio
-               nprai(k) = nprai(k)*ratio
-               nsubi(k) = nsubi(k)*ratio
+            if (dum.gt.nce) then
+               ratio = nce/deltat/((nprc1(k)+npra(k)+nnuccc(k)+nnucct(k)+&
+                    npsacws(k)-nsubc(k))*lcldm(i,k))*omsm
+
+               nprc1(k) = nprc1(k)*ratio
+               npra(k) = npra(k)*ratio
+               nnuccc(k) = nnuccc(k)*ratio
+               nnucct(k) = nnucct(k)*ratio
+               npsacws(k) = npsacws(k)*ratio
+               nsubc(k)=nsubc(k)*ratio
             end if
-         end if
 
-         ! for precipitation conservation, use logic that vertical integral 
-         ! of tendency from current level to top of model (i.e., qrtot) cannot be negative
+            ! conservation of qi
 
-         ! conservation of rain mixing rat
+            if (do_cldice) then
 
-         if (((prc(k)+pra(k))*lcldm(i,k)+(-mnuccr(k)+pre(k)-pracs(k))*&
-              cldmax(i,k))*dz(i,k)*rho(i,k)+qrtot.lt.0._r8) then
+               frztmp = -mnuccc(k) - mnucct(k) - msacwi(k)
+               if (use_hetfrz_classnuc) frztmp = -mnuccc(k)-mnucct(k)-mnudep(k)-msacwi(k)
+               dum = ( frztmp*lcldm(i,k) + (prci(k)+prai(k))*icldm(i,k) )*deltat
 
-            if (-pre(k)+pracs(k)+mnuccr(k).ge.qsmall) then
+               if (dum.gt.qie) then
 
-               ratio = (qrtot/(dz(i,k)*rho(i,k))+(prc(k)+pra(k))*lcldm(i,k))/&
-                    ((-pre(k)+pracs(k)+mnuccr(k))*cldmax(i,k))*omsm 
+                  frztmp = mnuccc(k) + mnucct(k) + msacwi(k)
+                  if (use_hetfrz_classnuc) frztmp = mnuccc(k) + mnucct(k) + mnudep(k) + msacwi(k)
+                  ratio = (qie/deltat + frztmp*lcldm(i,k))/((prci(k)+prai(k))*icldm(i,k))*omsm
+                  prci(k) = prci(k)*ratio
+                  prai(k) = prai(k)*ratio
+               end if
 
-               pre(k) = pre(k)*ratio
-               pracs(k) = pracs(k)*ratio
-               mnuccr(k) = mnuccr(k)*ratio
+               ! conservation of ni
+               frztmp = -nnucct(k) - nsacwi(k)
+               if (use_hetfrz_classnuc) frztmp = -nnucct(k) - nnuccc(k) - nnudep(k) - nsacwi(k)
+               dum = ( frztmp*lcldm(i,k) + (nprci(k)+nprai(k)-nsubi(k))*icldm(i,k) )*deltat
+
+               if (dum.gt.nie) then
+
+                  frztmp = nnucct(k) + nsacwi(k)
+                  if (use_hetfrz_classnuc) frztmp = nnucct(k) + nnuccc(k) + nnudep(k) + nsacwi(k)
+                  ratio = (nie/deltat + frztmp*lcldm(i,k))/ &
+                        ((nprci(k)+nprai(k)-nsubi(k))*icldm(i,k))*omsm
+                  nprci(k) = nprci(k)*ratio
+                  nprai(k) = nprai(k)*ratio
+                  nsubi(k) = nsubi(k)*ratio
+               end if
             end if
-         end if
 
-         ! conservation of nr
-         ! for now neglect evaporation of nr
-         nsubr(k)=0._r8
+            ! for precipitation conservation, use logic that vertical integral
+            ! of tendency from current level to top of model (i.e., qrtot) cannot be negative
 
-         if ((nprc(k)*lcldm(i,k)+(-nnuccr(k)+nsubr(k)-npracs(k)&
-              +nragg(k))*cldmax(i,k))*dz(i,k)*rho(i,k)+nrtot.lt.0._r8) then
+            ! conservation of rain mixing rat
 
-            if (-nsubr(k)-nragg(k)+npracs(k)+nnuccr(k).ge.qsmall) then
+            if (((prc(k)+pra(k))*lcldm(i,k)+(-mnuccr(k)+pre(k)-pracs(k))*&
+                 cldmax(i,k))*dz(i,k)*rho(i,k)+qrtot.lt.0._r8) then
 
-               ratio = (nrtot/(dz(i,k)*rho(i,k))+nprc(k)*lcldm(i,k))/&
-                    ((-nsubr(k)-nragg(k)+npracs(k)+nnuccr(k))*cldmax(i,k))*omsm
+               if (-pre(k)+pracs(k)+mnuccr(k).ge.qsmall) then
 
-               nsubr(k) = nsubr(k)*ratio
-               npracs(k) = npracs(k)*ratio
-               nnuccr(k) = nnuccr(k)*ratio
-               nragg(k) = nragg(k)*ratio
+                  ratio = (qrtot/(dz(i,k)*rho(i,k))+(prc(k)+pra(k))*lcldm(i,k))/&
+                       ((-pre(k)+pracs(k)+mnuccr(k))*cldmax(i,k))*omsm
+
+                  pre(k) = pre(k)*ratio
+                  pracs(k) = pracs(k)*ratio
+                  mnuccr(k) = mnuccr(k)*ratio
+               end if
             end if
-         end if
 
-         ! conservation of snow mix ratio
+            ! conservation of nr
+            ! for now neglect evaporation of nr
+            nsubr(k)=0._r8
 
-         if (((bergs(k)+psacws(k))*lcldm(i,k)+(prai(k)+prci(k))*icldm(i,k)+(pracs(k)+&
-              mnuccr(k)+prds(k))*cldmax(i,k))*dz(i,k)*rho(i,k)+qstot.lt.0._r8) then
+            if ((nprc(k)*lcldm(i,k)+(-nnuccr(k)+nsubr(k)-npracs(k)&
+                 +nragg(k))*cldmax(i,k))*dz(i,k)*rho(i,k)+nrtot.lt.0._r8) then
 
-            if (-prds(k).ge.qsmall) then
+               if (-nsubr(k)-nragg(k)+npracs(k)+nnuccr(k).ge.qsmall) then
 
-               ratio = (qstot/(dz(i,k)*rho(i,k))+(bergs(k)+psacws(k))*lcldm(i,k)+(prai(k)+prci(k))*icldm(i,k)+&
-                    (pracs(k)+mnuccr(k))*cldmax(i,k))/(-prds(k)*cldmax(i,k))*omsm
+                  ratio = (nrtot/(dz(i,k)*rho(i,k))+nprc(k)*lcldm(i,k))/&
+                       ((-nsubr(k)-nragg(k)+npracs(k)+nnuccr(k))*cldmax(i,k))*omsm
 
-               prds(k) = prds(k)*ratio
+                  nsubr(k) = nsubr(k)*ratio
+                  npracs(k) = npracs(k)*ratio
+                  nnuccr(k) = nnuccr(k)*ratio
+                  nragg(k) = nragg(k)*ratio
+               end if
             end if
-         end if
 
-         ! conservation of ns
+            ! conservation of snow mix ratio
 
-         ! calculate loss of number due to sublimation
-         ! for now neglect sublimation of ns
-         nsubs(k)=0._r8
+            if (((bergs(k)+psacws(k))*lcldm(i,k)+(prai(k)+prci(k))*icldm(i,k)+(pracs(k)+&
+                 mnuccr(k)+prds(k))*cldmax(i,k))*dz(i,k)*rho(i,k)+qstot.lt.0._r8) then
 
-         if ((nprci(k)*icldm(i,k)+(nnuccr(k)+nsubs(k)+nsagg(k))*cldmax(i,k))*&
-              dz(i,k)*rho(i,k)+nstot.lt.0._r8) then
+               if (-prds(k).ge.qsmall) then
 
-            if (-nsubs(k)-nsagg(k).ge.qsmall) then
+                  ratio = (qstot/(dz(i,k)*rho(i,k))+(bergs(k)+psacws(k))*lcldm(i,k)+(prai(k)+prci(k))*icldm(i,k)+&
+                       (pracs(k)+mnuccr(k))*cldmax(i,k))/(-prds(k)*cldmax(i,k))*omsm
 
-               ratio = (nstot/(dz(i,k)*rho(i,k))+nprci(k)*icldm(i,k)+&
-                    nnuccr(k)*cldmax(i,k))/((-nsubs(k)-nsagg(k))*cldmax(i,k))*omsm
-
-               nsubs(k) = nsubs(k)*ratio
-               nsagg(k) = nsagg(k)*ratio
+                  prds(k) = prds(k)*ratio
+               end if
             end if
+
+            ! conservation of ns
+
+            ! calculate loss of number due to sublimation
+            ! for now neglect sublimation of ns
+            nsubs(k)=0._r8
+
+            if ((nprci(k)*icldm(i,k)+(nnuccr(k)+nsubs(k)+nsagg(k))*cldmax(i,k))*&
+                 dz(i,k)*rho(i,k)+nstot.lt.0._r8) then
+
+               if (-nsubs(k)-nsagg(k).ge.qsmall) then
+
+                  ratio = (nstot/(dz(i,k)*rho(i,k))+nprci(k)*icldm(i,k)+&
+                       nnuccr(k)*cldmax(i,k))/((-nsubs(k)-nsagg(k))*cldmax(i,k))*omsm
+
+                  nsubs(k) = nsubs(k)*ratio
+                  nsagg(k) = nsagg(k)*ratio
+               end if
+            end if
+         else
+            call micro_mg1_0_conservation_limiter_codon_wrap(i, k, pcols, pver, deltat, omsm, qsmall, &
+                 qce, nce, qie, nie, qrtot, nrtot, qstot, nstot, do_cldice, use_hetfrz_classnuc, &
+                 lcldm, icldm, cldmax, dz, rho, prc, pra, mnuccc, mnucct, msacwi, psacws, bergs, &
+                 nprc1, npra, nnuccc, nnucct, npsacws, nsubc, prci, prai, mnudep, nprci, nprai, &
+                 nsubi, nnudep, nsacwi, mnuccr, pre, pracs, nsubr, npracs, nnuccr, nragg, prds, &
+                 nsubs, nsagg, nprc)
          end if
 
          ! get tendencies due to microphysical conversion processes
@@ -4259,6 +4269,15 @@ subroutine micro_mg1_0_incloud_activation_log_entry()
   end if
 end subroutine micro_mg1_0_incloud_activation_log_entry
 
+subroutine micro_mg1_0_conservation_limiter_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_conservation_limiter_logged) then
+     write(iulog,*) 'micro_mg1_0_conservation_limiter entered (process-rate conservation limiter = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_conservation_limiter entered (process-rate conservation limiter = codon)')
+     micro_mg1_0_conservation_limiter_logged = .true.
+  end if
+end subroutine micro_mg1_0_conservation_limiter_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4534,6 +4553,99 @@ real(r8) function micro_mg1_0_incloud_activation_prep_codon_wrap(i_local, k_loca
        c_loc(npccnin_local), c_loc(rho_local), c_loc(qcic_local), c_loc(qiic_local), c_loc(ncic_local), &
        c_loc(niic_local), c_loc(npccn_local), c_loc(dum2l_local)), r8)
 end function micro_mg1_0_incloud_activation_prep_codon_wrap
+
+subroutine micro_mg1_0_conservation_limiter_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     deltat_local, omsm_local, qsmall_local, qce_local, nce_local, qie_local, nie_local, qrtot_local, &
+     nrtot_local, qstot_local, nstot_local, do_cldice_local, use_hetfrz_classnuc_local, lcldm_local, &
+     icldm_local, cldmax_local, dz_local, rho_local, prc_local, pra_local, mnuccc_local, mnucct_local, &
+     msacwi_local, psacws_local, bergs_local, nprc1_local, npra_local, nnuccc_local, nnucct_local, &
+     npsacws_local, nsubc_local, prci_local, prai_local, mnudep_local, nprci_local, nprai_local, &
+     nsubi_local, nnudep_local, nsacwi_local, mnuccr_local, pre_local, pracs_local, nsubr_local, &
+     npracs_local, nnuccr_local, nragg_local, prds_local, nsubs_local, nsagg_local, nprc_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: deltat_local, omsm_local, qsmall_local
+  real(r8), intent(in) :: qce_local, nce_local, qie_local, nie_local
+  real(r8), intent(in) :: qrtot_local, nrtot_local, qstot_local, nstot_local
+  logical, intent(in) :: do_cldice_local, use_hetfrz_classnuc_local
+  real(r8), target, intent(in) :: lcldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: icldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cldmax_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: dz_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prc_local(pver_local)
+  real(r8), target, intent(inout) :: pra_local(pver_local)
+  real(r8), target, intent(inout) :: mnuccc_local(pver_local)
+  real(r8), target, intent(inout) :: mnucct_local(pver_local)
+  real(r8), target, intent(inout) :: msacwi_local(pver_local)
+  real(r8), target, intent(inout) :: psacws_local(pver_local)
+  real(r8), target, intent(inout) :: bergs_local(pver_local)
+  real(r8), target, intent(inout) :: nprc1_local(pver_local)
+  real(r8), target, intent(inout) :: npra_local(pver_local)
+  real(r8), target, intent(inout) :: nnuccc_local(pver_local)
+  real(r8), target, intent(inout) :: nnucct_local(pver_local)
+  real(r8), target, intent(inout) :: npsacws_local(pver_local)
+  real(r8), target, intent(inout) :: nsubc_local(pver_local)
+  real(r8), target, intent(inout) :: prci_local(pver_local)
+  real(r8), target, intent(inout) :: prai_local(pver_local)
+  real(r8), target, intent(in) :: mnudep_local(pver_local)
+  real(r8), target, intent(inout) :: nprci_local(pver_local)
+  real(r8), target, intent(inout) :: nprai_local(pver_local)
+  real(r8), target, intent(inout) :: nsubi_local(pver_local)
+  real(r8), target, intent(in) :: nnudep_local(pver_local)
+  real(r8), target, intent(in) :: nsacwi_local(pver_local)
+  real(r8), target, intent(inout) :: mnuccr_local(pver_local)
+  real(r8), target, intent(inout) :: pre_local(pver_local)
+  real(r8), target, intent(inout) :: pracs_local(pver_local)
+  real(r8), target, intent(inout) :: nsubr_local(pver_local)
+  real(r8), target, intent(inout) :: npracs_local(pver_local)
+  real(r8), target, intent(inout) :: nnuccr_local(pver_local)
+  real(r8), target, intent(inout) :: nragg_local(pver_local)
+  real(r8), target, intent(inout) :: prds_local(pver_local)
+  real(r8), target, intent(inout) :: nsubs_local(pver_local)
+  real(r8), target, intent(inout) :: nsagg_local(pver_local)
+  real(r8), target, intent(in) :: nprc_local(pver_local)
+
+  interface
+     subroutine micro_mg1_0_conservation_limiter_codon(i_c, k_c, pcols_c, pver_c, deltat_c, &
+          omsm_c, qsmall_c, qce_c, nce_c, qie_c, nie_c, qrtot_c, nrtot_c, qstot_c, nstot_c, &
+          do_cldice_c, use_hetfrz_classnuc_c, lcldm_p, icldm_p, cldmax_p, dz_p, rho_p, prc_p, &
+          pra_p, mnuccc_p, mnucct_p, msacwi_p, psacws_p, bergs_p, nprc1_p, npra_p, nnuccc_p, &
+          nnucct_p, npsacws_p, nsubc_p, prci_p, prai_p, mnudep_p, nprci_p, nprai_p, nsubi_p, &
+          nnudep_p, nsacwi_p, mnuccr_p, pre_p, pracs_p, nsubr_p, npracs_p, nnuccr_p, nragg_p, &
+          prds_p, nsubs_p, nsagg_p, nprc_p) bind(c, name="micro_mg1_0_conservation_limiter_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, do_cldice_c, use_hetfrz_classnuc_c
+       real(c_double), value :: deltat_c, omsm_c, qsmall_c, qce_c, nce_c, qie_c, nie_c
+       real(c_double), value :: qrtot_c, nrtot_c, qstot_c, nstot_c
+       type(c_ptr), value :: lcldm_p, icldm_p, cldmax_p, dz_p, rho_p
+       type(c_ptr), value :: prc_p, pra_p, mnuccc_p, mnucct_p, msacwi_p, psacws_p, bergs_p
+       type(c_ptr), value :: nprc1_p, npra_p, nnuccc_p, nnucct_p, npsacws_p, nsubc_p
+       type(c_ptr), value :: prci_p, prai_p, mnudep_p, nprci_p, nprai_p, nsubi_p
+       type(c_ptr), value :: nnudep_p, nsacwi_p, mnuccr_p, pre_p, pracs_p, nsubr_p, npracs_p
+       type(c_ptr), value :: nnuccr_p, nragg_p, prds_p, nsubs_p, nsagg_p, nprc_p
+     end subroutine micro_mg1_0_conservation_limiter_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_conservation_limiter_log_entry()
+  call micro_mg1_0_conservation_limiter_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(deltat_local, c_double), &
+       real(omsm_local, c_double), real(qsmall_local, c_double), real(qce_local, c_double), &
+       real(nce_local, c_double), real(qie_local, c_double), real(nie_local, c_double), &
+       real(qrtot_local, c_double), real(nrtot_local, c_double), real(qstot_local, c_double), &
+       real(nstot_local, c_double), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
+       merge(1_c_int64_t, 0_c_int64_t, use_hetfrz_classnuc_local), c_loc(lcldm_local), &
+       c_loc(icldm_local), c_loc(cldmax_local), c_loc(dz_local), c_loc(rho_local), &
+       c_loc(prc_local), c_loc(pra_local), c_loc(mnuccc_local), c_loc(mnucct_local), &
+       c_loc(msacwi_local), c_loc(psacws_local), c_loc(bergs_local), c_loc(nprc1_local), &
+       c_loc(npra_local), c_loc(nnuccc_local), c_loc(nnucct_local), c_loc(npsacws_local), &
+       c_loc(nsubc_local), c_loc(prci_local), c_loc(prai_local), c_loc(mnudep_local), &
+       c_loc(nprci_local), c_loc(nprai_local), c_loc(nsubi_local), c_loc(nnudep_local), &
+       c_loc(nsacwi_local), c_loc(mnuccr_local), c_loc(pre_local), c_loc(pracs_local), &
+       c_loc(nsubr_local), c_loc(npracs_local), c_loc(nnuccr_local), c_loc(nragg_local), &
+       c_loc(prds_local), c_loc(nsubs_local), c_loc(nsagg_local), c_loc(nprc_local))
+end subroutine micro_mg1_0_conservation_limiter_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &
