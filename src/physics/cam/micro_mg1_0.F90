@@ -156,6 +156,7 @@ logical :: micro_mg1_0_init_scalars_logged = .false.
 logical :: micro_mg1_0_colzero_use_native_impl = .false.
 logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
+logical :: micro_mg1_0_rate1ord_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -715,8 +716,8 @@ real(r8) :: nctend_mixnuc(pcols,pver)
 real(r8) :: arg ! argument of erfc
 
 ! for calculation of rate1ord_cw2pr_st
-real(r8) :: qcsinksum_rate1ord(pver)   ! sum over iterations of cw to precip sink
-real(r8) :: qcsum_rate1ord(pver)    ! sum over iterations of cloud water       
+real(r8), target :: qcsinksum_rate1ord(pver)   ! sum over iterations of cw to precip sink
+real(r8), target :: qcsum_rate1ord(pver)    ! sum over iterations of cloud water
 
 real(r8) :: alpha
 
@@ -1526,7 +1527,11 @@ deltat=deltat/real(iter)
 !        note: mtime for bulk aerosols was set to: mtime=deltat/1200._r8
 
 mtime=1._r8
-rate1ord_cw2pr_st(:,:)=0._r8 ! rce 2010/05/01
+if (micro_mg1_0_colzero_use_native_impl) then
+   rate1ord_cw2pr_st(:,:)=0._r8 ! rce 2010/05/01
+else
+   call micro_mg1_0_rate1ord_zero_codon_wrap(ncol, pcols, pver, rate1ord_cw2pr_st)
+end if
 !!!! skip calculations if no cloud water
 do i=1,ncol
    if (ltrue(i).eq.0) then
@@ -3082,9 +3087,14 @@ do i=1,ncol
 
    end do ! it loop, sub-step
 
-   do k = top_lev, pver
-      rate1ord_cw2pr_st(i,k) = qcsinksum_rate1ord(k)/max(qcsum_rate1ord(k),1.0e-30_r8) 
-   end do
+   if (micro_mg1_0_colzero_use_native_impl) then
+      do k = top_lev, pver
+         rate1ord_cw2pr_st(i,k) = qcsinksum_rate1ord(k)/max(qcsum_rate1ord(k),1.0e-30_r8)
+      end do
+   else
+      call micro_mg1_0_rate1ord_column_codon_wrap(i, pcols, pver, top_lev, &
+           qcsinksum_rate1ord, qcsum_rate1ord, rate1ord_cw2pr_st)
+   end if
 
 300 continue  ! continue if no cloud water
 end do ! i loop
@@ -4186,6 +4196,15 @@ subroutine micro_mg1_0_colzero_log_entry()
   end if
 end subroutine micro_mg1_0_colzero_log_entry
 
+subroutine micro_mg1_0_rate1ord_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_rate1ord_logged) then
+     write(iulog,*) 'micro_mg1_0_rate1ord entered (cw-to-precip rate bookkeeping = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_rate1ord entered (cw-to-precip rate bookkeeping = codon)')
+     micro_mg1_0_rate1ord_logged = .true.
+  end if
+end subroutine micro_mg1_0_rate1ord_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4219,6 +4238,51 @@ subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_
        c_loc(rflx1_local), c_loc(sflx1_local), c_loc(rflx_local), c_loc(sflx_local), c_loc(qc_local), &
        c_loc(qi_local), c_loc(cmei_local), c_loc(ltrue_local))
 end subroutine micro_mg1_0_flux_ltrue_init_codon_wrap
+
+subroutine micro_mg1_0_rate1ord_zero_codon_wrap(ncol_local, pcols_local, pver_local, rate1ord_cw2pr_st_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local
+  real(r8), target, intent(inout) :: rate1ord_cw2pr_st_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_rate1ord_zero_codon(ncol_c, pcols_c, pver_c, rate1ord_cw2pr_st_p) &
+          bind(c, name="micro_mg1_0_rate1ord_zero_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+       type(c_ptr), value :: rate1ord_cw2pr_st_p
+     end subroutine micro_mg1_0_rate1ord_zero_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_rate1ord_log_entry()
+  call micro_mg1_0_rate1ord_zero_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), c_loc(rate1ord_cw2pr_st_local))
+end subroutine micro_mg1_0_rate1ord_zero_codon_wrap
+
+subroutine micro_mg1_0_rate1ord_column_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
+     qcsinksum_rate1ord_local, qcsum_rate1ord_local, rate1ord_cw2pr_st_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local, top_lev_local
+  real(r8), target, intent(in) :: qcsinksum_rate1ord_local(pver_local)
+  real(r8), target, intent(in) :: qcsum_rate1ord_local(pver_local)
+  real(r8), target, intent(inout) :: rate1ord_cw2pr_st_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_rate1ord_column_codon(i_c, pcols_c, pver_c, top_lev_c, &
+          qcsinksum_rate1ord_p, qcsum_rate1ord_p, rate1ord_cw2pr_st_p) &
+          bind(c, name="micro_mg1_0_rate1ord_column_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: qcsinksum_rate1ord_p, qcsum_rate1ord_p, rate1ord_cw2pr_st_p
+     end subroutine micro_mg1_0_rate1ord_column_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_rate1ord_log_entry()
+  call micro_mg1_0_rate1ord_column_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), c_loc(qcsinksum_rate1ord_local), &
+       c_loc(qcsum_rate1ord_local), c_loc(rate1ord_cw2pr_st_local))
+end subroutine micro_mg1_0_rate1ord_column_codon_wrap
 
 subroutine micro_mg1_0_no_cloud_zero_column_codon_wrap(i_local, pcols_local, pver_local, &
      tlat_local, qvlat_local, qctend_local, qitend_local, qnitend_local, qrtend_local, &

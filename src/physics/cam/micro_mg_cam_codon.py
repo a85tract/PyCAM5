@@ -1535,6 +1535,38 @@ def micro_mg1_0_flux_ltrue_init_codon(
 
 
 @export
+def micro_mg1_0_rate1ord_zero_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rate1ord_cw2pr_st_p: cobj,
+):
+    rate1ord_cw2pr_st = Ptr[float](rate1ord_cw2pr_st_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(1, pver + 1):
+            rate1ord_cw2pr_st[_idx2(i, k, pcols)] = 0.0
+
+
+@export
+def micro_mg1_0_rate1ord_column_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    qcsinksum_rate1ord_p: cobj,
+    qcsum_rate1ord_p: cobj,
+    rate1ord_cw2pr_st_p: cobj,
+):
+    qcsinksum_rate1ord = Ptr[float](qcsinksum_rate1ord_p)
+    qcsum_rate1ord = Ptr[float](qcsum_rate1ord_p)
+    rate1ord_cw2pr_st = Ptr[float](rate1ord_cw2pr_st_p)
+
+    for k in range(top_lev, pver + 1):
+        rate1ord_cw2pr_st[_idx2(i, k, pcols)] = qcsinksum_rate1ord[k - 1] / max(qcsum_rate1ord[k - 1], 1.0e-30)
+
+
+@export
 def micro_mg1_0_tail_activation_codon(
     ncol: int,
     pcols: int,
