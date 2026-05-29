@@ -1829,6 +1829,143 @@ def micro_mg1_0_conservation_limiter_codon(
 
 
 @export
+def micro_mg1_0_process_output_accum_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    qrtend_p: cobj,
+    qnitend_p: cobj,
+    qrtend_copy_p: cobj,
+    qnitend_copy_p: cobj,
+    cmei_p: cobj,
+    cmeiout_p: cobj,
+    prds_p: cobj,
+    pre_p: cobj,
+    cldmax_p: cobj,
+    evapsnow_p: cobj,
+    nevapr_p: cobj,
+    nevapr2_p: cobj,
+    pra_p: cobj,
+    prc_p: cobj,
+    lcldm_p: cobj,
+    pracs_p: cobj,
+    mnuccr_p: cobj,
+    prain_p: cobj,
+    prai_p: cobj,
+    prci_p: cobj,
+    icldm_p: cobj,
+    psacws_p: cobj,
+    bergs_p: cobj,
+    prodsnow_p: cobj,
+    qcsinksum_rate1ord_p: cobj,
+    qcsum_rate1ord_p: cobj,
+    qc_p: cobj,
+    prao_p: cobj,
+    prco_p: cobj,
+    mnuccc_p: cobj,
+    mnucct_p: cobj,
+    mnuccd_p: cobj,
+    msacwi_p: cobj,
+    mnuccco_p: cobj,
+    mnuccto_p: cobj,
+    mnuccdo_p: cobj,
+    msacwio_p: cobj,
+    psacwso_p: cobj,
+    bergso_p: cobj,
+    berg_p: cobj,
+    bergo_p: cobj,
+    prcio_p: cobj,
+    praio_p: cobj,
+    mnuccro_p: cobj,
+    pracso_p: cobj,
+    preo_p: cobj,
+    prdso_p: cobj,
+):
+    qrtend = Ptr[float](qrtend_p)
+    qnitend = Ptr[float](qnitend_p)
+    qrtend_copy = Ptr[float](qrtend_copy_p)
+    qnitend_copy = Ptr[float](qnitend_copy_p)
+    cmei = Ptr[float](cmei_p)
+    cmeiout = Ptr[float](cmeiout_p)
+    prds = Ptr[float](prds_p)
+    pre = Ptr[float](pre_p)
+    cldmax = Ptr[float](cldmax_p)
+    evapsnow = Ptr[float](evapsnow_p)
+    nevapr = Ptr[float](nevapr_p)
+    nevapr2 = Ptr[float](nevapr2_p)
+    pra = Ptr[float](pra_p)
+    prc = Ptr[float](prc_p)
+    lcldm = Ptr[float](lcldm_p)
+    pracs = Ptr[float](pracs_p)
+    mnuccr = Ptr[float](mnuccr_p)
+    prain = Ptr[float](prain_p)
+    prai = Ptr[float](prai_p)
+    prci = Ptr[float](prci_p)
+    icldm = Ptr[float](icldm_p)
+    psacws = Ptr[float](psacws_p)
+    bergs = Ptr[float](bergs_p)
+    prodsnow = Ptr[float](prodsnow_p)
+    qcsinksum_rate1ord = Ptr[float](qcsinksum_rate1ord_p)
+    qcsum_rate1ord = Ptr[float](qcsum_rate1ord_p)
+    qc = Ptr[float](qc_p)
+    prao = Ptr[float](prao_p)
+    prco = Ptr[float](prco_p)
+    mnuccc = Ptr[float](mnuccc_p)
+    mnucct = Ptr[float](mnucct_p)
+    mnuccd = Ptr[float](mnuccd_p)
+    msacwi = Ptr[float](msacwi_p)
+    mnuccco = Ptr[float](mnuccco_p)
+    mnuccto = Ptr[float](mnuccto_p)
+    mnuccdo = Ptr[float](mnuccdo_p)
+    msacwio = Ptr[float](msacwio_p)
+    psacwso = Ptr[float](psacwso_p)
+    bergso = Ptr[float](bergso_p)
+    berg = Ptr[float](berg_p)
+    bergo = Ptr[float](bergo_p)
+    prcio = Ptr[float](prcio_p)
+    praio = Ptr[float](praio_p)
+    mnuccro = Ptr[float](mnuccro_p)
+    pracso = Ptr[float](pracso_p)
+    preo = Ptr[float](preo_p)
+    prdso = Ptr[float](prdso_p)
+
+    idx = _idx2(i, k, pcols)
+    kk = k - 1
+
+    qrtend_copy[idx] = qrtend_copy[idx] + qrtend[idx]
+    qnitend_copy[idx] = qnitend_copy[idx] + qnitend[idx]
+
+    cmeiout[idx] = cmeiout[idx] + cmei[idx]
+
+    evapsnow[idx] = evapsnow[idx] - prds[kk] * cldmax[idx]
+    nevapr[idx] = nevapr[idx] - pre[kk] * cldmax[idx]
+    nevapr2[idx] = nevapr2[idx] - pre[kk] * cldmax[idx]
+
+    prain[idx] = prain[idx] + (pra[kk] + prc[kk]) * lcldm[idx] + (-pracs[kk] - mnuccr[kk]) * cldmax[idx]
+    prodsnow[idx] = prodsnow[idx] + (prai[kk] + prci[kk]) * icldm[idx] + (psacws[kk] + bergs[kk]) * lcldm[idx] + (pracs[kk] + mnuccr[kk]) * cldmax[idx]
+
+    qcsinksum_rate1ord[kk] = qcsinksum_rate1ord[kk] + (pra[kk] + prc[kk] + psacws[kk]) * lcldm[idx]
+    qcsum_rate1ord[kk] = qcsum_rate1ord[kk] + qc[idx]
+
+    prao[idx] = prao[idx] + pra[kk] * lcldm[idx]
+    prco[idx] = prco[idx] + prc[kk] * lcldm[idx]
+    mnuccco[idx] = mnuccco[idx] + mnuccc[kk] * lcldm[idx]
+    mnuccto[idx] = mnuccto[idx] + mnucct[kk] * lcldm[idx]
+    mnuccdo[idx] = mnuccdo[idx] + mnuccd[kk] * lcldm[idx]
+    msacwio[idx] = msacwio[idx] + msacwi[kk] * lcldm[idx]
+    psacwso[idx] = psacwso[idx] + psacws[kk] * lcldm[idx]
+    bergso[idx] = bergso[idx] + bergs[kk] * lcldm[idx]
+    bergo[idx] = bergo[idx] + berg[idx]
+    prcio[idx] = prcio[idx] + prci[kk] * icldm[idx]
+    praio[idx] = praio[idx] + prai[kk] * icldm[idx]
+    mnuccro[idx] = mnuccro[idx] + mnuccr[kk] * cldmax[idx]
+    pracso[idx] = pracso[idx] + pracs[kk] * cldmax[idx]
+    preo[idx] = preo[idx] + pre[kk] * cldmax[idx]
+    prdso[idx] = prdso[idx] + prds[kk] * cldmax[idx]
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,

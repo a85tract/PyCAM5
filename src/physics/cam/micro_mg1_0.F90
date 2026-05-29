@@ -161,6 +161,7 @@ logical :: micro_mg1_0_substep_setup_logged = .false.
 logical :: micro_mg1_0_substep_accum_logged = .false.
 logical :: micro_mg1_0_incloud_activation_logged = .false.
 logical :: micro_mg1_0_conservation_limiter_logged = .false.
+logical :: micro_mg1_0_process_output_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -2722,55 +2723,64 @@ do i=1,ncol
               (prai(k)+prci(k))*icldm(i,k)+(psacws(k)+bergs(k))*lcldm(i,k)+(prds(k)+ &
               pracs(k)+mnuccr(k))*cldmax(i,k)
 
-         !water tracers/isotopes:
-         qrtend_copy(i,k) = qrtend_copy(i,k) + qrtend(i,k)
-         qnitend_copy(i,k) = qnitend_copy(i,k) + qnitend(i,k)
+         if (micro_mg1_0_colzero_use_native_impl) then
+            !water tracers/isotopes:
+            qrtend_copy(i,k) = qrtend_copy(i,k) + qrtend(i,k)
+            qnitend_copy(i,k) = qnitend_copy(i,k) + qnitend(i,k)
 
-         ! add output for cmei (accumulate)
-         cmeiout(i,k) = cmeiout(i,k) + cmei(i,k)
+            ! add output for cmei (accumulate)
+            cmeiout(i,k) = cmeiout(i,k) + cmei(i,k)
 
-         ! assign variables for trop_mozart, these are grid-average
-         ! evaporation/sublimation is stored here as positive term
+            ! assign variables for trop_mozart, these are grid-average
+            ! evaporation/sublimation is stored here as positive term
 
-         evapsnow(i,k) = evapsnow(i,k)-prds(k)*cldmax(i,k)
-         nevapr(i,k) = nevapr(i,k)-pre(k)*cldmax(i,k)
-         nevapr2(i,k) = nevapr2(i,k)-pre(k)*cldmax(i,k)
+            evapsnow(i,k) = evapsnow(i,k)-prds(k)*cldmax(i,k)
+            nevapr(i,k) = nevapr(i,k)-pre(k)*cldmax(i,k)
+            nevapr2(i,k) = nevapr2(i,k)-pre(k)*cldmax(i,k)
 
-         ! change to make sure prain is positive: do not remove snow from
-         ! prain used for wet deposition
-         prain(i,k) = prain(i,k)+(pra(k)+prc(k))*lcldm(i,k)+(-pracs(k)- &
-              mnuccr(k))*cldmax(i,k)
-         prodsnow(i,k) = prodsnow(i,k)+(prai(k)+prci(k))*icldm(i,k)+(psacws(k)+bergs(k))*lcldm(i,k)+(&
-              pracs(k)+mnuccr(k))*cldmax(i,k)
+            ! change to make sure prain is positive: do not remove snow from
+            ! prain used for wet deposition
+            prain(i,k) = prain(i,k)+(pra(k)+prc(k))*lcldm(i,k)+(-pracs(k)- &
+                 mnuccr(k))*cldmax(i,k)
+            prodsnow(i,k) = prodsnow(i,k)+(prai(k)+prci(k))*icldm(i,k)+(psacws(k)+bergs(k))*lcldm(i,k)+(&
+                 pracs(k)+mnuccr(k))*cldmax(i,k)
 
-         ! following are used to calculate 1st order conversion rate of cloud water
-         !    to rain and snow (1/s), for later use in aerosol wet removal routine
-         ! previously, wetdepa used (prain/qc) for this, and the qc in wetdepa may be smaller than the qc
-         !    used to calculate pra, prc, ... in this routine
-         ! qcsinksum_rate1ord = sum over iterations{ rate of direct transfer of cloud water to rain & snow }
-         !                      (no cloud ice or bergeron terms)
-         ! qcsum_rate1ord     = sum over iterations{ qc used in calculation of the transfer terms }
+            ! following are used to calculate 1st order conversion rate of cloud water
+            !    to rain and snow (1/s), for later use in aerosol wet removal routine
+            ! previously, wetdepa used (prain/qc) for this, and the qc in wetdepa may be smaller than the qc
+            !    used to calculate pra, prc, ... in this routine
+            ! qcsinksum_rate1ord = sum over iterations{ rate of direct transfer of cloud water to rain & snow }
+            !                      (no cloud ice or bergeron terms)
+            ! qcsum_rate1ord     = sum over iterations{ qc used in calculation of the transfer terms }
 
-         qcsinksum_rate1ord(k) = qcsinksum_rate1ord(k) + (pra(k)+prc(k)+psacws(k))*lcldm(i,k) 
-         qcsum_rate1ord(k) = qcsum_rate1ord(k) + qc(i,k) 
+            qcsinksum_rate1ord(k) = qcsinksum_rate1ord(k) + (pra(k)+prc(k)+psacws(k))*lcldm(i,k)
+            qcsum_rate1ord(k) = qcsum_rate1ord(k) + qc(i,k)
 
-         ! microphysics output, note this is grid-averaged
-         prao(i,k)=prao(i,k)+pra(k)*lcldm(i,k)
-         prco(i,k)=prco(i,k)+prc(k)*lcldm(i,k)
-         mnuccco(i,k)=mnuccco(i,k)+mnuccc(k)*lcldm(i,k)
-         mnuccto(i,k)=mnuccto(i,k)+mnucct(k)*lcldm(i,k)
-         mnuccdo(i,k)=mnuccdo(i,k)+mnuccd(k)*lcldm(i,k)
-         msacwio(i,k)=msacwio(i,k)+msacwi(k)*lcldm(i,k)
-         psacwso(i,k)=psacwso(i,k)+psacws(k)*lcldm(i,k)
-         bergso(i,k)=bergso(i,k)+bergs(k)*lcldm(i,k)
-         bergo(i,k)=bergo(i,k)+berg(i,k)
-         prcio(i,k)=prcio(i,k)+prci(k)*icldm(i,k)
-         praio(i,k)=praio(i,k)+prai(k)*icldm(i,k)
-         mnuccro(i,k)=mnuccro(i,k)+mnuccr(k)*cldmax(i,k)
-         pracso (i,k)=pracso (i,k)+pracs (k)*cldmax(i,k)
-         !water tracers:
-         preo(i,k)=preo(i,k)+pre(k)*cldmax(i,k)
-         prdso(i,k)=prdso(i,k)+prds(k)*cldmax(i,k)
+            ! microphysics output, note this is grid-averaged
+            prao(i,k)=prao(i,k)+pra(k)*lcldm(i,k)
+            prco(i,k)=prco(i,k)+prc(k)*lcldm(i,k)
+            mnuccco(i,k)=mnuccco(i,k)+mnuccc(k)*lcldm(i,k)
+            mnuccto(i,k)=mnuccto(i,k)+mnucct(k)*lcldm(i,k)
+            mnuccdo(i,k)=mnuccdo(i,k)+mnuccd(k)*lcldm(i,k)
+            msacwio(i,k)=msacwio(i,k)+msacwi(k)*lcldm(i,k)
+            psacwso(i,k)=psacwso(i,k)+psacws(k)*lcldm(i,k)
+            bergso(i,k)=bergso(i,k)+bergs(k)*lcldm(i,k)
+            bergo(i,k)=bergo(i,k)+berg(i,k)
+            prcio(i,k)=prcio(i,k)+prci(k)*icldm(i,k)
+            praio(i,k)=praio(i,k)+prai(k)*icldm(i,k)
+            mnuccro(i,k)=mnuccro(i,k)+mnuccr(k)*cldmax(i,k)
+            pracso (i,k)=pracso (i,k)+pracs (k)*cldmax(i,k)
+            !water tracers:
+            preo(i,k)=preo(i,k)+pre(k)*cldmax(i,k)
+            prdso(i,k)=prdso(i,k)+prds(k)*cldmax(i,k)
+         else
+            call micro_mg1_0_process_output_accum_codon_wrap(i, k, pcols, pver, qrtend, qnitend, &
+                 qrtend_copy, qnitend_copy, cmei, cmeiout, prds, pre, cldmax, evapsnow, nevapr, &
+                 nevapr2, pra, prc, lcldm, pracs, mnuccr, prain, prai, prci, icldm, psacws, bergs, &
+                 prodsnow, qcsinksum_rate1ord, qcsum_rate1ord, qc, prao, prco, mnuccc, mnucct, &
+                 mnuccd, msacwi, mnuccco, mnuccto, mnuccdo, msacwio, psacwso, bergso, berg, &
+                 bergo, prcio, praio, mnuccro, pracso, preo, prdso)
+         end if
 
          ! multiply activation/nucleation by mtime to account for fast timescale
 
@@ -4278,6 +4288,15 @@ subroutine micro_mg1_0_conservation_limiter_log_entry()
   end if
 end subroutine micro_mg1_0_conservation_limiter_log_entry
 
+subroutine micro_mg1_0_process_output_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_process_output_logged) then
+     write(iulog,*) 'micro_mg1_0_process_output entered (process/output accumulation = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_process_output entered (process/output accumulation = codon)')
+     micro_mg1_0_process_output_logged = .true.
+  end if
+end subroutine micro_mg1_0_process_output_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4646,6 +4665,98 @@ subroutine micro_mg1_0_conservation_limiter_codon_wrap(i_local, k_local, pcols_l
        c_loc(nsubr_local), c_loc(npracs_local), c_loc(nnuccr_local), c_loc(nragg_local), &
        c_loc(prds_local), c_loc(nsubs_local), c_loc(nsagg_local), c_loc(nprc_local))
 end subroutine micro_mg1_0_conservation_limiter_codon_wrap
+
+subroutine micro_mg1_0_process_output_accum_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     qrtend_local, qnitend_local, qrtend_copy_local, qnitend_copy_local, cmei_local, cmeiout_local, &
+     prds_local, pre_local, cldmax_local, evapsnow_local, nevapr_local, nevapr2_local, pra_local, &
+     prc_local, lcldm_local, pracs_local, mnuccr_local, prain_local, prai_local, prci_local, &
+     icldm_local, psacws_local, bergs_local, prodsnow_local, qcsinksum_rate1ord_local, &
+     qcsum_rate1ord_local, qc_local, prao_local, prco_local, mnuccc_local, mnucct_local, &
+     mnuccd_local, msacwi_local, mnuccco_local, mnuccto_local, mnuccdo_local, msacwio_local, &
+     psacwso_local, bergso_local, berg_local, bergo_local, prcio_local, praio_local, &
+     mnuccro_local, pracso_local, preo_local, prdso_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), target, intent(in) :: qrtend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qnitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qrtend_copy_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qnitend_copy_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cmei_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cmeiout_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cldmax_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: evapsnow_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nevapr_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nevapr2_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: lcldm_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prain_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: icldm_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prodsnow_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qcsinksum_rate1ord_local(pver_local)
+  real(r8), target, intent(inout) :: qcsum_rate1ord_local(pver_local)
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prao_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prco_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: mnuccco_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: mnuccto_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: mnuccdo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: msacwio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: psacwso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: bergso_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: berg_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: bergo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prcio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: praio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: mnuccro_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: pracso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: preo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prdso_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: prds_local(pver_local), pre_local(pver_local)
+  real(r8), target, intent(in) :: pra_local(pver_local), prc_local(pver_local)
+  real(r8), target, intent(in) :: pracs_local(pver_local), mnuccr_local(pver_local)
+  real(r8), target, intent(in) :: prai_local(pver_local), prci_local(pver_local)
+  real(r8), target, intent(in) :: psacws_local(pver_local), bergs_local(pver_local)
+  real(r8), target, intent(in) :: mnuccc_local(pver_local), mnucct_local(pver_local)
+  real(r8), target, intent(in) :: mnuccd_local(pver_local), msacwi_local(pver_local)
+
+  interface
+     subroutine micro_mg1_0_process_output_accum_codon(i_c, k_c, pcols_c, pver_c, qrtend_p, &
+          qnitend_p, qrtend_copy_p, qnitend_copy_p, cmei_p, cmeiout_p, prds_p, pre_p, &
+          cldmax_p, evapsnow_p, nevapr_p, nevapr2_p, pra_p, prc_p, lcldm_p, pracs_p, &
+          mnuccr_p, prain_p, prai_p, prci_p, icldm_p, psacws_p, bergs_p, prodsnow_p, &
+          qcsinksum_rate1ord_p, qcsum_rate1ord_p, qc_p, prao_p, prco_p, mnuccc_p, &
+          mnucct_p, mnuccd_p, msacwi_p, mnuccco_p, mnuccto_p, mnuccdo_p, msacwio_p, &
+          psacwso_p, bergso_p, berg_p, bergo_p, prcio_p, praio_p, mnuccro_p, pracso_p, &
+          preo_p, prdso_p) bind(c, name="micro_mg1_0_process_output_accum_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+       type(c_ptr), value :: qrtend_p, qnitend_p, qrtend_copy_p, qnitend_copy_p, cmei_p, cmeiout_p
+       type(c_ptr), value :: prds_p, pre_p, cldmax_p, evapsnow_p, nevapr_p, nevapr2_p
+       type(c_ptr), value :: pra_p, prc_p, lcldm_p, pracs_p, mnuccr_p, prain_p
+       type(c_ptr), value :: prai_p, prci_p, icldm_p, psacws_p, bergs_p, prodsnow_p
+       type(c_ptr), value :: qcsinksum_rate1ord_p, qcsum_rate1ord_p, qc_p, prao_p, prco_p
+       type(c_ptr), value :: mnuccc_p, mnucct_p, mnuccd_p, msacwi_p, mnuccco_p, mnuccto_p
+       type(c_ptr), value :: mnuccdo_p, msacwio_p, psacwso_p, bergso_p, berg_p, bergo_p
+       type(c_ptr), value :: prcio_p, praio_p, mnuccro_p, pracso_p, preo_p, prdso_p
+     end subroutine micro_mg1_0_process_output_accum_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_process_output_log_entry()
+  call micro_mg1_0_process_output_accum_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), c_loc(qrtend_local), &
+       c_loc(qnitend_local), c_loc(qrtend_copy_local), c_loc(qnitend_copy_local), c_loc(cmei_local), &
+       c_loc(cmeiout_local), c_loc(prds_local), c_loc(pre_local), c_loc(cldmax_local), &
+       c_loc(evapsnow_local), c_loc(nevapr_local), c_loc(nevapr2_local), c_loc(pra_local), &
+       c_loc(prc_local), c_loc(lcldm_local), c_loc(pracs_local), c_loc(mnuccr_local), &
+       c_loc(prain_local), c_loc(prai_local), c_loc(prci_local), c_loc(icldm_local), &
+       c_loc(psacws_local), c_loc(bergs_local), c_loc(prodsnow_local), c_loc(qcsinksum_rate1ord_local), &
+       c_loc(qcsum_rate1ord_local), c_loc(qc_local), c_loc(prao_local), c_loc(prco_local), &
+       c_loc(mnuccc_local), c_loc(mnucct_local), c_loc(mnuccd_local), c_loc(msacwi_local), &
+       c_loc(mnuccco_local), c_loc(mnuccto_local), c_loc(mnuccdo_local), c_loc(msacwio_local), &
+       c_loc(psacwso_local), c_loc(bergso_local), c_loc(berg_local), c_loc(bergo_local), &
+       c_loc(prcio_local), c_loc(praio_local), c_loc(mnuccro_local), c_loc(pracso_local), &
+       c_loc(preo_local), c_loc(prdso_local))
+end subroutine micro_mg1_0_process_output_accum_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &
