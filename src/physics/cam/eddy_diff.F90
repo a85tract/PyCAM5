@@ -663,7 +663,8 @@
        else
           write(iulog,*) 'eddy_diff_compute implementation = codon'
           write(iulog,*) 'compute_eddy_diff direct = codon front/tail/trbintd/caleddy stage dispatch; ' // &
-                          'native compute_vdiff/outfld callbacks'
+                          'compute_vdiff non-molecular solver path direct = codon; ' // &
+                          'outfld CAM API and molecular optional branch native'
        end if
     end if
 
