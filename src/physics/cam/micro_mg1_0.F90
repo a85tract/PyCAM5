@@ -172,6 +172,7 @@ logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_effrad_state_logged = .false.
 logical :: micro_mg1_0_effdiam_logged = .false.
 logical :: micro_mg1_0_effrad_liq_prep_logged = .false.
+logical :: micro_mg1_0_effrad_ice_prep_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3514,8 +3515,12 @@ do i=1,ncol
       ! cloud ice effective radius
 
       if (dumi(i,k).ge.qsmall) then
-         ! add upper limit to in-cloud number concentration to prevent numerical error
-         dumni(i,k)=min(dumni(i,k),dumi(i,k)*1.e20_r8)
+         if (micro_mg1_0_colzero_use_native_impl) then
+            ! add upper limit to in-cloud number concentration to prevent numerical error
+            dumni(i,k)=min(dumni(i,k),dumi(i,k)*1.e20_r8)
+         else
+            call micro_mg1_0_effrad_ice_prep_codon_wrap(i, k, pcols, pver, dumi, dumni)
+         end if
          lami(k) = (cons1*ci*dumni(i,k)/dumi(i,k))**(1._r8/di)
 
          if (lami(k).lt.lammini) then
@@ -4308,6 +4313,15 @@ subroutine micro_mg1_0_effrad_liq_prep_log_entry()
      micro_mg1_0_effrad_liq_prep_logged = .true.
   end if
 end subroutine micro_mg1_0_effrad_liq_prep_log_entry
+
+subroutine micro_mg1_0_effrad_ice_prep_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_effrad_ice_prep_logged) then
+     write(iulog,*) 'micro_mg1_0_effrad_ice_prep entered (ice effective-radius prep = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_effrad_ice_prep entered (ice effective-radius prep = codon)')
+     micro_mg1_0_effrad_ice_prep_logged = .true.
+  end if
+end subroutine micro_mg1_0_effrad_ice_prep_log_entry
 
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
@@ -5223,6 +5237,28 @@ subroutine micro_mg1_0_effrad_liq_prep_codon_wrap(i_local, k_local, pcols_local,
        real(cdnl_local, c_double), c_loc(dumc_local), c_loc(dumnc_local), c_loc(rho_local), &
        c_loc(lcldm_local), c_loc(nc_local), c_loc(nctend_local))
 end subroutine micro_mg1_0_effrad_liq_prep_codon_wrap
+
+subroutine micro_mg1_0_effrad_ice_prep_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     dumi_local, dumni_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), target, intent(in) :: dumi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumni_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_effrad_ice_prep_codon(i_c, k_c, pcols_c, pver_c, dumi_p, dumni_p) &
+          bind(c, name="micro_mg1_0_effrad_ice_prep_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+       type(c_ptr), value :: dumi_p, dumni_p
+     end subroutine micro_mg1_0_effrad_ice_prep_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_effrad_ice_prep_log_entry()
+  call micro_mg1_0_effrad_ice_prep_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), c_loc(dumi_local), c_loc(dumni_local))
+end subroutine micro_mg1_0_effrad_ice_prep_codon_wrap
 
 subroutine micro_mg1_0_sedimentation_fallout_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
      nstep_local, do_cldice_local, deltat_local, g_local, xxlv_local, xxls_local, pdel_local, lcldm_local, &
