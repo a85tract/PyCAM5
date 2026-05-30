@@ -2593,6 +2593,54 @@ def micro_mg1_0_sedimentation_velocity_codon(
 
 
 @export
+def micro_mg1_0_effrad_state_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    deltat: float,
+    max_incloud: float,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    lcldm_p: cobj,
+    icldm_p: cobj,
+    dumc_p: cobj,
+    dumi_p: cobj,
+    dumnc_p: cobj,
+    dumni_p: cobj,
+):
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    nctend = Ptr[float](nctend_p)
+    nitend = Ptr[float](nitend_p)
+    lcldm = Ptr[float](lcldm_p)
+    icldm = Ptr[float](icldm_p)
+    dumc = Ptr[float](dumc_p)
+    dumi = Ptr[float](dumi_p)
+    dumnc = Ptr[float](dumnc_p)
+    dumni = Ptr[float](dumni_p)
+
+    idx = _idx2(i, k, pcols)
+    dumc[idx] = max(qc[idx] + qctend[idx] * deltat, 0.0) / lcldm[idx]
+    dumi[idx] = max(qi[idx] + qitend[idx] * deltat, 0.0) / icldm[idx]
+    dumnc[idx] = max(nc[idx] + nctend[idx] * deltat, 0.0) / lcldm[idx]
+    dumni[idx] = max(ni[idx] + nitend[idx] * deltat, 0.0) / icldm[idx]
+
+    dumc[idx] = min(dumc[idx], max_incloud)
+    dumi[idx] = min(dumi[idx], max_incloud)
+
+
+@export
 def micro_mg1_0_sedimentation_fallout_codon(
     i: int,
     pcols: int,
