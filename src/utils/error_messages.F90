@@ -56,9 +56,21 @@ contains
          name            ! name of array
       integer, intent(in) ::&
          nelem           ! number of elements attempted to allocate
+      interface
+         function alloc_err_codon(istat) result(is_error) bind(c, name='alloc_err_codon')
+           import :: c_int64_t
+           integer(c_int64_t), value :: istat
+           integer(c_int64_t) :: is_error
+         end function alloc_err_codon
+      end interface
+      logical, save :: alloc_err_codon_logged = .false.
       !-----------------------------------------------------------------------
 
-      if ( istat .ne. 0 ) then
+      if (.not. alloc_err_codon_logged) then
+         write(iulog,*) 'alloc_err implementation = codon'
+         alloc_err_codon_logged = .true.
+      end if
+      if (alloc_err_codon(int(istat, c_int64_t)) /= 0_c_int64_t) then
          write(iulog,*)'ERROR trying to allocate memory in routine: ' &
                    //trim(routine)
          write(iulog,*)'  Variable name: '//trim(name)
@@ -83,9 +95,21 @@ contains
 
       integer,          intent(in) :: istat  ! status, zero = "no error"
       character(len=*), intent(in) :: msg    ! error message to print
+      interface
+         function handle_err_codon(istat) result(is_error) bind(c, name='handle_err_codon')
+           import :: c_int64_t
+           integer(c_int64_t), value :: istat
+           integer(c_int64_t) :: is_error
+         end function handle_err_codon
+      end interface
+      logical, save :: handle_err_codon_logged = .false.
       !-----------------------------------------------------------------------
 
-      if ( istat .ne. 0 ) then
+      if (.not. handle_err_codon_logged) then
+         write(iulog,*) 'handle_err implementation = codon'
+         handle_err_codon_logged = .true.
+      end if
+      if (handle_err_codon(int(istat, c_int64_t)) /= 0_c_int64_t) then
          call endrun (trim(msg))
       end if
 
@@ -114,9 +138,23 @@ contains
       character(len=*), intent(in) ::&
          mes                 ! message to be printed if error detected
       integer, intent(in), optional :: line
+      interface
+         function handle_ncerr_codon(ret, noerr) result(is_error) &
+              bind(c, name='handle_ncerr_codon')
+           import :: c_int64_t
+           integer(c_int64_t), value :: ret
+           integer(c_int64_t), value :: noerr
+           integer(c_int64_t) :: is_error
+         end function handle_ncerr_codon
+      end interface
+      logical, save :: handle_ncerr_codon_logged = .false.
       !-----------------------------------------------------------------------
 
-      if ( ret .ne. NF90_NOERR ) then
+      if (.not. handle_ncerr_codon_logged) then
+         write(iulog,*) 'handle_ncerr implementation = codon'
+         handle_ncerr_codon_logged = .true.
+      end if
+      if (handle_ncerr_codon(int(ret, c_int64_t), int(NF90_NOERR, c_int64_t)) /= 0_c_int64_t) then
          if(present(line)) then
             write(iulog,*) mes, line
          else	

@@ -996,6 +996,7 @@
    use mpishorthand
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
+   use iso_c_binding,    only: c_int64_t
 #if defined( WRAP_MPI_TIMING )
    use perf_mod
 #endif
@@ -1010,6 +1011,13 @@
  
    integer ier   !MP error code
  
+#define CAM_MISC_TAG 257
+#define CAM_MISC_LABEL 'mpibcast'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_bcast')
 #endif
@@ -1119,6 +1127,7 @@
    use mpishorthand
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
+   use iso_c_binding,    only: c_int64_t
 #if defined( WRAP_MPI_TIMING )
    use perf_mod
 #endif
@@ -1132,6 +1141,13 @@
    integer, intent(in)  :: comm
  
    integer :: ier              ! MPI error code
+
+#define CAM_MISC_TAG 258
+#define CAM_MISC_LABEL 'mpialltoallint'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_alltoallint')
@@ -1207,6 +1223,7 @@
    use mpishorthand
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
+   use iso_c_binding,    only: c_int64_t
 #if defined( WRAP_MPI_TIMING )
    use perf_mod
 #endif
@@ -1220,6 +1237,13 @@
    integer, intent(in)  :: comm
  
    integer ier   !MP error code
+
+#define CAM_MISC_TAG 259
+#define CAM_MISC_LABEL 'mpiallgatherint'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_allgather')

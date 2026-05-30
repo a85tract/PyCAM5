@@ -152,11 +152,21 @@ contains
    integer function pair(np,p,k)
 
       integer np,p,k,q
-      q = ieor(p,k)
-      if(q.gt.np-1) then
-         pair = -1
-      else
-         pair = q
+      interface
+         function pair_codon(np, p, k) result(q) bind(c, name='pair_codon')
+           import :: c_int64_t
+           integer(c_int64_t), value :: np
+           integer(c_int64_t), value :: p
+           integer(c_int64_t), value :: k
+           integer(c_int64_t) :: q
+         end function pair_codon
+      end interface
+      logical, save :: pair_codon_logged = .false.
+
+      pair = int(pair_codon(int(np, c_int64_t), int(p, c_int64_t), int(k, c_int64_t)))
+      if (.not. pair_codon_logged) then
+         write(iulog,*) 'pair implementation = codon'
+         pair_codon_logged = .true.
       endif
       return
 

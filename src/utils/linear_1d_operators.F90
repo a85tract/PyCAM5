@@ -663,6 +663,13 @@ function new_BoundaryFixedLayer(width) result(new_bndry)
   real(r8), USE_CONTIGUOUS intent(in) :: width(:)
   type(BoundaryType) :: new_bndry
 
+#define CAM_MISC_TAG 242
+#define CAM_MISC_LABEL 'new_BoundaryFixedLayer'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   new_bndry%bndry_type = fixed_layer_bndry
   new_bndry%edge_width = width
 
@@ -779,6 +786,13 @@ type(TriDiagOp) function new_TriDiagOp(nsys, ncel)
 
   integer, intent(in) :: nsys, ncel
 
+#define CAM_MISC_TAG 243
+#define CAM_MISC_LABEL 'new_TriDiagOp'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   new_TriDiagOp%nsys = nsys
   new_TriDiagOp%ncel = ncel
 
@@ -819,6 +833,13 @@ function new_BoundaryData(data) result(new_cond)
   real(r8), USE_CONTIGUOUS intent(in) :: data(:)
   type(BoundaryCond) :: new_cond
 
+#define CAM_MISC_TAG 244
+#define CAM_MISC_LABEL 'new_BoundaryData'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   new_cond%cond_type = data_cond
   new_cond%edge_data = data
 
@@ -847,6 +868,13 @@ function apply_left(self, bound_term, array) result(delta_edge)
   real(r8), USE_CONTIGUOUS intent(in) :: bound_term(:)
   real(r8), USE_CONTIGUOUS intent(in) :: array(:,:)
   real(r8) :: delta_edge(size(array, 1))
+
+#define CAM_MISC_TAG 245
+#define CAM_MISC_LABEL 'apply_left'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
   select case (self%cond_type)
   case (no_data_cond)
@@ -1016,8 +1044,24 @@ subroutine scalar_add_tridiag(self, constant)
 
   class(TriDiagOp), intent(inout) :: self
   real(r8), intent(in) :: constant
+  interface
+     subroutine scalar_add_tridiag_codon(diag, nsys, ncel, constant) &
+          bind(c, name='scalar_add_tridiag_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: diag(*)
+       integer(c_int64_t), value :: nsys
+       integer(c_int64_t), value :: ncel
+       real(r8), value :: constant
+     end subroutine scalar_add_tridiag_codon
+  end interface
+  logical, save :: scalar_add_tridiag_codon_logged = .false.
 
-  self%diag = self%diag + constant
+  call scalar_add_tridiag_codon(self%diag, int(self%nsys, c_int64_t), &
+       int(self%ncel, c_int64_t), constant)
+  if (.not. scalar_add_tridiag_codon_logged) then
+     write(iulog,*) 'scalar_add_tridiag implementation = codon'
+     scalar_add_tridiag_codon_logged = .true.
+  end if
 
 end subroutine scalar_add_tridiag
 

@@ -53,6 +53,13 @@ contains
     use cam_instance, only: atm_id
     character(len=*) nlfilename
 
+#define CAM_MISC_TAG 240
+#define CAM_MISC_LABEL 'init_pio_subsystem'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     pio_subsystem => shr_pio_getiosys(atm_id)
     pio_iotype =  shr_pio_getiotype(atm_id)
     pio_ioformat =  shr_pio_getioformat(atm_id)
@@ -322,6 +329,12 @@ contains
   subroutine clean_iodesc_list()
     type(iodesc_list), pointer :: this, prev
 
+#define CAM_MISC_TAG 241
+#define CAM_MISC_LABEL 'clean_iodesc_list'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     if(associated(iodesc_list_top%iodesc)) then
 

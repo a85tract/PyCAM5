@@ -666,6 +666,14 @@ subroutine advance_timestep()
 ! Local variables
    character(len=*), parameter :: sub = 'advance_timestep'
    integer :: rc
+   interface
+      function advance_timestep_codon() result(first_restart_step) &
+           bind(c, name='advance_timestep_codon')
+        import :: c_int64_t
+        integer(c_int64_t) :: first_restart_step
+      end function advance_timestep_codon
+   end interface
+   logical, save :: advance_timestep_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockAdvance( tm_clock, rc=rc )
@@ -673,7 +681,11 @@ subroutine advance_timestep()
 
 ! Set first step flag off.
 
-   tm_first_restart_step = .false.
+   tm_first_restart_step = (advance_timestep_codon() /= 0_c_int64_t)
+   if (.not. advance_timestep_codon_logged) then
+      write(iulog,*) 'advance_timestep implementation = codon'
+      advance_timestep_codon_logged = .true.
+   end if
 
 end subroutine advance_timestep
 !=========================================================================================
@@ -1093,6 +1105,13 @@ function timemgr_is_caltype( cal_in )
 
 !-----------------------------------------------------------------------------------------
 
+#define CAM_MISC_TAG 248
+#define CAM_MISC_LABEL 'timemgr_is_caltype'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    timemgr_is_caltype = ( to_upper(trim(calendar)) == to_upper(trim(cal_in)) )
 
 end function timemgr_is_caltype
@@ -1111,10 +1130,23 @@ function is_end_curr_day()
       mon,   &! month
       day,   &! day of month
       tod     ! time of day (seconds past 0Z)
+   interface
+      function is_end_curr_day_codon(tod) result(is_end) &
+           bind(c, name='is_end_curr_day_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: tod
+        integer(c_int64_t) :: is_end
+      end function is_end_curr_day_codon
+   end interface
+   logical, save :: is_end_curr_day_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call get_curr_date(yr, mon, day, tod)
-   is_end_curr_day = (tod == 0)
+   is_end_curr_day = (is_end_curr_day_codon(int(tod, c_int64_t)) /= 0_c_int64_t)
+   if (.not. is_end_curr_day_codon_logged) then
+      write(iulog,*) 'is_end_curr_day implementation = codon'
+      is_end_curr_day_codon_logged = .true.
+   end if
 
 end function is_end_curr_day
 !=========================================================================================
@@ -1160,9 +1192,23 @@ logical function is_first_restart_step()
 
 ! Return true on first step of restart run only.
 
+   interface
+      function is_first_restart_step_codon(first_restart_step) result(is_first) &
+           bind(c, name='is_first_restart_step_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: first_restart_step
+        integer(c_int64_t) :: is_first
+      end function is_first_restart_step_codon
+   end interface
+   logical, save :: is_first_restart_step_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
-   is_first_restart_step = tm_first_restart_step
+   is_first_restart_step = (is_first_restart_step_codon( &
+        merge(1_c_int64_t, 0_c_int64_t, tm_first_restart_step)) /= 0_c_int64_t)
+   if (.not. is_first_restart_step_codon_logged) then
+      write(iulog,*) 'is_first_restart_step implementation = codon'
+      is_first_restart_step_codon_logged = .true.
+   end if
 
 end function is_first_restart_step
 !=========================================================================================
@@ -1499,7 +1545,23 @@ end subroutine timemgr_time_inc
 subroutine chkrc(rc, mes)
    integer, intent(in)          :: rc   ! return code from time management library
    character(len=*), intent(in) :: mes  ! error message
-   if ( rc == ESMF_SUCCESS ) return
+   interface
+      function chkrc_codon(rc, success) result(ok) bind(c, name='chkrc_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: rc
+        integer(c_int64_t), value :: success
+        integer(c_int64_t) :: ok
+      end function chkrc_codon
+   end interface
+   integer(c_int64_t) :: chkrc_ok
+   logical, save :: chkrc_codon_logged = .false.
+
+   chkrc_ok = chkrc_codon(int(rc, c_int64_t), int(ESMF_SUCCESS, c_int64_t))
+   if (.not. chkrc_codon_logged) then
+      write(iulog,*) 'chkrc implementation = codon'
+      chkrc_codon_logged = .true.
+   end if
+   if (chkrc_ok /= 0_c_int64_t) return
    write(iulog,*) mes
    call endrun ('CHKRC')
 end subroutine chkrc

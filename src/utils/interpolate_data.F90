@@ -44,6 +44,13 @@ contains
     real(r8), intent(out) :: arrout(nout)
     type (interp_type) :: interp_wgts
 
+#define CAM_MISC_TAG 255
+#define CAM_MISC_LABEL 'lininterp_full1d'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     call lininterp_init(yin, nin, yout, nout, extrap_method_bndry, interp_wgts)
     call lininterp1d(arrin, nin, arrout, nout, interp_wgts)
     call lininterp_finish(interp_wgts)
