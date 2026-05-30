@@ -39,6 +39,91 @@ def rrtmg_ref_solar_band_irrad_codon(
 
 
 @export
+def rrtmg_solar_band_fraction_irrad_codon(
+    nbands: int,
+    fraction_p: cobj,
+    c01: float,
+    c02: float,
+    c03: float,
+    c04: float,
+    c05: float,
+    c06: float,
+    c07: float,
+    c08: float,
+    c09: float,
+    c10: float,
+    c11: float,
+    c12: float,
+    c13: float,
+    c14: float,
+):
+    fraction = Ptr[float](fraction_p)
+    values = (c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14)
+    total = 0.0
+    for i in range(nbands):
+        total = total + values[i]
+    for i in range(nbands):
+        fraction[i] = values[i] / total
+
+
+@export
+def rrtmg_sw_spectral_boundaries_codon(
+    nbands: int,
+    mode: int,
+    low_p: cobj,
+    high_p: cobj,
+    l01: float,
+    l02: float,
+    l03: float,
+    l04: float,
+    l05: float,
+    l06: float,
+    l07: float,
+    l08: float,
+    l09: float,
+    l10: float,
+    l11: float,
+    l12: float,
+    l13: float,
+    l14: float,
+    h01: float,
+    h02: float,
+    h03: float,
+    h04: float,
+    h05: float,
+    h06: float,
+    h07: float,
+    h08: float,
+    h09: float,
+    h10: float,
+    h11: float,
+    h12: float,
+    h13: float,
+    h14: float,
+):
+    low = Ptr[float](low_p)
+    high = Ptr[float](high_p)
+    lows = (l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14)
+    highs = (h01, h02, h03, h04, h05, h06, h07, h08, h09, h10, h11, h12, h13, h14)
+    for i in range(nbands):
+        if mode == 0:
+            low[i] = lows[i]
+            high[i] = highs[i]
+        elif mode == 1:
+            low[i] = 1.0e-2 / highs[i]
+            high[i] = 1.0e-2 / lows[i]
+        elif mode == 2:
+            low[i] = 1.0e7 / highs[i]
+            high[i] = 1.0e7 / lows[i]
+        elif mode == 3:
+            low[i] = 1.0e4 / highs[i]
+            high[i] = 1.0e4 / lows[i]
+        else:
+            low[i] = 1.0 / highs[i]
+            high[i] = 1.0 / lows[i]
+
+
+@export
 def rrtmg_state_init_codon(pverp: int, pref_edge_p: cobj) -> int:
     pref_edge = Ptr[float](pref_edge_p)
     num_levs = 0

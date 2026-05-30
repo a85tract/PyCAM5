@@ -450,6 +450,10 @@ subroutine get_snow_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
 
    call interpolate_ice_optics_sw(state%ncol, icswpth, des, tau, tau_w, &
         tau_w_g, tau_w_f)
+   if (.not. use_native_cloud_ice_optics_impl .and. masterproc) then
+      write(iulog,*) 'get_snow_optics_sw implementation = codon'
+      call flush(iulog)
+   endif
 
 end subroutine get_snow_optics_sw   
 
@@ -475,6 +479,10 @@ subroutine get_ice_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
 
    call interpolate_ice_optics_sw(state%ncol, iciwpth, dei, tau, tau_w, &
         tau_w_g, tau_w_f)
+   if (.not. use_native_cloud_ice_optics_impl .and. masterproc) then
+      write(iulog,*) 'get_ice_optics_sw implementation = codon'
+      call flush(iulog)
+   endif
 
 end subroutine get_ice_optics_sw
 
@@ -679,6 +687,10 @@ subroutine snow_cloud_get_rad_props_lw(state, pbuf, abs_od)
    call pbuf_get_field(pbuf, i_des,   des)
 
    call interpolate_ice_optics_lw(state%ncol,icswpth, des, abs_od)
+   if (.not. use_native_cloud_ice_optics_impl .and. masterproc) then
+      write(iulog,*) 'snow_cloud_get_rad_props_lw implementation = codon'
+      call flush(iulog)
+   endif
 
 end subroutine snow_cloud_get_rad_props_lw
 
@@ -697,6 +709,10 @@ subroutine ice_cloud_get_rad_props_lw(state, pbuf, abs_od)
    call pbuf_get_field(pbuf, i_dei,   dei)
 
    call interpolate_ice_optics_lw(state%ncol,iciwpth, dei, abs_od)
+   if (.not. use_native_cloud_ice_optics_impl .and. masterproc) then
+      write(iulog,*) 'ice_cloud_get_rad_props_lw implementation = codon'
+      call flush(iulog)
+   endif
 
 end subroutine ice_cloud_get_rad_props_lw
 

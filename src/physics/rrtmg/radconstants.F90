@@ -157,6 +157,29 @@ interface
       real(c_double), value :: c01, c02, c03, c04, c05, c06, c07
       real(c_double), value :: c08, c09, c10, c11, c12, c13, c14
    end subroutine rrtmg_ref_solar_band_irrad_codon
+
+   subroutine rrtmg_solar_band_fraction_irrad_codon(nbands_c, fraction_p, &
+        c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14) &
+        bind(c, name="rrtmg_solar_band_fraction_irrad_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: nbands_c
+      type(c_ptr), value :: fraction_p
+      real(c_double), value :: c01, c02, c03, c04, c05, c06, c07
+      real(c_double), value :: c08, c09, c10, c11, c12, c13, c14
+   end subroutine rrtmg_solar_band_fraction_irrad_codon
+
+   subroutine rrtmg_sw_spectral_boundaries_codon(nbands_c, mode_c, low_p, high_p, &
+        l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, &
+        h01, h02, h03, h04, h05, h06, h07, h08, h09, h10, h11, h12, h13, h14) &
+        bind(c, name="rrtmg_sw_spectral_boundaries_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: nbands_c, mode_c
+      type(c_ptr), value :: low_p, high_p
+      real(c_double), value :: l01, l02, l03, l04, l05, l06, l07
+      real(c_double), value :: l08, l09, l10, l11, l12, l13, l14
+      real(c_double), value :: h01, h02, h03, h04, h05, h06, h07
+      real(c_double), value :: h08, h09, h10, h11, h12, h13, h14
+   end subroutine rrtmg_sw_spectral_boundaries_codon
 end interface
 
 contains
@@ -165,14 +188,25 @@ subroutine get_solar_band_fraction_irrad(fractional_irradiance)
    ! provide Solar Irradiance for each band in RRTMG
 
    ! fraction of solar irradiance in each band
-   real(r8), intent(out) :: fractional_irradiance(1:nswbands)
-   real(r8) :: tsi ! total solar irradiance
+   real(r8), intent(out), target :: fractional_irradiance(1:nswbands)
 
    call radconstants_select_impl()
-   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+   if (use_native_radconstants_impl) then
+      fractional_irradiance = solar_ref_band_irradiance / sum(solar_ref_band_irradiance)
+      return
+   endif
 
-   tsi = sum(solar_ref_band_irradiance)
-   fractional_irradiance = solar_ref_band_irradiance / tsi
+   call radconstants_log_get_solar_band_fraction_irrad()
+   call rrtmg_solar_band_fraction_irrad_codon( &
+        int(nswbands, c_int64_t), c_loc(fractional_irradiance(1)), &
+        real(solar_ref_band_irradiance(1), c_double), real(solar_ref_band_irradiance(2), c_double), &
+        real(solar_ref_band_irradiance(3), c_double), real(solar_ref_band_irradiance(4), c_double), &
+        real(solar_ref_band_irradiance(5), c_double), real(solar_ref_band_irradiance(6), c_double), &
+        real(solar_ref_band_irradiance(7), c_double), real(solar_ref_band_irradiance(8), c_double), &
+        real(solar_ref_band_irradiance(9), c_double), real(solar_ref_band_irradiance(10), c_double), &
+        real(solar_ref_band_irradiance(11), c_double), real(solar_ref_band_irradiance(12), c_double), &
+        real(solar_ref_band_irradiance(13), c_double), real(solar_ref_band_irradiance(14), c_double) &
+   )
 
 end subroutine get_solar_band_fraction_irrad
 !------------------------------------------------------------------------------
@@ -264,31 +298,67 @@ end subroutine get_lw_spectral_boundaries
 subroutine get_sw_spectral_boundaries(low_boundaries, high_boundaries, units)
    ! provide spectral boundaries of each shortwave band
 
-   real(r8), intent(out) :: low_boundaries(nswbands), high_boundaries(nswbands)
+   real(r8), intent(out), target :: low_boundaries(nswbands), high_boundaries(nswbands)
    character(*), intent(in) :: units ! requested units
+   integer(c_int64_t) :: mode
 
    call radconstants_select_impl()
-   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+   mode = -1_c_int64_t
 
    select case (units)
    case ('inv_cm','cm^-1','cm-1')
-      low_boundaries = wavenum_low
-      high_boundaries = wavenum_high
+      mode = 0_c_int64_t
    case('m','meter','meters')
-      low_boundaries = 1.e-2_r8/wavenum_high
-      high_boundaries = 1.e-2_r8/wavenum_low
+      mode = 1_c_int64_t
    case('nm','nanometer','nanometers')
-      low_boundaries = 1.e7_r8/wavenum_high
-      high_boundaries = 1.e7_r8/wavenum_low
+      mode = 2_c_int64_t
    case('um','micrometer','micrometers','micron','microns')
-      low_boundaries = 1.e4_r8/wavenum_high
-      high_boundaries = 1.e4_r8/wavenum_low
+      mode = 3_c_int64_t
    case('cm','centimeter','centimeters')
-      low_boundaries  = 1._r8/wavenum_high
-      high_boundaries = 1._r8/wavenum_low
+      mode = 4_c_int64_t
    case default
       call endrun('rad_constants.F90: spectral units not acceptable'//units)
    end select
+
+   if (use_native_radconstants_impl) then
+      select case (mode)
+      case (0_c_int64_t)
+         low_boundaries = wavenum_low
+         high_boundaries = wavenum_high
+      case (1_c_int64_t)
+         low_boundaries = 1.e-2_r8/wavenum_high
+         high_boundaries = 1.e-2_r8/wavenum_low
+      case (2_c_int64_t)
+         low_boundaries = 1.e7_r8/wavenum_high
+         high_boundaries = 1.e7_r8/wavenum_low
+      case (3_c_int64_t)
+         low_boundaries = 1.e4_r8/wavenum_high
+         high_boundaries = 1.e4_r8/wavenum_low
+      case (4_c_int64_t)
+         low_boundaries  = 1._r8/wavenum_high
+         high_boundaries = 1._r8/wavenum_low
+      end select
+      return
+   endif
+
+   call radconstants_log_get_sw_spectral_boundaries()
+   call rrtmg_sw_spectral_boundaries_codon( &
+        int(nswbands, c_int64_t), mode, c_loc(low_boundaries(1)), c_loc(high_boundaries(1)), &
+        real(wavenum_low(1), c_double), real(wavenum_low(2), c_double), &
+        real(wavenum_low(3), c_double), real(wavenum_low(4), c_double), &
+        real(wavenum_low(5), c_double), real(wavenum_low(6), c_double), &
+        real(wavenum_low(7), c_double), real(wavenum_low(8), c_double), &
+        real(wavenum_low(9), c_double), real(wavenum_low(10), c_double), &
+        real(wavenum_low(11), c_double), real(wavenum_low(12), c_double), &
+        real(wavenum_low(13), c_double), real(wavenum_low(14), c_double), &
+        real(wavenum_high(1), c_double), real(wavenum_high(2), c_double), &
+        real(wavenum_high(3), c_double), real(wavenum_high(4), c_double), &
+        real(wavenum_high(5), c_double), real(wavenum_high(6), c_double), &
+        real(wavenum_high(7), c_double), real(wavenum_high(8), c_double), &
+        real(wavenum_high(9), c_double), real(wavenum_high(10), c_double), &
+        real(wavenum_high(11), c_double), real(wavenum_high(12), c_double), &
+        real(wavenum_high(13), c_double), real(wavenum_high(14), c_double) &
+   )
 
 end subroutine get_sw_spectral_boundaries
 
@@ -373,5 +443,31 @@ subroutine radconstants_log_get_ref_solar_band_irrad()
    endif
 
 end subroutine radconstants_log_get_ref_solar_band_irrad
+
+!------------------------------------------------------------------------------
+subroutine radconstants_log_get_solar_band_fraction_irrad()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (masterproc) then
+      write(iulog,*) 'get_solar_band_fraction_irrad implementation = codon'
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_log_get_solar_band_fraction_irrad
+
+!------------------------------------------------------------------------------
+subroutine radconstants_log_get_sw_spectral_boundaries()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (masterproc) then
+      write(iulog,*) 'get_sw_spectral_boundaries implementation = codon'
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_log_get_sw_spectral_boundaries
 
 end module radconstants
