@@ -2541,6 +2541,58 @@ def micro_mg1_0_sedimentation_state_codon(
 
 
 @export
+def micro_mg1_0_sedimentation_velocity_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    qsmall: float,
+    g: float,
+    umc: float,
+    unc: float,
+    umi: float,
+    uni: float,
+    rho_p: cobj,
+    dumc_p: cobj,
+    dumi_p: cobj,
+    vtrmc_p: cobj,
+    vtrmi_p: cobj,
+    fi_p: cobj,
+    fni_p: cobj,
+    fc_p: cobj,
+    fnc_p: cobj,
+    wtfc_p: cobj,
+    wtfi_p: cobj,
+):
+    rho = Ptr[float](rho_p)
+    dumc = Ptr[float](dumc_p)
+    dumi = Ptr[float](dumi_p)
+    vtrmc = Ptr[float](vtrmc_p)
+    vtrmi = Ptr[float](vtrmi_p)
+    fi = Ptr[float](fi_p)
+    fni = Ptr[float](fni_p)
+    fc = Ptr[float](fc_p)
+    fnc = Ptr[float](fnc_p)
+    wtfc = Ptr[float](wtfc_p)
+    wtfi = Ptr[float](wtfi_p)
+
+    idx = _idx2(i, k, pcols)
+    kidx = k - 1
+    if dumc[idx] >= qsmall:
+        vtrmc[idx] = umc
+    if dumi[idx] >= qsmall:
+        vtrmi[idx] = umi
+
+    fi[kidx] = g * rho[idx] * umi
+    fni[kidx] = g * rho[idx] * uni
+    fc[kidx] = g * rho[idx] * umc
+    fnc[kidx] = g * rho[idx] * unc
+
+    wtfc[idx] = fc[kidx]
+    wtfi[idx] = fi[kidx]
+
+
+@export
 def micro_mg1_0_sedimentation_fallout_codon(
     i: int,
     pcols: int,

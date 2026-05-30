@@ -167,6 +167,7 @@ logical :: micro_mg1_0_phase_change_logged = .false.
 logical :: micro_mg1_0_number_cleanup_logged = .false.
 logical :: micro_mg1_0_reflectivity_flags_logged = .false.
 logical :: micro_mg1_0_sedimentation_state_logged = .false.
+logical :: micro_mg1_0_sedimentation_velocity_logged = .false.
 logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
@@ -3256,7 +3257,9 @@ do i=1,ncol
          unc = acn(i,k)*gamma(1._r8+bc+pgam(k))/(lamc(k)**bc*gamma(pgam(k)+1._r8))
          umc = acn(i,k)*gamma(4._r8+bc+pgam(k))/(lamc(k)**bc*gamma(pgam(k)+4._r8))
          ! fallspeed for output
-         vtrmc(i,k)=umc
+         if (micro_mg1_0_colzero_use_native_impl) then
+            vtrmc(i,k)=umc
+         end if
       else
          umc = 0._r8
          unc = 0._r8
@@ -3271,20 +3274,27 @@ do i=1,ncol
          umi=min(umi,1.2_r8*rhof(i,k))
 
          ! fallspeed
-         vtrmi(i,k)=umi
+         if (micro_mg1_0_colzero_use_native_impl) then
+            vtrmi(i,k)=umi
+         end if
       else
          umi = 0._r8
          uni = 0._r8
       end if
 
-      fi(k) = g*rho(i,k)*umi
-      fni(k) = g*rho(i,k)*uni
-      fc(k) = g*rho(i,k)*umc
-      fnc(k) = g*rho(i,k)*unc
+      if (micro_mg1_0_colzero_use_native_impl) then
+         fi(k) = g*rho(i,k)*umi
+         fni(k) = g*rho(i,k)*uni
+         fc(k) = g*rho(i,k)*umc
+         fnc(k) = g*rho(i,k)*unc
 
-      !water tracers:
-      wtfc(i,k) = fc(k)
-      wtfi(i,k) = fi(k)
+         !water tracers:
+         wtfc(i,k) = fc(k)
+         wtfi(i,k) = fi(k)
+      else
+         call micro_mg1_0_sedimentation_velocity_codon_wrap(i, k, pcols, pver, qsmall, g, umc, unc, &
+              umi, uni, rho, dumc, dumi, vtrmc, vtrmi, fi, fni, fc, fnc, wtfc, wtfi)
+      end if
 
       ! calculate number of split time steps to ensure courant stability criteria
       ! for sedimentation calculations
@@ -4237,6 +4247,15 @@ subroutine micro_mg1_0_sedimentation_state_log_entry()
   end if
 end subroutine micro_mg1_0_sedimentation_state_log_entry
 
+subroutine micro_mg1_0_sedimentation_velocity_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_sedimentation_velocity_logged) then
+     write(iulog,*) 'micro_mg1_0_sedimentation_velocity entered (cloud sedimentation velocity state = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_sedimentation_velocity entered (cloud sedimentation velocity state = codon)')
+     micro_mg1_0_sedimentation_velocity_logged = .true.
+  end if
+end subroutine micro_mg1_0_sedimentation_velocity_log_entry
+
 subroutine micro_mg1_0_sedimentation_fallout_log_entry()
   if (masterproc .and. .not. micro_mg1_0_sedimentation_fallout_logged) then
      write(iulog,*) 'micro_mg1_0_sedimentation_fallout entered (cloud sedimentation fallout update = codon)'
@@ -5034,6 +5053,41 @@ subroutine micro_mg1_0_sedimentation_state_codon_wrap(stage_local, i_local, k_lo
        c_loc(nitend_local), c_loc(lcldm_local), c_loc(icldm_local), c_loc(dumc_local), c_loc(dumi_local), &
        c_loc(dumnc_local), c_loc(dumni_local))
 end subroutine micro_mg1_0_sedimentation_state_codon_wrap
+
+subroutine micro_mg1_0_sedimentation_velocity_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     qsmall_local, g_local, umc_local, unc_local, umi_local, uni_local, rho_local, dumc_local, dumi_local, &
+     vtrmc_local, vtrmi_local, fi_local, fni_local, fc_local, fnc_local, wtfc_local, wtfi_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: qsmall_local, g_local, umc_local, unc_local, umi_local, uni_local
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: dumc_local(pcols_local,pver_local), dumi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: vtrmc_local(pcols_local,pver_local), vtrmi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: fi_local(pver_local), fni_local(pver_local)
+  real(r8), target, intent(inout) :: fc_local(pver_local), fnc_local(pver_local)
+  real(r8), target, intent(inout) :: wtfc_local(pcols_local,pver_local), wtfi_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_sedimentation_velocity_codon(i_c, k_c, pcols_c, pver_c, qsmall_c, &
+          g_c, umc_c, unc_c, umi_c, uni_c, rho_p, dumc_p, dumi_p, vtrmc_p, vtrmi_p, fi_p, &
+          fni_p, fc_p, fnc_p, wtfc_p, wtfi_p) bind(c, name="micro_mg1_0_sedimentation_velocity_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+       real(c_double), value :: qsmall_c, g_c, umc_c, unc_c, umi_c, uni_c
+       type(c_ptr), value :: rho_p, dumc_p, dumi_p, vtrmc_p, vtrmi_p, fi_p, fni_p, fc_p, fnc_p
+       type(c_ptr), value :: wtfc_p, wtfi_p
+     end subroutine micro_mg1_0_sedimentation_velocity_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_sedimentation_velocity_log_entry()
+  call micro_mg1_0_sedimentation_velocity_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(qsmall_local, c_double), &
+       real(g_local, c_double), real(umc_local, c_double), real(unc_local, c_double), &
+       real(umi_local, c_double), real(uni_local, c_double), c_loc(rho_local), c_loc(dumc_local), &
+       c_loc(dumi_local), c_loc(vtrmc_local), c_loc(vtrmi_local), c_loc(fi_local), c_loc(fni_local), &
+       c_loc(fc_local), c_loc(fnc_local), c_loc(wtfc_local), c_loc(wtfi_local))
+end subroutine micro_mg1_0_sedimentation_velocity_codon_wrap
 
 subroutine micro_mg1_0_sedimentation_fallout_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
      nstep_local, do_cldice_local, deltat_local, g_local, xxlv_local, xxls_local, pdel_local, lcldm_local, &
