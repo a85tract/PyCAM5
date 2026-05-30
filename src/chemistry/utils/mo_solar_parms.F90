@@ -104,6 +104,8 @@ contains
     character(len=256) :: locfn
     integer :: ierr
 
+    call chemistry_misc_codon_touch('solar_parms_init', 160)
+
     if (.not.solar_parms_on) return
 
     !-----------------------------------------------------------------------
@@ -186,6 +188,8 @@ subroutine solar_parms_timestep_init
  integer  :: yr, mon, day, ncsec
  real(r8) :: wrk_time
 
+ call chemistry_misc_codon_touch('solar_parms_timestep_init', 161)
+
  if (.not.solar_parms_on) return
 
  if( is_end_curr_day() ) then
@@ -231,6 +235,8 @@ subroutine solar_parms_get( f107_s, f107a_s, ap_s, kp_s, hp_s )
  !---------------------------------------------------------------
  integer  :: tnp
  real(r8) :: wkp                                             ! wrk solar mag factor
+
+ call chemistry_misc_codon_touch('solar_parms_get', 162)
 
  if (.not.solar_parms_on) return
 

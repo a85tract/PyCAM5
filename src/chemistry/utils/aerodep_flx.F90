@@ -123,6 +123,8 @@ contains
 
     integer :: ndx, istat, i
 
+    call chemistry_misc_codon_touch('aerodep_flx_init', 158)
+
     if ( has_aerodep_flx ) then
        if ( masterproc ) then
           write(iulog,*) 'aero dep fluxes are prescribed in :'//trim(filename)
@@ -351,6 +353,8 @@ end subroutine aerodep_flx_readnl
 
     integer :: c, ncol
     
+    call chemistry_misc_codon_touch('aerodep_flx_adv', 159)
+
     if( .not. has_aerodep_flx ) return
 
     call advance_trcdata( fields, file, state, pbuf2d  )
