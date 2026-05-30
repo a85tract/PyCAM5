@@ -657,29 +657,28 @@ contains
   end subroutine SetCycle
 
   function FindBufferSlot(inbr,length,tmp) result(ptr)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    interface
+      subroutine find_buffer_slot_codon(inbr_c, length_c, tmp_p, n_c, ptr_p) &
+           bind(c, name='find_buffer_slot_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: inbr_c, length_c, n_c
+        type(c_ptr), value :: tmp_p, ptr_p
+      end subroutine find_buffer_slot_codon
+    end interface
 
-    integer                :: ptr
+    integer, target        :: ptr
     integer, intent(in)    :: inbr,length
-    integer, intent(inout) :: tmp(:,:)
+    integer, intent(inout), target :: tmp(:,:)
+    logical, save :: proof_seen = .false.
 
-    integer                :: i,n
-
-    n = SIZE(tmp,2)
-
-    ptr = 0
-    do i=1,n
-       if( tmp(1,i) == inbr) then
-          ptr = tmp(2,i)
-          return
-       endif
-       if( tmp(1,i) == -1 ) then
-          tmp(1,i) = inbr
-          if(i .eq. 1) tmp(2,i) = 1
-          ptr = tmp(2,i)
-          if(i .ne. n) tmp(2,i+1) = ptr +length
-          return
-       endif
-    enddo
+    call find_buffer_slot_codon(int(inbr, c_int64_t), int(length, c_int64_t), &
+         c_loc(tmp(1,1)), int(size(tmp, 2), c_int64_t), c_loc(ptr))
+    if (.not. proof_seen) then
+       write(iulog,*) 'findbufferslot implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function FindBufferSlot
 

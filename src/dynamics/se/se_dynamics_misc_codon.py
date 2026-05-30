@@ -461,6 +461,241 @@ def dmap_equiangular_codon(
     d[3] = d21 * j12 + d22 * j22
 
 
+def create_work_pool_codon(
+    start_domain: int,
+    end_domain: int,
+    ndomains: int,
+    ipe: int,
+    beg_index_p: cobj,
+    end_index_p: cobj,
+):
+    beg_index = Ptr[i32](beg_index_p)
+    end_index = Ptr[i32](end_index_p)
+    length = end_domain - start_domain + 1
+    beg = start_domain
+    for n in range(1, ipe + 1):
+        if n <= length % ndomains:
+            beg += (length - 1) // ndomains + 1
+        else:
+            beg += length // ndomains
+    next_beg = beg
+    n = ipe + 1
+    if n <= length % ndomains:
+        next_beg += (length - 1) // ndomains + 1
+    else:
+        next_beg += length // ndomains
+    beg_index[0] = i32(beg)
+    end_index[0] = i32(next_beg - 1)
+
+
+def set_thread_ranges_1d_codon(
+    work_pool_p: cobj,
+    nrows: int,
+    idthread: int,
+    beg_range_p: cobj,
+    end_range_p: cobj,
+):
+    work_pool = Ptr[i32](work_pool_p)
+    beg_range = Ptr[i32](beg_range_p)
+    end_range = Ptr[i32](end_range_p)
+    index = 1
+    ind = 0
+    for i in range(1, nrows + 1):
+        if ind == idthread:
+            index = i
+        ind += 1
+    beg_range[0] = work_pool[(index - 1)]
+    end_range[0] = work_pool[(index - 1) + nrows]
+
+
+def get_loop_ranges_codon(
+    ibeg_in: int,
+    iend_in: int,
+    kbeg_in: int,
+    kend_in: int,
+    qbeg_in: int,
+    qend_in: int,
+    mask: int,
+    ibeg_p: cobj,
+    iend_p: cobj,
+    kbeg_p: cobj,
+    kend_p: cobj,
+    qbeg_p: cobj,
+    qend_p: cobj,
+):
+    ibeg = Ptr[i32](ibeg_p)
+    iend = Ptr[i32](iend_p)
+    kbeg = Ptr[i32](kbeg_p)
+    kend = Ptr[i32](kend_p)
+    qbeg = Ptr[i32](qbeg_p)
+    qend = Ptr[i32](qend_p)
+    if mask & 1:
+        ibeg[0] = i32(ibeg_in)
+    if mask & 2:
+        iend[0] = i32(iend_in)
+    if mask & 4:
+        kbeg[0] = i32(kbeg_in)
+    if mask & 8:
+        kend[0] = i32(kend_in)
+    if mask & 16:
+        qbeg[0] = i32(qbeg_in)
+    if mask & 32:
+        qend[0] = i32(qend_in)
+
+
+def timelevel_qdp_codon(
+    nstep: int,
+    qsplit: int,
+    has_np1: int,
+    n0_p: cobj,
+    np1_p: cobj,
+):
+    n0 = Ptr[i32](n0_p)
+    np1 = Ptr[i32](np1_p)
+    i_temp = nstep // qsplit
+    if i_temp % 2 == 0:
+        n0[0] = i32(1)
+        if has_np1 != 0:
+            np1[0] = i32(2)
+    else:
+        n0[0] = i32(2)
+        if has_np1 != 0:
+            np1[0] = i32(1)
+
+
+def elem_jacobians_codon(
+    coords_xy_p: cobj,
+    unif2quadmap_p: cobj,
+):
+    coords = Ptr[float](coords_xy_p)
+    out = Ptr[float](unif2quadmap_p)
+    x11 = coords[0]
+    y11 = coords[1]
+    xnp1 = coords[2]
+    ynp1 = coords[3]
+    xnpnp = coords[4]
+    ynpnp = coords[5]
+    x1np = coords[6]
+    y1np = coords[7]
+    out[0] = (x11 + xnp1 + xnpnp + x1np) / 4.0
+    out[4] = (y11 + ynp1 + ynpnp + y1np) / 4.0
+    out[1] = (-x11 + xnp1 + xnpnp - x1np) / 4.0
+    out[5] = (-y11 + ynp1 + ynpnp - y1np) / 4.0
+    out[2] = (-x11 - xnp1 + xnpnp + x1np) / 4.0
+    out[6] = (-y11 - ynp1 + ynpnp + y1np) / 4.0
+    out[3] = (x11 - xnp1 + xnpnp - x1np) / 4.0
+    out[7] = (y11 - ynp1 + ynpnp - y1np) / 4.0
+
+
+def element_var_coordinates_codon(
+    npts: int,
+    corners_xy_p: cobj,
+    points_p: cobj,
+    cart_xy_p: cobj,
+):
+    corners = Ptr[float](corners_xy_p)
+    points = Ptr[float](points_p)
+    cart = Ptr[float](cart_xy_p)
+    for j in range(1, npts + 1):
+        pj = (1.0 - points[j - 1]) / 2.0
+        qj = (1.0 + points[j - 1]) / 2.0
+        for i in range(1, npts + 1):
+            pi = (1.0 - points[i - 1]) / 2.0
+            qi = (1.0 + points[i - 1]) / 2.0
+            idx = (i - 1) + (j - 1) * npts
+            cart[idx] = (
+                pi * pj * corners[0]
+                + qi * pj * corners[2]
+                + qi * qj * corners[4]
+                + pi * qj * corners[6]
+            )
+            cart[idx + npts * npts] = (
+                pi * pj * corners[1]
+                + qi * pj * corners[3]
+                + qi * qj * corners[5]
+                + pi * qj * corners[7]
+            )
+
+
+def gausslobatto_wts_codon(
+    np1: int,
+    glpts_p: cobj,
+    wts_p: cobj,
+):
+    glpts = Ptr[float](glpts_p)
+    wts = Ptr[float](wts_p)
+    n = np1 - 1
+    c0 = 0.0
+    c1 = 1.0
+    c2 = 2.0
+    alpha = c0
+    beta = c0
+    for j in range(1, np1 + 1):
+        xtmp = glpts[j - 1]
+        jacm1 = c1
+        jac0 = (c1 + alpha) * xtmp
+        for k in range(1, n):
+            a1k = c2 * (k + c1) * (k + alpha + beta + c1) * (c2 * k + alpha + beta)
+            da2kdx = (c2 * k + alpha + beta + c2) * (c2 * k + alpha + beta + c1) * (c2 * k + alpha + beta)
+            a2k = (c2 * k + alpha + beta + c1) * (alpha * alpha - beta * beta) + xtmp * da2kdx
+            a3k = c2 * (k + alpha) * (k + beta) * (c2 * k + alpha + beta + c2)
+            jacp1 = (a2k * jac0 - a3k * jacm1) / a1k
+            jacm1 = jac0
+            jac0 = jacp1
+        if n == 0:
+            jac0 = jacm1
+        wts[j - 1] = c2 / (n * (n + 1) * jac0 * jac0)
+
+
+def find_buffer_slot_codon(
+    inbr: int,
+    length: int,
+    tmp_p: cobj,
+    n: int,
+    ptr_p: cobj,
+):
+    tmp = Ptr[i32](tmp_p)
+    ptr = Ptr[i32](ptr_p)
+    ptr[0] = i32(0)
+    for i in range(1, n + 1):
+        base = (i - 1) * 2
+        if tmp[base] == i32(inbr):
+            ptr[0] = tmp[base + 1]
+            return
+        if tmp[base] == i32(-1):
+            tmp[base] = i32(inbr)
+            if i == 1:
+                tmp[base + 1] = i32(1)
+            ptr[0] = tmp[base + 1]
+            if i != n:
+                tmp[base + 3] = i32(int(ptr[0]) + length)
+            return
+
+
+def cubesetupedgeindex_codon(
+    s_face: int,
+    d_face: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    reverse_p: cobj,
+):
+    reverse = Ptr[i32](reverse_p)
+    reverse[0] = i32(0)
+    if (
+        (s_face == south and d_face == east)
+        or (s_face == east and d_face == south)
+        or (s_face == north and d_face == west)
+        or (s_face == west and d_face == north)
+        or (s_face == south and d_face == south)
+        or (s_face == north and d_face == north)
+        or (s_face == east and d_face == east)
+        or (s_face == west and d_face == west)
+    ):
+        reverse[0] = i32(1)
+
+
 from C import gbarrier_initialize(cobj, i32)
 from C import gbarrier_free(cobj)
 from C import gbarrier_synchronize(cobj, i32)

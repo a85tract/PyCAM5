@@ -1242,6 +1242,160 @@ def dmap_equiangular_codon(
     )
 
 @export
+def create_work_pool_codon(
+    start_domain: int,
+    end_domain: int,
+    ndomains: int,
+    ipe: int,
+    beg_index_p: cobj,
+    end_index_p: cobj,
+):
+    return _misc.create_work_pool_codon(
+        start_domain,
+        end_domain,
+        ndomains,
+        ipe,
+        beg_index_p,
+        end_index_p,
+    )
+
+@export
+def set_thread_ranges_1d_codon(
+    work_pool_p: cobj,
+    nrows: int,
+    idthread: int,
+    beg_range_p: cobj,
+    end_range_p: cobj,
+):
+    return _misc.set_thread_ranges_1d_codon(
+        work_pool_p,
+        nrows,
+        idthread,
+        beg_range_p,
+        end_range_p,
+    )
+
+@export
+def get_loop_ranges_codon(
+    ibeg_in: int,
+    iend_in: int,
+    kbeg_in: int,
+    kend_in: int,
+    qbeg_in: int,
+    qend_in: int,
+    mask: int,
+    ibeg_p: cobj,
+    iend_p: cobj,
+    kbeg_p: cobj,
+    kend_p: cobj,
+    qbeg_p: cobj,
+    qend_p: cobj,
+):
+    return _misc.get_loop_ranges_codon(
+        ibeg_in,
+        iend_in,
+        kbeg_in,
+        kend_in,
+        qbeg_in,
+        qend_in,
+        mask,
+        ibeg_p,
+        iend_p,
+        kbeg_p,
+        kend_p,
+        qbeg_p,
+        qend_p,
+    )
+
+@export
+def timelevel_qdp_codon(
+    nstep: int,
+    qsplit: int,
+    has_np1: int,
+    n0_p: cobj,
+    np1_p: cobj,
+):
+    return _misc.timelevel_qdp_codon(
+        nstep,
+        qsplit,
+        has_np1,
+        n0_p,
+        np1_p,
+    )
+
+@export
+def elem_jacobians_codon(
+    coords_xy_p: cobj,
+    unif2quadmap_p: cobj,
+):
+    return _misc.elem_jacobians_codon(
+        coords_xy_p,
+        unif2quadmap_p,
+    )
+
+@export
+def element_var_coordinates_codon(
+    npts: int,
+    corners_xy_p: cobj,
+    points_p: cobj,
+    cart_xy_p: cobj,
+):
+    return _misc.element_var_coordinates_codon(
+        npts,
+        corners_xy_p,
+        points_p,
+        cart_xy_p,
+    )
+
+@export
+def gausslobatto_wts_codon(
+    np1: int,
+    glpts_p: cobj,
+    wts_p: cobj,
+):
+    return _misc.gausslobatto_wts_codon(
+        np1,
+        glpts_p,
+        wts_p,
+    )
+
+@export
+def find_buffer_slot_codon(
+    inbr: int,
+    length: int,
+    tmp_p: cobj,
+    n: int,
+    ptr_p: cobj,
+):
+    return _misc.find_buffer_slot_codon(
+        inbr,
+        length,
+        tmp_p,
+        n,
+        ptr_p,
+    )
+
+@export
+def cubesetupedgeindex_codon(
+    s_face: int,
+    d_face: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    reverse_p: cobj,
+):
+    return _misc.cubesetupedgeindex_codon(
+        s_face,
+        d_face,
+        south,
+        east,
+        north,
+        west,
+        reverse_p,
+    )
+
+@export
 def gbarrier_init_codon(
     c_barrier_p: cobj,
     nthreads: int,

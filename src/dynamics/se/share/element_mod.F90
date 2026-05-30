@@ -388,29 +388,38 @@ contains
   function element_var_coordinates(c,points) result(cart)
 
     use kinds, only : longdouble_kind
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    interface
+      subroutine element_var_coordinates_codon(npts_c, corners_xy_p, points_p, cart_xy_p) &
+           bind(c, name='element_var_coordinates_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: npts_c
+        type(c_ptr), value :: corners_xy_p, points_p, cart_xy_p
+      end subroutine element_var_coordinates_codon
+    end interface
     type (cartesian2D_t), intent(in) :: c(4)
-    real (kind=longdouble_kind), intent(in) :: points(:)
+    real (kind=longdouble_kind), intent(in), target :: points(:)
     type (cartesian2D_t) :: cart(SIZE(points),SIZE(points))
 
-    real (kind=longdouble_kind) :: p(size(points))
-    real (kind=longdouble_kind) :: q(size(points))
+    real (kind=longdouble_kind), target :: corners_xy(8)
+    real (kind=longdouble_kind), target :: cart_xy(SIZE(points),SIZE(points),2)
     integer i,j
+    logical, save :: proof_seen = .false.
 
-    p(:) = (1.0D0-points(:))/2.0D0
-    q(:) = (1.0D0+points(:))/2.0D0
-
+    corners_xy = (/ c(1)%x, c(1)%y, c(2)%x, c(2)%y, c(3)%x, c(3)%y, c(4)%x, c(4)%y /)
+    call element_var_coordinates_codon(int(size(points), c_int64_t), c_loc(corners_xy(1)), &
+         c_loc(points(1)), c_loc(cart_xy(1,1,1)))
     do j=1,SIZE(points)
        do i=1,SIZE(points)
-          cart(i,j)%x = p(i)*p(j)*c(1)%x &
-                      + q(i)*p(j)*c(2)%x &
-                      + q(i)*q(j)*c(3)%x &
-                      + p(i)*q(j)*c(4)%x
-          cart(i,j)%y = p(i)*p(j)*c(1)%y &
-                      + q(i)*p(j)*c(2)%y &
-                      + q(i)*q(j)*c(3)%y &
-                      + p(i)*q(j)*c(4)%y
+          cart(i,j)%x = cart_xy(i,j,1)
+          cart(i,j)%y = cart_xy(i,j,2)
        end do
     end do
+    if (.not. proof_seen) then
+       write(iulog,*) 'element_var_coordinates implementation = codon'
+       proof_seen = .true.
+    endif
   end function element_var_coordinates
 
   !___________________________________________________________________

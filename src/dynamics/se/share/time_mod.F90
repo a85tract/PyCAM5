@@ -5,6 +5,7 @@
 module time_mod
   !------------------
   use kinds, only : real_kind
+  use iso_c_binding, only : c_int64_t, c_loc, c_ptr
   !------------------
   implicit none
   integer,public                :: nsplit=1
@@ -97,25 +98,33 @@ contains
   !locations for nm1 and n0 for Qdp - because
   !it only has 2 levels for storage
   subroutine TimeLevel_Qdp(tl, qsplit, n0, np1)
+    use cam_logfile, only : iulog
+    interface
+      subroutine timelevel_qdp_codon(nstep_c, qsplit_c, has_np1_c, n0_p, np1_p) &
+           bind(c, name='timelevel_qdp_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: nstep_c, qsplit_c, has_np1_c
+        type(c_ptr), value :: n0_p, np1_p
+      end subroutine timelevel_qdp_codon
+    end interface
     type (TimeLevel_t) :: tl
     integer, intent(in) :: qsplit
-    integer, intent(inout) :: n0
-    integer, intent(inout), optional :: np1
+    integer, intent(inout), target :: n0
+    integer, intent(inout), optional, target :: np1
+    integer, target :: np1_dummy
+    logical, save :: proof_seen = .false.
 
-    integer :: i_temp
-
-    i_temp = tl%nstep/qsplit
-
-    if (mod(i_temp,2)  ==0) then
-       n0 = 1
-       if (present(np1)) then
-          np1 = 2
-       endif
+    if (present(np1)) then
+       call timelevel_qdp_codon(int(tl%nstep, c_int64_t), int(qsplit, c_int64_t), &
+            1_c_int64_t, c_loc(n0), c_loc(np1))
     else
-       n0 = 2
-       if (present(np1)) then 
-          np1 = 1
-       end if
+       np1_dummy = 0
+       call timelevel_qdp_codon(int(tl%nstep, c_int64_t), int(qsplit, c_int64_t), &
+            0_c_int64_t, c_loc(n0), c_loc(np1_dummy))
+    endif
+    if (.not. proof_seen) then
+       write(iulog,*) 'timelevel_qdp implementation = codon'
+       proof_seen = .true.
     endif
 
     !print * ,'nstep = ', tl%nstep, 'qsplit= ', qsplit, 'i_temp = ', i_temp, 'n0 = ', n0

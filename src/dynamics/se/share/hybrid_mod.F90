@@ -13,6 +13,7 @@ use parallel_mod  , only : parallel_t, copy_par
 use thread_mod    , only : omp_set_num_threads, omp_get_thread_num 
 use thread_mod    , only : horz_num_threads, vert_num_threads, tracer_num_threads
 use dimensions_mod, only : nlev, qsize, ntrac
+use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
 implicit none
 private
@@ -367,28 +368,66 @@ contains
   end subroutine set_loop_ranges
 
   subroutine get_loop_ranges (pybrid, ibeg, iend, kbeg, kend, qbeg, qend)
+  use cam_logfile, only : iulog
+  interface
+    subroutine get_loop_ranges_codon(ibeg_in_c, iend_in_c, kbeg_in_c, kend_in_c, &
+         qbeg_in_c, qend_in_c, mask_c, ibeg_p, iend_p, kbeg_p, kend_p, qbeg_p, qend_p) &
+         bind(c, name='get_loop_ranges_codon')
+      import :: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ibeg_in_c, iend_in_c, kbeg_in_c, kend_in_c
+      integer(c_int64_t), value :: qbeg_in_c, qend_in_c, mask_c
+      type(c_ptr), value :: ibeg_p, iend_p, kbeg_p, kend_p, qbeg_p, qend_p
+    end subroutine get_loop_ranges_codon
+  end interface
 
   type (hybrid_t), intent(in) :: pybrid
-  integer, optional, intent(out) :: ibeg, iend, kbeg, kend, qbeg, qend
+  integer, optional, intent(out), target :: ibeg, iend, kbeg, kend, qbeg, qend
+  integer, target :: ibeg_dummy, iend_dummy, kbeg_dummy, kend_dummy, qbeg_dummy, qend_dummy
+  type(c_ptr) :: ibeg_ptr, iend_ptr, kbeg_ptr, kend_ptr, qbeg_ptr, qend_ptr
+  integer :: mask
+  logical, save :: proof_seen = .false.
 
+  mask = 0
+  ibeg_dummy = 0; iend_dummy = 0; kbeg_dummy = 0
+  kend_dummy = 0; qbeg_dummy = 0; qend_dummy = 0
+  if (.not. proof_seen) then
+    write(iulog,*) 'get_loop_ranges implementation = codon'
+    proof_seen = .true.
+  endif
+  ibeg_ptr = c_loc(ibeg_dummy)
+  iend_ptr = c_loc(iend_dummy)
+  kbeg_ptr = c_loc(kbeg_dummy)
+  kend_ptr = c_loc(kend_dummy)
+  qbeg_ptr = c_loc(qbeg_dummy)
+  qend_ptr = c_loc(qend_dummy)
   if ( present(ibeg) ) then
-    ibeg = pybrid%ibeg
+    mask = mask + 1
+    ibeg_ptr = c_loc(ibeg)
   endif
   if ( present(iend) ) then
-    iend = pybrid%iend
+    mask = mask + 2
+    iend_ptr = c_loc(iend)
   endif
   if ( present(kbeg) ) then
-    kbeg = pybrid%kbeg
+    mask = mask + 4
+    kbeg_ptr = c_loc(kbeg)
   endif
   if ( present(kend) ) then
-    kend = pybrid%kend
+    mask = mask + 8
+    kend_ptr = c_loc(kend)
   endif
   if ( present(qbeg) ) then
-    qbeg = pybrid%qbeg
+    mask = mask + 16
+    qbeg_ptr = c_loc(qbeg)
   endif
   if ( present(qend) ) then
-    qend = pybrid%qend
+    mask = mask + 32
+    qend_ptr = c_loc(qend)
   endif
+  call get_loop_ranges_codon(int(pybrid%ibeg, c_int64_t), int(pybrid%iend, c_int64_t), &
+       int(pybrid%kbeg, c_int64_t), int(pybrid%kend, c_int64_t), &
+       int(pybrid%qbeg, c_int64_t), int(pybrid%qend, c_int64_t), int(mask, c_int64_t), &
+       ibeg_ptr, iend_ptr, kbeg_ptr, kend_ptr, qbeg_ptr, qend_ptr)
 
   end subroutine get_loop_ranges
 
@@ -529,26 +568,30 @@ contains
   end subroutine set_thread_ranges_2D
 
   subroutine set_thread_ranges_1D( work_pool, beg_range, end_range, idthread )
+  use cam_logfile, only : iulog
 
-  integer, intent (in   ) :: work_pool(:,:)
-  integer, intent (inout) :: beg_range
-  integer, intent (inout) :: end_range
+  interface
+    subroutine set_thread_ranges_1d_codon(work_pool_p, nrows_c, idthread_c, &
+         beg_range_p, end_range_p) bind(c, name='set_thread_ranges_1d_codon')
+      import :: c_int64_t, c_ptr
+      type(c_ptr), value :: work_pool_p
+      integer(c_int64_t), value :: nrows_c, idthread_c
+      type(c_ptr), value :: beg_range_p, end_range_p
+    end subroutine set_thread_ranges_1d_codon
+  end interface
+
+  integer, intent (in), target :: work_pool(:,:)
+  integer, intent (inout), target :: beg_range
+  integer, intent (inout), target :: end_range
   integer, intent (inout) :: idthread
+  logical, save :: proof_seen = .false.
 
-  integer :: index
-  integer :: i, j, ind, irange
-
-  ind = 0
-  
-  irange = SIZE(work_pool) 
-  do i = 1, irange
-    if( ind == idthread ) then
-      index = i 
-    endif
-    ind = ind + 1
-  enddo
-  beg_range = work_pool(index,1)
-  end_range = work_pool(index,2)
+  call set_thread_ranges_1d_codon(c_loc(work_pool(1,1)), int(size(work_pool, 1), c_int64_t), &
+       int(idthread, c_int64_t), c_loc(beg_range), c_loc(end_range))
+  if (.not. proof_seen) then
+    write(iulog,*) 'set_thread_ranges_1d implementation = codon'
+    proof_seen = .true.
+  endif
 
 ! write(6,1000) idthread, beg_range, end_range
 ! call flush(6)
@@ -557,30 +600,28 @@ contains
   end subroutine set_thread_ranges_1D
 
   subroutine create_work_pool( start_domain, end_domain, ndomains, ipe, beg_index, end_index )
+  use cam_logfile, only : iulog
+
+  interface
+    subroutine create_work_pool_codon(start_domain_c, end_domain_c, ndomains_c, ipe_c, &
+         beg_index_p, end_index_p) bind(c, name='create_work_pool_codon')
+      import :: c_int64_t, c_ptr
+      integer(c_int64_t), value :: start_domain_c, end_domain_c, ndomains_c, ipe_c
+      type(c_ptr), value :: beg_index_p, end_index_p
+    end subroutine create_work_pool_codon
+  end interface
 
   integer, intent(in) :: start_domain, end_domain
   integer, intent(in) :: ndomains, ipe
-  integer, intent(out) ::beg_index, end_index
+  integer, intent(out), target :: beg_index, end_index
+  logical, save :: proof_seen = .false.
 
-  integer :: beg(0:ndomains)
-  integer :: length
-  integer :: n
-
-  length = end_domain - start_domain + 1
-  beg(0) = start_domain
-
-  do n=1,ndomains-1
-     if (n.le.mod(length,ndomains)) then
-        beg(n)=beg(n-1)+(length-1)/ndomains+1
-     else
-        beg(n)=beg(n-1)+length/ndomains
-     end if
-  end do
- 
-  beg(ndomains) = start_domain + length
-
-  beg_index = beg(ipe)
-  end_index = beg(ipe+1) - 1
+  call create_work_pool_codon(int(start_domain, c_int64_t), int(end_domain, c_int64_t), &
+       int(ndomains, c_int64_t), int(ipe, c_int64_t), c_loc(beg_index), c_loc(end_index))
+  if (.not. proof_seen) then
+    write(iulog,*) 'create_work_pool implementation = codon'
+    proof_seen = .true.
+  endif
 
   end subroutine create_work_pool
 

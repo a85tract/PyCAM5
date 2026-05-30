@@ -477,29 +477,25 @@ contains
 
   function gausslobatto_wts(np1, glpts) result(wts)
 
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    interface
+      subroutine gausslobatto_wts_codon(np1_c, glpts_p, wts_p) bind(c, name='gausslobatto_wts_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: np1_c
+        type(c_ptr), value :: glpts_p, wts_p
+      end subroutine gausslobatto_wts_codon
+    end interface
     integer, intent(in)                 :: np1
-    real (kind=longdouble_kind), intent(in) :: glpts(np1)
-    real (kind=longdouble_kind)             :: wts(np1)
+    real (kind=longdouble_kind), intent(in), target :: glpts(np1)
+    real (kind=longdouble_kind), target             :: wts(np1)
+    logical, save :: proof_seen = .false.
 
-    ! Local variables
-
-    real (kind=longdouble_kind) :: c0,c2
-    real (kind=longdouble_kind) :: alpha
-    real (kind=longdouble_kind) :: beta
-    real (kind=longdouble_kind) :: jac(np1)
-    integer i,n
-
-    c0    = 0.0_longdouble_kind
-    c2    = 2.0_longdouble_kind
-    alpha = c0
-    beta  = c0
-    n     = np1-1
-
-    jac=jacobi_polynomials(n,alpha,beta,np1,glpts)
-
-    do i=1,np1
-       wts(i)=c2/(n*(n+1)*jac(i)*jac(i))
-    end do
+    call gausslobatto_wts_codon(int(np1, c_int64_t), c_loc(glpts(1)), c_loc(wts(1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'gausslobatto_wts implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function gausslobatto_wts
 
@@ -1005,4 +1001,3 @@ contains
   end function gaussian_int
 
 end module quadrature_mod
-

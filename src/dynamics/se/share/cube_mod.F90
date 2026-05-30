@@ -199,19 +199,26 @@ contains
   subroutine elem_jacobians(coords, unif2quadmap)
 
     use dimensions_mod, only : np
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    interface
+      subroutine elem_jacobians_codon(coords_xy_p, unif2quadmap_p) bind(c, name='elem_jacobians_codon')
+        import :: c_ptr
+        type(c_ptr), value :: coords_xy_p, unif2quadmap_p
+      end subroutine elem_jacobians_codon
+    end interface
     type (cartesian2D_t),  dimension(np,np), intent(in) :: coords
-    ! unif2quadmap is the bilinear map from [-1,1]^2 -> arbitrary quadrilateral
-    real (kind=real_kind), dimension(4,2), intent(out) :: unif2quadmap
-    integer :: ii,jj
+    real (kind=real_kind), dimension(4,2), intent(out), target :: unif2quadmap
+    real (kind=real_kind), target :: coords_xy(8)
+    logical, save :: proof_seen = .false.
 
-    unif2quadmap(1,1)=(coords(1,1)%x+coords(np,1)%x+coords(np,np)%x+coords(1,np)%x)/4.0d0
-    unif2quadmap(1,2)=(coords(1,1)%y+coords(np,1)%y+coords(np,np)%y+coords(1,np)%y)/4.0d0
-    unif2quadmap(2,1)=(-coords(1,1)%x+coords(np,1)%x+coords(np,np)%x-coords(1,np)%x)/4.0d0
-    unif2quadmap(2,2)=(-coords(1,1)%y+coords(np,1)%y+coords(np,np)%y-coords(1,np)%y)/4.0d0
-    unif2quadmap(3,1)=(-coords(1,1)%x-coords(np,1)%x+coords(np,np)%x+coords(1,np)%x)/4.0d0
-    unif2quadmap(3,2)=(-coords(1,1)%y-coords(np,1)%y+coords(np,np)%y+coords(1,np)%y)/4.0d0
-    unif2quadmap(4,1)=(coords(1,1)%x-coords(np,1)%x+coords(np,np)%x-coords(1,np)%x)/4.0d0
-    unif2quadmap(4,2)=(coords(1,1)%y-coords(np,1)%y+coords(np,np)%y-coords(1,np)%y)/4.0d0
+    coords_xy = (/ coords(1,1)%x, coords(1,1)%y, coords(np,1)%x, coords(np,1)%y, &
+                   coords(np,np)%x, coords(np,np)%y, coords(1,np)%x, coords(1,np)%y /)
+    call elem_jacobians_codon(c_loc(coords_xy(1)), c_loc(unif2quadmap(1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'elem_jacobians implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine elem_jacobians
 
@@ -2407,13 +2414,24 @@ contains
     use gridgraph_mod, only : gridedge_t
     use dimensions_mod, only : np
     use control_mod, only : north, south, east, west, neast, seast, swest, nwest
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    interface
+      subroutine cubesetupedgeindex_codon(s_face_c, d_face_c, south_c, east_c, &
+           north_c, west_c, reverse_p) bind(c, name='cubesetupedgeindex_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: s_face_c, d_face_c, south_c, east_c, north_c, west_c
+        type(c_ptr), value :: reverse_p
+      end subroutine cubesetupedgeindex_codon
+    end interface
     type (GridEdge_t),target           :: Edge
 
     integer                            :: np0,sFace,dFace
-    logical                            :: reverse
+    integer, target                    :: reverse_i
     integer,allocatable                :: forwardV(:), forwardP(:)
     integer,allocatable                :: backwardV(:), backwardP(:)
     integer                            :: i,ii
+    logical, save                      :: proof_seen = .false.
 
     ii=Edge%tail_face
 
@@ -2424,20 +2442,13 @@ contains
 
     sFace = Edge%tail_face
     dFace = Edge%head_face
-    ! Do not reverse the indices
-    reverse=.FALSE.
-
-    ! Under special conditions use index reversal
-    if(       (SFace == south .AND. dFace == east)  &
-         .OR. (sFace == east  .AND. dFace == south) &
-         .OR. (sFace == north .AND. dFace == west)  &
-         .OR. (sFace == west  .AND. dFace == north) &
-         .OR. (sFace == south .AND. dFace == south) &
-         .OR. (sFace == north .AND. dFace == north) &
-         .OR. (sFace == east  .AND. dFace == east ) &
-         .OR. (sFace == west  .AND. dFace == west ) ) then
-       reverse=.TRUE.
-       Edge%reverse=.TRUE.
+    call cubesetupedgeindex_codon(int(sFace, c_int64_t), int(dFace, c_int64_t), &
+         int(south, c_int64_t), int(east, c_int64_t), int(north, c_int64_t), &
+         int(west, c_int64_t), c_loc(reverse_i))
+    if (reverse_i /= 0) Edge%reverse=.TRUE.
+    if (.not. proof_seen) then
+       write(iulog,*) 'cubesetupedgeindex implementation = codon'
+       proof_seen = .true.
     endif
 
 
