@@ -166,6 +166,7 @@ logical :: micro_mg1_0_post_iter_avg_logged = .false.
 logical :: micro_mg1_0_phase_change_logged = .false.
 logical :: micro_mg1_0_number_cleanup_logged = .false.
 logical :: micro_mg1_0_reflectivity_flags_logged = .false.
+logical :: micro_mg1_0_sedimentation_state_logged = .false.
 logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
@@ -3203,10 +3204,15 @@ do i=1,ncol
       ! with microphysical tendencies to calculate sedimentation, assign to dummy vars
       ! note: these are in-cloud values***, hence we divide by cloud fraction
 
-      dumc(i,k) = (qc(i,k)+qctend(i,k)*deltat)/lcldm(i,k)
-      dumi(i,k) = (qi(i,k)+qitend(i,k)*deltat)/icldm(i,k)
-      dumnc(i,k) = max((nc(i,k)+nctend(i,k)*deltat)/lcldm(i,k),0._r8)
-      dumni(i,k) = max((ni(i,k)+nitend(i,k)*deltat)/icldm(i,k),0._r8)
+      if (micro_mg1_0_colzero_use_native_impl) then
+         dumc(i,k) = (qc(i,k)+qctend(i,k)*deltat)/lcldm(i,k)
+         dumi(i,k) = (qi(i,k)+qitend(i,k)*deltat)/icldm(i,k)
+         dumnc(i,k) = max((nc(i,k)+nctend(i,k)*deltat)/lcldm(i,k),0._r8)
+         dumni(i,k) = max((ni(i,k)+nitend(i,k)*deltat)/icldm(i,k),0._r8)
+      else
+         call micro_mg1_0_sedimentation_state_codon_wrap(0, i, k, pcols, pver, deltat, qsmall, &
+              qc, qi, nc, ni, qctend, qitend, nctend, nitend, lcldm, icldm, dumc, dumi, dumnc, dumni)
+      end if
 
       ! obtain new slope parameter to avoid possible singularity
 
@@ -3289,13 +3295,18 @@ do i=1,ncol
       ! redefine dummy variables - sedimentation is calculated over grid-scale
       ! quantities to ensure conservation
 
-      dumc(i,k) = (qc(i,k)+qctend(i,k)*deltat)
-      dumi(i,k) = (qi(i,k)+qitend(i,k)*deltat)
-      dumnc(i,k) = max((nc(i,k)+nctend(i,k)*deltat),0._r8)
-      dumni(i,k) = max((ni(i,k)+nitend(i,k)*deltat),0._r8)
+      if (micro_mg1_0_colzero_use_native_impl) then
+         dumc(i,k) = (qc(i,k)+qctend(i,k)*deltat)
+         dumi(i,k) = (qi(i,k)+qitend(i,k)*deltat)
+         dumnc(i,k) = max((nc(i,k)+nctend(i,k)*deltat),0._r8)
+         dumni(i,k) = max((ni(i,k)+nitend(i,k)*deltat),0._r8)
 
-      if (dumc(i,k).lt.qsmall) dumnc(i,k)=0._r8
-      if (dumi(i,k).lt.qsmall) dumni(i,k)=0._r8
+         if (dumc(i,k).lt.qsmall) dumnc(i,k)=0._r8
+         if (dumi(i,k).lt.qsmall) dumni(i,k)=0._r8
+      else
+         call micro_mg1_0_sedimentation_state_codon_wrap(1, i, k, pcols, pver, deltat, qsmall, &
+              qc, qi, nc, ni, qctend, qitend, nctend, nitend, lcldm, icldm, dumc, dumi, dumnc, dumni)
+      end if
 
    end do       !!! vertical loop
    if (micro_mg1_0_colzero_use_native_impl) then
@@ -4217,6 +4228,15 @@ subroutine micro_mg1_0_reflectivity_flags_log_entry()
   end if
 end subroutine micro_mg1_0_reflectivity_flags_log_entry
 
+subroutine micro_mg1_0_sedimentation_state_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_sedimentation_state_logged) then
+     write(iulog,*) 'micro_mg1_0_sedimentation_state entered (cloud sedimentation state prep = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_sedimentation_state entered (cloud sedimentation state prep = codon)')
+     micro_mg1_0_sedimentation_state_logged = .true.
+  end if
+end subroutine micro_mg1_0_sedimentation_state_log_entry
+
 subroutine micro_mg1_0_sedimentation_fallout_log_entry()
   if (masterproc .and. .not. micro_mg1_0_sedimentation_fallout_logged) then
      write(iulog,*) 'micro_mg1_0_sedimentation_fallout entered (cloud sedimentation fallout update = codon)'
@@ -4977,6 +4997,43 @@ subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pve
        c_loc(arcld_local), c_loc(rercld_local), c_loc(rflx_local), c_loc(sflx_local), c_loc(rflx1_local), &
        c_loc(sflx1_local), c_loc(umr_local), c_loc(ums_local))
 end subroutine micro_mg1_0_substep_accum_column_codon_wrap
+
+subroutine micro_mg1_0_sedimentation_state_codon_wrap(stage_local, i_local, k_local, pcols_local, pver_local, &
+     deltat_local, qsmall_local, qc_local, qi_local, nc_local, ni_local, qctend_local, qitend_local, &
+     nctend_local, nitend_local, lcldm_local, icldm_local, dumc_local, dumi_local, dumnc_local, dumni_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: stage_local, i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: deltat_local, qsmall_local
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local), qi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nc_local(pcols_local,pver_local), ni_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qctend_local(pcols_local,pver_local), qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nctend_local(pcols_local,pver_local), nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: lcldm_local(pcols_local,pver_local), icldm_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumc_local(pcols_local,pver_local), dumi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumnc_local(pcols_local,pver_local), dumni_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_sedimentation_state_codon(stage_c, i_c, k_c, pcols_c, pver_c, &
+          deltat_c, qsmall_c, qc_p, qi_p, nc_p, ni_p, qctend_p, qitend_p, nctend_p, nitend_p, &
+          lcldm_p, icldm_p, dumc_p, dumi_p, dumnc_p, dumni_p) &
+          bind(c, name="micro_mg1_0_sedimentation_state_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, i_c, k_c, pcols_c, pver_c
+       real(c_double), value :: deltat_c, qsmall_c
+       type(c_ptr), value :: qc_p, qi_p, nc_p, ni_p, qctend_p, qitend_p, nctend_p, nitend_p
+       type(c_ptr), value :: lcldm_p, icldm_p, dumc_p, dumi_p, dumnc_p, dumni_p
+     end subroutine micro_mg1_0_sedimentation_state_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_sedimentation_state_log_entry()
+  call micro_mg1_0_sedimentation_state_codon(int(stage_local, c_int64_t), int(i_local, c_int64_t), &
+       int(k_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+       real(deltat_local, c_double), real(qsmall_local, c_double), c_loc(qc_local), c_loc(qi_local), &
+       c_loc(nc_local), c_loc(ni_local), c_loc(qctend_local), c_loc(qitend_local), c_loc(nctend_local), &
+       c_loc(nitend_local), c_loc(lcldm_local), c_loc(icldm_local), c_loc(dumc_local), c_loc(dumi_local), &
+       c_loc(dumnc_local), c_loc(dumni_local))
+end subroutine micro_mg1_0_sedimentation_state_codon_wrap
 
 subroutine micro_mg1_0_sedimentation_fallout_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
      nstep_local, do_cldice_local, deltat_local, g_local, xxlv_local, xxls_local, pdel_local, lcldm_local, &

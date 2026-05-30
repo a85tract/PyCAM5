@@ -2484,6 +2484,63 @@ def micro_mg1_0_substep_accum_column_codon(
 
 
 @export
+def micro_mg1_0_sedimentation_state_codon(
+    stage: int,
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    deltat: float,
+    qsmall: float,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    lcldm_p: cobj,
+    icldm_p: cobj,
+    dumc_p: cobj,
+    dumi_p: cobj,
+    dumnc_p: cobj,
+    dumni_p: cobj,
+):
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    nctend = Ptr[float](nctend_p)
+    nitend = Ptr[float](nitend_p)
+    lcldm = Ptr[float](lcldm_p)
+    icldm = Ptr[float](icldm_p)
+    dumc = Ptr[float](dumc_p)
+    dumi = Ptr[float](dumi_p)
+    dumnc = Ptr[float](dumnc_p)
+    dumni = Ptr[float](dumni_p)
+
+    idx = _idx2(i, k, pcols)
+    if stage == 0:
+        dumc[idx] = (qc[idx] + qctend[idx] * deltat) / lcldm[idx]
+        dumi[idx] = (qi[idx] + qitend[idx] * deltat) / icldm[idx]
+        dumnc[idx] = max((nc[idx] + nctend[idx] * deltat) / lcldm[idx], 0.0)
+        dumni[idx] = max((ni[idx] + nitend[idx] * deltat) / icldm[idx], 0.0)
+    else:
+        dumc[idx] = qc[idx] + qctend[idx] * deltat
+        dumi[idx] = qi[idx] + qitend[idx] * deltat
+        dumnc[idx] = max(nc[idx] + nctend[idx] * deltat, 0.0)
+        dumni[idx] = max(ni[idx] + nitend[idx] * deltat, 0.0)
+
+        if dumc[idx] < qsmall:
+            dumnc[idx] = 0.0
+        if dumi[idx] < qsmall:
+            dumni[idx] = 0.0
+
+
+@export
 def micro_mg1_0_sedimentation_fallout_codon(
     i: int,
     pcols: int,
