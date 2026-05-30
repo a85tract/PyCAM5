@@ -290,3 +290,191 @@ def handle_ncerr_codon(ret: int, noerr: int) -> int:
 def pair_codon(np: int, p: int, k: int) -> int:
     q = p ^ k
     return -1 if q > np - 1 else q
+
+
+@export
+def get_step_size_codon(step_seconds: int) -> int:
+    return step_seconds
+
+
+@export
+def get_nstep_codon(step_no: int) -> int:
+    return step_no
+
+
+@export
+def get_ref_date_codon(yr: int, mon: int, day: int, tod: int, out_p: Ptr[int]):
+    out_p[0] = yr
+    out_p[1] = mon
+    out_p[2] = day
+    out_p[3] = tod
+
+
+@export
+def is_first_step_codon(step_no: int) -> int:
+    return 1 if step_no == 0 else 0
+
+
+@export
+def get_calday_codon(day_of_year: float, is_gregorian: int) -> float:
+    if day_of_year > 366.0 and day_of_year <= 367.0 and is_gregorian != 0:
+        return day_of_year - 1.0
+    return day_of_year
+
+
+@export
+def init_calendar_codon(cal_code: int) -> int:
+    return cal_code
+
+
+@export
+def timemgr_init_restart_codon(varcnt: int) -> int:
+    return varcnt
+
+
+@export
+def timesetymd_codon(ymd: int, tod: int, out_p: Ptr[int]) -> int:
+    if ymd < 0 or tod < 0 or tod > 24 * 3600:
+        return 0
+    yr = ymd // 10000
+    mon = (ymd - yr * 10000) // 100
+    day = ymd - yr * 10000 - mon * 100
+    out_p[0] = yr
+    out_p[1] = mon
+    out_p[2] = day
+    return 1
+
+
+@export
+def make_tridiag_deriv_diag_codon(
+    spr: Ptr[float],
+    sub: Ptr[float],
+    diag: Ptr[float],
+    left_bound: Ptr[float],
+    right_bound: Ptr[float],
+    nsys: int,
+    ncel: int,
+):
+    for k in range(ncel - 1):
+        for i in range(nsys):
+            diag[i + k * nsys] = -spr[i + k * nsys]
+
+    last = ncel - 1
+    for i in range(nsys):
+        diag[i + last * nsys] = -right_bound[i]
+        diag[i] = diag[i] - left_bound[i]
+
+    for k in range(1, ncel):
+        for i in range(nsys):
+            diag[i + k * nsys] = diag[i + k * nsys] - sub[i + (k - 1) * nsys]
+
+
+@export
+def add_in_place_tridiag_ops_codon(
+    spr: Ptr[float],
+    sub: Ptr[float],
+    diag: Ptr[float],
+    left_bound: Ptr[float],
+    right_bound: Ptr[float],
+    other_spr: Ptr[float],
+    other_sub: Ptr[float],
+    other_diag: Ptr[float],
+    other_left_bound: Ptr[float],
+    other_right_bound: Ptr[float],
+    nsys: int,
+    ncel: int,
+):
+    off_count = nsys * (ncel - 1)
+    diag_count = nsys * ncel
+    for i in range(off_count):
+        spr[i] += other_spr[i]
+        sub[i] += other_sub[i]
+    for i in range(diag_count):
+        diag[i] += other_diag[i]
+    for i in range(nsys):
+        left_bound[i] += other_left_bound[i]
+        right_bound[i] += other_right_bound[i]
+
+
+@export
+def scalar_lmult_tridiag_codon(
+    spr: Ptr[float],
+    sub: Ptr[float],
+    diag: Ptr[float],
+    left_bound: Ptr[float],
+    right_bound: Ptr[float],
+    nsys: int,
+    ncel: int,
+    constant: float,
+):
+    off_count = nsys * (ncel - 1)
+    diag_count = nsys * ncel
+    for i in range(off_count):
+        spr[i] = spr[i] * constant
+        sub[i] = sub[i] * constant
+    for i in range(diag_count):
+        diag[i] = diag[i] * constant
+    for i in range(nsys):
+        left_bound[i] = left_bound[i] * constant
+        right_bound[i] = right_bound[i] * constant
+
+
+@export
+def finalize_dims_codon(dims_p: Ptr[int]):
+    dims_p[0] = 0
+    dims_p[1] = 0
+
+
+@export
+def diagonal_operator_codon(
+    spr: Ptr[float],
+    sub: Ptr[float],
+    diag: Ptr[float],
+    left_bound: Ptr[float],
+    right_bound: Ptr[float],
+    in_diag: Ptr[float],
+    nsys: int,
+    ncel: int,
+):
+    off_count = nsys * (ncel - 1)
+    diag_count = nsys * ncel
+    for i in range(off_count):
+        spr[i] = 0.0
+        sub[i] = 0.0
+    for i in range(diag_count):
+        diag[i] = in_diag[i]
+    for i in range(nsys):
+        left_bound[i] = 0.0
+        right_bound[i] = 0.0
+
+
+@export
+def ceil2_codon(n: int) -> int:
+    p = 1
+    while p < n:
+        p = p * 2
+    return p
+
+
+@export
+def physconst_init_codon(
+    count: int,
+    cpair: float,
+    rair: float,
+    mwdry: float,
+    cpairv: Ptr[float],
+    rairv: Ptr[float],
+    cappav: Ptr[float],
+    mbarv: Ptr[float],
+):
+    ratio = rair / cpair
+    for i in range(count):
+        cpairv[i] = cpair
+        rairv[i] = rair
+        cappav[i] = ratio
+        mbarv[i] = mwdry
+
+
+@export
+def lininterp_finish_codon(tag: int) -> int:
+    return tag

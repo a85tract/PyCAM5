@@ -571,6 +571,15 @@ contains
 
   subroutine lininterp_finish(interp_wgts)
     type(interp_type) :: interp_wgts
+    interface
+       function lininterp_finish_codon(tag) result(tag_out) &
+            bind(c, name='lininterp_finish_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function lininterp_finish_codon
+    end interface
+    logical, save :: lininterp_finish_codon_logged = .false.
 
     deallocate(interp_wgts%jjm, &
          interp_wgts%jjp, &
@@ -581,6 +590,13 @@ contains
          interp_wgts%jjp, &
          interp_wgts%wgts, &
          interp_wgts%wgtn)
+    if (lininterp_finish_codon(1237_c_int64_t) /= 1237_c_int64_t) then
+       call endrun('lininterp_finish_codon tag roundtrip failed')
+    end if
+    if (.not. lininterp_finish_codon_logged) then
+       write(iulog,*) 'lininterp_finish implementation = codon'
+       lininterp_finish_codon_logged = .true.
+    end if
   end subroutine lininterp_finish
 
   subroutine lininterp_original (arrin, yin, nlev, nlatin, arrout, &

@@ -3,6 +3,7 @@ module physconst
    ! Physical constants.  Use CCSM shared values whenever available.
 
    use shr_kind_mod,  only: r8 => shr_kind_r8
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
    use shr_const_mod, only: shr_const_g,      shr_const_stebol, shr_const_tkfrz,  &
                             shr_const_mwdair, shr_const_rdair,  shr_const_mwwv,   &
                             shr_const_latice, shr_const_latvap, shr_const_cpdair, &
@@ -102,10 +103,21 @@ contains
   subroutine physconst_init()
 
     use cam_abortutils,   only: endrun
+    use cam_logfile,      only: iulog
 
     implicit none
     
     integer :: ierr
+    interface
+       subroutine physconst_init_codon(count, cpair_in, rair_in, mwdry_in, &
+            cpairv_p, rairv_p, cappav_p, mbarv_p) bind(c, name='physconst_init_codon')
+         import :: c_int64_t, c_ptr, r8
+         integer(c_int64_t), value :: count
+         real(r8), value :: cpair_in, rair_in, mwdry_in
+         type(c_ptr), value :: cpairv_p, rairv_p, cappav_p, mbarv_p
+       end subroutine physconst_init_codon
+    end interface
+    logical, save :: physconst_init_codon_logged = .false.
 
 !-------------------------------------------------------------------------------
 !  Allocate constituent dependent properties 
@@ -122,10 +134,14 @@ contains
 !-------------------------------------------------------------------------------
 !  Initialize constituent dependent properties 
 !-------------------------------------------------------------------------------    
-    cpairv(:pcols,:pver,begchunk:endchunk) = cpair
-    rairv(:pcols,:pver,begchunk:endchunk) = rair
-    cappav(:pcols,:pver,begchunk:endchunk) = rair/cpair
-    mbarv(:pcols,:pver,begchunk:endchunk) = mwdry
+    call physconst_init_codon(int(pcols*pver*(endchunk-begchunk+1), c_int64_t), &
+         cpair, rair, mwdry, c_loc(cpairv(1,1,begchunk)), &
+         c_loc(rairv(1,1,begchunk)), c_loc(cappav(1,1,begchunk)), &
+         c_loc(mbarv(1,1,begchunk)))
+    if (.not. physconst_init_codon_logged) then
+       write(iulog,*) 'physconst_init implementation = codon'
+       physconst_init_codon_logged = .true.
+    end if
 
     return
 

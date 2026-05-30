@@ -320,14 +320,26 @@ function diagonal_operator(diag) result(op)
   real(r8), USE_CONTIGUOUS intent(in) :: diag(:,:)
 
   type(TriDiagOp) :: op
+  interface
+     subroutine diagonal_operator_codon(spr, sub, diag_out, left_bound, &
+          right_bound, in_diag, nsys, ncel) bind(c, name='diagonal_operator_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: spr(*), sub(*), diag_out(*)
+       real(r8), intent(inout) :: left_bound(*), right_bound(*)
+       real(r8), intent(in) :: in_diag(*)
+       integer(c_int64_t), value :: nsys, ncel
+     end subroutine diagonal_operator_codon
+  end interface
+  logical, save :: diagonal_operator_codon_logged = .false.
 
   op = TriDiagOp(size(diag, 1), size(diag, 2))
 
-  op%spr = 0._r8
-  op%sub = 0._r8
-  op%diag = diag
-  op%left_bound = 0._r8
-  op%right_bound = 0._r8
+  call diagonal_operator_codon(op%spr, op%sub, op%diag, op%left_bound, &
+       op%right_bound, diag, int(op%nsys, c_int64_t), int(op%ncel, c_int64_t))
+  if (.not. diagonal_operator_codon_logged) then
+     write(iulog,*) 'diagonal_operator implementation = codon'
+     diagonal_operator_codon_logged = .true.
+  end if
 
 end function diagonal_operator
 
@@ -807,9 +819,23 @@ end function new_TriDiagOp
 ! Deallocator for TriDiagOp.
 subroutine tridiag_finalize(self)
   class(TriDiagOp), intent(inout) :: self
+  integer(c_int64_t) :: dims(2)
+  interface
+     subroutine finalize_dims_codon(dims_p) bind(c, name='finalize_dims_codon')
+       import :: c_int64_t
+       integer(c_int64_t), intent(inout) :: dims_p(*)
+     end subroutine finalize_dims_codon
+  end interface
+  logical, save :: tridiag_finalize_codon_logged = .false.
 
-  self%nsys = 0
-  self%ncel = 0
+  dims = [int(self%nsys, c_int64_t), int(self%ncel, c_int64_t)]
+  call finalize_dims_codon(dims)
+  self%nsys = int(dims(1))
+  self%ncel = int(dims(2))
+  if (.not. tridiag_finalize_codon_logged) then
+     write(iulog,*) 'tridiag_finalize implementation = codon'
+     tridiag_finalize_codon_logged = .true.
+  end if
 
   if (allocated(self%spr)) deallocate(self%spr)
   if (allocated(self%sub)) deallocate(self%sub)
@@ -974,14 +1000,28 @@ end function apply_tridiag
 subroutine make_tridiag_deriv_diag(self)
 
   class(TriDiagOp), intent(inout) :: self
+  interface
+     subroutine make_tridiag_deriv_diag_codon(spr, sub, diag, &
+          left_bound, right_bound, nsys, ncel) &
+          bind(c, name='make_tridiag_deriv_diag_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(in) :: spr(*), sub(*), left_bound(*), right_bound(*)
+       real(r8), intent(inout) :: diag(*)
+       integer(c_int64_t), value :: nsys, ncel
+     end subroutine make_tridiag_deriv_diag_codon
+  end interface
+  logical, save :: make_tridiag_deriv_diag_codon_logged = .false.
 
   ! If a derivative operator operates on a constant function, it must
   ! return 0 everywhere. To force this, make sure that all rows add to
   ! zero in the matrix.
-  self%diag(:,:self%ncel-1) = - self%spr
-  self%diag(:,self%ncel) = - self%right_bound
-  self%diag(:,1) = self%diag(:,1) - self%left_bound
-  self%diag(:,2:) = self%diag(:,2:) - self%sub
+  call make_tridiag_deriv_diag_codon(self%spr, self%sub, self%diag, &
+       self%left_bound, self%right_bound, int(self%nsys, c_int64_t), &
+       int(self%ncel, c_int64_t))
+  if (.not. make_tridiag_deriv_diag_codon_logged) then
+     write(iulog,*) 'make_tridiag_deriv_diag implementation = codon'
+     make_tridiag_deriv_diag_codon_logged = .true.
+  end if
 
 end subroutine make_tridiag_deriv_diag
 
@@ -1002,13 +1042,29 @@ subroutine add_in_place_tridiag_ops(self, other)
 
   class(TriDiagOp), intent(inout) :: self
   class(TriDiagOp), intent(in) :: other
+  interface
+     subroutine add_in_place_tridiag_ops_codon(spr, sub, diag, &
+          left_bound, right_bound, other_spr, other_sub, &
+          other_diag, other_left_bound, other_right_bound, nsys, ncel) &
+          bind(c, name='add_in_place_tridiag_ops_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: spr(*), sub(*), diag(*)
+       real(r8), intent(inout) :: left_bound(*), right_bound(*)
+       real(r8), intent(in) :: other_spr(*), other_sub(*), other_diag(*)
+       real(r8), intent(in) :: other_left_bound(*), other_right_bound(*)
+       integer(c_int64_t), value :: nsys, ncel
+     end subroutine add_in_place_tridiag_ops_codon
+  end interface
+  logical, save :: add_in_place_tridiag_ops_codon_logged = .false.
 
-  self%spr = self%spr + other%spr
-  self%sub = self%sub + other%sub
-  self%diag = self%diag + other%diag
-
-  self%left_bound = self%left_bound + other%left_bound
-  self%right_bound = self%right_bound + other%right_bound
+  call add_in_place_tridiag_ops_codon(self%spr, self%sub, self%diag, &
+       self%left_bound, self%right_bound, other%spr, other%sub, &
+       other%diag, other%left_bound, other%right_bound, &
+       int(self%nsys, c_int64_t), int(self%ncel, c_int64_t))
+  if (.not. add_in_place_tridiag_ops_codon_logged) then
+     write(iulog,*) 'add_in_place_tridiag_ops implementation = codon'
+     add_in_place_tridiag_ops_codon_logged = .true.
+  end if
 
 end subroutine add_in_place_tridiag_ops
 
@@ -1080,13 +1136,24 @@ subroutine scalar_lmult_tridiag(self, constant)
 
   class(TriDiagOp), intent(inout) :: self
   real(r8), intent(in) :: constant
+  interface
+     subroutine scalar_lmult_tridiag_codon(spr, sub, diag, left_bound, &
+          right_bound, nsys, ncel, constant) bind(c, name='scalar_lmult_tridiag_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: spr(*), sub(*), diag(*), left_bound(*), right_bound(*)
+       integer(c_int64_t), value :: nsys, ncel
+       real(r8), value :: constant
+     end subroutine scalar_lmult_tridiag_codon
+  end interface
+  logical, save :: scalar_lmult_tridiag_codon_logged = .false.
 
-  self%spr = self%spr * constant
-  self%sub = self%sub * constant
-  self%diag = self%diag * constant
-
-  self%left_bound = self%left_bound * constant
-  self%right_bound = self%right_bound * constant
+  call scalar_lmult_tridiag_codon(self%spr, self%sub, self%diag, &
+       self%left_bound, self%right_bound, &
+       int(self%nsys, c_int64_t), int(self%ncel, c_int64_t), constant)
+  if (.not. scalar_lmult_tridiag_codon_logged) then
+     write(iulog,*) 'scalar_lmult_tridiag implementation = codon'
+     scalar_lmult_tridiag_codon_logged = .true.
+  end if
 
 end subroutine scalar_lmult_tridiag
 
@@ -1227,9 +1294,23 @@ end subroutine decomp_left_div
 ! Decomposition deallocation.
 subroutine decomp_finalize(decomp)
   class(TriDiagDecomp), intent(inout) :: decomp
+  integer(c_int64_t) :: dims(2)
+  interface
+     subroutine finalize_dims_codon(dims_p) bind(c, name='finalize_dims_codon')
+       import :: c_int64_t
+       integer(c_int64_t), intent(inout) :: dims_p(*)
+     end subroutine finalize_dims_codon
+  end interface
+  logical, save :: decomp_finalize_codon_logged = .false.
 
-  decomp%nsys = 0
-  decomp%ncel = 0
+  dims = [int(decomp%nsys, c_int64_t), int(decomp%ncel, c_int64_t)]
+  call finalize_dims_codon(dims)
+  decomp%nsys = int(dims(1))
+  decomp%ncel = int(dims(2))
+  if (.not. decomp_finalize_codon_logged) then
+     write(iulog,*) 'decomp_finalize implementation = codon'
+     decomp_finalize_codon_logged = .true.
+  end if
 
   if (allocated(decomp%ca)) deallocate(decomp%ca)
   if (allocated(decomp%dnom)) deallocate(decomp%dnom)

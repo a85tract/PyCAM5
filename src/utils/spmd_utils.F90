@@ -176,11 +176,20 @@ contains
 
   integer function ceil2(n)
      integer n,p
-     p=1
-     do while(p.lt.n)
-        p=p*2
-     enddo
-     ceil2=p
+     interface
+        function ceil2_codon(n) result(p) bind(c, name='ceil2_codon')
+          import :: c_int64_t
+          integer(c_int64_t), value :: n
+          integer(c_int64_t) :: p
+        end function ceil2_codon
+     end interface
+     logical, save :: ceil2_codon_logged = .false.
+     p = int(ceil2_codon(int(n, c_int64_t)))
+     ceil2 = p
+     if (.not. ceil2_codon_logged) then
+        write(iulog,*) 'ceil2 implementation = codon'
+        ceil2_codon_logged = .true.
+     endif
      return
   end function ceil2
 

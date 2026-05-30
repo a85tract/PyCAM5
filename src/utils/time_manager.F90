@@ -269,15 +269,32 @@ function TimeSetymd( ymd, tod, desc )
    character(len=*), parameter :: sub = 'TimeSetymd'
    integer :: yr, mon, day          ! Year, month, day as integers
    integer :: rc                    ! return code
+   integer(c_int64_t) :: ymd_parts(3)
+   interface
+      function timesetymd_codon(ymd, tod, out_parts) result(ok) &
+           bind(c, name='timesetymd_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: ymd
+        integer(c_int64_t), value :: tod
+        integer(c_int64_t), intent(out) :: out_parts(*)
+        integer(c_int64_t) :: ok
+      end function timesetymd_codon
+   end interface
+   logical, save :: timesetymd_codon_logged = .false.
 
-   if ( (ymd < 0) .or. (tod < 0) .or. (tod > 24*3600) )then
+   if (timesetymd_codon(int(ymd, c_int64_t), int(tod, c_int64_t), &
+        ymd_parts) == 0_c_int64_t) then
       write(iulog,*) sub//': error yymmdd is a negative number or time-of-day out of bounds', &
                  ymd, tod
       call endrun
    end if
-   yr  = ymd / 10000
-   mon = (ymd - yr*10000) / 100
-   day =  ymd - yr*10000 - mon*100
+   if (.not. timesetymd_codon_logged) then
+      write(iulog,*) 'timesetymd implementation = codon'
+      timesetymd_codon_logged = .true.
+   end if
+   yr  = int(ymd_parts(1))
+   mon = int(ymd_parts(2))
+   day = int(ymd_parts(3))
    call ESMF_TimeSet( TimeSetymd, yy=yr, mm=mon, dd=day, s=tod, &
                       calendar=tm_cal, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_TimeSet: setting '//trim(desc))
@@ -583,15 +600,34 @@ subroutine init_calendar( )
    type(ESMF_CalKind_Flag) :: cal_type        ! calendar type
    character(len=len(calendar)) :: caltmp
    integer :: rc                              ! return code
+   integer(c_int64_t) :: cal_code
+   interface
+      function init_calendar_codon(cal_code_in) result(cal_code_out) &
+           bind(c, name='init_calendar_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: cal_code_in
+        integer(c_int64_t) :: cal_code_out
+      end function init_calendar_codon
+   end interface
+   logical, save :: init_calendar_codon_logged = .false.
 
    caltmp = to_upper(trim(calendar) )
    if ( trim(caltmp) == trim(shr_cal_noleap) ) then
-      cal_type = ESMF_CALKIND_NOLEAP
+      cal_code = init_calendar_codon(1_c_int64_t)
    else if ( trim(caltmp) == trim(shr_cal_gregorian) ) then
-      cal_type = ESMF_CALKIND_GREGORIAN
+      cal_code = init_calendar_codon(2_c_int64_t)
    else
       write(iulog,*)sub,': unrecognized calendar specified: ',calendar
       call endrun
+   end if
+   if (.not. init_calendar_codon_logged) then
+      write(iulog,*) 'init_calendar implementation = codon'
+      init_calendar_codon_logged = .true.
+   end if
+   if (cal_code == 1_c_int64_t) then
+      cal_type = ESMF_CALKIND_NOLEAP
+   else
+      cal_type = ESMF_CALKIND_GREGORIAN
    end if
    tm_cal = ESMF_CalendarCreate( name=caltmp, calkindflag=cal_type, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_CalendarSet')
@@ -726,12 +762,27 @@ integer function get_step_size()
    character(len=*), parameter :: sub = 'get_step_size'
    type(ESMF_TimeInterval) :: step_size       ! timestep size
    integer :: rc
+   integer :: step_seconds
+   interface
+      function get_step_size_codon(step_seconds) result(step_seconds_out) &
+           bind(c, name='get_step_size_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: step_seconds
+        integer(c_int64_t) :: step_seconds_out
+      end function get_step_size_codon
+   end interface
+   logical, save :: get_step_size_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet(tm_clock, timeStep=step_size, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
-   call ESMF_TimeIntervalGet(step_size, s=get_step_size, rc=rc)
+   call ESMF_TimeIntervalGet(step_size, s=step_seconds, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_ClockTimeIntervalGet')
+   get_step_size = int(get_step_size_codon(int(step_seconds, c_int64_t)))
+   if (.not. get_step_size_codon_logged) then
+      write(iulog,*) 'get_step_size implementation = codon'
+      get_step_size_codon_logged = .true.
+   end if
 
 end function get_step_size
 !=========================================================================================
@@ -744,11 +795,24 @@ integer function get_nstep()
    character(len=*), parameter :: sub = 'get_nstep'
    integer :: rc
    integer(ESMF_KIND_I8) :: step_no
+   interface
+      function get_nstep_codon(step_no) result(step_no_out) &
+           bind(c, name='get_nstep_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: step_no
+        integer(c_int64_t) :: step_no_out
+      end function get_nstep_codon
+   end interface
+   logical, save :: get_nstep_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet(tm_clock, advanceCount=step_no, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
-   get_nstep = step_no
+   get_nstep = int(get_nstep_codon(int(step_no, c_int64_t)))
+   if (.not. get_nstep_codon_logged) then
+      write(iulog,*) 'get_nstep implementation = codon'
+      get_nstep_codon_logged = .true.
+   end if
 
 end function get_nstep
 !=========================================================================================
@@ -919,6 +983,19 @@ subroutine get_ref_date(yr, mon, day, tod)
    character(len=*), parameter :: sub = 'get_ref_date'
    integer :: rc
    type(ESMF_Time) :: date
+   integer(c_int64_t) :: date_parts(4)
+   interface
+      subroutine get_ref_date_codon(yr_in, mon_in, day_in, tod_in, out_parts) &
+           bind(c, name='get_ref_date_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: yr_in
+        integer(c_int64_t), value :: mon_in
+        integer(c_int64_t), value :: day_in
+        integer(c_int64_t), value :: tod_in
+        integer(c_int64_t), intent(out) :: out_parts(*)
+      end subroutine get_ref_date_codon
+   end interface
+   logical, save :: get_ref_date_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet(tm_clock, refTime=date, rc=rc)
@@ -926,6 +1003,16 @@ subroutine get_ref_date(yr, mon, day, tod)
 
    call ESMF_TimeGet(date, yy=yr, mm=mon, dd=day, s=tod, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_TimeGet')
+   call get_ref_date_codon(int(yr, c_int64_t), int(mon, c_int64_t), &
+        int(day, c_int64_t), int(tod, c_int64_t), date_parts)
+   yr = int(date_parts(1))
+   mon = int(date_parts(2))
+   day = int(date_parts(3))
+   tod = int(date_parts(4))
+   if (.not. get_ref_date_codon_logged) then
+      write(iulog,*) 'get_ref_date implementation = codon'
+      get_ref_date_codon_logged = .true.
+   end if
 
 end subroutine get_ref_date
 !=========================================================================================
@@ -1093,6 +1180,17 @@ function get_calday(ymd, tod)
    character(len=*), parameter :: sub = 'get_calday'
    integer :: rc                 ! return code
    type(ESMF_Time) :: date
+   logical :: is_gregorian
+   interface
+      function get_calday_codon(day_of_year, is_gregorian) result(day_out) &
+           bind(c, name='get_calday_codon')
+        import :: c_int64_t, r8
+        real(r8), value :: day_of_year
+        integer(c_int64_t), value :: is_gregorian
+        real(r8) :: day_out
+      end function get_calday_codon
+   end interface
+   logical, save :: get_calday_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    date = TimeSetymd( ymd, tod, "get_calday" )
@@ -1108,9 +1206,12 @@ function get_calday(ymd, tod)
 ! This is done by decrementing calday by 1 immediately below.
 ! bundy, July 2008
 !
-   if (( get_calday > 366.0_r8 ) .and. ( get_calday <= 367.0_r8 ) &
-        .and. (timemgr_is_caltype(trim(shr_cal_gregorian)))) then
-      get_calday = get_calday - 1.0_r8
+   is_gregorian = timemgr_is_caltype(trim(shr_cal_gregorian))
+   get_calday = get_calday_codon(get_calday, &
+        merge(1_c_int64_t, 0_c_int64_t, is_gregorian))
+   if (.not. get_calday_codon_logged) then
+      write(iulog,*) 'get_calday implementation = codon'
+      get_calday_codon_logged = .true.
    endif
 
    if ( (get_calday < 1.0_r8) .or. (get_calday > 366.0_r8) )then
@@ -1227,12 +1328,25 @@ logical function is_first_step()
    integer :: rc
    integer :: nstep
    integer(ESMF_KIND_I8) :: step_no
+   interface
+      function is_first_step_codon(step_no) result(is_first) &
+           bind(c, name='is_first_step_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: step_no
+        integer(c_int64_t) :: is_first
+      end function is_first_step_codon
+   end interface
+   logical, save :: is_first_step_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet( tm_clock, advanceCount=step_no, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
    nstep = step_no
-   is_first_step = (nstep == 0)
+   is_first_step = (is_first_step_codon(int(nstep, c_int64_t)) /= 0_c_int64_t)
+   if (.not. is_first_step_codon_logged) then
+      write(iulog,*) 'is_first_step implementation = codon'
+      is_first_step_codon_logged = .true.
+   end if
 
 end function is_first_step
 !=========================================================================================
@@ -1302,13 +1416,28 @@ subroutine timemgr_init_restart(File)
 
   type(File_desc_t) :: File
   integer :: i, ret, dims(1)
+  interface
+     function timemgr_init_restart_codon(varcnt_in) result(varcnt_out) &
+          bind(c, name='timemgr_init_restart_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: varcnt_in
+       integer(c_int64_t) :: varcnt_out
+     end function timemgr_init_restart_codon
+  end interface
+  integer :: varcnt_local
+  logical, save :: timemgr_init_restart_codon_logged = .false.
 
   call timevars_set_names()
   rst_calendar  = trim(calendar)
+  varcnt_local = int(timemgr_init_restart_codon(int(varcnt, c_int64_t)))
+  if (.not. timemgr_init_restart_codon_logged) then
+     write(iulog,*) 'timemgr_init_restart implementation = codon'
+     timemgr_init_restart_codon_logged = .true.
+  end if
 
   ret = PIO_DEF_dim(File, 'cal_strlen', 32, dims(1))
   ret = PIO_def_var(File, timevars(1)%name, PIO_CHAR,dims(1:1),timevars(1)%vardesc)
-  do i=2,varcnt
+  do i=2,varcnt_local
      ret = PIO_def_var(File, timevars(i)%name, PIO_INT, dims(1:0), timevars(i)%vardesc)
   end do
 
