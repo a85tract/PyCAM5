@@ -1,8 +1,8 @@
 module cam_initfiles
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Open, close, and provide access to the initial conditions and topography files.
-! 
+!
 !-----------------------------------------------------------------------
 
 use pio,          only: file_desc_t
@@ -26,23 +26,17 @@ type(file_desc_t), pointer :: fh_ini, fh_topo
 logical :: initial_file_get_id_logged = .false.
 logical :: topo_file_get_id_logged = .false.
 
-!======================================================================= 
+!=======================================================================
+#include "cam_control_codon_interfaces.inc"
+
 contains
-!======================================================================= 
+!=======================================================================
 
 function initial_file_get_id()
   type(file_desc_t), pointer :: initial_file_get_id
   character(len=32) :: impl_name
   integer :: n, status
   integer(c_int64_t) :: tag_out
-
-  interface
-    function cam_initfile_getter_touch_codon(tag) result(tag_result) bind(c, name="cam_initfile_getter_touch_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: tag
-      integer(c_int64_t) :: tag_result
-    end function cam_initfile_getter_touch_codon
-  end interface
 
   impl_name = 'codon'
   call get_environment_variable('CAM_INITFILE_GETTERS_IMPL', value=impl_name, length=n, status=status)
@@ -62,14 +56,6 @@ function topo_file_get_id()
   character(len=32) :: impl_name
   integer :: n, status
   integer(c_int64_t) :: tag_out
-
-  interface
-    function cam_initfile_getter_touch_codon(tag) result(tag_result) bind(c, name="cam_initfile_getter_touch_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: tag
-      integer(c_int64_t) :: tag_result
-    end function cam_initfile_getter_touch_codon
-  end interface
 
   impl_name = 'codon'
   call get_environment_variable('CAM_INITFILE_GETTERS_IMPL', value=impl_name, length=n, status=status)
@@ -93,7 +79,7 @@ subroutine cam_initfiles_misc_touch()
 #undef CAM_MISC_TAG
 end subroutine cam_initfiles_misc_touch
 
-!======================================================================= 
+!=======================================================================
 
 subroutine cam_initfiles_open()
 
@@ -109,8 +95,15 @@ subroutine cam_initfiles_open()
 
    character(len=256) :: ncdata_loc     ! filepath of initial file on local disk
    character(len=256) :: bnd_topo_loc   ! filepath of topo file on local disk
-   !----------------------------------------------------------------------- 
-   
+   !-----------------------------------------------------------------------
+#define CAM_CONTROL_PROOF_TAG 4507
+#define CAM_CONTROL_PROOF_LABEL 'cam_initfiles_open'
+#include "cam_control_codon_proof.inc"
+      cam_control_tag_out = cam_initfiles_open_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
    ! Open initial, topography, and landfrac datasets
    call getfil (ncdata, ncdata_loc)
 
@@ -131,18 +124,25 @@ subroutine cam_initfiles_open()
 
 end subroutine cam_initfiles_open
 
-!======================================================================= 
+!=======================================================================
 
 subroutine cam_initfiles_close()
 
   use pio,          only: pio_closefile
+#define CAM_CONTROL_PROOF_TAG 4506
+#define CAM_CONTROL_PROOF_LABEL 'cam_initfiles_close'
+#include "cam_control_codon_proof.inc"
+     cam_control_tag_out = cam_initfiles_close_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
   if(associated(fh_ini)) then
      if(.not. associated(fh_ini, target=fh_topo)) then
         call pio_closefile(fh_topo)
         deallocate(fh_topo)
      end if
-     
+
      call pio_closefile(fh_ini)
      deallocate(fh_ini)
      nullify(fh_ini)
@@ -150,6 +150,6 @@ subroutine cam_initfiles_close()
   end if
 end subroutine cam_initfiles_close
 
-!======================================================================= 
+!=======================================================================
 
 end module cam_initfiles

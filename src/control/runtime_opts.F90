@@ -1,10 +1,10 @@
 module runtime_opts
 
-!----------------------------------------------------------------------- 
-! 
-! Purpose: This module is responsible for reading CAM namelist cam_inparm 
-!          and broadcasting namelist values if needed.  
-! 
+!-----------------------------------------------------------------------
+!
+! Purpose: This module is responsible for reading CAM namelist cam_inparm
+!          and broadcasting namelist values if needed.
+!
 ! Author:
 !   Original routines:  CMS
 !   Module:             T. Henderson, September 2003
@@ -23,6 +23,7 @@ use cam_history
 use cam_control_mod
 use cam_diagnostics, only: inithist_all
 use cam_logfile,     only: iulog
+use iso_c_binding,   only: c_int64_t
 use pspect
 use units
 use constituents,    only: pcnst, readtrace
@@ -63,28 +64,28 @@ character(len=SHR_KIND_CL), private :: nlfilename = 'atm_in' ! Namelist filename
 ! --------             -----------------
 !
 ! bnd_topo             Path and filename of topography dataset
-! 
+!
 ! absems_data          Dataset with absorption and emissivity factors.
 !
 ! dtime = nnnn,        Model time step in seconds. Default is dycore dependent.
-! 
+!
 ! fincl1 = 'field1', 'field2',...
 !                      List of fields to add to the primary history file.
 ! fincl1lonlat = 'longitude by latitude','longitude by latitude',...
-!                      List of columns ('longitude_latitude') or contiguous 
-!                      columns ('longitude:longitude_latitude:latitude') at 
-!                      which the fincl1 fields will be output. Individual 
+!                      List of columns ('longitude_latitude') or contiguous
+!                      columns ('longitude:longitude_latitude:latitude') at
+!                      which the fincl1 fields will be output. Individual
 !                      columns are specified as a string using a longitude
-!                      degree (greater or equal to 0.) followed by a single 
+!                      degree (greater or equal to 0.) followed by a single
 !                      character (e)ast/(w)est identifer, an
-!                      underscore '_' , and a latitude degree followed by a 
+!                      underscore '_' , and a latitude degree followed by a
 !                      single character (n)orth/(s)outh identifier.
 !                      example '10e_20n' would pick the model column closest
-!                      to 10 degrees east longitude by 20 degrees north 
-!                      latitude.  A group of contiguous columns can be 
+!                      to 10 degrees east longitude by 20 degrees north
+!                      latitude.  A group of contiguous columns can be
 !                      specified by using lon lat ranges with their single
 !                      character east/west or north/south identifiers
-!                      example '10e:20e_15n:20n'.  Would outfield all 
+!                      example '10e:20e_15n:20n'.  Would outfield all
 !                      fincl1 fields at the model columns which fall
 !                      with in the longitude range from 10 east to 20 east
 !                      and the latitude range from 15 north to 20 north
@@ -93,33 +94,33 @@ character(len=SHR_KIND_CL), private :: nlfilename = 'atm_in' ! Namelist filename
 !                      List of fields to add to the auxiliary history file.
 !
 ! fincl2..6]lonlat = 'longitude by latitude','longitude by latitude',...
-!                      List of columns ('longitude_latitude') or contiguous 
-!                      columns ('longitude:longitude_latitude:latitude') at 
-!                      which the fincl[2..6] fields will be output. Individual 
+!                      List of columns ('longitude_latitude') or contiguous
+!                      columns ('longitude:longitude_latitude:latitude') at
+!                      which the fincl[2..6] fields will be output. Individual
 !                      columns are specified as a string using a longitude
-!                      degree (greater or equal to 0.) followed by a single 
+!                      degree (greater or equal to 0.) followed by a single
 !                      character (e)ast/(w)est identifer, an
-!                      underscore '_' , and a latitude degree followed by a 
+!                      underscore '_' , and a latitude degree followed by a
 !                      singel character (n)orth/(s)outh identifier.
 !                      example '10e_20n' would pick the model column closest
-!                      to 10 degrees east longitude by 20 degrees north 
-!                      latitude.  A group of contiguous columns can be 
+!                      to 10 degrees east longitude by 20 degrees north
+!                      latitude.  A group of contiguous columns can be
 !                      specified by using lon lat ranges with their single
 !                      character east/west or north/south identifiers
-!                      example '10e:20e_15n:20n'.  Would outfield all 
+!                      example '10e:20e_15n:20n'.  Would outfield all
 !                      fincl[2..6] fields at the model columns which fall
 !                      with in the longitude range from 10 east to 20 east
 !                      and the latitude range from 15 north to 20 north
 !
-! fexcl1 = 'field1','field2',... 
+! fexcl1 = 'field1','field2',...
 !                      List of field names to exclude from default
-!                      primary history file (default fields on the 
+!                      primary history file (default fields on the
 !                      Master Field List).
-! 
-! fexcl[2..6] = 'field1','field2',... 
+!
+! fexcl[2..6] = 'field1','field2',...
 !                      List of field names to exclude from
 !                      auxiliary history files.
-! 
+!
 ! lcltod_start = nn,nn,nn,...
 !                      Array containing the starting time of day for local time history
 !                      averaging. Used in conjuction with lcltod_stop. If lcltod_stop
@@ -128,7 +129,7 @@ character(len=SHR_KIND_CL), private :: nlfilename = 'atm_in' ! Namelist filename
 !                      in seconds and defaults to 39600 (11:00 AM).
 !                      The first value applies to the primary hist. file,
 !                      the second to the first aux. hist. file, etc.
-! 
+!
 ! lcltod_stop = nn,nn,nn,...
 !                      Array containing the stopping time of day for local time history
 !                      averaging. Used in conjuction with lcltod_start. If lcltod_stop
@@ -137,7 +138,7 @@ character(len=SHR_KIND_CL), private :: nlfilename = 'atm_in' ! Namelist filename
 !                      in seconds and defaults to 0 (midnight).
 !                      The first value applies to the primary hist. file,
 !                      the second to the first aux. hist. file, etc.
-! 
+!
 ! lcltod_start = nn,nn,nn,...
 !                      Array containing the starting time of day for local time history
 !                      averaging. Used in conjuction with lcltod_stop. If lcltod_stop
@@ -146,7 +147,7 @@ character(len=SHR_KIND_CL), private :: nlfilename = 'atm_in' ! Namelist filename
 !                      in seconds and defaults to 39600 (11:00 AM).
 !                      The first value applies to the primary hist. file,
 !                      the second to the first aux. hist. file, etc.
-! 
+!
 ! lcltod_stop = nn,nn,nn,...
 !                      Array containing the stopping time of day for local time history
 !                      averaging. Used in conjuction with lcltod_start. If lcltod_stop
@@ -155,29 +156,29 @@ character(len=SHR_KIND_CL), private :: nlfilename = 'atm_in' ! Namelist filename
 !                      in seconds and defaults to 0 (midnight).
 !                      The first value applies to the primary hist. file,
 !                      the second to the first aux. hist. file, etc.
-! 
-! mfilt = nn,nn,nn     Array containing the maximum number of time 
+!
+! mfilt = nn,nn,nn     Array containing the maximum number of time
 !                      samples per disk history file. Defaults to 5.
 !                      The first value applies to the primary hist. file,
 !                      the second to the first aux. hist. file, etc.
-! 
+!
 ! ncdata               Path and filename of initial condition dataset.
-! 
+!
 ! nhtfrq = nn,nn,nn,.. Output history frequency for each tape
 !
 !                      If = 0 : monthly average
 !                      If > 0 : output every nhtfrq time steps.
 !                      If < 0 : output every abs(nhtfrq) hours.
-! 
+!
 ! nlvdry = nn,         Number of layers over which to do dry
 !                      adjustment. Defaults to 3.
-! 
+!
 ! cam_branch_file      Filepath of restart file to branch from (nsrest=3)
 !                      Full pathname required.
 character(len=256) :: cam_branch_file = ' '
 !
 ! use_64bit_nc         True if new 64-bit netCDF formit, false otherwise (default false)
-! 
+!
 
 !------------------------------------------------------------------
 ! The following 3 are specific to Rayleigh friction
@@ -190,34 +191,34 @@ character(len=256) :: cam_branch_file = ' '
 !
 ! hfilename_spec       Flexible filename specifier for history files
 !
-! 
+!
 ! pertlim = n.n        Max size of perturbation to apply to initial
 !                      temperature field.
 !
 ! phys_alltoall        Dynamics/physics transpose option. See phys_grid module.
 !
 integer :: phys_alltoall
-! 
-! phys_loadbalance     Load balance option for performance tuning of 
-!                      physics chunks.  See phys_grid module.  
+!
+! phys_loadbalance     Load balance option for performance tuning of
+!                      physics chunks.  See phys_grid module.
 integer :: phys_loadbalance
-! 
-! phys_twin_algorithm  Load balance option for performance tuning of 
-!                      physics chunks.  See phys_grid module.  
+!
+! phys_twin_algorithm  Load balance option for performance tuning of
+!                      physics chunks.  See phys_grid module.
 integer :: phys_twin_algorithm
-! 
-! phys_chnk_per_thd    Performance tuning option for physics chunks.  See 
-!                      phys_grid module.  
+!
+! phys_chnk_per_thd    Performance tuning option for physics chunks.  See
+!                      phys_grid module.
 integer :: phys_chnk_per_thd
-! 
+!
 ! tracers_flag = .F.    If true, implement tracer test code. Number of tracers determined
 !                      in tracers_suite.F90 must agree with PCNST
 !
-! readtrace = .T.      If true, tracer initial conditions obtained from 
-!                      initial file. 
+! readtrace = .T.      If true, tracer initial conditions obtained from
+!                      initial file.
 !
 ! inithist             Generate initial dataset as auxillary history file
-!                      can be set to '6-HOURLY', 'DAILY', 'MONTHLY', 'YEARLY' or 'NONE'. 
+!                      can be set to '6-HOURLY', 'DAILY', 'MONTHLY', 'YEARLY' or 'NONE'.
 !                      default: 'YEARLY'
 !
 ! empty_htapes         true => no fields by default on history tapes
@@ -228,7 +229,7 @@ integer :: phys_chnk_per_thd
 !                      that tape
 !
 !
-!   logical indirect     
+!   logical indirect
 !                    ! true => include indirect radiative effects of
 !                    ! sulfate aerosols.  Default is false.
 !
@@ -239,7 +240,7 @@ integer :: phys_chnk_per_thd
 ! met_data_file        name of file that contains the offline meteorology data
 ! met_data_path        name of directory that contains the offline meteorology data
 !
-! met_filenames_list   name of file that contains names of the offline 
+! met_filenames_list   name of file that contains names of the offline
 !                      meteorology data files
 !
 ! met_remove_file      true => the offline meteorology file will be removed
@@ -277,6 +278,8 @@ logical  :: scm_iop_srf_prop
 logical  :: scm_relaxation
 logical  :: scm_diurnal_avg
 logical  :: scm_crm_mode
+#include "cam_control_codon_interfaces.inc"
+
 
 contains
 
@@ -284,33 +287,33 @@ contains
 
   subroutine read_namelist(single_column_in, scmlon_in, scmlat_in, nlfilename_in )
 
-   !----------------------------------------------------------------------- 
-   ! 
-   ! Purpose: 
+   !-----------------------------------------------------------------------
+   !
+   ! Purpose:
    ! Read data from namelist cam_inparm to define the run. Process some of the
-   ! namelist variables to determine history and restart/branch file path 
+   ! namelist variables to determine history and restart/branch file path
    ! names.  Check input namelist variables for validity and print them
-   ! to standard output. 
-   ! 
-   ! Method: 
+   ! to standard output.
+   !
+   ! Method:
    ! Important Note for running on SUN systems: "implicit automatic (a-z)"
    ! will not work because namelist data must be static.
    !
-   ! Author: 
+   ! Author:
    ! Original version:  CCM1
    ! Standardized:      L. Bath, June 1992
    !                    T. Acker, March 1996
-   !     
+   !
    !-----------------------------------------------------------------------
 
-   ! Note that the following interfaces are prototypes proposed by Henderson 
-   ! and Eaton.  They minimize coupling with other modules.  Design of these 
-   ! interfaces should be refined via review by other CAM developers.  
-   ! Interface *_defaultopts() gets default values from the responsible 
-   ! module (Expert) prior to namelist read.  
-   ! Interface *_setopts() sends values to the responsible module (Expert) 
-   ! after namelist read.  Erroneous values are handled by Experts.  
-   ! TBH  9/8/03 
+   ! Note that the following interfaces are prototypes proposed by Henderson
+   ! and Eaton.  They minimize coupling with other modules.  Design of these
+   ! interfaces should be refined via review by other CAM developers.
+   ! Interface *_defaultopts() gets default values from the responsible
+   ! module (Expert) prior to namelist read.
+   ! Interface *_setopts() sends values to the responsible module (Expert)
+   ! after namelist read.  Erroneous values are handled by Experts.
+   ! TBH  9/8/03
    !
    use phys_grid,        only: phys_grid_defaultopts, phys_grid_setopts
 
@@ -379,7 +382,7 @@ contains
 
 !---------------------------Arguments-----------------------------------
 
-   logical , intent(in), optional :: single_column_in 
+   logical , intent(in), optional :: single_column_in
    real(r8), intent(in), optional :: scmlon_in
    real(r8), intent(in), optional :: scmlat_in
    character(len=*)    , optional :: nlfilename_in
@@ -389,7 +392,7 @@ contains
 
 !---------------------------Local variables-----------------------------
    character(len=*), parameter ::  subname = "read_namelist"
-! 
+!
    character ctemp*8      ! Temporary character strings
    integer ntspdy         ! number of timesteps per day
    integer t              ! history tape index
@@ -448,7 +451,7 @@ contains
 !
 ! Define the cam_inparm namelist
 ! ***NOTE*** If a namelist option is not described in the CAM Users Guide,
-!            it is not supported.  
+!            it is not supported.
 
   namelist /cam_inparm/ ncdata, bnd_topo, &
                     cam_branch_file  ,ndens   ,nhtfrq  , &
@@ -487,7 +490,7 @@ contains
   namelist /cam_inparm/ iopfile,scm_iop_srf_prop,scm_relaxation, &
                         scm_diurnal_avg,scm_crm_mode, scm_clubb_iop_name
 
-! 
+!
 !-----------------------------------------------------------------------
 #define CAM_MISC_TAG 202
 #define CAM_MISC_LABEL 'runtime_opts'
@@ -542,16 +545,16 @@ contains
    end if
 
    do f = 1, pflds
-      fincl1(f) = ' '         
-      fincl2(f) = ' '         
-      fincl3(f) = ' '         
-      fincl4(f) = ' '         
-      fincl5(f) = ' '         
-      fincl6(f) = ' '         
-      fincl7(f) = ' '         
-      fincl8(f) = ' '         
-      fincl9(f) = ' '         
-      fincl10(f) = ' '         
+      fincl1(f) = ' '
+      fincl2(f) = ' '
+      fincl3(f) = ' '
+      fincl4(f) = ' '
+      fincl5(f) = ' '
+      fincl6(f) = ' '
+      fincl7(f) = ' '
+      fincl8(f) = ' '
+      fincl9(f) = ' '
+      fincl10(f) = ' '
       fincl1lonlat(f) = ' '
       fincl2lonlat(f) = ' '
       fincl3lonlat(f) = ' '
@@ -629,7 +632,7 @@ contains
          fincl(f, 8) = fincl8(f)
          fincl(f, 9) = fincl9(f)
          fincl(f,10) = fincl10(f)
-         
+
          fincllonlat(f, 1) = fincl1lonlat(f)
          fincllonlat(f, 2) = fincl2lonlat(f)
          fincllonlat(f, 3) = fincl3lonlat(f)
@@ -683,17 +686,17 @@ contains
 !
 ! If generate an initial conditions history file as an auxillary tape:
 !
-   ctemp = shr_string_toUpper(inithist) 
+   ctemp = shr_string_toUpper(inithist)
    inithist = trim(ctemp)
    if (inithist /= '6-HOURLY' .and. inithist /= 'DAILY' .and. &
        inithist /= 'MONTHLY'  .and. inithist /= 'YEARLY' .and. &
        inithist /= 'CAMIOP'   .and. inithist /= 'ENDOFRUN') then
       inithist = 'NONE'
    endif
-! 
+!
 ! History file write up times
 ! Convert write freq. of hist files from hours to timesteps if necessary.
-! 
+!
    do t=1,ptapes
       if (nhtfrq(t) < 0) then
          nhtfrq(t) = nint((-nhtfrq(t)*3600._r8)/dtime)
@@ -715,7 +718,7 @@ contains
       end if
 !
 ! Only one time sample allowed per monthly average file
-! 
+!
       if (nhtfrq(t) == 0) mfilt(t) = 1
    end do
 
@@ -752,10 +755,10 @@ contains
       irad_always_in = irad_always, &
       spectralflux_in = spectralflux )
 
-! 
+!
 ! Set runtime options for single column mode
 !
-   if (present(single_column_in) .and. present(scmlon_in) .and. present(scmlat_in)) then 
+   if (present(single_column_in) .and. present(scmlon_in) .and. present(scmlat_in)) then
       if (single_column_in) then
          single_column = single_column_in
          scmlon = scmlon_in
@@ -836,9 +839,9 @@ contains
    call rate_diags_readnl(nlfilename)
 
 
-! 
+!
 ! Print cam_inparm input variables to standard output
-! 
+!
    if (masterproc) then
       write(iulog,*)' ------------------------------------------'
       write(iulog,*)'     *** INPUT VARIABLES (CAM_INPARM) ***'
@@ -863,7 +866,7 @@ contains
 
    end if
 !
-! History file info 
+! History file info
 !
    if (masterproc) then
       if (inithist == '6-HOURLY' ) then
@@ -928,15 +931,15 @@ end subroutine read_namelist
 #ifdef SPMD
 subroutine distnl
 !-----------------------------------------------------------------------
-!     
-! Purpose:     
+!
+! Purpose:
 ! Distribute namelist data to all processors.
 !
 ! The cpp SPMD definition provides for the funnelling of all program i/o
 ! through the master processor. Processor 0 either reads restart/history
 ! data from the disk and distributes it to all processors, or collects
 ! data from all processors and writes it to disk.
-!     
+!
 !---------------------------Code history-------------------------------
 !
 ! Original version:  CCM2
@@ -949,7 +952,7 @@ subroutine distnl
 
 !
 !-----------------------------------------------------------------------
-! 
+!
    call mpibcast (dtime,       1,mpiint,0,mpicom)
    call mpibcast (ndens   ,ptapes,mpiint,0,mpicom)
    call mpibcast (nhtfrq  ,ptapes,mpiint,0,mpicom)
@@ -1020,20 +1023,27 @@ end subroutine distnl
 
 
 subroutine preset
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Preset namelist CAM_INPARM input variables and initialize some other variables
-! 
+!
 ! Method: Hardwire the values
-! 
+!
 ! Author: CCM Core Group
-! 
+!
 !-----------------------------------------------------------------------
    use cam_history,  only: fincl, fexcl, fwrtpr, fincllonlat, collect_column_output
    use rgrid
 !-----------------------------------------------------------------------
    include 'netcdf.inc'
 !-----------------------------------------------------------------------
+#define CAM_CONTROL_PROOF_TAG 4505
+#define CAM_CONTROL_PROOF_LABEL 'preset'
+#include "cam_control_codon_proof.inc"
+      cam_control_tag_out = preset_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 !
 ! Preset character history variables here because module initialization of character arrays
 ! does not work on all machines

@@ -68,6 +68,8 @@ module cam_restart
 !-----------------------------------------------------------------------
 
 !=========================================================================================
+#include "cam_control_codon_interfaces.inc"
+
 CONTAINS
 !=========================================================================================
 
@@ -107,6 +109,13 @@ subroutine restart_setopts( nsrest, cam_branch_file_in )
   integer :: numset=0
   integer :: rcode
   !-----------------------------------------------------------------------
+#define CAM_CONTROL_PROOF_TAG 4508
+#define CAM_CONTROL_PROOF_LABEL 'restart_setopts'
+#include "cam_control_codon_proof.inc"
+     cam_control_tag_out = restart_setopts_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
   ! Set pointer file name based on instance suffix
   rest_pfile = trim(rest_pfile) // trim(inst_suffix)

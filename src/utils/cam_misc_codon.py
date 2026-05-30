@@ -31,6 +31,106 @@ def cam_initfile_getter_touch_codon(tag: int) -> int:
 
 
 @export
+def getname_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def sec2hms_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_hist_coord_att_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def read_initial_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def preset_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def cam_initfiles_close_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def cam_initfiles_open_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def restart_setopts_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_inithist_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def lookup_hist_coord_indices_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def check_var_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def scam_default_opts_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def formula_terms_copy_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_masterlist_indx_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def bld_htapefld_indices_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def inifld_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def setup_interpolation_and_define_vector_compliments_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def add_hist_coord_regonly_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def add_default_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def init_restart_history_codon(tag: int) -> int:
+    return tag
+
+
+@export
 def sat_hist_init_noop_codon(has_sat_hist: int) -> int:
     return 1 if has_sat_hist == 0 else 0
 

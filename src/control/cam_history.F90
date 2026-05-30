@@ -1,6 +1,6 @@
 module cam_history
 !-------------------------------------------------------------------------------------------
-! 
+!
 ! The cam_history module provides the user interface for CAM's history output capabilities.
 ! It maintains the lists of fields that are written to each history file, and the associated
 ! metadata for those fields such as descriptive names, physical units, time axis properties,
@@ -49,7 +49,7 @@ module cam_history
 
    use scamMod,             only: scmlon,single_column
    use perf_mod,            only: t_startf, t_stopf
-   use cam_logfile,         only: iulog	
+   use cam_logfile,         only: iulog
    use iso_c_binding,       only: c_int64_t
    use cam_pio_utils,       only: phys_decomp, dyn_decomp, dyn_stagger_decomp
    use cam_history_buffers, only : dim_index_3d,hbuf_accum_inst,                                         &
@@ -114,11 +114,11 @@ module cam_history
    type rdim_id
       integer :: len
       integer :: dimid
-      character(len=fieldname_lenp2) :: name      
+      character(len=fieldname_lenp2) :: name
    end type rdim_id
 !
 !   The size of these parameters should match the assignments in restart_vars_setnames and restart_dims_setnames below
-!   
+!
    integer, parameter :: restartvarcnt=30
    integer, parameter :: restartdimcnt=8
    type(rvar_id) :: restartvars(restartvarcnt)
@@ -166,7 +166,7 @@ module cam_history
    character(len=16) :: host                ! host name
    character(len=max_string_len) :: ctitle = ' '      ! Case title
    character(len=8)  :: inithist = 'YEARLY' ! If set to '6-HOURLY, 'DAILY', 'MONTHLY' or
-                                            ! 'YEARLY' then write IC file 
+                                            ! 'YEARLY' then write IC file
    character(len=fieldname_lenp2) :: fincl(pflds,ptapes) ! List of fields to add to primary h-file
    character(len=max_chars)       :: fincllonlat(pflds,ptapes) ! List of fields to add to primary h-file
    character(len=fieldname_lenp2) :: fexcl(pflds,ptapes) ! List of fields to rm from primary h-file
@@ -217,7 +217,7 @@ module cam_history
 !  Do *not* modify the parameters below.
 !
    integer, parameter :: tbl_hash_pri_sz = 2**tbl_hash_pri_sz_lg2
-   integer, parameter :: tbl_hash_oflow_sz = tbl_hash_pri_sz * (tbl_hash_oflow_percent/100.0_r8) 
+   integer, parameter :: tbl_hash_oflow_sz = tbl_hash_pri_sz * (tbl_hash_oflow_percent/100.0_r8)
 !
 !  The primary and overflow tables are organized to mimimize space (read:
 !  try to maximimze cache line usage).
@@ -331,6 +331,8 @@ module cam_history
    public :: hist_fld_col_active       ! Determine if a field is active on any history file at
                                        ! each column in a chunk
    public :: get_field_properties      ! Retrieve properties from a history field
+#include "cam_control_codon_interfaces.inc"
+
 
 
 CONTAINS
@@ -352,20 +354,20 @@ CONTAINS
 
   subroutine intht ()
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Initialize history file handler for initial or continuation run.
 !          For example, on an initial run, this routine initializes "ptapes"
-!          history files.  On a restart or regeneration  run, this routine 
-!          only initializes history files declared beyond what existed on the 
-!          previous run.  Files which already existed on the previous run have 
+!          history files.  On a restart or regeneration  run, this routine
+!          only initializes history files declared beyond what existed on the
+!          previous run.  Files which already existed on the previous run have
 !          already been initialized (i.e. named and opened) in routine RESTRT.
-! 
+!
 ! Method: Loop over tapes and fields per tape setting appropriate variables and
 !         calling appropriate routines
-! 
+!
 ! Author: CCM Core Group
-! 
+!
 !-----------------------------------------------------------------------
     use ioFileMod
     use shr_sys_mod,     only: shr_sys_getenv
@@ -451,11 +453,11 @@ CONTAINS
          end if
       end do
 !
-! Define field list information for all history files.  
+! Define field list information for all history files.
 !
       call fldlst ()
 !
-! Loop over max. no. of history files permitted  
+! Loop over max. no. of history files permitted
 !
       if ( nsrest .eq. 3 ) then
          call get_prev_time(day, sec)  ! elapased time since reference date
@@ -466,7 +468,7 @@ CONTAINS
          nfils(t) = 0            ! no. of time samples in hist. file no. t
 
 ! Time at beginning of current averaging interval.
-         
+
          beg_time(t) = day + sec/86400._r8
       end do
 
@@ -488,28 +490,36 @@ CONTAINS
             else
                allocate (tape(t)%hlist(f)%nacs(1,begdim3:enddim3))
             end if
-            tape(t)%hlist(f)%nacs(:,:)=0           
-            tape(t)%hlist(f)%field%vector_compliment=0            
+            tape(t)%hlist(f)%nacs(:,:)=0
+            tape(t)%hlist(f)%field%vector_compliment=0
          end do
       end do
       ! Setup vector pairs for unstructured grid interpolation
       call setup_interpolation_and_define_vector_compliments()
       !  Initialize the sat following history subsystem
       call sat_hist_init()
-      
+
       return
    end subroutine intht
 
 
    subroutine setup_interpolation_and_define_vector_compliments()
      use dycore, only : dycore_is
-     use interp_mod,       only: setup_history_interpolation, var_is_vector_uvar, var_is_vector_vvar
-     use sat_hist, only : is_satfile
-     integer :: t, f, ii, ff
+	     use interp_mod,       only: setup_history_interpolation, var_is_vector_uvar, var_is_vector_vvar
+	     use sat_hist, only : is_satfile
+	     integer :: t, f, ii, ff
 
-     if(dycore_is('UNSTRUCTURED')) then
+#define CAM_CONTROL_PROOF_TAG 4517
+#define CAM_CONTROL_PROOF_LABEL 'setup_interpolation_and_define_vector_compliments'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = setup_interpolation_and_define_vector_compliments_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
+	     if(dycore_is('UNSTRUCTURED')) then
         do t=1,ptapes
-           do f=1,nflds(t)     
+           do f=1,nflds(t)
               tape(t)%hlist(f)%field%vector_compliment=0
            end do
         end do
@@ -541,7 +551,7 @@ CONTAINS
 
      restartvars(1)%name = 'rgnht'
      restartvars(1)%type = pio_int
-     restartvars(1)%ndims = 1     
+     restartvars(1)%ndims = 1
      restartvars(1)%dims(1) = 1  ! ptapes
 
      restartvars(2)%name = 'nhtfrq'
@@ -689,36 +699,36 @@ CONTAINS
      restartvars(25)%type = pio_int
      restartvars(25)%ndims = 2
      restartvars(25)%dims(1) = 7  ! maxnflds
-     restartvars(25)%dims(2) = 1  ! ptapes     
+     restartvars(25)%dims(2) = 1  ! ptapes
 
      restartvars(26)%name = 'lcltod_start'
      restartvars(26)%type = pio_int
      restartvars(26)%ndims = 1
-     restartvars(26)%dims(1) = 1  ! ptapes     
+     restartvars(26)%dims(1) = 1  ! ptapes
 
      restartvars(27)%name = 'lcltod_stop'
      restartvars(27)%type = pio_int
      restartvars(27)%ndims = 1
-     restartvars(27)%dims(1) = 1  ! ptapes     
+     restartvars(27)%dims(1) = 1  ! ptapes
 
      restartvars(28)%name = 'fillvalue'
      restartvars(28)%type = pio_double
      restartvars(28)%ndims = 2
      restartvars(28)%dims(1) = 7  ! maxnflds
-     restartvars(28)%dims(2) = 1  ! ptapes     
+     restartvars(28)%dims(2) = 1  ! ptapes
 
      restartvars(29)%name = 'mdims'
      restartvars(29)%type = pio_int
      restartvars(29)%ndims = 3
      restartvars(29)%dims(1) = 8  ! maxvarmdims
      restartvars(29)%dims(2) = 7  ! maxnflds
-     restartvars(29)%dims(3) = 1  ! ptapes     
+     restartvars(29)%dims(3) = 1  ! ptapes
 
      restartvars(30)%name = 'is_subcol'
      restartvars(30)%type = pio_int
      restartvars(30)%ndims = 2
      restartvars(30)%dims(1) = 7  ! maxnflds
-     restartvars(30)%dims(2) = 1  ! ptapes     
+     restartvars(30)%dims(2) = 1  ! ptapes
 
 
    end subroutine restart_vars_setnames
@@ -759,12 +769,20 @@ CONTAINS
 !
       type(file_desc_t), intent(inout) :: File                      ! Pio file Handle
 !
-! Local 
+! Local
 !
-      integer :: dimids(4), ndims
-      integer :: ierr, i, k
+	     integer :: dimids(4), ndims
+	     integer :: ierr, i, k
 
-      ! Don't need to write restart data if we have written the file this step
+#define CAM_CONTROL_PROOF_TAG 4520
+#define CAM_CONTROL_PROOF_LABEL 'init_restart_history'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = init_restart_history_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
+	     ! Don't need to write restart data if we have written the file this step
       where (hstwr(:))
          rgnht(:) = .false.
       elsewhere
@@ -809,7 +827,7 @@ CONTAINS
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-      
+
       nullify(vdesc)
       do i=1,restartvarcnt
          if(name .eq. restartvars(i)%name) then
@@ -826,7 +844,7 @@ CONTAINS
 
 !#######################################################################
 
-    subroutine write_restart_history ( File, & 
+    subroutine write_restart_history ( File, &
          yr_spec, mon_spec, day_spec, sec_spec )
 
       implicit none
@@ -888,7 +906,7 @@ CONTAINS
       end do
 
       if(maxval(nflds)<=0) return
-      
+
       call wshist(rgnht)
 
       vdesc => restartvar_getdesc('fincl')
@@ -1002,7 +1020,7 @@ CONTAINS
    subroutine read_restart_history (File)
      use pio, only : pio_inquire_variable, pio_inq_dimid, pio_inquire,        &
           pio_inq_varid, pio_inquire_dimension, pio_inq_dimname
-     
+
       use ppgrid,        only: begchunk, endchunk
       use phys_grid,     only: get_ncols_p
       use rgrid,         only: nlon
@@ -1010,7 +1028,7 @@ CONTAINS
       use cam_pio_utils, only: cam_pio_openfile, phys_decomp, dyn_decomp, dyn_stagger_decomp, get_decomp
       use ioFileMod,     only: getfil
       use sat_hist,     only: sat_hist_define, sat_hist_init
-    
+
       use shr_sys_mod,   only: shr_sys_getenv
 #if (defined SPMD)
       use spmd_utils,    only : iam, mpicom, mpichar
@@ -1115,10 +1133,10 @@ CONTAINS
 
       ierr = pio_inq_dimid(File, 'maxvarmdims', dimid)
       ierr = pio_inq_dimlen(File, dimid, maxvarmdims)
-      
+
 
       ierr = pio_inq_varid(File, 'rgnht', vdesc)
-      ierr = pio_get_var(File, vdesc, rgnht_int(1:mtapes))      
+      ierr = pio_get_var(File, vdesc, rgnht_int(1:mtapes))
 
       ierr = pio_inq_varid(File, 'nhtfrq', vdesc)
       ierr = pio_get_var(File, vdesc, nhtfrq(1:mtapes))
@@ -1194,13 +1212,13 @@ CONTAINS
       ierr = pio_get_var(File, vdesc, allmdims)
 
 
-      ierr = pio_inq_varid(File, 'avgflag', avgflag_desc)      
+      ierr = pio_inq_varid(File, 'avgflag', avgflag_desc)
 
-      ierr = pio_inq_varid(File, 'long_name', longname_desc)      
-      ierr = pio_inq_varid(File, 'units', units_desc)      
-      ierr = pio_inq_varid(File, 'sampling_seq', sseq_desc)      
+      ierr = pio_inq_varid(File, 'long_name', longname_desc)
+      ierr = pio_inq_varid(File, 'units', units_desc)
+      ierr = pio_inq_varid(File, 'sampling_seq', sseq_desc)
 
-      ierr = pio_inq_varid(File, 'fillvalue', fillval_desc)      
+      ierr = pio_inq_varid(File, 'fillvalue', fillval_desc)
 
 
       rgnht(:)=.false.
@@ -1214,13 +1232,13 @@ CONTAINS
          nullify(tape(t)%column_st)
 
          if(rgnht_int(t)==1) rgnht(t)=.true.
-         
+
 
          call strip_null(nfpath(t))
          call strip_null(cpath(t))
          call strip_null(hrestpath(t))
          allocate(tape(t)%hlist(nflds(t)))
-         
+
          do f=1,nflds(t)
             nullify(tape(t)%hlist(f)%field%mdims)
             ierr = pio_get_var(File,fillval_desc, (/f,t/), tape(t)%hlist(f)%field%fillvalue)
@@ -1273,14 +1291,14 @@ CONTAINS
                end do
                tape(t)%hlist(f)%field%begdim1  = 1
                tape(t)%hlist(f)%field%enddim1  = pcols
-            case (dyn_decomp)               
+            case (dyn_decomp)
                tape(t)%hlist(f)%field%begdim1  = beglonxy
                tape(t)%hlist(f)%field%enddim1  = endlonxy
                tape(t)%hlist(f)%field%begdim3  = beglatxy
                tape(t)%hlist(f)%field%enddim3  = endlatxy
                tape(t)%hlist(f)%field%begdim2  = 1
                tape(t)%hlist(f)%field%enddim2  = numlev
-               
+
                if (.not. (dycore_is('LR') .or. dycore_is('UNSTRUCTURED'))) then
                   allocate (tape(t)%hlist(f)%field%colperdim3(beglat:endlat))
                   do c=beglat,endlat
@@ -1330,13 +1348,13 @@ CONTAINS
 ! Loop over the total number of history files declared and
 ! read the pathname for any history restart files
 ! that are present (if any). Test to see if the run is a restart run
-! AND if any history buffer regen files exist (rgnht=.T.). Note, rgnht 
+! AND if any history buffer regen files exist (rgnht=.T.). Note, rgnht
 ! is preset to false, reset to true in routine WSDS if hbuf restart files
 ! are written and saved in the master restart file. Each history buffer
 ! restart file is then obtained.
-! Note: some f90 compilers (e.g. SGI) complain about I/O of 
+! Note: some f90 compilers (e.g. SGI) complain about I/O of
 ! derived types which have pointer components, so explicitly read each one.
-! 
+!
       do t=1,mtapes
          if (rgnht(t)) then
 !
@@ -1363,7 +1381,7 @@ CONTAINS
                deallocate(mdimnames)
             end if
 
-            do f=1,nflds(t)  
+            do f=1,nflds(t)
                begdim1    =  tape(t)%hlist(f)%field%begdim1
                enddim1    =  tape(t)%hlist(f)%field%enddim1
                begdim2    =  tape(t)%hlist(f)%field%begdim2
@@ -1415,7 +1433,7 @@ CONTAINS
 
 
             end do
-!          
+!
 ! Done reading this history restart file
 !
             call pio_closefile (tape(t)%File)
@@ -1424,7 +1442,7 @@ CONTAINS
         call column_init(t, nflds(t))
       end do     ! end of do mtapes loop
 
-      
+
 
 
 !
@@ -1483,13 +1501,13 @@ CONTAINS
 
    character(len=max_string_len) function get_hfilepath( tape )
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Return full filepath of history file for given tape number
 ! This allows public read access to the filenames without making
 ! the filenames public data.
 !
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 !
   integer, intent(in) :: tape  ! Tape number
 
@@ -1500,13 +1518,13 @@ CONTAINS
 
    character(len=max_string_len) function get_hist_restart_filepath( tape )
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Return full filepath of restart file for given tape number
 ! This allows public read access to the filenames without making
 ! the filenames public data.
 !
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 !
   integer, intent(in) :: tape  ! Tape number
 
@@ -1524,13 +1542,13 @@ CONTAINS
 
   integer function get_ptapes( )
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Return the number of tapes being used.
 ! This allows public read access to the number of tapes without making
 ! ptapes public data.
 !
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 !
 #define CAM_MISC_TAG 303
 #define CAM_MISC_LABEL 'get_ptapes'
@@ -1553,7 +1571,7 @@ CONTAINS
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-    
+
     if(associated(listentry)) then
        if(listentry%field%name .eq. name) then
           entry => listentry
@@ -1572,11 +1590,11 @@ CONTAINS
 
      use dycore, only : dycore_is
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Define the contents of each history file based on namelist input for initial or branch
 ! run, and restart data if a restart run.
-!          
+!
 ! Method: Use arrays fincl and fexcl to modify default history tape contents.
 !         Then sort the result alphanumerically for later use by OUTFLD to
 !         allow an n log n search time.
@@ -1598,7 +1616,7 @@ CONTAINS
 
       type(master_entry), pointer :: listentry
 
-      
+
 !
 ! First ensure contents of fincl, fexcl, and fwrtpr are all valid names
 !
@@ -1755,24 +1773,24 @@ CONTAINS
             call column_init(t, nflds(t))
          end if
 !
-! Specification of tape contents now complete.  Sort each list of active 
+! Specification of tape contents now complete.  Sort each list of active
 ! entries for efficiency in OUTFLD.  Simple bubble sort.
 !
          do f=nflds(t)-1,1,-1
             do ff=1,f
 
                if (tape(t)%hlist(ff)%field%name > tape(t)%hlist(ff+1)%field%name) then
-            
+
                   tmp = tape(t)%hlist(ff)
                   tape(t)%hlist(ff  ) = tape(t)%hlist(ff+1)
                   tape(t)%hlist(ff+1) = tmp
 
                else if (tape(t)%hlist(ff  )%field%name == tape(t)%hlist(ff+1)%field%name) then
-                  
+
                   write(iulog,*)'FLDLST: Duplicate field ', tape(t)%hlist(ff  )%field%name
                   write(iulog,*)'t,ff,name=',t,ff,tape(t)%hlist(ff  )%field%name
                   call endrun
-            
+
                end if
 
             end do
@@ -1805,7 +1823,7 @@ CONTAINS
                   if (ngroup(t) .gt. 0) then
                      tape(t)%hlist(f)%field_column_name(i) = trim(tape(t)%hlist(f)%field%name) // "_" // &
                           trim(tape(t)%column(i)%lon_name) // "_" // trim(tape(t)%column(i)%lat_name)
-                  else 
+                  else
                      tape(t)%hlist(f)%field_column_name(1) = ' '
                   end if
                end do
@@ -1836,7 +1854,7 @@ CONTAINS
 
                write(iulog,*)' Included fields are:'
             end if
-   
+
             do f=1,nflds(t)
                if (ngroup(t) .gt. 0) then
                   if (f .eq. 1) write(iulog,*) '   Fields on this tape will be output as column data (FIELD_LON_LAT)'
@@ -1888,15 +1906,15 @@ CONTAINS
 !#######################################################################
    subroutine inifld (t, listentry, avgflag, prec_wrt)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Add a field to the active list for a history tape
-! 
+!
 ! Method: Copy the data from the master field list to the active list for the tape
 !         Also: define mapping arrays from (col,chunk) -> (lon,lat)
-! 
+!
 ! Author: CCM Core Group
-! 
+!
 !-----------------------------------------------------------------------
 
 
@@ -1912,8 +1930,16 @@ CONTAINS
 !
 ! Local workspace
 !
-      integer :: i                  ! index
-      integer :: n                  ! field index on defined tape
+	     integer :: i                  ! index
+	     integer :: n                  ! field index on defined tape
+
+#define CAM_CONTROL_PROOF_TAG 4516
+#define CAM_CONTROL_PROOF_LABEL 'inifld'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = inifld_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
 
 !
@@ -2007,8 +2033,8 @@ CONTAINS
      integer, intent(in) :: t, nflds
      integer :: ff, i
 
-     real(r8), allocatable :: lontmp   (:)    ! Temp array holding longitude values 
-     real(r8), allocatable :: lontmp_st(:)   ! Temp array holding longitude values 
+     real(r8), allocatable :: lontmp   (:)    ! Temp array holding longitude values
+     real(r8), allocatable :: lontmp_st(:)   ! Temp array holding longitude values
      character(len=max_chars) :: lonlatname(pflds), lonname(pflds), latname(pflds) ! variable name
      integer :: lonind   (pflds,2) !   beginning and ending longitude range
      integer :: latind   (pflds,2) !   beginning and ending latitude range
@@ -2024,7 +2050,7 @@ CONTAINS
      integer :: lats(pcols), lons(pcols)
      integer :: cnt, cnttot, ierr, lchnk, ncol, j
      integer :: beglatxy,endlatxy,beglonxy,endlonxy
-     
+
 
      plon = get_dyn_grid_parm('plon')
      splon = get_dyn_grid_parm('splon')
@@ -2056,7 +2082,7 @@ CONTAINS
      do while (len_trim(fincllonlat(ff,t)) > 0)
         lonlatname(ff) = trim(fincllonlat(ff,t))
         call getlatind(lonlatname(ff),latind(ff,1),latind(ff,2),latname(ff),latdeg     ,plat)
-	
+
         do i = 1,plon
            lontmp(i) = londeg(i,1)
            if (lontmp(i) .lt. 0._r8) lontmp(i) = lontmp(i) + 360._r8
@@ -2084,21 +2110,21 @@ CONTAINS
      end do
      deallocate(lontmp)
 
-     if(dycore_is('LR')) then      
+     if(dycore_is('LR')) then
         deallocate(lontmp_st)
      endif
 
      group = ff-1
      ngroup(t)=0
 
-     if (group .gt. 0) then 
+     if (group .gt. 0) then
         if(collect_column_output(t)) then
            allocate(tape(t)%column(1))
            tape(t)%column(1)%num_lats = 0
            tape(t)%column(1)%num_lons = 0
 
            allocate(hmask(plon, plat))
-         
+
            hmask = 0
            cnt = 0
            do j=1,plat
@@ -2109,7 +2135,7 @@ CONTAINS
                        cnt = cnt+1
                        hmask(i,j)=cnt
                     end if
-                 end do                 
+                 end do
               end do
            end do
 
@@ -2164,7 +2190,7 @@ CONTAINS
                  tape(t)%column_st(ff)%num_lons = &
                       tape(t)%column_st(ff)%columnlon(2)-tape(t)%column_st(ff)%columnlon(1)+1
               endif
-           
+
            end do
         end if
 
@@ -2205,10 +2231,10 @@ CONTAINS
 
    character(len=max_fieldname_len) function strip_suffix (name)
 !
-!---------------------------------------------------------- 
-! 
+!----------------------------------------------------------
+!
 ! Purpose:  Strip "&IC" suffix from fieldnames if it exists
-!          
+!
 !----------------------------------------------------------
 !
 ! Arguments
@@ -2246,13 +2272,13 @@ CONTAINS
 
    character(len=fieldname_len) function getname (inname)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: retrieve name portion of inname
-!          
-! Method:  If an averaging flag separater character is present (":") in inname, 
+!
+! Method:  If an averaging flag separater character is present (":") in inname,
 !          lop it off
-! 
+!
 !-------------------------------------------------------------------------------
 !
 ! Arguments
@@ -2261,22 +2287,30 @@ CONTAINS
 !
 ! Local workspace
 !
-      integer :: length
-      integer :: i
-   
-      length = len (inname)
-      
+	     integer :: length
+	     integer :: i
+
+#define CAM_CONTROL_PROOF_TAG 4501
+#define CAM_CONTROL_PROOF_LABEL 'getname'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = getname_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
+	     length = len (inname)
+
       if (length < fieldname_len .or. length > fieldname_lenp2) then
          write(iulog,*) 'GETNAME: bad length=',length
          call endrun
       end if
-   
+
       getname = ' '
       do i=1,fieldname_len
          if (inname(i:i) == ':') exit
          getname(i:i) = inname(i:i)
       end do
-      
+
       return
    end function getname
 
@@ -2284,12 +2318,12 @@ CONTAINS
 
    subroutine getlatind(inname,beglatind,endlatind,latname,latdeg,mlat)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: retrieve closest model lat index given north south latitude string
-!          
+!
 ! Author: John Truesdale
-! 
+!
 !-------------------------------------------------------------------------------
 !
 ! Arguments
@@ -2315,7 +2349,7 @@ CONTAINS
 
 !
 ! make sure _ separator is present
-!      
+!
       if (scan(inname,'_').eq.0) then
          write(iulog,*)'GETLATIND: Improperly formatted column string.  Missing underscore character (xxxE_yyyS) ', &
                    inname,scan(inname,'_')
@@ -2323,13 +2357,13 @@ CONTAINS
       end if
 !
 ! split inname string into lat lon strings
-!      
+!
       marker=scan(inname,'_')
       str1=inname(:marker-1)
       str2=inname(marker+1:)
 
 !
-! split ranges of lats( or lons) into seperate substrings. Substrings 1,2 will contain lats(lons) 
+! split ranges of lats( or lons) into seperate substrings. Substrings 1,2 will contain lats(lons)
 ! from portion of string before underscore
 ! if a single column and not a range is specified substrings 1 and 2 will be the same
 ! and substrings 3,4 will contain lats(lons) from portion of main string after underscore character
@@ -2405,13 +2439,13 @@ CONTAINS
       end do
 !
 ! output begining and ending latitude indices. If just a column is specified then beginning latitude index will be the same as the
-! ending latitude index  
+! ending latitude index
 
-!      
+!
       if (latind(1) .le. latind(2) ) then
          beglatind =latind(1)
          endlatind =latind(2)
-      else 
+      else
          beglatind = latind(2)
          endlatind = latind(1)
       end if
@@ -2420,7 +2454,7 @@ CONTAINS
       else
          if (latind(1) .le. latind(2) ) then
             latname = 'LAT_'//trim(tmpstr(1)) // "_to_" // trim(tmpstr(2))
-         else 
+         else
             latname = 'LAT_'//trim(tmpstr(2)) // "_to_" // trim(tmpstr(1))
          end if
       end if
@@ -2435,13 +2469,13 @@ CONTAINS
 
    subroutine getlonind (inname,beglonind,endlonind,lonname,londeg,mlon)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: retrieve closes model lat index given north south latitude string
-!          
-! Method:  If an averaging flag separater character is present (":") in inname, 
+!
+! Method:  If an averaging flag separater character is present (":") in inname,
 !          lop it off
-! 
+!
 !-------------------------------------------------------------------------------
 !
 ! Arguments
@@ -2465,7 +2499,7 @@ CONTAINS
       tmpstr(:)= ' '
 !
 ! make sure _ separator is present
-!      
+!
       if (scan(inname,'_').eq.0) then
          write(iulog,*)'GETLONIND: Improperly formatted column string.  Missing underscore character (xxxE_yyyS) ',&
               inname,scan(inname,'_')
@@ -2473,7 +2507,7 @@ CONTAINS
       end if
 !
 ! split string in to lat lon strings
-!      
+!
       marker=scan(inname,'_')
       str1=inname(:marker-1)
       str2=inname(marker+1:)
@@ -2544,7 +2578,7 @@ CONTAINS
          endif
 !
 ! Find closest lon index for each substring.  If just a column is specified then beginning longitude index will be the same as the
-! ending longitude index  
+! ending longitude index
 !
          min  = 1.e+36_r8
          do j = 1, mlon
@@ -2557,12 +2591,12 @@ CONTAINS
       end do
 !
 ! output begining and ending longitude indicies. If just a column is specified then beginning longitude index
-! will be the same as the ending longitude index  
-!      
+! will be the same as the ending longitude index
+!
       if (lonind(1) .le. lonind(2) ) then
          beglonind =lonind(1)
          endlonind =lonind(2)
-      else 
+      else
          beglonind = lonind(2)
          endlonind = lonind(1)
       end if
@@ -2573,7 +2607,7 @@ CONTAINS
       else
          if (lonind(1) .le. lonind(2) ) then
             lonname = 'LON_'//trim(tmpstr(1)) // "_to_" // trim(tmpstr(2))
-         else 
+         else
             lonname = 'LON_'//trim(tmpstr(2)) // "_to_" // trim(tmpstr(1))
          end if
       end if
@@ -2586,13 +2620,13 @@ CONTAINS
 
    character(len=1) function getflag (inname)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: retrieve flag portion of inname
-!          
-! Method:  If an averaging flag separater character is present (":") in inname, 
+!
+! Method:  If an averaging flag separater character is present (":") in inname,
 !          return the character after it as the flag
-! 
+!
 !-------------------------------------------------------------------------------
 !
 ! Arguments
@@ -2659,7 +2693,7 @@ CONTAINS
             exit
          end if
       end do
-      
+
       return
    end subroutine list_index
 
@@ -2682,11 +2716,11 @@ CONTAINS
       end interface
 
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Accumulate (or take min, max, etc. as appropriate) input field
 !          into its history buffer for appropriate tapes
-! 
+!
 ! Method: Check 'masterlist' whether the requested field 'fname' is active
 !         on one or more history tapes, and if so do the accumulation.
 !         If not found, return silently.
@@ -2700,9 +2734,9 @@ CONTAINS
 !       NB: If output is on a subcolumn grid (requested in addfle), it is
 !           an error to use avg_subcol_field. A subcolumn field is assumed and
 !           subcol_unpack is called before accumulation.
-! 
+!
 ! Author: CCM Core Group
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Arguments
@@ -2729,7 +2763,7 @@ CONTAINS
       integer               :: i, j           ! Loop indices
 
       character*1           :: avgflag        ! averaging flag
-      
+
       real(r8), pointer     :: hbuf(:,:)      ! history buffer
       integer,  pointer     :: nacs(:)        ! accumulation counter
       type (dim_index_2d)   :: dimind         ! 2-D dimension index
@@ -2768,10 +2802,10 @@ CONTAINS
 
          nacs   => tape(t)%hlist(f)%nacs(:,c)
 
-         
+
          hbuf => tape(t)%hlist(f)%hbuf(:,:,c)
 
-         if(associated(tape(t)%hlist(f)%field%colperdim3)) then         
+         if(associated(tape(t)%hlist(f)%field%colperdim3)) then
             endi    = tape(t)%hlist(f)%field%colperdim3(c)
          else
             endi = enddim1 - begdim1 + 1
@@ -2907,19 +2941,19 @@ CONTAINS
    subroutine get_field_properties (fname, found, tape_out, ff_out, nlev_out, &
         flag_xyfill_out, fillvalue_out, mdims_out, begdim1_out, enddim1_out,  &
         begdim2_out, enddim2_out, begdim3_out, enddim3_out)
-     
+
       implicit none
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: If fname is active, lookup and return field information
-! 
+!
 ! Method: Check 'masterlist' whether the requested field 'fname' is active
 !         on one or more history tapes, and if so, return the requested
 !         field information
-! 
+!
 ! Author: goldy
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Arguments
@@ -3033,15 +3067,15 @@ CONTAINS
 
    logical function is_initfile (file_index)
 !
-!------------------------------------------------------------------------ 
-! 
+!------------------------------------------------------------------------
+!
 ! Purpose: to determine:
 !
 !   a) if an IC file is active in this model run at all
 !       OR,
 !   b) if it is active, is the current file index referencing the IC file
 !      (IC file is always at ptapes)
-! 
+!
 !------------------------------------------------------------------------
 !
 ! Arguments
@@ -3071,19 +3105,19 @@ CONTAINS
 
    integer function strcmpf (name1, name2)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Return the lexical difference between two strings
-! 
+!
 ! Method: Use ichar() intrinsic as we loop through the names
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Arguments
 !
       character(len=max_fieldname_len), intent(in) :: name1, name2 ! strings to compare
       integer n                                     ! loop index
-   
+
       do n=1,max_fieldname_len
          strcmpf = ichar(name1(n:n)) - ichar(name2(n:n))
          if (strcmpf /= 0) exit
@@ -3099,12 +3133,12 @@ CONTAINS
           pio_inquire_variable, pio_inq_attlen
      use dycore, only : dycore_is
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Ensure that the proper variables are on a history file
-! 
+!
 ! Method: Issue the appropriate netcdf wrapper calls
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Arguments
@@ -3128,9 +3162,9 @@ CONTAINS
       tape => history_tape
 
 
-      
+
 !
-! Create variables for model timing and header information 
+! Create variables for model timing and header information
 !
       if(.not. is_satfile(t)) then
          ierr=pio_inq_varid (tape(t)%File,'ndcur   ',    tape(t)%ndcurid)
@@ -3181,7 +3215,7 @@ CONTAINS
                ierr=pio_inq_varid (tape(t)%File, tape(t)%hlist(f)%field_column_name(i), tape(t)%hlist(f)%varid(i))
                ierr=pio_get_att(tape(t)%File, tape(t)%hlist(f)%varid(i), 'basename',tape(t)%hlist(f)%field%name)
             end do
-         else   
+         else
             ierr=pio_inq_varid (tape(t)%File,tape(t)%hlist(f)%field%name, tape(t)%hlist(f)%varid(1))
          end if
          if(tape(t)%hlist(f)%field%numlev>1) then
@@ -3207,12 +3241,12 @@ CONTAINS
 
    subroutine add_default (name, tindex, flag)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Add a field to the default "on" list for a given history file
-! 
-! Method: 
-! 
+!
+! Method:
+!
 !-----------------------------------------------------------------------
 !
 ! Arguments
@@ -3224,11 +3258,19 @@ CONTAINS
 !
 ! Local workspace
 !
-      integer :: t            ! file index
-      integer :: f            ! field index
-      type(master_entry), pointer :: listentry
+	     integer :: t            ! file index
+	     integer :: f            ! field index
+	     type(master_entry), pointer :: listentry
 
-      if (htapes_defined) then
+#define CAM_CONTROL_PROOF_TAG 4519
+#define CAM_CONTROL_PROOF_LABEL 'add_default'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = add_default_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
+	     if (htapes_defined) then
          call endrun ('ADD_DEFAULT: Attempt to add hist default '//trim(name)//' after history files set')
       end if
 !
@@ -3281,7 +3323,7 @@ CONTAINS
             call endrun ('ADD_DEFAULT: unknown avgflag='//flag)
          end select
       end if
-      
+
       return
    end subroutine add_default
 
@@ -3289,12 +3331,12 @@ CONTAINS
 
    subroutine h_override (t)
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Override default history tape contents for a specific tape
 !
 ! Method: Copy the flag into the master field list
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Arguments
@@ -3310,7 +3352,7 @@ CONTAINS
 
       avgflg = avgflag_pertape(t)
 
-      
+
       listentry=>masterlinkedlist
       do while(associated(listentry))
          listentry%avgflag(t) = avgflag_pertape(t)
@@ -3327,7 +3369,7 @@ CONTAINS
             listentry%time_op(t) = 'minimum'
          case ('L')
             listentry%time_op(t) = LT_DESC
-            
+
          case default
             call endrun ('H_OVERRIDE: unknown avgflag='//avgflag_pertape(t))
          end select
@@ -3335,17 +3377,17 @@ CONTAINS
       end do
 
    end subroutine h_override
-         
+
 !#######################################################################
 
    subroutine h_define (t, restart)
      !
-     !----------------------------------------------------------------------- 
-     ! 
+     !-----------------------------------------------------------------------
+     !
      ! Purpose: Define contents of history file t
-     ! 
+     !
      ! Method: Issue the required netcdf wrapper calls to define the history file contents
-     ! 
+     !
      !-----------------------------------------------------------------------
      use pspect,            only: ptrn, ptrk, ptrm
      use rgrid,             only: nlon, wnummax
@@ -3363,9 +3405,9 @@ CONTAINS
      use interp_mod,        only: get_interp_lat, get_interp_lon, latlon_interpolation, add_interp_attributes
      use sat_hist,          only: sat_hist_define
      use iso_c_binding,     only: c_int64_t
-     
+
      use ppgrid,            only : begchunk,endchunk, pver, pverp
-     use phys_grid,         only : get_rlat_all_p, get_rlon_all_p     
+     use phys_grid,         only : get_rlat_all_p, get_rlon_all_p
 
      !-----------------------------------------------------------------------
 
@@ -3401,14 +3443,14 @@ CONTAINS
      real(r8), pointer:: latdeg_st(: )   ! Staggered grid point array (lat)
      real(r8), pointer:: w_staggered(:)  ! Staggered location weights
 
-     real(r8), pointer :: latdeg(:)    ! degrees gaussian latitudes 
+     real(r8), pointer :: latdeg(:)    ! degrees gaussian latitudes
      real(r8), pointer :: latdeg2d(:,:)    ! degrees latitudes for ncols
      real(r8), pointer :: londeg(:,:)    ! degrees longitude
      real(r8), pointer :: w(:)    ! grid weights
      real(r8), parameter :: radtodeg = 180.0_r8/pi
      real(r8), pointer :: harea(:)
 
-     character(len=max_chars) str ! character temporary 
+     character(len=max_chars) str ! character temporary
      character(len=max_chars) :: fname_tmp ! local copy of field name
      character(len=max_chars) calendar             ! Calendar type
      !
@@ -3490,7 +3532,7 @@ CONTAINS
         call cam_pio_createfile (tape(t)%File, nhfil(t), amode)
      end if
      if(is_satfile(t)) then
-        ierr = pio_def_dim (tape(t)%File, 'ncol', pio_unlimited, timdim)  
+        ierr = pio_def_dim (tape(t)%File, 'ncol', pio_unlimited, timdim)
         ierr = pio_def_dim (tape(t)%File, 'nbnd', 2, bnddim)
 
         ierr=pio_def_var (tape(t)%File,'lat',pio_double,(/timdim/),latvar)
@@ -3504,7 +3546,7 @@ CONTAINS
      else
         !
         ! Setup netcdf file - create the dimensions of lat,lon,time,level
-        !     
+        !
         interpolate = (latlon_interpolation(t) .and. .not. restart )
         ncoloutput = ((dycore_is('UNSTRUCTURED') .and. .not. interpolate) &
              .or. associated(tape(t)%column(1)%hmask) &
@@ -3513,7 +3555,7 @@ CONTAINS
         call get_horiz_grid_dim_d(dim1s,dim2s)
 
         ! First define the horizontal grid dims
-        
+
         latdim = -1
         londim = -1
         ncoldim = -1
@@ -3526,8 +3568,8 @@ CONTAINS
               dim2s=get_dyn_grid_parm('nlat')
 
               ret = pio_def_dim (tape(t)%File, 'lat', dim2s, latdim)
-              ret = pio_def_dim (tape(t)%File, 'lon', dim1s, londim)            
-              
+              ret = pio_def_dim (tape(t)%File, 'lon', dim1s, londim)
+
               call add_interp_attributes(tape(t)%File)
 
            else
@@ -3548,7 +3590,7 @@ CONTAINS
               ret = pio_def_dim (tape(t)%File, 'slon', splon, slondim)
            end if
         endif
-        
+
 
         ! Define the unlimited time dim
         ret = pio_def_dim (tape(t)%File, 'time', pio_unlimited, timdim)
@@ -3649,7 +3691,7 @@ CONTAINS
      calendar = timemgr_get_calendar_cf()
      ierr=pio_put_att (tape(t)%File, tape(t)%timeid, 'calendar', trim(calendar))
 
-     
+
      ierr=pio_def_var (tape(t)%File,'date    ',pio_int,(/timdim/),tape(t)%dateid)
      str = 'current date (YYYYMMDD)'
      ierr=pio_put_att (tape(t)%File, tape(t)%dateid, 'long_name', trim(str))
@@ -3660,8 +3702,8 @@ CONTAINS
      ierr=pio_put_att (tape(t)%File, tape(t)%datesecid, 'long_name', trim(str))
 
 
-     !     
-     ! Character header information 
+     !
+     ! Character header information
      !
      str = 'CF-1.0'
      ierr=pio_put_att (tape(t)%File, PIO_GLOBAL, 'Conventions', trim(str))
@@ -3687,12 +3729,12 @@ CONTAINS
               if(dycore_is('UNSTRUCTURED')) then
                  ierr=pio_def_var (tape(t)%File,'area',pio_double,(/NCOLDIM/),areavar)
               end if
-           else      
+           else
               ierr=pio_def_var (tape(t)%File,'lat',pio_double,(/LATDIM/),latvar)
            end if
            ierr=pio_put_att (tape(t)%File, latvar, 'long_name', 'latitude')
            ierr=pio_put_att (tape(t)%File, latvar, 'units', 'degrees_north')
-           
+
            if(ncoloutput ) then
               ierr=pio_def_var (tape(t)%File,'lon',pio_double,(/NCOLDIM/),lonvar)
            else
@@ -3703,7 +3745,7 @@ CONTAINS
 
            ! If a staggered grid is in use, output the lat and lon arrays variables.
            if(dycore_is('LR') .and. .not. ncoloutput) then
-              
+
               ierr=pio_def_var (tape(t)%File, 'slat', pio_double,(/SLATDIM/),slatvar)
               ierr=pio_put_att (tape(t)%File, slatvar, 'long_name', 'staggered latitude')
               ierr=pio_put_att (tape(t)%File, slatvar, 'units', 'degrees_north')
@@ -3789,7 +3831,7 @@ CONTAINS
         end if
 
         !
-        ! Create variables for model timing and header information 
+        ! Create variables for model timing and header information
         !
 
         ierr=pio_def_var (tape(t)%File,'ndcur   ',pio_int,(/timdim/),tape(t)%ndcurid)
@@ -3889,7 +3931,7 @@ CONTAINS
         if (tape(t)%hlist(f)%hwrt_prec == 8 .or. restart) then
            ncreal = pio_double
         else
-           ncreal = pio_real 
+           ncreal = pio_real
         end if
         if(.not.associated(tape(t)%hlist(f)%varid)) then
            allocate(tape(t)%hlist(f)%varid(1:max(1,ngroup(t))))
@@ -3907,8 +3949,8 @@ CONTAINS
               nacsdims(1) = ncoldim
            else
               nacsdims=(/londim,latdim/)
-              dimindex(1)=londim               
-              dimindex(2)=latdim               
+              dimindex(1)=londim
+              dimindex(2)=latdim
               hdims=2
               if(dycore_is('LR') .and. numlev>1) then
                  if(fname_tmp .eq. 'US' .or. fname_tmp .eq. 'FU_S') then
@@ -3927,14 +3969,14 @@ CONTAINS
 
         !
         !  Create variables and atributes for fields written out as columns
-        !         
+        !
         if(associated(tape(t)%hlist(f)%field%mdims)) then
            mdims => tape(t)%hlist(f)%field%mdims
            mdimsize = size(mdims)
         else if(tape(t)%hlist(f)%field%numlev>1) then
            call endrun('mdims not defined for variable '//trim(tape(t)%hlist(f)%field%name))
         else
-           mdimsize=0   
+           mdimsize=0
         endif
         do i=0,ngroup(t)
            if(i==0 .and. ngroup(t)>0 .and. .not. restart) cycle
@@ -3956,14 +3998,14 @@ CONTAINS
            else   ! i>0 column group output
               if(restart) exit
               ff=(f-1)*ngroup(t)+i
-              dimindex(1)=grouplondim(i)               
-              dimindex(2)=grouplatdim(i)               
+              dimindex(1)=grouplondim(i)
+              dimindex(2)=grouplatdim(i)
               hdims=2
               if(dycore_is('LR')) then
                  if(fname_tmp .eq. 'US' .or. fname_tmp .eq. 'FU_S') then
                     dimindex(2)=grouplatdim_st(i)
                  else if(fname_tmp .eq. 'VS' .or. fname_tmp .eq. 'FV_S') then
-                    dimindex(1)=grouplondim_st(i)               
+                    dimindex(1)=grouplondim_st(i)
                  end if
               endif
               fname_tmp = tape(t)%hlist(f)%field_column_name(i)
@@ -3977,7 +4019,7 @@ CONTAINS
                  tdims=hdims+1
               end if
               ierr=pio_def_var(tape(t)%File,trim(fname_tmp),ncreal,dimindex(1:tdims),varid)
-           else 
+           else
               do j=1,mdimsize
                  dimindex(hdims+j) = mdimids(mdims(j))
               end do
@@ -4093,12 +4135,12 @@ CONTAINS
            deallocate(alon)
            if(dycore_is('LR')) then
               latdeg_st => get_dyn_grid_parm_real1d('latdeg_st')
-              
+
               ierr = pio_put_var (tape(t)%File, slatvar, latdeg_st)
-              
+
               londeg_st => get_dyn_grid_parm_real2d('londeg_st')
               ierr = pio_put_var (tape(t)%File, slonvar, londeg_st(:,1))
-              
+
               w_staggered => get_dyn_grid_parm_real1d('w_staggered')
               ierr = pio_put_var (tape(t)%File, wsid, w_staggered)
            endif
@@ -4148,7 +4190,7 @@ CONTAINS
         !
         ierr = pio_put_var (tape(t)%File, tape(t)%ndbaseid, (/ndbase/))
         ierr = pio_put_var (tape(t)%File, tape(t)%nsbaseid, (/nsbase/))
-        
+
         ierr = pio_put_var (tape(t)%File, tape(t)%nbdateid, (/nbdate/))
 #if ( defined BFB_CAM_SCAM_IOP )
         ierr = pio_put_var (tape(t)%File, tape(t)%bdateid, (/nbdate/))
@@ -4183,13 +4225,13 @@ CONTAINS
    use dycore, only: dycore_is
 
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Normalize fields on a history file by the number of accumulations
-! 
+!
 ! Method: Loop over fields on the tape.  Need averaging flag and number of
 !         accumulations to perform normalization.
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Input arguments
@@ -4204,9 +4246,9 @@ CONTAINS
       integer c                      ! chunk (or lat) index
       integer endi                   ! terminating column index
       integer begdim1                ! on-node dim1 start index
-      integer enddim1                ! on-node dim1 end index  
+      integer enddim1                ! on-node dim1 end index
       integer begdim3                ! on-node chunk or lat start index
-      integer enddim3                ! on-node chunk or lat end index  
+      integer enddim3                ! on-node chunk or lat end index
       integer :: ib, ie    ! beginning and ending indices of first dimension
       integer :: jb, je    ! beginning and ending indices of second dimension
       integer k
@@ -4229,17 +4271,17 @@ CONTAINS
       flag_xyfill = tape(t)%hlist(f)%field%flag_xyfill
       do c=begdim3,enddim3
  ! Some slices might not be entirely full  -- use endi instead of enddim2
-         if(associated(tape(t)%hlist(f)%field%colperdim3)) then         
+         if(associated(tape(t)%hlist(f)%field%colperdim3)) then
             endi    = tape(t)%hlist(f)%field%colperdim3(c)
          else
-            endi = enddim1-begdim1+1 
+            endi = enddim1-begdim1+1
          end if
 
          ib = begdim1
          ie = begdim1+endi-1
          jb = begdim2
          je = enddim2
-         
+
          if (flag_xyfill) then
                do k=jb,je
                   where (tape(t)%hlist(f)%nacs(ib:ie,c) == 0)
@@ -4268,7 +4310,7 @@ CONTAINS
       end do
 
       call t_stopf ('h_normalize')
-      
+
       return
    end subroutine h_normalize
 
@@ -4277,12 +4319,12 @@ CONTAINS
    subroutine h_zero (f, t)
    use dycore, only: dycore_is
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Zero out accumulation buffers for a tape
-! 
+!
 ! Method: Loop through fields on the tape
-! 
+!
 !-----------------------------------------------------------------------
 !
       integer, intent(in) :: f     ! field index
@@ -4297,9 +4339,9 @@ CONTAINS
       integer c                    ! chunk index
       integer endi                 ! terminating column index
       integer begdim3              ! on-node chunk or lat start index
-      integer enddim3              ! on-node chunk or lat end index  
+      integer enddim3              ! on-node chunk or lat end index
       type (dim_index_3d) :: dimind ! 3-D dimension index
-      
+
       call t_startf ('h_zero')
 
       begdim1 = tape(t)%hlist(f)%field%begdim1
@@ -4309,7 +4351,7 @@ CONTAINS
       begdim3 = tape(t)%hlist(f)%field%begdim3
       enddim3 = tape(t)%hlist(f)%field%enddim3
 
-      if(associated(tape(t)%hlist(f)%field%colperdim3)) then         
+      if(associated(tape(t)%hlist(f)%field%colperdim3)) then
          do c=begdim3,enddim3
             endi    = tape(t)%hlist(f)%field%colperdim3(c)
             tape(t)%hlist(f)%hbuf(begdim1:begdim1+endi-1,begdim2:enddim2,c)=0._r8
@@ -4330,24 +4372,24 @@ CONTAINS
 
    subroutine dump_field (f, t, restart)
      use interp_mod,    only: latlon_interpolation
-     use cam_pio_utils, only: get_decomp, pio_subsystem     
+     use cam_pio_utils, only: get_decomp, pio_subsystem
      use dycore,        only: dycore_is
      use interp_mod, only : write_interpolated
      use spmd_utils, only : iam
      integer, intent(in) :: f, t
      logical, intent(in) :: restart
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Write a variable to a history tape
-! 
-! Method: If SPMD, first gather the data to the master processor.  
+!
+! Method: If SPMD, first gather the data to the master processor.
 !         Next, transpose the data to COORDS order (the default).
 !         Finally, issue the netcdf call to write the variable
-! 
+!
 !-----------------------------------------------------------------------
      integer :: bsize, ierr
-     
+
      real(r4), allocatable :: localbuf4(:)
      type(io_desc_t), pointer :: int_iodesc, iodesc
      type(var_desc_t), pointer :: varid, varid_vecv
@@ -4440,7 +4482,7 @@ CONTAINS
         end if
 
      end do
-     
+
      return
    end subroutine dump_field
 
@@ -4449,10 +4491,10 @@ CONTAINS
    logical function write_inithist ()
 !
 !-----------------------------------------------------------------------
-! 
+!
 ! Purpose: Set flags that will initiate dump to IC file when OUTFLD and
 ! WSHIST are called
-! 
+!
 !-----------------------------------------------------------------------
 !
       use time_manager, only: get_nstep, get_curr_date, get_step_size, is_last_step
@@ -4461,13 +4503,21 @@ CONTAINS
 !
       integer :: yr, mon, day      ! year, month, and day components of
                                    ! a date
-      integer :: nstep             ! current timestep number
-      integer :: ncsec             ! current time of day [seconds]
-      integer :: dtime             ! timestep size
+	     integer :: nstep             ! current timestep number
+	     integer :: ncsec             ! current time of day [seconds]
+	     integer :: dtime             ! timestep size
+
+#define CAM_CONTROL_PROOF_TAG 4509
+#define CAM_CONTROL_PROOF_LABEL 'write_inithist'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = write_inithist_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
 !-----------------------------------------------------------------------
 
-      write_inithist  = .false.
+	     write_inithist  = .false.
 
       if(is_initfile()) then
 
@@ -4484,7 +4534,7 @@ CONTAINS
          elseif(inithist == 'YEARLY'  ) then
             write_inithist = nstep /= 0 .and. ncsec == 0 .and. day == 1 .and. mon == 1
          elseif(inithist == 'CAMIOP'  ) then
-            write_inithist = nstep == 0 
+            write_inithist = nstep == 0
          elseif(inithist == 'ENDOFRUN'  ) then
             write_inithist = nstep /= 0 .and. is_last_step()
          end if
@@ -4497,16 +4547,16 @@ CONTAINS
 
    subroutine wshist (rgnht_in)
      !
-     !----------------------------------------------------------------------- 
-     ! 
+     !-----------------------------------------------------------------------
+     !
      ! Purpose: Driver routine to write fields on history tape t
-     ! 
+     !
      ! Method: For variables which do not need to be gathered (SPMD) just issue the netcdf call
      !         For those that do need to be gathered, call "dump_field" to do the operation.
      !         Finally, zero the history buffers for each field written.
-     ! 
+     !
      ! Author: CCM Core Group
-     ! 
+     !
      !-----------------------------------------------------------------------
      use dycore, only: dycore_is
 
@@ -4586,7 +4636,7 @@ CONTAINS
            if( is_initfile(file_index=t) ) then
               hstwr(t) =  write_inithist()
               prev     = .false.
-           else 
+           else
               if (nhtfrq(t) == 0) then
                  hstwr(t) = nstep /= 0 .and. day == 1 .and. ncsec == 0
                  prev     = .true.
@@ -4622,7 +4672,7 @@ CONTAINS
            !
            if (nfils(t)==0 .or. (restart.and.rgnht(t))) then
               if(restart) then
-                 rhfilename_spec = '%c.cam' // trim(inst_suffix) // '.rh%t.%y-%m-%d-%s.nc' 
+                 rhfilename_spec = '%c.cam' // trim(inst_suffix) // '.rh%t.%y-%m-%d-%s.nc'
                  fname = interpret_filename_spec( rhfilename_spec, number=(t-1))
                  hrestpath(t)=fname
               else if(is_initfile(file_index=t)) then
@@ -4770,12 +4820,12 @@ CONTAINS
    subroutine addvar (ncid, name, xtype , ndims , dimids, vid)
 
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Issue the netcdf call to add a variable to the dataset
-! 
+!
 ! Author: CCM Core Group
-! 
+!
 !-----------------------------------------------------------------------
 !
 ! Input arguments
@@ -4785,7 +4835,7 @@ CONTAINS
       integer, intent(in) :: ndims      ! number of dimensions
       integer, intent(in) :: dimids(:)  ! dimension ids
       type(var_desc_t), intent(out) :: vid        ! variable ids
-      
+
       character(len=*), intent(in) :: name ! variable name
       integer :: ierr
 !
@@ -4800,7 +4850,7 @@ CONTAINS
          ierr=pio_put_att (ncid, vid, 'long_name', listentry%field%long_name)
          ierr=pio_put_att (ncid, vid, 'units', listentry%field%units)
       end if
-         
+
 !
 ! Field not found in masterlist: long_name and units attributes unknown so just
 ! return
@@ -4815,17 +4865,17 @@ CONTAINS
                       begdim1, enddim1, &
                       begdim2, enddim2,&
                       begdim3, enddim3, mdimnames, fill_value )
-                 
+
 !
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Add a field to the master field list
-! 
-! Method: Put input arguments of field name, units, number of levels, averaging flag, and 
+!
+! Method: Put input arguments of field name, units, number of levels, averaging flag, and
 !         long name into a type entry in the global master field list (masterlist).
-! 
+!
 ! Author: CCM Core Group
-! 
+!
 !-----------------------------------------------------------------------
       use ppgrid,        only: begchunk, endchunk, pver, pverp
       use rgrid,         only: nlon
@@ -4842,14 +4892,14 @@ CONTAINS
       character(len=*), intent(in) :: units      ! units of fname--should be 8 chars
       character(len=1), intent(in) :: avgflag    ! averaging flag
       character(len=*), intent(in) :: long_name  ! long name of field
-      
+
       integer, intent(in) :: numlev              ! number of vertical levels (dimension and loop)
       integer, intent(in) :: decomp_type         ! decomposition type
 
       logical, intent(in), optional :: flag_xyfill ! non-applicable xy points flagged with fillvalue
 
-      character(len=*), intent(in), optional :: sampling_seq ! sampling sequence - if not every timestep, 
-                                                             ! how often field is sampled:  
+      character(len=*), intent(in), optional :: sampling_seq ! sampling sequence - if not every timestep,
+                                                             ! how often field is sampled:
                                                              ! every other; only during LW/SW radiation calcs, etc.
       integer, intent(in), optional :: begdim1, enddim1
       integer, intent(in), optional :: begdim2, enddim2
@@ -4932,9 +4982,9 @@ CONTAINS
       allocate(listentry)
       listentry%field%name        = fname
       listentry%field%long_name   = long_name
-      listentry%field%units       = units      
+      listentry%field%units       = units
       listentry%field%numlev      = numlev
-      listentry%field%decomp_type = decomp_type      
+      listentry%field%decomp_type = decomp_type
 
       nullify(listentry%field%mdims)
       nullify(listentry%field%colperdim3)
@@ -4988,7 +5038,7 @@ CONTAINS
            listentry%field%is_subcol = (trim(mdimnames(1)) == 'psubcols')
          end if
       else if(numlev>1) then
-         
+
          allocate(listentry%field%mdims(1))
          select case(numlev)
          case(pver)
@@ -5122,7 +5172,7 @@ CONTAINS
    subroutine add_entry_to_master( newentry)
      type(master_entry), target, intent(in) :: newentry
      type(master_entry), pointer :: listentry
- 
+
 #define CAM_MISC_TAG 320
 #define CAM_MISC_LABEL 'add_entry_to_master'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
@@ -5148,16 +5198,16 @@ CONTAINS
 !
 !-----------------------------------------------------------------------
 !
-! Purpose: 
+! Purpose:
 ! Close history files.
-! 
-! Method: 
+!
+! Method:
 ! This routine will close any full hist. files
-! or any hist. file that has data on it when restart files are being 
+! or any hist. file that has data on it when restart files are being
 ! written.
-! If a partially full history file was disposed (for restart 
-! purposes), then wrapup will open that unit back up and position 
-! it for appending new data. 
+! If a partially full history file was disposed (for restart
+! purposes), then wrapup will open that unit back up and position
+! it for appending new data.
 !
 ! Original version: CCM2
 !
@@ -5224,8 +5274,8 @@ CONTAINS
             lfill(t) = .true.
          endif
 !
-! Dispose history file if 
-!    1) file is filled or 
+! Dispose history file if
+!    1) file is filled or
 !    2) this is the end of run and file has data on it or
 !    3) restarts are being put out and history file has data on it
 !
@@ -5236,7 +5286,7 @@ CONTAINS
             hdispose(t) = .true.
 !
 ! Is this the 0 timestep data of a monthly run?
-! If so, just close primary unit do not dispose. 
+! If so, just close primary unit do not dispose.
 !
             if (masterproc) write(iulog,*)'WRAPUP: nf_close(',t,')=',trim(nhfil(t))
             if(pio_file_is_open(tape(t)%File)) then
@@ -5252,10 +5302,10 @@ CONTAINS
             end if
             if (nhtfrq(t) /= 0 .or. nstep > 0) then
 
-! 
+!
 ! Print information concerning model output.
 ! Model day number = iteration number of history file data * delta-t / (seconds per day)
-! 
+!
                tday = ndcur + nscur/86400._r8
                if(masterproc) then
                   if (t==1) then
@@ -5266,17 +5316,17 @@ CONTAINS
                   write(iulog,9003)nstep,nfils(t),tday
                   write(iulog,9004)
                end if
-                  !                      
-! Auxilary files may have been closed and saved off without being full. 
+                  !
+! Auxilary files may have been closed and saved off without being full.
 ! We must reopen the files and position them for more data.
 ! Must position auxiliary files if not full
-!              
+!
                if (.not.nlend .and. .not.lfill(t)) then
                   call cam_PIO_openfile (tape(t)%File, nhfil(t), PIO_WRITE)
                   call h_inquire(t)
                end if
             endif                 ! if 0 timestep of montly run****
-         end if                      ! if time dispose history fiels***   
+         end if                      ! if time dispose history fiels***
       end do                         ! do ptapes
 !
 ! Reset number of files on each history tape
@@ -5387,12 +5437,20 @@ CONTAINS
 !  Local.
 !
    integer :: hash_key
-   integer :: ff
-   integer :: ii
-   integer :: io   ! Index of overflow chain in overflow table
-   integer :: in   ! Number of entries on overflow chain
+	     integer :: ff
+	     integer :: ii
+	     integer :: io   ! Index of overflow chain in overflow table
+	     integer :: in   ! Number of entries on overflow chain
 
-   hash_key = gen_hash_key(fldname)
+#define CAM_CONTROL_PROOF_TAG 4514
+#define CAM_CONTROL_PROOF_LABEL 'get_masterlist_indx'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = get_masterlist_indx_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
+	     hash_key = gen_hash_key(fldname)
    ff = tbl_hash_pri(hash_key)
    if ( ff < 0 ) then
       io = abs(ff)
@@ -5408,7 +5466,7 @@ CONTAINS
       ! This means that fldname isn't in the masterlist
       call endrun ('GET_MASTERLIST_INDX: attemping to output field '//fldname//' not on master list')
    end if
-   
+
    if (associated(masterlist(ff)%thisentry) .and. masterlist(ff)%thisentry%field%name /= fldname ) then
       call endrun ('GET_MASTERLIST_INDX: error finding field '//fldname//' on master list')
    end if
@@ -5458,7 +5516,7 @@ CONTAINS
       call endrun('mismatch in expected size of nfmaster')
    end if
 
-   
+
    do ff = 1, nfmaster
       hash_key = gen_hash_key(masterlist(ff)%thisentry%field%name)
       tbl_hash_pri(hash_key) = tbl_hash_pri(hash_key) + 1
@@ -5516,7 +5574,7 @@ CONTAINS
 !
 !      itemp = 0
 !      ii = 1
-!      do 
+!      do
 !         if ( tbl_hash_oflow(ii) == 0 ) exit
 !         itemp = itemp + 1
 !         write(iulog,*) 'Overflow chain ', itemp, ' has ', tbl_hash_oflow(ii), ' entries:'
@@ -5554,15 +5612,23 @@ CONTAINS
 !
 !  Local.
 !
-   integer :: f
-   integer :: t
+	     integer :: f
+	     integer :: t
 
 !
 !  Initialize htapeindx to an invalid value.
 !
-   type(master_entry), pointer :: listentry
+	     type(master_entry), pointer :: listentry
 
-   ! reset all the active flags to false 
+#define CAM_CONTROL_PROOF_TAG 4515
+#define CAM_CONTROL_PROOF_LABEL 'bld_htapefld_indices'
+#include "cam_control_codon_proof.inc"
+	     cam_control_tag_out = bld_htapefld_indices_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
+
+	     ! reset all the active flags to false
    ! this is needed so that restarts work properly -- fvitt
    listentry=>masterlinkedlist
    do while(associated(listentry))
@@ -5589,7 +5655,7 @@ CONTAINS
 !
 ! set flag indicating h-tape contents are now defined (needed by addfld)
 !
-   htapes_defined = .true.      
+   htapes_defined = .true.
 
    return
    end subroutine bld_htapefld_indices
@@ -5625,7 +5691,7 @@ CONTAINS
       ff = get_masterlist_indx(fname_loc)
       if ( ff < 0 ) then
          hist_fld_active = .false.
-      else 
+      else
          hist_fld_active = masterlist(ff)%thisentry%act_sometape
       end if
 
@@ -5691,7 +5757,7 @@ CONTAINS
          if (tape(t)%column(1)%lat_name == ' ') then
 
             ! No column output has been requested.  In that case the field has
-            ! global output which implies all columns are active.  No need to 
+            ! global output which implies all columns are active.  No need to
             ! check any other history files.
             hist_fld_col_active = .true.
             exit
@@ -5708,9 +5774,9 @@ CONTAINS
 
          else
 
-            ! Column output has been requested, and multiple columns/regions 
+            ! Column output has been requested, and multiple columns/regions
             ! are possible.  Need to loop over the groups
-            
+
             ! The column group info is stored as indices into the global array.
             ! Retrieve the global indices for the columns in the chunk.
 

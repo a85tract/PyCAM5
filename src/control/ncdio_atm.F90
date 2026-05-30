@@ -1,11 +1,11 @@
 module ncdio_atm
 
-  !----------------------------------------------------------------------- 
+  !-----------------------------------------------------------------------
   !BOP
   !
   ! !MODULE: ncdio_atm
   !
-  ! !DESCRIPTION: 
+  ! !DESCRIPTION:
   ! Generic interfaces to write fields to PIO files
   !
   ! !USES:
@@ -49,6 +49,8 @@ module ncdio_atm
   integer STATUS
   real(r8) surfdat
   !-----------------------------------------------------------------------
+#include "cam_control_codon_interfaces.inc"
+
 
 contains
   !BOP
@@ -59,7 +61,7 @@ contains
   subroutine check_dim(ncid, dimname, value)
     use pio, only : pio_inq_dimid, pio_inq_dimlen
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Validity check on dimension
     !
     ! !ARGUMENTS:
@@ -93,7 +95,7 @@ contains
   ! !INTERFACE:
   subroutine check_var(ncid, varname, varid, readvar)
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Check if variable is on netcdf file
     !
     ! !ARGUMENTS:
@@ -101,20 +103,20 @@ contains
     type(file_desc_t), intent(inout)          :: ncid
     character(len=*), intent(in) :: varname
     type(var_desc_t), intent(out)         :: varid
-    logical, intent(out)         :: readvar 
+    logical, intent(out)         :: readvar
     !
     !EOP
     !
     ! !LOCAL VARIABLES:
     integer :: ret     ! return value
     !-----------------------------------------------------------------------
-
-#define CAM_MISC_TAG 214
-#define CAM_MISC_LABEL 'ncdio_atm'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+#define CAM_CONTROL_PROOF_TAG 4511
+#define CAM_CONTROL_PROOF_LABEL 'check_var'
+#include "cam_control_codon_proof.inc"
+       cam_control_tag_out = check_var_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     call pio_seterrorhandling( ncid, PIO_BCAST_ERROR)
 
@@ -146,7 +148,7 @@ contains
     use pio,           only : pio_get_var, pio_read_darray
     use cam_pio_utils, only : get_phys_decomp, get_dyn_decomp !, dyn_decomp
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Netcdf i/o of 2d initial real field from netCDF file
     !
     ! !USES
@@ -183,7 +185,7 @@ contains
     integer londimid, latdimid          ! Dimension ID's
     integer strt(3)                     ! start lon, lat, time indices for netcdf 2-d
     integer cnt (3)                     ! lon, lat, time counts for netcdf 2-d
-    data strt/3*1/                      ! 
+    data strt/3*1/                      !
     data cnt /1,1,1/                    ! 2-d arrs
     real(r8), pointer :: tmp(:)       ! input data
 
@@ -309,7 +311,7 @@ contains
   subroutine infld_real_2dncol(varname, ncid, iodesc, field, readvar, &
        timelevel, ncolnam)
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Netcdf i/o of 2d initial real field from netCDF file
     !
     ! !USES
@@ -404,7 +406,7 @@ contains
        dim1b, dim1e, dim2b, dim2e, dim3b, dim3e,                     &
        field, readvar, grid_map, array_order_in, timelevel)
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Netcdf i/o of 3d initial real field from netCDF file
     !
     ! !USES
@@ -451,7 +453,7 @@ contains
     integer londimid, latdimid, levdimid ! Dimension ID's
     integer :: strt(4)                     ! start lon, lat, time indices for netcdf 2-d
     integer :: cnt (4)                     ! lon, lat, time counts for netcdf 2-d
-    data strt/4*1/                      ! 
+    data strt/4*1/                      !
     data cnt /1,1,1,1/                  ! 3-d arrs
     real(r8), pointer :: tmp(:), tmp3d(:,:,:) ! input data
     logical :: readvar_tmp              ! if true, variable is on tape
@@ -469,7 +471,7 @@ contains
 
     if(present(array_order_in)) then
        array_order=array_order_in
-    else	
+    else
        array_order='xzy'
     end if
     !
@@ -489,7 +491,7 @@ contains
     end if
     if(lonnam.eq.'ncol') then
        call infld_real_3dncolphys(varname, ncid, ncols_d, gcols, levnam, field, readvar, timelevel=timelevel )
-       return 
+       return
     end if
     !
     ! Read netCDF file
@@ -512,7 +514,7 @@ contains
        ier = PIO_inq_dimlen (ncid, latdimid, dimlat)
        ier = PIO_inq_dimlen (ncid, levdimid, dimlev)
 
-       if ( single_column ) then	
+       if ( single_column ) then
           call shr_scam_getCloseLatLon(ncid%fh,scmlat,scmlon,closelat,closelon,latidx,lonidx)
           dimlon=1
           dimlat=1
@@ -566,7 +568,7 @@ contains
 
              call pio_read_darray(ncid, varid, iodesc, field, ierr)
 
-          else 
+          else
              call get_horiz_grid_dim_d(hdim1_d, hdim2_d)
              if(latnam .eq. 'slat') then
                 call get_dyn_decomp(iodesc, hdim1_d,hdim2_d-1,dimlev,0,pio_double)
@@ -628,7 +630,7 @@ contains
   ! !INTERFACE:
   subroutine infld_real_3dncol(varname ,ncid , iodesc, ncols, levnam, field, readvar, timelevel, ncolnam)
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Netcdf i/o of 3d initial real field from netCDF file
     !
     ! !USES
@@ -728,7 +730,7 @@ contains
   ! !INTERFACE:
   subroutine infld_real_3dncolphys(varname ,ncid , ncols, gcol, levnam, field, readvar , timelevel)
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Netcdf i/o of 3d initial real field from netCDF file
     !
     ! !USES
@@ -820,5 +822,3 @@ contains
 
 
 end module ncdio_atm
-
-

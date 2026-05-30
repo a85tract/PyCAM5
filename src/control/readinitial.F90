@@ -6,6 +6,8 @@ implicit none
 
 public :: read_initial
 public :: readinitial_misc_touch
+#include "cam_control_codon_interfaces.inc"
+
 
 contains
 
@@ -20,20 +22,20 @@ use cam_logfile, only: iulog
 end subroutine readinitial_misc_touch
 
 subroutine read_initial(ncid)
-    !----------------------------------------------------------------------- 
-    ! 
+    !-----------------------------------------------------------------------
+    !
     ! Purpose: Ensure that requisite netcdf variables are on the initial dataset.
     !          Set base day and date info using the "current" values from it.
-    ! 
+    !
     ! Method: Issue proper netcdf wrapper calls.  Broadcast to slaves if SPMD
-    ! 
+    !
     ! Author: CCM Core Group
-    ! 
+    !
     !-----------------------------------------------------------------------
     use shr_kind_mod,   only: r8 => shr_kind_r8
     use pmgrid,         only: plat, plon
     use cam_abortutils, only: endrun
-    use scamMod,        only: single_column   
+    use scamMod,        only: single_column
     use cam_logfile,    only: iulog
     use pio, only : pio_inq_dimlen, pio_inq_varid,  pio_inq_dimid, &
          var_desc_t, pio_internal_error, pio_noerr, pio_bcast_error, &
@@ -55,6 +57,13 @@ subroutine read_initial(ncid)
 
     character(len=*), parameter :: routine = 'read_initial'
     !-----------------------------------------------------------------------
+#define CAM_CONTROL_PROOF_TAG 4504
+#define CAM_CONTROL_PROOF_LABEL 'read_initial'
+#include "cam_control_codon_proof.inc"
+       cam_control_tag_out = read_initial_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     ! ****N.B.*** All this code belongs in the dyn_init methods.
 

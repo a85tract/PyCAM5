@@ -1,10 +1,10 @@
 module scamMod
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 !BOP
 !
 ! !MODULE: scamMod
-! 
-! !DESCRIPTION: 
+!
+! !DESCRIPTION:
 ! scam specific routines and data
 !
 ! !USES:
@@ -24,8 +24,8 @@ module scamMod
 ! !PUBLIC INTERFACES:
 !
   public scam_clm_default_opts    ! SCAM default run-time options for CLM
-  public scam_default_opts        ! SCAM default run-time options 
-  public scam_setopts             ! SCAM run-time options 
+  public scam_default_opts        ! SCAM default run-time options
+  public scam_setopts             ! SCAM run-time options
   public scam_misc_touch
 
 !
@@ -44,7 +44,7 @@ module scamMod
   logical, public ::  use_analysis
   logical, public ::  use_saveinit
   logical, public ::  use_pert_init         ! perturb initial values
-  logical, public ::  use_pert_frc          ! perturb forcing 
+  logical, public ::  use_pert_frc          ! perturb forcing
   logical, public ::  scm_diurnal_avg       ! If using diurnal averaging or not
   logical, public ::  scm_crm_mode          ! column radiation mode
   logical, public ::  use_userdata
@@ -52,7 +52,7 @@ module scamMod
   logical, public ::  switch(num_switches)  ! Logical flag settings from GUI
   logical, public ::  l_uvphys              ! If true, update u/v after TPHYS
   logical, public ::  l_uvadvect            ! If true, T, U & V will be passed to SLT
-  logical, public ::  l_conv                ! use flux divergence terms for T and q?     
+  logical, public ::  l_conv                ! use flux divergence terms for T and q?
   logical, public ::  l_divtr               ! use flux divergence terms for constituents?
   logical, public ::  l_diag                ! do we want available diagnostics?
 
@@ -91,14 +91,14 @@ module scamMod
   real(r8), public ::      qobs(plev)          ! actual W.V. Mixing ratio
   real(r8), public ::      cldliqobs(plev)     ! actual W.V. Mixing ratio
   real(r8), public ::      cldiceobs(plev)     ! actual W.V. Mixing ratio
-  real(r8), public ::      numliqobs(plev)     ! actual 
-  real(r8), public ::      numiceobs(plev)     ! actual 
-  real(r8), public ::      precobs(1)          ! observed precipitation 
-  real(r8), public ::      lhflxobs(1)         ! observed surface latent heat flux 
+  real(r8), public ::      numliqobs(plev)     ! actual
+  real(r8), public ::      numiceobs(plev)     ! actual
+  real(r8), public ::      precobs(1)          ! observed precipitation
+  real(r8), public ::      lhflxobs(1)         ! observed surface latent heat flux
   real(r8), public ::      shflxobs(1)         ! observed surface sensible heat flux
   real(r8), public ::      q1obs(plev)         ! observed apparent heat source
   real(r8), public ::      q2obs(plev)         ! observed apparent heat sink
-  real(r8), public ::      tdiff(plev)         ! model minus observed temp 
+  real(r8), public ::      tdiff(plev)         ! model minus observed temp
   real(r8), public ::      tground(1)          ! ground temperature
   real(r8), public ::      tobs(plev)          ! actual temperature
   real(r8), public ::      tsair(1)            ! air temperature at the surface
@@ -129,14 +129,14 @@ module scamMod
   integer, public ::     base_secs             ! Time of day of start time (sec)
 
   logical*4, public ::  doiopupdate   ! do we need to read next iop timepoint
-  logical*4, public ::  have_divq     ! dataset contains divq 
+  logical*4, public ::  have_divq     ! dataset contains divq
   logical*4, public ::  have_divt     ! dataset contains divt
-  logical*4, public ::  have_divq3d   ! dataset contains divq3d 
+  logical*4, public ::  have_divq3d   ! dataset contains divq3d
   logical*4, public ::  have_vertdivt ! dataset contains vertdivt
-  logical*4, public ::  have_vertdivq ! dataset contains vertdivq 
+  logical*4, public ::  have_vertdivq ! dataset contains vertdivq
   logical*4, public ::  have_divt3d   ! dataset contains divt3d
   logical*4, public ::  have_divu     ! dataset contains divu
-  logical*4, public ::  have_divv     ! dataset contains divv 
+  logical*4, public ::  have_divv     ! dataset contains divv
   logical*4, public ::  have_omega    ! dataset contains omega
   logical*4, public ::  have_phis     ! dataset contains phis
   logical*4, public ::  have_ptend    ! dataset contains ptend
@@ -144,14 +144,14 @@ module scamMod
   logical*4, public ::  have_q        ! dataset contains q
   logical*4, public ::  have_q1       ! dataset contains Q1
   logical*4, public ::  have_q2       ! dataset contains Q2
-  logical*4, public ::  have_prec     ! dataset contains prec 
-  logical*4, public ::  have_lhflx    ! dataset contains lhflx 
+  logical*4, public ::  have_prec     ! dataset contains prec
+  logical*4, public ::  have_lhflx    ! dataset contains lhflx
   logical*4, public ::  have_shflx    ! dataset contains shflx
   logical*4, public ::  have_t        ! dataset contains t
   logical*4, public ::  have_tg       ! dataset contains tg
   logical*4, public ::  have_tsair    ! dataset contains tsair
-  logical*4, public ::  have_u        ! dataset contains u 
-  logical*4, public ::  have_v        ! dataset contains v 
+  logical*4, public ::  have_u        ! dataset contains u
+  logical*4, public ::  have_v        ! dataset contains v
   logical*4, public ::  have_cld      ! dataset contains cld
   logical*4, public ::  have_cldliq   ! dataset contains cldliq
   logical*4, public ::  have_cldice   ! dataset contains cldice
@@ -164,12 +164,14 @@ module scamMod
   logical*4, public ::  have_asdif    ! dataset contains asdif
   logical*4, public ::  scm_iop_srf_prop   ! use the specified surface properties
   logical*4, public ::  scm_relaxation! use relaxation
-  logical*4, public ::  use_camiop    ! use cam generated forcing 
+  logical*4, public ::  use_camiop    ! use cam generated forcing
   logical*4, public ::  use_3dfrc     ! use 3d forcing
 
   character(len=200), public ::  scm_clubb_iop_name   ! IOP name for CLUBB
 
 !=======================================================================
+#include "cam_control_codon_interfaces.inc"
+
   contains
 !=======================================================================
 
@@ -199,6 +201,13 @@ subroutine scam_default_opts( scmlat_out,scmlon_out,iopfile_out, &
    logical, intent(out), optional ::  scm_diurnal_avg_out
    logical, intent(out), optional ::  scm_crm_mode_out
    character(len=*), intent(out), optional ::  scm_clubb_iop_name_out
+#define CAM_CONTROL_PROOF_TAG 4512
+#define CAM_CONTROL_PROOF_LABEL 'scam_default_opts'
+#include "cam_control_codon_proof.inc"
+      cam_control_tag_out = scam_default_opts_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
    if ( present(scmlat_out) )           scmlat_out     = -999._r8
    if ( present(scmlon_out) )           scmlon_out     = -999._r8
@@ -227,23 +236,23 @@ subroutine scam_setopts( scmlat_in, scmlon_in,iopfile_in,single_column_in, &
   integer ncid,latdimid,londimid,latsiz,lonsiz,latid,lonid,ret,i
   integer latidx,lonidx
   real(r8) ioplat,ioplon
-  
-  if (present (single_column_in ) ) then 
+
+  if (present (single_column_in ) ) then
      single_column=single_column_in
   endif
 
   if (present (scm_iop_srf_prop_in)) then
      scm_iop_srf_prop=scm_iop_srf_prop_in
   endif
-  
+
   if (present (scm_relaxation_in)) then
      scm_relaxation=scm_relaxation_in
   endif
-  
+
   if (present (scm_diurnal_avg_in)) then
      scm_diurnal_avg=scm_diurnal_avg_in
   endif
-  
+
   if (present (scm_crm_mode_in)) then
      scm_crm_mode=scm_crm_mode_in
   endif
@@ -257,14 +266,14 @@ subroutine scam_setopts( scmlat_in, scmlon_in,iopfile_in,single_column_in, &
   endif
 
   if( single_column) then
-     
-     if (plon /= 1 .or. plat /=1 ) then 
+
+     if (plon /= 1 .or. plat /=1 ) then
         call endrun('SCAM_SETOPTS: must compile model for SCAM mode when namelist parameter single_column is .true.')
      endif
-     
+
      if (present (iopfile_in)) then
         iopfile=trim(iopfile_in)
-        if (iopfile.ne."") then 
+        if (iopfile.ne."") then
            use_iop = .true.
         else
            call endrun('SCAM_SETOPTS: must specify IOP file for single column mode')
@@ -318,7 +327,7 @@ subroutine scam_setopts( scmlat_in, scmlon_in,iopfile_in,single_column_in, &
                  endif
               endif
            endif
-        else   
+        else
            call endrun('namelist variables SCMLAT and SCMLON must be specified for single column mode')
         endif
      endif
@@ -330,7 +339,7 @@ subroutine scam_setopts( scmlat_in, scmlon_in,iopfile_in,single_column_in, &
 !!jt   end if
 
   else
-     if (plon ==1 .and. plat ==1) then 
+     if (plon ==1 .and. plat ==1) then
         call endrun('SCAM_SETOPTS: single_column namelist option must be set to true when running in single column mode')
      endif
   endif

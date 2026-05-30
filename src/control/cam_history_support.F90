@@ -85,7 +85,7 @@ module cam_history_support
     real(r8), pointer :: hbuf(:,:,:)
     type(var_desc_t), pointer :: varid(:)      ! variable ids
     integer, pointer :: nacs(:,:)             ! accumulation counter
-    type(var_desc_t) :: nacs_varid 
+    type(var_desc_t) :: nacs_varid
   end type hentry
 
   !---------------------------------------------------------------------------
@@ -222,6 +222,8 @@ module cam_history_support
   end interface
 
 !!---------------------------------------------------------------------------
+#include "cam_control_codon_interfaces.inc"
+
 
 contains
 
@@ -265,6 +267,13 @@ contains
   subroutine formula_terms_copy(f_out, f_in)
     type(formula_terms_t), intent(in) :: f_in
     type(formula_terms_t), intent(out) :: f_out
+#define CAM_CONTROL_PROOF_TAG 4513
+#define CAM_CONTROL_PROOF_LABEL 'formula_terms_copy'
+#include "cam_control_codon_proof.inc"
+    cam_control_tag_out = formula_terms_copy_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     f_out%a_name = f_in%a_name
     f_out%a_long_name = f_in%a_long_name
@@ -319,7 +328,7 @@ contains
       write(errormsg, *) trim(errorstr), ierr
       call endrun(errormsg)
     end if
-    
+
   end subroutine handle_pio_error
 
   integer function get_hist_coord_index(mdimname)
@@ -336,7 +345,7 @@ contains
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-    
+
     get_hist_coord_index = -1
     do i=1,registeredmdims
       if(trim(mdimname) == trim(hist_coords(i)%name)) then
@@ -634,6 +643,13 @@ contains
     ! Local variables
     character(len=120)               :: errormsg
     integer                          :: i
+#define CAM_CONTROL_PROOF_TAG 4518
+#define CAM_CONTROL_PROOF_LABEL 'add_hist_coord_regonly'
+#include "cam_control_codon_proof.inc"
+    cam_control_tag_out = add_hist_coord_regonly_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     i = get_hist_coord_index(trim(name))
     ! If i > 0, this mdim has already been registered
@@ -852,6 +868,13 @@ contains
     character(len=max_chars)         :: formula_terms  ! Constructed string
     integer                          :: ierr
     logical                          :: defvar         ! True if var exists
+#define CAM_CONTROL_PROOF_TAG 4503
+#define CAM_CONTROL_PROOF_LABEL 'write_hist_coord_att'
+#include "cam_control_codon_proof.inc"
+    cam_control_tag_out = write_hist_coord_att_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     ! Check to see if the dimension already exists in the file
     ierr = pio_inq_dimid(File, trim(hist_coords(mdimind)%name), dimid)
@@ -1196,7 +1219,13 @@ contains
     integer :: cnt
     character(len=120) :: errormsg
     character(len=16) :: name
-
+#define CAM_CONTROL_PROOF_TAG 4510
+#define CAM_CONTROL_PROOF_LABEL 'lookup_hist_coord_indices'
+#include "cam_control_codon_proof.inc"
+    cam_control_tag_out = lookup_hist_coord_indices_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     cnt = size(mdimnames)
     mdimindicies = -1
@@ -1212,7 +1241,7 @@ contains
     end do
     do j=1,cnt
       if(mdimindicies(j)<0) then
-        do i=1,registeredmdims		
+        do i=1,registeredmdims
           print *,__FILE__,__LINE__,i,hist_coords(i)%name
         end do
         write(errormsg,*) 'Name ',mdimnames(j),' not in registered mdimnames'
@@ -1236,6 +1265,13 @@ contains
     integer :: hours     ! hours of hh:mm:ss
     integer :: minutes   ! minutes of hh:mm:ss
     integer :: secs      ! seconds of hh:mm:ss
+#define CAM_CONTROL_PROOF_TAG 4502
+#define CAM_CONTROL_PROOF_LABEL 'sec2hms'
+#include "cam_control_codon_proof.inc"
+    cam_control_tag_out = sec2hms_codon(int(CAM_CONTROL_PROOF_TAG, c_int64_t))
+#include "cam_control_codon_proof_finish.inc"
+#undef CAM_CONTROL_PROOF_LABEL
+#undef CAM_CONTROL_PROOF_TAG
 
     if (seconds < 0 .or. seconds > 86400) then
       write(iulog,*)'SEC2HRS: bad input seconds:', seconds
