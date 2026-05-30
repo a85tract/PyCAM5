@@ -2,6 +2,8 @@ module intp_util
 
 use iso_c_binding, only: c_int64_t
 use cam_logfile, only: iulog
+use shr_kind_mod, only: r8 => shr_kind_r8
+use spmd_utils, only: masterproc
 
 implicit none
 
@@ -9,6 +11,8 @@ private
 
 public :: findplb
 public :: intp_util_misc_touch
+
+logical :: findplb_codon_logged = .false.
 
 contains
 
@@ -37,29 +41,28 @@ subroutine findplb( x, nx, xval, index )
    ! Author: B. Eaton
    !----------------------------------------------------------------------- 
 
-   use shr_kind_mod, only: r8 => shr_kind_r8
-
    integer, intent(in) ::   nx         ! size of x
    real(r8), intent(in) ::  x(nx)      ! strictly increasing array
    real(r8), intent(in) ::  xval       ! value to be searched for in x
    
    integer, intent(out) ::  index
 
-   ! Local variables:
-   integer i
+   interface
+      function findplb_codon(x_p, nx_c, xval_c) result(index_c) bind(c, name="findplb_codon")
+         use iso_c_binding, only: c_int64_t, c_double
+         real(c_double), intent(in) :: x_p(*)
+         integer(c_int64_t), value :: nx_c
+         real(c_double), value :: xval_c
+         integer(c_int64_t) :: index_c
+      end function findplb_codon
+   end interface
    !-----------------------------------------------------------------------
 
-   if ( xval .lt. x(1) .or. xval .ge. x(nx) ) then
-      index = nx
-      return
+   index = int(findplb_codon(x, int(nx, c_int64_t), xval))
+   if (masterproc .and. .not. findplb_codon_logged) then
+      write(iulog,'(A)') 'findplb implementation = codon'
+      findplb_codon_logged = .true.
    end if
-
-   do i = 2, nx
-      if ( xval .lt. x(i) ) then
-         index = i-1
-         return
-      end if
-   end do
 
 end subroutine findplb
 

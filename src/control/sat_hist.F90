@@ -58,6 +58,7 @@ module sat_hist
   integer  :: t_buffer_size
   integer, allocatable :: date_buffer(:), time_buffer(:)
   integer :: sat_tape_num=ptapes-1
+  logical :: is_satfile_codon_logged = .false.
 
   
   ! input file
@@ -91,7 +92,21 @@ contains
 
   logical function is_satfile (file_index)
     integer, intent(in) :: file_index ! index of file in question
-    is_satfile = file_index == sat_tape_num
+
+    interface
+       function is_satfile_codon(file_index_c, sat_tape_num_c) result(is_satfile_c) bind(c, name="is_satfile_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: file_index_c
+         integer(c_int64_t), value :: sat_tape_num_c
+         integer(c_int64_t) :: is_satfile_c
+       end function is_satfile_codon
+    end interface
+
+    is_satfile = is_satfile_codon(int(file_index, c_int64_t), int(sat_tape_num, c_int64_t)) /= 0_c_int64_t
+    if (masterproc .and. .not. is_satfile_codon_logged) then
+       write(iulog,'(A)') 'is_satfile implementation = codon'
+       is_satfile_codon_logged = .true.
+    end if
   end function is_satfile
 
 !-------------------------------------------------------------------------------
