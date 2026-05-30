@@ -10,6 +10,9 @@
       public :: exp_prod_loss
       public :: imp_prod_loss
 
+      logical :: exp_prod_loss_use_native_impl = .false.
+      logical :: exp_prod_loss_impl_selected = .false.
+      logical :: exp_prod_loss_impl_logged = .false.
       logical :: imp_prod_loss_use_native_impl = .false.
       logical :: imp_prod_loss_impl_selected = .false.
 
@@ -31,6 +34,16 @@
       real(r8), intent(in) :: rxt(:,:,:)
       real(r8), intent(in) :: het_rates(:,:,:)
 
+      interface
+         subroutine exp_prod_loss_codon() bind(c, name="exp_prod_loss_codon")
+         end subroutine exp_prod_loss_codon
+      end interface
+
+      call exp_prod_loss_select_impl()
+
+      if (.not. exp_prod_loss_use_native_impl) then
+         call exp_prod_loss_codon()
+      end if
 
       end subroutine exp_prod_loss
 
@@ -154,5 +167,46 @@
       end if
 
       end subroutine imp_prod_loss_select_impl
+
+      subroutine exp_prod_loss_select_impl()
+
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (exp_prod_loss_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('EXP_PROD_LOSS_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         exp_prod_loss_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         exp_prod_loss_use_native_impl = .false.
+      end if
+
+      exp_prod_loss_impl_selected = .true.
+
+      if (masterproc .and. .not. exp_prod_loss_impl_logged) then
+         if (exp_prod_loss_use_native_impl) then
+            write(iulog,*) 'exp_prod_loss implementation = native'
+         else
+            write(iulog,*) 'exp_prod_loss implementation = codon'
+         end if
+         call flush(iulog)
+         exp_prod_loss_impl_logged = .true.
+      end if
+
+      end subroutine exp_prod_loss_select_impl
 
       end module mo_prod_loss

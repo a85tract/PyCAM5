@@ -6030,6 +6030,10 @@ def imp_prod_loss_codon(
     )
 
 @export
+def exp_prod_loss_codon():
+    return _gas_phase.exp_prod_loss_codon()
+
+@export
 def nlnmat_codon(
     mat_p: cobj,
     lmat_p: cobj,

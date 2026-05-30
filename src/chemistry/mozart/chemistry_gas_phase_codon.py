@@ -2318,6 +2318,9 @@ def imp_prod_loss_codon(
     loss[19] = het_rates[19] * y[19]
     prod[19] = 0.0
 
+def exp_prod_loss_codon():
+    return
+
 def nlnmat_codon(
     mat_p: cobj,
     lmat_p: cobj,
