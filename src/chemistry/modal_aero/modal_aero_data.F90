@@ -4,9 +4,12 @@
 ! ... Basic aerosol mode parameters and arrays
 !--------------------------------------------------------------
 	      use shr_kind_mod,  only: r8 => shr_kind_r8
+	      use iso_c_binding, only: c_int64_t, c_loc
 	      use constituents,  only: pcnst
 	      use radconstants,  only: nswbands, nlwbands
 	      use mo_util,       only: chemistry_misc_codon_touch
+	      use cam_logfile,   only: iulog
+	      use spmd_utils,    only: masterproc
 
 	      implicit none
       save
@@ -193,16 +196,40 @@
 !   threshold for reporting negatives from subr qneg3
       real(r8) :: qneg3_worst_thresh_amode(pcnst)
 
-      integer, private :: qqcw(pcnst)=-1 ! Remaps modal_aero indices into pbuf
+      integer, private, target :: qqcw(pcnst)=-1 ! Remaps modal_aero indices into pbuf
+      logical, private :: qqcw_set_ptr_proof_written = .false.
+      logical, private :: qqcw_get_field_proof_written = .false.
 
       contains
 
         subroutine qqcw_set_ptr(index, iptr)
           use cam_abortutils, only : endrun
           use time_manager,   only : is_first_step
-          
+
 
           integer, intent(in) :: index, iptr
+          integer(c_int64_t) :: status
+
+          interface
+             function qqcw_set_ptr_codon(index_c, pcnst_c, iptr_c, qqcw_p) &
+                  bind(c, name="qqcw_set_ptr_codon") result(status_c)
+               use iso_c_binding, only: c_int64_t, c_ptr
+               integer(c_int64_t), value :: index_c, pcnst_c, iptr_c
+               type(c_ptr), value :: qqcw_p
+               integer(c_int64_t) :: status_c
+             end function qqcw_set_ptr_codon
+          end interface
+
+          status = qqcw_set_ptr_codon(int(index, c_int64_t), int(pcnst, c_int64_t), &
+               int(iptr, c_int64_t), c_loc(qqcw(1)))
+          if (status == 0_c_int64_t) then
+             if (masterproc .and. .not. qqcw_set_ptr_proof_written) then
+                write(iulog,'(A)') 'qqcw_set_ptr direct = codon'
+                call flush(iulog)
+                qqcw_set_ptr_proof_written = .true.
+             end if
+             return
+          end if
 
           if(index>0 .and. index <= pcnst ) then
              qqcw(index)=iptr
@@ -220,19 +247,39 @@
           logical, optional :: errorhandle
           type(physics_buffer_desc), pointer :: pbuf(:)
 
-	          logical :: error
+          logical :: error
+          integer(c_int64_t) :: iptr_c
 
-	          call chemistry_misc_codon_touch('modal_aero_data', 143)
-	          nullify(qqcw_get_field)
+          interface
+             function qqcw_get_field_codon(index_c, pcnst_c, qqcw_p) &
+                  bind(c, name="qqcw_get_field_codon") result(iptr_out)
+               use iso_c_binding, only: c_int64_t, c_ptr
+               integer(c_int64_t), value :: index_c, pcnst_c
+               type(c_ptr), value :: qqcw_p
+               integer(c_int64_t) :: iptr_out
+             end function qqcw_get_field_codon
+          end interface
+
+          nullify(qqcw_get_field)
           error = .false.
-          if (index>0 .and. index <= pcnst) then
-             if (qqcw(index)>0) then 
-                call pbuf_get_field(pbuf, qqcw(index), qqcw_get_field)
+          iptr_c = qqcw_get_field_codon(int(index, c_int64_t), int(pcnst, c_int64_t), c_loc(qqcw(1)))
+          if (iptr_c > 0_c_int64_t) then
+             if (masterproc .and. .not. qqcw_get_field_proof_written) then
+                write(iulog,'(A)') 'qqcw_get_field direct = codon'
+                call flush(iulog)
+                qqcw_get_field_proof_written = .true.
+             end if
+             call pbuf_get_field(pbuf, int(iptr_c), qqcw_get_field)
+          else
+             if (index>0 .and. index <= pcnst) then
+                if (iptr_c > 0_c_int64_t) then
+                   call pbuf_get_field(pbuf, int(iptr_c), qqcw_get_field)
+                else
+                   error = .true.
+                endif
              else
                 error = .true.
              endif
-          else
-             error = .true.             
           end if
 
           if (error .and. .not. present(errorhandle)) then

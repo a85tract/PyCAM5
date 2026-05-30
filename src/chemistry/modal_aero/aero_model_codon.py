@@ -38,6 +38,25 @@ def _idx5(i: int, j: int, k: int, l: int, m: int, ld1: int, ld2: int, ld3: int, 
     )
 
 
+@export
+def qqcw_set_ptr_codon(index: int, pcnst: int, iptr: int, qqcw_p: cobj) -> int:
+    if index <= 0 or index > pcnst:
+        return -1
+
+    qqcw = Ptr[i32](qqcw_p)
+    qqcw[index - 1] = i32(iptr)
+    return 0
+
+
+@export
+def qqcw_get_field_codon(index: int, pcnst: int, qqcw_p: cobj) -> int:
+    if index <= 0 or index > pcnst:
+        return -1
+
+    qqcw = Ptr[i32](qqcw_p)
+    return int(qqcw[index - 1])
+
+
 @inline
 def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
     return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))
