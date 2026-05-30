@@ -59,6 +59,7 @@ module sat_hist
   integer, allocatable :: date_buffer(:), time_buffer(:)
   integer :: sat_tape_num=ptapes-1
   logical :: is_satfile_codon_logged = .false.
+  logical :: sat_hist_init_codon_logged = .false.
 
   
   ! input file
@@ -227,8 +228,31 @@ contains
     integer :: ierr, dimid, i
 
     character(len=128) :: date_format
+    character(len=32) :: impl_name
+    integer :: n, status
 
-    if (.not.has_sat_hist) return
+    interface
+       function sat_hist_init_noop_codon(has_sat_hist_c) result(done_c) bind(c, name="sat_hist_init_noop_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: has_sat_hist_c
+         integer(c_int64_t) :: done_c
+       end function sat_hist_init_noop_codon
+    end interface
+
+    if (.not.has_sat_hist) then
+       impl_name = 'codon'
+       call get_environment_variable('SAT_HIST_INIT_IMPL', value=impl_name, length=n, status=status)
+       if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+          if (sat_hist_init_noop_codon(0_c_int64_t) /= 0_c_int64_t) then
+             if (masterproc .and. .not. sat_hist_init_codon_logged) then
+                write(iulog,'(A)') 'sat_hist_init implementation = codon'
+                sat_hist_init_codon_logged = .true.
+             end if
+             return
+          end if
+       end if
+       return
+    end if
 
     call getfil (sathist_track_infile, locfn)
     call cam_pio_openfile(infile, locfn, PIO_NOWRITE)

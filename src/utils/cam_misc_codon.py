@@ -18,3 +18,18 @@ def findplb_codon(x: Ptr[float], nx: int, xval: float) -> int:
             return i
 
     return nx
+
+
+@export
+def handle_pio_error_ok_codon(ierr: int, pio_noerr: int) -> int:
+    return 1 if ierr == pio_noerr else 0
+
+
+@export
+def cam_initfile_getter_touch_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def sat_hist_init_noop_codon(has_sat_hist: int) -> int:
+    return 1 if has_sat_hist == 0 else 0

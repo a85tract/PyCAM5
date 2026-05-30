@@ -23,6 +23,8 @@ public :: &
    cam_initfiles_close     ! close initial and topo files
 
 type(file_desc_t), pointer :: fh_ini, fh_topo
+logical :: initial_file_get_id_logged = .false.
+logical :: topo_file_get_id_logged = .false.
 
 !======================================================================= 
 contains
@@ -30,11 +32,55 @@ contains
 
 function initial_file_get_id()
   type(file_desc_t), pointer :: initial_file_get_id
+  character(len=32) :: impl_name
+  integer :: n, status
+  integer(c_int64_t) :: tag_out
+
+  interface
+    function cam_initfile_getter_touch_codon(tag) result(tag_result) bind(c, name="cam_initfile_getter_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: tag
+      integer(c_int64_t) :: tag_result
+    end function cam_initfile_getter_touch_codon
+  end interface
+
+  impl_name = 'codon'
+  call get_environment_variable('CAM_INITFILE_GETTERS_IMPL', value=impl_name, length=n, status=status)
+  if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+    tag_out = cam_initfile_getter_touch_codon(3001_c_int64_t)
+    if (tag_out /= 3001_c_int64_t) stop 2
+    if (.not. initial_file_get_id_logged) then
+      write(iulog,'(A)') 'initial_file_get_id implementation = codon'
+      initial_file_get_id_logged = .true.
+    end if
+  end if
   initial_file_get_id => fh_ini
 end function initial_file_get_id
 
 function topo_file_get_id()
   type(file_desc_t), pointer :: topo_file_get_id
+  character(len=32) :: impl_name
+  integer :: n, status
+  integer(c_int64_t) :: tag_out
+
+  interface
+    function cam_initfile_getter_touch_codon(tag) result(tag_result) bind(c, name="cam_initfile_getter_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: tag
+      integer(c_int64_t) :: tag_result
+    end function cam_initfile_getter_touch_codon
+  end interface
+
+  impl_name = 'codon'
+  call get_environment_variable('CAM_INITFILE_GETTERS_IMPL', value=impl_name, length=n, status=status)
+  if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+    tag_out = cam_initfile_getter_touch_codon(3002_c_int64_t)
+    if (tag_out /= 3002_c_int64_t) stop 2
+    if (.not. topo_file_get_id_logged) then
+      write(iulog,'(A)') 'topo_file_get_id implementation = codon'
+      topo_file_get_id_logged = .true.
+    end if
+  end if
   topo_file_get_id => fh_topo
 end function topo_file_get_id
 
