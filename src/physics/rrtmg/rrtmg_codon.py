@@ -14,6 +14,125 @@ def rrtmg_init_int_passthrough_codon(value: int) -> int:
 
 
 @export
+def rrtmg_sw_swcmbdat_codon(
+    ngc_p: cobj,
+    ngs_p: cobj,
+    ngm_p: cobj,
+    ngn_p: cobj,
+    ngb_p: cobj,
+    wt_p: cobj,
+):
+    ngc = Ptr[int](ngc_p)
+    ngs = Ptr[int](ngs_p)
+    ngm = Ptr[int](ngm_p)
+    ngn = Ptr[int](ngn_p)
+    ngb = Ptr[int](ngb_p)
+    wt = Ptr[float](wt_p)
+
+    ngc_values = (
+        6, 12, 8, 8, 10, 10, 2, 10, 8, 6, 6, 8, 6, 12,
+    )
+    ngs_values = (
+        6, 18, 26, 34, 44, 54, 56, 66, 74, 80, 86, 94, 100, 112,
+    )
+    ngm_values = (
+        1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6,
+        1, 2, 3, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 12, 12,
+        1, 2, 3, 4, 5, 5, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8,
+        1, 2, 3, 4, 5, 5, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 10, 10, 10, 10, 10, 10,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 10, 10, 10, 10, 10, 10,
+        1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+        1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 9, 10, 10, 10, 10,
+        1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8,
+        1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6,
+        1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6,
+        1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8,
+        1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6,
+        1, 2, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12,
+    )
+    ngn_values = (
+        2, 2, 2, 2, 4, 4,
+        1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 2,
+        1, 1, 1, 1, 2, 2, 4, 4,
+        1, 1, 1, 1, 2, 2, 4, 4,
+        1, 1, 1, 1, 1, 1, 1, 1, 2, 6,
+        1, 1, 1, 1, 1, 1, 1, 1, 2, 6,
+        8, 8,
+        2, 2, 1, 1, 1, 1, 1, 1, 2, 4,
+        2, 2, 2, 2, 2, 2, 2, 2,
+        1, 1, 2, 2, 4, 6,
+        1, 1, 2, 2, 4, 6,
+        1, 1, 1, 1, 1, 1, 4, 6,
+        1, 1, 2, 2, 4, 6,
+        1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1,
+    )
+    ngb_values = (
+        16, 16, 16, 16, 16, 16,
+        17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
+        18, 18, 18, 18, 18, 18, 18, 18,
+        19, 19, 19, 19, 19, 19, 19, 19,
+        20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        22, 22,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        24, 24, 24, 24, 24, 24, 24, 24,
+        25, 25, 25, 25, 25, 25,
+        26, 26, 26, 26, 26, 26,
+        27, 27, 27, 27, 27, 27, 27, 27,
+        28, 28, 28, 28, 28, 28,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+    )
+    wt_values = (
+        0.1527534276, 0.1491729617, 0.1420961469, 0.1316886544,
+        0.1181945205, 0.1019300893, 0.0832767040, 0.0626720116,
+        0.0424925000, 0.0046269894, 0.0038279891, 0.0030260086,
+        0.0022199750, 0.0014140010, 0.0005330000, 0.0000750000,
+    )
+
+    for i in range(14):
+        ngc[i] = ngc_values[i]
+        ngs[i] = ngs_values[i]
+    for i in range(112):
+        ngn[i] = ngn_values[i]
+        ngb[i] = ngb_values[i]
+    for i in range(224):
+        ngm[i] = ngm_values[i]
+    for i in range(16):
+        wt[i] = wt_values[i]
+
+
+@export
+def rrtmg_sw_cmbgb26_codon(
+    ngc11: int,
+    ngs10: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    raylo_p: cobj,
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    raylo = Ptr[float](raylo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    rayl = Ptr[float](rayl_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    iprsm = 0
+    for igc0 in range(ngc11):
+        sumf1 = 0.0
+        sumf2 = 0.0
+        for _ in range(ngn[ngs10 + igc0]):
+            sumf1 = sumf1 + raylo[iprsm] * rwgt[iprsm + 160]
+            sumf2 = sumf2 + sfluxrefo[iprsm]
+            iprsm += 1
+        rayl[igc0] = sumf1
+        sfluxref[igc0] = sumf2
+
+
+@export
 def rrtmg_lw_lwcldpr_codon(
     abscld1_p: cobj,
     absliq0_p: cobj,

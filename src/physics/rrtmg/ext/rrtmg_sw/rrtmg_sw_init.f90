@@ -36,6 +36,29 @@
             real(c_double), value :: value_c
             real(c_double) :: result_c
          end function rrtmg_init_real_passthrough_codon
+         subroutine rrtmg_sw_swcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
+              bind(c, name="rrtmg_sw_swcmbdat_codon")
+            use iso_c_binding, only: c_ptr
+            type(c_ptr), value :: ngc_p
+            type(c_ptr), value :: ngs_p
+            type(c_ptr), value :: ngm_p
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: ngb_p
+            type(c_ptr), value :: wt_p
+         end subroutine rrtmg_sw_swcmbdat_codon
+         subroutine rrtmg_sw_cmbgb26_codon(ngc11_c, ngs10_c, ngn_p, rwgt_p, &
+              raylo_p, sfluxrefo_p, rayl_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb26_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc11_c
+            integer(c_int64_t), value :: ngs10_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: raylo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: rayl_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb26_codon
          subroutine rrtmg_sw_swcldpr_codon(abari_p, bbari_p, cbari_p, dbari_p, &
               ebari_p, fbari_p, extliq1_p, ssaliq1_p, asyliq1_p, extice2_p, &
               ssaice2_p, asyice2_p, extice3_p, ssaice3_p, asyice3_p, fdlice3_p) &
@@ -262,9 +285,37 @@
       subroutine swcmbdat
 !***************************************************************************
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: nbndsw, mg, ngptsw
       use rrsw_wvn, only: ngc, ngs, ngn, ngb, ngm, wt
+      use spmd_utils, only: masterproc
 
       save
+
+      integer(c_int64_t), target :: ngc_c(nbndsw)
+      integer(c_int64_t), target :: ngs_c(nbndsw)
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      integer(c_int64_t), target :: ngb_c(ngptsw)
+      integer(c_int64_t), target :: ngm_c(nbndsw*mg)
+      real(kind=r8), target :: wt_c(mg)
+
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         call rrtmg_sw_swcmbdat_codon(c_loc(ngc_c(1)), c_loc(ngs_c(1)), &
+              c_loc(ngm_c(1)), c_loc(ngn_c(1)), c_loc(ngb_c(1)), c_loc(wt_c(1)))
+         ngc(:) = int(ngc_c(:))
+         ngs(:) = int(ngs_c(:))
+         ngm(:) = int(ngm_c(:))
+         ngn(:) = int(ngn_c(:))
+         ngb(:) = int(ngb_c(:))
+         wt(:) = wt_c(:)
+         if (masterproc) then
+            write(iulog,*) 'swcmbdat implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
  
 ! ------- Definitions -------
 !     Arrays for the g-point reduction from 224 to 112 for the 16 LW bands:
@@ -1219,13 +1270,41 @@
 !     band 26:  22650-29000 cm-1 (low - nothing; high - nothing)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg26, only : sfluxrefo, raylo, &
                             sfluxref, rayl
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: igc, ipr, iprsm
       real(kind=r8) :: sumf1, sumf2
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: raylo_c(size(raylo))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo))
+      real(kind=r8), target :: rayl_c(size(rayl))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref))
+
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         raylo_c(:) = raylo(:)
+         sfluxrefo_c(:) = sfluxrefo(:)
+         call rrtmg_sw_cmbgb26_codon(int(ngc(11), c_int64_t), int(ngs(10), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(raylo_c(1)), &
+              c_loc(sfluxrefo_c(1)), c_loc(rayl_c(1)), c_loc(sfluxref_c(1)))
+         rayl(:) = rayl_c(:)
+         sfluxref(:) = sfluxref_c(:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb26 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
 
       iprsm = 0
