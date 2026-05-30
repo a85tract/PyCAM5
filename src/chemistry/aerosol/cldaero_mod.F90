@@ -8,6 +8,8 @@ module cldaero_mod
   use shr_kind_mod, only : r8 => shr_kind_r8
   use ppgrid,       only : pcols, pver
   use mo_util,      only : chemistry_misc_codon_touch
+  use cam_logfile,  only : iulog
+  use spmd_utils,   only : masterproc
 
   implicit none
   private
@@ -16,6 +18,9 @@ module cldaero_mod
   public :: cldaero_conc_t
   public :: cldaero_allocate
   public :: cldaero_deallocate
+
+  logical, save :: cldaero_allocate_codon_logged = .false.
+  logical, save :: cldaero_deallocate_codon_logged = .false.
 
   type cldaero_conc_t
      real(r8), pointer :: so4c(:,:)
@@ -30,27 +35,58 @@ contains
 !----------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------
   function cldaero_allocate( ) result( cldconc )
+    use iso_c_binding, only : c_int64_t, c_loc
+
     type(cldaero_conc_t), pointer:: cldconc
 
-    call chemistry_misc_codon_touch('cldaero_mod', 122)
+    interface
+       subroutine cldaero_allocate_codon(n_c, so4c_p, nh4c_p, no3c_p, xlwc_p, so4_fact_p) &
+            bind(c, name="cldaero_allocate_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: n_c
+         type(c_ptr), value :: so4c_p, nh4c_p, no3c_p, xlwc_p, so4_fact_p
+       end subroutine cldaero_allocate_codon
+    end interface
+
     allocate( cldconc )
     allocate( cldconc%so4c(pcols,pver) )
     allocate( cldconc%nh4c(pcols,pver) )
     allocate( cldconc%no3c(pcols,pver) )
     allocate( cldconc%xlwc(pcols,pver) )
 
-    cldconc%so4c(:,:) = 0._r8
-    cldconc%nh4c(:,:) = 0._r8
-    cldconc%no3c(:,:) = 0._r8
-    cldconc%xlwc(:,:) = 0._r8
-    cldconc%so4_fact  = 2._r8
+    call cldaero_allocate_codon(int(pcols*pver, c_int64_t), c_loc(cldconc%so4c(1,1)), &
+         c_loc(cldconc%nh4c(1,1)), c_loc(cldconc%no3c(1,1)), c_loc(cldconc%xlwc(1,1)), &
+         c_loc(cldconc%so4_fact))
+    if (masterproc .and. .not. cldaero_allocate_codon_logged) then
+       write(iulog,*) 'cldaero_allocate implementation = codon'
+       cldaero_allocate_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end function cldaero_allocate
 
 !----------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------
   subroutine cldaero_deallocate( cldconc )
+    use iso_c_binding, only : c_int64_t
+
     type(cldaero_conc_t), pointer :: cldconc
+
+    interface
+       function cldaero_deallocate_codon() result(ok) bind(c, name="cldaero_deallocate_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: ok
+       end function cldaero_deallocate_codon
+    end interface
+
+    if (cldaero_deallocate_codon() /= 1_c_int64_t) then
+       stop 2
+    end if
+    if (masterproc .and. .not. cldaero_deallocate_codon_logged) then
+       write(iulog,*) 'cldaero_deallocate implementation = codon'
+       cldaero_deallocate_codon_logged = .true.
+       call flush(iulog)
+    end if
 
     if ( associated(cldconc%so4c) ) then
        deallocate(cldconc%so4c)

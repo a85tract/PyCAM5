@@ -47,23 +47,24 @@ type wetdep_inputs_t
 end type wetdep_inputs_t
 
 integer :: cld_idx             = 0
-integer :: qme_idx             = 0 
-integer :: prain_idx           = 0 
-integer :: nevapr_idx          = 0 
+integer :: qme_idx             = 0
+integer :: prain_idx           = 0
+integer :: nevapr_idx          = 0
 
-integer :: icwmrdp_idx         = 0 
-integer :: icwmrsh_idx         = 0 
-integer :: rprddp_idx          = 0 
-integer :: rprdsh_idx          = 0 
-integer :: sh_frac_idx         = 0 
-integer :: dp_frac_idx         = 0 
-integer :: nevapr_shcu_idx     = 0 
-integer :: nevapr_dpcu_idx     = 0 
+integer :: icwmrdp_idx         = 0
+integer :: icwmrsh_idx         = 0
+integer :: rprddp_idx          = 0
+integer :: rprdsh_idx          = 0
+integer :: sh_frac_idx         = 0
+integer :: dp_frac_idx         = 0
+integer :: nevapr_shcu_idx     = 0
+integer :: nevapr_dpcu_idx     = 0
 integer :: ixcldice, ixcldliq
 logical :: clddiag_use_native_impl = .false.
 logical :: clddiag_impl_selected = .false.
 logical :: wetdepa_v2_use_native_impl = .false.
 logical :: wetdepa_v2_impl_selected = .false.
+logical, save :: wetdep_init_codon_logged = .false.
 
 !==============================================================================
 contains
@@ -72,8 +73,16 @@ contains
 !==============================================================================
 !==============================================================================
 subroutine wetdep_init()
+  use iso_c_binding, only: c_int64_t
   use physics_buffer, only: pbuf_get_index
   use constituents,   only: cnst_get_ind
+
+  interface
+     function wetdep_init_codon() result(ok) bind(c, name="wetdep_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t) :: ok
+     end function wetdep_init_codon
+  end interface
 
   cld_idx             = pbuf_get_index('CLD')    
   qme_idx             = pbuf_get_index('QME')    
@@ -91,6 +100,15 @@ subroutine wetdep_init()
 
   call cnst_get_ind('CLDICE', ixcldice)
   call cnst_get_ind('CLDLIQ', ixcldliq)
+
+  if (wetdep_init_codon() /= 1_c_int64_t) then
+     stop 2
+  end if
+  if (masterproc .and. .not. wetdep_init_codon_logged) then
+     write(iulog,*) 'wetdep_init implementation = codon'
+     wetdep_init_codon_logged = .true.
+     call flush(iulog)
+  end if
 
 endsubroutine wetdep_init
 

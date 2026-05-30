@@ -21,6 +21,39 @@ def inidrydep_codon(
     gravit[0] = xgravit
 
 
+@export
+def cldaero_allocate_codon(
+    n: int,
+    so4c_p: cobj,
+    nh4c_p: cobj,
+    no3c_p: cobj,
+    xlwc_p: cobj,
+    so4_fact_p: cobj,
+):
+    so4c = Ptr[float](so4c_p)
+    nh4c = Ptr[float](nh4c_p)
+    no3c = Ptr[float](no3c_p)
+    xlwc = Ptr[float](xlwc_p)
+    so4_fact = Ptr[float](so4_fact_p)
+
+    for idx in range(n):
+        so4c[idx] = 0.0
+        nh4c[idx] = 0.0
+        no3c[idx] = 0.0
+        xlwc[idx] = 0.0
+    so4_fact[0] = 2.0
+
+
+@export
+def cldaero_deallocate_codon() -> int:
+    return 1
+
+
+@export
+def wetdep_init_codon() -> int:
+    return 1
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array declared as (ld1, *)."""
