@@ -97,10 +97,13 @@ contains
   subroutine init_mass_xforms
     use mo_chem_utls, only : get_spc_ndx
     use chem_mods,    only : adv_mass
+    use mo_util,      only : chemistry_misc_codon_touch
 
     implicit none
 
     integer  :: id_h2o
+
+    call chemistry_misc_codon_touch('init_mass_xforms', 173)
 
     id_h2o = get_spc_ndx('H2O')
 

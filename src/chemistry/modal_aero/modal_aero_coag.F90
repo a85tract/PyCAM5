@@ -1627,6 +1627,7 @@ main_ipair2: do ipair = 1, npair_acoag
 	use cam_abortutils,  only: endrun
 	use cam_history,     only: addfld, add_default, fieldname_len, phys_decomp
 	use constituents,    only: pcnst, cnst_name
+	use mo_util,         only: chemistry_misc_codon_touch
 	use spmd_utils,      only: masterproc
         use phys_control,    only: phys_getopts
 
@@ -1647,6 +1648,7 @@ main_ipair2: do ipair = 1, npair_acoag
         logical :: history_aerosol      ! Output the MAM aerosol tendencies
  
         !-----------------------------------------------------------------------     
+        call chemistry_misc_codon_touch('modal_aero_coag_init', 171)
     
         call phys_getopts( history_aerosol_out        = history_aerosol   )
 

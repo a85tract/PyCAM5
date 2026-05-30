@@ -11,6 +11,7 @@
   use shr_kind_mod,    only: r8 => shr_kind_r8
   use cam_abortutils,  only: endrun
   use cam_logfile,     only: iulog
+  use mo_util,         only: chemistry_misc_codon_touch
   use mo_constants,    only: pi
   use chem_mods,       only: gas_pcnst
   use ppgrid,          only: pcols, pver
@@ -2883,6 +2884,7 @@ mainloop1_i:  do i = 1, ncol
       	  lsfrma, lsfrmc, lstooa, lstooc, lunout,   &
       	  mfrm, mtoo, n1, n2, nsamefrm, nsametoo, nspec
 
+        call chemistry_misc_codon_touch('modal_aero_rename_no_acc_crs_init', 170)
 
 	lunout = iulog
 !

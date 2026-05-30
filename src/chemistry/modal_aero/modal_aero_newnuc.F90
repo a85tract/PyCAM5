@@ -3641,6 +3641,7 @@ use cam_history,      only:  addfld, add_default, fieldname_len, phys_decomp
 use constituents,     only:  pcnst, cnst_get_ind, cnst_name
 use spmd_utils,       only:  masterproc
 use phys_control,     only: phys_getopts
+use mo_util,          only: chemistry_misc_codon_touch
 
 
 implicit none
@@ -3664,6 +3665,7 @@ implicit none
    logical                        :: history_aerosol      ! Output the MAM aerosol tendencies
 
    !-----------------------------------------------------------------------     
+        call chemistry_misc_codon_touch('modal_aero_newnuc_init', 169)
    
         call phys_getopts( history_aerosol_out        = history_aerosol   )
 

@@ -139,6 +139,13 @@ subroutine timemgr_init( calendar_in, start_ymd, start_tod, ref_ymd, &
    type(ESMF_Time) :: ref_date              ! reference date for time coordinate
 !----------------------------------------------------------------------------------------
 
+#define CAM_MISC_TAG 262
+#define CAM_MISC_LABEL 'timemgr_init'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
 ! Initalize calendar type.
 
    calendar = trim(calendar_in)
@@ -197,6 +204,13 @@ subroutine initialize_clock( start_date, ref_date, curr_date, stop_date )
    type(ESMF_Time) :: current     ! current date (from clock)
    integer :: yr, mon, day, tod   ! Year, month, day, and second as integers
    integer :: rc                  ! return code
+
+#define CAM_MISC_TAG 263
+#define CAM_MISC_LABEL 'initialize_clock'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    if ( mod(86400,dtime) /= 0 ) then
 !!!!      call endrun (sub//': timestep must divide evenly into 1 day')
@@ -748,6 +762,13 @@ subroutine get_curr_date(yr, mon, day, tod, offset)
    type(ESMF_TimeInterval) :: off
 !-----------------------------------------------------------------------------------------
 
+#define CAM_MISC_TAG 264
+#define CAM_MISC_LABEL 'get_curr_date'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
 
@@ -911,6 +932,13 @@ subroutine get_curr_time(days, seconds)
    type(ESMF_Time) :: cdate, rdate
    type(ESMF_TimeInterval) :: diff
 !-----------------------------------------------------------------------------------------
+
+#define CAM_MISC_TAG 265
+#define CAM_MISC_LABEL 'get_curr_time'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    call ESMF_ClockGet( tm_clock, currTime=cdate, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')

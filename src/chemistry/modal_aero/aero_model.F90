@@ -14,6 +14,7 @@ module aero_model
   use physics_buffer, only: physics_buffer_desc
   use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
   use physconst,      only: gravit, rair, rhoh2o
+  use mo_util,        only: chemistry_misc_codon_touch
   use spmd_utils,     only: masterproc
 
   use cam_history,    only: outfld, fieldname_len
@@ -243,6 +244,8 @@ contains
     character(len=32) :: spec_type
     character(len=32) :: mode_type
     integer :: nspec
+
+    call chemistry_misc_codon_touch('aero_model_init', 176)
 
     dgnum_idx    = pbuf_get_index('DGNUM')
     dgnumwet_idx = pbuf_get_index('DGNUMWET')
@@ -4375,6 +4378,7 @@ contains
     real(r8) aafitnum(1), xxfitnum(1,nnfit_maxd), yyfitnum(nnfit_maxd)
     real(r8) aafitvol(1), xxfitvol(1,nnfit_maxd), yyfitvol(nnfit_maxd)
 
+    call chemistry_misc_codon_touch('modal_aero_bcscavcoef_init', 168)
     
     lunerr = 6
     dlndg_nimptblgrow = log( 1.25_r8 )

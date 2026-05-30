@@ -159,7 +159,14 @@ end subroutine getfil
    character(len=11) ft    !format type: formatted. unformatted
    character(len=11) st    !file status: old or unknown
 ! --------------------------------------------------------------------
- 
+
+#define CAM_MISC_TAG 266
+#define CAM_MISC_LABEL 'opnfil'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    if (len_trim(locfn) == 0) then
       call endrun ('(OPNFIL): local filename has zero length')
    endif

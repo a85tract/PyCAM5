@@ -122,6 +122,7 @@ contains
     use namelist_utils,  only: find_group_name
     use units,           only: getunit, freeunit
     use mpishorthand
+    use mo_util,         only: chemistry_misc_codon_touch
 
     ! args 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
@@ -130,6 +131,8 @@ contains
     integer :: unitn, ierr
 
     namelist /rxn_rate_diags_nl/ rxn_rate_sums
+
+    call chemistry_misc_codon_touch('rate_diags_readnl', 174)
 
     ! Read namelist
     if (masterproc) then

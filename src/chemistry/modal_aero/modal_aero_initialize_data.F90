@@ -49,7 +49,7 @@ contains
     integer :: m, l, iptr
     character(len=3) :: trnum       ! used to hold mode number (as characters)
 
-       call chemistry_misc_codon_touch('modal_aero_initialize_data', 103)
+       call chemistry_misc_codon_touch('modal_aero_register', 103)
 
        !   input species to hold aerosol water and "kohler-c"
        !     xname_waterptr(:ntot_amode)   = (/ 'wat_a1  ', 'wat_a2  ', 'wat_a3  ', &
@@ -303,6 +303,8 @@ contains
        character(len=*), parameter :: routine='modal_aero_initialize'
        !-----------------------------------------------------------------------
 
+       call chemistry_misc_codon_touch('modal_aero_initialize', 167)
+
        pi = 4._r8*atan(1._r8)    
 
        ! Mode specific properties.
@@ -536,6 +538,8 @@ contains
        integer l, l2, m
        character*8 dumname
        integer, parameter :: init_val=-999888777
+
+       call chemistry_misc_codon_touch('initaermodes_setspecptrs', 177)
 
        !   all processes set the pointers
 

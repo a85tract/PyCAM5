@@ -60,7 +60,7 @@ contains
 
     integer :: i ,ndx
 
-    call chemistry_misc_codon_touch('tracer_srcs', 113)
+    call chemistry_misc_codon_touch('tracer_srcs_init', 113)
 
     allocate(file%in_pbuf(size(specifier)))
     file%in_pbuf(:) = .false.

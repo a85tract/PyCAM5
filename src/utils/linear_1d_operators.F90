@@ -1191,6 +1191,13 @@ subroutine decomp_left_div(decomp, q, l_cond, r_cond)
   ! Level index.
   integer :: k
 
+#define CAM_MISC_TAG 267
+#define CAM_MISC_LABEL 'decomp_left_div'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   ! Include boundary conditions.
   if (present(l_cond)) then
      q(:,1) = q(:,1) + l_cond%apply_left(decomp%ze(:,1), q)

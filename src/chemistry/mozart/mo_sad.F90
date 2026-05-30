@@ -51,7 +51,7 @@
 	!----------------------------------------------------------------------
 	!	... find level where etamids are all > 1 hPa
 	!----------------------------------------------------------------------
-	      call chemistry_misc_codon_touch('mo_sad', 146)
+	      call chemistry_misc_codon_touch('sad_inti', 146)
 	      sad_top = 0
       do k = pver,1,-1
 	 if( (pref_mid_norm(k)) < .001_r8 ) then

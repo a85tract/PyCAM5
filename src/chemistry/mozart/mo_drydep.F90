@@ -166,6 +166,8 @@ contains
 
     integer :: ispc, l
 
+    call chemistry_misc_codon_touch('dvel_inti_fromlnd', 175)
+
     allocate(spc_ndx(nddvels))
     allocate( lnd(begchunk:endchunk) )
 

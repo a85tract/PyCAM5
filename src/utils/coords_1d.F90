@@ -120,6 +120,13 @@ function allocate_coords(n, d) result(coords)
   integer, intent(in) :: n, d
   type(Coords1D) :: coords
 
+#define CAM_MISC_TAG 260
+#define CAM_MISC_LABEL 'allocate_coords'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   coords%n = n
   coords%d = d
 
@@ -135,6 +142,13 @@ end function allocate_coords
 ! Deallocate and reset to initial state.
 subroutine finalize(self)
   class(Coords1D), intent(inout) :: self
+
+#define CAM_MISC_TAG 261
+#define CAM_MISC_LABEL 'finalize'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
   self%n = 0
   self%d = 0

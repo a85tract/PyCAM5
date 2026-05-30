@@ -2604,6 +2604,7 @@ use modal_aero_rename
 use cam_abortutils,   only: endrun
 use cam_history,      only: addfld, add_default, fieldname_len, phys_decomp
 use constituents,     only: pcnst, cnst_get_ind, cnst_name
+use mo_util,          only: chemistry_misc_codon_touch
 use spmd_utils,       only: masterproc
 use phys_control,     only: phys_getopts
 
@@ -2636,6 +2637,7 @@ implicit none
    logical                        :: history_aerosol      ! Output the MAM aerosol tendencies
 
    !-----------------------------------------------------------------------
+        call chemistry_misc_codon_touch('modal_aero_gasaerexch_init', 172)
  
         call phys_getopts( history_aerosol_out        = history_aerosol   )
  
