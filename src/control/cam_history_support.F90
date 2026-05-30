@@ -329,6 +329,13 @@ contains
     ! Local variables
     character(len=120) :: errormsg
     integer :: i
+
+#define CAM_MISC_TAG 334
+#define CAM_MISC_LABEL 'get_hist_coord_index'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
     
     get_hist_coord_index = -1
     do i=1,registeredmdims
@@ -549,6 +556,13 @@ contains
     ! Local variables
     character(len=120)                           :: errormsg
     integer                                      :: i
+
+#define CAM_MISC_TAG 335
+#define CAM_MISC_LABEL 'check_hist_coord_all'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     i = get_hist_coord_index(trim(name))
     ! If i > 0, this mdim has already been registered
@@ -792,6 +806,13 @@ contains
     ! Local variables
     character(len=120)                                   :: errormsg
     integer                                              :: i
+
+#define CAM_MISC_TAG 338
+#define CAM_MISC_LABEL 'add_vert_coord'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     ! First, check to see if it is OK to add this coord
     i = check_hist_coord(name, vlen=vlen, long_name=long_name, units=units,   &
@@ -1250,6 +1271,13 @@ contains
     integer :: year    ! year of yyyy-mm-dd
     integer :: month   ! month of yyyy-mm-dd
     integer :: day     ! day of yyyy-mm-dd
+
+#define CAM_MISC_TAG 344
+#define CAM_MISC_LABEL 'date2yyyymmdd'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     if (date < 0) then
       call endrun ('DATE2YYYYMMDD: negative date not allowed')

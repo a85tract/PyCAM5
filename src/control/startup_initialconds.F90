@@ -52,6 +52,13 @@ subroutine initial_conds(dyn_in)
    type(file_desc_t), pointer :: fh_ini, fh_topo
    !-----------------------------------------------------------------------
 
+#define CAM_MISC_TAG 376
+#define CAM_MISC_LABEL 'initial_conds'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    ! Initialize buffer, comsrf, and radbuffer variables 
    ! (which must occur after the call to phys_grid_init)
    call initialize_comsrf

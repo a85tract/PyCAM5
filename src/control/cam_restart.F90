@@ -80,6 +80,13 @@ subroutine restart_defaultopts( &
   character(len=nlen), intent(out), optional :: cam_branch_file_out
   !-----------------------------------------------------------------------
 
+#define CAM_MISC_TAG 350
+#define CAM_MISC_LABEL 'restart_defaultopts'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   if ( present(cam_branch_file_out) ) then
      cam_branch_file_out = cam_branch_file
   endif
@@ -132,6 +139,13 @@ end subroutine restart_setopts
 !=========================================================================================
 
 subroutine restart_printopts
+
+#define CAM_MISC_TAG 352
+#define CAM_MISC_LABEL 'restart_printopts'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    write(iulog,*)'Summary of restart module options:'
    write(iulog,*)'  Restart pointer file is: ',trim(rest_pfile)

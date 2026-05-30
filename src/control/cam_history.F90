@@ -50,6 +50,7 @@ module cam_history
    use scamMod,             only: scmlon,single_column
    use perf_mod,            only: t_startf, t_stopf
    use cam_logfile,         only: iulog	
+   use iso_c_binding,       only: c_int64_t
    use cam_pio_utils,       only: phys_decomp, dyn_decomp, dyn_stagger_decomp
    use cam_history_buffers, only : dim_index_3d,hbuf_accum_inst,                                         &
                                    hbuf_accum_add, hbuf_accum_min, hbuf_accum_max,                       &
@@ -335,6 +336,13 @@ module cam_history
 CONTAINS
 
   subroutine init_masterlinkedlist()
+
+#define CAM_MISC_TAG 294
+#define CAM_MISC_LABEL 'init_masterlinkedlist'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     nullify(masterlinkedlist)
     nullify(tape)
@@ -794,6 +802,13 @@ CONTAINS
       type(var_desc_t), pointer :: vdesc
       character(len=max_chars) :: errmsg
       integer :: i
+
+#define CAM_MISC_TAG 300
+#define CAM_MISC_LABEL 'restartvar_getdesc'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
       
       nullify(vdesc)
       do i=1,restartvarcnt
@@ -1495,6 +1510,13 @@ CONTAINS
 !
   integer, intent(in) :: tape  ! Tape number
 
+#define CAM_MISC_TAG 302
+#define CAM_MISC_LABEL 'get_hist_restart_filepath'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   get_hist_restart_filepath = hrestpath( tape )
   end function get_hist_restart_filepath
 
@@ -1510,6 +1532,13 @@ CONTAINS
 !
 !----------------------------------------------------------------------- 
 !
+#define CAM_MISC_TAG 303
+#define CAM_MISC_LABEL 'get_ptapes'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   get_ptapes = ptapes
   end function get_ptapes
 
@@ -1517,6 +1546,13 @@ CONTAINS
     type(master_entry),  pointer :: listentry
     character(len=*), intent(in) :: name ! variable name
     type(master_entry), pointer :: entry
+
+#define CAM_MISC_TAG 304
+#define CAM_MISC_LABEL 'get_entry_by_name'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
     
     if(associated(listentry)) then
        if(listentry%field%name .eq. name) then
@@ -2185,6 +2221,13 @@ CONTAINS
 !
 !-----------------------------------------------------------------------
 !
+#define CAM_MISC_TAG 308
+#define CAM_MISC_LABEL 'strip_suffix'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
       strip_suffix = ' '
 
       do n = 1,fieldname_len
@@ -2597,6 +2640,13 @@ CONTAINS
       character(len=fieldname_len) :: listname    ! input name with ":" stripped off.
       integer f                       ! field index
 
+#define CAM_MISC_TAG 310
+#define CAM_MISC_LABEL 'list_index'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
       index = 0
       do f=1,pflds
 !
@@ -2997,6 +3047,13 @@ CONTAINS
 ! Arguments
 !
       integer, intent(in), optional :: file_index ! index of file in question
+
+#define CAM_MISC_TAG 313
+#define CAM_MISC_LABEL 'is_initfile'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       is_initfile = .false.
 
@@ -5066,6 +5123,13 @@ CONTAINS
      type(master_entry), target, intent(in) :: newentry
      type(master_entry), pointer :: listentry
  
+#define CAM_MISC_TAG 320
+#define CAM_MISC_LABEL 'add_entry_to_master'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
      if(associated(masterlinkedlist)) then
         listentry => masterlinkedlist
         do while(associated(listentry%next_entry))
@@ -5256,6 +5320,13 @@ CONTAINS
 !
    integer :: hash
    integer :: i
+
+#define CAM_MISC_TAG 322
+#define CAM_MISC_LABEL 'gen_hash_key'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    hash = gen_hash_key_offset
 
@@ -5542,6 +5613,13 @@ CONTAINS
       character*(max_fieldname_len) :: fname_loc  ! max-char equivalent of fname
       integer :: ff                  ! masterlist index pointer
 !-----------------------------------------------------------------------
+
+#define CAM_MISC_TAG 326
+#define CAM_MISC_LABEL 'hist_fld_active'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       fname_loc = fname
       ff = get_masterlist_indx(fname_loc)

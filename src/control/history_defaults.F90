@@ -61,6 +61,13 @@ CONTAINS
 !
     integer m                     ! Index
 
+#define CAM_MISC_TAG 361
+#define CAM_MISC_LABEL 'bldfld'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
 !
 ! Call addfld to add each field to the Master Field List.
 !
