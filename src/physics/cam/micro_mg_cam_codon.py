@@ -2316,6 +2316,52 @@ def micro_mg1_0_number_cleanup_codon(
 
 
 @export
+def micro_mg1_0_reflectivity_flags_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    mindbz: float,
+    csmin: float,
+    csmax: float,
+    refl_p: cobj,
+    arefl_p: cobj,
+    areflz_p: cobj,
+    frefl_p: cobj,
+    csrfl_p: cobj,
+    acsrfl_p: cobj,
+    fcsrfl_p: cobj,
+):
+    refl = Ptr[float](refl_p)
+    arefl = Ptr[float](arefl_p)
+    areflz = Ptr[float](areflz_p)
+    frefl = Ptr[float](frefl_p)
+    csrfl = Ptr[float](csrfl_p)
+    acsrfl = Ptr[float](acsrfl_p)
+    fcsrfl = Ptr[float](fcsrfl_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            if refl[idx] > mindbz:
+                arefl[idx] = refl[idx]
+                frefl[idx] = 1.0
+            else:
+                arefl[idx] = 0.0
+                areflz[idx] = 0.0
+                frefl[idx] = 0.0
+
+            csrfl[idx] = min(csmax, refl[idx])
+
+            if csrfl[idx] > csmin:
+                acsrfl[idx] = refl[idx]
+                fcsrfl[idx] = 1.0
+            else:
+                acsrfl[idx] = 0.0
+                fcsrfl[idx] = 0.0
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,

@@ -165,6 +165,7 @@ logical :: micro_mg1_0_process_output_logged = .false.
 logical :: micro_mg1_0_post_iter_avg_logged = .false.
 logical :: micro_mg1_0_phase_change_logged = .false.
 logical :: micro_mg1_0_number_cleanup_logged = .false.
+logical :: micro_mg1_0_reflectivity_flags_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3702,31 +3703,38 @@ do i = 1,ncol
          refl(i,k)=-9999._r8
       end if
 
-      !set averaging flag
-      if (refl(i,k).gt.mindbz) then 
-         arefl(i,k)=refl(i,k)
-         frefl(i,k)=1.0_r8  
-      else
-         arefl(i,k)=0._r8
-         areflz(i,k)=0._r8
-         frefl(i,k)=0._r8
-      end if
+      if (micro_mg1_0_colzero_use_native_impl) then
+         !set averaging flag
+         if (refl(i,k).gt.mindbz) then
+            arefl(i,k)=refl(i,k)
+            frefl(i,k)=1.0_r8
+         else
+            arefl(i,k)=0._r8
+            areflz(i,k)=0._r8
+            frefl(i,k)=0._r8
+         end if
 
-      ! bound cloudsat reflectivity
+         ! bound cloudsat reflectivity
 
-      csrfl(i,k)=min(csmax,refl(i,k))
+         csrfl(i,k)=min(csmax,refl(i,k))
 
-      !set averaging flag
-      if (csrfl(i,k).gt.csmin) then 
-         acsrfl(i,k)=refl(i,k)
-         fcsrfl(i,k)=1.0_r8  
-      else
-         acsrfl(i,k)=0._r8
-         fcsrfl(i,k)=0._r8
+         !set averaging flag
+         if (csrfl(i,k).gt.csmin) then
+            acsrfl(i,k)=refl(i,k)
+            fcsrfl(i,k)=1.0_r8
+         else
+            acsrfl(i,k)=0._r8
+            fcsrfl(i,k)=0._r8
+         end if
       end if
 
    end do
 end do
+
+if (.not. micro_mg1_0_colzero_use_native_impl) then
+   call micro_mg1_0_reflectivity_flags_codon_wrap(ncol, pcols, pver, top_lev, mindbz, csmin, csmax, &
+        refl, arefl, areflz, frefl, csrfl, acsrfl, fcsrfl)
+end if
 
 
 ! averaging for snow and rain number and diameter
@@ -4191,6 +4199,15 @@ subroutine micro_mg1_0_number_cleanup_log_entry()
      micro_mg1_0_number_cleanup_logged = .true.
   end if
 end subroutine micro_mg1_0_number_cleanup_log_entry
+
+subroutine micro_mg1_0_reflectivity_flags_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_reflectivity_flags_logged) then
+     write(iulog,*) 'micro_mg1_0_reflectivity_flags entered (reflectivity flags/bounds = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_reflectivity_flags entered (reflectivity flags/bounds = codon)')
+     micro_mg1_0_reflectivity_flags_logged = .true.
+  end if
+end subroutine micro_mg1_0_reflectivity_flags_log_entry
 
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
@@ -4828,6 +4845,40 @@ subroutine micro_mg1_0_number_cleanup_codon_wrap(ncol_local, pcols_local, pver_l
        c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), c_loc(qctend_local), &
        c_loc(qitend_local), c_loc(nctend_local), c_loc(nitend_local))
 end subroutine micro_mg1_0_number_cleanup_codon_wrap
+
+subroutine micro_mg1_0_reflectivity_flags_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
+     mindbz_local, csmin_local, csmax_local, refl_local, arefl_local, areflz_local, frefl_local, &
+     csrfl_local, acsrfl_local, fcsrfl_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: mindbz_local, csmin_local, csmax_local
+  real(r8), target, intent(inout) :: refl_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: arefl_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: areflz_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: frefl_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: csrfl_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: acsrfl_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: fcsrfl_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_reflectivity_flags_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+          mindbz_c, csmin_c, csmax_c, refl_p, arefl_p, areflz_p, frefl_p, csrfl_p, acsrfl_p, &
+          fcsrfl_p) bind(c, name="micro_mg1_0_reflectivity_flags_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: mindbz_c, csmin_c, csmax_c
+       type(c_ptr), value :: refl_p, arefl_p, areflz_p, frefl_p, csrfl_p, acsrfl_p, fcsrfl_p
+     end subroutine micro_mg1_0_reflectivity_flags_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_reflectivity_flags_log_entry()
+  call micro_mg1_0_reflectivity_flags_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), real(mindbz_local, c_double), &
+       real(csmin_local, c_double), real(csmax_local, c_double), c_loc(refl_local), c_loc(arefl_local), &
+       c_loc(areflz_local), c_loc(frefl_local), c_loc(csrfl_local), c_loc(acsrfl_local), &
+       c_loc(fcsrfl_local))
+end subroutine micro_mg1_0_reflectivity_flags_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &
