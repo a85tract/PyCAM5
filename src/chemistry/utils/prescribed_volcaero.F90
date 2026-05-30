@@ -49,6 +49,7 @@ module prescribed_volcaero
   logical :: prescribed_volcaero_adv_logged = .false.
   logical :: init_prescribed_volcaero_restart_logged = .false.
   logical :: write_prescribed_volcaero_restart_logged = .false.
+  logical :: prescribed_volcaero_register_logged = .false.
 
   interface
      function prescribed_volcaero_adv_codon(active_c) result(out_c) bind(c, name="prescribed_volcaero_adv_codon")
@@ -106,7 +107,7 @@ subroutine prescribed_volcaero_readnl(nlfile)
       prescribed_volcaero_fixed_tod      
    !-----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('prescribed_volcaero', 116)
+   call chemistry_misc_codon_touch('prescribed_volcaero_readnl', 116)
 
    ! Initialize namelist variables from local module variables.
    prescribed_volcaero_name     = fld_name
@@ -170,6 +171,16 @@ end subroutine prescribed_volcaero_readnl
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
     integer :: idx
+
+    call chemistry_misc_codon_touch('prescribed_volcaero_register', 122)
+    if (.not. prescribed_volcaero_register_logged) then
+       prescribed_volcaero_register_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_volcaero_register direct = codon; pbuf registration native CAM API island'
+          call flush(iulog)
+       end if
+    end if
 
     if (has_prescribed_volcaero) then
        call pbuf_add_field(volcaero_name,'physpkg',dtype_r8,(/pcols,pver/),idx)

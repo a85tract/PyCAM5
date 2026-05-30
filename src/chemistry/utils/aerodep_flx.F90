@@ -321,7 +321,7 @@ subroutine aerodep_flx_readnl(nlfile)
 
    ! Turn on prescribed volcanics if user has specified an input dataset.
    if (len_trim(filename) > 0 ) has_aerodep_flx = .true.
-   call chemistry_misc_codon_touch('aerodep_flx', 121)
+   call chemistry_misc_codon_touch('aerodep_flx_readnl', 121)
 
 end subroutine aerodep_flx_readnl
 

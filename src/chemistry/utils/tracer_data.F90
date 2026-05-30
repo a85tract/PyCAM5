@@ -635,6 +635,8 @@ contains
 
     real(r8) :: data_time
 
+    call chemistry_misc_codon_touch('tracer_data::advance_trcdata', 304)
+
     call t_startf('advance_trcdata')
     if ( .not.( file%fixed .and. file%initialized ) ) then
 
@@ -691,6 +693,8 @@ contains
     integer :: f, nflds
     real(r8),pointer  :: tmpptr(:,:)
 
+    call chemistry_misc_codon_touch('tracer_data::get_fld_data', 305)
+
     data(:,:) = 0._r8
     nflds = size(flds)
 
@@ -737,6 +741,8 @@ contains
     type(trfile), intent(inout) :: file
 
     integer yr, mon, day, ncsec  ! components of a date
+
+    call chemistry_misc_codon_touch('tracer_data::get_model_time', 306)
 
     call get_curr_date(yr, mon, day, ncsec)
 
@@ -1742,6 +1748,8 @@ contains
 
     integer :: vid, ierr, id
 
+    call chemistry_misc_codon_touch('tracer_data::get_dimension', 307)
+
     call pio_seterrorhandling( fid, PIO_BCAST_ERROR)
     ierr = pio_inq_dimid( fid, dname, id )
     call pio_seterrorhandling( fid, PIO_INTERNAL_ERROR)
@@ -1957,6 +1965,8 @@ contains
     character(len=32), allocatable, dimension(:) :: fld_name,  src_name
     integer :: nflds
 
+    call chemistry_misc_codon_touch('tracer_data::specify_fields', 308)
+
     nflds = size(specifier)
 
     allocate(fld_name(nflds),  src_name(nflds), stat=astat )
@@ -2024,6 +2034,7 @@ contains
     character(len=32) :: name
     integer :: ioerr, mcdimid, maxlen
  
+    call chemistry_misc_codon_touch('tracer_data::init_trc_restart', 309)
 
     ! Dimension should already be defined in restart file
     call pio_seterrorhandling(pioFile, PIO_BCAST_ERROR)
@@ -2066,6 +2077,8 @@ contains
     type(trfile), intent(inout) :: tr_file
 
     integer :: ioerr, slen   ! error status
+    call chemistry_misc_codon_touch('tracer_data::write_trc_restart', 310)
+
     if(associated(tr_file%currfnameid)) then
        ioerr = pio_put_var(pioFile, tr_file%currfnameid, tr_file%curr_filename)
        deallocate(tr_file%currfnameid)

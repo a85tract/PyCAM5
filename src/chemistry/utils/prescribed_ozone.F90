@@ -40,6 +40,8 @@ module prescribed_ozone
   integer            :: cycle_yr  = 0
   integer            :: fixed_ymd = 0
   integer            :: fixed_tod = 0
+  logical :: prescribed_ozone_register_logged = .false.
+  logical :: prescribed_ozone_adv_logged = .false.
   logical :: init_prescribed_ozone_restart_logged = .false.
   logical :: write_prescribed_ozone_restart_logged = .false.
 
@@ -65,6 +67,16 @@ contains
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
     integer :: oz_idx
+
+    call chemistry_misc_codon_touch('prescribed_ozone_register', 123)
+    if (.not. prescribed_ozone_register_logged) then
+       prescribed_ozone_register_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_ozone_register direct = codon; pbuf registration native CAM API island'
+          call flush(iulog)
+       end if
+    end if
 
     if (has_prescribed_ozone) then
        call pbuf_add_field(ozone_name,'physpkg',dtype_r8,(/pcols,pver/),oz_idx)
@@ -146,7 +158,7 @@ subroutine prescribed_ozone_readnl(nlfile)
       prescribed_ozone_fixed_tod      
    !-----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('prescribed_ozone', 111)
+   call chemistry_misc_codon_touch('prescribed_ozone_readnl', 111)
 
    ! Initialize namelist variables from local module variables.
    prescribed_ozone_name     = fld_name
@@ -235,6 +247,16 @@ end subroutine prescribed_ozone_readnl
     real(r8),pointer :: tmpptr(:,:)
 
     character(len=32) :: units_str
+
+    call chemistry_misc_codon_touch('prescribed_ozone_adv', 124)
+    if (.not. prescribed_ozone_adv_logged) then
+       prescribed_ozone_adv_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_ozone_adv direct = codon; active branch selected in Codon; tracer-data/unit conversion native body remains'
+          call flush(iulog)
+       end if
+    end if
 
     if( .not. has_prescribed_ozone ) return
 

@@ -94,7 +94,7 @@ contains
          solar_data_file, solar_data_type, solar_data_ymd, solar_data_tod, solar_const, &
          solar_htng_spctrl_scl
 
-    call chemistry_misc_codon_touch('solar_data', 106)
+    call chemistry_misc_codon_touch('solar_data_readnl', 106)
     
     if (masterproc) then
        unitn = getunit()
@@ -439,6 +439,8 @@ contains
 
     integer :: year, month, day, sec,n ,i
 
+    call chemistry_misc_codon_touch('solar_data::convert_dates', 301)
+
     n = size( dates ) 
 
     do i=1,n
@@ -461,6 +463,9 @@ contains
 
     integer :: dates(1), secs(1)
     real(r8) :: times(1)
+
+    call chemistry_misc_codon_touch('solar_data::convert_date', 302)
+
     dates(1) = date
     secs(1) = sec
     call convert_dates( dates, secs, times )
@@ -477,6 +482,8 @@ contains
     integer, optional, intent(out) :: year, month, day, seconds
 
     integer  :: yr, mn, dy, sc, date
+
+    call chemistry_misc_codon_touch('solar_data::get_model_time', 303)
 
     call get_curr_date(yr, mn, dy, sc)
     date = yr*10000 + mn*100 + dy

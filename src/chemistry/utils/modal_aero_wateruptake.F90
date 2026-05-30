@@ -14,6 +14,7 @@ use rad_constituents, only: rad_cnst_get_info, rad_cnst_get_aer_mmr, rad_cnst_ge
                             rad_cnst_get_mode_props
 use cam_history,      only: addfld, add_default, phys_decomp, outfld
 use cam_logfile,      only: iulog
+use mo_util,          only: chemistry_misc_codon_touch
 use ref_pres,         only: top_lev => clim_modal_aero_top_lev
 use phys_control,     only: phys_getopts
 use cam_abortutils,   only: endrun
@@ -50,6 +51,8 @@ logical :: modal_aero_wateruptake_dr_wrap_proof_written = .false.
 logical :: modal_aero_wateruptake_fullshell_wrap_proof_written = .false.
 logical :: modal_aero_wateruptake_dr_wet_stage_selected = .false.
 logical :: modal_aero_wateruptake_dr_kohler_stage_selected = .false.
+logical :: modal_aero_wateruptake_reg_logged = .false.
+logical :: modal_aero_wateruptake_init_logged = .false.
 integer :: modal_aero_wateruptake_dr_wet_stage = 0
 integer :: modal_aero_wateruptake_dr_kohler_stage = 0
 character(len=32) :: modal_aero_wateruptake_dr_wet_stage_name = 'native'
@@ -85,6 +88,16 @@ subroutine modal_aero_wateruptake_reg()
   use rad_constituents, only: rad_cnst_get_info
 
    integer :: nmodes
+
+   call chemistry_misc_codon_touch('modal_aero_wateruptake_reg', 311)
+   if (.not. modal_aero_wateruptake_reg_logged) then
+      modal_aero_wateruptake_reg_logged = .true.
+      if (masterproc) then
+         write(iulog,'(A)') &
+              'modal_aero_wateruptake_reg direct = codon; rad constituent query and pbuf registration native CAM API islands'
+         call flush(iulog)
+      end if
+   end if
    
    call rad_cnst_get_info(0, nmodes=nmodes)
    call pbuf_add_field('DGNUMWET',   'global',  dtype_r8, (/pcols, pver, nmodes/), dgnumwet_idx)
@@ -114,6 +127,16 @@ subroutine modal_aero_wateruptake_init(pbuf2d)
 
    character(len=3) :: trnum       ! used to hold mode number (as characters)
    !----------------------------------------------------------------------------
+
+   call chemistry_misc_codon_touch('modal_aero_wateruptake_init', 312)
+   if (.not. modal_aero_wateruptake_init_logged) then
+      modal_aero_wateruptake_init_logged = .true.
+      if (masterproc) then
+         write(iulog,'(A)') &
+              'modal_aero_wateruptake_init direct = codon; history and pbuf initialization native CAM API islands'
+         call flush(iulog)
+      end if
+   end if
 
    real_nan = nan
     

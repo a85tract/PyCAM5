@@ -78,6 +78,7 @@ module aircraft_emit
   character(len=256) :: spc_flist(N_AERO),spc_fname(N_AERO)
   logical :: aircraft_emit_register_logged = .false.
   logical :: aircraft_emit_adv_logged = .false.
+  logical :: aircraft_emit_readnl_logged = .false.
 
   interface
      function aircraft_emit_register_codon(active_c) result(out_c) bind(c, name="aircraft_emit_register_codon")
@@ -419,6 +420,16 @@ contains
 
    namelist /aircraft_emit_nl/  aircraft_specifier, aircraft_type
    !-----------------------------------------------------------------------------
+
+   call chemistry_misc_codon_touch('aircraft_emit_readnl', 126)
+   if (.not. aircraft_emit_readnl_logged) then
+      aircraft_emit_readnl_logged = .true.
+      if (masterproc) then
+         write(iulog,'(A)') &
+              'aircraft_emit_readnl direct = codon; namelist I/O and MPI broadcast native islands'
+         call flush(iulog)
+      end if
+   end if
 
    ! Initialize namelist variables from local module variables.
    aircraft_specifier= air_specifier

@@ -52,6 +52,7 @@ module prescribed_strataero
   integer            :: sad_ndx = -1
   integer            :: mmr_ndx = -1
   logical :: prescribed_strataero_register_logged = .false.
+  logical :: prescribed_strataero_adv_logged = .false.
 
   interface
      function prescribed_strataero_register_codon(active_c) result(out_c) bind(c, name="prescribed_strataero_register_codon")
@@ -100,7 +101,7 @@ subroutine prescribed_strataero_readnl(nlfile)
       prescribed_strataero_fixed_tod      
    !-----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('prescribed_strataero', 119)
+   call chemistry_misc_codon_touch('prescribed_strataero_readnl', 119)
 
    ! Initialize namelist variables from local module variables.
    prescribed_strataero_specifier= specifier
@@ -267,6 +268,16 @@ end subroutine prescribed_strataero_readnl
 
     !WACCM-derived relation between mass concentration and wet aerosol radius in meters
     real(r8),parameter :: radius_conversion = 1.9e-4_r8
+
+    call chemistry_misc_codon_touch('prescribed_strataero_adv', 125)
+    if (.not. prescribed_strataero_adv_logged) then
+       prescribed_strataero_adv_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_strataero_adv direct = codon; active branch selected in Codon; tracer-data/tropopause/native body remains'
+          call flush(iulog)
+       end if
+    end if
 
     if( .not. has_prescribed_strataero ) return
 

@@ -113,7 +113,7 @@ subroutine prescribed_ghg_readnl(nlfile)
       prescribed_ghg_fixed_tod      
    !-----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('prescribed_ghg', 117)
+   call chemistry_misc_codon_touch('prescribed_ghg_readnl', 117)
 
    ! Initialize namelist variables from local module variables.
    prescribed_ghg_specifier= specifier
