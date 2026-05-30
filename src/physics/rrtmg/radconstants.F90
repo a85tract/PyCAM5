@@ -5,7 +5,7 @@ module radconstants
 
 use shr_kind_mod,   only: r8 => shr_kind_r8
 use cam_abortutils, only: endrun
-use iso_c_binding,  only: c_int64_t
+use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr
 
 implicit none
 private
@@ -147,6 +147,16 @@ interface
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: result_c
    end function rrtmg_init_int_passthrough_codon
+
+   subroutine rrtmg_ref_solar_band_irrad_codon(nbands_c, band_irrad_p, &
+        c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14) &
+        bind(c, name="rrtmg_ref_solar_band_irrad_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: nbands_c
+      type(c_ptr), value :: band_irrad_p
+      real(c_double), value :: c01, c02, c03, c04, c05, c06, c07
+      real(c_double), value :: c08, c09, c10, c11, c12, c13, c14
+   end subroutine rrtmg_ref_solar_band_irrad_codon
 end interface
 
 contains
@@ -181,12 +191,25 @@ end subroutine get_ref_total_solar_irrad
 subroutine get_ref_solar_band_irrad( band_irrad )
 
    ! solar irradiance in each band (W/m^2)
-   real(r8), intent(out) :: band_irrad(nswbands)
+   real(r8), intent(out), target :: band_irrad(nswbands)
  
    call radconstants_select_impl()
-   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+   if (use_native_radconstants_impl) then
+      band_irrad = solar_ref_band_irradiance
+      return
+   endif
 
-   band_irrad = solar_ref_band_irradiance
+   call radconstants_log_get_ref_solar_band_irrad()
+   call rrtmg_ref_solar_band_irrad_codon( &
+        int(nswbands, c_int64_t), c_loc(band_irrad(1)), &
+        real(solar_ref_band_irradiance(1), c_double), real(solar_ref_band_irradiance(2), c_double), &
+        real(solar_ref_band_irradiance(3), c_double), real(solar_ref_band_irradiance(4), c_double), &
+        real(solar_ref_band_irradiance(5), c_double), real(solar_ref_band_irradiance(6), c_double), &
+        real(solar_ref_band_irradiance(7), c_double), real(solar_ref_band_irradiance(8), c_double), &
+        real(solar_ref_band_irradiance(9), c_double), real(solar_ref_band_irradiance(10), c_double), &
+        real(solar_ref_band_irradiance(11), c_double), real(solar_ref_band_irradiance(12), c_double), &
+        real(solar_ref_band_irradiance(13), c_double), real(solar_ref_band_irradiance(14), c_double) &
+   )
 
 end subroutine get_ref_solar_band_irrad
 !------------------------------------------------------------------------------
@@ -337,5 +360,18 @@ subroutine radconstants_log_entered()
    endif
 
 end subroutine radconstants_log_entered
+
+!------------------------------------------------------------------------------
+subroutine radconstants_log_get_ref_solar_band_irrad()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (masterproc) then
+      write(iulog,*) 'get_ref_solar_band_irrad implementation = codon'
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_log_get_ref_solar_band_irrad
 
 end module radconstants

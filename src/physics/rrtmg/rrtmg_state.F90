@@ -65,12 +65,30 @@ contains
 !--------------------------------------------------------------------------------
   subroutine rrtmg_state_init
 
-    use ref_pres,only : pref_edge
+    use ref_pres,       only : pref_edge
+    use iso_c_binding,  only : c_int64_t, c_loc, c_ptr
     implicit none
+
+    interface
+       function rrtmg_state_init_codon(pverp_c, pref_edge_p) result(num_rrtmg_levs_c) &
+            bind(c, name="rrtmg_state_init_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pverp_c
+         type(c_ptr), value :: pref_edge_p
+         integer(c_int64_t) :: num_rrtmg_levs_c
+       end function rrtmg_state_init_codon
+    end interface
+
+    call rrtmg_state_select_impl()
 
     ! The following cuts off RRTMG at roughly the point where it becomes
     ! invalid due to low pressure.
-    num_rrtmg_levs = count( pref_edge(:) > 1._r8 ) ! pascals (1.e-2 mbar)
+    if (use_native_rrtmg_state_impl) then
+       num_rrtmg_levs = count( pref_edge(:) > 1._r8 ) ! pascals (1.e-2 mbar)
+    else
+       call rrtmg_state_log_init()
+       num_rrtmg_levs = int(rrtmg_state_init_codon(int(pverp, c_int64_t), c_loc(pref_edge(1))))
+    end if
 
   end subroutine rrtmg_state_init
   
@@ -351,5 +369,16 @@ contains
     end if
 
   end subroutine rrtmg_state_log_entered
+
+!--------------------------------------------------------------------------------
+
+  subroutine rrtmg_state_log_init()
+
+    if (masterproc) then
+       write(iulog,*) 'rrtmg_state_init implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine rrtmg_state_log_init
 
 end module rrtmg_state

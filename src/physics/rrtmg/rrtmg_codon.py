@@ -14,6 +14,41 @@ def rrtmg_init_int_passthrough_codon(value: int) -> int:
 
 
 @export
+def rrtmg_ref_solar_band_irrad_codon(
+    nbands: int,
+    band_irrad_p: cobj,
+    c01: float,
+    c02: float,
+    c03: float,
+    c04: float,
+    c05: float,
+    c06: float,
+    c07: float,
+    c08: float,
+    c09: float,
+    c10: float,
+    c11: float,
+    c12: float,
+    c13: float,
+    c14: float,
+):
+    band_irrad = Ptr[float](band_irrad_p)
+    values = (c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14)
+    for i in range(nbands):
+        band_irrad[i] = values[i]
+
+
+@export
+def rrtmg_state_init_codon(pverp: int, pref_edge_p: cobj) -> int:
+    pref_edge = Ptr[float](pref_edge_p)
+    num_levs = 0
+    for k in range(pverp):
+        if pref_edge[k] > 1.0:
+            num_levs += 1
+    return num_levs
+
+
+@export
 def rrtmg_sw_swcmbdat_codon(
     ngc_p: cobj,
     ngs_p: cobj,
