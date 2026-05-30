@@ -20,7 +20,7 @@ contains
 
     integer :: i,j
 
-    call chemistry_misc_codon_touch('mo_exp_sol', 141)
+    call chemistry_misc_codon_touch('exp_sol_inti', 141)
     do i = 1,clscnt1
 
        j = clsmap(i,1)

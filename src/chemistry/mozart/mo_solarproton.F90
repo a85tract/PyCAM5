@@ -23,7 +23,7 @@ contains
     !      ... read in SPE ionization rates
     !-----------------------------------------------------------------------
 
-	    call chemistry_misc_codon_touch('mo_solarproton', 148)
+	    call chemistry_misc_codon_touch('spe_init', 148)
 	    call spedata_init()
 
   end subroutine spe_init

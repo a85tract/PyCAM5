@@ -42,7 +42,7 @@ contains
 
     integer :: m
 
-    call chemistry_misc_codon_touch('short_lived_species', 140)
+    call chemistry_misc_codon_touch('register_short_lived_species', 140)
     if ( nslvd < 1 ) return
 
     call pbuf_add_field(pbufname,'global',dtype_r8,(/pcols,pver,nslvd/),pbf_idx)
@@ -73,6 +73,7 @@ contains
     real(r8),pointer :: tmpptr(:,:,:)   ! temporary pointer
     real(r8),pointer :: tmpptr2(:,:,:)   ! temporary pointer
 
+    call chemistry_misc_codon_touch('initialize_short_lived_species', 163)
     if ( nslvd < 1 ) return
 
     found = .false.
@@ -121,6 +122,7 @@ contains
 
     integer :: m,n
 
+    call chemistry_misc_codon_touch('set_short_lived_species', 164)
     if ( nslvd < 1 ) return
 
     do m=1,nslvd

@@ -58,7 +58,7 @@ contains
     logical :: history_chemistry
 
     call phys_getopts(history_chemistry_out=history_chemistry)
-    call chemistry_misc_codon_touch('lin_strat_chem', 154)
+    call chemistry_misc_codon_touch('lin_strat_chem_inti', 154)
 
     if (.not.has_linoz_data) return
 

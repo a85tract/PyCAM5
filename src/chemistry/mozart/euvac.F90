@@ -52,7 +52,7 @@
 	      integer  :: astat
 	      character(len=256) :: locfn
 
-	      call chemistry_misc_codon_touch('euvac', 151)
+	      call chemistry_misc_codon_touch('euvac_init', 151)
 	      euvac_on = len_trim(euvac_file)>0
       if (.not.euvac_on) return
 

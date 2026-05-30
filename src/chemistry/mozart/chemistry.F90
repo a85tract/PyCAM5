@@ -166,8 +166,10 @@ contains
 
 logical function chem_is (name)
    use phys_control,     only : cam_chempkg_is
+   use mo_util,          only : chemistry_misc_codon_touch
 
    character(len=*), intent(in) :: name
+   call chemistry_misc_codon_touch('chem_is', 165)
    chem_is = cam_chempkg_is(name)
 
 end function chem_is

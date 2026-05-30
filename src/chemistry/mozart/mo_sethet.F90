@@ -52,7 +52,7 @@ contains
 
     integer :: k, m
 
-    call chemistry_misc_codon_touch('mo_sethet', 156)
+    call chemistry_misc_codon_touch('sethet_inti', 156)
     do_wetdep = gas_wetdep_cnt>0 .and. gas_wetdep_method=='MOZ'
     if ( .not. do_wetdep) return
 

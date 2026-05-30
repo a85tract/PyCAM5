@@ -176,6 +176,7 @@ contains
     integer :: data_vid, ierr
     character(len=256) :: filen
 
+    call chemistry_misc_codon_touch('chlorine_loading_advance', 166)
 
     if (.not.has_linoz_data) return
     if ( fixed .and. initialized ) return

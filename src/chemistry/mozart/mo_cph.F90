@@ -58,7 +58,7 @@ contains
     integer :: i, n, tagndx
 
     has_cph = ncph > 0
-    call chemistry_misc_codon_touch('mo_cph', 155)
+    call chemistry_misc_codon_touch('init_cph', 155)
 
     if (.not.has_cph) return
 
