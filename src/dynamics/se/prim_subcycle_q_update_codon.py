@@ -902,3 +902,31 @@ def se_misc_touch_codon(
     return _misc.se_misc_touch_codon(
         tag,
     )
+
+@export
+def gbarrier_init_codon(
+    c_barrier_p: cobj,
+    nthreads: int,
+):
+    return _misc.gbarrier_init_codon(
+        c_barrier_p,
+        nthreads,
+    )
+
+@export
+def gbarrier_delete_codon(
+    c_barrier_p: cobj,
+):
+    return _misc.gbarrier_delete_codon(
+        c_barrier_p,
+    )
+
+@export
+def gbarrier_synchronize_codon(
+    c_barrier: cobj,
+    thread: int,
+):
+    return _misc.gbarrier_synchronize_codon(
+        c_barrier,
+        thread,
+    )
