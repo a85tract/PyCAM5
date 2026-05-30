@@ -170,6 +170,7 @@ logical :: micro_mg1_0_sedimentation_state_logged = .false.
 logical :: micro_mg1_0_sedimentation_velocity_logged = .false.
 logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_effrad_state_logged = .false.
+logical :: micro_mg1_0_effdiam_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3600,10 +3601,14 @@ do i=1,ncol
       end if
 
       ! ice effective diameter for david mitchell's optics
-      if (do_cldice) then
-         deffi(i,k)=effi(i,k)*rhoi/917._r8*2._r8
+      if (micro_mg1_0_colzero_use_native_impl) then
+         if (do_cldice) then
+            deffi(i,k)=effi(i,k)*rhoi/917._r8*2._r8
+         else
+            deffi(i,k)=effi(i,k) * 2._r8
+         end if
       else
-         deffi(i,k)=effi(i,k) * 2._r8
+         call micro_mg1_0_effdiam_codon_wrap(i, k, pcols, pver, rhoi, do_cldice, effi, deffi)
       end if
 
 
@@ -4279,6 +4284,15 @@ subroutine micro_mg1_0_effrad_state_log_entry()
      micro_mg1_0_effrad_state_logged = .true.
   end if
 end subroutine micro_mg1_0_effrad_state_log_entry
+
+subroutine micro_mg1_0_effdiam_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_effdiam_logged) then
+     write(iulog,*) 'micro_mg1_0_effdiam entered (ice effective diameter = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_effdiam entered (ice effective diameter = codon)')
+     micro_mg1_0_effdiam_logged = .true.
+  end if
+end subroutine micro_mg1_0_effdiam_log_entry
 
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
@@ -5139,6 +5153,32 @@ subroutine micro_mg1_0_effrad_state_codon_wrap(i_local, k_local, pcols_local, pv
        c_loc(nitend_local), c_loc(lcldm_local), c_loc(icldm_local), c_loc(dumc_local), c_loc(dumi_local), &
        c_loc(dumnc_local), c_loc(dumni_local))
 end subroutine micro_mg1_0_effrad_state_codon_wrap
+
+subroutine micro_mg1_0_effdiam_codon_wrap(i_local, k_local, pcols_local, pver_local, rhoi_local, &
+     do_cldice_local, effi_local, deffi_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: rhoi_local
+  logical, intent(in) :: do_cldice_local
+  real(r8), target, intent(in) :: effi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: deffi_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_effdiam_codon(i_c, k_c, pcols_c, pver_c, rhoi_c, do_cldice_c, &
+          effi_p, deffi_p) bind(c, name="micro_mg1_0_effdiam_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, do_cldice_c
+       real(c_double), value :: rhoi_c
+       type(c_ptr), value :: effi_p, deffi_p
+     end subroutine micro_mg1_0_effdiam_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_effdiam_log_entry()
+  call micro_mg1_0_effdiam_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(rhoi_local, c_double), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), c_loc(effi_local), c_loc(deffi_local))
+end subroutine micro_mg1_0_effdiam_codon_wrap
 
 subroutine micro_mg1_0_sedimentation_fallout_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
      nstep_local, do_cldice_local, deltat_local, g_local, xxlv_local, xxls_local, pdel_local, lcldm_local, &

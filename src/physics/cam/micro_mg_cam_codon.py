@@ -2641,6 +2641,27 @@ def micro_mg1_0_effrad_state_codon(
 
 
 @export
+def micro_mg1_0_effdiam_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    rhoi: float,
+    do_cldice: int,
+    effi_p: cobj,
+    deffi_p: cobj,
+):
+    effi = Ptr[float](effi_p)
+    deffi = Ptr[float](deffi_p)
+
+    idx = _idx2(i, k, pcols)
+    if do_cldice != 0:
+        deffi[idx] = effi[idx] * rhoi / 917.0 * 2.0
+    else:
+        deffi[idx] = effi[idx] * 2.0
+
+
+@export
 def micro_mg1_0_sedimentation_fallout_codon(
     i: int,
     pcols: int,
