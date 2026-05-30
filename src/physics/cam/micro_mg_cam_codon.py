@@ -2280,6 +2280,42 @@ def micro_mg1_0_phase_change_codon(
 
 
 @export
+def micro_mg1_0_number_cleanup_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    deltat: float,
+    qsmall: float,
+    do_cldice: int,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+):
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    nctend = Ptr[float](nctend_p)
+    nitend = Ptr[float](nitend_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            if qc[idx] + qctend[idx] * deltat < qsmall:
+                nctend[idx] = -nc[idx] / deltat
+            if do_cldice != 0 and qi[idx] + qitend[idx] * deltat < qsmall:
+                nitend[idx] = -ni[idx] / deltat
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,

@@ -164,6 +164,7 @@ logical :: micro_mg1_0_conservation_limiter_logged = .false.
 logical :: micro_mg1_0_process_output_logged = .false.
 logical :: micro_mg1_0_post_iter_avg_logged = .false.
 logical :: micro_mg1_0_phase_change_logged = .false.
+logical :: micro_mg1_0_number_cleanup_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3606,14 +3607,21 @@ do i=1,ncol
 
 500 continue
 
-   do k=top_lev,pver
-      ! if updated q (after microphysics) is zero, then ensure updated n is also zero
+   if (micro_mg1_0_colzero_use_native_impl) then
+      do k=top_lev,pver
+         ! if updated q (after microphysics) is zero, then ensure updated n is also zero
 
-      if (qc(i,k)+qctend(i,k)*deltat.lt.qsmall) nctend(i,k)=-nc(i,k)/deltat
-      if (do_cldice .and. qi(i,k)+qitend(i,k)*deltat.lt.qsmall) nitend(i,k)=-ni(i,k)/deltat
-   end do
+         if (qc(i,k)+qctend(i,k)*deltat.lt.qsmall) nctend(i,k)=-nc(i,k)/deltat
+         if (do_cldice .and. qi(i,k)+qitend(i,k)*deltat.lt.qsmall) nitend(i,k)=-ni(i,k)/deltat
+      end do
+   end if
 
 end do ! i loop
+
+if (.not. micro_mg1_0_colzero_use_native_impl) then
+   call micro_mg1_0_number_cleanup_codon_wrap(ncol, pcols, pver, top_lev, deltat, qsmall, &
+        do_cldice, qc, qi, nc, ni, qctend, qitend, nctend, nitend)
+end if
 
 ! add snow ouptut
 do i = 1,ncol
@@ -4174,6 +4182,15 @@ subroutine micro_mg1_0_phase_change_log_entry()
      micro_mg1_0_phase_change_logged = .true.
   end if
 end subroutine micro_mg1_0_phase_change_log_entry
+
+subroutine micro_mg1_0_number_cleanup_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_number_cleanup_logged) then
+     write(iulog,*) 'micro_mg1_0_number_cleanup entered (post-diagnostic number cleanup = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_number_cleanup entered (post-diagnostic number cleanup = codon)')
+     micro_mg1_0_number_cleanup_logged = .true.
+  end if
+end subroutine micro_mg1_0_number_cleanup_log_entry
 
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
@@ -4777,6 +4794,40 @@ subroutine micro_mg1_0_phase_change_codon_wrap(i_local, k_local, pcols_local, pv
        c_loc(dumi_local), c_loc(dumnc_local), c_loc(dumni_local), c_loc(melto_local), &
        c_loc(homoo_local), c_loc(wtpostlat_local))
 end subroutine micro_mg1_0_phase_change_codon_wrap
+
+subroutine micro_mg1_0_number_cleanup_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
+     deltat_local, qsmall_local, do_cldice_local, qc_local, qi_local, nc_local, ni_local, &
+     qctend_local, qitend_local, nctend_local, nitend_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: deltat_local, qsmall_local
+  logical, intent(in) :: do_cldice_local
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local), qi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nc_local(pcols_local,pver_local), ni_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qctend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_number_cleanup_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+          deltat_c, qsmall_c, do_cldice_c, qc_p, qi_p, nc_p, ni_p, qctend_p, qitend_p, &
+          nctend_p, nitend_p) bind(c, name="micro_mg1_0_number_cleanup_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c
+       real(c_double), value :: deltat_c, qsmall_c
+       type(c_ptr), value :: qc_p, qi_p, nc_p, ni_p, qctend_p, qitend_p, nctend_p, nitend_p
+     end subroutine micro_mg1_0_number_cleanup_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_number_cleanup_log_entry()
+  call micro_mg1_0_number_cleanup_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), real(deltat_local, c_double), &
+       real(qsmall_local, c_double), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
+       c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), c_loc(qctend_local), &
+       c_loc(qitend_local), c_loc(nctend_local), c_loc(nitend_local))
+end subroutine micro_mg1_0_number_cleanup_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &
