@@ -2593,6 +2593,22 @@ def micro_mg1_0_sedimentation_velocity_codon(
 
 
 @export
+def micro_mg1_0_sedimentation_ice_prep_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    dumi_p: cobj,
+    dumni_p: cobj,
+):
+    dumi = Ptr[float](dumi_p)
+    dumni = Ptr[float](dumni_p)
+
+    idx = _idx2(i, k, pcols)
+    dumni[idx] = min(dumni[idx], dumi[idx] * 1.0e20)
+
+
+@export
 def micro_mg1_0_effrad_state_codon(
     i: int,
     k: int,
