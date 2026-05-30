@@ -162,6 +162,7 @@ logical :: micro_mg1_0_substep_accum_logged = .false.
 logical :: micro_mg1_0_incloud_activation_logged = .false.
 logical :: micro_mg1_0_conservation_limiter_logged = .false.
 logical :: micro_mg1_0_process_output_logged = .false.
+logical :: micro_mg1_0_post_iter_avg_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3181,87 +3182,15 @@ do i=1,ncol
    ! initialize nstep for sedimentation sub-steps
    nstep = 1
 
-   ! divide precip rate by number of sub-steps to get average over time step
-
-   prect(i)=prect1(i)/real(iter)
-   preci(i)=preci1(i)/real(iter)
+   call micro_mg1_0_post_iter_avg_codon_wrap(i, pcols, pver, top_lev, iter, prect1, preci1, &
+        prect, preci, t1, q1, qc1, qi1, nc1, ni1, t, q, qc, qi, nc, ni, &
+        tlat1, qvlat1, qctend1, qitend1, nctend1, nitend1, tlat, qvlat, qctend, qitend, &
+        nctend, nitend, rainrt1, rainrt, rflx1, sflx1, rflx, sflx, qrout, qsout, nrout, nsout, &
+        nevapr, nevapr2, evapsnow, prain, prodsnow, cmeout, cmeiout, meltsdt, frzrdt, &
+        prao, prco, mnuccco, mnuccto, msacwio, psacwso, bergso, bergo, prcio, praio, &
+        mnuccro, pracso, mnuccdo, preo, prdso, frzro, meltso, wtprelat, prer_evap)
 
    do k=top_lev,pver
-
-      ! assign variables back to start-of-timestep values before updating after sub-steps 
-
-      t(i,k)=t1(i,k)
-      q(i,k)=q1(i,k)
-      qc(i,k)=qc1(i,k)
-      qi(i,k)=qi1(i,k)
-      nc(i,k)=nc1(i,k)
-      ni(i,k)=ni1(i,k)
-
-      ! divide microphysical tendencies by number of sub-steps to get average over time step
-
-      tlat(i,k)=tlat1(i,k)/real(iter)
-      qvlat(i,k)=qvlat1(i,k)/real(iter)
-      qctend(i,k)=qctend1(i,k)/real(iter)
-      qitend(i,k)=qitend1(i,k)/real(iter)
-      nctend(i,k)=nctend1(i,k)/real(iter)
-      nitend(i,k)=nitend1(i,k)/real(iter)
-
-      rainrt(i,k)=rainrt1(i,k)/real(iter)
-
-      ! divide by number of sub-steps to find final values
-      rflx(i,k+1)=rflx1(i,k+1)/real(iter)
-      sflx(i,k+1)=sflx1(i,k+1)/real(iter)
-
-      ! divide output precip q and N by number of sub-steps to get average over time step
-
-      qrout(i,k)=qrout(i,k)/real(iter)
-      qsout(i,k)=qsout(i,k)/real(iter)
-      nrout(i,k)=nrout(i,k)/real(iter)
-      nsout(i,k)=nsout(i,k)/real(iter)
-
-      ! divide trop_mozart variables by number of sub-steps to get average over time step 
-
-      nevapr(i,k) = nevapr(i,k)/real(iter)
-      nevapr2(i,k) = nevapr2(i,k)/real(iter)
-      evapsnow(i,k) = evapsnow(i,k)/real(iter)
-      prain(i,k) = prain(i,k)/real(iter)
-      prodsnow(i,k) = prodsnow(i,k)/real(iter)
-      cmeout(i,k) = cmeout(i,k)/real(iter)
-
-      cmeiout(i,k) = cmeiout(i,k)/real(iter)
-      meltsdt(i,k) = meltsdt(i,k)/real(iter)
-      frzrdt (i,k) = frzrdt (i,k)/real(iter)
-
-
-      ! microphysics output
-      prao(i,k)=prao(i,k)/real(iter)
-      prco(i,k)=prco(i,k)/real(iter)
-      mnuccco(i,k)=mnuccco(i,k)/real(iter)
-      mnuccto(i,k)=mnuccto(i,k)/real(iter)
-      msacwio(i,k)=msacwio(i,k)/real(iter)
-      psacwso(i,k)=psacwso(i,k)/real(iter)
-      bergso(i,k)=bergso(i,k)/real(iter)
-      bergo(i,k)=bergo(i,k)/real(iter)
-      prcio(i,k)=prcio(i,k)/real(iter)
-      praio(i,k)=praio(i,k)/real(iter)
-
-      mnuccro(i,k)=mnuccro(i,k)/real(iter)
-      pracso (i,k)=pracso (i,k)/real(iter)
-
-      mnuccdo(i,k)=mnuccdo(i,k)/real(iter)
-
-      !water tracers/isotopes:
-      preo(i,k)=preo(i,k)/real(iter)
-      prdso(i,k)=prdso(i,k)/real(iter)
-      frzro(i,k)=frzro(i,k)/real(iter)
-      meltso(i,k)=meltso(i,k)/real(iter)
-      wtprelat(i,k) = tlat(i,k)
-
-      ! modify to include snow. in prain & evap (diagnostic here: for wet dep)
-      nevapr(i,k) = nevapr(i,k) + evapsnow(i,k)
-      prer_evap(i,k) = nevapr2(i,k)
-      prain(i,k) = prain(i,k) + prodsnow(i,k)
-
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       ! calculate sedimentation for cloud water and ice
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -4297,6 +4226,15 @@ subroutine micro_mg1_0_process_output_log_entry()
   end if
 end subroutine micro_mg1_0_process_output_log_entry
 
+subroutine micro_mg1_0_post_iter_avg_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_post_iter_avg_logged) then
+     write(iulog,*) 'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = codon)')
+     micro_mg1_0_post_iter_avg_logged = .true.
+  end if
+end subroutine micro_mg1_0_post_iter_avg_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4757,6 +4695,101 @@ subroutine micro_mg1_0_process_output_accum_codon_wrap(i_local, k_local, pcols_l
        c_loc(prcio_local), c_loc(praio_local), c_loc(mnuccro_local), c_loc(pracso_local), &
        c_loc(preo_local), c_loc(prdso_local))
 end subroutine micro_mg1_0_process_output_accum_codon_wrap
+
+subroutine micro_mg1_0_post_iter_avg_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, iter_local, &
+     prect1_local, preci1_local, prect_local, preci_local, t1_local, q1_local, qc1_local, qi1_local, &
+     nc1_local, ni1_local, t_local, q_local, qc_local, qi_local, nc_local, ni_local, &
+     tlat1_local, qvlat1_local, qctend1_local, qitend1_local, nctend1_local, nitend1_local, &
+     tlat_local, qvlat_local, qctend_local, qitend_local, nctend_local, nitend_local, rainrt1_local, &
+     rainrt_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qrout_local, qsout_local, &
+     nrout_local, nsout_local, nevapr_local, nevapr2_local, evapsnow_local, prain_local, &
+     prodsnow_local, cmeout_local, cmeiout_local, meltsdt_local, frzrdt_local, prao_local, prco_local, &
+     mnuccco_local, mnuccto_local, msacwio_local, psacwso_local, bergso_local, bergo_local, &
+     prcio_local, praio_local, mnuccro_local, pracso_local, mnuccdo_local, preo_local, prdso_local, &
+     frzro_local, meltso_local, wtprelat_local, prer_evap_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local, top_lev_local, iter_local
+  real(r8), target, intent(in) :: prect1_local(pcols_local), preci1_local(pcols_local)
+  real(r8), target, intent(inout) :: prect_local(pcols_local), preci_local(pcols_local)
+  real(r8), target, intent(in) :: t1_local(pcols_local,pver_local), q1_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qc1_local(pcols_local,pver_local), qi1_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nc1_local(pcols_local,pver_local), ni1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: t_local(pcols_local,pver_local), q_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qc_local(pcols_local,pver_local), qi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nc_local(pcols_local,pver_local), ni_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: tlat1_local(pcols_local,pver_local), qvlat1_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qctend1_local(pcols_local,pver_local), qitend1_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nctend1_local(pcols_local,pver_local), nitend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: tlat_local(pcols_local,pver_local), qvlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qctend_local(pcols_local,pver_local), qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local), nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rainrt1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rainrt_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rflx1_local(pcols_local,pver_local+1), sflx1_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: rflx_local(pcols_local,pver_local+1), sflx_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: qrout_local(pcols_local,pver_local), qsout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nrout_local(pcols_local,pver_local), nsout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nevapr_local(pcols_local,pver_local), nevapr2_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: evapsnow_local(pcols_local,pver_local), prain_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prodsnow_local(pcols_local,pver_local), cmeout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cmeiout_local(pcols_local,pver_local), meltsdt_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: frzrdt_local(pcols_local,pver_local), prao_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prco_local(pcols_local,pver_local), mnuccco_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: mnuccto_local(pcols_local,pver_local), msacwio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: psacwso_local(pcols_local,pver_local), bergso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: bergo_local(pcols_local,pver_local), prcio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: praio_local(pcols_local,pver_local), mnuccro_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: pracso_local(pcols_local,pver_local), mnuccdo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: preo_local(pcols_local,pver_local), prdso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: frzro_local(pcols_local,pver_local), meltso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: wtprelat_local(pcols_local,pver_local), prer_evap_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_post_iter_avg_codon(i_c, pcols_c, pver_c, top_lev_c, iter_c, &
+          prect1_p, preci1_p, prect_p, preci_p, t1_p, q1_p, qc1_p, qi1_p, nc1_p, ni1_p, &
+          t_p, q_p, qc_p, qi_p, nc_p, ni_p, tlat1_p, qvlat1_p, qctend1_p, qitend1_p, &
+          nctend1_p, nitend1_p, tlat_p, qvlat_p, qctend_p, qitend_p, nctend_p, nitend_p, &
+          rainrt1_p, rainrt_p, rflx1_p, sflx1_p, rflx_p, sflx_p, qrout_p, qsout_p, nrout_p, &
+          nsout_p, nevapr_p, nevapr2_p, evapsnow_p, prain_p, prodsnow_p, cmeout_p, cmeiout_p, &
+          meltsdt_p, frzrdt_p, prao_p, prco_p, mnuccco_p, mnuccto_p, msacwio_p, psacwso_p, &
+          bergso_p, bergo_p, prcio_p, praio_p, mnuccro_p, pracso_p, mnuccdo_p, preo_p, prdso_p, &
+          frzro_p, meltso_p, wtprelat_p, prer_evap_p) bind(c, name="micro_mg1_0_post_iter_avg_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, iter_c
+       type(c_ptr), value :: prect1_p, preci1_p, prect_p, preci_p, t1_p, q1_p, qc1_p, qi1_p
+       type(c_ptr), value :: nc1_p, ni1_p, t_p, q_p, qc_p, qi_p, nc_p, ni_p
+       type(c_ptr), value :: tlat1_p, qvlat1_p, qctend1_p, qitend1_p, nctend1_p, nitend1_p
+       type(c_ptr), value :: tlat_p, qvlat_p, qctend_p, qitend_p, nctend_p, nitend_p
+       type(c_ptr), value :: rainrt1_p, rainrt_p, rflx1_p, sflx1_p, rflx_p, sflx_p
+       type(c_ptr), value :: qrout_p, qsout_p, nrout_p, nsout_p, nevapr_p, nevapr2_p
+       type(c_ptr), value :: evapsnow_p, prain_p, prodsnow_p, cmeout_p, cmeiout_p, meltsdt_p, frzrdt_p
+       type(c_ptr), value :: prao_p, prco_p, mnuccco_p, mnuccto_p, msacwio_p, psacwso_p
+       type(c_ptr), value :: bergso_p, bergo_p, prcio_p, praio_p, mnuccro_p, pracso_p, mnuccdo_p
+       type(c_ptr), value :: preo_p, prdso_p, frzro_p, meltso_p, wtprelat_p, prer_evap_p
+     end subroutine micro_mg1_0_post_iter_avg_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_post_iter_avg_log_entry()
+  call micro_mg1_0_post_iter_avg_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), int(iter_local, c_int64_t), &
+       c_loc(prect1_local), c_loc(preci1_local), c_loc(prect_local), c_loc(preci_local), &
+       c_loc(t1_local), c_loc(q1_local), c_loc(qc1_local), c_loc(qi1_local), c_loc(nc1_local), &
+       c_loc(ni1_local), c_loc(t_local), c_loc(q_local), c_loc(qc_local), c_loc(qi_local), &
+       c_loc(nc_local), c_loc(ni_local), c_loc(tlat1_local), c_loc(qvlat1_local), &
+       c_loc(qctend1_local), c_loc(qitend1_local), c_loc(nctend1_local), c_loc(nitend1_local), &
+       c_loc(tlat_local), c_loc(qvlat_local), c_loc(qctend_local), c_loc(qitend_local), &
+       c_loc(nctend_local), c_loc(nitend_local), c_loc(rainrt1_local), c_loc(rainrt_local), &
+       c_loc(rflx1_local), c_loc(sflx1_local), c_loc(rflx_local), c_loc(sflx_local), &
+       c_loc(qrout_local), c_loc(qsout_local), c_loc(nrout_local), c_loc(nsout_local), &
+       c_loc(nevapr_local), c_loc(nevapr2_local), c_loc(evapsnow_local), c_loc(prain_local), &
+       c_loc(prodsnow_local), c_loc(cmeout_local), c_loc(cmeiout_local), c_loc(meltsdt_local), &
+       c_loc(frzrdt_local), c_loc(prao_local), c_loc(prco_local), c_loc(mnuccco_local), &
+       c_loc(mnuccto_local), c_loc(msacwio_local), c_loc(psacwso_local), c_loc(bergso_local), &
+       c_loc(bergo_local), c_loc(prcio_local), c_loc(praio_local), c_loc(mnuccro_local), &
+       c_loc(pracso_local), c_loc(mnuccdo_local), c_loc(preo_local), c_loc(prdso_local), &
+       c_loc(frzro_local), c_loc(meltso_local), c_loc(wtprelat_local), c_loc(prer_evap_local))
+end subroutine micro_mg1_0_post_iter_avg_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &

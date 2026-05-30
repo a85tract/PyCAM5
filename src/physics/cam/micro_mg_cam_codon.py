@@ -1966,6 +1966,218 @@ def micro_mg1_0_process_output_accum_codon(
 
 
 @export
+def micro_mg1_0_post_iter_avg_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    iter_count: int,
+    prect1_p: cobj,
+    preci1_p: cobj,
+    prect_p: cobj,
+    preci_p: cobj,
+    t1_p: cobj,
+    q1_p: cobj,
+    qc1_p: cobj,
+    qi1_p: cobj,
+    nc1_p: cobj,
+    ni1_p: cobj,
+    t_p: cobj,
+    q_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    tlat1_p: cobj,
+    qvlat1_p: cobj,
+    qctend1_p: cobj,
+    qitend1_p: cobj,
+    nctend1_p: cobj,
+    nitend1_p: cobj,
+    tlat_p: cobj,
+    qvlat_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    rainrt1_p: cobj,
+    rainrt_p: cobj,
+    rflx1_p: cobj,
+    sflx1_p: cobj,
+    rflx_p: cobj,
+    sflx_p: cobj,
+    qrout_p: cobj,
+    qsout_p: cobj,
+    nrout_p: cobj,
+    nsout_p: cobj,
+    nevapr_p: cobj,
+    nevapr2_p: cobj,
+    evapsnow_p: cobj,
+    prain_p: cobj,
+    prodsnow_p: cobj,
+    cmeout_p: cobj,
+    cmeiout_p: cobj,
+    meltsdt_p: cobj,
+    frzrdt_p: cobj,
+    prao_p: cobj,
+    prco_p: cobj,
+    mnuccco_p: cobj,
+    mnuccto_p: cobj,
+    msacwio_p: cobj,
+    psacwso_p: cobj,
+    bergso_p: cobj,
+    bergo_p: cobj,
+    prcio_p: cobj,
+    praio_p: cobj,
+    mnuccro_p: cobj,
+    pracso_p: cobj,
+    mnuccdo_p: cobj,
+    preo_p: cobj,
+    prdso_p: cobj,
+    frzro_p: cobj,
+    meltso_p: cobj,
+    wtprelat_p: cobj,
+    prer_evap_p: cobj,
+):
+    prect1 = Ptr[float](prect1_p)
+    preci1 = Ptr[float](preci1_p)
+    prect = Ptr[float](prect_p)
+    preci = Ptr[float](preci_p)
+    t1 = Ptr[float](t1_p)
+    q1 = Ptr[float](q1_p)
+    qc1 = Ptr[float](qc1_p)
+    qi1 = Ptr[float](qi1_p)
+    nc1 = Ptr[float](nc1_p)
+    ni1 = Ptr[float](ni1_p)
+    t = Ptr[float](t_p)
+    q = Ptr[float](q_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    tlat1 = Ptr[float](tlat1_p)
+    qvlat1 = Ptr[float](qvlat1_p)
+    qctend1 = Ptr[float](qctend1_p)
+    qitend1 = Ptr[float](qitend1_p)
+    nctend1 = Ptr[float](nctend1_p)
+    nitend1 = Ptr[float](nitend1_p)
+    tlat = Ptr[float](tlat_p)
+    qvlat = Ptr[float](qvlat_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    nctend = Ptr[float](nctend_p)
+    nitend = Ptr[float](nitend_p)
+    rainrt1 = Ptr[float](rainrt1_p)
+    rainrt = Ptr[float](rainrt_p)
+    rflx1 = Ptr[float](rflx1_p)
+    sflx1 = Ptr[float](sflx1_p)
+    rflx = Ptr[float](rflx_p)
+    sflx = Ptr[float](sflx_p)
+    qrout = Ptr[float](qrout_p)
+    qsout = Ptr[float](qsout_p)
+    nrout = Ptr[float](nrout_p)
+    nsout = Ptr[float](nsout_p)
+    nevapr = Ptr[float](nevapr_p)
+    nevapr2 = Ptr[float](nevapr2_p)
+    evapsnow = Ptr[float](evapsnow_p)
+    prain = Ptr[float](prain_p)
+    prodsnow = Ptr[float](prodsnow_p)
+    cmeout = Ptr[float](cmeout_p)
+    cmeiout = Ptr[float](cmeiout_p)
+    meltsdt = Ptr[float](meltsdt_p)
+    frzrdt = Ptr[float](frzrdt_p)
+    prao = Ptr[float](prao_p)
+    prco = Ptr[float](prco_p)
+    mnuccco = Ptr[float](mnuccco_p)
+    mnuccto = Ptr[float](mnuccto_p)
+    msacwio = Ptr[float](msacwio_p)
+    psacwso = Ptr[float](psacwso_p)
+    bergso = Ptr[float](bergso_p)
+    bergo = Ptr[float](bergo_p)
+    prcio = Ptr[float](prcio_p)
+    praio = Ptr[float](praio_p)
+    mnuccro = Ptr[float](mnuccro_p)
+    pracso = Ptr[float](pracso_p)
+    mnuccdo = Ptr[float](mnuccdo_p)
+    preo = Ptr[float](preo_p)
+    prdso = Ptr[float](prdso_p)
+    frzro = Ptr[float](frzro_p)
+    meltso = Ptr[float](meltso_p)
+    wtprelat = Ptr[float](wtprelat_p)
+    prer_evap = Ptr[float](prer_evap_p)
+
+    iter_real = float(iter_count)
+
+    prect[i - 1] = prect1[i - 1] / iter_real
+    preci[i - 1] = preci1[i - 1] / iter_real
+
+    for k in range(top_lev, pver + 1):
+        idx = _idx2(i, k, pcols)
+
+        t[idx] = t1[idx]
+        q[idx] = q1[idx]
+        qc[idx] = qc1[idx]
+        qi[idx] = qi1[idx]
+        nc[idx] = nc1[idx]
+        ni[idx] = ni1[idx]
+
+        tlat[idx] = tlat1[idx] / iter_real
+        qvlat[idx] = qvlat1[idx] / iter_real
+        qctend[idx] = qctend1[idx] / iter_real
+        qitend[idx] = qitend1[idx] / iter_real
+        nctend[idx] = nctend1[idx] / iter_real
+        nitend[idx] = nitend1[idx] / iter_real
+
+        rainrt[idx] = rainrt1[idx] / iter_real
+
+        idx_flux = _idx2(i, k + 1, pcols)
+        rflx[idx_flux] = rflx1[idx_flux] / iter_real
+        sflx[idx_flux] = sflx1[idx_flux] / iter_real
+
+        qrout[idx] = qrout[idx] / iter_real
+        qsout[idx] = qsout[idx] / iter_real
+        nrout[idx] = nrout[idx] / iter_real
+        nsout[idx] = nsout[idx] / iter_real
+
+        nevapr[idx] = nevapr[idx] / iter_real
+        nevapr2[idx] = nevapr2[idx] / iter_real
+        evapsnow[idx] = evapsnow[idx] / iter_real
+        prain[idx] = prain[idx] / iter_real
+        prodsnow[idx] = prodsnow[idx] / iter_real
+        cmeout[idx] = cmeout[idx] / iter_real
+
+        cmeiout[idx] = cmeiout[idx] / iter_real
+        meltsdt[idx] = meltsdt[idx] / iter_real
+        frzrdt[idx] = frzrdt[idx] / iter_real
+
+        prao[idx] = prao[idx] / iter_real
+        prco[idx] = prco[idx] / iter_real
+        mnuccco[idx] = mnuccco[idx] / iter_real
+        mnuccto[idx] = mnuccto[idx] / iter_real
+        msacwio[idx] = msacwio[idx] / iter_real
+        psacwso[idx] = psacwso[idx] / iter_real
+        bergso[idx] = bergso[idx] / iter_real
+        bergo[idx] = bergo[idx] / iter_real
+        prcio[idx] = prcio[idx] / iter_real
+        praio[idx] = praio[idx] / iter_real
+
+        mnuccro[idx] = mnuccro[idx] / iter_real
+        pracso[idx] = pracso[idx] / iter_real
+
+        mnuccdo[idx] = mnuccdo[idx] / iter_real
+
+        preo[idx] = preo[idx] / iter_real
+        prdso[idx] = prdso[idx] / iter_real
+        frzro[idx] = frzro[idx] / iter_real
+        meltso[idx] = meltso[idx] / iter_real
+        wtprelat[idx] = tlat[idx]
+
+        nevapr[idx] = nevapr[idx] + evapsnow[idx]
+        prer_evap[idx] = nevapr2[idx]
+        prain[idx] = prain[idx] + prodsnow[idx]
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,
