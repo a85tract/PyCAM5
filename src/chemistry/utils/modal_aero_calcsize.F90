@@ -3,6 +3,7 @@ module modal_aero_calcsize
 !   RCE 07.04.13:  Adapted from MIRAGE2 code
 
 use shr_kind_mod,     only: r8 => shr_kind_r8
+use iso_c_binding,    only: c_int64_t
 use spmd_utils,       only: masterproc
 use physconst,        only: pi, rhoh2o, gravit
 
@@ -59,8 +60,17 @@ logical :: modal_aero_calcsize_sub_use_native_impl = .false.
 logical :: modal_aero_calcsize_sub_impl_selected = .false.
 logical :: modal_aero_calcsize_sub_proof_written = .false.
 logical :: modal_aero_calcsize_sub_wrap_proof_written = .false.
+logical :: modal_aero_calcsize_reg_logged = .false.
 
 integer :: dgnum_idx = -1
+
+interface
+   function modal_aero_calcsize_reg_codon(stage_c) result(out_c) bind(c, name="modal_aero_calcsize_reg_codon")
+      import :: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: out_c
+   end function modal_aero_calcsize_reg_codon
+end interface
 
 !===============================================================================
 contains
@@ -71,6 +81,18 @@ subroutine modal_aero_calcsize_reg()
   use rad_constituents, only: rad_cnst_get_info
 
   integer :: nmodes
+  integer(c_int64_t) :: active_c
+
+  active_c = modal_aero_calcsize_reg_codon(1_c_int64_t)
+  if (.not. modal_aero_calcsize_reg_logged) then
+     modal_aero_calcsize_reg_logged = .true.
+     if (masterproc) then
+        write(iulog,'(A)') &
+             'modal_aero_calcsize_reg direct = codon; rad constituent query/pbuf registration native CAM API island'
+        call flush(iulog)
+     end if
+  end if
+  if (active_c == 0_c_int64_t) return
   
   call rad_cnst_get_info(0, nmodes=nmodes)
 

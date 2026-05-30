@@ -7,6 +7,7 @@
 module aerodep_flx
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -105,6 +106,15 @@ module aerodep_flx
   integer :: idx_dst3_wetcw = -1
 
   logical :: modal_fluxes = .false.
+  logical :: aerodep_flx_prescribed_logged = .false.
+
+  interface
+     function aerodep_flx_prescribed_codon(active_c) result(out_c) bind(c, name="aerodep_flx_prescribed_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function aerodep_flx_prescribed_codon
+  end interface
 
 contains
 
@@ -372,7 +382,18 @@ end subroutine aerodep_flx_readnl
 !-------------------------------------------------------------------
   function aerodep_flx_prescribed()
     logical :: aerodep_flx_prescribed
-    aerodep_flx_prescribed = has_aerodep_flx
+    integer(c_int64_t) :: active_c
+
+    active_c = aerodep_flx_prescribed_codon(merge(1_c_int64_t, 0_c_int64_t, has_aerodep_flx))
+    aerodep_flx_prescribed = active_c /= 0_c_int64_t
+    if (.not. aerodep_flx_prescribed_logged) then
+       aerodep_flx_prescribed_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'aerodep_flx_prescribed direct = codon; module-state query direct = codon'
+          call flush(iulog)
+       end if
+    end if
   endfunction aerodep_flx_prescribed
 
 ! private methods

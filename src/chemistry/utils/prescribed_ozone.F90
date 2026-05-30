@@ -5,6 +5,7 @@
 module prescribed_ozone
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -39,6 +40,21 @@ module prescribed_ozone
   integer            :: cycle_yr  = 0
   integer            :: fixed_ymd = 0
   integer            :: fixed_tod = 0
+  logical :: init_prescribed_ozone_restart_logged = .false.
+  logical :: write_prescribed_ozone_restart_logged = .false.
+
+  interface
+     function init_prescribed_ozone_restart_codon(stage_c) result(out_c) bind(c, name="init_prescribed_ozone_restart_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function init_prescribed_ozone_restart_codon
+     function write_prescribed_ozone_restart_codon(stage_c) result(out_c) bind(c, name="write_prescribed_ozone_restart_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function write_prescribed_ozone_restart_codon
+  end interface
 
 contains
 
@@ -269,6 +285,18 @@ end subroutine prescribed_ozone_readnl
     use tracer_data, only : init_trc_restart
     implicit none
     type(file_desc_t),intent(inout) :: pioFile     ! pio File pointer
+    integer(c_int64_t) :: active_c
+
+    active_c = init_prescribed_ozone_restart_codon(1_c_int64_t)
+    if (.not. init_prescribed_ozone_restart_logged) then
+       init_prescribed_ozone_restart_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'init_prescribed_ozone_restart direct = codon; tracer restart definition native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call init_trc_restart( 'prescribed_ozone', piofile, file )
 
@@ -280,6 +308,18 @@ end subroutine prescribed_ozone_readnl
     implicit none
 
     type(file_desc_t) :: piofile
+    integer(c_int64_t) :: active_c
+
+    active_c = write_prescribed_ozone_restart_codon(1_c_int64_t)
+    if (.not. write_prescribed_ozone_restart_logged) then
+       write_prescribed_ozone_restart_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'write_prescribed_ozone_restart direct = codon; tracer restart write native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call write_trc_restart( piofile, file )
 

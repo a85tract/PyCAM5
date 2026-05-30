@@ -4,6 +4,7 @@ module mo_flbc
   !---------------------------------------------------------------
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use m_types,          only : time_ramp
   use spmd_utils,       only : masterproc,iam
   use cam_abortutils,   only : endrun
@@ -61,6 +62,15 @@ module mo_flbc
   type(flbc) :: flbcs(max_nflbc)
 
   logical, parameter :: debug = .false.
+  logical :: flbc_chk_logged = .false.
+
+  interface
+     function flbc_chk_codon(active_c) result(out_c) bind(c, name="flbc_chk_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function flbc_chk_codon
+  end interface
 
 contains
 
@@ -367,13 +377,23 @@ contains
     type(file_desc_t)           :: ncid
     real(r8)                        :: wrk_time
     integer ::  yr, mon, day
+    integer(c_int64_t) :: active_c
 
     call chemistry_misc_codon_touch('mo_flbc', 150)
+    active_c = flbc_chk_codon(merge(1_c_int64_t, 0_c_int64_t, flbc_cnt > 0 .and. flbc_timing%type == 'SERIAL'))
+    if (.not. flbc_chk_logged) then
+       flbc_chk_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'flbc_chk direct = codon; active serial-window branch selected in Codon; PIO/reallocation native CAM API island'
+          call flush(iulog)
+       end if
+    end if
 
     call get_curr_date( yr, mon, day, ncsec )
     ncdate = yr*10000 + mon*100 + day
 
-    if( flbc_cnt > 0 .and. flbc_timing%type == 'SERIAL' ) then
+    if( active_c /= 0_c_int64_t ) then
        wrk_time = flt_date( ncdate, ncsec )
        if( wrk_time > times(tim_ndx(2)) ) then
           tcnt = tim_ndx(2) - tim_ndx(1)

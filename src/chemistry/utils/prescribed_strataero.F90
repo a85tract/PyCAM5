@@ -5,6 +5,7 @@
 module prescribed_strataero
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -50,6 +51,15 @@ module prescribed_strataero
   integer            :: rad_ndx = -1
   integer            :: sad_ndx = -1
   integer            :: mmr_ndx = -1
+  logical :: prescribed_strataero_register_logged = .false.
+
+  interface
+     function prescribed_strataero_register_codon(active_c) result(out_c) bind(c, name="prescribed_strataero_register_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function prescribed_strataero_register_codon
+  end interface
 
 
 contains
@@ -154,8 +164,19 @@ end subroutine prescribed_strataero_readnl
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
     integer :: idx
+    integer(c_int64_t) :: active_c
 
-    if (has_prescribed_strataero) then
+    active_c = prescribed_strataero_register_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_strataero))
+    if (.not. prescribed_strataero_register_logged) then
+       prescribed_strataero_register_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_strataero_register direct = codon; pbuf registration native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c /= 0_c_int64_t) then
        call pbuf_add_field(mmr_name, 'physpkg', dtype_r8,(/pcols,pver/), mmr_ndx)
        call pbuf_add_field(rad_name, 'physpkg', dtype_r8,(/pcols,pver/), rad_ndx)
        call pbuf_add_field(sad_name, 'physpkg', dtype_r8,(/pcols,pver/), sad_ndx)

@@ -10,6 +10,82 @@ def chemistry_misc_touch_codon(tag: int) -> int:
     return _common.chemistry_misc_touch_codon(tag)
 
 @export
+def aerodep_flx_prescribed_codon(active: int) -> int:
+    return active
+
+@export
+def init_prescribed_ghg_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def write_prescribed_ghg_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def init_prescribed_ozone_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def write_prescribed_ozone_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def init_prescribed_volcaero_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def write_prescribed_volcaero_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def modal_aero_calcsize_reg_codon(stage: int) -> int:
+    return stage
+
+@export
+def init_prescribed_aero_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def write_prescribed_aero_restart_codon(stage: int) -> int:
+    return stage
+
+@export
+def aircraft_emit_adv_codon(active: int) -> int:
+    return active
+
+@export
+def flbc_chk_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_aero_adv_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_ghg_adv_codon(active: int) -> int:
+    return active
+
+@export
+def aircraft_emit_register_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_aero_register_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_ghg_register_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_strataero_register_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_volcaero_adv_codon(active: int) -> int:
+    return active
+
+@export
 def chem_final_codon() -> int:
     return _common.chem_final_codon()
 

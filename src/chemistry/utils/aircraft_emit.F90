@@ -10,6 +10,7 @@ module aircraft_emit
   use perf_mod,     only : t_startf, t_stopf
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -75,6 +76,21 @@ module aircraft_emit
   integer :: aircraft_cnt = 0
   character(len=16) :: spc_name_list(N_AERO)
   character(len=256) :: spc_flist(N_AERO),spc_fname(N_AERO)
+  logical :: aircraft_emit_register_logged = .false.
+  logical :: aircraft_emit_adv_logged = .false.
+
+  interface
+     function aircraft_emit_register_codon(active_c) result(out_c) bind(c, name="aircraft_emit_register_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function aircraft_emit_register_codon
+     function aircraft_emit_adv_codon(active_c) result(out_c) bind(c, name="aircraft_emit_adv_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function aircraft_emit_adv_codon
+  end interface
 
 contains
 
@@ -94,11 +110,21 @@ contains
     character(len=128) :: long_name
     logical            :: has_fixed_ubc=.false.
     logical            :: read_iv=.false.
+    integer(c_int64_t) :: active_c
 
     !------------------------------------------------------------------
     ! Return if air_specifier is blank (no aircraft data to process)
     !------------------------------------------------------------------
-    if (air_specifier(1) == "") return
+    active_c = aircraft_emit_register_codon(merge(1_c_int64_t, 0_c_int64_t, air_specifier(1) /= ""))
+    if (.not. aircraft_emit_register_logged) then
+       aircraft_emit_register_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'aircraft_emit_register direct = codon; active branch selected in Codon; pbuf/cnst filename native CAM API islands'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
 ! count aircraft emission species used in the simulation
     count_emis: do n=1,N_AERO
@@ -295,10 +321,21 @@ contains
 ! C.-C. Chen
     real(r8) :: wght(pcols)
 
+    integer(c_int64_t) :: active_c
+
    !------------------------------------------------------------------
    ! Return if aircraft_cnt is zero (no aircraft data to process)
    !------------------------------------------------------------------
-    if (aircraft_cnt == 0 ) return
+    active_c = aircraft_emit_adv_codon(merge(1_c_int64_t, 0_c_int64_t, aircraft_cnt /= 0))
+    if (.not. aircraft_emit_adv_logged) then
+       aircraft_emit_adv_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'aircraft_emit_adv direct = codon; active branch selected in Codon; tracer-data/unit-conversion native body remains'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
     call t_startf('All_aircraft_emit_adv')
 
    !-------------------------------------------------------------------

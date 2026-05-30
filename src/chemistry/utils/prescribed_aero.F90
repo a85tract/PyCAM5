@@ -20,6 +20,7 @@
 module prescribed_aero
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -75,6 +76,33 @@ module prescribed_aero
   ! allow randn_persists to persist during restart runs
   type(var_desc_t) :: randn_persists_desc
   character(len=16), parameter :: randn_persists_name = 'prescraero_randn'
+  logical :: prescribed_aero_register_logged = .false.
+  logical :: prescribed_aero_adv_logged = .false.
+  logical :: init_prescribed_aero_restart_logged = .false.
+  logical :: write_prescribed_aero_restart_logged = .false.
+
+  interface
+     function prescribed_aero_register_codon(active_c) result(out_c) bind(c, name="prescribed_aero_register_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function prescribed_aero_register_codon
+     function prescribed_aero_adv_codon(active_c) result(out_c) bind(c, name="prescribed_aero_adv_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function prescribed_aero_adv_codon
+     function init_prescribed_aero_restart_codon(stage_c) result(out_c) bind(c, name="init_prescribed_aero_restart_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function init_prescribed_aero_restart_codon
+     function write_prescribed_aero_restart_codon(stage_c) result(out_c) bind(c, name="write_prescribed_aero_restart_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function write_prescribed_aero_restart_codon
+  end interface
 
 contains
 
@@ -87,8 +115,19 @@ contains
     
     use physics_buffer, only : pbuf_add_field, dtype_r8
     integer :: i,idx
+    integer(c_int64_t) :: active_c
 
-    if (has_prescribed_aero) then
+    active_c = prescribed_aero_register_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_aero))
+    if (.not. prescribed_aero_register_logged) then
+       prescribed_aero_register_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_aero_register direct = codon; pbuf registration native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c /= 0_c_int64_t) then
        do i = 1,aero_cnt
           call pbuf_add_field(pbuf_names(i),'physpkg',dtype_r8,(/pcols,pver/),idx)
        enddo
@@ -398,8 +437,19 @@ end subroutine spec_c_to_a
     integer :: c,ncol, i, i_c, spec_a_ndx, errcode
     real(r8),pointer :: outdata(:,:)
     logical :: cld_borne_aero = .FALSE.
+    integer(c_int64_t) :: active_c
 
-    if( .not. has_prescribed_aero ) return
+    active_c = prescribed_aero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_aero))
+    if (.not. prescribed_aero_adv_logged) then
+       prescribed_aero_adv_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_aero_adv direct = codon; active branch selected in Codon; tracer-data/random-sample native body remains'
+          call flush(iulog)
+       end if
+    end if
+
+    if( active_c == 0_c_int64_t ) return
 
     call advance_trcdata( fields, file, state, pbuf2d )
 
@@ -627,6 +677,18 @@ end subroutine spec_c_to_a
     implicit none
     type(file_desc_t),intent(inout) :: pioFile     ! pio File pointer
     integer :: ierr
+    integer(c_int64_t) :: active_c
+
+    active_c = init_prescribed_aero_restart_codon(1_c_int64_t)
+    if (.not. init_prescribed_aero_restart_logged) then
+       init_prescribed_aero_restart_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'init_prescribed_aero_restart direct = codon; PIO/tracer restart definition native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     ! For allowing randn_persists to persist during reststarts
     ierr = pio_def_var(piofile, randn_persists_name, pio_double, randn_persists_desc)
@@ -642,6 +704,18 @@ end subroutine spec_c_to_a
 
     type(file_desc_t) :: piofile
     integer :: ierr
+    integer(c_int64_t) :: active_c
+
+    active_c = write_prescribed_aero_restart_codon(1_c_int64_t)
+    if (.not. write_prescribed_aero_restart_logged) then
+       write_prescribed_aero_restart_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'write_prescribed_aero_restart direct = codon; PIO/tracer restart write native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     !  For allowing randn_persists to persist during reststarts
     ierr = pio_put_var(piofile, randn_persists_desc, (/randn_persists/)) 

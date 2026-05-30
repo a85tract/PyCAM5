@@ -5,6 +5,7 @@
 module prescribed_volcaero
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
+  use iso_c_binding,    only : c_int64_t
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -45,6 +46,27 @@ module prescribed_volcaero
   integer            :: fixed_ymd = 0
   integer            :: fixed_tod = 0
   integer            :: radius_ndx
+  logical :: prescribed_volcaero_adv_logged = .false.
+  logical :: init_prescribed_volcaero_restart_logged = .false.
+  logical :: write_prescribed_volcaero_restart_logged = .false.
+
+  interface
+     function prescribed_volcaero_adv_codon(active_c) result(out_c) bind(c, name="prescribed_volcaero_adv_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function prescribed_volcaero_adv_codon
+     function init_prescribed_volcaero_restart_codon(stage_c) result(out_c) bind(c, name="init_prescribed_volcaero_restart_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function init_prescribed_volcaero_restart_codon
+     function write_prescribed_volcaero_restart_codon(stage_c) result(out_c) bind(c, name="write_prescribed_volcaero_restart_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: out_c
+     end function write_prescribed_volcaero_restart_codon
+  end interface
 
 contains
 
@@ -238,11 +260,22 @@ end subroutine prescribed_volcaero_readnl
     real(r8) :: outdata(pcols,pver)
     real(r8), pointer :: data(:,:)
     real(r8), pointer :: radius(:,:)
+    integer(c_int64_t) :: active_c
 
     !WACCM-derived relation between mass concentration and wet aerosol radius in meters
     real(r8),parameter :: radius_conversion = 1.9e-4_r8
 
-    if( .not. has_prescribed_volcaero ) return
+    active_c = prescribed_volcaero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_volcaero))
+    if (.not. prescribed_volcaero_adv_logged) then
+       prescribed_volcaero_adv_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'prescribed_volcaero_adv direct = codon; active branch selected in Codon; tracer-data/tropopause/native body remains'
+          call flush(iulog)
+       end if
+    end if
+
+    if( active_c == 0_c_int64_t ) return
 
     call advance_trcdata( fields, file, state, pbuf2d )
 
@@ -300,6 +333,18 @@ end subroutine prescribed_volcaero_readnl
     use tracer_data, only : init_trc_restart
     implicit none
     type(file_desc_t),intent(inout) :: pioFile     ! pio File pointer
+    integer(c_int64_t) :: active_c
+
+    active_c = init_prescribed_volcaero_restart_codon(1_c_int64_t)
+    if (.not. init_prescribed_volcaero_restart_logged) then
+       init_prescribed_volcaero_restart_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'init_prescribed_volcaero_restart direct = codon; tracer restart definition native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call init_trc_restart( 'prescribed_volcaero', piofile, file )
 
@@ -311,6 +356,18 @@ end subroutine prescribed_volcaero_readnl
     implicit none
 
     type(file_desc_t) :: piofile
+    integer(c_int64_t) :: active_c
+
+    active_c = write_prescribed_volcaero_restart_codon(1_c_int64_t)
+    if (.not. write_prescribed_volcaero_restart_logged) then
+       write_prescribed_volcaero_restart_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'write_prescribed_volcaero_restart direct = codon; tracer restart write native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call write_trc_restart( piofile, file )
 
