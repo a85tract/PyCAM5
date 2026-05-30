@@ -2662,6 +2662,36 @@ def micro_mg1_0_effdiam_codon(
 
 
 @export
+def micro_mg1_0_effrad_liq_prep_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    deltat: float,
+    cdnl: float,
+    dumc_p: cobj,
+    dumnc_p: cobj,
+    rho_p: cobj,
+    lcldm_p: cobj,
+    nc_p: cobj,
+    nctend_p: cobj,
+):
+    dumc = Ptr[float](dumc_p)
+    dumnc = Ptr[float](dumnc_p)
+    rho = Ptr[float](rho_p)
+    lcldm = Ptr[float](lcldm_p)
+    nc = Ptr[float](nc_p)
+    nctend = Ptr[float](nctend_p)
+
+    idx = _idx2(i, k, pcols)
+    dumnc[idx] = min(dumnc[idx], dumc[idx] * 1.0e20)
+    min_droplet = cdnl / rho[idx]
+    if dumnc[idx] < min_droplet:
+        nctend[idx] = (min_droplet * lcldm[idx] - nc[idx]) / deltat
+    dumnc[idx] = max(dumnc[idx], min_droplet)
+
+
+@export
 def micro_mg1_0_sedimentation_fallout_codon(
     i: int,
     pcols: int,

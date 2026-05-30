@@ -171,6 +171,7 @@ logical :: micro_mg1_0_sedimentation_velocity_logged = .false.
 logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_effrad_state_logged = .false.
 logical :: micro_mg1_0_effdiam_logged = .false.
+logical :: micro_mg1_0_effrad_liq_prep_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3548,18 +3549,23 @@ do i=1,ncol
 
       if (dumc(i,k).ge.qsmall) then
 
-         ! add upper limit to in-cloud number concentration to prevent numerical error
-         dumnc(i,k)=min(dumnc(i,k),dumc(i,k)*1.e20_r8)
+         if (micro_mg1_0_colzero_use_native_impl) then
+            ! add upper limit to in-cloud number concentration to prevent numerical error
+            dumnc(i,k)=min(dumnc(i,k),dumc(i,k)*1.e20_r8)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-         ! set tendency to ensure minimum droplet concentration
-         ! after update by microphysics, except when lambda exceeds bounds on mean drop
-         ! size or if there is no cloud water
-         if (dumnc(i,k).lt.cdnl/rho(i,k)) then   
-            nctend(i,k)=(cdnl/rho(i,k)*lcldm(i,k)-nc(i,k))/deltat   
-         end if
-         dumnc(i,k)=max(dumnc(i,k),cdnl/rho(i,k)) ! sghan minimum in #/cm3 
+            ! set tendency to ensure minimum droplet concentration
+            ! after update by microphysics, except when lambda exceeds bounds on mean drop
+            ! size or if there is no cloud water
+            if (dumnc(i,k).lt.cdnl/rho(i,k)) then
+               nctend(i,k)=(cdnl/rho(i,k)*lcldm(i,k)-nc(i,k))/deltat
+            end if
+            dumnc(i,k)=max(dumnc(i,k),cdnl/rho(i,k)) ! sghan minimum in #/cm3
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         else
+            call micro_mg1_0_effrad_liq_prep_codon_wrap(i, k, pcols, pver, deltat, cdnl, &
+                 dumc, dumnc, rho, lcldm, nc, nctend)
+         end if
          pgam(k)=0.0005714_r8*(ncic(i,k)/1.e6_r8*rho(i,k))+0.2714_r8
          pgam(k)=1._r8/(pgam(k)**2)-1._r8
          pgam(k)=max(pgam(k),2._r8)
@@ -4293,6 +4299,15 @@ subroutine micro_mg1_0_effdiam_log_entry()
      micro_mg1_0_effdiam_logged = .true.
   end if
 end subroutine micro_mg1_0_effdiam_log_entry
+
+subroutine micro_mg1_0_effrad_liq_prep_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_effrad_liq_prep_logged) then
+     write(iulog,*) 'micro_mg1_0_effrad_liq_prep entered (liquid effective-radius prep = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_effrad_liq_prep entered (liquid effective-radius prep = codon)')
+     micro_mg1_0_effrad_liq_prep_logged = .true.
+  end if
+end subroutine micro_mg1_0_effrad_liq_prep_log_entry
 
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
@@ -5179,6 +5194,35 @@ subroutine micro_mg1_0_effdiam_codon_wrap(i_local, k_local, pcols_local, pver_lo
        int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(rhoi_local, c_double), &
        merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), c_loc(effi_local), c_loc(deffi_local))
 end subroutine micro_mg1_0_effdiam_codon_wrap
+
+subroutine micro_mg1_0_effrad_liq_prep_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     deltat_local, cdnl_local, dumc_local, dumnc_local, rho_local, lcldm_local, nc_local, nctend_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: deltat_local, cdnl_local
+  real(r8), target, intent(in) :: dumc_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local), lcldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumnc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_effrad_liq_prep_codon(i_c, k_c, pcols_c, pver_c, deltat_c, cdnl_c, &
+          dumc_p, dumnc_p, rho_p, lcldm_p, nc_p, nctend_p) bind(c, name="micro_mg1_0_effrad_liq_prep_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+       real(c_double), value :: deltat_c, cdnl_c
+       type(c_ptr), value :: dumc_p, dumnc_p, rho_p, lcldm_p, nc_p, nctend_p
+     end subroutine micro_mg1_0_effrad_liq_prep_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_effrad_liq_prep_log_entry()
+  call micro_mg1_0_effrad_liq_prep_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(deltat_local, c_double), &
+       real(cdnl_local, c_double), c_loc(dumc_local), c_loc(dumnc_local), c_loc(rho_local), &
+       c_loc(lcldm_local), c_loc(nc_local), c_loc(nctend_local))
+end subroutine micro_mg1_0_effrad_liq_prep_codon_wrap
 
 subroutine micro_mg1_0_sedimentation_fallout_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
      nstep_local, do_cldice_local, deltat_local, g_local, xxlv_local, xxls_local, pdel_local, lcldm_local, &
