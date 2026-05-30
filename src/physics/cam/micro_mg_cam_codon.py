@@ -2609,6 +2609,26 @@ def micro_mg1_0_sedimentation_ice_prep_codon(
 
 
 @export
+def micro_mg1_0_sedimentation_liq_prep_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    cdnl: float,
+    dumc_p: cobj,
+    dumnc_p: cobj,
+    rho_p: cobj,
+):
+    dumc = Ptr[float](dumc_p)
+    dumnc = Ptr[float](dumnc_p)
+    rho = Ptr[float](rho_p)
+
+    idx = _idx2(i, k, pcols)
+    dumnc[idx] = min(dumnc[idx], dumc[idx] * 1.0e20)
+    dumnc[idx] = max(dumnc[idx], cdnl / rho[idx])
+
+
+@export
 def micro_mg1_0_effrad_state_codon(
     i: int,
     k: int,

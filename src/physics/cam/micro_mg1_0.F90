@@ -168,6 +168,7 @@ logical :: micro_mg1_0_number_cleanup_logged = .false.
 logical :: micro_mg1_0_reflectivity_flags_logged = .false.
 logical :: micro_mg1_0_sedimentation_state_logged = .false.
 logical :: micro_mg1_0_sedimentation_ice_prep_logged = .false.
+logical :: micro_mg1_0_sedimentation_liq_prep_logged = .false.
 logical :: micro_mg1_0_sedimentation_velocity_logged = .false.
 logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_effrad_state_logged = .false.
@@ -3239,10 +3240,15 @@ do i=1,ncol
       end if
 
       if (dumc(i,k).ge.qsmall) then
-         ! add upper limit to in-cloud number concentration to prevent numerical error
-         dumnc(i,k)=min(dumnc(i,k),dumc(i,k)*1.e20_r8)
-         ! add lower limit to in-cloud number concentration
-         dumnc(i,k)=max(dumnc(i,k),cdnl/rho(i,k)) ! sghan minimum in #/cm3 
+         if (micro_mg1_0_colzero_use_native_impl) then
+            ! add upper limit to in-cloud number concentration to prevent numerical error
+            dumnc(i,k)=min(dumnc(i,k),dumc(i,k)*1.e20_r8)
+            ! add lower limit to in-cloud number concentration
+            dumnc(i,k)=max(dumnc(i,k),cdnl/rho(i,k)) ! sghan minimum in #/cm3
+         else
+            call micro_mg1_0_sedimentation_liq_prep_codon_wrap(i, k, pcols, pver, cdnl, &
+                 dumc, dumnc, rho)
+         end if
          pgam(k)=0.0005714_r8*(ncic(i,k)/1.e6_r8*rho(i,k))+0.2714_r8
          pgam(k)=1._r8/(pgam(k)**2)-1._r8
          pgam(k)=max(pgam(k),2._r8)
@@ -4283,6 +4289,15 @@ subroutine micro_mg1_0_sedimentation_ice_prep_log_entry()
   end if
 end subroutine micro_mg1_0_sedimentation_ice_prep_log_entry
 
+subroutine micro_mg1_0_sedimentation_liq_prep_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_sedimentation_liq_prep_logged) then
+     write(iulog,*) 'micro_mg1_0_sedimentation_liq_prep entered (sedimentation liquid number bounds = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_sedimentation_liq_prep entered (sedimentation liquid number bounds = codon)')
+     micro_mg1_0_sedimentation_liq_prep_logged = .true.
+  end if
+end subroutine micro_mg1_0_sedimentation_liq_prep_log_entry
+
 subroutine micro_mg1_0_sedimentation_velocity_log_entry()
   if (masterproc .and. .not. micro_mg1_0_sedimentation_velocity_logged) then
      write(iulog,*) 'micro_mg1_0_sedimentation_velocity entered (cloud sedimentation velocity state = codon)'
@@ -5147,6 +5162,32 @@ subroutine micro_mg1_0_sedimentation_ice_prep_codon_wrap(i_local, k_local, pcols
   call micro_mg1_0_sedimentation_ice_prep_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
        int(pcols_local, c_int64_t), int(pver_local, c_int64_t), c_loc(dumi_local), c_loc(dumni_local))
 end subroutine micro_mg1_0_sedimentation_ice_prep_codon_wrap
+
+subroutine micro_mg1_0_sedimentation_liq_prep_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     cdnl_local, dumc_local, dumnc_local, rho_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: cdnl_local
+  real(r8), target, intent(in) :: dumc_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumnc_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_sedimentation_liq_prep_codon(i_c, k_c, pcols_c, pver_c, cdnl_c, &
+          dumc_p, dumnc_p, rho_p) bind(c, name="micro_mg1_0_sedimentation_liq_prep_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+       real(c_double), value :: cdnl_c
+       type(c_ptr), value :: dumc_p, dumnc_p, rho_p
+     end subroutine micro_mg1_0_sedimentation_liq_prep_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_sedimentation_liq_prep_log_entry()
+  call micro_mg1_0_sedimentation_liq_prep_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(cdnl_local, c_double), &
+       c_loc(dumc_local), c_loc(dumnc_local), c_loc(rho_local))
+end subroutine micro_mg1_0_sedimentation_liq_prep_codon_wrap
 
 subroutine micro_mg1_0_sedimentation_velocity_codon_wrap(i_local, k_local, pcols_local, pver_local, &
      qsmall_local, g_local, umc_local, unc_local, umi_local, uni_local, rho_local, dumc_local, dumi_local, &
