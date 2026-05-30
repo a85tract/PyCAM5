@@ -228,6 +228,7 @@ end subroutine dyn_grid_init
   !========================================================================
   !
   integer function get_block_lvl_cnt_d(blockid,bcid)
+    use iso_c_binding, only : c_int64_t
     use pmgrid, only: plevp
 
     !-----------------------------------------------------------------------
@@ -244,13 +245,39 @@ end subroutine dyn_grid_init
     !-----------------------------------------------------------------------
 
     implicit none
+    interface
+       function get_block_lvl_cnt_d_codon(plevp_c) result(level_count_c) &
+            bind(c, name='get_block_lvl_cnt_d_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: plevp_c
+         integer(c_int64_t) :: level_count_c
+       end function get_block_lvl_cnt_d_codon
+    end interface
     !------------------------------Arguments--------------------------------
     integer, intent(in) :: blockid  ! global block id
     integer, intent(in) :: bcid    ! column index within block
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    integer(c_int64_t) :: level_count_c
+    logical, save :: proof_seen = .false.
 
     !-----------------------------------------------------------------------
 
-    get_block_lvl_cnt_d = plevp
+    impl_name = 'codon'
+    call get_environment_variable('DYN_GRID_IMPL', value=impl_name, &
+         length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native') then
+       get_block_lvl_cnt_d = plevp
+       return
+    endif
+
+    level_count_c = get_block_lvl_cnt_d_codon(int(plevp, c_int64_t))
+    get_block_lvl_cnt_d = int(level_count_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'get_block_lvl_cnt_d implementation = codon'
+       proof_seen = .true.
+    endif
 
     return
   end function get_block_lvl_cnt_d
@@ -425,6 +452,7 @@ end subroutine get_gcol_block_d
 !========================================================================
 !
 integer function get_gcol_block_cnt_d(gcol)
+ use iso_c_binding, only : c_int64_t
 
   !----------------------------------------------------------------------- 
   ! 
@@ -439,10 +467,35 @@ integer function get_gcol_block_cnt_d(gcol)
   !-----------------------------------------------------------------------
 
  implicit none
+ interface
+    function get_gcol_block_cnt_d_codon() result(block_count_c) &
+         bind(c, name='get_gcol_block_cnt_d_codon')
+      import :: c_int64_t
+      integer(c_int64_t) :: block_count_c
+    end function get_gcol_block_cnt_d_codon
+ end interface
  !------------------------------Arguments--------------------------------
  integer, intent(in) :: gcol     ! global column index
+ character(len=32) :: impl_name
+ integer :: impl_n, impl_status
+ integer(c_int64_t) :: block_count_c
+ logical, save :: proof_seen = .false.
  !-----------------------------------------------------------------------
- get_gcol_block_cnt_d = 1
+ impl_name = 'codon'
+ call get_environment_variable('DYN_GRID_IMPL', value=impl_name, &
+      length=impl_n, status=impl_status)
+ if (impl_status == 0 .and. impl_n > 0 .and. &
+      trim(adjustl(impl_name(:impl_n))) == 'native') then
+    get_gcol_block_cnt_d = 1
+    return
+ endif
+
+ block_count_c = get_gcol_block_cnt_d_codon()
+ get_gcol_block_cnt_d = int(block_count_c)
+ if (.not. proof_seen) then
+    write(iulog,*) 'get_gcol_block_cnt_d implementation = codon'
+    proof_seen = .true.
+ endif
 
  return
 end function get_gcol_block_cnt_d

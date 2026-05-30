@@ -6,6 +6,14 @@ import se_dynamics_remap_q_ppm_codon as _remap
 import se_dynamics_misc_codon as _misc
 
 @export
+def get_block_lvl_cnt_d_codon(plevp: int) -> int:
+    return plevp
+
+@export
+def get_gcol_block_cnt_d_codon() -> int:
+    return 1
+
+@export
 def prim_subcycle_dp3d_init_codon(
     np: int,
     nlev: int,
