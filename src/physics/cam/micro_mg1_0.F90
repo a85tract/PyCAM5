@@ -163,6 +163,7 @@ logical :: micro_mg1_0_incloud_activation_logged = .false.
 logical :: micro_mg1_0_conservation_limiter_logged = .false.
 logical :: micro_mg1_0_process_output_logged = .false.
 logical :: micro_mg1_0_post_iter_avg_logged = .false.
+logical :: micro_mg1_0_phase_change_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3405,81 +3406,11 @@ do i=1,ncol
 
    do k=top_lev,pver
 
-      dumc(i,k) = max(qc(i,k)+qctend(i,k)*deltat,0._r8)
-      dumi(i,k) = max(qi(i,k)+qitend(i,k)*deltat,0._r8)
-      dumnc(i,k) = max(nc(i,k)+nctend(i,k)*deltat,0._r8)
-      dumni(i,k) = max(ni(i,k)+nitend(i,k)*deltat,0._r8)
+      call micro_mg1_0_phase_change_codon_wrap(i, k, pcols, pver, deltat, cpp, xlf, tmelt, qsmall, &
+           pi, rhow, do_cldice, qc, qi, nc, ni, t, qctend, qitend, nctend, nitend, tlat, &
+           dumc, dumi, dumnc, dumni, melto, homoo, wtpostlat)
 
-      if (dumc(i,k).lt.qsmall) dumnc(i,k)=0._r8
-      if (dumi(i,k).lt.qsmall) dumni(i,k)=0._r8
-
-      ! calculate instantaneous processes (melting, homogeneous freezing)
       if (do_cldice) then
-
-         if (t(i,k)+tlat(i,k)/cpp*deltat > tmelt) then
-            if (dumi(i,k) > 0._r8) then
-
-               ! limit so that melting does not push temperature below freezing
-               dum = -dumi(i,k)*xlf/cpp
-               if (t(i,k)+tlat(i,k)/cpp*deltat+dum.lt.tmelt) then
-                  dum = (t(i,k)+tlat(i,k)/cpp*deltat-tmelt)*cpp/xlf
-                  dum = dum/dumi(i,k)*xlf/cpp 
-                  dum = max(0._r8,dum)
-                  dum = min(1._r8,dum)
-               else
-                  dum = 1._r8
-               end if
-
-               qctend(i,k)=qctend(i,k)+dum*dumi(i,k)/deltat
-
-               ! for output
-               melto(i,k)=dum*dumi(i,k)/deltat
-
-               ! assume melting ice produces droplet
-               ! mean volume radius of 8 micron
-
-               nctend(i,k)=nctend(i,k)+3._r8*dum*dumi(i,k)/deltat/ &
-                    (4._r8*pi*5.12e-16_r8*rhow)
-
-               qitend(i,k)=((1._r8-dum)*dumi(i,k)-qi(i,k))/deltat
-               nitend(i,k)=((1._r8-dum)*dumni(i,k)-ni(i,k))/deltat
-               tlat(i,k)=tlat(i,k)-xlf*dum*dumi(i,k)/deltat
-               !water tracers:
-               wtpostlat(i,k) = wtpostlat(i,k) - (xlf*dum*dumi(i,k)/deltat)
-            end if
-         end if
-
-         ! homogeneously freeze droplets at -40 C
-
-         if (t(i,k)+tlat(i,k)/cpp*deltat < 233.15_r8) then
-            if (dumc(i,k) > 0._r8) then
-
-               ! limit so that freezing does not push temperature above threshold
-               dum = dumc(i,k)*xlf/cpp
-               if (t(i,k)+tlat(i,k)/cpp*deltat+dum.gt.233.15_r8) then
-                  dum = -(t(i,k)+tlat(i,k)/cpp*deltat-233.15_r8)*cpp/xlf
-                  dum = dum/dumc(i,k)*xlf/cpp
-                  dum = max(0._r8,dum)
-                  dum = min(1._r8,dum)
-               else
-                  dum = 1._r8
-               end if
-
-               qitend(i,k)=qitend(i,k)+dum*dumc(i,k)/deltat
-               ! for output
-               homoo(i,k)=dum*dumc(i,k)/deltat
-
-               ! assume 25 micron mean volume radius of homogeneously frozen droplets
-               ! consistent with size of detrained ice in stratiform.F90
-               nitend(i,k)=nitend(i,k)+dum*3._r8*dumc(i,k)/(4._r8*3.14_r8*1.563e-14_r8* &
-                    500._r8)/deltat
-               qctend(i,k)=((1._r8-dum)*dumc(i,k)-qc(i,k))/deltat
-               nctend(i,k)=((1._r8-dum)*dumnc(i,k)-nc(i,k))/deltat
-               tlat(i,k)=tlat(i,k)+xlf*dum*dumc(i,k)/deltat
-               !water tracers:
-               wtpostlat(i,k) = wtpostlat(i,k)+(xlf*dum*dumc(i,k)/deltat)
-            end if
-         end if
 
          ! remove any excess over-saturation, which is possible due to non-linearity when adding 
          ! together all microphysical processes
@@ -4235,6 +4166,15 @@ subroutine micro_mg1_0_post_iter_avg_log_entry()
   end if
 end subroutine micro_mg1_0_post_iter_avg_log_entry
 
+subroutine micro_mg1_0_phase_change_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_phase_change_logged) then
+     write(iulog,*) 'micro_mg1_0_phase_change entered (cloud ice melting/freezing = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_phase_change entered (cloud ice melting/freezing = codon)')
+     micro_mg1_0_phase_change_logged = .true.
+  end if
+end subroutine micro_mg1_0_phase_change_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4790,6 +4730,53 @@ subroutine micro_mg1_0_post_iter_avg_codon_wrap(i_local, pcols_local, pver_local
        c_loc(pracso_local), c_loc(mnuccdo_local), c_loc(preo_local), c_loc(prdso_local), &
        c_loc(frzro_local), c_loc(meltso_local), c_loc(wtprelat_local), c_loc(prer_evap_local))
 end subroutine micro_mg1_0_post_iter_avg_codon_wrap
+
+subroutine micro_mg1_0_phase_change_codon_wrap(i_local, k_local, pcols_local, pver_local, &
+     deltat_local, cpp_local, xlf_local, tmelt_local, qsmall_local, pi_local, rhow_local, do_cldice_local, &
+     qc_local, qi_local, nc_local, ni_local, t_local, qctend_local, qitend_local, nctend_local, nitend_local, &
+     tlat_local, dumc_local, dumi_local, dumnc_local, dumni_local, melto_local, homoo_local, wtpostlat_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+  real(r8), intent(in) :: deltat_local, cpp_local, xlf_local, tmelt_local, qsmall_local, pi_local, rhow_local
+  logical, intent(in) :: do_cldice_local
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local), qi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: nc_local(pcols_local,pver_local), ni_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: t_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: tlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumc_local(pcols_local,pver_local), dumi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumnc_local(pcols_local,pver_local), dumni_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: melto_local(pcols_local,pver_local), homoo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: wtpostlat_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_phase_change_codon(i_c, k_c, pcols_c, pver_c, deltat_c, cpp_c, xlf_c, &
+          tmelt_c, qsmall_c, pi_c, rhow_c, do_cldice_c, qc_p, qi_p, nc_p, ni_p, t_p, qctend_p, &
+          qitend_p, nctend_p, nitend_p, tlat_p, dumc_p, dumi_p, dumnc_p, dumni_p, melto_p, &
+          homoo_p, wtpostlat_p) bind(c, name="micro_mg1_0_phase_change_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, do_cldice_c
+       real(c_double), value :: deltat_c, cpp_c, xlf_c, tmelt_c, qsmall_c, pi_c, rhow_c
+       type(c_ptr), value :: qc_p, qi_p, nc_p, ni_p, t_p, qctend_p, qitend_p, nctend_p, nitend_p
+       type(c_ptr), value :: tlat_p, dumc_p, dumi_p, dumnc_p, dumni_p, melto_p, homoo_p, wtpostlat_p
+     end subroutine micro_mg1_0_phase_change_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_phase_change_log_entry()
+  call micro_mg1_0_phase_change_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(deltat_local, c_double), &
+       real(cpp_local, c_double), real(xlf_local, c_double), real(tmelt_local, c_double), &
+       real(qsmall_local, c_double), real(pi_local, c_double), real(rhow_local, c_double), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), c_loc(qc_local), c_loc(qi_local), &
+       c_loc(nc_local), c_loc(ni_local), c_loc(t_local), c_loc(qctend_local), c_loc(qitend_local), &
+       c_loc(nctend_local), c_loc(nitend_local), c_loc(tlat_local), c_loc(dumc_local), &
+       c_loc(dumi_local), c_loc(dumnc_local), c_loc(dumni_local), c_loc(melto_local), &
+       c_loc(homoo_local), c_loc(wtpostlat_local))
+end subroutine micro_mg1_0_phase_change_codon_wrap
 
 subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pver_local, &
      top_lev_local, deltat_local, cpp_local, qric_local, qniic_local, nric_local, nsic_local, rho_local, &

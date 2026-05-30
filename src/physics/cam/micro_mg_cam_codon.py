@@ -2178,6 +2178,108 @@ def micro_mg1_0_post_iter_avg_codon(
 
 
 @export
+def micro_mg1_0_phase_change_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    deltat: float,
+    cpp: float,
+    xlf: float,
+    tmelt: float,
+    qsmall: float,
+    pi_v: float,
+    rhow: float,
+    do_cldice: int,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    t_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    tlat_p: cobj,
+    dumc_p: cobj,
+    dumi_p: cobj,
+    dumnc_p: cobj,
+    dumni_p: cobj,
+    melto_p: cobj,
+    homoo_p: cobj,
+    wtpostlat_p: cobj,
+):
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    t = Ptr[float](t_p)
+    qctend = Ptr[float](qctend_p)
+    qitend = Ptr[float](qitend_p)
+    nctend = Ptr[float](nctend_p)
+    nitend = Ptr[float](nitend_p)
+    tlat = Ptr[float](tlat_p)
+    dumc = Ptr[float](dumc_p)
+    dumi = Ptr[float](dumi_p)
+    dumnc = Ptr[float](dumnc_p)
+    dumni = Ptr[float](dumni_p)
+    melto = Ptr[float](melto_p)
+    homoo = Ptr[float](homoo_p)
+    wtpostlat = Ptr[float](wtpostlat_p)
+
+    idx = _idx2(i, k, pcols)
+
+    dumc[idx] = max(qc[idx] + qctend[idx] * deltat, 0.0)
+    dumi[idx] = max(qi[idx] + qitend[idx] * deltat, 0.0)
+    dumnc[idx] = max(nc[idx] + nctend[idx] * deltat, 0.0)
+    dumni[idx] = max(ni[idx] + nitend[idx] * deltat, 0.0)
+
+    if dumc[idx] < qsmall:
+        dumnc[idx] = 0.0
+    if dumi[idx] < qsmall:
+        dumni[idx] = 0.0
+
+    if do_cldice != 0:
+        if t[idx] + tlat[idx] / cpp * deltat > tmelt:
+            if dumi[idx] > 0.0:
+                dum = -dumi[idx] * xlf / cpp
+                if t[idx] + tlat[idx] / cpp * deltat + dum < tmelt:
+                    dum = (t[idx] + tlat[idx] / cpp * deltat - tmelt) * cpp / xlf
+                    dum = dum / dumi[idx] * xlf / cpp
+                    dum = max(0.0, dum)
+                    dum = min(1.0, dum)
+                else:
+                    dum = 1.0
+
+                qctend[idx] = qctend[idx] + dum * dumi[idx] / deltat
+                melto[idx] = dum * dumi[idx] / deltat
+                nctend[idx] = nctend[idx] + 3.0 * dum * dumi[idx] / deltat / (4.0 * pi_v * 5.12e-16 * rhow)
+                qitend[idx] = ((1.0 - dum) * dumi[idx] - qi[idx]) / deltat
+                nitend[idx] = ((1.0 - dum) * dumni[idx] - ni[idx]) / deltat
+                tlat[idx] = tlat[idx] - xlf * dum * dumi[idx] / deltat
+                wtpostlat[idx] = wtpostlat[idx] - (xlf * dum * dumi[idx] / deltat)
+
+        if t[idx] + tlat[idx] / cpp * deltat < 233.15:
+            if dumc[idx] > 0.0:
+                dum = dumc[idx] * xlf / cpp
+                if t[idx] + tlat[idx] / cpp * deltat + dum > 233.15:
+                    dum = -(t[idx] + tlat[idx] / cpp * deltat - 233.15) * cpp / xlf
+                    dum = dum / dumc[idx] * xlf / cpp
+                    dum = max(0.0, dum)
+                    dum = min(1.0, dum)
+                else:
+                    dum = 1.0
+
+                qitend[idx] = qitend[idx] + dum * dumc[idx] / deltat
+                homoo[idx] = dum * dumc[idx] / deltat
+                nitend[idx] = nitend[idx] + dum * 3.0 * dumc[idx] / (4.0 * 3.14 * 1.563e-14 * 500.0) / deltat
+                qctend[idx] = ((1.0 - dum) * dumc[idx] - qc[idx]) / deltat
+                nctend[idx] = ((1.0 - dum) * dumnc[idx] - nc[idx]) / deltat
+                tlat[idx] = tlat[idx] + xlf * dum * dumc[idx] / deltat
+                wtpostlat[idx] = wtpostlat[idx] + (xlf * dum * dumc[idx] / deltat)
+
+
+@export
 def micro_mg1_0_substep_accum_column_codon(
     i: int,
     pcols: int,
