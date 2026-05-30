@@ -4,14 +4,16 @@ module drydep_mod
   use ppgrid
   use cam_logfile, only: iulog
   use spmd_utils, only: masterproc
+  use iso_c_binding, only: c_double, c_loc
 
       ! Shared Data for dry deposition calculation.
 
-      real(r8) rair                ! Gas constant for dry air (J/K/kg)
-      real(r8) gravit              ! Gravitational acceleration
+      real(r8), target :: rair     ! Gas constant for dry air (J/K/kg)
+      real(r8), target :: gravit   ! Gravitational acceleration
 !      real(r8), allocatable :: phi(:)           ! grid latitudes (radians)11
       logical, save :: calcram_use_native_impl = .false.
       logical, save :: calcram_impl_selected = .false.
+      logical, save :: inidrydep_codon_logged = .false.
 
 contains
 
@@ -30,13 +32,22 @@ contains
       real(r8), intent(in) :: xgravit              ! Gravitational acceleration
 !      real(r8), intent(in) :: xphi(:)           ! grid latitudes (radians)
 
-! Local variables:
-      integer i, j, ncid, vid, ns
+      interface
+         subroutine inidrydep_codon(xrair_c, xgravit_c, rair_p, gravit_p) bind(c, name="inidrydep_codon")
+           use iso_c_binding, only: c_double, c_ptr
+           real(c_double), value :: xrair_c, xgravit_c
+           type(c_ptr), value :: rair_p, gravit_p
+         end subroutine inidrydep_codon
+      end interface
 !-----------------------------------------------------------------------
 !      ns = size(xphi)
 !      allocate(phi(ns))
-      rair = xrair
-      gravit = xgravit
+      call inidrydep_codon(real(xrair, c_double), real(xgravit, c_double), c_loc(rair), c_loc(gravit))
+      if (masterproc .and. .not. inidrydep_codon_logged) then
+         write(iulog,*) 'inidrydep implementation = codon'
+         inidrydep_codon_logged = .true.
+         call flush(iulog)
+      end if
 !      do j = 1, ns
 !         phi(j) = xphi(j)
 !      end do

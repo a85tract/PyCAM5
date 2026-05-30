@@ -103,6 +103,7 @@ module spedata
   character(len=16) :: calendar
 
   logical, protected :: spe_run = .false.
+  logical, save :: spedata_setopts_codon_logged = .false.
 
 contains
 
@@ -140,6 +141,7 @@ contains
   subroutine spedata_setopts( spe_data_file_in, &
                               spe_remove_file_in, &
                               spe_filenames_list_in ) 
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -147,9 +149,22 @@ contains
     character(len=shr_kind_cl), intent(in), optional :: spe_filenames_list_in
     logical, intent(in), optional :: spe_remove_file_in
 
-    integer :: ierr
+    interface
+       function spedata_setopts_codon() result(ok) bind(c, name="spedata_setopts_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: ok
+       end function spedata_setopts_codon
+    end interface
 
-    call chemistry_misc_codon_touch('spedata', 134)
+    if (spedata_setopts_codon() /= 1_c_int64_t) then
+       call endrun('spedata_setopts_codon: unexpected return value')
+    end if
+    if (masterproc .and. .not. spedata_setopts_codon_logged) then
+       write(iulog,*) 'spedata_setopts implementation = codon'
+       spedata_setopts_codon_logged = .true.
+       call flush(iulog)
+    end if
+
     if ( present( spe_data_file_in ) ) then
        spedata_file = spe_data_file_in 
     endif

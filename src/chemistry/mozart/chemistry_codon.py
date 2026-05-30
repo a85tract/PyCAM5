@@ -10,6 +10,14 @@ def chemistry_misc_touch_codon(tag: int) -> int:
     return _common.chemistry_misc_touch_codon(tag)
 
 @export
+def phtadj_codon() -> int:
+    return 1
+
+@export
+def spedata_setopts_codon() -> int:
+    return 1
+
+@export
 def aerodep_flx_prescribed_codon(active: int) -> int:
     return active
 

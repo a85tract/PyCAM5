@@ -8,6 +8,19 @@ from C import modal_aero_vol_from_radius_native_cb(float) -> float
 from C import modal_aero_wateruptake_base_pow_array_native_cb(int, int, int, int, int, Ptr[float], Ptr[float]) -> None
 from C import modal_aero_getcoags_core_native_cb(float, float, float, float, float, float, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 
+@export
+def inidrydep_codon(
+    xrair: float,
+    xgravit: float,
+    rair_p: cobj,
+    gravit_p: cobj,
+):
+    rair = Ptr[float](rair_p)
+    gravit = Ptr[float](gravit_p)
+    rair[0] = xrair
+    gravit[0] = xgravit
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array declared as (ld1, *)."""

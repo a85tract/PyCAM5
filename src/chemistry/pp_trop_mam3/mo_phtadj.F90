@@ -5,10 +5,13 @@
 
       module mo_phtadj
 
-      use mo_util, only : chemistry_misc_codon_touch
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
 
       private
       public :: phtadj
+
+      logical, save :: phtadj_codon_logged = .false.
 
       contains
 
@@ -17,6 +20,7 @@
       use chem_mods, only : nfs, phtcnt
       use shr_kind_mod, only : r8 => shr_kind_r8
       use ppgrid, only : pver
+      use iso_c_binding, only : c_int64_t
 
       implicit none
 
@@ -31,12 +35,21 @@
 !--------------------------------------------------------------------
 ! ... local variables
 !--------------------------------------------------------------------
-      integer :: k
-      real(r8) :: im(ncol)
+      interface
+         function phtadj_codon() result(ok) bind(c, name="phtadj_codon")
+           use iso_c_binding, only : c_int64_t
+           integer(c_int64_t) :: ok
+         end function phtadj_codon
+      end interface
 
-      call chemistry_misc_codon_touch('mo_phtadj', 157)
-      do k = 1,pver
-      end do
+      if (phtadj_codon() /= 1_c_int64_t) then
+         stop 2
+      end if
+      if (masterproc .and. .not. phtadj_codon_logged) then
+         write(iulog,*) 'phtadj implementation = codon'
+         phtadj_codon_logged = .true.
+         call flush(iulog)
+      end if
 
       end subroutine phtadj
 
