@@ -13,11 +13,12 @@
       use physics_types,    only : physics_state
       use ppgrid,           only : begchunk, endchunk
       use physics_buffer,   only : physics_buffer_desc
-      use ppgrid,           only : pcols, pver
+	      use ppgrid,           only : pcols, pver
 
-      use spmd_utils,       only : masterproc
+	      use spmd_utils,       only : masterproc
+	      use iso_c_binding,    only : c_int64_t
 
-      implicit none
+	      implicit none
 
       private
       public  :: sulf_inti, set_sulf_time, sulf_interp, sulf_readnl
@@ -40,11 +41,21 @@
       integer            :: fixed_tod = 0
 
       logical :: has_sulf = .false.
-      logical :: sulf_interp_use_native_impl = .false.
-      logical :: sulf_interp_impl_selected = .false.
-      logical :: sulf_interp_proof_written = .false.
+	      logical :: sulf_interp_use_native_impl = .false.
+	      logical :: sulf_interp_impl_selected = .false.
+	      logical :: sulf_interp_proof_written = .false.
+	      logical :: set_sulf_time_use_native_impl = .false.
+	      logical :: set_sulf_time_impl_selected = .false.
+	      logical :: set_sulf_time_proof_written = .false.
 
-      contains 
+	      interface
+	         function set_sulf_time_codon() result(out_c) bind(c, name="set_sulf_time_codon")
+	            use iso_c_binding, only : c_int64_t
+	            integer(c_int64_t) :: out_c
+	         end function set_sulf_time_codon
+	      end interface
+
+	      contains
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
@@ -186,7 +197,7 @@ end subroutine sulf_readnl
 
       end subroutine sulf_inti
 
-      subroutine set_sulf_time( pbuf2d, state )
+	      subroutine set_sulf_time( pbuf2d, state )
 !--------------------------------------------------------------------
 !	... Check and set time interpolation indicies
 !--------------------------------------------------------------------
@@ -197,16 +208,75 @@ end subroutine sulf_readnl
 !--------------------------------------------------------------------
 !	... Dummy args
 !--------------------------------------------------------------------
-      type(physics_buffer_desc), pointer :: pbuf2d(:,:)
-      type(physics_state), intent(in):: state(begchunk:endchunk)                 
+	      type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+	      type(physics_state), intent(in):: state(begchunk:endchunk)
+	      integer(c_int64_t) :: out_c
 
-      if ( .not. read_sulf ) return
+	      call set_sulf_time_select_impl()
 
-      call advance_trcdata( fields, file, state, pbuf2d  )
+	      if (.not.set_sulf_time_use_native_impl) then
+	         out_c = set_sulf_time_codon()
+	         call set_sulf_time_proof_once()
+	      end if
 
-      end subroutine set_sulf_time
+	      if ( .not. read_sulf ) return
 
-      subroutine sulf_interp( ncol, lchnk, ccm_sulf )
+	      call advance_trcdata( fields, file, state, pbuf2d  )
+
+	      end subroutine set_sulf_time
+
+	      subroutine set_sulf_time_select_impl()
+
+	      implicit none
+
+	      character(len=32) :: impl_name
+	      integer :: status, n, i, code
+
+	      if (set_sulf_time_impl_selected) return
+
+	      impl_name = 'codon'
+	      call get_environment_variable('SET_SULF_TIME_IMPL', value=impl_name, length=n, status=status)
+
+	      if (status == 0 .and. n > 0) then
+	         do i = 1, n
+	            code = iachar(impl_name(i:i))
+	            if (code >= iachar('A') .and. code <= iachar('Z')) then
+	               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+	            end if
+	         end do
+	         set_sulf_time_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+	      else
+	         set_sulf_time_use_native_impl = .false.
+	      end if
+
+	      set_sulf_time_impl_selected = .true.
+
+	      if (masterproc) then
+	         if (set_sulf_time_use_native_impl) then
+	            write(iulog,*) 'set_sulf_time implementation = native'
+	         else
+	            write(iulog,*) 'set_sulf_time implementation = codon'
+	         end if
+	         call flush(iulog)
+	      end if
+
+	      end subroutine set_sulf_time_select_impl
+
+	      subroutine set_sulf_time_proof_once()
+
+	      implicit none
+
+	      if (set_sulf_time_proof_written) return
+	      set_sulf_time_proof_written = .true.
+
+	      if (masterproc) then
+	         write(iulog,'(A)') 'set_sulf_time entered (read_sulf gate = codon; active tracer advance = native when enabled)'
+	         call flush(iulog)
+	      end if
+
+	      end subroutine set_sulf_time_proof_once
+
+	      subroutine sulf_interp( ncol, lchnk, ccm_sulf )
 !-----------------------------------------------------------------------
 ! 	... Time interpolate sulfatei to current time
 !-----------------------------------------------------------------------

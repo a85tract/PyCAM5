@@ -10,6 +10,26 @@ def chemistry_misc_touch_codon(tag: int) -> int:
     return _common.chemistry_misc_touch_codon(tag)
 
 @export
+def chem_final_codon() -> int:
+    return _common.chem_final_codon()
+
+@export
+def gcr_ionization_init_codon() -> int:
+    return _common.gcr_ionization_init_codon()
+
+@export
+def gcr_ionization_adv_codon() -> int:
+    return _common.gcr_ionization_adv_codon()
+
+@export
+def aurora_timestep_init_codon() -> int:
+    return _common.aurora_timestep_init_codon()
+
+@export
+def set_sulf_time_codon() -> int:
+    return _common.set_sulf_time_codon()
+
+@export
 def rebin_codon(
     nsrc: int,
     ntrg: int,

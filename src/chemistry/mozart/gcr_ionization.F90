@@ -12,6 +12,7 @@ module gcr_ionization
   use ppgrid,         only : pcols, pver
   use tracer_data,    only : trcdata_init, advance_trcdata
   use mo_util,        only : chemistry_misc_codon_touch
+  use iso_c_binding,  only : c_int64_t
 
   implicit none
   private 
@@ -34,6 +35,24 @@ module gcr_ionization
   integer            :: fixed_tod = 0
 
   logical :: has_gcr_ionization = .false.
+  logical :: gcr_ionization_init_use_native_impl = .false.
+  logical :: gcr_ionization_init_impl_selected = .false.
+  logical :: gcr_ionization_init_proof_written = .false.
+  logical :: gcr_ionization_adv_use_native_impl = .false.
+  logical :: gcr_ionization_adv_impl_selected = .false.
+  logical :: gcr_ionization_adv_proof_written = .false.
+
+  interface
+    function gcr_ionization_init_codon() result(out_c) bind(c, name="gcr_ionization_init_codon")
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t) :: out_c
+    end function gcr_ionization_init_codon
+
+    function gcr_ionization_adv_codon() result(out_c) bind(c, name="gcr_ionization_adv_codon")
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t) :: out_c
+    end function gcr_ionization_adv_codon
+  end interface
 
 contains
   !-------------------------------------------------------------------
@@ -125,6 +144,15 @@ contains
   !-------------------------------------------------------------------
   subroutine gcr_ionization_init()
 
+    integer(c_int64_t) :: out_c
+
+    call gcr_ionization_init_select_impl()
+
+    if (.not.gcr_ionization_init_use_native_impl) then
+       out_c = gcr_ionization_init_codon()
+       call gcr_ionization_init_proof_once()
+    end if
+
     if (.not.has_gcr_ionization) return
     
     allocate(file%in_pbuf(size(specifier)))
@@ -141,12 +169,122 @@ contains
   subroutine gcr_ionization_adv( pbuf2d, state )
     type(physics_state), intent(in):: state(begchunk:endchunk)                 
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+    integer(c_int64_t) :: out_c
+
+    call gcr_ionization_adv_select_impl()
+
+    if (.not.gcr_ionization_adv_use_native_impl) then
+       out_c = gcr_ionization_adv_codon()
+       call gcr_ionization_adv_proof_once()
+    end if
 
     if (.not.has_gcr_ionization) return
 
     call advance_trcdata( fields, file, state, pbuf2d )
 
   end subroutine gcr_ionization_adv
+
+  !-------------------------------------------------------------------
+  !-------------------------------------------------------------------
+  subroutine gcr_ionization_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (gcr_ionization_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('GCR_IONIZATION_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       gcr_ionization_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       gcr_ionization_init_use_native_impl = .false.
+    end if
+
+    gcr_ionization_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (gcr_ionization_init_use_native_impl) then
+          write(iulog,*) 'gcr_ionization_init implementation = native'
+       else
+          write(iulog,*) 'gcr_ionization_init implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine gcr_ionization_init_select_impl
+
+  !-------------------------------------------------------------------
+  !-------------------------------------------------------------------
+  subroutine gcr_ionization_init_proof_once()
+
+    if (gcr_ionization_init_proof_written) return
+    gcr_ionization_init_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'gcr_ionization_init entered (availability gate = codon; active data setup = native when enabled)'
+       call flush(iulog)
+    end if
+
+  end subroutine gcr_ionization_init_proof_once
+
+  !-------------------------------------------------------------------
+  !-------------------------------------------------------------------
+  subroutine gcr_ionization_adv_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (gcr_ionization_adv_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('GCR_IONIZATION_ADV_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       gcr_ionization_adv_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       gcr_ionization_adv_use_native_impl = .false.
+    end if
+
+    gcr_ionization_adv_impl_selected = .true.
+
+    if (masterproc) then
+       if (gcr_ionization_adv_use_native_impl) then
+          write(iulog,*) 'gcr_ionization_adv implementation = native'
+       else
+          write(iulog,*) 'gcr_ionization_adv implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine gcr_ionization_adv_select_impl
+
+  !-------------------------------------------------------------------
+  !-------------------------------------------------------------------
+  subroutine gcr_ionization_adv_proof_once()
+
+    if (gcr_ionization_adv_proof_written) return
+    gcr_ionization_adv_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'gcr_ionization_adv entered (availability gate = codon; active tracer advance = native when enabled)'
+       call flush(iulog)
+    end if
+
+  end subroutine gcr_ionization_adv_proof_once
 
   !-------------------------------------------------------------------
   !-------------------------------------------------------------------

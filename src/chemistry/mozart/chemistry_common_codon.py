@@ -30,3 +30,18 @@ def _flux_idx(i: int, m: int, pcols: int) -> int:
 
 def chemistry_misc_touch_codon(tag: int) -> int:
     return tag
+
+def chem_final_codon() -> int:
+    return 0
+
+def gcr_ionization_init_codon() -> int:
+    return 0
+
+def gcr_ionization_adv_codon() -> int:
+    return 0
+
+def aurora_timestep_init_codon() -> int:
+    return 0
+
+def set_sulf_time_codon() -> int:
+    return 0

@@ -21,6 +21,7 @@ module chemistry
   use gcr_ionization,   only : gcr_ionization_readnl, gcr_ionization_init, gcr_ionization_adv
   use ref_pres,         only : do_molec_diff, ptop_ref
   use phys_control,     only : waccmx_is   ! WACCM-X switch query function
+  use iso_c_binding,    only : c_int64_t
 
   implicit none
   private
@@ -141,9 +142,19 @@ module chemistry
   logical :: chem_timestep_init_impl_selected = .false.
   logical :: chem_timestep_tend_use_native_impl = .false.
   logical :: chem_timestep_tend_impl_selected = .false.
+  logical :: chem_final_use_native_impl = .false.
+  logical :: chem_final_impl_selected = .false.
+  logical :: chem_final_proof_written = .false.
 
   character(len=32) :: chem_name = 'UNSET'
   logical :: chem_rad_passive = .false.
+
+  interface
+     function chem_final_codon() result(out_c) bind(c, name="chem_final_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t) :: out_c
+     end function chem_final_codon
+  end interface
   
   ! for MEGAN emissions
   integer, allocatable :: megan_indices_map(:) 
@@ -1928,7 +1939,54 @@ end function chem_is_active
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
   subroutine chem_final
+    integer(c_int64_t) :: out_c
+
+    call chem_final_select_impl()
+    if (chem_final_use_native_impl) return
+
+    out_c = chem_final_codon()
   end subroutine chem_final
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine chem_final_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (chem_final_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CHEM_FINAL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       chem_final_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       chem_final_use_native_impl = .false.
+    end if
+
+    chem_final_impl_selected = .true.
+
+    if (masterproc) then
+       if (chem_final_use_native_impl) then
+          write(iulog,*) 'chem_final implementation = native'
+       else
+          write(iulog,*) 'chem_final implementation = codon'
+          if (.not. chem_final_proof_written) then
+             write(iulog,'(A)') 'chem_final entered (no-op direct = codon)'
+             chem_final_proof_written = .true.
+          end if
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine chem_final_select_impl
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------

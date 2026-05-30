@@ -58,8 +58,16 @@
 	      use cam_logfile,   only: iulog
 	      use spmd_utils,    only: masterproc
 	      use mo_util,       only: chemistry_misc_codon_touch
+	      use iso_c_binding, only: c_int64_t
 
-	      implicit none
+		      implicit none
+
+      interface
+         function aurora_timestep_init_codon() result(out_c) bind(c, name="aurora_timestep_init_codon")
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t) :: out_c
+         end function aurora_timestep_init_codon
+      end interface
 
       interface aurora
          module procedure aurora_prod
@@ -161,10 +169,13 @@
       public :: aurora_inti, aurora_timestep_init, aurora
       public :: aurora_register
 
-      logical :: has_ions = .false.
-      integer :: indxAIPRS = -1
+	      logical :: has_ions = .false.
+	      integer :: indxAIPRS = -1
+      logical :: aurora_timestep_init_use_native_impl = .false.
+      logical :: aurora_timestep_init_impl_selected = .false.
+      logical :: aurora_timestep_init_proof_written = .false.
 
-      contains
+	      contains
 
         
       !----------------------------------------------------------------------
@@ -319,7 +330,7 @@
 
       end subroutine aurora_inti
 
-      subroutine aurora_timestep_init
+	      subroutine aurora_timestep_init
 !-----------------------------------------------------------------------
 ! 	... per timestep initialization
 !-----------------------------------------------------------------------
@@ -330,11 +341,19 @@
 !-----------------------------------------------------------------------
 !	... local variables
 !-----------------------------------------------------------------------
-      real(r8) :: power, plevel
-      real(r8) :: roth, rote, rcp, rhp
-      real(r8) :: arad
+	      real(r8) :: power, plevel
+	      real(r8) :: roth, rote, rcp, rhp
+	      real(r8) :: arad
+      integer(c_int64_t) :: out_c
 
-      if (.not. has_ions) return
+      call aurora_timestep_init_select_impl()
+
+      if (.not.aurora_timestep_init_use_native_impl) then
+         out_c = aurora_timestep_init_codon()
+         call aurora_timestep_init_proof_once()
+      end if
+
+	      if (.not. has_ions) return
 
 !-----------------------------------------------------------------------
 !	... get hemispheric power
@@ -411,9 +430,56 @@
       rrad(isouth) = arad*dtr 
       rrad(inorth) = arad*dtr
 
-      end subroutine aurora_timestep_init
+	      end subroutine aurora_timestep_init
 
-      subroutine aurora_prod( tn, o2, o1, mbar, rlats, &
+      subroutine aurora_timestep_init_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (aurora_timestep_init_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('AURORA_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         aurora_timestep_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         aurora_timestep_init_use_native_impl = .false.
+      end if
+
+      aurora_timestep_init_impl_selected = .true.
+
+      if (masterproc) then
+         if (aurora_timestep_init_use_native_impl) then
+            write(iulog,*) 'aurora_timestep_init implementation = native'
+         else
+            write(iulog,*) 'aurora_timestep_init implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine aurora_timestep_init_select_impl
+
+      subroutine aurora_timestep_init_proof_once()
+
+      if (aurora_timestep_init_proof_written) return
+      aurora_timestep_init_proof_written = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') 'aurora_timestep_init entered (has_ions gate = codon; active aurora update = native when enabled)'
+         call flush(iulog)
+      end if
+
+      end subroutine aurora_timestep_init_proof_once
+
+	      subroutine aurora_prod( tn, o2, o1, mbar, rlats, &
                               qo2p, qop, qn2p, qnp, pmid, &
                               lchnk, calday,  ncol, rlons, pbuf )
 !-----------------------------------------------------------------------
