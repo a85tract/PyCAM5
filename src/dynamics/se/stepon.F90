@@ -544,6 +544,8 @@ end subroutine stepon_run3
 !
 ! !INTERFACE:
 subroutine stepon_final(dyn_in, dyn_out)
+  use iso_c_binding, only : c_int64_t
+  use cam_logfile, only : iulog
 
 ! !PARAMETERS:
   ! WARNING: intent(out) here means that pointers in dyn_in and dyn_out
@@ -562,6 +564,12 @@ subroutine stepon_final(dyn_in, dyn_out)
 !-----------------------------------------------------------------------
 !BOC
 
+#define SE_MISC_TAG 20
+#define SE_MISC_LABEL 'stepon_final'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
 !EOC
 end subroutine stepon_final

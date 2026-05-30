@@ -146,11 +146,19 @@ contains
     use prim_driver_mod,  only: smooth_topo_datasets
     use hybrid_mod,       only: hybrid_t
     use control_mod,      only: smooth_phis_numcycle
+    use iso_c_binding, only : c_int64_t
 
     type(element_t) :: elem(:)
     type(hybrid_t) :: hybrid
     integer :: nets,nete,i,j,ie
     real(r8) :: ftmp(npsq,1,1)
+
+#define SE_MISC_TAG 39
+#define SE_MISC_LABEL 'nctopo_util_driver'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if (smooth_phis_numcycle==0) return
     call smooth_topo_datasets(phisdyn,sghdyn,sgh30dyn,elem,hybrid,nets,nete)

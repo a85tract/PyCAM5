@@ -35,8 +35,17 @@ CONTAINS
    end function dycore_is
 
    character(len=7) function get_resolution()
+     use iso_c_binding, only : c_int64_t
+     use cam_logfile, only : iulog
 
 !     use pmgrid, only: plat
+
+#define SE_MISC_TAG 37
+#define SE_MISC_LABEL 'get_resolution'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
 !     select case ( plat )
 !     case ( 8 )
@@ -61,4 +70,3 @@ CONTAINS
    end function get_resolution
 
 end module dycore
-
