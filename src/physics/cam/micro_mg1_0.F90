@@ -166,6 +166,7 @@ logical :: micro_mg1_0_post_iter_avg_logged = .false.
 logical :: micro_mg1_0_phase_change_logged = .false.
 logical :: micro_mg1_0_number_cleanup_logged = .false.
 logical :: micro_mg1_0_reflectivity_flags_logged = .false.
+logical :: micro_mg1_0_sedimentation_fallout_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
 logical :: micro_mg1_0_tend_logged = .false.
@@ -3297,6 +3298,7 @@ do i=1,ncol
       if (dumi(i,k).lt.qsmall) dumni(i,k)=0._r8
 
    end do       !!! vertical loop
+   if (micro_mg1_0_colzero_use_native_impl) then
    do n = 1,nstep  !! loop over sub-time step to ensure stability
 
       do k = top_lev,pver
@@ -3399,6 +3401,12 @@ do i=1,ncol
       preci(i) = preci(i)+(falouti(pver))/g/nstep/1000._r8
 
    end do   !! nstep loop
+   else
+      call micro_mg1_0_sedimentation_fallout_codon_wrap(i, pcols, pver, top_lev, nstep, &
+           do_cldice, deltat, g, xxlv, xxls, pdel, lcldm, icldm, qitend, nitend, qctend, &
+           nctend, qcsedten, qisedten, qvlat, qisevap, qcsevap, tlat, dumi, dumni, dumc, &
+           dumnc, fi, fni, fc, fnc, falouti, faloutni, faloutc, faloutnc, prect, preci)
+   end if
 
    ! end sedimentation
    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -4209,6 +4217,15 @@ subroutine micro_mg1_0_reflectivity_flags_log_entry()
   end if
 end subroutine micro_mg1_0_reflectivity_flags_log_entry
 
+subroutine micro_mg1_0_sedimentation_fallout_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_sedimentation_fallout_logged) then
+     write(iulog,*) 'micro_mg1_0_sedimentation_fallout entered (cloud sedimentation fallout update = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_sedimentation_fallout entered (cloud sedimentation fallout update = codon)')
+     micro_mg1_0_sedimentation_fallout_logged = .true.
+  end if
+end subroutine micro_mg1_0_sedimentation_fallout_log_entry
+
 subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
      ltrue_local)
@@ -4960,6 +4977,70 @@ subroutine micro_mg1_0_substep_accum_column_codon_wrap(i_local, pcols_local, pve
        c_loc(arcld_local), c_loc(rercld_local), c_loc(rflx_local), c_loc(sflx_local), c_loc(rflx1_local), &
        c_loc(sflx1_local), c_loc(umr_local), c_loc(ums_local))
 end subroutine micro_mg1_0_substep_accum_column_codon_wrap
+
+subroutine micro_mg1_0_sedimentation_fallout_codon_wrap(i_local, pcols_local, pver_local, top_lev_local, &
+     nstep_local, do_cldice_local, deltat_local, g_local, xxlv_local, xxls_local, pdel_local, lcldm_local, &
+     icldm_local, qitend_local, nitend_local, qctend_local, nctend_local, qcsedten_local, qisedten_local, &
+     qvlat_local, qisevap_local, qcsevap_local, tlat_local, dumi_local, dumni_local, dumc_local, dumnc_local, &
+     fi_local, fni_local, fc_local, fnc_local, falouti_local, faloutni_local, faloutc_local, faloutnc_local, &
+     prect_local, preci_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local, top_lev_local, nstep_local
+  logical, intent(in) :: do_cldice_local
+  real(r8), intent(in) :: deltat_local, g_local, xxlv_local, xxls_local
+  real(r8), target, intent(in) :: pdel_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: lcldm_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: icldm_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qcsedten_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qisedten_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qvlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qisevap_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qcsevap_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: tlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumni_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dumnc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: fi_local(pver_local), fni_local(pver_local)
+  real(r8), target, intent(inout) :: fc_local(pver_local), fnc_local(pver_local)
+  real(r8), target, intent(inout) :: falouti_local(pver_local), faloutni_local(pver_local)
+  real(r8), target, intent(inout) :: faloutc_local(pver_local), faloutnc_local(pver_local)
+  real(r8), target, intent(inout) :: prect_local(pcols_local), preci_local(pcols_local)
+
+  interface
+     subroutine micro_mg1_0_sedimentation_fallout_codon(i_c, pcols_c, pver_c, top_lev_c, nstep_c, &
+          do_cldice_c, deltat_c, g_c, xxlv_c, xxls_c, pdel_p, lcldm_p, icldm_p, qitend_p, nitend_p, &
+          qctend_p, nctend_p, qcsedten_p, qisedten_p, qvlat_p, qisevap_p, qcsevap_p, tlat_p, dumi_p, &
+          dumni_p, dumc_p, dumnc_p, fi_p, fni_p, fc_p, fnc_p, falouti_p, faloutni_p, faloutc_p, &
+          faloutnc_p, prect_p, preci_p) bind(c, name="micro_mg1_0_sedimentation_fallout_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, nstep_c, do_cldice_c
+       real(c_double), value :: deltat_c, g_c, xxlv_c, xxls_c
+       type(c_ptr), value :: pdel_p, lcldm_p, icldm_p, qitend_p, nitend_p, qctend_p, nctend_p
+       type(c_ptr), value :: qcsedten_p, qisedten_p, qvlat_p, qisevap_p, qcsevap_p, tlat_p
+       type(c_ptr), value :: dumi_p, dumni_p, dumc_p, dumnc_p, fi_p, fni_p, fc_p, fnc_p
+       type(c_ptr), value :: falouti_p, faloutni_p, faloutc_p, faloutnc_p, prect_p, preci_p
+     end subroutine micro_mg1_0_sedimentation_fallout_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_sedimentation_fallout_log_entry()
+  call micro_mg1_0_sedimentation_fallout_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), int(nstep_local, c_int64_t), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), real(deltat_local, c_double), &
+       real(g_local, c_double), real(xxlv_local, c_double), real(xxls_local, c_double), &
+       c_loc(pdel_local), c_loc(lcldm_local), c_loc(icldm_local), c_loc(qitend_local), &
+       c_loc(nitend_local), c_loc(qctend_local), c_loc(nctend_local), c_loc(qcsedten_local), &
+       c_loc(qisedten_local), c_loc(qvlat_local), c_loc(qisevap_local), c_loc(qcsevap_local), &
+       c_loc(tlat_local), c_loc(dumi_local), c_loc(dumni_local), c_loc(dumc_local), &
+       c_loc(dumnc_local), c_loc(fi_local), c_loc(fni_local), c_loc(fc_local), c_loc(fnc_local), &
+       c_loc(falouti_local), c_loc(faloutni_local), c_loc(faloutc_local), c_loc(faloutnc_local), &
+       c_loc(prect_local), c_loc(preci_local))
+end subroutine micro_mg1_0_sedimentation_fallout_codon_wrap
 
 subroutine micro_mg1_0_tail_activation_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      dum2i_local, dum2l_local, rho_local, ncai_local, ncal_local)

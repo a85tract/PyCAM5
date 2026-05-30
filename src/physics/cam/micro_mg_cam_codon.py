@@ -2484,6 +2484,158 @@ def micro_mg1_0_substep_accum_column_codon(
 
 
 @export
+def micro_mg1_0_sedimentation_fallout_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nstep: int,
+    do_cldice: int,
+    deltat: float,
+    g: float,
+    xxlv: float,
+    xxls: float,
+    pdel_p: cobj,
+    lcldm_p: cobj,
+    icldm_p: cobj,
+    qitend_p: cobj,
+    nitend_p: cobj,
+    qctend_p: cobj,
+    nctend_p: cobj,
+    qcsedten_p: cobj,
+    qisedten_p: cobj,
+    qvlat_p: cobj,
+    qisevap_p: cobj,
+    qcsevap_p: cobj,
+    tlat_p: cobj,
+    dumi_p: cobj,
+    dumni_p: cobj,
+    dumc_p: cobj,
+    dumnc_p: cobj,
+    fi_p: cobj,
+    fni_p: cobj,
+    fc_p: cobj,
+    fnc_p: cobj,
+    falouti_p: cobj,
+    faloutni_p: cobj,
+    faloutc_p: cobj,
+    faloutnc_p: cobj,
+    prect_p: cobj,
+    preci_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    lcldm = Ptr[float](lcldm_p)
+    icldm = Ptr[float](icldm_p)
+    qitend = Ptr[float](qitend_p)
+    nitend = Ptr[float](nitend_p)
+    qctend = Ptr[float](qctend_p)
+    nctend = Ptr[float](nctend_p)
+    qcsedten = Ptr[float](qcsedten_p)
+    qisedten = Ptr[float](qisedten_p)
+    qvlat = Ptr[float](qvlat_p)
+    qisevap = Ptr[float](qisevap_p)
+    qcsevap = Ptr[float](qcsevap_p)
+    tlat = Ptr[float](tlat_p)
+    dumi = Ptr[float](dumi_p)
+    dumni = Ptr[float](dumni_p)
+    dumc = Ptr[float](dumc_p)
+    dumnc = Ptr[float](dumnc_p)
+    fi = Ptr[float](fi_p)
+    fni = Ptr[float](fni_p)
+    fc = Ptr[float](fc_p)
+    fnc = Ptr[float](fnc_p)
+    falouti = Ptr[float](falouti_p)
+    faloutni = Ptr[float](faloutni_p)
+    faloutc = Ptr[float](faloutc_p)
+    faloutnc = Ptr[float](faloutnc_p)
+    prect = Ptr[float](prect_p)
+    preci = Ptr[float](preci_p)
+    nstep_f = float(nstep)
+
+    for _n in range(1, nstep + 1):
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            kidx = k - 1
+            if do_cldice != 0:
+                falouti[kidx] = fi[kidx] * dumi[idx]
+                faloutni[kidx] = fni[kidx] * dumni[idx]
+            else:
+                falouti[kidx] = 0.0
+                faloutni[kidx] = 0.0
+
+            faloutc[kidx] = fc[kidx] * dumc[idx]
+            faloutnc[kidx] = fnc[kidx] * dumnc[idx]
+
+        k = top_lev
+        idx_top = _idx2(i, k, pcols)
+        kidx_top = k - 1
+        faltndi = falouti[kidx_top] / pdel[idx_top]
+        faltndni = faloutni[kidx_top] / pdel[idx_top]
+        faltndc = faloutc[kidx_top] / pdel[idx_top]
+        faltndnc = faloutnc[kidx_top] / pdel[idx_top]
+
+        qitend[idx_top] = qitend[idx_top] - faltndi / nstep_f
+        nitend[idx_top] = nitend[idx_top] - faltndni / nstep_f
+        qctend[idx_top] = qctend[idx_top] - faltndc / nstep_f
+        nctend[idx_top] = nctend[idx_top] - faltndnc / nstep_f
+
+        qcsedten[idx_top] = qcsedten[idx_top] - faltndc / nstep_f
+        qisedten[idx_top] = qisedten[idx_top] - faltndi / nstep_f
+
+        dumi[idx_top] = dumi[idx_top] - faltndi * deltat / nstep_f
+        dumni[idx_top] = dumni[idx_top] - faltndni * deltat / nstep_f
+        dumc[idx_top] = dumc[idx_top] - faltndc * deltat / nstep_f
+        dumnc[idx_top] = dumnc[idx_top] - faltndnc * deltat / nstep_f
+
+        for k in range(top_lev + 1, pver + 1):
+            idx = _idx2(i, k, pcols)
+            idx_prev = _idx2(i, k - 1, pcols)
+            kidx = k - 1
+            kidx_prev = k - 2
+
+            dum = lcldm[idx] / lcldm[idx_prev]
+            dum = min(dum, 1.0)
+            dum1 = icldm[idx] / icldm[idx_prev]
+            dum1 = min(dum1, 1.0)
+
+            faltndqie = (falouti[kidx] - falouti[kidx_prev]) / pdel[idx]
+            faltndi = (falouti[kidx] - dum1 * falouti[kidx_prev]) / pdel[idx]
+            faltndni = (faloutni[kidx] - dum1 * faloutni[kidx_prev]) / pdel[idx]
+            faltndqce = (faloutc[kidx] - faloutc[kidx_prev]) / pdel[idx]
+            faltndc = (faloutc[kidx] - dum * faloutc[kidx_prev]) / pdel[idx]
+            faltndnc = (faloutnc[kidx] - dum * faloutnc[kidx_prev]) / pdel[idx]
+
+            qitend[idx] = qitend[idx] - faltndi / nstep_f
+            nitend[idx] = nitend[idx] - faltndni / nstep_f
+            qctend[idx] = qctend[idx] - faltndc / nstep_f
+            nctend[idx] = nctend[idx] - faltndnc / nstep_f
+
+            qcsedten[idx] = qcsedten[idx] - faltndc / nstep_f
+            qisedten[idx] = qisedten[idx] - faltndi / nstep_f
+
+            qvlat[idx] = qvlat[idx] - (faltndqie - faltndi) / nstep_f
+            qisevap[idx] = qisevap[idx] - (faltndqie - faltndi) / nstep_f
+            qvlat[idx] = qvlat[idx] - (faltndqce - faltndc) / nstep_f
+            qcsevap[idx] = qcsevap[idx] - (faltndqce - faltndc) / nstep_f
+
+            tlat[idx] = tlat[idx] + (faltndqie - faltndi) * xxls / nstep_f
+            tlat[idx] = tlat[idx] + (faltndqce - faltndc) * xxlv / nstep_f
+
+            dumi[idx] = dumi[idx] - faltndi * deltat / nstep_f
+            dumni[idx] = dumni[idx] - faltndni * deltat / nstep_f
+            dumc[idx] = dumc[idx] - faltndc * deltat / nstep_f
+            dumnc[idx] = dumnc[idx] - faltndnc * deltat / nstep_f
+
+            fni[kidx] = max(fni[kidx] / pdel[idx], fni[kidx_prev] / pdel[idx_prev]) * pdel[idx]
+            fi[kidx] = max(fi[kidx] / pdel[idx], fi[kidx_prev] / pdel[idx_prev]) * pdel[idx]
+            fnc[kidx] = max(fnc[kidx] / pdel[idx], fnc[kidx_prev] / pdel[idx_prev]) * pdel[idx]
+            fc[kidx] = max(fc[kidx] / pdel[idx], fc[kidx_prev] / pdel[idx_prev]) * pdel[idx]
+
+        prect[i - 1] = prect[i - 1] + (faloutc[pver - 1] + falouti[pver - 1]) / g / nstep_f / 1000.0
+        preci[i - 1] = preci[i - 1] + falouti[pver - 1] / g / nstep_f / 1000.0
+
+
+@export
 def micro_mg1_0_flux_ltrue_init_codon(
     ncol: int,
     pcols: int,
