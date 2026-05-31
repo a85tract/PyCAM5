@@ -275,13 +275,27 @@ contains
   function gridedge_type(edge) result(type)
 
     use params_mod, only : INTERNAL_EDGE, EXTERNAL_EDGE
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     type (GridEdge_t), intent(in)  :: edge
     integer                        :: type
+    logical, save :: proof_seen = .false.
+    interface
+       function gridedge_type_codon(head_processor_c, tail_processor_c, internal_edge_c, external_edge_c) &
+            result(type_c) bind(c, name='gridedge_type_codon')
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: head_processor_c, tail_processor_c
+         integer(c_int64_t), value :: internal_edge_c, external_edge_c
+         integer(c_int64_t) :: type_c
+       end function gridedge_type_codon
+    end interface
 
-    if (edge%head%processor_number==edge%tail%processor_number) then
-        type=INTERNAL_EDGE
-    else
-        type=EXTERNAL_EDGE
+    type = int(gridedge_type_codon(int(edge%head%processor_number, c_int64_t), &
+         int(edge%tail%processor_number, c_int64_t), int(INTERNAL_EDGE, c_int64_t), &
+         int(EXTERNAL_EDGE, c_int64_t)))
+    if (.not. proof_seen) then
+        write(iulog,*) 'gridedge_type implementation = codon'
+        proof_seen = .true.
     endif
 
   end function gridedge_type

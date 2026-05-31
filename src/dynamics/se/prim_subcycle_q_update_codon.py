@@ -904,6 +904,78 @@ def se_misc_touch_codon(
     )
 
 @export
+def get_block_gcol_d_codon(
+    size: int,
+    unique_pt_offset: int,
+    cdex_p: cobj,
+):
+    return _misc.get_block_gcol_d_codon(size, unique_pt_offset, cdex_p)
+
+@export
+def get_block_owner_d_codon(
+    owner: int,
+) -> int:
+    return _misc.get_block_owner_d_codon(owner)
+
+@export
+def latlon_interpolation_codon(
+    t: int,
+    n: int,
+    value: int,
+) -> int:
+    return _misc.latlon_interpolation_codon(t, n, value)
+
+@export
+def dycore_is_codon(
+    is_match: int,
+) -> int:
+    return _misc.dycore_is_codon(is_match)
+
+@export
+def isfactorable_codon(
+    n: int,
+) -> int:
+    return _misc.isfactorable_codon(n)
+
+@export
+def genlocaldof_codon(
+    ig: int,
+    npts: int,
+    ldof_p: cobj,
+):
+    return _misc.genlocaldof_codon(ig, npts, ldof_p)
+
+@export
+def uniquepoints2d_codon(
+    num_unique_pts: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    ni: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    return _misc.uniquepoints2d_codon(num_unique_pts, ia_p, ja_p, ni, src_p, dest_p)
+
+@export
+def convert_gbl_index_codon(
+    number: int,
+    ne: int,
+    ie_p: cobj,
+    je_p: cobj,
+    face_no_p: cobj,
+):
+    return _misc.convert_gbl_index_codon(number, ne, ie_p, je_p, face_no_p)
+
+@export
+def gridedge_type_codon(
+    head_processor: int,
+    tail_processor: int,
+    internal_edge: int,
+    external_edge: int,
+) -> int:
+    return _misc.gridedge_type_codon(head_processor, tail_processor, internal_edge, external_edge)
+
+@export
 def gbarrier_init_codon(
     c_barrier_p: cobj,
     nthreads: int,

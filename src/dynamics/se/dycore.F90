@@ -17,6 +17,15 @@ CONTAINS
 ! Input arguments
 !
       character(len=*) :: name
+      integer :: is_match
+      logical, save :: proof_seen = .false.
+      interface
+         function dycore_is_codon(is_match_c) result(flag_c) bind(c, name='dycore_is_codon')
+           use iso_c_binding, only : c_int64_t
+           integer(c_int64_t), value :: is_match_c
+           integer(c_int64_t) :: flag_c
+         end function dycore_is_codon
+      end interface
 
 #define SE_MISC_TAG 36
 #define SE_MISC_LABEL 'dycore'
@@ -25,10 +34,12 @@ CONTAINS
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
       
-      dycore_is = .false.
-      if (name == 'unstructured' .or. name == 'UNSTRUCTURED' .or. &
-           name == 'se' .or. name == 'SE') then
-         dycore_is = .true.
+      is_match = merge(1, 0, name == 'unstructured' .or. name == 'UNSTRUCTURED' .or. &
+           name == 'se' .or. name == 'SE')
+      dycore_is = dycore_is_codon(int(is_match, c_int64_t)) /= 0
+      if (.not. proof_seen) then
+         write(iulog,*) 'dycore_is implementation = codon'
+         proof_seen = .true.
       end if
       
       return

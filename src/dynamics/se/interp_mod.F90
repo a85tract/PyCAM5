@@ -93,14 +93,32 @@ contains
 
   function latlon_interpolation(t)
     use interpolate_mod, only : interpolate_analysis
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     integer, intent(in) :: t
 
     logical :: latlon_interpolation
+    integer :: value
+    logical, save :: proof_seen = .false.
+    interface
+       function latlon_interpolation_codon(t_c, n_c, value_c) result(flag_c) &
+            bind(c, name='latlon_interpolation_codon')
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: t_c, n_c, value_c
+         integer(c_int64_t) :: flag_c
+       end function latlon_interpolation_codon
+    end interface
 
     if (t<=size(interpolate_analysis)) then
-       latlon_interpolation = interpolate_analysis(t)
+       value = merge(1, 0, interpolate_analysis(t))
     else
-       latlon_interpolation = .false.
+       value = 0
+    endif
+    latlon_interpolation = latlon_interpolation_codon(int(t, c_int64_t), &
+         int(size(interpolate_analysis), c_int64_t), int(value, c_int64_t)) /= 0
+    if (.not. proof_seen) then
+       write(iulog,*) 'latlon_interpolation implementation = codon'
+       proof_seen = .true.
     endif
 
   end function latlon_interpolation

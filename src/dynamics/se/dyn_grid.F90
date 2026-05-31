@@ -123,6 +123,8 @@ end subroutine dyn_grid_init
   !========================================================================
   !
   subroutine get_block_gcol_d(blockid,size,cdex)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     !----------------------------------------------------------------------- 
     ! 
     !                          
@@ -138,13 +140,25 @@ end subroutine dyn_grid_init
     integer, intent(in) :: blockid      ! global block id
     integer, intent(in) :: size         ! array size
 
-    integer, intent(out):: cdex(size)   ! global column indices
+    integer, intent(out), target :: cdex(size)   ! global column indices
     !
-    integer :: ic
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine get_block_gcol_d_codon(size_c, unique_pt_offset_c, cdex_p) &
+            bind(c, name='get_block_gcol_d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: size_c, unique_pt_offset_c
+         type(c_ptr), value :: cdex_p
+       end subroutine get_block_gcol_d_codon
+    end interface
+
     if(gblocks_need_initialized) call gblocks_init()
-    do ic=1,size
-       cdex(ic)=gblocks(blockid)%UniquePtOffset+ic-1
-    end do
+    call get_block_gcol_d_codon(int(size, c_int64_t), &
+         int(gblocks(blockid)%UniquePtOffset, c_int64_t), c_loc(cdex))
+    if (.not. proof_seen) then
+       write(iulog,*) 'get_block_gcol_d implementation = codon'
+       proof_seen = .true.
+    endif
 
     return
   end subroutine get_block_gcol_d
@@ -505,6 +519,8 @@ end function get_gcol_block_cnt_d
 !
 integer function get_block_owner_d(blockid)
  use cam_abortutils, only: endrun
+ use iso_c_binding, only : c_int64_t
+ use cam_logfile, only : iulog
  !----------------------------------------------------------------------- 
  ! 
  !                          
@@ -519,12 +535,24 @@ integer function get_block_owner_d(blockid)
  implicit none
  !------------------------------Arguments--------------------------------
  integer, intent(in) :: blockid  ! global block id
+ logical, save :: proof_seen = .false.
+ interface
+    function get_block_owner_d_codon(owner_c) result(owner_out) bind(c, name='get_block_owner_d_codon')
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t), value :: owner_c
+      integer(c_int64_t) :: owner_out
+    end function get_block_owner_d_codon
+ end interface
 
  !-----------------------------------------------------------------------
  if(gblocks_need_initialized) call gblocks_init()
 
- if(gblocks(blockid)%Owner>-1) then
-    get_block_owner_d=gblocks(blockid)%Owner
+ get_block_owner_d = int(get_block_owner_d_codon(int(gblocks(blockid)%Owner, c_int64_t)))
+ if(get_block_owner_d>-1) then
+    if (.not. proof_seen) then
+       write(iulog,*) 'get_block_owner_d implementation = codon'
+       proof_seen = .true.
+    endif
  else
     call endrun('Block owner not assigned in gblocks_init')
  end if

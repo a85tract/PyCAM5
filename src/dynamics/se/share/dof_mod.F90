@@ -42,20 +42,27 @@ private
 contains
 
   subroutine genLocalDof(ig,npts,ldof)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
     integer(kind=int_kind), intent(in) :: ig
     integer(kind=int_kind), intent(in) :: npts
-    integer(kind=int_kind), intent(inout) :: ldof(:,:)
+    integer(kind=int_kind), intent(inout), target :: ldof(:,:)
 
-    integer(kind=int_kind) :: i,j,npts2
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine genlocaldof_codon(ig_c, npts_c, ldof_p) bind(c, name='genlocaldof_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ig_c, npts_c
+         type(c_ptr), value :: ldof_p
+       end subroutine genlocaldof_codon
+    end interface
   
-   
-     npts2=npts*npts
-     do j=1,npts
-       do i=1,npts
-           ldof(i,j) = (ig-1)*npts2 + (j-1)*npts + i
-       enddo
-     enddo
+    call genlocaldof_codon(int(ig, c_int64_t), int(npts, c_int64_t), c_loc(ldof))
+    if (.not. proof_seen) then
+       write(iulog,*) 'genlocaldof implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine genLocalDOF
 
@@ -133,18 +140,29 @@ contains
 
 
   subroutine UniquePoints2D(idxUnique,src,dest)
-    type (index_t) :: idxUnique
-    real (kind=real_kind) :: src(:,:)
-    real (kind=real_kind) :: dest(:)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    type (index_t), target :: idxUnique
+    real (kind=real_kind), target :: src(:,:)
+    real (kind=real_kind), target :: dest(:)
 
-    integer(kind=int_kind) :: i,j,ii
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine uniquepoints2d_codon(num_unique_pts_c, ia_p, ja_p, ni_c, src_p, dest_p) &
+            bind(c, name='uniquepoints2d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_unique_pts_c, ni_c
+         type(c_ptr), value :: ia_p, ja_p, src_p, dest_p
+       end subroutine uniquepoints2d_codon
+    end interface
     
-
-    do ii=1,idxUnique%NumUniquePts
-       i=idxUnique%ia(ii)
-       j=idxUnique%ja(ii)
-       dest(ii)=src(i,j)
-    enddo
+    call uniquepoints2d_codon(int(idxUnique%NumUniquePts, c_int64_t), &
+         c_loc(idxUnique%ia), c_loc(idxUnique%ja), int(size(src, 1), c_int64_t), &
+         c_loc(src), c_loc(dest))
+    if (.not. proof_seen) then
+       write(iulog,*) 'uniquepoints2d implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine UniquePoints2D
 

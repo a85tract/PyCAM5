@@ -1426,15 +1426,28 @@ contains
 
   subroutine convert_gbl_index(number,ie,je,face_no)
     use dimensions_mod, only : ne
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     integer, intent(in)  :: number
-    integer, intent(out) :: ie,je,face_no
+    integer, intent(out), target :: ie,je,face_no
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine convert_gbl_index_codon(number_c, ne_c, ie_p, je_p, face_no_p) &
+            bind(c, name='convert_gbl_index_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: number_c, ne_c
+         type(c_ptr), value :: ie_p, je_p, face_no_p
+       end subroutine convert_gbl_index_codon
+    end interface
 
     if (0==ne) call abortmp('Error in cube_mod:convert_gbl_index: ne is zero')
 
-    !  inverse of the function:      number = 1 + ie + ne*je + ne*ne*(face_no-1)
-    face_no=((number-1)/(ne*ne))+1
-    ie=MODULO(number-1,ne)
-    je=(number-1)/ne - (face_no-1)*ne
+    call convert_gbl_index_codon(int(number, c_int64_t), int(ne, c_int64_t), &
+         c_loc(ie), c_loc(je), c_loc(face_no))
+    if (.not. proof_seen) then
+       write(iulog,*) 'convert_gbl_index implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine convert_gbl_index
    

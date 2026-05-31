@@ -982,19 +982,27 @@ contains
   end function Factor
   !---------------------------------------------------------
   function IsFactorable(n)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
 
     implicit none 
 
     integer,intent(in)  :: n
-    type (factor_t)     :: fact
 
     logical  :: IsFactorable
+    logical, save :: proof_seen = .false.
+    interface
+       function isfactorable_codon(n_c) result(flag_c) bind(c, name='isfactorable_codon')
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: n_c
+         integer(c_int64_t) :: flag_c
+       end function isfactorable_codon
+    end interface
 
-    fact = Factor(n)
-    if(fact%numfact .ne. -1) then
-       IsFactorable = .TRUE.
-    else
-       IsFactorable = .FALSE.
+    IsFactorable = isfactorable_codon(int(n, c_int64_t)) /= 0
+    if (.not. proof_seen) then
+       write(iulog,*) 'isfactorable implementation = codon'
+       proof_seen = .true.
     endif
 
   end function IsFactorable
