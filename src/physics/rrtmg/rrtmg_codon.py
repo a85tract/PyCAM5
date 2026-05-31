@@ -655,6 +655,744 @@ def _sw_idx4_dim3_lb(
 
 
 @export
+def rrtmg_sw_cmbgb16s_codon(
+    ngc1: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc1 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jt in range(1, 6):
+        for jp in range(13, 60):
+            iprsm = 0
+            for igc in range(1, ngc1 + 1):
+                sumk = 0.0
+                for _ in range(ngn[igc - 1]):
+                    sumk = sumk + kbo[_sw_idx3_dim2_lb(jt, jp, iprsm + 1, 5, 13, 47)] * rwgt[iprsm]
+                    iprsm += 1
+                kb[_sw_idx3_dim2_lb(jt, jp, igc, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc1 + 1):
+            sumk = 0.0
+            for _ in range(ngn[igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 4):
+        iprsm = 0
+        for igc in range(1, ngc1 + 1):
+            sumk = 0.0
+            for _ in range(ngn[igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 3)] * rwgt[iprsm]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 3)] = sumk
+
+    iprsm = 0
+    for igc in range(1, ngc1 + 1):
+        sumf = 0.0
+        for _ in range(ngn[igc - 1]):
+            sumf = sumf + sfluxrefo[iprsm]
+            iprsm += 1
+        sfluxref[igc - 1] = sumf
+
+
+@export
+def rrtmg_sw_cmbgb17_codon(
+    ngc2: int,
+    ngs1: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc2 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs1 + igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm + 16]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jn in range(1, 6):
+        for jt in range(1, 6):
+            for jp in range(13, 60):
+                iprsm = 0
+                for igc in range(1, ngc2 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs1 + igc - 1]):
+                        sumk = sumk + kbo[_sw_idx4_dim3_lb(jn, jt, jp, iprsm + 1, 5, 5, 13, 47)] * rwgt[iprsm + 16]
+                        iprsm += 1
+                    kb[_sw_idx4_dim3_lb(jn, jt, jp, igc, 5, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc2 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs1 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 16]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 5):
+        iprsm = 0
+        for igc in range(1, ngc2 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs1 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 4)] * rwgt[iprsm + 16]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 4)] = sumk
+
+    for jp in range(1, 6):
+        iprsm = 0
+        for igc in range(1, ngc2 + 1):
+            sumf = 0.0
+            for _ in range(ngn[ngs1 + igc - 1]):
+                sumf = sumf + sfluxrefo[_sw_idx2(iprsm + 1, jp, 16)]
+                iprsm += 1
+            sfluxref[_sw_idx2(igc, jp, ngc2)] = sumf
+
+
+@export
+def rrtmg_sw_cmbgb18_codon(
+    ngc3: int,
+    ngs2: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc3 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs2 + igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm + 32]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jt in range(1, 6):
+        for jp in range(13, 60):
+            iprsm = 0
+            for igc in range(1, ngc3 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs2 + igc - 1]):
+                    sumk = sumk + kbo[_sw_idx3_dim2_lb(jt, jp, iprsm + 1, 5, 13, 47)] * rwgt[iprsm + 32]
+                    iprsm += 1
+                kb[_sw_idx3_dim2_lb(jt, jp, igc, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc3 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs2 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 32]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 4):
+        iprsm = 0
+        for igc in range(1, ngc3 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs2 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 3)] * rwgt[iprsm + 32]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 3)] = sumk
+
+    for jp in range(1, 10):
+        iprsm = 0
+        for igc in range(1, ngc3 + 1):
+            sumf = 0.0
+            for _ in range(ngn[ngs2 + igc - 1]):
+                sumf = sumf + sfluxrefo[_sw_idx2(iprsm + 1, jp, 16)]
+                iprsm += 1
+            sfluxref[_sw_idx2(igc, jp, ngc3)] = sumf
+
+
+@export
+def rrtmg_sw_cmbgb19_codon(
+    ngc4: int,
+    ngs3: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc4 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs3 + igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm + 48]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jt in range(1, 6):
+        for jp in range(13, 60):
+            iprsm = 0
+            for igc in range(1, ngc4 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs3 + igc - 1]):
+                    sumk = sumk + kbo[_sw_idx3_dim2_lb(jt, jp, iprsm + 1, 5, 13, 47)] * rwgt[iprsm + 48]
+                    iprsm += 1
+                kb[_sw_idx3_dim2_lb(jt, jp, igc, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc4 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs3 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 48]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 4):
+        iprsm = 0
+        for igc in range(1, ngc4 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs3 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 3)] * rwgt[iprsm + 48]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 3)] = sumk
+
+    for jp in range(1, 10):
+        iprsm = 0
+        for igc in range(1, ngc4 + 1):
+            sumf = 0.0
+            for _ in range(ngn[ngs3 + igc - 1]):
+                sumf = sumf + sfluxrefo[_sw_idx2(iprsm + 1, jp, 16)]
+                iprsm += 1
+            sfluxref[_sw_idx2(igc, jp, ngc4)] = sumf
+
+
+@export
+def rrtmg_sw_cmbgb20_codon(
+    ngc5: int,
+    ngs4: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    absch4o_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    absch4_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    absch4o = Ptr[float](absch4o_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    absch4 = Ptr[float](absch4_p)
+
+    for jt in range(1, 6):
+        for jp in range(1, 14):
+            iprsm = 0
+            for igc in range(1, ngc5 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs4 + igc - 1]):
+                    sumk = sumk + kao[_sw_idx3(jt, jp, iprsm + 1, 5, 13)] * rwgt[iprsm + 64]
+                    iprsm += 1
+                ka[_sw_idx3(jt, jp, igc, 5, 13)] = sumk
+        for jp in range(13, 60):
+            iprsm = 0
+            for igc in range(1, ngc5 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs4 + igc - 1]):
+                    sumk = sumk + kbo[_sw_idx3_dim2_lb(jt, jp, iprsm + 1, 5, 13, 47)] * rwgt[iprsm + 64]
+                    iprsm += 1
+                kb[_sw_idx3_dim2_lb(jt, jp, igc, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc5 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs4 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 64]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 5):
+        iprsm = 0
+        for igc in range(1, ngc5 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs4 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 4)] * rwgt[iprsm + 64]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 4)] = sumk
+
+    iprsm = 0
+    for igc in range(1, ngc5 + 1):
+        sumf1 = 0.0
+        sumf2 = 0.0
+        for _ in range(ngn[ngs4 + igc - 1]):
+            sumf1 = sumf1 + sfluxrefo[iprsm]
+            sumf2 = sumf2 + absch4o[iprsm] * rwgt[iprsm + 64]
+            iprsm += 1
+        sfluxref[igc - 1] = sumf1
+        absch4[igc - 1] = sumf2
+
+
+@export
+def rrtmg_sw_cmbgb21_codon(
+    ngc6: int,
+    ngs5: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc6 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs5 + igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm + 80]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jn in range(1, 6):
+        for jt in range(1, 6):
+            for jp in range(13, 60):
+                iprsm = 0
+                for igc in range(1, ngc6 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs5 + igc - 1]):
+                        sumk = sumk + kbo[_sw_idx4_dim3_lb(jn, jt, jp, iprsm + 1, 5, 5, 13, 47)] * rwgt[iprsm + 80]
+                        iprsm += 1
+                    kb[_sw_idx4_dim3_lb(jn, jt, jp, igc, 5, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc6 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs5 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 80]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 5):
+        iprsm = 0
+        for igc in range(1, ngc6 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs5 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 4)] * rwgt[iprsm + 80]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 4)] = sumk
+
+    for jp in range(1, 10):
+        iprsm = 0
+        for igc in range(1, ngc6 + 1):
+            sumf = 0.0
+            for _ in range(ngn[ngs5 + igc - 1]):
+                sumf = sumf + sfluxrefo[_sw_idx2(iprsm + 1, jp, 16)]
+                iprsm += 1
+            sfluxref[_sw_idx2(igc, jp, ngc6)] = sumf
+
+
+@export
+def rrtmg_sw_cmbgb22_codon(
+    ngc7: int,
+    ngs6: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc7 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs6 + igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm + 96]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jt in range(1, 6):
+        for jp in range(13, 60):
+            iprsm = 0
+            for igc in range(1, ngc7 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs6 + igc - 1]):
+                    sumk = sumk + kbo[_sw_idx3_dim2_lb(jt, jp, iprsm + 1, 5, 13, 47)] * rwgt[iprsm + 96]
+                    iprsm += 1
+                kb[_sw_idx3_dim2_lb(jt, jp, igc, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc7 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs6 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 96]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 4):
+        iprsm = 0
+        for igc in range(1, ngc7 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs6 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 3)] * rwgt[iprsm + 96]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 3)] = sumk
+
+    for jp in range(1, 10):
+        iprsm = 0
+        for igc in range(1, ngc7 + 1):
+            sumf = 0.0
+            for _ in range(ngn[ngs6 + igc - 1]):
+                sumf = sumf + sfluxrefo[_sw_idx2(iprsm + 1, jp, 16)]
+                iprsm += 1
+            sfluxref[_sw_idx2(igc, jp, ngc7)] = sumf
+
+
+@export
+def rrtmg_sw_cmbgb23_codon(
+    ngc8: int,
+    ngs7: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    raylo_p: cobj,
+    ka_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    rayl_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    raylo = Ptr[float](raylo_p)
+    ka = Ptr[float](ka_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    rayl = Ptr[float](rayl_p)
+
+    for jt in range(1, 6):
+        for jp in range(1, 14):
+            iprsm = 0
+            for igc in range(1, ngc8 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs7 + igc - 1]):
+                    sumk = sumk + kao[_sw_idx3(jt, jp, iprsm + 1, 5, 13)] * rwgt[iprsm + 112]
+                    iprsm += 1
+                ka[_sw_idx3(jt, jp, igc, 5, 13)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc8 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs7 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 112]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 4):
+        iprsm = 0
+        for igc in range(1, ngc8 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs7 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 3)] * rwgt[iprsm + 112]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 3)] = sumk
+
+    iprsm = 0
+    for igc in range(1, ngc8 + 1):
+        sumf1 = 0.0
+        sumf2 = 0.0
+        for _ in range(ngn[ngs7 + igc - 1]):
+            sumf1 = sumf1 + sfluxrefo[iprsm]
+            sumf2 = sumf2 + raylo[iprsm] * rwgt[iprsm + 112]
+            iprsm += 1
+        sfluxref[igc - 1] = sumf1
+        rayl[igc - 1] = sumf2
+
+
+@export
+def rrtmg_sw_cmbgb24_codon(
+    ngc9: int,
+    ngs8: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    sfluxrefo_p: cobj,
+    abso3ao_p: cobj,
+    abso3bo_p: cobj,
+    raylao_p: cobj,
+    raylbo_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    abso3a_p: cobj,
+    abso3b_p: cobj,
+    rayla_p: cobj,
+    raylb_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    abso3ao = Ptr[float](abso3ao_p)
+    abso3bo = Ptr[float](abso3bo_p)
+    raylao = Ptr[float](raylao_p)
+    raylbo = Ptr[float](raylbo_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    abso3a = Ptr[float](abso3a_p)
+    abso3b = Ptr[float](abso3b_p)
+    rayla = Ptr[float](rayla_p)
+    raylb = Ptr[float](raylb_p)
+
+    for jn in range(1, 10):
+        for jt in range(1, 6):
+            for jp in range(1, 14):
+                iprsm = 0
+                for igc in range(1, ngc9 + 1):
+                    sumk = 0.0
+                    for _ in range(ngn[ngs8 + igc - 1]):
+                        sumk = sumk + kao[_sw_idx4(jn, jt, jp, iprsm + 1, 9, 5, 13)] * rwgt[iprsm + 128]
+                        iprsm += 1
+                    ka[_sw_idx4(jn, jt, jp, igc, 9, 5, 13)] = sumk
+
+    for jt in range(1, 6):
+        for jp in range(13, 60):
+            iprsm = 0
+            for igc in range(1, ngc9 + 1):
+                sumk = 0.0
+                for _ in range(ngn[ngs8 + igc - 1]):
+                    sumk = sumk + kbo[_sw_idx3_dim2_lb(jt, jp, iprsm + 1, 5, 13, 47)] * rwgt[iprsm + 128]
+                    iprsm += 1
+                kb[_sw_idx3_dim2_lb(jt, jp, igc, 5, 13, 47)] = sumk
+
+    for jt in range(1, 11):
+        iprsm = 0
+        for igc in range(1, ngc9 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs8 + igc - 1]):
+                sumk = sumk + selfrefo[_sw_idx2(jt, iprsm + 1, 10)] * rwgt[iprsm + 128]
+                iprsm += 1
+            selfref[_sw_idx2(jt, igc, 10)] = sumk
+
+    for jt in range(1, 4):
+        iprsm = 0
+        for igc in range(1, ngc9 + 1):
+            sumk = 0.0
+            for _ in range(ngn[ngs8 + igc - 1]):
+                sumk = sumk + forrefo[_sw_idx2(jt, iprsm + 1, 3)] * rwgt[iprsm + 128]
+                iprsm += 1
+            forref[_sw_idx2(jt, igc, 3)] = sumk
+
+    iprsm = 0
+    for igc in range(1, ngc9 + 1):
+        sumf1 = 0.0
+        sumf2 = 0.0
+        sumf3 = 0.0
+        for _ in range(ngn[ngs8 + igc - 1]):
+            sumf1 = sumf1 + raylbo[iprsm] * rwgt[iprsm + 128]
+            sumf2 = sumf2 + abso3ao[iprsm] * rwgt[iprsm + 128]
+            sumf3 = sumf3 + abso3bo[iprsm] * rwgt[iprsm + 128]
+            iprsm += 1
+        raylb[igc - 1] = sumf1
+        abso3a[igc - 1] = sumf2
+        abso3b[igc - 1] = sumf3
+
+    for jp in range(1, 10):
+        iprsm = 0
+        for igc in range(1, ngc9 + 1):
+            sumf1 = 0.0
+            sumf2 = 0.0
+            for _ in range(ngn[ngs8 + igc - 1]):
+                sumf1 = sumf1 + sfluxrefo[_sw_idx2(iprsm + 1, jp, 16)]
+                sumf2 = sumf2 + raylao[_sw_idx2(iprsm + 1, jp, 16)] * rwgt[iprsm + 128]
+                iprsm += 1
+            sfluxref[_sw_idx2(igc, jp, ngc9)] = sumf1
+            rayla[_sw_idx2(igc, jp, ngc9)] = sumf2
+
+
+@export
 def rrtmg_sw_cmbgb25_codon(
     ngc10: int,
     ngs9: int,

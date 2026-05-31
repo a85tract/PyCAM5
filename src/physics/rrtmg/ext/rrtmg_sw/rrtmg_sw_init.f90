@@ -57,6 +57,196 @@
             type(c_ptr), value :: ngb_p
             type(c_ptr), value :: wt_p
          end subroutine rrtmg_sw_swcmbdat_codon
+         subroutine rrtmg_sw_cmbgb16s_codon(ngc1_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
+              kb_p, selfref_p, forref_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb16s_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc1_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb16s_codon
+         subroutine rrtmg_sw_cmbgb17_codon(ngc2_c, ngs1_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
+              kb_p, selfref_p, forref_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb17_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc2_c
+            integer(c_int64_t), value :: ngs1_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb17_codon
+         subroutine rrtmg_sw_cmbgb18_codon(ngc3_c, ngs2_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
+              kb_p, selfref_p, forref_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb18_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc3_c
+            integer(c_int64_t), value :: ngs2_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb18_codon
+         subroutine rrtmg_sw_cmbgb19_codon(ngc4_c, ngs3_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
+              kb_p, selfref_p, forref_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb19_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc4_c
+            integer(c_int64_t), value :: ngs3_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb19_codon
+         subroutine rrtmg_sw_cmbgb20_codon(ngc5_c, ngs4_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, absch4o_p, &
+              ka_p, kb_p, selfref_p, forref_p, sfluxref_p, absch4_p) &
+              bind(c, name="rrtmg_sw_cmbgb20_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc5_c
+            integer(c_int64_t), value :: ngs4_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: absch4o_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+            type(c_ptr), value :: absch4_p
+         end subroutine rrtmg_sw_cmbgb20_codon
+         subroutine rrtmg_sw_cmbgb21_codon(ngc6_c, ngs5_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
+              kb_p, selfref_p, forref_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb21_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc6_c
+            integer(c_int64_t), value :: ngs5_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb21_codon
+         subroutine rrtmg_sw_cmbgb22_codon(ngc7_c, ngs6_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
+              kb_p, selfref_p, forref_p, sfluxref_p) &
+              bind(c, name="rrtmg_sw_cmbgb22_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc7_c
+            integer(c_int64_t), value :: ngs6_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+         end subroutine rrtmg_sw_cmbgb22_codon
+         subroutine rrtmg_sw_cmbgb23_codon(ngc8_c, ngs7_c, ngn_p, rwgt_p, &
+              kao_p, selfrefo_p, forrefo_p, sfluxrefo_p, raylo_p, ka_p, &
+              selfref_p, forref_p, sfluxref_p, rayl_p) &
+              bind(c, name="rrtmg_sw_cmbgb23_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc8_c
+            integer(c_int64_t), value :: ngs7_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: raylo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+            type(c_ptr), value :: rayl_p
+         end subroutine rrtmg_sw_cmbgb23_codon
+         subroutine rrtmg_sw_cmbgb24_codon(ngc9_c, ngs8_c, ngn_p, rwgt_p, &
+              kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, &
+              abso3ao_p, abso3bo_p, raylao_p, raylbo_p, ka_p, kb_p, &
+              selfref_p, forref_p, sfluxref_p, abso3a_p, abso3b_p, &
+              rayla_p, raylb_p) bind(c, name="rrtmg_sw_cmbgb24_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ngc9_c
+            integer(c_int64_t), value :: ngs8_c
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: rwgt_p
+            type(c_ptr), value :: kao_p
+            type(c_ptr), value :: kbo_p
+            type(c_ptr), value :: selfrefo_p
+            type(c_ptr), value :: forrefo_p
+            type(c_ptr), value :: sfluxrefo_p
+            type(c_ptr), value :: abso3ao_p
+            type(c_ptr), value :: abso3bo_p
+            type(c_ptr), value :: raylao_p
+            type(c_ptr), value :: raylbo_p
+            type(c_ptr), value :: ka_p
+            type(c_ptr), value :: kb_p
+            type(c_ptr), value :: selfref_p
+            type(c_ptr), value :: forref_p
+            type(c_ptr), value :: sfluxref_p
+            type(c_ptr), value :: abso3a_p
+            type(c_ptr), value :: abso3b_p
+            type(c_ptr), value :: rayla_p
+            type(c_ptr), value :: raylb_p
+         end subroutine rrtmg_sw_cmbgb24_codon
          subroutine rrtmg_sw_cmbgb26_codon(ngc11_c, ngs10_c, ngn_p, rwgt_p, &
               raylo_p, sfluxrefo_p, rayl_p, sfluxref_p) &
               bind(c, name="rrtmg_sw_cmbgb26_codon")
@@ -634,14 +824,55 @@
 !
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg16, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             ka, kb, selfref, forref, sfluxref
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), lbound(kbo,2):ubound(kbo,2), size(kbo,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), lbound(kb,2):ubound(kb,2), size(kb,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:) = kbo(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:) = sfluxrefo(:)
+         call rrtmg_sw_cmbgb16s_codon(int(ngc(1), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
+              c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), c_loc(sfluxref_c(1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:) = kb_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:) = sfluxref_c(:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb16s implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
@@ -716,14 +947,55 @@
 !     band 17:  3250-4000 cm-1 (low - h2o,co2; high - h2o,co2)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg17, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             ka, kb, selfref, forref, sfluxref
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), size(kbo,2), lbound(kbo,3):ubound(kbo,3), size(kbo,4))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo,1), size(sfluxrefo,2))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), size(kb,2), lbound(kb,3):ubound(kb,3), size(kb,4))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref,1), size(sfluxref,2))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:,:) = kbo(:,:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:,:) = sfluxrefo(:,:)
+         call rrtmg_sw_cmbgb17_codon(int(ngc(2), c_int64_t), int(ngs(1), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,1,13,1)), &
+              c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), c_loc(sfluxref_c(1,1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:,:) = kb_c(:,:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:,:) = sfluxref_c(:,:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb17 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
@@ -802,14 +1074,55 @@
 !     band 18:  4000-4650 cm-1 (low - h2o,ch4; high - ch4)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg18, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             ka, kb, selfref, forref, sfluxref
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), lbound(kbo,2):ubound(kbo,2), size(kbo,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo,1), size(sfluxrefo,2))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), lbound(kb,2):ubound(kb,2), size(kb,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref,1), size(sfluxref,2))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:) = kbo(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:,:) = sfluxrefo(:,:)
+         call rrtmg_sw_cmbgb18_codon(int(ngc(3), c_int64_t), int(ngs(2), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
+              c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), c_loc(sfluxref_c(1,1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:) = kb_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:,:) = sfluxref_c(:,:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb18 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
@@ -886,14 +1199,55 @@
 !     band 19:  4650-5150 cm-1 (low - h2o,co2; high - co2)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg19, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             ka, kb, selfref, forref, sfluxref
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), lbound(kbo,2):ubound(kbo,2), size(kbo,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo,1), size(sfluxrefo,2))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), lbound(kb,2):ubound(kb,2), size(kb,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref,1), size(sfluxref,2))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:) = kbo(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:,:) = sfluxrefo(:,:)
+         call rrtmg_sw_cmbgb19_codon(int(ngc(4), c_int64_t), int(ngs(3), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
+              c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), c_loc(sfluxref_c(1,1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:) = kb_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:,:) = sfluxref_c(:,:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb19 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
@@ -970,14 +1324,60 @@
 !     band 20:  5150-6150 cm-1 (low - h2o; high - h2o)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg20, only : kao, kbo, selfrefo, forrefo, sfluxrefo, absch4o, &
                             ka, kb, selfref, forref, sfluxref, absch4
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf1, sumf2
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3))
+      real(kind=r8), target :: kbo_c(size(kbo,1), lbound(kbo,2):ubound(kbo,2), size(kbo,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo))
+      real(kind=r8), target :: absch4o_c(size(absch4o))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3))
+      real(kind=r8), target :: kb_c(size(kb,1), lbound(kb,2):ubound(kb,2), size(kb,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref))
+      real(kind=r8), target :: absch4_c(size(absch4))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:) = kao(:,:,:)
+         kbo_c(:,:,:) = kbo(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:) = sfluxrefo(:)
+         absch4o_c(:) = absch4o(:)
+         call rrtmg_sw_cmbgb20_codon(int(ngc(5), c_int64_t), int(ngs(4), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
+              c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1)), c_loc(absch4o_c(1)), c_loc(ka_c(1,1,1)), &
+              c_loc(kb_c(1,13,1)), c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), &
+              c_loc(sfluxref_c(1)), c_loc(absch4_c(1)))
+         ka(:,:,:) = ka_c(:,:,:)
+         kb(:,:,:) = kb_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:) = sfluxref_c(:)
+         absch4(:) = absch4_c(:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb20 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jt = 1,5
          do jp = 1,13
@@ -1050,14 +1450,55 @@
 !     band 21:  6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg21, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             ka, kb, selfref, forref, sfluxref
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), size(kbo,2), lbound(kbo,3):ubound(kbo,3), size(kbo,4))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo,1), size(sfluxrefo,2))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), size(kb,2), lbound(kb,3):ubound(kb,3), size(kb,4))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref,1), size(sfluxref,2))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:,:) = kbo(:,:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:,:) = sfluxrefo(:,:)
+         call rrtmg_sw_cmbgb21_codon(int(ngc(6), c_int64_t), int(ngs(5), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,1,13,1)), &
+              c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), c_loc(sfluxref_c(1,1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:,:) = kb_c(:,:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:,:) = sfluxref_c(:,:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb21 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
@@ -1136,14 +1577,55 @@
 !     band 22:  7700-8050 cm-1 (low - h2o,o2; high - o2)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg22, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             ka, kb, selfref, forref, sfluxref
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), lbound(kbo,2):ubound(kbo,2), size(kbo,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo,1), size(sfluxrefo,2))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), lbound(kb,2):ubound(kb,2), size(kb,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref,1), size(sfluxref,2))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:) = kbo(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:,:) = sfluxrefo(:,:)
+         call rrtmg_sw_cmbgb22_codon(int(ngc(7), c_int64_t), int(ngs(6), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
+              c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), c_loc(sfluxref_c(1,1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:) = kb_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:,:) = sfluxref_c(:,:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb22 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
@@ -1220,14 +1702,55 @@
 !     band 23:  8050-12850 cm-1 (low - h2o; high - nothing)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg23, only : kao, selfrefo, forrefo, sfluxrefo, raylo, &
                             ka, selfref, forref, sfluxref, rayl
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf1, sumf2
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo))
+      real(kind=r8), target :: raylo_c(size(raylo))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref))
+      real(kind=r8), target :: rayl_c(size(rayl))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:) = kao(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:) = sfluxrefo(:)
+         raylo_c(:) = raylo(:)
+         call rrtmg_sw_cmbgb23_codon(int(ngc(8), c_int64_t), int(ngs(7), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
+              c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), c_loc(sfluxrefo_c(1)), &
+              c_loc(raylo_c(1)), c_loc(ka_c(1,1,1)), c_loc(selfref_c(1,1)), &
+              c_loc(forref_c(1,1)), c_loc(sfluxref_c(1)), c_loc(rayl_c(1)))
+         ka(:,:,:) = ka_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:) = sfluxref_c(:)
+         rayl(:) = rayl_c(:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb23 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jt = 1,5
          do jp = 1,13
@@ -1289,16 +1812,76 @@
 !     band 24:  12850-16000 cm-1 (low - h2o,o2; high - o2)
 !-----------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrsw, only: ngptsw
       use rrsw_wvn, only : ngc, ngs, ngn, wt, rwgt
       use rrsw_kg24, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             abso3ao, abso3bo, raylao, raylbo, &
                             ka, kb, selfref, forref, sfluxref, &
                             abso3a, abso3b, rayla, raylb
+      use spmd_utils, only: masterproc
 
 ! ------- Local -------
       integer :: jn, jt, jp, igc, ipr, iprsm
       real(kind=r8) :: sumk, sumf1, sumf2, sumf3
+      integer(c_int64_t), target :: ngn_c(ngptsw)
+      real(kind=r8), target :: rwgt_c(size(rwgt))
+      real(kind=r8), target :: kao_c(size(kao,1), size(kao,2), size(kao,3), size(kao,4))
+      real(kind=r8), target :: kbo_c(size(kbo,1), lbound(kbo,2):ubound(kbo,2), size(kbo,3))
+      real(kind=r8), target :: selfrefo_c(size(selfrefo,1), size(selfrefo,2))
+      real(kind=r8), target :: forrefo_c(size(forrefo,1), size(forrefo,2))
+      real(kind=r8), target :: sfluxrefo_c(size(sfluxrefo,1), size(sfluxrefo,2))
+      real(kind=r8), target :: abso3ao_c(size(abso3ao))
+      real(kind=r8), target :: abso3bo_c(size(abso3bo))
+      real(kind=r8), target :: raylao_c(size(raylao,1), size(raylao,2))
+      real(kind=r8), target :: raylbo_c(size(raylbo))
+      real(kind=r8), target :: ka_c(size(ka,1), size(ka,2), size(ka,3), size(ka,4))
+      real(kind=r8), target :: kb_c(size(kb,1), lbound(kb,2):ubound(kb,2), size(kb,3))
+      real(kind=r8), target :: selfref_c(size(selfref,1), size(selfref,2))
+      real(kind=r8), target :: forref_c(size(forref,1), size(forref,2))
+      real(kind=r8), target :: sfluxref_c(size(sfluxref,1), size(sfluxref,2))
+      real(kind=r8), target :: abso3a_c(size(abso3a))
+      real(kind=r8), target :: abso3b_c(size(abso3b))
+      real(kind=r8), target :: rayla_c(size(rayla,1), size(rayla,2))
+      real(kind=r8), target :: raylb_c(size(raylb))
 
+      call rrtmg_sw_init_select_impl()
+      if (.not. use_native_rrtmg_sw_init_impl) then
+         ngn_c(:) = int(ngn(:), c_int64_t)
+         rwgt_c(:) = rwgt(:)
+         kao_c(:,:,:,:) = kao(:,:,:,:)
+         kbo_c(:,:,:) = kbo(:,:,:)
+         selfrefo_c(:,:) = selfrefo(:,:)
+         forrefo_c(:,:) = forrefo(:,:)
+         sfluxrefo_c(:,:) = sfluxrefo(:,:)
+         abso3ao_c(:) = abso3ao(:)
+         abso3bo_c(:) = abso3bo(:)
+         raylao_c(:,:) = raylao(:,:)
+         raylbo_c(:) = raylbo(:)
+         call rrtmg_sw_cmbgb24_codon(int(ngc(9), c_int64_t), int(ngs(8), c_int64_t), &
+              c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
+              c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
+              c_loc(sfluxrefo_c(1,1)), c_loc(abso3ao_c(1)), c_loc(abso3bo_c(1)), &
+              c_loc(raylao_c(1,1)), c_loc(raylbo_c(1)), c_loc(ka_c(1,1,1,1)), &
+              c_loc(kb_c(1,13,1)), c_loc(selfref_c(1,1)), c_loc(forref_c(1,1)), &
+              c_loc(sfluxref_c(1,1)), c_loc(abso3a_c(1)), c_loc(abso3b_c(1)), &
+              c_loc(rayla_c(1,1)), c_loc(raylb_c(1)))
+         ka(:,:,:,:) = ka_c(:,:,:,:)
+         kb(:,:,:) = kb_c(:,:,:)
+         selfref(:,:) = selfref_c(:,:)
+         forref(:,:) = forref_c(:,:)
+         sfluxref(:,:) = sfluxref_c(:,:)
+         abso3a(:) = abso3a_c(:)
+         abso3b(:) = abso3b_c(:)
+         rayla(:,:) = rayla_c(:,:)
+         raylb(:) = raylb_c(:)
+         if (masterproc) then
+            write(iulog,*) 'cmbgb24 implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
 
       do jn = 1,9
          do jt = 1,5
