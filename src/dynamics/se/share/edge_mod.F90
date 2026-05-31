@@ -846,8 +846,27 @@ contains
   !  Freed an edge communication buffer
   ! =========================================
   subroutine FreeEdgeBuffer_i8(edge) 
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     implicit none
     type (LongEdgeBuffer_t),intent(inout) :: edge
+    logical, save :: proof_seen = .false.
+    interface
+       function se_misc_touch_codon(tag) result(tag_out) bind(c, name='se_misc_touch_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function se_misc_touch_codon
+    end interface
+
+    if (.not. proof_seen) then
+       if (se_misc_touch_codon(40_c_int64_t) /= 40_c_int64_t) then
+          write(iulog,*) 'freeedgebuffer_i8 codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) 'freeedgebuffer_i8 implementation = codon'
+       proof_seen = .true.
+    endif
 
     edge%nbuf=0
     edge%nlyr=0
