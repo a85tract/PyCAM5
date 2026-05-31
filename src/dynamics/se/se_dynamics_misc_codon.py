@@ -1160,3 +1160,449 @@ def createuniqueindex_codon(
                 ja[ii - 1] = i32(j)
                 ii += 1
     return ii - 1
+
+
+@inline
+def _edge_map_idx(edge_id: int, ielem: int, max_corner_elem: int) -> int:
+    return (edge_id - 1) + (ielem - 1) * max_corner_elem
+
+
+@inline
+def _mat_idx(row: int, col: int, nrow: int) -> int:
+    return (row - 1) + (col - 1) * nrow
+
+
+@inline
+def _vol_idx(i: int, j: int, k: int, np: int) -> int:
+    return (i - 1) + (j - 1) * np + (k - 1) * np * np
+
+
+def se_v2pinit_codon(
+    n1: int,
+    n2: int,
+    v2p_new_p: cobj,
+    gll_p: cobj,
+    gs_p: cobj,
+    leg_p: cobj,
+    leg_out_p: cobj,
+    gamma_p: cobj,
+    gll_weights_p: cobj,
+):
+    v2p_new = Ptr[float](v2p_new_p)
+    gll = Ptr[float](gll_p)
+    gs = Ptr[float](gs_p)
+    leg = Ptr[float](leg_p)
+    leg_out = Ptr[float](leg_out_p)
+    gamma = Ptr[float](gamma_p)
+    gll_weights = Ptr[float](gll_weights_p)
+
+    fact = -(n1 * (n1 - 1))
+    for i in range(1, n1 + 1):
+        p_3 = 1.0
+        leg[_mat_idx(1, i, n1)] = p_3
+        if n1 - 1 != 0:
+            p_2 = p_3
+            p_3 = gll[i - 1]
+            leg[_mat_idx(2, i, n1)] = p_3
+            for k in range(2, n1):
+                p_1 = p_2
+                p_2 = p_3
+                p_3 = (((2 * k - 1) * gll[i - 1] * p_2) - ((k - 1) * p_1)) / k
+                leg[_mat_idx(k + 1, i, n1)] = p_3
+        leg[_mat_idx(n1, i, n1)] = fact * leg[_mat_idx(n1, i, n1)]
+
+    for i in range(1, n2 + 1):
+        p_3 = 1.0
+        leg_out[_mat_idx(1, i, n1)] = p_3
+        if n1 - 1 != 0:
+            p_2 = p_3
+            p_3 = gs[i - 1]
+            leg_out[_mat_idx(2, i, n1)] = p_3
+            for k in range(2, n1):
+                p_1 = p_2
+                p_2 = p_3
+                p_3 = (((2 * k - 1) * gs[i - 1] * p_2) - ((k - 1) * p_1)) / k
+                leg_out[_mat_idx(k + 1, i, n1)] = p_3
+        leg_out[_mat_idx(n1, i, n1)] = fact * leg_out[_mat_idx(n1, i, n1)]
+
+    for m in range(1, n1 + 1):
+        gamma_val = 0.0
+        for i in range(1, n1 + 1):
+            leg_val = leg[_mat_idx(m, i, n1)]
+            gamma_val = gamma_val + leg_val * leg_val * gll_weights[i - 1]
+        gamma[m - 1] = 1.0 / gamma_val
+
+    for j in range(1, n2 + 1):
+        for l in range(1, n1 + 1):
+            sum_val = 0.0
+            for k in range(1, n1 + 1):
+                sum_val = sum_val + leg_out[_mat_idx(k, j, n1)] * gamma[k - 1] * leg[_mat_idx(k, l, n1)]
+            v2p_new[_mat_idx(l, j, n1)] = gll_weights[l - 1] * sum_val
+
+
+def se_dvvinit_codon(
+    np: int,
+    dvv_p: cobj,
+    gll_points_p: cobj,
+    leg_p: cobj,
+):
+    dvv = Ptr[float](dvv_p)
+    gll_points = Ptr[float](gll_points_p)
+    leg = Ptr[float](leg_p)
+    c0 = 0.0
+    c1 = 1.0
+    c4 = 4.0
+
+    for i in range(1, np + 1):
+        p_3 = 1.0
+        leg[_mat_idx(1, i, np)] = p_3
+        if np - 1 != 0:
+            p_2 = p_3
+            p_3 = gll_points[i - 1]
+            leg[_mat_idx(2, i, np)] = p_3
+            for k in range(2, np):
+                p_1 = p_2
+                p_2 = p_3
+                p_3 = (((2 * k - 1) * gll_points[i - 1] * p_2) - ((k - 1) * p_1)) / k
+                leg[_mat_idx(k + 1, i, np)] = p_3
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            dvv[_mat_idx(j, i, np)] = c0
+
+    for j in range(1, np + 1):
+        for i in range(1, j):
+            dvv[_mat_idx(j, i, np)] = (c1 / (gll_points[i - 1] - gll_points[j - 1])) * leg[_mat_idx(np, i, np)] / leg[_mat_idx(np, j, np)]
+        dvv[_mat_idx(j, j, np)] = c0
+        for i in range(j + 1, np + 1):
+            dvv[_mat_idx(j, i, np)] = (c1 / (gll_points[i - 1] - gll_points[j - 1])) * leg[_mat_idx(np, i, np)] / leg[_mat_idx(np, j, np)]
+
+    dvv[_mat_idx(np, np, np)] = np * (np - 1) / c4
+    dvv[_mat_idx(1, 1, np)] = -np * (np - 1) / c4
+
+
+def copy_gridvertex_arrays_codon(
+    n: int,
+    num_neighbors: int,
+    nbrs2_p: cobj,
+    nbrs1_p: cobj,
+    nbrs_face2_p: cobj,
+    nbrs_face1_p: cobj,
+    nbrs_wgt2_p: cobj,
+    nbrs_wgt1_p: cobj,
+    nbrs_wgt_ghost2_p: cobj,
+    nbrs_wgt_ghost1_p: cobj,
+    nbrs_ptr2_p: cobj,
+    nbrs_ptr1_p: cobj,
+):
+    nbrs2 = Ptr[i32](nbrs2_p)
+    nbrs1 = Ptr[i32](nbrs1_p)
+    nbrs_face2 = Ptr[i32](nbrs_face2_p)
+    nbrs_face1 = Ptr[i32](nbrs_face1_p)
+    nbrs_wgt2 = Ptr[i32](nbrs_wgt2_p)
+    nbrs_wgt1 = Ptr[i32](nbrs_wgt1_p)
+    nbrs_wgt_ghost2 = Ptr[i32](nbrs_wgt_ghost2_p)
+    nbrs_wgt_ghost1 = Ptr[i32](nbrs_wgt_ghost1_p)
+    nbrs_ptr2 = Ptr[i32](nbrs_ptr2_p)
+    nbrs_ptr1 = Ptr[i32](nbrs_ptr1_p)
+
+    for i in range(n):
+        nbrs2[i] = nbrs1[i]
+        nbrs_face2[i] = nbrs_face1[i]
+        nbrs_wgt2[i] = nbrs_wgt1[i]
+        nbrs_wgt_ghost2[i] = nbrs_wgt_ghost1[i]
+
+    for i in range(num_neighbors + 1):
+        nbrs_ptr2[i] = nbrs_ptr1[i]
+
+
+def edge_spack_r8_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    putmap_p: cobj,
+    v_p: cobj,
+):
+    buf = Ptr[float](buf_p)
+    putmap = Ptr[i32](putmap_p)
+    v = Ptr[float](v_p)
+    south_map = int(putmap[_edge_map_idx(south, ielem, max_neigh_edges)])
+    east_map = int(putmap[_edge_map_idx(east, ielem, max_neigh_edges)])
+    north_map = int(putmap[_edge_map_idx(north, ielem, max_neigh_edges)])
+    west_map = int(putmap[_edge_map_idx(west, ielem, max_neigh_edges)])
+
+    for k in range(1, vlyr + 1):
+        iptr = kptr + k - 1
+        val = v[k - 1]
+        buf[iptr + east_map] = val
+        buf[iptr + south_map] = val
+        buf[iptr + north_map] = val
+        buf[iptr + west_map] = val
+
+    for ll in range(swest, swest + 4 * max_corner_elem):
+        edge_map = int(putmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                iptr = kptr + k - 1
+                buf[iptr + edge_map] = v[k - 1]
+
+
+def edge_vunpack_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    receive = Ptr[float](receive_p)
+    getmap = Ptr[i32](getmap_p)
+    v = Ptr[float](v_p)
+    south_map = int(getmap[_edge_map_idx(south, ielem, max_neigh_edges)])
+    east_map = int(getmap[_edge_map_idx(east, ielem, max_neigh_edges)])
+    north_map = int(getmap[_edge_map_idx(north, ielem, max_neigh_edges)])
+    west_map = int(getmap[_edge_map_idx(west, ielem, max_neigh_edges)])
+
+    for k in range(1, vlyr + 1):
+        iptr = np * (kptr + k - 1)
+        for i in range(1, np + 1):
+            v[_vol_idx(np, i, k, np)] = v[_vol_idx(np, i, k, np)] + receive[iptr + east_map + i - 1]
+            v[_vol_idx(i, 1, k, np)] = v[_vol_idx(i, 1, k, np)] + receive[iptr + south_map + i - 1]
+            v[_vol_idx(i, np, k, np)] = v[_vol_idx(i, np, k, np)] + receive[iptr + north_map + i - 1]
+            v[_vol_idx(1, i, k, np)] = v[_vol_idx(1, i, k, np)] + receive[iptr + west_map + i - 1]
+
+    for ll in range(swest, swest + max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                v[_vol_idx(1, 1, k, np)] = v[_vol_idx(1, 1, k, np)] + receive[kptr + k - 1 + edge_map]
+
+    for ll in range(swest + max_corner_elem, swest + 2 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                v[_vol_idx(np, 1, k, np)] = v[_vol_idx(np, 1, k, np)] + receive[kptr + k - 1 + edge_map]
+
+    for ll in range(swest + 3 * max_corner_elem, swest + 4 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                v[_vol_idx(np, np, k, np)] = v[_vol_idx(np, np, k, np)] + receive[kptr + k - 1 + edge_map]
+
+    for ll in range(swest + 2 * max_corner_elem, swest + 3 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                v[_vol_idx(1, np, k, np)] = v[_vol_idx(1, np, k, np)] + receive[kptr + k - 1 + edge_map]
+
+
+def edge_vunpack_extreme_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    is_max: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    receive = Ptr[float](receive_p)
+    getmap = Ptr[i32](getmap_p)
+    v = Ptr[float](v_p)
+    south_map = int(getmap[_edge_map_idx(south, ielem, max_neigh_edges)])
+    east_map = int(getmap[_edge_map_idx(east, ielem, max_neigh_edges)])
+    north_map = int(getmap[_edge_map_idx(north, ielem, max_neigh_edges)])
+    west_map = int(getmap[_edge_map_idx(west, ielem, max_neigh_edges)])
+
+    for k in range(1, vlyr + 1):
+        iptr = np * (kptr + k - 1)
+        for i in range(1, np + 1):
+            east_val = receive[iptr + east_map + i - 1]
+            south_val = receive[iptr + south_map + i - 1]
+            north_val = receive[iptr + north_map + i - 1]
+            west_val = receive[iptr + west_map + i - 1]
+            if is_max != 0:
+                v[_vol_idx(np, i, k, np)] = max(v[_vol_idx(np, i, k, np)], east_val)
+                v[_vol_idx(i, 1, k, np)] = max(v[_vol_idx(i, 1, k, np)], south_val)
+                v[_vol_idx(i, np, k, np)] = max(v[_vol_idx(i, np, k, np)], north_val)
+                v[_vol_idx(1, i, k, np)] = max(v[_vol_idx(1, i, k, np)], west_val)
+            else:
+                v[_vol_idx(np, i, k, np)] = min(v[_vol_idx(np, i, k, np)], east_val)
+                v[_vol_idx(i, 1, k, np)] = min(v[_vol_idx(i, 1, k, np)], south_val)
+                v[_vol_idx(i, np, k, np)] = min(v[_vol_idx(i, np, k, np)], north_val)
+                v[_vol_idx(1, i, k, np)] = min(v[_vol_idx(1, i, k, np)], west_val)
+
+    for ll in range(swest, swest + max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(1, 1, k, np)
+                val = receive[kptr + k - 1 + edge_map]
+                if is_max != 0:
+                    v[idx] = max(v[idx], val)
+                else:
+                    v[idx] = min(v[idx], val)
+
+    for ll in range(swest + max_corner_elem, swest + 2 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(np, 1, k, np)
+                val = receive[kptr + k - 1 + edge_map]
+                if is_max != 0:
+                    v[idx] = max(v[idx], val)
+                else:
+                    v[idx] = min(v[idx], val)
+
+    for ll in range(swest + 3 * max_corner_elem, swest + 4 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(np, np, k, np)
+                val = receive[kptr + k - 1 + edge_map]
+                if is_max != 0:
+                    v[idx] = max(v[idx], val)
+                else:
+                    v[idx] = min(v[idx], val)
+
+    for ll in range(swest + 2 * max_corner_elem, swest + 3 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(1, np, k, np)
+                val = receive[kptr + k - 1 + edge_map]
+                if is_max != 0:
+                    v[idx] = max(v[idx], val)
+                else:
+                    v[idx] = min(v[idx], val)
+
+
+def edge_sunpack_extreme_codon(
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    is_max: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    receive = Ptr[float](receive_p)
+    getmap = Ptr[i32](getmap_p)
+    v = Ptr[float](v_p)
+    south_map = int(getmap[_edge_map_idx(south, ielem, max_neigh_edges)])
+    east_map = int(getmap[_edge_map_idx(east, ielem, max_neigh_edges)])
+    north_map = int(getmap[_edge_map_idx(north, ielem, max_neigh_edges)])
+    west_map = int(getmap[_edge_map_idx(west, ielem, max_neigh_edges)])
+
+    for k in range(1, vlyr + 1):
+        iptr = kptr + k - 1
+        if is_max != 0:
+            val = max(receive[iptr + south_map], receive[iptr + east_map])
+            val = max(val, receive[iptr + north_map])
+            val = max(val, receive[iptr + west_map])
+            v[k - 1] = max(v[k - 1], val)
+        else:
+            val = min(receive[iptr + south_map], receive[iptr + east_map])
+            val = min(val, receive[iptr + north_map])
+            val = min(val, receive[iptr + west_map])
+            v[k - 1] = min(v[k - 1], val)
+
+    for ll in range(swest, swest + 4 * max_corner_elem):
+        edge_map = int(getmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                val = receive[kptr + k - 1 + edge_map]
+                if is_max != 0:
+                    v[k - 1] = max(v[k - 1], val)
+                else:
+                    v[k - 1] = min(v[k - 1], val)
+
+
+def long_edge_vunpack_min_codon(
+    np: int,
+    max_corner_elem: int,
+    nlyr: int,
+    vlyr: int,
+    kptr: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    buf = Ptr[i32](buf_p)
+    getmap = Ptr[i32](getmap_p)
+    v = Ptr[i32](v_p)
+    south_map = int(getmap[south - 1])
+    east_map = int(getmap[east - 1])
+    north_map = int(getmap[north - 1])
+    west_map = int(getmap[west - 1])
+
+    for k in range(1, vlyr + 1):
+        for i in range(1, np + 1):
+            v[_vol_idx(i, 1, k, np)] = min(v[_vol_idx(i, 1, k, np)], buf[kptr + k - 1 + (south_map + i - 1) * nlyr])
+            v[_vol_idx(np, i, k, np)] = min(v[_vol_idx(np, i, k, np)], buf[kptr + k - 1 + (east_map + i - 1) * nlyr])
+            v[_vol_idx(i, np, k, np)] = min(v[_vol_idx(i, np, k, np)], buf[kptr + k - 1 + (north_map + i - 1) * nlyr])
+            v[_vol_idx(1, i, k, np)] = min(v[_vol_idx(1, i, k, np)], buf[kptr + k - 1 + (west_map + i - 1) * nlyr])
+
+    for ll in range(swest, swest + max_corner_elem):
+        edge_map = int(getmap[ll - 1])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(1, 1, k, np)
+                v[idx] = min(v[idx], buf[kptr + k - 1 + edge_map * nlyr])
+
+    for ll in range(swest + max_corner_elem, swest + 2 * max_corner_elem):
+        edge_map = int(getmap[ll - 1])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(np, 1, k, np)
+                v[idx] = min(v[idx], buf[kptr + k - 1 + edge_map * nlyr])
+
+    for ll in range(swest + 3 * max_corner_elem, swest + 4 * max_corner_elem):
+        edge_map = int(getmap[ll - 1])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(np, np, k, np)
+                v[idx] = min(v[idx], buf[kptr + k - 1 + edge_map * nlyr])
+
+    for ll in range(swest + 2 * max_corner_elem, swest + 3 * max_corner_elem):
+        edge_map = int(getmap[ll - 1])
+        if edge_map != -1:
+            for k in range(1, vlyr + 1):
+                idx = _vol_idx(1, np, k, np)
+                v[idx] = min(v[idx], buf[kptr + k - 1 + edge_map * nlyr])

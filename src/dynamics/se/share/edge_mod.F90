@@ -1059,12 +1059,14 @@ contains
   end subroutine edgeVpack
 
   subroutine edgeSpack_r8(edge,v,vlyr,kptr,ielem)
-    use dimensions_mod, only : np, max_corner_elem
+    use dimensions_mod, only : np, max_corner_elem, max_neigh_edges
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (EdgeBuffer_t)                :: edge
+    type (EdgeBuffer_t), target        :: edge
     integer,              intent(in)   :: vlyr
-    real (kind=real_kind),intent(in)   :: v(vlyr)
+    real (kind=real_kind),intent(in), target :: v(vlyr)
     integer,              intent(in)   :: kptr
     integer,              intent(in)   :: ielem
 !    type (EdgeDescriptor_t),intent(in) :: desc
@@ -1074,8 +1076,35 @@ contains
 
     integer :: is,ie,in,iw
     real (kind=real_kind) :: tmp
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine edgespack_r8_codon(np_c, max_neigh_edges_c, max_corner_elem_c, &
+            vlyr_c, kptr_c, ielem_c, south_c, east_c, north_c, west_c, swest_c, &
+            buf_p, putmap_p, v_p) bind(c, name='edgespack_r8_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, max_neigh_edges_c, max_corner_elem_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c, ielem_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: buf_p, putmap_p, v_p
+       end subroutine edgespack_r8_codon
+    end interface
 
 !    call t_adj_detailf(+2)
+
+    if (edge%nlyr < (kptr+vlyr) ) then
+       call haltmp('edgeSpack: Buffer overflow: size of the vertical dimension must be increased!')
+    endif
+    call edgespack_r8_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
+         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+         int(swest, c_int64_t), c_loc(edge%buf(1)), c_loc(edge%putmap(1,1)), &
+         c_loc(v(1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'edgespack_r8 implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     is = edge%putmap(south,ielem)
     ie = edge%putmap(east,ielem)
@@ -1279,12 +1308,14 @@ contains
   end subroutine LongEdgeVpack
 
   subroutine edgeVunpack(edge,v,vlyr,kptr,ielem)
-    use dimensions_mod, only : np, max_corner_elem
+    use dimensions_mod, only : np, max_corner_elem, max_neigh_edges
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
-    type (EdgeBuffer_t),         intent(in)  :: edge
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    type (EdgeBuffer_t),         intent(in), target  :: edge
 
     integer,               intent(in)  :: vlyr
-    real (kind=real_kind), intent(inout) :: v(np,np,vlyr)
+    real (kind=real_kind), intent(inout), target :: v(np,np,vlyr)
 !$dir assume_aligned v:64
     integer,               intent(in)  :: kptr
     integer,               intent(in)  :: ielem
@@ -1295,8 +1326,32 @@ contains
     integer :: is,ie,in,iw
     integer :: ks,ke,kblock
     logical :: done
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine edgevunpack_codon(np_c, max_neigh_edges_c, max_corner_elem_c, &
+            vlyr_c, kptr_c, ielem_c, south_c, east_c, north_c, west_c, swest_c, &
+            receive_p, getmap_p, v_p) bind(c, name='edgevunpack_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, max_neigh_edges_c, max_corner_elem_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c, ielem_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: receive_p, getmap_p, v_p
+       end subroutine edgevunpack_codon
+    end interface
 
 !JMD    call t_adj_detailf(+2)
+
+    call edgevunpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
+         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+         int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
+         c_loc(v(1,1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'edgevunpack implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     is=edge%getmap(south,ielem)
     ie=edge%getmap(east,ielem)
@@ -1755,12 +1810,14 @@ contains
   end subroutine edgeVunpackMAX
 
   subroutine edgeSunpackMAX(edge,v,vlyr,kptr,ielem)
-    use dimensions_mod, only : np, max_corner_elem
+    use dimensions_mod, only : np, max_corner_elem, max_neigh_edges
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (EdgeBuffer_t),         intent(in)  :: edge
+    type (EdgeBuffer_t),         intent(in), target  :: edge
     integer,               intent(in)  :: vlyr
-    real (kind=real_kind), intent(inout) :: v(vlyr)
+    real (kind=real_kind), intent(inout), target :: v(vlyr)
     integer,               intent(in)  :: kptr
     integer,               intent(in)  :: ielem
 
@@ -1769,8 +1826,31 @@ contains
 
     integer :: i,k,l,iptr
     integer :: is,ie,in,iw
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine edgesunpackmax_codon(max_neigh_edges_c, max_corner_elem_c, &
+            vlyr_c, kptr_c, ielem_c, south_c, east_c, north_c, west_c, swest_c, &
+            receive_p, getmap_p, v_p) bind(c, name='edgesunpackmax_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: max_neigh_edges_c, max_corner_elem_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c, ielem_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: receive_p, getmap_p, v_p
+       end subroutine edgesunpackmax_codon
+    end interface
 
     threadsafe=.false.
+    call edgesunpackmax_codon(int(max_neigh_edges, c_int64_t), &
+         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+         int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
+         c_loc(v(1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'edgesunpackmax implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     is=edge%getmap(south,ielem)
     ie=edge%getmap(east,ielem)
@@ -1824,12 +1904,14 @@ contains
   end subroutine edgeSunpackMAX
 
   subroutine edgeSunpackMIN(edge,v,vlyr,kptr,ielem)
-    use dimensions_mod, only : np, max_corner_elem
+    use dimensions_mod, only : np, max_corner_elem, max_neigh_edges
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (EdgeBuffer_t),         intent(in)  :: edge
+    type (EdgeBuffer_t),         intent(in), target  :: edge
     integer,               intent(in)  :: vlyr
-    real (kind=real_kind), intent(inout) :: v(vlyr)
+    real (kind=real_kind), intent(inout), target :: v(vlyr)
     integer,               intent(in)  :: kptr
     integer,               intent(in)  :: ielem
 
@@ -1838,8 +1920,31 @@ contains
 
     integer :: i,k,l,iptr
     integer :: is,ie,in,iw
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine edgesunpackmin_codon(max_neigh_edges_c, max_corner_elem_c, &
+            vlyr_c, kptr_c, ielem_c, south_c, east_c, north_c, west_c, swest_c, &
+            receive_p, getmap_p, v_p) bind(c, name='edgesunpackmin_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: max_neigh_edges_c, max_corner_elem_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c, ielem_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: receive_p, getmap_p, v_p
+       end subroutine edgesunpackmin_codon
+    end interface
 
     threadsafe=.false.
+    call edgesunpackmin_codon(int(max_neigh_edges, c_int64_t), &
+         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+         int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
+         c_loc(v(1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'edgesunpackmin implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     is=edge%getmap(south,ielem)
     ie=edge%getmap(east,ielem)
@@ -1970,10 +2075,12 @@ contains
   subroutine LongEdgeVunpackMIN(edge,v,vlyr,kptr,desc)
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
     use dimensions_mod, only : np, max_corner_elem
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (LongEdgeBuffer_t),         intent(in)  :: edge
+    type (LongEdgeBuffer_t),         intent(in), target  :: edge
     integer,               intent(in)  :: vlyr
-    integer (kind=int_kind), intent(inout) :: v(np,np,vlyr)
+    integer (kind=int_kind), intent(inout), target :: v(np,np,vlyr)
     integer,               intent(in)  :: kptr
     type (EdgeDescriptor_t),intent(in) :: desc
 
@@ -1982,8 +2089,30 @@ contains
 
     integer :: i,k,l
     integer :: is,ie,in,iw
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine longedgevunpackmin_codon(np_c, max_corner_elem_c, nlyr_c, &
+            vlyr_c, kptr_c, south_c, east_c, north_c, west_c, swest_c, &
+            buf_p, getmap_p, v_p) bind(c, name='longedgevunpackmin_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, max_corner_elem_c, nlyr_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: buf_p, getmap_p, v_p
+       end subroutine longedgevunpackmin_codon
+    end interface
 
     threadsafe=.false.
+    call longedgevunpackmin_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
+         int(edge%nlyr, c_int64_t), int(vlyr, c_int64_t), int(kptr, c_int64_t), &
+         int(south, c_int64_t), int(east, c_int64_t), int(north, c_int64_t), &
+         int(west, c_int64_t), int(swest, c_int64_t), c_loc(edge%buf(1,1)), &
+         c_loc(desc%getmapP(1)), c_loc(v(1,1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'longedgevunpackmin implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     is=desc%getmapP(south)
     ie=desc%getmapP(east)

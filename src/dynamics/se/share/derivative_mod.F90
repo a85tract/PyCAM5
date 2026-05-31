@@ -386,27 +386,52 @@ end do
 ! Compute interpolation matrix from gll(1:n1) -> gs(1:n2)
 ! =======================================
   subroutine v2pinit(v2p,gll,gs,n1,n2)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     integer :: n1,n2
-    real(kind=real_kind)  ::  v2p(n1,n2)
-    real(kind=real_kind)  ::  v2p_new(n1,n2)
-    real(kind=longdouble_kind)  ::  gll(n1),gs(n2)
+    real(kind=real_kind), target  ::  v2p(n1,n2)
+    real(kind=real_kind), target  ::  v2p_new(n1,n2)
+    real(kind=longdouble_kind), target  ::  gll(n1),gs(n2)
     ! Local variables
 
     integer i,j,k,m,l
     real(kind=longdouble_kind)  fact,f1, sum
     real(kind=longdouble_kind)  func0,func1
 
-    real(kind=longdouble_kind)  :: leg(n1,n1)
+    real(kind=longdouble_kind), target  :: leg(n1,n1)
     real(kind=longdouble_kind)  ::  jac(0:n1-1)
     real(kind=longdouble_kind)  :: djac(0:n1-1)
     real(kind=longdouble_kind)  :: c0,c1
 
     type(quadrature_t) :: gll_pts
-    real(kind=longdouble_kind)  :: leg_out(n1,n2)
-    real(kind=longdouble_kind)  :: gamma(n1)
+    real(kind=longdouble_kind), target  :: leg_out(n1,n2)
+    real(kind=longdouble_kind), target  :: gamma(n1)
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine v2pinit_codon(n1_c, n2_c, v2p_new_p, gll_p, gs_p, &
+            leg_p, leg_out_p, gamma_p, gll_weights_p) bind(c, name='v2pinit_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: n1_c, n2_c
+         type(c_ptr), value :: v2p_new_p, gll_p, gs_p
+         type(c_ptr), value :: leg_p, leg_out_p, gamma_p, gll_weights_p
+       end subroutine v2pinit_codon
+    end interface
 
     c0 = 0.0_longdouble_kind
     c1 = 1.0_longdouble_kind
+
+    gll_pts = gausslobatto(n1)
+    call v2pinit_codon(int(n1, c_int64_t), int(n2, c_int64_t), &
+         c_loc(v2p_new), c_loc(gll), c_loc(gs), c_loc(leg), &
+         c_loc(leg_out), c_loc(gamma), c_loc(gll_pts%weights(1)))
+    v2p = v2p_new
+    deallocate(gll_pts%points)
+    deallocate(gll_pts%weights)
+    if (.not. proof_seen) then
+       write(iulog,*) 'v2pinit implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     ! ==============================================================
     ! Compute Legendre polynomials on Gauss-Lobatto grid (velocity)
@@ -440,7 +465,6 @@ end do
     ! NEW VERSION, with no division by (gs(j)-gll(i)):
 
     ! compute legendre polynomials at output points:
-    gll_pts = gausslobatto(n1)
 
     fact = -n1*(n1-1)
     do i=1,n2
@@ -493,16 +517,34 @@ end do
 ! =======================================
 
   subroutine dvvinit(dvv,gll)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    real(kind=longdouble_kind)  ::  dvv(np,np)
+    real(kind=longdouble_kind), target  ::  dvv(np,np)
     type (quadrature_t)   :: gll
 
     ! Local variables
 
-    real(kind=longdouble_kind)  :: leg(np,np)
+    real(kind=longdouble_kind), target  :: leg(np,np)
     real(kind=longdouble_kind)  :: c0,c1,c4
 
     integer i,j
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine dvvinit_codon(np_c, dvv_p, gll_points_p, leg_p) &
+            bind(c, name='dvvinit_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c
+         type(c_ptr), value :: dvv_p, gll_points_p, leg_p
+       end subroutine dvvinit_codon
+    end interface
+
+    call dvvinit_codon(int(np, c_int64_t), c_loc(dvv), c_loc(gll%points(1)), c_loc(leg))
+    if (.not. proof_seen) then
+       write(iulog,*) 'dvvinit implementation = codon'
+       proof_seen = .true.
+    endif
+    return
 
     c0 = 0.0_longdouble_kind
     c1 = 1.0_longdouble_kind

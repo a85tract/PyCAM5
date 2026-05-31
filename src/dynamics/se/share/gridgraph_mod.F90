@@ -201,13 +201,29 @@ contains
 !======================================================================
 
   recursive subroutine copy_gridvertex(vertex2, vertex1)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
         
     implicit none 
 
-    type (GridVertex_t), intent(out)   :: vertex2
-    type (GridVertex_t), intent(in)    :: vertex1
+    type (GridVertex_t), intent(out), target :: vertex2
+    type (GridVertex_t), intent(in), target  :: vertex1
 
     integer                            :: i,j,n
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine copy_gridvertex_codon(n_c, num_neighbors_c, nbrs2_p, nbrs1_p, &
+            nbrs_face2_p, nbrs_face1_p, nbrs_wgt2_p, nbrs_wgt1_p, &
+            nbrs_wgt_ghost2_p, nbrs_wgt_ghost1_p, nbrs_ptr2_p, nbrs_ptr1_p) &
+            bind(c, name='copy_gridvertex_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: n_c, num_neighbors_c
+         type(c_ptr), value :: nbrs2_p, nbrs1_p
+         type(c_ptr), value :: nbrs_face2_p, nbrs_face1_p
+         type(c_ptr), value :: nbrs_wgt2_p, nbrs_wgt1_p
+         type(c_ptr), value :: nbrs_wgt_ghost2_p, nbrs_wgt_ghost1_p
+         type(c_ptr), value :: nbrs_ptr2_p, nbrs_ptr1_p
+       end subroutine copy_gridvertex_codon
+    end interface
    
      n = SIZE(vertex1%nbrs)
 
@@ -226,16 +242,16 @@ contains
 
      call allocate_gridvertex_nbrs(vertex2)
 
-     do i=1,n
-        vertex2%nbrs(i) = vertex1%nbrs(i)
-        vertex2%nbrs_face(i) = vertex1%nbrs_face(i)
-        vertex2%nbrs_wgt(i)  = vertex1%nbrs_wgt(i)
-        vertex2%nbrs_wgt_ghost(i)  = vertex1%nbrs_wgt_ghost(i)
-     enddo
-
-     do i=1, num_neighbors+1
-        vertex2%nbrs_ptr(i) = vertex1%nbrs_ptr(i)
-     enddo
+     call copy_gridvertex_codon(int(n, c_int64_t), int(num_neighbors, c_int64_t), &
+          c_loc(vertex2%nbrs(1)), c_loc(vertex1%nbrs(1)), &
+          c_loc(vertex2%nbrs_face(1)), c_loc(vertex1%nbrs_face(1)), &
+          c_loc(vertex2%nbrs_wgt(1)), c_loc(vertex1%nbrs_wgt(1)), &
+          c_loc(vertex2%nbrs_wgt_ghost(1)), c_loc(vertex1%nbrs_wgt_ghost(1)), &
+          c_loc(vertex2%nbrs_ptr(1)), c_loc(vertex1%nbrs_ptr(1)))
+     if (.not. proof_seen) then
+        write(iulog,*) 'copy_gridvertex implementation = codon'
+        proof_seen = .true.
+     endif
 
      vertex2%face_number     = vertex1%face_number
      vertex2%number     = vertex1%number

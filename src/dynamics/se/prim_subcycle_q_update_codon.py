@@ -1726,3 +1726,302 @@ def createuniqueindex_codon(
         ia_p,
         ja_p,
     )
+
+@export
+def v2pinit_codon(
+    n1: int,
+    n2: int,
+    v2p_new_p: cobj,
+    gll_p: cobj,
+    gs_p: cobj,
+    leg_p: cobj,
+    leg_out_p: cobj,
+    gamma_p: cobj,
+    gll_weights_p: cobj,
+):
+    return _misc.se_v2pinit_codon(
+        n1,
+        n2,
+        v2p_new_p,
+        gll_p,
+        gs_p,
+        leg_p,
+        leg_out_p,
+        gamma_p,
+        gll_weights_p,
+    )
+
+@export
+def dvvinit_codon(
+    np: int,
+    dvv_p: cobj,
+    gll_points_p: cobj,
+    leg_p: cobj,
+):
+    return _misc.se_dvvinit_codon(np, dvv_p, gll_points_p, leg_p)
+
+@export
+def copy_gridvertex_codon(
+    n: int,
+    num_neighbors: int,
+    nbrs2_p: cobj,
+    nbrs1_p: cobj,
+    nbrs_face2_p: cobj,
+    nbrs_face1_p: cobj,
+    nbrs_wgt2_p: cobj,
+    nbrs_wgt1_p: cobj,
+    nbrs_wgt_ghost2_p: cobj,
+    nbrs_wgt_ghost1_p: cobj,
+    nbrs_ptr2_p: cobj,
+    nbrs_ptr1_p: cobj,
+):
+    return _misc.copy_gridvertex_arrays_codon(
+        n,
+        num_neighbors,
+        nbrs2_p,
+        nbrs1_p,
+        nbrs_face2_p,
+        nbrs_face1_p,
+        nbrs_wgt2_p,
+        nbrs_wgt1_p,
+        nbrs_wgt_ghost2_p,
+        nbrs_wgt_ghost1_p,
+        nbrs_ptr2_p,
+        nbrs_ptr1_p,
+    )
+
+@export
+def edgespack_r8_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    putmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_spack_r8_codon(
+        np,
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        buf_p,
+        putmap_p,
+        v_p,
+    )
+
+@export
+def edgevunpack_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_vunpack_codon(
+        np,
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        receive_p,
+        getmap_p,
+        v_p,
+    )
+
+@export
+def edgevunpackmax_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_vunpack_extreme_codon(
+        np,
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        1,
+        receive_p,
+        getmap_p,
+        v_p,
+    )
+
+@export
+def edgevunpackmin_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_vunpack_extreme_codon(
+        np,
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        0,
+        receive_p,
+        getmap_p,
+        v_p,
+    )
+
+@export
+def edgesunpackmax_codon(
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_sunpack_extreme_codon(
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        1,
+        receive_p,
+        getmap_p,
+        v_p,
+    )
+
+@export
+def edgesunpackmin_codon(
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    receive_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_sunpack_extreme_codon(
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        0,
+        receive_p,
+        getmap_p,
+        v_p,
+    )
+
+@export
+def longedgevunpackmin_codon(
+    np: int,
+    max_corner_elem: int,
+    nlyr: int,
+    vlyr: int,
+    kptr: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    getmap_p: cobj,
+    v_p: cobj,
+):
+    return _misc.long_edge_vunpack_min_codon(
+        np,
+        max_corner_elem,
+        nlyr,
+        vlyr,
+        kptr,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        buf_p,
+        getmap_p,
+        v_p,
+    )
