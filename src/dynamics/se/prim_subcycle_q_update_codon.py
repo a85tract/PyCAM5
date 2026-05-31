@@ -1264,6 +1264,24 @@ def se_gausslobatto_fill_codon(
     )
 
 @export
+def allocate_gridvertex_nbrs_select_dim_codon(
+    has_dim: int,
+    dim: int,
+    default_dim: int,
+) -> int:
+    return _misc.allocate_gridvertex_nbrs_select_dim_codon(
+        has_dim,
+        dim,
+        default_dim,
+    )
+
+@export
+def deallocate_gridvertex_nbrs_touch_codon(
+    tag: int,
+) -> int:
+    return _misc.deallocate_gridvertex_nbrs_touch_codon(tag)
+
+@export
 def applycamforcing_dynamics_codon(
     np: int,
     nlev: int,

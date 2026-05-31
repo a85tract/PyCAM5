@@ -449,6 +449,16 @@ def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> in
     return 1
 
 
+def allocate_gridvertex_nbrs_select_dim_codon(has_dim: int, dim: int, default_dim: int) -> int:
+    if has_dim != 0:
+        return dim
+    return default_dim
+
+
+def deallocate_gridvertex_nbrs_touch_codon(tag: int) -> int:
+    return tag
+
+
 def se_log2_codon(n: int) -> int:
     ans = 1
     tmp = n

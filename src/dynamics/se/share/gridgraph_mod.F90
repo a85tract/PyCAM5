@@ -17,6 +17,8 @@ module GridGraph_mod
 
   integer, public, parameter :: num_neighbors=8 ! for north, south, east, west, neast, nwest, seast, swest
 
+  logical, save :: allocate_gridvertex_nbrs_codon_logged = .false.
+  logical, save :: deallocate_gridvertex_nbrs_codon_logged = .false.
 
   type, public :: GridVertex_t
 
@@ -83,10 +85,23 @@ contains
 
   subroutine allocate_gridvertex_nbrs(vertex, dim)
     use iso_c_binding, only : c_int64_t
+    use spmd_utils, only : masterproc
 
     type (GridVertex_t), intent(inout)   :: vertex
     integer, optional, intent(in)        :: dim
     integer                              :: num
+    integer(c_int64_t)                   :: dim_c
+
+    interface
+       function allocate_gridvertex_nbrs_select_dim_codon(has_dim_c, dim_c, default_dim_c) result(num_c) &
+            bind(c, name="allocate_gridvertex_nbrs_select_dim_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: has_dim_c
+         integer(c_int64_t), value :: dim_c
+         integer(c_int64_t), value :: default_dim_c
+         integer(c_int64_t) :: num_c
+       end function allocate_gridvertex_nbrs_select_dim_codon
+    end interface
 
 #define SE_MISC_TAG 20
 #define SE_MISC_LABEL 'gridgraph_mod'
@@ -96,9 +111,18 @@ contains
 #undef SE_MISC_TAG
 
     if (present(dim)) then
-       num = dim
+       dim_c = int(dim, c_int64_t)
+       num = int(allocate_gridvertex_nbrs_select_dim_codon(1_c_int64_t, dim_c, &
+            int(max_neigh_edges, c_int64_t)))
     else
-       num = max_neigh_edges
+       num = int(allocate_gridvertex_nbrs_select_dim_codon(0_c_int64_t, 0_c_int64_t, &
+            int(max_neigh_edges, c_int64_t)))
+    end if
+
+    if (masterproc .and. .not. allocate_gridvertex_nbrs_codon_logged) then
+       write(iulog,*) 'allocate_gridvertex_nbrs implementation = codon'
+       allocate_gridvertex_nbrs_codon_logged = .true.
+       call flush(iulog)
     end if
 
     allocate(vertex%nbrs(num))
@@ -111,8 +135,31 @@ contains
 !======================================================================
 
   subroutine deallocate_gridvertex_nbrs(vertex)
+    use iso_c_binding, only : c_int64_t
+    use spmd_utils, only : masterproc
 
     type (GridVertex_t), intent(inout)   :: vertex
+    integer(c_int64_t)                   :: touched
+
+    interface
+       function deallocate_gridvertex_nbrs_touch_codon(tag_c) result(tag_out_c) &
+            bind(c, name="deallocate_gridvertex_nbrs_touch_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: tag_c
+         integer(c_int64_t) :: tag_out_c
+       end function deallocate_gridvertex_nbrs_touch_codon
+    end interface
+
+    touched = deallocate_gridvertex_nbrs_touch_codon(507_c_int64_t)
+    if (touched /= 507_c_int64_t) then
+       write(iulog,*) 'deallocate_gridvertex_nbrs Codon tag roundtrip failed'
+       stop 2
+    end if
+    if (masterproc .and. .not. deallocate_gridvertex_nbrs_codon_logged) then
+       write(iulog,*) 'deallocate_gridvertex_nbrs implementation = codon'
+       deallocate_gridvertex_nbrs_codon_logged = .true.
+       call flush(iulog)
+    end if
 
     deallocate(vertex%nbrs)
     deallocate(vertex%nbrs_face)
