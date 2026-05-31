@@ -549,6 +549,13 @@ CONTAINS
 
    subroutine restart_vars_setnames()
 
+#define CAM_MISC_TAG 327
+#define CAM_MISC_LABEL 'restart_vars_setnames'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
      restartvars(1)%name = 'rgnht'
      restartvars(1)%type = pio_int
      restartvars(1)%ndims = 1
@@ -872,6 +879,12 @@ CONTAINS
       integer, allocatable :: xyfill(:,:), is_subcol(:,:), allmdims(:,:,:)
       integer :: maxnflds
 
+#define CAM_MISC_TAG 328
+#define CAM_MISC_LABEL 'write_restart_history'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       maxnflds = maxval(nflds)
       allocate(xyfill(maxnflds, ptapes))
@@ -1616,6 +1629,12 @@ CONTAINS
 
       type(master_entry), pointer :: listentry
 
+#define CAM_MISC_TAG 329
+#define CAM_MISC_LABEL 'fldlst'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
 !
 ! First ensure contents of fincl, fexcl, and fwrtpr are all valid names
@@ -3509,7 +3528,7 @@ CONTAINS
      integer :: lchnk, plat
 
 #define CAM_MISC_TAG 201
-#define CAM_MISC_LABEL 'cam_history'
+#define CAM_MISC_LABEL 'h_define'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
@@ -4598,11 +4617,19 @@ CONTAINS
      integer :: ierr
      integer :: bsize
      integer :: dim1s,dim2s,ncol
+
 #if ( defined BFB_CAM_SCAM_IOP )
      integer :: tsec             ! day component of current time
      integer :: dtime            ! seconds component of current time
 #endif
      real(r8) :: kp, ap, f107, f107a
+
+#define CAM_MISC_TAG 330
+#define CAM_MISC_LABEL 'wshist'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
      !-----------------------------------------------------------------------
      ! get solar/geomagnetic activity data...
@@ -4922,6 +4949,13 @@ CONTAINS
       integer :: beglat, endlat
       integer :: beglatxy, endlatxy, beglonxy, endlonxy, beglon, endlon
       integer :: dimcnt
+
+#define CAM_MISC_TAG 331
+#define CAM_MISC_LABEL 'addfld'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       if (htapes_defined) then
          call endrun ('ADDFLD: Attempt to add field '//trim(fname)//' after history files set')

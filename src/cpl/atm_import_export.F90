@@ -240,7 +240,7 @@ contains
     !-----------------------------------------------------------------------
 
 #define CAM_MISC_TAG 206
-#define CAM_MISC_LABEL 'atm_import_export'
+#define CAM_MISC_LABEL 'atm_export'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
