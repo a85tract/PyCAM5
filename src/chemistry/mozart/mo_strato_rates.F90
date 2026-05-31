@@ -94,47 +94,98 @@
 
           use mo_chem_utls, only : get_rxt_ndx, get_spc_ndx
           use mo_aero_settling, only: strat_aer_settl_init
+          use iso_c_binding, only : c_int64_t, c_loc
           implicit none
 
-	          integer :: ids(23)
+	          integer(c_int64_t), target :: lookup_ids(23)
+	          integer(c_int64_t), target :: ids_c(23)
+	          integer(c_int64_t), target :: has_strato_chem_c
 
-	          call chemistry_misc_codon_touch('mo_strato_rates', 131)
-	          rid_het1  = get_rxt_ndx( 'het1' )
-          rid_het2  = get_rxt_ndx( 'het2' )
-          rid_het3  = get_rxt_ndx( 'het3' )
-          rid_het4  = get_rxt_ndx( 'het4' )
-          rid_het5  = get_rxt_ndx( 'het5' )
-          rid_het6  = get_rxt_ndx( 'het6' )
-          rid_het7  = get_rxt_ndx( 'het7' )
-          rid_het8  = get_rxt_ndx( 'het8' )
-          rid_het9  = get_rxt_ndx( 'het9' )
-          rid_het10 = get_rxt_ndx( 'het10' )
-          rid_het11 = get_rxt_ndx( 'het11' )
-          rid_het12 = get_rxt_ndx( 'het12' )
-          rid_het13 = get_rxt_ndx( 'het13' )
-          rid_het14 = get_rxt_ndx( 'het14' )
-          rid_het15 = get_rxt_ndx( 'het15' )
-          rid_het16 = get_rxt_ndx( 'het16' )
-          rid_het17 = get_rxt_ndx( 'het17' )
+          interface
+             subroutine init_strato_rates_ids_codon(lookup_ids_p, ids_p, has_strato_chem_p) &
+                  bind(c, name="init_strato_rates_ids_codon")
+               use iso_c_binding, only : c_ptr
+               type(c_ptr), value :: lookup_ids_p, ids_p, has_strato_chem_p
+             end subroutine init_strato_rates_ids_codon
+          end interface
 
-          id_brono2 = get_spc_ndx( 'BRONO2' )
-          id_clono2 = get_spc_ndx( 'CLONO2' )
-          id_hcl    = get_spc_ndx( 'HCL' )
-          id_hocl   = get_spc_ndx( 'HOCL' )
-          id_hobr   = get_spc_ndx( 'HOBR' )
-          id_n2o5   = get_spc_ndx( 'N2O5' )
+	          call chemistry_misc_codon_touch('init_strato_rates', 131)
+	          lookup_ids(1)  = int(get_rxt_ndx( 'het1' ), c_int64_t)
+          lookup_ids(2)  = int(get_rxt_ndx( 'het2' ), c_int64_t)
+          lookup_ids(3)  = int(get_rxt_ndx( 'het3' ), c_int64_t)
+          lookup_ids(4)  = int(get_rxt_ndx( 'het4' ), c_int64_t)
+          lookup_ids(5)  = int(get_rxt_ndx( 'het5' ), c_int64_t)
+          lookup_ids(6)  = int(get_rxt_ndx( 'het6' ), c_int64_t)
+          lookup_ids(7)  = int(get_rxt_ndx( 'het7' ), c_int64_t)
+          lookup_ids(8)  = int(get_rxt_ndx( 'het8' ), c_int64_t)
+          lookup_ids(9)  = int(get_rxt_ndx( 'het9' ), c_int64_t)
+          lookup_ids(10) = int(get_rxt_ndx( 'het10' ), c_int64_t)
+          lookup_ids(11) = int(get_rxt_ndx( 'het11' ), c_int64_t)
+          lookup_ids(12) = int(get_rxt_ndx( 'het12' ), c_int64_t)
+          lookup_ids(13) = int(get_rxt_ndx( 'het13' ), c_int64_t)
+          lookup_ids(14) = int(get_rxt_ndx( 'het14' ), c_int64_t)
+          lookup_ids(15) = int(get_rxt_ndx( 'het15' ), c_int64_t)
+          lookup_ids(16) = int(get_rxt_ndx( 'het16' ), c_int64_t)
+          lookup_ids(17) = int(get_rxt_ndx( 'het17' ), c_int64_t)
 
-          ids(:) = (/ rid_het1, rid_het2, rid_het3, rid_het4, rid_het5, rid_het6, rid_het7, rid_het8, &
-               rid_het9, rid_het10, rid_het11, rid_het12, rid_het13, rid_het14, rid_het15, &
-               rid_het16, rid_het17, id_brono2, id_clono2, id_hcl, id_hocl, id_hobr, id_n2o5 /)
+          lookup_ids(18) = int(get_spc_ndx( 'BRONO2' ), c_int64_t)
+          lookup_ids(19) = int(get_spc_ndx( 'CLONO2' ), c_int64_t)
+          lookup_ids(20) = int(get_spc_ndx( 'HCL' ), c_int64_t)
+          lookup_ids(21) = int(get_spc_ndx( 'HOCL' ), c_int64_t)
+          lookup_ids(22) = int(get_spc_ndx( 'HOBR' ), c_int64_t)
+          lookup_ids(23) = int(get_spc_ndx( 'N2O5' ), c_int64_t)
+          ids_c(:) = 0_c_int64_t
+          has_strato_chem_c = 0_c_int64_t
 
-          has_strato_chem = all( ids(:) > 0 )
+          call init_strato_rates_ids_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(has_strato_chem_c))
+          call init_strato_rates_log_codon()
+
+	          rid_het1  = int(ids_c(1))
+          rid_het2  = int(ids_c(2))
+          rid_het3  = int(ids_c(3))
+          rid_het4  = int(ids_c(4))
+          rid_het5  = int(ids_c(5))
+          rid_het6  = int(ids_c(6))
+          rid_het7  = int(ids_c(7))
+          rid_het8  = int(ids_c(8))
+          rid_het9  = int(ids_c(9))
+          rid_het10 = int(ids_c(10))
+          rid_het11 = int(ids_c(11))
+          rid_het12 = int(ids_c(12))
+          rid_het13 = int(ids_c(13))
+          rid_het14 = int(ids_c(14))
+          rid_het15 = int(ids_c(15))
+          rid_het16 = int(ids_c(16))
+          rid_het17 = int(ids_c(17))
+
+          id_brono2 = int(ids_c(18))
+          id_clono2 = int(ids_c(19))
+          id_hcl    = int(ids_c(20))
+          id_hocl   = int(ids_c(21))
+          id_hobr   = int(ids_c(22))
+          id_n2o5   = int(ids_c(23))
+
+          has_strato_chem = has_strato_chem_c /= 0_c_int64_t
 
           if (.not. has_strato_chem) return
 
           call strat_aer_settl_init
 
         endsubroutine init_strato_rates
+
+        subroutine init_strato_rates_log_codon()
+
+          use cam_logfile, only : iulog
+          use spmd_utils, only : masterproc
+
+          implicit none
+
+          if (masterproc) then
+             write(iulog,*) 'init_strato_rates implementation = codon'
+             call flush(iulog)
+          end if
+
+        end subroutine init_strato_rates_log_codon
 
       subroutine ratecon_sfstrat( ad, pmid, temp, rad_sulfate, sad_sulfate, &
                                   sad_nat, sad_ice, h2ovmr, vmr, rxt, ncol )

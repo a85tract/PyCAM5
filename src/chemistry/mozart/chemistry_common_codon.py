@@ -59,6 +59,17 @@ def clybry_fam_init_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_clybry_p: cob
             all_present = False
     has_clybry[0] = 1 if all_present else 0
 
+def init_strato_rates_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_strato_chem_p: cobj):
+    lookup_ids = Ptr[int](lookup_ids_p)
+    ids = Ptr[int](ids_p)
+    has_strato_chem = Ptr[int](has_strato_chem_p)
+    all_present = True
+    for i in range(23):
+        ids[i] = lookup_ids[i]
+        if ids[i] <= 0:
+            all_present = False
+    has_strato_chem[0] = 1 if all_present else 0
+
 def chem_final_codon() -> int:
     return 0
 

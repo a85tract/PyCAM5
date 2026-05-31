@@ -22,6 +22,10 @@ def clybry_fam_init_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_clybry_p: cob
     return _common.clybry_fam_init_ids_codon(lookup_ids_p, ids_p, has_clybry_p)
 
 @export
+def init_strato_rates_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_strato_chem_p: cobj):
+    return _common.init_strato_rates_ids_codon(lookup_ids_p, ids_p, has_strato_chem_p)
+
+@export
 def phtadj_codon() -> int:
     return 1
 
