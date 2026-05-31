@@ -54,9 +54,9 @@
       integer :: nspa(nbndlw)
       integer :: nspb(nbndlw)
 
-      real(kind=r8) :: wavenum1(nbndlw)
-      real(kind=r8) :: wavenum2(nbndlw)
-      real(kind=r8) :: delwave(nbndlw)
+      real(kind=r8), target :: wavenum1(nbndlw)
+      real(kind=r8), target :: wavenum2(nbndlw)
+      real(kind=r8), target :: delwave(nbndlw)
 
       real(kind=r8), target :: totplnk(181,nbndlw)
       real(kind=r8), target :: totplk16(181)

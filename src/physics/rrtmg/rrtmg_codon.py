@@ -14,6 +14,67 @@ def rrtmg_init_int_passthrough_codon(value: int) -> int:
 
 
 @export
+def rrtmg_lwdatinit_codon(
+    nbndlw: int,
+    maxinpx: int,
+    wavenum1_p: cobj,
+    wavenum2_p: cobj,
+    delwave_p: cobj,
+    ng_p: cobj,
+    nspa_p: cobj,
+    nspb_p: cobj,
+    ixindx_p: cobj,
+    constants_p: cobj,
+):
+    wavenum1 = Ptr[float](wavenum1_p)
+    wavenum2 = Ptr[float](wavenum2_p)
+    delwave = Ptr[float](delwave_p)
+    ng = Ptr[int](ng_p)
+    nspa = Ptr[int](nspa_p)
+    nspb = Ptr[int](nspb_p)
+    ixindx = Ptr[int](ixindx_p)
+    constants = Ptr[float](constants_p)
+
+    wavenum1_values = (
+        10.0, 350.0, 500.0, 630.0, 700.0, 820.0, 980.0, 1080.0,
+        1180.0, 1390.0, 1480.0, 1800.0, 2080.0, 2250.0, 2390.0, 2600.0,
+    )
+    wavenum2_values = (
+        350.0, 500.0, 630.0, 700.0, 820.0, 980.0, 1080.0, 1180.0,
+        1390.0, 1480.0, 1800.0, 2080.0, 2250.0, 2390.0, 2600.0, 3250.0,
+    )
+    delwave_values = (
+        340.0, 150.0, 130.0, 70.0, 120.0, 160.0, 100.0, 100.0,
+        210.0, 90.0, 320.0, 280.0, 170.0, 130.0, 220.0, 650.0,
+    )
+    nspa_values = (1, 1, 9, 9, 9, 1, 9, 1, 9, 1, 1, 9, 9, 1, 9, 9)
+    nspb_values = (1, 1, 5, 5, 5, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0)
+
+    for i in range(nbndlw):
+        wavenum1[i] = wavenum1_values[i]
+        wavenum2[i] = wavenum2_values[i]
+        delwave[i] = delwave_values[i]
+        ng[i] = 16
+        nspa[i] = nspa_values[i]
+        nspb[i] = nspb_values[i]
+
+    for i in range(maxinpx):
+        if i < 4:
+            ixindx[i] = i + 1
+        else:
+            ixindx[i] = 0
+
+    constants[0] = 6.62606876e-27
+    constants[1] = 1.3806503e-16
+    constants[2] = 2.99792458e+10
+    constants[3] = 2.6867775e+19
+    constants[4] = 8.31447200e+07
+    constants[5] = 1.191042722e-12
+    constants[6] = 1.4387752
+    constants[7] = 4.0
+
+
+@export
 def rrtmg_rad_gas_index_codon(name_len: int, name_p: cobj) -> int:
     name = Ptr[int](name_p)
     if name_len == 3 and name[0] == 72 and name[1] == 50 and name[2] == 79:
