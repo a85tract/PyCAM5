@@ -700,7 +700,10 @@ contains
   ! ========================================================
 
   subroutine vmap(D, x1, x2, face_no) 
-    real (kind=real_kind), intent(inout)  :: D(2,2)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+
+    real (kind=real_kind), intent(inout), target :: D(2,2)
     real (kind=real_kind), intent(in)     :: x1
     real (kind=real_kind), intent(in)     :: x2
     integer              , intent(in)     :: face_no
@@ -714,6 +717,36 @@ contains
     real (kind=real_kind) :: D12
     real (kind=real_kind) :: D21
     real (kind=real_kind) :: D22
+    integer(c_int64_t) :: codon_status
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: proof_seen = .false.
+
+    interface
+       function vmap_codon(x1_c, x2_c, face_no_c, d_p) result(status_c) &
+            bind(c, name='vmap_codon')
+         import :: c_double, c_int64_t, c_ptr
+         real(c_double), value :: x1_c, x2_c
+         integer(c_int64_t), value :: face_no_c
+         type(c_ptr), value :: d_p
+         integer(c_int64_t) :: status_c
+       end function vmap_codon
+    end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('VMAP_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       codon_status = vmap_codon(real(x1, c_double), real(x2, c_double), &
+            int(face_no, c_int64_t), c_loc(D(1,1)))
+       if (codon_status == 1_c_int64_t) then
+          if (.not. proof_seen) then
+             write(iulog,*) 'vmap implementation = codon'
+             proof_seen = .true.
+          endif
+          return
+       endif
+    endif
 
     r=SQRT(1.0D0 + TAN(x1)**2 + TAN(x2)**2)
 

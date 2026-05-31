@@ -1296,6 +1296,20 @@ def dmap_equiangular_codon(
     )
 
 @export
+def vmap_codon(
+    x1: float,
+    x2: float,
+    face_no: int,
+    d_p: cobj,
+) -> int:
+    return _misc.vmap_codon(
+        x1,
+        x2,
+        face_no,
+        d_p,
+    )
+
+@export
 def create_work_pool_codon(
     start_domain: int,
     end_domain: int,
@@ -1647,6 +1661,16 @@ def se_gausslobatto_fill_codon(
         npts,
         points_p,
         weights_p,
+    )
+
+@export
+def se_gausslobatto_pts_codon(
+    npts: int,
+    points_p: cobj,
+) -> int:
+    return _misc.se_gausslobatto_pts_codon(
+        npts,
+        points_p,
     )
 
 @export

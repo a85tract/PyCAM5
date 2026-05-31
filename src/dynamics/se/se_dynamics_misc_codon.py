@@ -533,6 +533,51 @@ def dmap_equiangular_codon(
     d[3] = d21 * j12 + d22 * j22
 
 
+def vmap_codon(x1: float, x2: float, face_no: int, d_p: cobj) -> int:
+    d = Ptr[float](d_p)
+    r = sqrt(1.0 + tan(x1)**2.0 + tan(x2)**2.0)
+    d11 = 0.0
+    d12 = 0.0
+    d21 = 0.0
+    d22 = 0.0
+    if face_no >= 1 and face_no <= 4:
+        d11 = 1.0 / (r * cos(x1))
+        d12 = 0.0
+        d21 = -tan(x1) * tan(x2) / (cos(x1) * r * r)
+        d22 = 1.0 / (r * r * cos(x1) * cos(x2) * cos(x2))
+    elif face_no == 6:
+        poledist = sqrt(tan(x1)**2.0 + tan(x2)**2.0)
+        if poledist <= 1.0e-9:
+            d11 = 1.0
+            d12 = 0.0
+            d21 = 0.0
+            d22 = 1.0
+        else:
+            d11 = -tan(x2) / (poledist * cos(x1) * cos(x1) * r)
+            d12 = tan(x1) / (poledist * cos(x2) * cos(x2) * r)
+            d21 = -tan(x1) / (poledist * cos(x1) * cos(x1) * r * r)
+            d22 = -tan(x2) / (poledist * cos(x2) * cos(x2) * r * r)
+    elif face_no == 5:
+        poledist = sqrt(tan(x1)**2.0 + tan(x2)**2.0)
+        if poledist <= 1.0e-9:
+            d11 = 1.0
+            d12 = 0.0
+            d21 = 0.0
+            d22 = 1.0
+        else:
+            d11 = tan(x2) / (poledist * cos(x1) * cos(x1) * r)
+            d12 = -tan(x1) / (poledist * cos(x2) * cos(x2) * r)
+            d21 = tan(x1) / (poledist * cos(x1) * cos(x1) * r * r)
+            d22 = tan(x2) / (poledist * cos(x2) * cos(x2) * r * r)
+    else:
+        return 0
+    d[0] = d11
+    d[2] = d12
+    d[1] = d21
+    d[3] = d22
+    return 1
+
+
 def create_work_pool_codon(
     start_domain: int,
     end_domain: int,
@@ -979,6 +1024,17 @@ def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> in
     weights[1] = 0.8333333333333334
     weights[2] = 0.8333333333333334
     weights[3] = 0.16666666666666666
+    return 1
+
+
+def se_gausslobatto_pts_codon(npts: int, points_p: cobj) -> int:
+    if npts != 4:
+        return 0
+    points = Ptr[float](points_p)
+    points[0] = -1.0
+    points[1] = -0.4472135954999579
+    points[2] = 0.4472135954999579
+    points[3] = 1.0
     return 1
 
 

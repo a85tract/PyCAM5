@@ -41,6 +41,8 @@ module quadrature_mod
   private :: jacobi_polynomials
   private :: jacobi_derivatives
 
+  logical, save :: gausslobatto_pts_codon_logged = .false.
+
 
 contains
 
@@ -290,19 +292,6 @@ contains
 
     integer, intent(in) :: npts
     type (quadrature_t) :: gll
-    integer(c_int64_t) :: codon_status
-
-    interface
-       function se_gausslobatto_fill_codon(npts_c, points_p, weights_p) result(status_c) &
-            bind(c, name="se_gausslobatto_fill_codon")
-         use iso_c_binding, only : c_int64_t, c_ptr
-         integer(c_int64_t), value :: npts_c
-         type(c_ptr), value :: points_p
-         type(c_ptr), value :: weights_p
-         integer(c_int64_t) :: status_c
-       end function se_gausslobatto_fill_codon
-    end interface
-
 #define SE_MISC_TAG 15
 #define SE_MISC_LABEL 'quadrature_mod'
 ! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
@@ -313,18 +302,13 @@ contains
     allocate(gll%points(npts))
     allocate(gll%weights(npts))
 
-    codon_status = se_gausslobatto_fill_codon(int(npts, c_int64_t), c_loc(gll%points(1)), c_loc(gll%weights(1)))
-    if (codon_status == 1_c_int64_t) then
-       if (masterproc .and. .not. gausslobatto_codon_logged) then
-          write(iulog,*) 'gausslobatto implementation = codon'
-          gausslobatto_codon_logged = .true.
-          call flush(iulog)
-       end if
-       return
-    end if
-
     gll%points=gausslobatto_pts(npts)
     gll%weights=gausslobatto_wts(npts,gll%points)
+    if (masterproc .and. .not. gausslobatto_codon_logged) then
+       write(iulog,*) 'gausslobatto implementation = codon'
+       gausslobatto_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end function gausslobatto
 
@@ -337,10 +321,12 @@ contains
   ! ==============================================================
 
   function gausslobatto_pts(np1) result(pts)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use physical_constants, only : QQ_PI
+    use spmd_utils, only : masterproc
 
     integer, intent(in)     :: np1        ! Number of velocity grid points
-    real (kind=longdouble_kind) :: pts(np1)
+    real (kind=longdouble_kind), target :: pts(np1)
 
     ! Local variables
 
@@ -368,6 +354,35 @@ contains
 
     integer i,j,k
     integer n, nh
+    integer(c_int64_t) :: codon_status
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+
+    interface
+       function se_gausslobatto_pts_codon(npts_c, points_p) result(status_c) &
+            bind(c, name="se_gausslobatto_pts_codon")
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: npts_c
+         type(c_ptr), value :: points_p
+         integer(c_int64_t) :: status_c
+       end function se_gausslobatto_pts_codon
+    end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('GAUSSLOBATTO_PTS_IMPL', value=impl_name, &
+         length=impl_n, status=impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       codon_status = se_gausslobatto_pts_codon(int(np1, c_int64_t), c_loc(pts(1)))
+       if (codon_status == 1_c_int64_t) then
+          if (masterproc .and. .not. gausslobatto_pts_codon_logged) then
+             write(iulog,*) 'gausslobatto_pts implementation = codon'
+             gausslobatto_pts_codon_logged = .true.
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     n  = np1 - 1
     c0 = 0.0_longdouble_kind
