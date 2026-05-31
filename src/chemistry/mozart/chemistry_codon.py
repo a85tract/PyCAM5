@@ -18,6 +18,10 @@ def init_hrates_ids_codon(lookup_ids_p: cobj, ptop_ref: float, psurf_ref: float,
     return _common.init_hrates_ids_codon(lookup_ids_p, ptop_ref, psurf_ref, ids_p, has_hrates_p)
 
 @export
+def clybry_fam_init_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_clybry_p: cobj):
+    return _common.clybry_fam_init_ids_codon(lookup_ids_p, ids_p, has_clybry_p)
+
+@export
 def phtadj_codon() -> int:
     return 1
 

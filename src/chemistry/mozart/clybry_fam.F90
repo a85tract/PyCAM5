@@ -41,37 +41,82 @@ contains
   subroutine clybry_fam_init
 
     use mo_chem_utls, only : get_spc_ndx
+    use iso_c_binding, only : c_int64_t, c_loc
     implicit none
 
-    integer :: ids(16)
+    integer(c_int64_t), target :: lookup_ids(16)
+    integer(c_int64_t), target :: ids_c(16)
+    integer(c_int64_t), target :: has_clybry_c
 
-    call chemistry_misc_codon_touch('clybry_fam', 132)
-    id_cly = get_spc_ndx('CLY')
-    id_bry = get_spc_ndx('BRY')
+    interface
+       subroutine clybry_fam_init_ids_codon(lookup_ids_p, ids_p, has_clybry_p) &
+            bind(c, name="clybry_fam_init_ids_codon")
+         use iso_c_binding, only : c_ptr
+         type(c_ptr), value :: lookup_ids_p, ids_p, has_clybry_p
+       end subroutine clybry_fam_init_ids_codon
+    end interface
 
-    id_cl = get_spc_ndx('CL')
-    id_clo = get_spc_ndx('CLO')
-    id_hocl = get_spc_ndx('HOCL')
-    id_cl2 = get_spc_ndx('CL2')
-    id_cl2o2 = get_spc_ndx('CL2O2')
-    id_oclo = get_spc_ndx('OCLO')
-    id_hcl = get_spc_ndx('HCL')
-    id_clono2 = get_spc_ndx('CLONO2')
+    call chemistry_misc_codon_touch('clybry_fam_init', 132)
+    lookup_ids(1) = int(get_spc_ndx('CLY'), c_int64_t)
+    lookup_ids(2) = int(get_spc_ndx('BRY'), c_int64_t)
 
-    id_br = get_spc_ndx('BR')
-    id_bro = get_spc_ndx('BRO')
-    id_hbr = get_spc_ndx('HBR')
-    id_brono2 = get_spc_ndx('BRONO2')
-    id_brcl = get_spc_ndx('BRCL')
-    id_hobr = get_spc_ndx('HOBR')
+    lookup_ids(3) = int(get_spc_ndx('CL'), c_int64_t)
+    lookup_ids(4) = int(get_spc_ndx('CLO'), c_int64_t)
+    lookup_ids(5) = int(get_spc_ndx('HOCL'), c_int64_t)
+    lookup_ids(6) = int(get_spc_ndx('CL2'), c_int64_t)
+    lookup_ids(7) = int(get_spc_ndx('CL2O2'), c_int64_t)
+    lookup_ids(8) = int(get_spc_ndx('OCLO'), c_int64_t)
+    lookup_ids(9) = int(get_spc_ndx('HCL'), c_int64_t)
+    lookup_ids(10) = int(get_spc_ndx('CLONO2'), c_int64_t)
 
-    ids = (/ id_cly,id_bry, &
-             id_cl,id_clo,id_hocl,id_cl2,id_cl2o2,id_oclo,id_hcl,id_clono2, &
-             id_br,id_bro,id_hbr,id_brono2,id_brcl,id_hobr /)
+    lookup_ids(11) = int(get_spc_ndx('BR'), c_int64_t)
+    lookup_ids(12) = int(get_spc_ndx('BRO'), c_int64_t)
+    lookup_ids(13) = int(get_spc_ndx('HBR'), c_int64_t)
+    lookup_ids(14) = int(get_spc_ndx('BRONO2'), c_int64_t)
+    lookup_ids(15) = int(get_spc_ndx('BRCL'), c_int64_t)
+    lookup_ids(16) = int(get_spc_ndx('HOBR'), c_int64_t)
+    ids_c(:) = 0_c_int64_t
+    has_clybry_c = 0_c_int64_t
 
-    has_clybry = all( ids(:) > 0 )
+    call clybry_fam_init_ids_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(has_clybry_c))
+    call clybry_fam_init_log_codon()
+
+    id_cly = int(ids_c(1))
+    id_bry = int(ids_c(2))
+
+    id_cl = int(ids_c(3))
+    id_clo = int(ids_c(4))
+    id_hocl = int(ids_c(5))
+    id_cl2 = int(ids_c(6))
+    id_cl2o2 = int(ids_c(7))
+    id_oclo = int(ids_c(8))
+    id_hcl = int(ids_c(9))
+    id_clono2 = int(ids_c(10))
+
+    id_br = int(ids_c(11))
+    id_bro = int(ids_c(12))
+    id_hbr = int(ids_c(13))
+    id_brono2 = int(ids_c(14))
+    id_brcl = int(ids_c(15))
+    id_hobr = int(ids_c(16))
+
+    has_clybry = has_clybry_c /= 0_c_int64_t
 
   endsubroutine clybry_fam_init
+
+  subroutine clybry_fam_init_log_codon()
+
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
+
+    implicit none
+
+    if (masterproc) then
+       write(iulog,*) 'clybry_fam_init implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine clybry_fam_init_log_codon
 
 !--------------------------------------------------------------
 ! set the ClOy and BrOy mass mixing ratios

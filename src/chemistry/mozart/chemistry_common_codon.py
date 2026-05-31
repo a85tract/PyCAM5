@@ -48,6 +48,17 @@ def init_hrates_ids_codon(lookup_ids_p: cobj, ptop_ref: float, psurf_ref: float,
             all_present = False
     has_hrates[0] = 1 if all_present and ptop_ref < 0.0004 * psurf_ref else 0
 
+def clybry_fam_init_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_clybry_p: cobj):
+    lookup_ids = Ptr[int](lookup_ids_p)
+    ids = Ptr[int](ids_p)
+    has_clybry = Ptr[int](has_clybry_p)
+    all_present = True
+    for i in range(16):
+        ids[i] = lookup_ids[i]
+        if ids[i] <= 0:
+            all_present = False
+    has_clybry[0] = 1 if all_present else 0
+
 def chem_final_codon() -> int:
     return 0
 
