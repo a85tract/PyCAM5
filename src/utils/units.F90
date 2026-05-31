@@ -32,6 +32,13 @@ CONTAINS
 ! Local workspace
 !
 
+#define CAM_MISC_TAG 233
+#define CAM_MISC_LABEL 'getunit'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
      getunit = shr_file_getUnit( iu )
 
    end function getunit
@@ -43,6 +50,13 @@ CONTAINS
 ! Arguments
 !
    integer, intent(in) :: iu       ! unit number to be freed
+
+#define CAM_MISC_TAG 234
+#define CAM_MISC_LABEL 'freeunit'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    call shr_file_freeUnit( iu )
 
