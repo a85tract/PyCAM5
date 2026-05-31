@@ -1238,3 +1238,15 @@ def gbarrier_synchronize_codon(
         c_barrier,
         thread,
     )
+
+@export
+def legendre_codon(
+    x: float,
+    n: int,
+    leg_p: cobj,
+):
+    return _misc.legendre_codon(
+        x,
+        n,
+        leg_p,
+    )

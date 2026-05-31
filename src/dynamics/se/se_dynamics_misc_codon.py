@@ -414,6 +414,22 @@ def gbarrier_synchronize_codon(c_barrier: cobj, thread: int):
     gbarrier_synchronize(c_barrier, i32(thread))
 
 
+def legendre_codon(x: float, n: int, leg_p: cobj):
+    leg = Ptr[float](leg_p)
+
+    p_3 = 1.0
+    leg[0] = p_3
+    if n != 0:
+        p_2 = p_3
+        p_3 = x
+        leg[1] = p_3
+        for k in range(2, n + 1):
+            p_1 = p_2
+            p_2 = p_3
+            p_3 = (((2 * k - 1) * x * p_2) - ((k - 1) * p_1)) / k
+            leg[k] = p_3
+
+
 def se_log2_codon(n: int) -> int:
     ans = 1
     tmp = n

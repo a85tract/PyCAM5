@@ -5,9 +5,10 @@
 #undef _GAUSS_TABLE
 #undef _QUAD_DBG
 module quadrature_mod
-  use kinds, only : longdouble_kind
+  use kinds, only : longdouble_kind, iulog
   implicit none
   private
+  logical, save :: legendre_codon_logged = .false.
 
   type, public :: quadrature_t
 #ifdef IS_ACCELERATOR
@@ -732,26 +733,28 @@ contains
   ! ===================================================
 
   function legendre(x,N) result(leg)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc
+    use spmd_utils, only : masterproc
 
     integer   :: N
-    real (kind=longdouble_kind) :: x
-    real (kind=longdouble_kind) :: leg(N+1)
+    real (kind=longdouble_kind), target :: x
+    real (kind=longdouble_kind), target :: leg(N+1)
 
-    real (kind=longdouble_kind) ::  p_1, p_2, p_3
-    integer   :: k
+    interface
+       subroutine legendre_codon(x_c, n_c, leg_p) bind(c, name="legendre_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: x_c
+         integer(c_int64_t), value :: n_c
+         type(c_ptr), value :: leg_p
+       end subroutine legendre_codon
+    end interface
 
-    p_3 = 1.0_longdouble_kind
-    leg(1)=p_3
-    if (n.ne.0) then
-       p_2 = p_3
-       p_3 = x
-       leg(2)=p_3
-       do k = 2,N
-          p_1 = p_2
-          p_2 = p_3
-          p_3 = ( (2*k-1)*x*p_2 - (k-1)*p_1 ) / k
-          leg(k+1)=p_3
-       end do
+    call legendre_codon(real(x, c_double), int(N, c_int64_t), c_loc(leg(1)))
+
+    if (masterproc .and. .not. legendre_codon_logged) then
+       write(iulog,*) 'legendre implementation = codon'
+       legendre_codon_logged = .true.
+       call flush(iulog)
     end if
 
   end function legendre
@@ -978,7 +981,6 @@ contains
   end function gaussian_int
 
 end module quadrature_mod
-
 
 
 
