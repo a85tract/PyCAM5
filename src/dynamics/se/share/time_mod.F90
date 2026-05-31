@@ -50,9 +50,16 @@ contains
   end function Time_at
 
   subroutine TimeLevel_init_default(tl)
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
-    type (TimeLevel_t), intent(out) :: tl
+    type (TimeLevel_t), target, intent(out) :: tl
+    interface
+       subroutine se_timelevel_init_default_codon(nm1_p, n0_p, np1_p, nstep_p, nstep0_p) &
+            bind(c, name='se_timelevel_init_default_codon')
+         use iso_c_binding, only : c_ptr
+         type(c_ptr), value :: nm1_p, n0_p, np1_p, nstep_p, nstep0_p
+       end subroutine se_timelevel_init_default_codon
+    end interface
 
 #define SE_MISC_TAG 29
 #define SE_MISC_LABEL 'time_mod'
@@ -61,11 +68,9 @@ contains
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
 
-    tl%nm1   = 1
-    tl%n0    = 2
-    tl%np1   = 3
-    tl%nstep = 0
-    tl%nstep0 = 2
+    call se_timelevel_init_default_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
+         c_loc(tl%nstep), c_loc(tl%nstep0))
+    write(iulog,*) 'timelevel_init_default implementation = codon'
   end subroutine TimeLevel_init_default
 
   subroutine TimeLevel_init_copy(tl, tin)
@@ -118,30 +123,38 @@ contains
   end subroutine TimeLevel_Qdp
 
   subroutine TimeLevel_update(tl,uptype)
-    type (TimeLevel_t) :: tl
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    type (TimeLevel_t), target :: tl
     character(len=*)   :: uptype
 
     ! Local Variable
 
-    integer :: ntmp
+    integer :: ierr, uptype_code
+    interface
+       function se_timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code_c) result(ierr_c) &
+            bind(c, name='se_timelevel_update_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         type(c_ptr), value :: nm1_p, n0_p, np1_p, nstep_p
+         integer(c_int64_t), value :: uptype_code_c
+         integer(c_int64_t) :: ierr_c
+       end function se_timelevel_update_codon
+    end interface
 #if (defined HORIZ_OPENMP)
 !$OMP BARRIER
 !$OMP MASTER
 #endif
     if (uptype == "leapfrog") then
-       ntmp    = tl%np1
-       tl%np1  = tl%nm1
-       tl%nm1  = tl%n0
-       tl%n0   = ntmp
+       uptype_code = 1
     else if (uptype == "forward") then
-       ntmp    = tl%np1
-       tl%np1  = tl%n0
-       tl%n0   = ntmp
+       uptype_code = 2
     else 
        print *,'WARNING: TimeLevel_update called wint invalid uptype=',uptype
+       uptype_code = 0
     end if
-       
-    tl%nstep = tl%nstep+1
+    ierr = int(se_timelevel_update_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
+         c_loc(tl%nstep), int(uptype_code, c_int64_t)))
+    if (ierr == 0) write(iulog,*) 'timelevel_update implementation = codon'
 #if (defined HORIZ_OPENMP)
 !$OMP END MASTER
 !$OMP BARRIER    

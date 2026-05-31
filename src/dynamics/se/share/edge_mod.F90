@@ -693,6 +693,8 @@ contains
 
   integer function CalcSegmentLength(pgIndx,mPattern,nlyr) result(len) 
 
+     use iso_c_binding, only : c_int64_t
+     use cam_logfile, only : iulog
      type(pgindex_t) ::  pgIndx
      integer, intent(in) :: mPattern
      integer, intent(in) :: nlyr
@@ -701,20 +703,24 @@ contains
      integer, parameter :: alignment=1  ! align on word boundaries
 !     integer, parameter :: alignment=2  ! align on 2 word boundaries
 !     integer, parameter :: alignment=8  ! align on 8 word boundaries
+     interface
+        function se_calcsegmentlength_codon(lenp_c, lens_c, mpattern_c, nlyr_c, hme_s_c, hme_p_c) result(len_c) &
+             bind(c, name='se_calcsegmentlength_codon')
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: lenp_c, lens_c, mpattern_c, nlyr_c, hme_s_c, hme_p_c
+          integer(c_int64_t) :: len_c
+        end function se_calcsegmentlength_codon
+     end interface
 
      
-     select case(mPattern)
-        CASE(HME_MPATTERN_S) 
-           len = nlyr*pgIndx%lenS
-        CASE(HME_MPATTERN_P)
-           len = nlyr*pgIndx%lenP
-        CASE DEFAULT
-           len = nlyr*pgIndx%lenP
-     end select
+     len = int(se_calcsegmentlength_codon(int(pgIndx%lenP, c_int64_t), int(pgIndx%lenS, c_int64_t), &
+          int(mPattern, c_int64_t), int(nlyr, c_int64_t), int(HME_MPATTERN_S, c_int64_t), &
+          int(HME_MPATTERN_P, c_int64_t)))
      rem = MODULO(len,alignment)
      if(rem .ne. 0) then 
         len = len + (alignment-rem)
      endif
+     write(iulog,*) 'calcsegmentlength implementation = codon'
         
 
   end function calcSegmentLength 

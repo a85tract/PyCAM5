@@ -60,6 +60,22 @@ def prim_subcycle_q_update_codon(
     )
 
 @export
+def se_log2_codon(n: int) -> int:
+    return _misc.se_log2_codon(n)
+
+@export
+def se_calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
+    return _misc.se_calcsegmentlength_codon(lenp, lens, mpattern, nlyr, hme_mpattern_s, hme_mpattern_p)
+
+@export
+def se_timelevel_init_default_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, nstep0_p: cobj):
+    return _misc.se_timelevel_init_default_codon(nm1_p, n0_p, np1_p, nstep_p, nstep0_p)
+
+@export
+def se_timelevel_update_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, uptype_code: int) -> int:
+    return _misc.se_timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code)
+
+@export
 def qdp_time_avg_codon(
     np: int,
     nlev: int,
