@@ -70,6 +70,18 @@ def init_strato_rates_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_strato_chem
             all_present = False
     has_strato_chem[0] = 1 if all_present else 0
 
+def setinv_inti_ids_codon(lookup_ids_p: cobj, ids_p: cobj, flags_p: cobj):
+    lookup_ids = Ptr[int](lookup_ids_p)
+    ids = Ptr[int](ids_p)
+    flags = Ptr[int](flags_p)
+    for i in range(8):
+        ids[i] = lookup_ids[i]
+    flags[0] = 1 if ids[6] > 0 and ids[5] > 0 and ids[7] > 0 else 0
+    flags[1] = 1 if ids[1] > 0 else 0
+    flags[2] = 1 if ids[2] > 0 else 0
+    flags[3] = 1 if ids[3] > 0 else 0
+    flags[4] = 1 if ids[4] > 0 else 0
+
 def chem_final_codon() -> int:
     return 0
 

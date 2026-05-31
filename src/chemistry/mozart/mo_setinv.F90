@@ -61,27 +61,52 @@ contains
 
     use mo_chem_utls, only : get_inv_ndx, get_spc_ndx
     use spmd_utils,   only : masterproc
+    use iso_c_binding, only : c_int64_t, c_loc
 
     implicit none
 
     integer :: i
+    integer(c_int64_t), target :: lookup_ids(8)
+    integer(c_int64_t), target :: ids_c(8)
+    integer(c_int64_t), target :: flags_c(5)
 
-    m_ndx   = get_inv_ndx( 'M' )
-    n2_ndx  = get_inv_ndx( 'N2' )
-    o2_ndx  = get_inv_ndx( 'O2' )
-    h2o_ndx = get_inv_ndx( 'H2O' )
-    o3_ndx  = get_inv_ndx( 'O3' )
+    interface
+       subroutine setinv_inti_ids_codon(lookup_ids_p, ids_p, flags_p) bind(c, name="setinv_inti_ids_codon")
+         use iso_c_binding, only : c_ptr
+         type(c_ptr), value :: lookup_ids_p, ids_p, flags_p
+       end subroutine setinv_inti_ids_codon
+    end interface
 
-    id_o  = get_spc_ndx('O')
-    id_o2 = get_spc_ndx('O2')
-    id_h  = get_spc_ndx('H')
+    lookup_ids(1) = int(get_inv_ndx( 'M' ), c_int64_t)
+    lookup_ids(2) = int(get_inv_ndx( 'N2' ), c_int64_t)
+    lookup_ids(3) = int(get_inv_ndx( 'O2' ), c_int64_t)
+    lookup_ids(4) = int(get_inv_ndx( 'H2O' ), c_int64_t)
+    lookup_ids(5) = int(get_inv_ndx( 'O3' ), c_int64_t)
 
-    has_var_o2 = id_o2>0 .and. id_o>0 .and. id_h>0
+    lookup_ids(6) = int(get_spc_ndx('O'), c_int64_t)
+    lookup_ids(7) = int(get_spc_ndx('O2'), c_int64_t)
+    lookup_ids(8) = int(get_spc_ndx('H'), c_int64_t)
+    ids_c(:) = 0_c_int64_t
+    flags_c(:) = 0_c_int64_t
 
-    has_n2  = n2_ndx > 0
-    has_o2  = o2_ndx > 0
-    has_h2o = h2o_ndx > 0
-    has_o3  = o3_ndx > 0
+    call setinv_inti_ids_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(flags_c))
+    call setinv_inti_log_codon()
+
+    m_ndx   = int(ids_c(1))
+    n2_ndx  = int(ids_c(2))
+    o2_ndx  = int(ids_c(3))
+    h2o_ndx = int(ids_c(4))
+    o3_ndx  = int(ids_c(5))
+
+    id_o  = int(ids_c(6))
+    id_o2 = int(ids_c(7))
+    id_h  = int(ids_c(8))
+
+    has_var_o2 = flags_c(1) /= 0_c_int64_t
+    has_n2     = flags_c(2) /= 0_c_int64_t
+    has_o2     = flags_c(3) /= 0_c_int64_t
+    has_h2o    = flags_c(4) /= 0_c_int64_t
+    has_o3     = flags_c(5) /= 0_c_int64_t
 
     if (masterproc) write(iulog,*) 'setinv_inti: m,n2,o2,h2o ndx = ',m_ndx,n2_ndx,o2_ndx,h2o_ndx
 
@@ -92,6 +117,19 @@ contains
     enddo
       
   end subroutine setinv_inti
+
+  subroutine setinv_inti_log_codon()
+
+    use spmd_utils, only : masterproc
+
+    implicit none
+
+    if (masterproc) then
+       write(iulog,*) 'setinv_inti implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine setinv_inti_log_codon
 
   subroutine setinv( invariants, tfld, h2ovmr, vmr, pmid, ncol, lchnk, pbuf )
     !-----------------------------------------------------------------

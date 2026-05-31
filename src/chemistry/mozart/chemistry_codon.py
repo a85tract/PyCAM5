@@ -26,6 +26,10 @@ def init_strato_rates_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_strato_chem
     return _common.init_strato_rates_ids_codon(lookup_ids_p, ids_p, has_strato_chem_p)
 
 @export
+def setinv_inti_ids_codon(lookup_ids_p: cobj, ids_p: cobj, flags_p: cobj):
+    return _common.setinv_inti_ids_codon(lookup_ids_p, ids_p, flags_p)
+
+@export
 def phtadj_codon() -> int:
     return 1
 
