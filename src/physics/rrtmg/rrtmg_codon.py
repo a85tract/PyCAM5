@@ -75,6 +75,58 @@ def rrtmg_lwdatinit_codon(
 
 
 @export
+def rrtmg_swdatinit_codon(
+    nbndsw: int,
+    wavenum1_p: cobj,
+    wavenum2_p: cobj,
+    delwave_p: cobj,
+    ng_p: cobj,
+    nspa_p: cobj,
+    nspb_p: cobj,
+    constants_p: cobj,
+):
+    wavenum1 = Ptr[float](wavenum1_p)
+    wavenum2 = Ptr[float](wavenum2_p)
+    delwave = Ptr[float](delwave_p)
+    ng = Ptr[int](ng_p)
+    nspa = Ptr[int](nspa_p)
+    nspb = Ptr[int](nspb_p)
+    constants = Ptr[float](constants_p)
+
+    wavenum1_values = (
+        2600.0, 3250.0, 4000.0, 4650.0, 5150.0, 6150.0, 7700.0,
+        8050.0, 12850.0, 16000.0, 22650.0, 29000.0, 38000.0, 820.0,
+    )
+    wavenum2_values = (
+        3250.0, 4000.0, 4650.0, 5150.0, 6150.0, 7700.0, 8050.0,
+        12850.0, 16000.0, 22650.0, 29000.0, 38000.0, 50000.0, 2600.0,
+    )
+    delwave_values = (
+        650.0, 750.0, 650.0, 500.0, 1000.0, 1550.0, 350.0,
+        4800.0, 3150.0, 6650.0, 6350.0, 9000.0, 12000.0, 1780.0,
+    )
+    nspa_values = (9, 9, 9, 9, 1, 9, 9, 1, 9, 1, 0, 1, 9, 1)
+    nspb_values = (1, 5, 1, 1, 1, 5, 1, 0, 1, 0, 0, 1, 5, 1)
+
+    for i in range(nbndsw):
+        wavenum1[i] = wavenum1_values[i]
+        wavenum2[i] = wavenum2_values[i]
+        delwave[i] = delwave_values[i]
+        ng[i] = 16
+        nspa[i] = nspa_values[i]
+        nspb[i] = nspb_values[i]
+
+    constants[0] = 6.62606876e-27
+    constants[1] = 1.3806503e-16
+    constants[2] = 2.99792458e+10
+    constants[3] = 2.6867775e+19
+    constants[4] = 8.31447200e+07
+    constants[5] = 1.191042722e-12
+    constants[6] = 1.4387752
+    constants[7] = 4.0
+
+
+@export
 def rrtmg_rad_gas_index_codon(name_len: int, name_p: cobj) -> int:
     name = Ptr[int](name_p)
     if name_len == 3 and name[0] == 72 and name[1] == 50 and name[2] == 79:

@@ -26,8 +26,11 @@
       implicit none
 
       logical :: use_native_rrtmg_sw_init_impl = .false.
+      logical :: use_native_swdatinit_impl = .false.
       logical :: rrtmg_sw_init_impl_selected = .false.
+      logical :: swdatinit_impl_selected = .false.
       logical :: rrtmg_sw_init_entered_logged = .false.
+      logical :: swdatinit_logged = .false.
 
       interface
          function rrtmg_init_real_passthrough_codon(value_c) result(result_c) &
@@ -36,6 +39,14 @@
             real(c_double), value :: value_c
             real(c_double) :: result_c
          end function rrtmg_init_real_passthrough_codon
+         subroutine rrtmg_swdatinit_codon(nbndsw_c, wavenum1_p, wavenum2_p, &
+              delwave_p, ng_p, nspa_p, nspb_p, constants_p) &
+              bind(c, name="rrtmg_swdatinit_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nbndsw_c
+            type(c_ptr), value :: wavenum1_p, wavenum2_p, delwave_p
+            type(c_ptr), value :: ng_p, nspa_p, nspb_p, constants_p
+         end subroutine rrtmg_swdatinit_codon
          subroutine rrtmg_sw_swcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
               bind(c, name="rrtmg_sw_swcmbdat_codon")
             use iso_c_binding, only: c_ptr
@@ -219,14 +230,47 @@
 
 ! --------- Modules ----------
 
+      use parrrsw, only: nbndsw
       use rrsw_con, only: heatfac, grav, planck, boltz, &
                           clight, avogad, alosmt, gascon, radcn1, radcn2 
       use rrsw_wvn, only: ng, nspa, nspb, wavenum1, wavenum2, delwave
       use shr_const_mod, only: shr_const_avogad
       use physconst,     only: cday, gravit, cpair
       use rrsw_vsn
+      use iso_c_binding, only: c_double, c_int64_t, c_loc
 
       save 
+
+      integer(c_int64_t), target :: ng_c(nbndsw), nspa_c(nbndsw), nspb_c(nbndsw)
+      real(c_double), target :: constants_c(8)
+      integer :: ibnd, offset
+
+      call swdatinit_select_impl()
+      if (.not. use_native_swdatinit_impl) then
+         call rrtmg_swdatinit_codon(int(nbndsw, c_int64_t), &
+              c_loc(wavenum1(lbound(wavenum1,1))), c_loc(wavenum2(lbound(wavenum2,1))), &
+              c_loc(delwave(lbound(delwave,1))), c_loc(ng_c(1)), c_loc(nspa_c(1)), &
+              c_loc(nspb_c(1)), c_loc(constants_c(1)))
+
+         do ibnd = lbound(ng,1), ubound(ng,1)
+            offset = ibnd - lbound(ng,1) + 1
+            ng(ibnd) = int(ng_c(offset))
+            nspa(ibnd) = int(nspa_c(offset))
+            nspb(ibnd) = int(nspb_c(offset))
+         enddo
+         grav = gravit
+         avogad = shr_const_avogad * 1.e-3_r8
+         heatfac = grav * cday * 1.e-5_r8 / (cpair * 1.e-3_r8)
+         planck = constants_c(1)
+         boltz = constants_c(2)
+         clight = constants_c(3)
+         alosmt = constants_c(4)
+         gascon = constants_c(5)
+         radcn1 = constants_c(6)
+         radcn2 = constants_c(7)
+         call swdatinit_log()
+         return
+      endif
  
 ! Shortwave spectral band limits (wavenumbers)
       wavenum1(:) = (/2600._r8, 3250._r8, 4000._r8, 4650._r8, 5150._r8, 6150._r8, 7700._r8, &
@@ -280,6 +324,56 @@
 !          radcn2 = planck*clight/boltz
 
       end subroutine swdatinit
+
+!***************************************************************************
+      subroutine swdatinit_select_impl()
+!***************************************************************************
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      integer :: n, status
+      character(len=16) :: impl_name
+
+      if (swdatinit_impl_selected) return
+
+      impl_name = ''
+      call get_environment_variable('RRTMG_SWDATINIT_IMPL', value=impl_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         use_native_swdatinit_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_swdatinit_impl = .false.
+      endif
+
+      swdatinit_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_swdatinit_impl) then
+            write(iulog,*) 'swdatinit implementation = native'
+         else
+            write(iulog,*) 'swdatinit implementation = codon'
+         endif
+         call flush(iulog)
+      endif
+
+      end subroutine swdatinit_select_impl
+
+!***************************************************************************
+      subroutine swdatinit_log()
+!***************************************************************************
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      if (swdatinit_logged) return
+      swdatinit_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'swdatinit entered (SW constants and spectral metadata = codon)'
+         call flush(iulog)
+      endif
+
+      end subroutine swdatinit_log
 
 !***************************************************************************
       subroutine swcmbdat
