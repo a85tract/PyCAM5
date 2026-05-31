@@ -53,6 +53,7 @@ logical :: modal_aero_wateruptake_dr_wet_stage_selected = .false.
 logical :: modal_aero_wateruptake_dr_kohler_stage_selected = .false.
 logical :: modal_aero_wateruptake_reg_logged = .false.
 logical :: modal_aero_wateruptake_init_logged = .false.
+logical :: modal_aero_kohler_logged = .false.
 integer :: modal_aero_wateruptake_dr_wet_stage = 0
 integer :: modal_aero_wateruptake_dr_kohler_stage = 0
 character(len=32) :: modal_aero_wateruptake_dr_wet_stage_name = 'native'
@@ -1549,7 +1550,7 @@ function modal_aero_kohler_native_cb(dryrad_in_c, hygro_c, s_c) bind(c, name="mo
   hygro_1(1) = real(hygro_c, r8)
   s_1(1) = real(s_c, r8)
 
-  call modal_aero_kohler(dryrad_in_1, hygro_1, s_1, rwet_out_1, 1)
+  call modal_aero_kohler_native(dryrad_in_1, hygro_1, s_1, rwet_out_1, 1)
 
   rwet_out_c = real(rwet_out_1(1), c_double)
 
@@ -1827,6 +1828,104 @@ end subroutine modal_aero_wateruptake_sub
       subroutine modal_aero_kohler(   &
           rdry_in, hygro, s, rwet_out, im )
 
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+! arguments
+      integer :: im         ! number of grid points to be processed
+      real(r8), target :: rdry_in(:)    ! aerosol dry radius (m)
+      real(r8), target :: hygro(:)      ! aerosol volume-mean hygroscopicity (--)
+      real(r8), target :: s(:)          ! relative humidity (1 = saturated)
+      real(r8), target :: rwet_out(:)   ! aerosol wet radius (m)
+
+      character(len=48) :: impl_name, env_name, stage_name
+      integer :: status, n, i, code, solver_stage
+
+      interface
+         subroutine modal_aero_kohler_codon(im_c, solver_stage_c, rdry_in_p, hygro_p, s_p, rwet_out_p) &
+              bind(c, name="modal_aero_kohler_codon")
+           use iso_c_binding, only: c_int64_t, c_ptr
+           integer(c_int64_t), value :: im_c, solver_stage_c
+           type(c_ptr), value :: rdry_in_p, hygro_p, s_p, rwet_out_p
+         end subroutine modal_aero_kohler_codon
+      end interface
+
+      impl_name = 'codon'
+      env_name = ''
+      call get_environment_variable('MODAL_AERO_KOHLER_IMPL', value=env_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(env_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               env_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         impl_name = trim(adjustl(env_name(:n)))
+      end if
+
+      if (trim(impl_name) == 'native') then
+         call modal_aero_kohler_native(rdry_in, hygro, s, rwet_out, im)
+         return
+      else if (trim(impl_name) /= 'codon') then
+         call endrun('modal_aero_kohler: unknown MODAL_AERO_KOHLER_IMPL='//trim(impl_name))
+      end if
+
+      stage_name = 'quartic_sqrt_pow_native'
+      env_name = ''
+      call get_environment_variable('MODAL_AERO_KOHLER_STAGE', value=env_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(env_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               env_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         stage_name = trim(adjustl(env_name(:n)))
+      end if
+
+      select case (trim(stage_name))
+      case ('all_codon')
+         solver_stage = kohler_stage_all_codon
+      case ('codon')
+         solver_stage = kohler_stage_codon
+      case ('roots_native')
+         solver_stage = kohler_stage_roots_native
+      case ('sat_native')
+         solver_stage = kohler_stage_sat_native
+      case ('subsat_native')
+         solver_stage = kohler_stage_subsat_native
+      case ('quartic_native')
+         solver_stage = kohler_stage_quartic_native
+      case ('cubic_native')
+         solver_stage = kohler_stage_cubic_native
+      case ('quartic_sqrt_native')
+         solver_stage = kohler_stage_quartic_sqrt_native
+      case ('quartic_pow_native')
+         solver_stage = kohler_stage_quartic_pow_native
+      case ('quartic_sqrt_pow_native')
+         solver_stage = kohler_stage_quartic_sqrt_pow_native
+      case default
+         call endrun('modal_aero_kohler: unknown MODAL_AERO_KOHLER_STAGE='//trim(stage_name))
+      end select
+
+      call modal_aero_kohler_codon(int(im, c_int64_t), int(solver_stage, c_int64_t), &
+           c_loc(rdry_in(1)), c_loc(hygro(1)), c_loc(s(1)), c_loc(rwet_out(1)))
+
+      if (masterproc .and. .not. modal_aero_kohler_logged) then
+         modal_aero_kohler_logged = .true.
+         write(iulog,*) 'modal_aero_kohler implementation = codon; root/sqrt/pow-sensitive solver islands = ', &
+              trim(stage_name)
+         call flush(iulog)
+      end if
+
+      return
+      end subroutine modal_aero_kohler
+
+!-----------------------------------------------------------------------
+      subroutine modal_aero_kohler_native(   &
+          rdry_in, hygro, s, rwet_out, im )
+
 ! calculates equlibrium radius r of haze droplets as function of
 ! dry particle mass and relative humidity s using kohler solution
 ! given in pruppacher and klett (eqn 6-35)
@@ -1979,7 +2078,7 @@ end subroutine modal_aero_wateruptake_sub
       end do
 
       return
-      end subroutine modal_aero_kohler
+      end subroutine modal_aero_kohler_native
 
 
 !-----------------------------------------------------------------------

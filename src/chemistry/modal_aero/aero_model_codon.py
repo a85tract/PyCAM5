@@ -704,6 +704,51 @@ def _medan(a: float, b: float, c: float) -> float:
 
 
 @export
+def modal_aero_kohler_codon(
+    im: int,
+    solver_stage: int,
+    rdry_in_p: cobj,
+    hygro_p: cobj,
+    s_p: cobj,
+    rwet_out_p: cobj,
+):
+    rdry_in = Ptr[float](rdry_in_p)
+    hygro = Ptr[float](hygro_p)
+    s = Ptr[float](s_p)
+    rwet_out = Ptr[float](rwet_out_p)
+
+    i = 0
+    while i < im:
+        if solver_stage == 1:
+            rwet_out[i] = modal_aero_kohler_native_cb(rdry_in[i], hygro[i], s[i])
+        elif solver_stage == 3:
+            rwet_out[i] = _modal_aero_kohler_scalar_native_roots(rdry_in[i], hygro[i], s[i])
+        elif solver_stage == 4:
+            rwet_out[i] = _modal_aero_kohler_scalar_sat_native(rdry_in[i], hygro[i], s[i])
+        elif solver_stage == 5:
+            rwet_out[i] = _modal_aero_kohler_scalar_subsat_native(rdry_in[i], hygro[i], s[i])
+        elif solver_stage == 6:
+            rwet_out[i] = _modal_aero_kohler_scalar_quartic_native(rdry_in[i], hygro[i], s[i])
+        elif solver_stage == 7:
+            rwet_out[i] = _modal_aero_kohler_scalar_cubic_native(rdry_in[i], hygro[i], s[i])
+        elif solver_stage == 8:
+            rwet_out[i] = _modal_aero_kohler_scalar_quartic_sqrt_native(
+                rdry_in[i], hygro[i], s[i]
+            )
+        elif solver_stage == 9:
+            rwet_out[i] = _modal_aero_kohler_scalar_quartic_pow_native(
+                rdry_in[i], hygro[i], s[i]
+            )
+        elif solver_stage == 10:
+            rwet_out[i] = _modal_aero_kohler_scalar_quartic_sqrt_pow_native(
+                rdry_in[i], hygro[i], s[i]
+            )
+        else:
+            rwet_out[i] = _modal_aero_kohler_scalar_all_codon(rdry_in[i], hygro[i], s[i])
+        i += 1
+
+
+@export
 def modal_aero_depvel_part_codon(
     ncol: int,
     pcols: int,
