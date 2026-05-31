@@ -1016,6 +1016,13 @@ function get_curr_calday(offset)
    integer :: year, month, day, tod
 !-----------------------------------------------------------------------------------------
 
+#define CAM_MISC_TAG 348
+#define CAM_MISC_LABEL 'get_curr_calday'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
 

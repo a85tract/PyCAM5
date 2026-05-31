@@ -646,8 +646,16 @@ end subroutine atm2hub_alloc_init_log_entered
 
   end subroutine atm2hub_deallocate
   subroutine hub2atm_deallocate(cam_in)
+    use iso_c_binding, only: c_int64_t
     type(cam_in_t), pointer :: cam_in(:)    ! Atmosphere to surface input
     integer :: c
+
+#define CAM_MISC_TAG 347
+#define CAM_MISC_LABEL 'hub2atm_deallocate'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     if(associated(cam_in)) then
        do c=begchunk,endchunk

@@ -174,7 +174,7 @@ contains
     integer :: mdimsize, mdimprod, i
 
 #define CAM_MISC_TAG 208
-#define CAM_MISC_LABEL 'cam_pio_utils'
+#define CAM_MISC_LABEL 'get_phys_decomp_mdnd'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
@@ -283,6 +283,13 @@ contains
     integer :: i
     integer(i8) :: tag, j
     integer :: multiplier = 1000
+
+#define CAM_MISC_TAG 342
+#define CAM_MISC_LABEL 'find_iodesc'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     found = .false.
     this => iodesc_list_top
@@ -692,6 +699,13 @@ contains
     character(len=3) :: fileorder
     integer :: ierr
     logical, allocatable :: localhmask(:,:)
+
+#define CAM_MISC_TAG 343
+#define CAM_MISC_LABEL 'get_phys_ldof'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     allocate(localhmask(pcols,begchunk:endchunk))
 

@@ -1631,7 +1631,7 @@ contains
      namelist /spmd_utils_nl/ swap_comm_protocol,swap_comm_maxreq,fc_gather_flow_cntl
 
 #define CAM_MISC_TAG 209
-#define CAM_MISC_LABEL 'spmd_utils'
+#define CAM_MISC_LABEL 'spmd_utils_readnl'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL

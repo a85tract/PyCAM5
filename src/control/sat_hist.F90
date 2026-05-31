@@ -148,6 +148,13 @@ contains
     namelist /satellite_options_nl/ sathist_track_infile, sathist_hfilename_spec, sathist_fincl, &
          sathist_mfilt, sathist_nclosest, sathist_ntimestep
 
+#define CAM_MISC_TAG 344
+#define CAM_MISC_LABEL 'sat_hist_readnl'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     ! set defaults
 
     sathist_track_infile = ' '

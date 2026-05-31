@@ -752,7 +752,7 @@ contains
     integer                                              :: i
 
 #define CAM_MISC_TAG 207
-#define CAM_MISC_LABEL 'cam_history_support'
+#define CAM_MISC_LABEL 'add_hist_coord_r8'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
@@ -1039,6 +1039,13 @@ contains
     logical                          :: writemdims     ! Define an mdim variable
     type(var_desc_t)                 :: vardesc        ! PIO variable descriptor
 
+#define CAM_MISC_TAG 345
+#define CAM_MISC_LABEL 'write_hist_coord_attrs'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     if (present(mdimids)) then
       allocate(mdimids(registeredmdims))
     end if
@@ -1169,6 +1176,13 @@ contains
     logical                          :: writemdims     ! Define an mdim variable
     type(var_desc_t)                 :: vardesc        ! PIO variable descriptor
     character(len=max_mdimname_len), allocatable :: mdimnames(:)
+
+#define CAM_MISC_TAG 346
+#define CAM_MISC_LABEL 'write_hist_coord_vars'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     ! We will handle errors for this routine
     call pio_seterrorhandling(File, PIO_BCAST_ERROR)
