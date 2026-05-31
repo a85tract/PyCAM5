@@ -14,6 +14,36 @@ def get_gcol_block_cnt_d_codon() -> int:
     return 1
 
 @export
+def set_interp_parameter_codon(
+    parm_code: int,
+    value: int,
+    gridtype_in: int,
+    itype_in: int,
+    nlon_in: int,
+    nlat_in: int,
+    auto_grid_in: int,
+    itype_out_p: cobj,
+    nlon_out_p: cobj,
+    nlat_out_p: cobj,
+    gridtype_out_p: cobj,
+    auto_grid_out_p: cobj,
+) -> int:
+    return _misc.set_interp_parameter_codon(
+        parm_code,
+        value,
+        gridtype_in,
+        itype_in,
+        nlon_in,
+        nlat_in,
+        auto_grid_in,
+        itype_out_p,
+        nlon_out_p,
+        nlat_out_p,
+        gridtype_out_p,
+        auto_grid_out_p,
+    )
+
+@export
 def prim_subcycle_dp3d_init_codon(
     np: int,
     nlev: int,

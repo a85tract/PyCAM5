@@ -119,11 +119,25 @@ contains
 
 
   subroutine set_interp_parameter(parm_name, value)
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     character*(*), intent(in) :: parm_name
     character(len=80) :: msg
-    integer :: value,power
-    real (kind=real_kind) :: value_target
+    integer :: value
+    integer(c_int64_t) :: parm_code, codon_status
+    integer(c_int64_t), target :: itype_out, nlon_out, nlat_out, gridtype_out, auto_grid_out
+    logical, save :: set_interp_parameter_codon_logged = .false.
+    interface
+       function set_interp_parameter_codon(parm_code_c, value_c, gridtype_in_c, itype_in_c, &
+            nlon_in_c, nlat_in_c, auto_grid_in_c, itype_out_p, nlon_out_p, nlat_out_p, &
+            gridtype_out_p, auto_grid_out_p) result(status_c) &
+            bind(c, name='set_interp_parameter_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: parm_code_c, value_c, gridtype_in_c, itype_in_c
+         integer(c_int64_t), value :: nlon_in_c, nlat_in_c, auto_grid_in_c
+         type(c_ptr), value :: itype_out_p, nlon_out_p, nlat_out_p, gridtype_out_p, auto_grid_out_p
+         integer(c_int64_t) :: status_c
+       end function set_interp_parameter_codon
+    end interface
 
 #define SE_MISC_TAG 28
 #define SE_MISC_LABEL 'interpolate_mod'
@@ -132,44 +146,38 @@ contains
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
 
+    parm_code = 0_c_int64_t
     if(parm_name .eq. 'itype') then
-       itype=value
+       parm_code = 1_c_int64_t
     else if(parm_name .eq. 'nlon') then
-       nlon=value
+       parm_code = 2_c_int64_t
     else if(parm_name .eq. 'nlat') then
-       nlat=value
+       parm_code = 3_c_int64_t
     else if(parm_name.eq. 'gridtype') then
-       gridtype=value
+       parm_code = 4_c_int64_t
     else if(parm_name.eq. 'auto') then
-       auto_grid=1
-       ! compute recommended nlat,nlon which has slightly higher
-       ! resolution than the specifed number of points around equator given in "value"
-       ! computed recommended lat-lon grid.
-       ! nlon > peq   peq = points around equator cubed sphere grid
-       ! take nlon power of 2, and at most 1 power of 3
-       if (value.eq.0) then
-           ! If reading in unstructured mesh, ne = 0
-           ! This makes it hard to guess how many interpolation points to use
-           ! So We'll set the default as 720 x 360
-           ! BUT if you're running with an unstructured mesh, set interp_nlon and interp_nlat
-           nlon = 1536
-           nlat = 768
-       else
-           value_target=value*1.25
-           power = nint(.5 +  log( value_target)/log(2d0) )
-           power = max(power,7) ! min grid: 64x128
-           if ( 3*2**(power-2) > value_target) then
-               nlon=3*2**(power-2)   ! use 1 power of 3
-           else
-               nlon=2**power
-           endif
-       endif
-       nlat=nlon/2
-       if (gridtype==1) nlat=nlat+1
+       parm_code = 5_c_int64_t
     else
        write(msg,*) 'Did not recognize parameter named ',parm_name,' in interpolate_mod:set_interp_parameter'
        call abortmp(msg)
     end if
+
+    codon_status = set_interp_parameter_codon(parm_code, int(value, c_int64_t), int(gridtype, c_int64_t), &
+         int(itype, c_int64_t), int(nlon, c_int64_t), int(nlat, c_int64_t), int(auto_grid, c_int64_t), &
+         c_loc(itype_out), c_loc(nlon_out), c_loc(nlat_out), c_loc(gridtype_out), c_loc(auto_grid_out))
+    if (codon_status /= 1_c_int64_t) then
+       write(msg,*) 'Codon set_interp_parameter failed for ',parm_name
+       call abortmp(msg)
+    endif
+    itype = int(itype_out)
+    nlon = int(nlon_out)
+    nlat = int(nlat_out)
+    gridtype = int(gridtype_out)
+    auto_grid = int(auto_grid_out)
+    if (.not. set_interp_parameter_codon_logged) then
+       write(iulog,*) 'set_interp_parameter implementation = codon'
+       set_interp_parameter_codon_logged = .true.
+    endif
   end subroutine set_interp_parameter
   function get_interp_parameter(parm_name) result(value)
     character*(*), intent(in) :: parm_name

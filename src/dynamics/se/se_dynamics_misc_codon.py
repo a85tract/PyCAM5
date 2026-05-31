@@ -1,8 +1,72 @@
-from math import asin, atan2, cos, sqrt, tan
+from math import asin, atan2, cos, log, sqrt, tan
 
 
 def se_misc_touch_codon(tag: int) -> int:
     return tag
+
+
+def set_interp_parameter_codon(
+    parm_code: int,
+    value: int,
+    gridtype_in: int,
+    itype_in: int,
+    nlon_in: int,
+    nlat_in: int,
+    auto_grid_in: int,
+    itype_out_p: cobj,
+    nlon_out_p: cobj,
+    nlat_out_p: cobj,
+    gridtype_out_p: cobj,
+    auto_grid_out_p: cobj,
+) -> int:
+    itype_out = Ptr[int](itype_out_p)
+    nlon_out = Ptr[int](nlon_out_p)
+    nlat_out = Ptr[int](nlat_out_p)
+    gridtype_out = Ptr[int](gridtype_out_p)
+    auto_grid_out = Ptr[int](auto_grid_out_p)
+
+    itype = itype_in
+    nlon = nlon_in
+    nlat = nlat_in
+    gridtype = gridtype_in
+    auto_grid = auto_grid_in
+
+    if parm_code == 1:
+        itype = value
+    elif parm_code == 2:
+        nlon = value
+    elif parm_code == 3:
+        nlat = value
+    elif parm_code == 4:
+        gridtype = value
+    elif parm_code == 5:
+        auto_grid = 1
+        if value == 0:
+            nlon = 1536
+            nlat = 768
+        else:
+            value_target = float(value) * 1.25
+            power = int((0.5 + log(value_target) / log(2.0)) + 0.5)
+            if power < 7:
+                power = 7
+            pow2 = 1 << power
+            pow2_m2 = 1 << (power - 2)
+            if 3 * pow2_m2 > value_target:
+                nlon = 3 * pow2_m2
+            else:
+                nlon = pow2
+            nlat = nlon // 2
+            if gridtype == 1:
+                nlat += 1
+    else:
+        return 0
+
+    itype_out[0] = itype
+    nlon_out[0] = nlon
+    nlat_out[0] = nlat
+    gridtype_out[0] = gridtype
+    auto_grid_out[0] = auto_grid
+    return 1
 
 
 def get_block_gcol_d_codon(size: int, unique_pt_offset: int, cdex_p: cobj):
