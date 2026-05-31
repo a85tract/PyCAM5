@@ -51,6 +51,13 @@ function to_upper(str)
    integer :: lower_to_upper   ! integer to convert case
    character(len=1) :: ctmp    ! Character temporary
 !-----------------------------------------------------------------------
+#define CAM_MISC_TAG 335
+#define CAM_MISC_LABEL 'to_upper'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    lower_to_upper = iachar("A") - iachar("a")
 
    do i = 1, len(str)
@@ -88,6 +95,13 @@ function to_lower(str)
    integer :: upper_to_lower   ! integer to convert case
    character(len=1) :: ctmp    ! Character temporary
 !-----------------------------------------------------------------------
+#define CAM_MISC_TAG 336
+#define CAM_MISC_LABEL 'to_lower'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    upper_to_lower = iachar("a") - iachar("A")
 
    do i = 1, len(str)
@@ -236,6 +250,13 @@ integer function GLC( cs )
   ! 	... Local variables
   !-----------------------------------------------------------------------
   integer :: l, n
+
+#define CAM_MISC_TAG 337
+#define CAM_MISC_LABEL 'glc'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
   l = LEN( cs )
   if( l == 0 ) then

@@ -601,6 +601,13 @@ CONTAINS
     type(mct_aVect)             ,intent(inout) :: x2a_a
     type(mct_aVect)             ,intent(inout) :: a2x_a
 
+#define CAM_MISC_TAG 338
+#define CAM_MISC_LABEL 'atm_final_mct'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     call cam_final( cam_out, cam_in )
 
   end subroutine atm_final_mct

@@ -950,6 +950,13 @@ subroutine distnl
    use mpishorthand
 !-----------------------------------------------------------------------
 
+#define CAM_MISC_TAG 333
+#define CAM_MISC_LABEL 'distnl'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
 !
 !-----------------------------------------------------------------------
 !

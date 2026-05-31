@@ -398,6 +398,13 @@ CONTAINS
     character(len=32) :: fldname ! temp variable used to produce a left justified field name
                                    ! in the formatted logfile output
 
+#define CAM_MISC_TAG 332
+#define CAM_MISC_LABEL 'intht'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
 !
 ! Print master field list
 !

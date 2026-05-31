@@ -282,6 +282,13 @@ subroutine hycoef_read(File)
    integer :: flev, filev, lev_dimid, ierr
    character(len=*), parameter :: routine = 'hycoef_read'
 
+#define CAM_MISC_TAG 334
+#define CAM_MISC_LABEL 'hycoef_read'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    ! PIO traps errors internally, no need to check ierr
 
    ierr = PIO_Inq_DimID(File, 'lev', lev_dimid)
