@@ -90,6 +90,7 @@ logical :: radiation_do_logged = .false.
 logical :: use_native_radiation_nextsw_cday_impl = .false.
 logical :: radiation_nextsw_cday_impl_selected = .false.
 logical :: radiation_nextsw_cday_logged = .false.
+logical :: radinp_logged = .false.
 
 interface
    subroutine radiation_defaultopts_codon(iradsw_c, iradlw_c, irad_always_c, spectralflux_c, out_p) &
@@ -824,6 +825,20 @@ end function radiation_nextsw_cday
     end if
 
   end subroutine radiation_nextsw_cday_log
+
+!===============================================================================
+
+  subroutine radinp_log()
+
+    if (radinp_logged) return
+    radinp_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radinp implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine radinp_log
 
 !===============================================================================
 
@@ -2017,6 +2032,7 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
       end do
    else
       call radiation_diag_prep_log_entered()
+      call radinp_log()
       call radiation_diag_prep_pressure(ncol, c_loc(pmid(1,1)), c_loc(pint(1,1)), &
            c_loc(pmidrd(1,1)), c_loc(pintrd(1,1)), c_loc(pmidrd(1,1)))
    end if
