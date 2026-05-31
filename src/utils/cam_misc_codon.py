@@ -21,6 +21,27 @@ def findplb_codon(x: Ptr[float], nx: int, xval: float) -> int:
 
 
 @export
+def lininterp1d_codon(
+    arrin_p: cobj,
+    arrout_p: cobj,
+    wgts_p: cobj,
+    wgtn_p: cobj,
+    jjm_p: cobj,
+    jjp_p: cobj,
+    m1: int,
+):
+    arrin = Ptr[float](arrin_p)
+    arrout = Ptr[float](arrout_p)
+    wgts = Ptr[float](wgts_p)
+    wgtn = Ptr[float](wgtn_p)
+    jjm = Ptr[int](jjm_p)
+    jjp = Ptr[int](jjp_p)
+
+    for j in range(m1):
+        arrout[j] = arrin[jjm[j] - 1] * wgts[j] + arrin[jjp[j] - 1] * wgtn[j]
+
+
+@export
 def handle_pio_error_ok_codon(ierr: int, pio_noerr: int) -> int:
     return 1 if ierr == pio_noerr else 0
 

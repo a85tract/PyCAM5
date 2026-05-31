@@ -24,6 +24,7 @@ module interpolate_data
      integer, pointer  :: jjm(:)
      integer, pointer  :: jjp(:)
   end type interp_type
+  logical, save :: lininterp1d_codon_logged = .false.
   interface lininterp
      module procedure lininterp_original
      module procedure lininterp_full1d
@@ -328,6 +329,9 @@ contains
     !
     !-----------------------------------------------------------------------
     !-----------------------------------------------------------------------
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use spmd_utils, only: masterproc
+
     implicit none
     !-----------------------------------------------------------------------
     !
@@ -336,9 +340,9 @@ contains
     integer, intent(in) :: n1                 ! number of input latitudes
     integer, intent(in) :: m1                ! number of output latitudes
 
-    real(r8), intent(in) :: arrin(n1)    ! input array of values to interpolate
+    real(r8), target, intent(in) :: arrin(n1)    ! input array of values to interpolate
     type(interp_type), intent(in) :: interp_wgts
-    real(r8), intent(out) :: arrout(m1) ! interpolated array
+    real(r8), target, intent(out) :: arrout(m1) ! interpolated array
 
     !
     ! Local workspace
@@ -349,6 +353,17 @@ contains
 
     real(r8), pointer :: wgts(:)
     real(r8), pointer :: wgtn(:)
+    integer(c_int64_t), target :: jjm_c(m1)
+    integer(c_int64_t), target :: jjp_c(m1)
+
+    interface
+       subroutine lininterp1d_codon(arrin_p, arrout_p, wgts_p, wgtn_p, jjm_p, jjp_p, m1_c) &
+            bind(c, name="lininterp1d_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         type(c_ptr), value :: arrin_p, arrout_p, wgts_p, wgtn_p, jjm_p, jjp_p
+         integer(c_int64_t), value :: m1_c
+       end subroutine lininterp1d_codon
+    end interface
 
 
     jjm => interp_wgts%jjm
@@ -356,12 +371,19 @@ contains
     wgts =>  interp_wgts%wgts
     wgtn =>  interp_wgts%wgtn
 
-    !
-    ! Do the interpolation
-    !
     do j=1,m1
-      arrout(j) = arrin(jjm(j))*wgts(j) + arrin(jjp(j))*wgtn(j)
+       jjm_c(j) = int(jjm(j), c_int64_t)
+       jjp_c(j) = int(jjp(j), c_int64_t)
     end do
+
+    call lininterp1d_codon(c_loc(arrin(1)), c_loc(arrout(1)), c_loc(wgts(1)), c_loc(wgtn(1)), &
+         c_loc(jjm_c(1)), c_loc(jjp_c(1)), int(m1, c_int64_t))
+
+    if (masterproc .and. .not. lininterp1d_codon_logged) then
+       write(iulog,*) 'lininterp1d implementation = codon'
+       lininterp1d_codon_logged = .true.
+       call flush(iulog)
+    end if
 
     return
   end subroutine lininterp1d
