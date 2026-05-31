@@ -27,6 +27,9 @@ module prim_advance_mod
   type (EdgeBuffer_t) :: edge3p1
 
   real (kind=real_kind) :: initialized_for_dt   = 0
+  logical :: applycamforcing_dynamics_use_native_impl = .false.
+  logical :: applycamforcing_dynamics_impl_selected = .false.
+  logical :: applycamforcing_dynamics_proof_written = .false.
 
   real (kind=real_kind), allocatable :: ur_weights(:)
 
@@ -1648,9 +1651,10 @@ subroutine prim_advance_si(elem, nets, nete, cg, blkjac, red, &
   use dimensions_mod, only : np, nlev, qsize
   use element_mod, only : element_t
   use hybvcoord_mod, only : hvcoord_t
+  use iso_c_binding, only : c_double, c_int64_t, c_ptr, c_loc
 
   implicit none
-  type (element_t)     , intent(inout) :: elem(:)
+  type (element_t)     , intent(inout), target :: elem(:)
   real (kind=real_kind), intent(in) :: dt_q
   type (hvcoord_t), intent(in)      :: hvcoord
   integer,  intent(in) :: np1,nets,nete
@@ -1660,13 +1664,63 @@ subroutine prim_advance_si(elem, nets, nete, cg, blkjac, red, &
   real (kind=real_kind) :: v1,dp
   logical :: wet
 
-  do ie=nets,nete
-     elem(ie)%state%T(:,:,:,np1) = elem(ie)%state%T(:,:,:,np1) + &
-          dt_q*elem(ie)%derived%FT(:,:,:,1)
-     elem(ie)%state%v(:,:,:,:,np1) = elem(ie)%state%v(:,:,:,:,np1) + &
-          dt_q*elem(ie)%derived%FM(:,:,:,:,1)
-  enddo
+  interface
+     subroutine applycamforcing_dynamics_codon(np_c, nlev_c, dt_q_c, t_p, ft_p, v_p, fm_p) &
+          bind(c, name='applycamforcing_dynamics_codon')
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: np_c, nlev_c
+       real(c_double), value :: dt_q_c
+       type(c_ptr), value :: t_p, ft_p, v_p, fm_p
+     end subroutine applycamforcing_dynamics_codon
+  end interface
+
+  call applycamforcing_dynamics_select_impl()
+
+  if (.not. applycamforcing_dynamics_use_native_impl) then
+     do ie=nets,nete
+        call applycamforcing_dynamics_codon(int(np, c_int64_t), int(nlev, c_int64_t), &
+             real(dt_q, c_double), c_loc(elem(ie)%state%T(1,1,1,np1)), &
+             c_loc(elem(ie)%derived%FT(1,1,1,1)), c_loc(elem(ie)%state%v(1,1,1,1,np1)), &
+             c_loc(elem(ie)%derived%FM(1,1,1,1,1)))
+     enddo
+     if (.not. applycamforcing_dynamics_proof_written) then
+        write(iulog,*) 'applycamforcing_dynamics implementation = codon'
+        applycamforcing_dynamics_proof_written = .true.
+     endif
+  else
+     do ie=nets,nete
+        elem(ie)%state%T(:,:,:,np1) = elem(ie)%state%T(:,:,:,np1) + &
+             dt_q*elem(ie)%derived%FT(:,:,:,1)
+        elem(ie)%state%v(:,:,:,:,np1) = elem(ie)%state%v(:,:,:,:,np1) + &
+             dt_q*elem(ie)%derived%FM(:,:,:,:,1)
+     enddo
+  endif
   end subroutine applyCAMforcing_dynamics
+
+  subroutine applycamforcing_dynamics_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (applycamforcing_dynamics_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('APPLYCAMFORCING_DYNAMICS_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       applycamforcing_dynamics_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       applycamforcing_dynamics_use_native_impl = .false.
+    end if
+
+    applycamforcing_dynamics_impl_selected = .true.
+  end subroutine applycamforcing_dynamics_select_impl
 
 
 

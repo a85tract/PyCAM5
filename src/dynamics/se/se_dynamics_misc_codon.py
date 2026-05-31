@@ -475,3 +475,16 @@ def se_timelevel_update_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cob
         return 1
     nstep[0] = i32(int(nstep[0]) + 1)
     return 0
+
+
+def applycamforcing_dynamics_codon(np: int, nlev: int, dt_q: float, t_p: cobj, ft_p: cobj, v_p: cobj, fm_p: cobj):
+    t = Ptr[float](t_p)
+    ft = Ptr[float](ft_p)
+    v = Ptr[float](v_p)
+    fm = Ptr[float](fm_p)
+    t_size = np * np * nlev
+    v_size = t_size * 2
+    for idx in range(t_size):
+        t[idx] = t[idx] + dt_q * ft[idx]
+    for idx in range(v_size):
+        v[idx] = v[idx] + dt_q * fm[idx]

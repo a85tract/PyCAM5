@@ -1250,3 +1250,23 @@ def legendre_codon(
         n,
         leg_p,
     )
+
+@export
+def applycamforcing_dynamics_codon(
+    np: int,
+    nlev: int,
+    dt_q: float,
+    t_p: cobj,
+    ft_p: cobj,
+    v_p: cobj,
+    fm_p: cobj,
+):
+    return _misc.applycamforcing_dynamics_codon(
+        np,
+        nlev,
+        dt_q,
+        t_p,
+        ft_p,
+        v_p,
+        fm_p,
+    )
