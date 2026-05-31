@@ -11,6 +11,21 @@ def chemistry_misc_touch_codon(tag: int) -> int:
     return _common.chemistry_misc_touch_codon(tag)
 
 @export
+def chem_lookup_name_codon(name_len: int, name_ascii_p: cobj, list_len: int, list_ascii_p: cobj, list_count: int) -> int:
+    return _common.chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
+
+@export
+def chem_lookup_mapped_name_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    list_len: int,
+    list_ascii_p: cobj,
+    map_p: cobj,
+    list_count: int,
+) -> int:
+    return _common.chem_lookup_mapped_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, map_p, list_count)
+
+@export
 def init_mean_mass_ids_codon(lookup_ids_p: cobj, species_ids_p: cobj):
     return _common.init_mean_mass_ids_codon(lookup_ids_p, species_ids_p)
 
