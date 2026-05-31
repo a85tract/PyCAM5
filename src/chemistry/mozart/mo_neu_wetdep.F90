@@ -62,6 +62,7 @@ module mo_neu_wetdep
   logical :: neu_wetdep_washo_dempirical_impl_selected = .false.
   logical :: neu_wetdep_washo_dempirical_selector_proof_written = .false.
   logical :: neu_wetdep_dempirical_wrap_proof_written = .false.
+  logical :: dempirical_codon_logged = .false.
   logical :: neu_wetdep_washo_wrap_proof_written = .false.
   logical :: neu_wetdep_washo_columns_wrap_proof_written = .false.
 !
@@ -2699,14 +2700,33 @@ upper_level : &
 !-----------------------------------------------------------------------
       function DEMPIRICAL (CWATER,RRATE)
 !-----------------------------------------------------------------------
-      use shr_spfn_mod, only: shr_spfn_gamma
-
       implicit none
       real(r8), intent(in)  :: CWATER   
       real(r8), intent(in)  :: RRATE
 
       real(r8) :: DEMPIRICAL
- 
+
+      call neu_wetdep_dempirical_codon_wrap(CWATER, RRATE, DEMPIRICAL)
+      if (masterproc .and. .not. dempirical_codon_logged) then
+         write(iulog,*) 'dempirical implementation = codon'
+         dempirical_codon_logged = .true.
+         call flush(iulog)
+      end if
+
+      return
+      end function DEMPIRICAL
+!
+!-----------------------------------------------------------------------
+      function DEMPIRICAL_NATIVE (CWATER,RRATE)
+!-----------------------------------------------------------------------
+      use shr_spfn_mod, only: shr_spfn_gamma
+
+      implicit none
+      real(r8), intent(in)  :: CWATER
+      real(r8), intent(in)  :: RRATE
+
+      real(r8) :: DEMPIRICAL_NATIVE
+
       real(r8) RRATEX,WX,THETA,PHI,ETA,BETA,ALPHA,BEE
       real(r8) GAMTHETA,GAMBETA
   
@@ -2727,12 +2747,12 @@ upper_level : &
       BEE=(.638_r8*THETA/(1._r8+.638_r8))-1.0_r8
       GAMTHETA = shr_spfn_gamma(THETA)
       GAMBETA  = shr_spfn_gamma(BETA+1._r8)
-      DEMPIRICAL=(((WX*ETA*GAMTHETA)/(1.0e6_r8*ALPHA*PHI*GAMBETA))** &
+      DEMPIRICAL_NATIVE=(((WX*ETA*GAMTHETA)/(1.0e6_r8*ALPHA*PHI*GAMBETA))** &
                  (-1._r8/BEE))*10._r8      ! in mm (wx/1e6 for cgs)
       
 
       return
-      end function DEMPIRICAL
+      end function DEMPIRICAL_NATIVE
 !
       function neu_wetdep_dempirical_native_cb(cwater_c, rrate_c) bind(c, name="neu_wetdep_dempirical_native_cb") &
            result(dempirical_c)
