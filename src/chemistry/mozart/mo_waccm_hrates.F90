@@ -31,27 +31,52 @@
         use cam_history,  only : addfld, phys_decomp
         use ppgrid,       only : pver
         use ref_pres,     only : ptop_ref, psurf_ref
+        use iso_c_binding, only : c_double, c_int64_t, c_loc
 
 
         implicit none
 
-	        integer :: ids(9)
+	        integer(c_int64_t), target :: lookup_ids(9)
+	        integer(c_int64_t), target :: ids_c(9)
+	        integer(c_int64_t), target :: has_hrates_c
 	        character(len=128) :: attr  ! netcdf variable attribute
 
-	        call chemistry_misc_codon_touch('mo_waccm_hrates', 142)
-	        id_co2   = get_spc_ndx( 'CO2' )
-        id_o2    = get_spc_ndx( 'O2' )
-        id_o3    = get_spc_ndx( 'O3' )
-        id_o2_1d = get_spc_ndx( 'O2_1D' )
-        id_o2_1s = get_spc_ndx( 'O2_1S' )
-        id_o1d   = get_spc_ndx( 'O1D' )
-        id_h2o   = get_spc_ndx( 'H2O' )
-        id_o     = get_spc_ndx( 'O' )
-        id_h     = get_spc_ndx( 'H' )
+        interface
+           subroutine init_hrates_ids_codon(lookup_ids_p, ptop_ref_c, psurf_ref_c, ids_p, has_hrates_p) &
+                bind(c, name="init_hrates_ids_codon")
+             use iso_c_binding, only : c_double, c_ptr
+             type(c_ptr), value :: lookup_ids_p, ids_p, has_hrates_p
+             real(c_double), value :: ptop_ref_c, psurf_ref_c
+           end subroutine init_hrates_ids_codon
+        end interface
 
-        ids = (/ id_co2, id_o2, id_o3, id_o2_1d, id_o2_1s, id_o1d, id_h2o, id_o, id_h /)
+        call chemistry_misc_codon_touch('init_hrates', 142)
+        lookup_ids(1) = int(get_spc_ndx( 'CO2' ), c_int64_t)
+        lookup_ids(2) = int(get_spc_ndx( 'O2' ), c_int64_t)
+        lookup_ids(3) = int(get_spc_ndx( 'O3' ), c_int64_t)
+        lookup_ids(4) = int(get_spc_ndx( 'O2_1D' ), c_int64_t)
+        lookup_ids(5) = int(get_spc_ndx( 'O2_1S' ), c_int64_t)
+        lookup_ids(6) = int(get_spc_ndx( 'O1D' ), c_int64_t)
+        lookup_ids(7) = int(get_spc_ndx( 'H2O' ), c_int64_t)
+        lookup_ids(8) = int(get_spc_ndx( 'O' ), c_int64_t)
+        lookup_ids(9) = int(get_spc_ndx( 'H' ), c_int64_t)
+        ids_c(:) = 0_c_int64_t
+        has_hrates_c = 0_c_int64_t
 
-        has_hrates = all( ids(:) > 0 ) .and. ptop_ref < 0.0004_r8 * psurf_ref
+        call init_hrates_ids_codon(c_loc(lookup_ids), real(ptop_ref, c_double), real(psurf_ref, c_double), &
+             c_loc(ids_c), c_loc(has_hrates_c))
+
+        id_co2   = int(ids_c(1))
+        id_o2    = int(ids_c(2))
+        id_o3    = int(ids_c(3))
+        id_o2_1d = int(ids_c(4))
+        id_o2_1s = int(ids_c(5))
+        id_o1d   = int(ids_c(6))
+        id_h2o   = int(ids_c(7))
+        id_o     = int(ids_c(8))
+        id_h     = int(ids_c(9))
+
+        has_hrates = has_hrates_c /= 0_c_int64_t
 
         if (.not. has_hrates) return
 

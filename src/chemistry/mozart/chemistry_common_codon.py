@@ -37,6 +37,17 @@ def init_mean_mass_ids_codon(lookup_ids_p: cobj, species_ids_p: cobj):
     for i in range(4):
         species_ids[i] = lookup_ids[i]
 
+def init_hrates_ids_codon(lookup_ids_p: cobj, ptop_ref: float, psurf_ref: float, ids_p: cobj, has_hrates_p: cobj):
+    lookup_ids = Ptr[int](lookup_ids_p)
+    ids = Ptr[int](ids_p)
+    has_hrates = Ptr[int](has_hrates_p)
+    all_present = True
+    for i in range(9):
+        ids[i] = lookup_ids[i]
+        if ids[i] <= 0:
+            all_present = False
+    has_hrates[0] = 1 if all_present and ptop_ref < 0.0004 * psurf_ref else 0
+
 def chem_final_codon() -> int:
     return 0
 

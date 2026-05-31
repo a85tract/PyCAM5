@@ -14,6 +14,10 @@ def init_mean_mass_ids_codon(lookup_ids_p: cobj, species_ids_p: cobj):
     return _common.init_mean_mass_ids_codon(lookup_ids_p, species_ids_p)
 
 @export
+def init_hrates_ids_codon(lookup_ids_p: cobj, ptop_ref: float, psurf_ref: float, ids_p: cobj, has_hrates_p: cobj):
+    return _common.init_hrates_ids_codon(lookup_ids_p, ptop_ref, psurf_ref, ids_p, has_hrates_p)
+
+@export
 def phtadj_codon() -> int:
     return 1
 
