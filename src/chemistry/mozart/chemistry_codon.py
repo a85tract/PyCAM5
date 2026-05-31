@@ -30,6 +30,10 @@ def setinv_inti_ids_codon(lookup_ids_p: cobj, ids_p: cobj, flags_p: cobj):
     return _common.setinv_inti_ids_codon(lookup_ids_p, ids_p, flags_p)
 
 @export
+def gas_wetdep_readnl_status_codon(pcnst: int, list_p: cobj, method_p: cobj, status_p: cobj):
+    return _common.gas_wetdep_readnl_status_codon(pcnst, list_p, method_p, status_p)
+
+@export
 def phtadj_codon() -> int:
     return 1
 

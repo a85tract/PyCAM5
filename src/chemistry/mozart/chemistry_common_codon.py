@@ -82,6 +82,27 @@ def setinv_inti_ids_codon(lookup_ids_p: cobj, ids_p: cobj, flags_p: cobj):
     flags[3] = 1 if ids[3] > 0 else 0
     flags[4] = 1 if ids[4] > 0 else 0
 
+def gas_wetdep_readnl_status_codon(pcnst: int, list_p: cobj, method_p: cobj, status_p: cobj):
+    wetdep_list = Ptr[byte](list_p)
+    method = Ptr[byte](method_p)
+    status = Ptr[int](status_p)
+    count = 0
+    for i in range(pcnst):
+        has_name = False
+        for j in range(8):
+            ch = int(wetdep_list[i * 8 + j])
+            if ch != 32 and ch != 0:
+                has_name = True
+        if has_name:
+            count += 1
+    c0 = int(method[0])
+    c1 = int(method[1])
+    c2 = int(method[2])
+    is_moz = c0 == 77 and c1 == 79 and c2 == 90
+    is_neu = c0 == 78 and c1 == 69 and c2 == 85
+    status[0] = count
+    status[1] = 1 if count > 0 and not (is_moz or is_neu) else 0
+
 def chem_final_codon() -> int:
     return 0
 
