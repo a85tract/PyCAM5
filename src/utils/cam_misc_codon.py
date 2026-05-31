@@ -4,6 +4,11 @@ def cam_misc_touch_codon(tag: int) -> int:
 
 
 @export
+def atm2hub_deallocate_codon(tag: int) -> int:
+    return tag
+
+
+@export
 def is_satfile_codon(file_index: int, sat_tape_num: int) -> int:
     return 1 if file_index == sat_tape_num else 0
 

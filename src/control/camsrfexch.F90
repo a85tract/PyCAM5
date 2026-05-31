@@ -598,7 +598,47 @@ end subroutine atm2hub_alloc_init_log_entered
   end subroutine atm2hub_alloc
 
   subroutine atm2hub_deallocate(cam_out)
+    use iso_c_binding, only: c_int64_t
     type(cam_out_t), pointer :: cam_out(:)    ! Atmosphere to surface input
+    interface
+       function atm2hub_deallocate_codon(tag) result(tag_out) bind(c, name="atm2hub_deallocate_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function atm2hub_deallocate_codon
+    end interface
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+    integer(c_int64_t) :: tag_out
+    logical :: use_native
+    logical, save :: proof_seen = .false.
+
+    impl_name = 'codon'
+    call get_environment_variable('CAM_MISC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native = .false.
+    end if
+
+    if (.not. use_native) then
+       tag_out = atm2hub_deallocate_codon(357_c_int64_t)
+       if (tag_out /= 357_c_int64_t) then
+          call endrun('ATM2HUB_DEALLOCATE error: Codon tag roundtrip failed')
+       end if
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,'(A)') 'atm2hub_deallocate implementation = codon'
+          call flush(iulog)
+          proof_seen = .true.
+       end if
+    end if
+
     if(associated(cam_out)) then
        deallocate(cam_out)
     end if
