@@ -51,6 +51,7 @@ contains
 !-------------------------------------------------------------------
   subroutine tracer_cnst_init()
 
+    use iso_c_binding, only : c_int64_t
     use mo_chem_utls,only : get_inv_ndx
     use tracer_data, only : trcdata_init
     use cam_history, only : addfld, phys_decomp
@@ -62,6 +63,23 @@ contains
     implicit none
 
     integer :: i ,ndx, istat
+    integer(c_int64_t) :: codon_tag
+
+    interface
+       function tracer_cnst_init_codon() result(out_c) bind(c, name="tracer_cnst_init_codon")
+         import :: c_int64_t
+         integer(c_int64_t) :: out_c
+       end function tracer_cnst_init_codon
+    end interface
+
+    codon_tag = tracer_cnst_init_codon()
+    if (codon_tag /= 189_c_int64_t) then
+       call endrun('tracer_cnst_init: Codon tag roundtrip mismatch')
+    end if
+    if (masterproc) then
+       write(iulog,'(A)') 'tracer_cnst_init implementation = codon'
+       call flush(iulog)
+    end if
 
     call chemistry_misc_codon_touch('tracer_cnst', 110)
 

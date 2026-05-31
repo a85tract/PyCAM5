@@ -103,6 +103,12 @@ def gas_wetdep_readnl_status_codon(pcnst: int, list_p: cobj, method_p: cobj, sta
     status[0] = count
     status[1] = 1 if count > 0 and not (is_moz or is_neu) else 0
 
+def tracer_cnst_init_codon() -> int:
+    return 189
+
+def noy_ubc_readnl_codon() -> int:
+    return 173
+
 def chem_final_codon() -> int:
     return 0
 

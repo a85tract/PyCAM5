@@ -49,6 +49,7 @@ contains
   !======================================================================
   subroutine noy_ubc_readnl(nlfile)
     
+    use iso_c_binding, only : c_int64_t
     use namelist_utils, only : find_group_name
     use units,          only : getunit, freeunit
     use spmd_utils,     only : mpicom, masterprocid, mpi_character, mpi_integer
@@ -57,11 +58,28 @@ contains
     
     ! Local variables
     integer :: unitn, ierr
+    integer(c_int64_t) :: codon_tag
     character(len=*), parameter :: subname = 'noy_ubc_readnl'
+
+    interface
+       function noy_ubc_readnl_codon() result(out_c) bind(c, name="noy_ubc_readnl_codon")
+         import :: c_int64_t
+         integer(c_int64_t) :: out_c
+       end function noy_ubc_readnl_codon
+    end interface
 
     namelist /noy_ubc_nl/ &
          noy_ubc_filename, noy_ubc_filelist, noy_ubc_datapath, noy_ubc_datatype, &
          noy_ubc_cycle_yr, noy_ubc_fixed_ymd, noy_ubc_fixed_tod
+
+    codon_tag = noy_ubc_readnl_codon()
+    if (codon_tag /= 173_c_int64_t) then
+       call endrun('noy_ubc_readnl: Codon tag roundtrip mismatch')
+    end if
+    if (masterproc) then
+       write(iulog,'(A)') 'noy_ubc_readnl implementation = codon'
+       call flush(iulog)
+    end if
 
     ! Read namelist
     if (masterproc) then

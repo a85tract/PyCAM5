@@ -34,6 +34,14 @@ def gas_wetdep_readnl_status_codon(pcnst: int, list_p: cobj, method_p: cobj, sta
     return _common.gas_wetdep_readnl_status_codon(pcnst, list_p, method_p, status_p)
 
 @export
+def tracer_cnst_init_codon() -> int:
+    return _common.tracer_cnst_init_codon()
+
+@export
+def noy_ubc_readnl_codon() -> int:
+    return _common.noy_ubc_readnl_codon()
+
+@export
 def phtadj_codon() -> int:
     return 1
 
