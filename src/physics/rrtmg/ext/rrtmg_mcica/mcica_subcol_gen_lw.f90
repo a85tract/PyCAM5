@@ -45,6 +45,7 @@
       logical :: use_native_subcol_fill_lw_impl = .false.
       logical :: subcol_fill_lw_impl_selected = .false.
       logical :: subcol_fill_lw_entered_logged = .false.
+      logical :: kissvec_lw_entered_logged = .false.
 
 ! public interfaces/functions/subroutines
       public :: mcica_subcol_lw, generate_stochastic_clouds 
@@ -766,13 +767,36 @@
 !  Overall period>2^123; 
 !
       use shr_kind_mod, only: i8 => shr_kind_i8
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
-      real(kind=r8), dimension(:), intent(inout)  :: ran_arr
-      integer, dimension(:), intent(inout) :: seed1,seed2,seed3,seed4
+      real(kind=r8), target, dimension(:), intent(inout)  :: ran_arr
+      integer, target, dimension(:), intent(inout) :: seed1,seed2,seed3,seed4
       integer(i8) :: kiss
       integer :: i
 
       logical :: big_endian
+
+      interface
+         subroutine rrtmg_mcica_kissvec_codon(n_c, seed1_p, seed2_p, seed3_p, seed4_p, ran_arr_p) &
+              bind(c, name="rrtmg_mcica_kissvec_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: n_c
+            type(c_ptr), value :: seed1_p, seed2_p, seed3_p, seed4_p, ran_arr_p
+         end subroutine rrtmg_mcica_kissvec_codon
+      end interface
+
+      call rrtmg_mcica_kissvec_codon(int(size(ran_arr), c_int64_t), &
+           c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)), c_loc(ran_arr(1)))
+      if (.not. kissvec_lw_entered_logged) then
+         kissvec_lw_entered_logged = .true.
+         if (masterproc) then
+            write(iulog,*) 'kissvec implementation = codon'
+            write(iulog,*) 'm implementation = codon'
+            write(iulog,*) 'low_byte implementation = codon'
+            call flush(iulog)
+         endif
+      endif
+      return
 
       big_endian = (transfer(1_i8, 1) == 0)
 

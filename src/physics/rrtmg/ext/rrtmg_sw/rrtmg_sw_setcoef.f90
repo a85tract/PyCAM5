@@ -405,7 +405,23 @@
       subroutine swatmref
 !***************************************************************************
 
+      use iso_c_binding, only: c_loc
+
       save
+
+      interface
+         subroutine rrtmg_swatmref_codon(pref_p, preflog_p, tref_p) bind(c, name="rrtmg_swatmref_codon")
+            use iso_c_binding, only: c_ptr
+            type(c_ptr), value :: pref_p, preflog_p, tref_p
+         end subroutine rrtmg_swatmref_codon
+      end interface
+
+      call rrtmg_swatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)))
+      if (masterproc) then
+         write(iulog,*) 'swatmref implementation = codon'
+         call flush(iulog)
+      endif
+      return
  
 ! These pressures are chosen such that the ln of the first pressure
 ! has only a few non-zero digits (i.e. ln(PREF(1)) = 6.96000) and

@@ -294,9 +294,27 @@ contains
 !--------------------------------------------------------------------------------
   subroutine rrtmg_state_destroy(rstate)
 
+    use iso_c_binding, only : c_int64_t
+
     implicit none
 
     type(rrtmg_state_t), pointer   :: rstate
+    integer(c_int64_t) :: destroy_token
+
+    interface
+       function rrtmg_state_destroy_codon_touch(value_c) result(result_c) &
+            bind(c, name="rrtmg_state_destroy_codon_touch")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: value_c
+         integer(c_int64_t) :: result_c
+       end function rrtmg_state_destroy_codon_touch
+    end interface
+
+    destroy_token = rrtmg_state_destroy_codon_touch(int(num_rrtmg_levs, c_int64_t))
+    if (masterproc .and. destroy_token >= 0_c_int64_t) then
+       write(iulog,*) 'rrtmg_state_destroy implementation = codon'
+       call flush(iulog)
+    endif
 
     deallocate(rstate%h2ovmr)
     deallocate(rstate%o3vmr)

@@ -244,6 +244,64 @@ def rrtmg_state_init_codon(pverp: int, pref_edge_p: cobj) -> int:
 
 
 @export
+def rrtmg_state_destroy_codon_touch(value: int) -> int:
+    return value
+
+
+@export
+def rrtmg_swatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj):
+    pref = Ptr[float](pref_p)
+    preflog = Ptr[float](preflog_p)
+    tref = Ptr[float](tref_p)
+    pref_values = (
+        1.05363e+03, 8.62642e+02, 7.06272e+02, 5.78246e+02, 4.73428e+02,
+        3.87610e+02, 3.17348e+02, 2.59823e+02, 2.12725e+02, 1.74164e+02,
+        1.42594e+02, 1.16746e+02, 9.55835e+01, 7.82571e+01, 6.40715e+01,
+        5.24573e+01, 4.29484e+01, 3.51632e+01, 2.87892e+01, 2.35706e+01,
+        1.92980e+01, 1.57998e+01, 1.29358e+01, 1.05910e+01, 8.67114e+00,
+        7.09933e+00, 5.81244e+00, 4.75882e+00, 3.89619e+00, 3.18993e+00,
+        2.61170e+00, 2.13828e+00, 1.75067e+00, 1.43333e+00, 1.17351e+00,
+        9.60789e-01, 7.86628e-01, 6.44036e-01, 5.27292e-01, 4.31710e-01,
+        3.53455e-01, 2.89384e-01, 2.36928e-01, 1.93980e-01, 1.58817e-01,
+        1.30029e-01, 1.06458e-01, 8.71608e-02, 7.13612e-02, 5.84256e-02,
+        4.78349e-02, 3.91639e-02, 3.20647e-02, 2.62523e-02, 2.14936e-02,
+        1.75975e-02, 1.44076e-02, 1.17959e-02, 9.65769e-03,
+    )
+    preflog_values = (
+        6.9600e+00, 6.7600e+00, 6.5600e+00, 6.3600e+00, 6.1600e+00,
+        5.9600e+00, 5.7600e+00, 5.5600e+00, 5.3600e+00, 5.1600e+00,
+        4.9600e+00, 4.7600e+00, 4.5600e+00, 4.3600e+00, 4.1600e+00,
+        3.9600e+00, 3.7600e+00, 3.5600e+00, 3.3600e+00, 3.1600e+00,
+        2.9600e+00, 2.7600e+00, 2.5600e+00, 2.3600e+00, 2.1600e+00,
+        1.9600e+00, 1.7600e+00, 1.5600e+00, 1.3600e+00, 1.1600e+00,
+        9.6000e-01, 7.6000e-01, 5.6000e-01, 3.6000e-01, 1.6000e-01,
+        -4.0000e-02, -2.4000e-01, -4.4000e-01, -6.4000e-01, -8.4000e-01,
+        -1.0400e+00, -1.2400e+00, -1.4400e+00, -1.6400e+00, -1.8400e+00,
+        -2.0400e+00, -2.2400e+00, -2.4400e+00, -2.6400e+00, -2.8400e+00,
+        -3.0400e+00, -3.2400e+00, -3.4400e+00, -3.6400e+00, -3.8400e+00,
+        -4.0400e+00, -4.2400e+00, -4.4400e+00, -4.6400e+00,
+    )
+    tref_values = (
+        2.9420e+02, 2.8799e+02, 2.7894e+02, 2.6925e+02, 2.5983e+02,
+        2.5017e+02, 2.4077e+02, 2.3179e+02, 2.2306e+02, 2.1578e+02,
+        2.1570e+02, 2.1570e+02, 2.1570e+02, 2.1706e+02, 2.1858e+02,
+        2.2018e+02, 2.2174e+02, 2.2328e+02, 2.2479e+02, 2.2655e+02,
+        2.2834e+02, 2.3113e+02, 2.3401e+02, 2.3703e+02, 2.4022e+02,
+        2.4371e+02, 2.4726e+02, 2.5085e+02, 2.5457e+02, 2.5832e+02,
+        2.6216e+02, 2.6606e+02, 2.6999e+02, 2.7340e+02, 2.7536e+02,
+        2.7568e+02, 2.7372e+02, 2.7163e+02, 2.6955e+02, 2.6593e+02,
+        2.6211e+02, 2.5828e+02, 2.5360e+02, 2.4854e+02, 2.4348e+02,
+        2.3809e+02, 2.3206e+02, 2.2603e+02, 2.2000e+02, 2.1435e+02,
+        2.0887e+02, 2.0340e+02, 1.9792e+02, 1.9290e+02, 1.8809e+02,
+        1.8329e+02, 1.7849e+02, 1.7394e+02, 1.7212e+02,
+    )
+    for i in range(59):
+        pref[i] = pref_values[i]
+        preflog[i] = preflog_values[i]
+        tref[i] = tref_values[i]
+
+
+@export
 def rrtmg_sw_swcmbdat_codon(
     ngc_p: cobj,
     ngs_p: cobj,
@@ -1675,6 +1733,111 @@ def rrtmg_cloud_liquid_optics_lw_codon(
             else:
                 for lwband in range(1, nlwbands + 1):
                     abs_od[_idx3(lwband, i, k, nlwbands, pcols)] = 0.0
+
+
+@export
+def rrtmg_gam_liquid_sw_codon(
+    clwptn: float,
+    lamc: float,
+    pgam: float,
+    nswbands: int,
+    nmu: int,
+    nlambda: int,
+    g_mu_p: cobj,
+    g_lambda_p: cobj,
+    ext_p: cobj,
+    ssa_p: cobj,
+    asm_p: cobj,
+    tau_p: cobj,
+    tau_w_p: cobj,
+    tau_w_g_p: cobj,
+    tau_w_f_p: cobj,
+):
+    g_mu = Ptr[float](g_mu_p)
+    g_lambda = Ptr[float](g_lambda_p)
+    ext_table = Ptr[float](ext_p)
+    ssa_table = Ptr[float](ssa_p)
+    asm_table = Ptr[float](asm_p)
+    tau = Ptr[float](tau_p)
+    tau_w = Ptr[float](tau_w_p)
+    tau_w_g = Ptr[float](tau_w_g_p)
+    tau_w_f = Ptr[float](tau_w_f_p)
+
+    if clwptn < 1.0e-80:
+        for swband in range(nswbands):
+            tau[swband] = 0.0
+            tau_w[swband] = 0.0
+            tau_w_g[swband] = 0.0
+            tau_w_f[swband] = 0.0
+        return
+
+    mu_jjm = _interp1_bndry_jjm(g_mu, nmu, pgam)
+    mu_jjp = _interp1_bndry_jjp(g_mu, nmu, pgam)
+    mu_wgts = _interp1_wgts(g_mu, mu_jjm, mu_jjp, pgam)
+    mu_wgtn = _interp1_wgtn(g_mu, mu_jjm, mu_jjp, pgam)
+    lam_jjm = _liquid_lambda_jjm(g_lambda, nmu, nlambda, lamc, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    lam_jjp = _liquid_lambda_jjp(g_lambda, nmu, nlambda, lamc, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    lam_lo = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjm, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    lam_hi = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjp, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    if lam_jjm == lam_jjp:
+        lam_wgts = 1.0
+        lam_wgtn = 0.0
+    else:
+        lam_wgts = (lam_hi - lamc) / (lam_hi - lam_lo)
+        lam_wgtn = (lamc - lam_lo) / (lam_hi - lam_lo)
+
+    for swband in range(1, nswbands + 1):
+        ext = _liquid_interp2(ext_table, nmu, nlambda, swband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+        ssa = _liquid_interp2(ssa_table, nmu, nlambda, swband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+        asym = _liquid_interp2(asm_table, nmu, nlambda, swband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+        out_idx = swband - 1
+        tau[out_idx] = clwptn * ext
+        tau_w[out_idx] = tau[out_idx] * ssa
+        tau_w_g[out_idx] = tau_w[out_idx] * asym
+        tau_w_f[out_idx] = tau_w_g[out_idx] * asym
+
+
+@export
+def rrtmg_gam_liquid_lw_codon(
+    clwptn: float,
+    lamc: float,
+    pgam: float,
+    nlwbands: int,
+    nmu: int,
+    nlambda: int,
+    g_mu_p: cobj,
+    g_lambda_p: cobj,
+    abs_liq_p: cobj,
+    abs_od_p: cobj,
+):
+    g_mu = Ptr[float](g_mu_p)
+    g_lambda = Ptr[float](g_lambda_p)
+    abs_liq = Ptr[float](abs_liq_p)
+    abs_od = Ptr[float](abs_od_p)
+
+    if clwptn < 1.0e-80:
+        for lwband in range(nlwbands):
+            abs_od[lwband] = 0.0
+        return
+
+    mu_jjm = _interp1_bndry_jjm(g_mu, nmu, pgam)
+    mu_jjp = _interp1_bndry_jjp(g_mu, nmu, pgam)
+    mu_wgts = _interp1_wgts(g_mu, mu_jjm, mu_jjp, pgam)
+    mu_wgtn = _interp1_wgtn(g_mu, mu_jjm, mu_jjp, pgam)
+    lam_jjm = _liquid_lambda_jjm(g_lambda, nmu, nlambda, lamc, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    lam_jjp = _liquid_lambda_jjp(g_lambda, nmu, nlambda, lamc, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    lam_lo = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjm, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    lam_hi = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjp, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    if lam_jjm == lam_jjp:
+        lam_wgts = 1.0
+        lam_wgtn = 0.0
+    else:
+        lam_wgts = (lam_hi - lamc) / (lam_hi - lam_lo)
+        lam_wgtn = (lamc - lam_lo) / (lam_hi - lam_lo)
+
+    for lwband in range(1, nlwbands + 1):
+        absor = _liquid_interp2(abs_liq, nmu, nlambda, lwband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+        abs_od[lwband - 1] = clwptn * absor
 
 
 @export
@@ -4099,6 +4262,24 @@ def _rrtmg_kiss_next_i32(
         + i64(seed4[i0])
     )
     return float(_rrtmg_low_i32(kiss)) * 2.328306e-10 + 0.5
+
+
+@export
+def rrtmg_mcica_kissvec_codon(
+    n: int,
+    seed1_p: cobj,
+    seed2_p: cobj,
+    seed3_p: cobj,
+    seed4_p: cobj,
+    ran_arr_p: cobj,
+):
+    seed1 = Ptr[i32](seed1_p)
+    seed2 = Ptr[i32](seed2_p)
+    seed3 = Ptr[i32](seed3_p)
+    seed4 = Ptr[i32](seed4_p)
+    ran_arr = Ptr[float](ran_arr_p)
+    for i in range(n):
+        ran_arr[i] = _rrtmg_kiss_next_i32(i, seed1, seed2, seed3, seed4)
 
 
 @export

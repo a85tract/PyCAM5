@@ -58,6 +58,8 @@ logical :: use_native_cloud_liquid_optics_impl = .false.
 logical :: cloud_liquid_optics_impl_selected = .false.
 logical :: cloud_liquid_optics_sw_entered_logged = .false.
 logical :: cloud_liquid_optics_lw_entered_logged = .false.
+logical :: gam_liquid_lw_entered_logged = .false.
+logical :: gam_liquid_sw_entered_logged = .false.
 
 ! 
 ! indexes into pbuf for optical parameters of MG clouds
@@ -775,15 +777,39 @@ end subroutine interpolate_ice_optics_lw
 !==============================================================================
 
 subroutine gam_liquid_lw(clwptn, lamc, pgam, abs_od)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
   real(r8), intent(in) :: clwptn ! cloud water liquid path new (in cloud) (in g/m^2)?
   real(r8), intent(in) :: lamc   ! prognosed value of lambda for cloud
   real(r8), intent(in) :: pgam   ! prognosed value of mu for cloud
-  real(r8), intent(out) :: abs_od(1:nlwbands)
+  real(r8), target, intent(out) :: abs_od(1:nlwbands)
 
   integer :: lwband ! sw band index
 
   type(interp_type) :: mu_wgts
   type(interp_type) :: lambda_wgts
+
+  interface
+     subroutine rrtmg_gam_liquid_lw_codon(clwptn_c, lamc_c, pgam_c, nlwbands_c, nmu_c, nlambda_c, &
+          g_mu_p, g_lambda_p, abs_liq_p, abs_od_p) bind(c, name="rrtmg_gam_liquid_lw_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        real(c_double), value :: clwptn_c, lamc_c, pgam_c
+        integer(c_int64_t), value :: nlwbands_c, nmu_c, nlambda_c
+        type(c_ptr), value :: g_mu_p, g_lambda_p, abs_liq_p, abs_od_p
+     end subroutine rrtmg_gam_liquid_lw_codon
+  end interface
+
+  call rrtmg_gam_liquid_lw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
+       int(nlwbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
+       c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(abs_lw_liq(1,1,1)), c_loc(abs_od(1)))
+  if (.not. gam_liquid_lw_entered_logged) then
+     gam_liquid_lw_entered_logged = .true.
+     if (masterproc) then
+        write(iulog,*) 'gam_liquid_lw implementation = codon'
+        call flush(iulog)
+     end if
+  end if
+  return
 
   if (clwptn < 1.e-80_r8) then
     abs_od = 0._r8
@@ -807,10 +833,12 @@ end subroutine gam_liquid_lw
 !==============================================================================
 
 subroutine gam_liquid_sw(clwptn, lamc, pgam, tau, tau_w, tau_w_g, tau_w_f)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
   real(r8), intent(in) :: clwptn ! cloud water liquid path new (in cloud) (in g/m^2)?
   real(r8), intent(in) :: lamc   ! prognosed value of lambda for cloud
   real(r8), intent(in) :: pgam   ! prognosed value of mu for cloud
-  real(r8), intent(out) :: tau(1:nswbands), tau_w(1:nswbands), tau_w_f(1:nswbands), tau_w_g(1:nswbands)
+  real(r8), target, intent(out) :: tau(1:nswbands), tau_w(1:nswbands), tau_w_f(1:nswbands), tau_w_g(1:nswbands)
 
   integer :: swband ! sw band index
 
@@ -818,6 +846,32 @@ subroutine gam_liquid_sw(clwptn, lamc, pgam, tau, tau_w, tau_w_g, tau_w_f)
 
   type(interp_type) :: mu_wgts
   type(interp_type) :: lambda_wgts
+
+  interface
+     subroutine rrtmg_gam_liquid_sw_codon(clwptn_c, lamc_c, pgam_c, nswbands_c, nmu_c, nlambda_c, &
+          g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
+          bind(c, name="rrtmg_gam_liquid_sw_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        real(c_double), value :: clwptn_c, lamc_c, pgam_c
+        integer(c_int64_t), value :: nswbands_c, nmu_c, nlambda_c
+        type(c_ptr), value :: g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p
+        type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
+     end subroutine rrtmg_gam_liquid_sw_codon
+  end interface
+
+  call rrtmg_gam_liquid_sw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
+       int(nswbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
+       c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(ext_sw_liq(1,1,1)), &
+       c_loc(ssa_sw_liq(1,1,1)), c_loc(asm_sw_liq(1,1,1)), c_loc(tau(1)), &
+       c_loc(tau_w(1)), c_loc(tau_w_g(1)), c_loc(tau_w_f(1)))
+  if (.not. gam_liquid_sw_entered_logged) then
+     gam_liquid_sw_entered_logged = .true.
+     if (masterproc) then
+        write(iulog,*) 'gam_liquid_sw implementation = codon'
+        call flush(iulog)
+     end if
+  end if
+  return
 
   if (clwptn < 1.e-80_r8) then
     tau = 0._r8
