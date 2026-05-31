@@ -1396,6 +1396,154 @@ def cubesetupedgeindex_codon(
     )
 
 @export
+def copy_buffer_codon(
+    nthreads: int,
+    ithr: int,
+    len_move_ptr: int,
+    buf_p: cobj,
+    receive_p: cobj,
+    move_ptr_p: cobj,
+    move_length_p: cobj,
+):
+    return _misc.copy_buffer_codon(
+        nthreads,
+        ithr,
+        len_move_ptr,
+        buf_p,
+        receive_p,
+        move_ptr_p,
+        move_length_p,
+    )
+
+@export
+def var_is_vector_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    entry_len: int,
+    entries_ascii_p: cobj,
+    nentries: int,
+) -> int:
+    return _misc.var_is_vector_codon(
+        name_len,
+        name_ascii_p,
+        entry_len,
+        entries_ascii_p,
+        nentries,
+    )
+
+@export
+def reduction_max_r_local_codon(
+    buf_p: cobj,
+    ctr_p: cobj,
+    redp_p: cobj,
+    length: int,
+    nthreads: int,
+):
+    return _misc.reduction_max_r_local_codon(
+        buf_p,
+        ctr_p,
+        redp_p,
+        length,
+        nthreads,
+    )
+
+@export
+def reduction_min_r_local_codon(
+    buf_p: cobj,
+    ctr_p: cobj,
+    redp_p: cobj,
+    length: int,
+    nthreads: int,
+):
+    return _misc.reduction_min_r_local_codon(
+        buf_p,
+        ctr_p,
+        redp_p,
+        length,
+        nthreads,
+    )
+
+@export
+def copy_par_codon(
+    rank2_p: cobj,
+    root2_p: cobj,
+    nprocs2_p: cobj,
+    comm2_p: cobj,
+    intercomm2_p: cobj,
+    intracomm2_p: cobj,
+    intracommsize2_p: cobj,
+    intracommrank2_p: cobj,
+    comm_graph_full2_p: cobj,
+    comm_graph_inter2_p: cobj,
+    comm_graph_intra2_p: cobj,
+    group_graph_full2_p: cobj,
+    masterproc2_p: cobj,
+    rank1_p: cobj,
+    root1_p: cobj,
+    nprocs1_p: cobj,
+    comm1_p: cobj,
+    intercomm1_p: cobj,
+    intracomm1_p: cobj,
+    intracommsize1_p: cobj,
+    intracommrank1_p: cobj,
+    comm_graph_full1_p: cobj,
+    comm_graph_inter1_p: cobj,
+    comm_graph_intra1_p: cobj,
+    group_graph_full1_p: cobj,
+    masterproc1_p: cobj,
+):
+    return _misc.copy_par_codon(
+        rank2_p,
+        root2_p,
+        nprocs2_p,
+        comm2_p,
+        intercomm2_p,
+        intracomm2_p,
+        intracommsize2_p,
+        intracommrank2_p,
+        comm_graph_full2_p,
+        comm_graph_inter2_p,
+        comm_graph_intra2_p,
+        group_graph_full2_p,
+        masterproc2_p,
+        rank1_p,
+        root1_p,
+        nprocs1_p,
+        comm1_p,
+        intercomm1_p,
+        intracomm1_p,
+        intracommsize1_p,
+        intracommrank1_p,
+        comm_graph_full1_p,
+        comm_graph_inter1_p,
+        comm_graph_intra1_p,
+        group_graph_full1_p,
+        masterproc1_p,
+    )
+
+@export
+def init_edge_buffer_i8_header_codon(
+    np: int,
+    max_corner_elem: int,
+    nelemd: int,
+    nlyr: int,
+    nlyr_p: cobj,
+    nbuf_p: cobj,
+):
+    return _misc.init_edge_buffer_i8_header_codon(
+        np,
+        max_corner_elem,
+        nelemd,
+        nlyr,
+        nlyr_p,
+        nbuf_p,
+    )
+
+@export
+def zero_i32_buffer_codon(n: int, buf_p: cobj):
+    return _misc.zero_i32_buffer_codon(n, buf_p)
+
+@export
 def gbarrier_init_codon(
     c_barrier_p: cobj,
     nthreads: int,
