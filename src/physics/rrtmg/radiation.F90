@@ -26,6 +26,7 @@ use scamMod,         only: scm_crm_mode, single_column,have_cld,cldobs,&
                            have_clwp,clwpobs,have_tg,tground
 use perf_mod,        only: t_startf, t_stopf
 use cam_logfile,     only: iulog
+use iso_c_binding,   only: c_bool, c_int64_t, c_loc, c_ptr
 
 use rad_constituents, only: N_DIAG, rad_cnst_get_call_list, rad_cnst_get_info
 use radconstants,     only: rrtmg_sw_cloudsim_band, rrtmg_lw_cloudsim_band, nswbands, nlwbands
@@ -81,6 +82,39 @@ integer :: ihirsfq = 1      ! frequency (timesteps) of brightness temperature ca
 logical :: use_native_radiation_diag_prep_impl = .false.
 logical :: radiation_diag_prep_impl_selected = .false.
 logical :: radiation_diag_prep_entered_logged = .false.
+logical :: use_native_radiation_options_impl = .false.
+logical :: radiation_options_impl_selected = .false.
+logical :: radiation_defaultopts_logged = .false.
+logical :: radiation_setopts_logged = .false.
+logical :: radiation_do_logged = .false.
+
+interface
+   subroutine radiation_defaultopts_codon(iradsw_c, iradlw_c, irad_always_c, spectralflux_c, out_p) &
+        bind(c, name="radiation_defaultopts_codon")
+      use iso_c_binding, only: c_bool, c_int64_t, c_ptr
+      integer(c_int64_t), value :: iradsw_c, iradlw_c, irad_always_c
+      logical(c_bool), value :: spectralflux_c
+      type(c_ptr), value :: out_p
+   end subroutine radiation_defaultopts_codon
+   subroutine radiation_setopts_codon(dtime_c, iradsw_c, iradlw_c, irad_always_c, spectralflux_c, &
+        has_iradsw_c, iradsw_in_c, has_iradlw_c, iradlw_in_c, has_irad_always_c, irad_always_in_c, &
+        has_spectralflux_c, spectralflux_in_c, out_p) bind(c, name="radiation_setopts_codon")
+      use iso_c_binding, only: c_bool, c_int64_t, c_ptr
+      integer(c_int64_t), value :: dtime_c, iradsw_c, iradlw_c, irad_always_c
+      logical(c_bool), value :: spectralflux_c
+      logical(c_bool), value :: has_iradsw_c, has_iradlw_c, has_irad_always_c, has_spectralflux_c
+      integer(c_int64_t), value :: iradsw_in_c, iradlw_in_c, irad_always_in_c
+      logical(c_bool), value :: spectralflux_in_c
+      type(c_ptr), value :: out_p
+   end subroutine radiation_setopts_codon
+   function radiation_do_codon(op_len_c, op_ascii_p, nstep_c, iradsw_c, iradlw_c, irad_always_c) &
+        result(do_rad_c) bind(c, name="radiation_do_codon")
+      use iso_c_binding, only: c_bool, c_int64_t, c_ptr
+      integer(c_int64_t), value :: op_len_c, nstep_c, iradsw_c, iradlw_c, irad_always_c
+      type(c_ptr), value :: op_ascii_p
+      logical(c_bool) :: do_rad_c
+   end function radiation_do_codon
+end interface
 
 !===============================================================================
 contains
@@ -125,12 +159,26 @@ subroutine radiation_defaultopts(iradsw_out, iradlw_out, iradae_out, irad_always
    integer, intent(out), optional :: irad_always_out
    logical, intent(out), optional :: spectralflux_out
    !-----------------------------------------------------------------------
+   integer(c_int64_t), target :: opts(5)
 
-   if ( present(iradsw_out) )      iradsw_out = iradsw
-   if ( present(iradlw_out) )      iradlw_out = iradlw
-   if ( present(iradae_out) )      iradae_out = -999
-   if ( present(irad_always_out) ) irad_always_out = irad_always
-   if ( present(spectralflux_out) ) spectralflux_out = spectralflux
+   call radiation_options_select_impl()
+   if (use_native_radiation_options_impl) then
+      if ( present(iradsw_out) )      iradsw_out = iradsw
+      if ( present(iradlw_out) )      iradlw_out = iradlw
+      if ( present(iradae_out) )      iradae_out = -999
+      if ( present(irad_always_out) ) irad_always_out = irad_always
+      if ( present(spectralflux_out) ) spectralflux_out = spectralflux
+      return
+   endif
+
+   call radiation_defaultopts_log()
+   call radiation_defaultopts_codon(int(iradsw, c_int64_t), int(iradlw, c_int64_t), &
+        int(irad_always, c_int64_t), logical(spectralflux, c_bool), c_loc(opts(1)))
+   if ( present(iradsw_out) )      iradsw_out = int(opts(1))
+   if ( present(iradlw_out) )      iradlw_out = int(opts(2))
+   if ( present(iradae_out) )      iradae_out = int(opts(3))
+   if ( present(irad_always_out) ) irad_always_out = int(opts(4))
+   if ( present(spectralflux_out) ) spectralflux_out = opts(5) /= 0_c_int64_t
 
 end subroutine radiation_defaultopts
 
@@ -158,18 +206,47 @@ subroutine radiation_setopts(dtime, nhtfrq, iradsw_in, iradlw_in, iradae_in, &
    integer :: ntspdy   ! no. timesteps per day
    integer :: nhtfrq1  ! local copy of input arg nhtfrq
    integer :: iradae   ! not used by RRTMG
+   integer(c_int64_t), target :: opts(4)
+   integer :: iradsw_in_arg, iradlw_in_arg, irad_always_in_arg
+   logical :: spectralflux_in_arg
 !-----------------------------------------------------------------------
 
-   if ( present(iradsw_in) )      iradsw = iradsw_in
-   if ( present(iradlw_in) )      iradlw = iradlw_in
-   if ( present(iradae_in) )      iradae = iradae_in
-   if ( present(irad_always_in) ) irad_always = irad_always_in
-   if ( present(spectralflux_in) ) spectralflux = spectralflux_in
+   iradae = -999
 
-   ! Convert iradsw, iradlw and irad_always from hours to timesteps if necessary
-   if (iradsw      < 0) iradsw      = nint((-iradsw     *3600._r8)/dtime)
-   if (iradlw      < 0) iradlw      = nint((-iradlw     *3600._r8)/dtime)
-   if (irad_always < 0) irad_always = nint((-irad_always*3600._r8)/dtime)
+   call radiation_options_select_impl()
+   if (use_native_radiation_options_impl) then
+      if ( present(iradsw_in) )      iradsw = iradsw_in
+      if ( present(iradlw_in) )      iradlw = iradlw_in
+      if ( present(iradae_in) )      iradae = iradae_in
+      if ( present(irad_always_in) ) irad_always = irad_always_in
+      if ( present(spectralflux_in) ) spectralflux = spectralflux_in
+
+      if (iradsw      < 0) iradsw      = nint((-iradsw     *3600._r8)/dtime)
+      if (iradlw      < 0) iradlw      = nint((-iradlw     *3600._r8)/dtime)
+      if (irad_always < 0) irad_always = nint((-irad_always*3600._r8)/dtime)
+   else
+      iradsw_in_arg = 0
+      iradlw_in_arg = 0
+      irad_always_in_arg = 0
+      spectralflux_in_arg = .false.
+      if (present(iradsw_in)) iradsw_in_arg = iradsw_in
+      if (present(iradlw_in)) iradlw_in_arg = iradlw_in
+      if (present(irad_always_in)) irad_always_in_arg = irad_always_in
+      if (present(spectralflux_in)) spectralflux_in_arg = spectralflux_in
+      call radiation_setopts_log()
+      call radiation_setopts_codon(int(dtime, c_int64_t), int(iradsw, c_int64_t), &
+           int(iradlw, c_int64_t), int(irad_always, c_int64_t), logical(spectralflux, c_bool), &
+           logical(present(iradsw_in), c_bool), int(iradsw_in_arg, c_int64_t), &
+           logical(present(iradlw_in), c_bool), int(iradlw_in_arg, c_int64_t), &
+           logical(present(irad_always_in), c_bool), int(irad_always_in_arg, c_int64_t), &
+           logical(present(spectralflux_in), c_bool), logical(spectralflux_in_arg, c_bool), &
+           c_loc(opts(1)))
+      iradsw = int(opts(1))
+      iradlw = int(opts(2))
+      irad_always = int(opts(3))
+      spectralflux = opts(4) /= 0_c_int64_t
+      if ( present(iradae_in) ) iradae = iradae_in
+   endif
 
    ! Has user specified iradae?
    if (iradae /= -999) then
@@ -229,6 +306,8 @@ function radiation_do(op, timestep)
 
    ! Local variables
    integer :: nstep             ! current timestep number
+   integer(c_int64_t), target :: op_ascii(max(1, len_trim(op)))
+   integer :: i
    !-----------------------------------------------------------------------
 
    if (present(timestep)) then
@@ -236,6 +315,18 @@ function radiation_do(op, timestep)
    else
       nstep = get_nstep()
    end if
+
+   call radiation_options_select_impl()
+   if (.not. use_native_radiation_options_impl .and. &
+       (trim(op) == 'sw' .or. trim(op) == 'lw' .or. trim(op) == 'aeres')) then
+      do i = 1, len_trim(op)
+         op_ascii(i) = int(iachar(op(i:i)), c_int64_t)
+      end do
+      call radiation_do_log()
+      radiation_do = radiation_do_codon(int(len_trim(op), c_int64_t), c_loc(op_ascii(1)), &
+           int(nstep, c_int64_t), int(iradsw, c_int64_t), int(iradlw, c_int64_t), int(irad_always, c_int64_t))
+      return
+   endif
 
    select case (op)
 
@@ -593,6 +684,85 @@ end function radiation_nextsw_cday
     end if
 
   end subroutine radiation_diag_prep_append_proof
+
+!===============================================================================
+
+  subroutine radiation_options_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (radiation_options_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RRTMG_RADIATION_OPTIONS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_radiation_options_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_radiation_options_impl = .false.
+    end if
+
+    radiation_options_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_radiation_options_impl) then
+          write(iulog,*) 'radiation_options implementation = native'
+       else
+          write(iulog,*) 'radiation_options implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_options_select_impl
+
+!===============================================================================
+
+  subroutine radiation_defaultopts_log()
+
+    if (radiation_defaultopts_logged) return
+    radiation_defaultopts_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_defaultopts implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_defaultopts_log
+
+!===============================================================================
+
+  subroutine radiation_setopts_log()
+
+    if (radiation_setopts_logged) return
+    radiation_setopts_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_setopts implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_setopts_log
+
+!===============================================================================
+
+  subroutine radiation_do_log()
+
+    if (radiation_do_logged) return
+    radiation_do_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_do implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_do_log
 
 !===============================================================================
 

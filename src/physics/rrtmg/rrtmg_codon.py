@@ -123,6 +123,94 @@ def rrtmg_sw_spectral_boundaries_codon(
             high[i] = 1.0 / lows[i]
 
 
+@inline
+def _nint_seconds_to_steps(value: int, dtime: int) -> int:
+    x = float((-value) * 3600) / float(dtime)
+    if x >= 0.0:
+        return int(x + 0.5)
+    return int(x - 0.5)
+
+
+@export
+def radiation_defaultopts_codon(iradsw: int, iradlw: int, irad_always: int, spectralflux: bool, out_p: cobj):
+    out = Ptr[int](out_p)
+    out[0] = iradsw
+    out[1] = iradlw
+    out[2] = -999
+    out[3] = irad_always
+    out[4] = 1 if spectralflux else 0
+
+
+@export
+def radiation_setopts_codon(
+    dtime: int,
+    iradsw_current: int,
+    iradlw_current: int,
+    irad_always_current: int,
+    spectralflux_current: bool,
+    has_iradsw: bool,
+    iradsw_in: int,
+    has_iradlw: bool,
+    iradlw_in: int,
+    has_irad_always: bool,
+    irad_always_in: int,
+    has_spectralflux: bool,
+    spectralflux_in: bool,
+    out_p: cobj,
+):
+    out = Ptr[int](out_p)
+
+    iradsw = iradsw_in if has_iradsw else iradsw_current
+    iradlw = iradlw_in if has_iradlw else iradlw_current
+    irad_always = irad_always_in if has_irad_always else irad_always_current
+    spectralflux = spectralflux_in if has_spectralflux else spectralflux_current
+
+    if iradsw < 0:
+        iradsw = _nint_seconds_to_steps(iradsw, dtime)
+    if iradlw < 0:
+        iradlw = _nint_seconds_to_steps(iradlw, dtime)
+    if irad_always < 0:
+        irad_always = _nint_seconds_to_steps(irad_always, dtime)
+
+    out[0] = iradsw
+    out[1] = iradlw
+    out[2] = irad_always
+    out[3] = 1 if spectralflux else 0
+
+
+@export
+def radiation_do_codon(op_len: int, op_ascii_p: cobj, nstep: int, iradsw: int, iradlw: int, irad_always: int) -> bool:
+    op_ascii = Ptr[int](op_ascii_p)
+    is_sw = op_len == 2 and op_ascii[0] == 115 and op_ascii[1] == 119
+    is_lw = op_len == 2 and op_ascii[0] == 108 and op_ascii[1] == 119
+    is_aeres = (
+        op_len == 5
+        and op_ascii[0] == 97
+        and op_ascii[1] == 101
+        and op_ascii[2] == 114
+        and op_ascii[3] == 101
+        and op_ascii[4] == 115
+    )
+
+    if is_aeres:
+        return False
+    if is_sw:
+        return (
+            nstep == 0
+            or iradsw == 1
+            or (((nstep - 1) % iradsw) == 0 and nstep != 1)
+            or nstep <= irad_always
+        )
+    if is_lw:
+        return (
+            nstep == 0
+            or iradlw == 1
+            or (((nstep - 1) % iradlw) == 0 and nstep != 1)
+            or nstep <= irad_always
+        )
+    return False
+
+
 @export
 def rrtmg_state_init_codon(pverp: int, pref_edge_p: cobj) -> int:
     pref_edge = Ptr[float](pref_edge_p)
