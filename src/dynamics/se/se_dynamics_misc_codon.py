@@ -97,6 +97,78 @@ def get_dyn_grid_parm_real1d_codon(name_code: int) -> int:
     return 0
 
 
+def get_dyn_grid_parm_codon(
+    name_code: int,
+    ne: int,
+    np: int,
+    npsq: int,
+    nelemd: int,
+    beglat: int,
+    endlat: int,
+    ngcols_d: int,
+    plat: int,
+    plev: int,
+    plevp: int,
+    nlon: int,
+    nlat: int,
+) -> int:
+    if name_code == 6:
+        return ne
+    if name_code == 7:
+        return np
+    if name_code == 8:
+        return npsq
+    if name_code == 9:
+        return nelemd
+    if name_code == 10:
+        return beglat
+    if name_code == 11:
+        return endlat
+    if name_code == 12:
+        return 1
+    if name_code == 13:
+        return npsq
+    if name_code == 14:
+        return 1
+    if name_code == 15:
+        return nelemd
+    if name_code == 16:
+        return plat
+    if name_code == 17:
+        return ngcols_d
+    if name_code == 18:
+        return plev
+    if name_code == 19:
+        return plevp
+    if name_code == 20:
+        return nlon
+    if name_code == 21:
+        return nlat
+    return -1
+
+
+def get_ldof_fill_codon(
+    nlev: int,
+    nelemd: int,
+    hdim: int,
+    num_unique_pts_p: cobj,
+    unique_pt_offsets_p: cobj,
+    ldof_p: cobj,
+) -> int:
+    num_unique_pts = Ptr[i32](num_unique_pts_p)
+    unique_pt_offsets = Ptr[i32](unique_pt_offsets_p)
+    ldof = Ptr[i32](ldof_p)
+    ig = 0
+    for k in range(1, nlev + 1):
+        for ie in range(1, nelemd + 1):
+            numpts = int(num_unique_pts[ie - 1])
+            offset = int(unique_pt_offsets[ie - 1])
+            for j in range(1, numpts + 1):
+                ldof[ig] = i32(offset + (j - 1) + (k - 1) * hdim)
+                ig += 1
+    return ig
+
+
 def latlon_interpolation_codon(t: int, n: int, value: int) -> int:
     if t <= n:
         return value
@@ -927,6 +999,37 @@ def se_log2_codon(n: int) -> int:
         tmp = tmp // 2
         ans += 1
     return ans
+
+
+def se_factor_fill_codon(num: int, factors_p: cobj, numfact_p: cobj):
+    factors = Ptr[i32](factors_p)
+    numfact = Ptr[i32](numfact_p)
+    tmp = num
+    n = 0
+    product = 1
+
+    while (tmp // 2) * 2 == tmp:
+        factors[n] = i32(2)
+        n += 1
+        tmp = tmp // 2
+
+    while (tmp // 3) * 3 == tmp:
+        factors[n] = i32(3)
+        n += 1
+        tmp = tmp // 3
+
+    while (tmp // 5) * 5 == tmp:
+        factors[n] = i32(5)
+        n += 1
+        tmp = tmp // 5
+
+    for i in range(n):
+        product = product * int(factors[i])
+
+    if product == num:
+        numfact[0] = i32(n)
+    else:
+        numfact[0] = i32(-1)
 
 
 def se_calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:

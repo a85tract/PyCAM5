@@ -923,6 +923,38 @@ end subroutine gblocks_init
         code = 4_c_int64_t
      case ('w')
         code = 5_c_int64_t
+     case ('ne')
+        code = 6_c_int64_t
+     case ('np')
+        code = 7_c_int64_t
+     case ('npsq')
+        code = 8_c_int64_t
+     case ('nelemd')
+        code = 9_c_int64_t
+     case ('beglat')
+        code = 10_c_int64_t
+     case ('endlat')
+        code = 11_c_int64_t
+     case ('beglonxy')
+        code = 12_c_int64_t
+     case ('endlonxy')
+        code = 13_c_int64_t
+     case ('beglatxy')
+        code = 14_c_int64_t
+     case ('endlatxy')
+        code = 15_c_int64_t
+     case ('plat')
+        code = 16_c_int64_t
+     case ('plon')
+        code = 17_c_int64_t
+     case ('plev')
+        code = 18_c_int64_t
+     case ('plevp')
+        code = 19_c_int64_t
+     case ('nlon')
+        code = 20_c_int64_t
+     case ('nlat')
+        code = 21_c_int64_t
      case default
         code = 0_c_int64_t
      end select
@@ -932,49 +964,48 @@ end subroutine gblocks_init
 
 
 integer function get_dyn_grid_parm(name) result(ival)
+ use iso_c_binding, only : c_int64_t
+ use cam_logfile, only : iulog
  use pmgrid, only : beglat, endlat, plat, plon, plev, plevp
  use dimensions_mod, only: ne, np, nelemd, npsq
  use interpolate_mod, only : get_interp_parameter
  character(len=*), intent(in) :: name
+ integer(c_int64_t) :: name_code
+ integer(c_int64_t) :: nlon_c, nlat_c
+ integer(c_int64_t) :: ival_c
+ logical, save :: proof_seen = .false.
+ interface
+    function get_dyn_grid_parm_codon(name_c, ne_c, np_c, npsq_c, nelemd_c, &
+         beglat_c, endlat_c, ngcols_d_c, plat_c, plev_c, plevp_c, nlon_c, &
+         nlat_c) result(ival_c) bind(c, name='get_dyn_grid_parm_codon')
+      import :: c_int64_t
+      integer(c_int64_t), value :: name_c, ne_c, np_c, npsq_c, nelemd_c
+      integer(c_int64_t), value :: beglat_c, endlat_c, ngcols_d_c, plat_c
+      integer(c_int64_t), value :: plev_c, plevp_c, nlon_c, nlat_c
+      integer(c_int64_t) :: ival_c
+    end function get_dyn_grid_parm_codon
+ end interface
 
+ name_code = dyn_grid_parm_name_code(name)
+ nlon_c = -1_c_int64_t
+ nlat_c = -1_c_int64_t
+ if (name_code == 20_c_int64_t) then
+    nlon_c = int(get_interp_parameter('nlon'), c_int64_t)
+ else if (name_code == 21_c_int64_t) then
+    nlat_c = int(get_interp_parameter('nlat'), c_int64_t)
+ endif
 
- if(name.eq.'ne') then
-    ival = ne
- else if(name.eq.'np') then
-    ival = np
- else if(name.eq.'npsq') then
-    ival = npsq
- else if(name.eq.'nelemd') then
-    ival = nelemd
- else if(name.eq.'beglat') then
-    ival = beglat
- else if(name.eq.'endlat') then
-    ival = endlat
-! The following four are required for consistancy in cam_history
- else if(name.eq.'beglonxy') then
-    ival = 1
- else if(name.eq.'endlonxy') then
-    ival = npsq
- else if(name.eq.'beglatxy') then
-    ival=1
- else if(name.eq.'endlatxy') then
-    ival=nelemd
-
- else if(name.eq.'plat') then
-    ival = plat
- else if(name.eq.'plon') then
-    ival = ngcols_d
- else if(name.eq.'plev') then
-    ival = plev
- else if(name.eq.'plevp') then
-    ival = plevp
- else if(name.eq.'nlon') then
-    ival = get_interp_parameter('nlon')
- else if(name.eq.'nlat') then
-    ival = get_interp_parameter('nlat')
-  else	
-    ival = -1
- end if
+ ival_c = get_dyn_grid_parm_codon(name_code, &
+      int(ne, c_int64_t), int(np, c_int64_t), int(npsq, c_int64_t), &
+      int(nelemd, c_int64_t), int(beglat, c_int64_t), &
+      int(endlat, c_int64_t), int(ngcols_d, c_int64_t), &
+      int(plat, c_int64_t), int(plev, c_int64_t), int(plevp, c_int64_t), &
+      nlon_c, nlat_c)
+ ival = int(ival_c)
+ if (.not. proof_seen) then
+    write(iulog,*) 'get_dyn_grid_parm implementation = codon'
+    proof_seen = .true.
+ endif
 end function get_dyn_grid_parm
 
 !#######################################################################

@@ -12,6 +12,7 @@ module mo_neu_wetdep
   use cam_abortutils,   only : endrun
   use seq_drydep_mod,   only : n_species_table, species_name_table, dheff
   use gas_wetdep_opts,  only : gas_wetdep_method, gas_wetdep_list, gas_wetdep_cnt
+  use iso_c_binding,    only : c_int64_t
 !
   implicit none
 !
@@ -65,6 +66,7 @@ module mo_neu_wetdep
   logical :: dempirical_codon_logged = .false.
   logical :: neu_wetdep_washo_wrap_proof_written = .false.
   logical :: neu_wetdep_washo_columns_wrap_proof_written = .false.
+  logical :: neu_wetdep_init_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
 
@@ -81,13 +83,32 @@ subroutine neu_wetdep_init
   use phys_control, only : phys_getopts
 !
   integer :: m,l
+  integer(c_int64_t) :: active_c
   character*20 :: test_name
 
   logical :: history_chemistry
+  logical :: method_is_neu
+
+  interface
+     function neu_wetdep_init_active_codon(method_is_neu_c, wetdep_count_c) result(out_c) &
+          bind(c, name="neu_wetdep_init_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: method_is_neu_c, wetdep_count_c
+       integer(c_int64_t) :: out_c
+     end function neu_wetdep_init_active_codon
+  end interface
 
   call phys_getopts(history_chemistry_out=history_chemistry)
 
-  do_neu_wetdep = gas_wetdep_method == 'NEU' .and. gas_wetdep_cnt>0
+  method_is_neu = gas_wetdep_method == 'NEU'
+  active_c = neu_wetdep_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, method_is_neu), &
+       int(gas_wetdep_cnt, c_int64_t))
+  do_neu_wetdep = active_c /= 0_c_int64_t
+  if (masterproc .and. .not. neu_wetdep_init_proof_written) then
+     write(iulog,'(A)') 'neu_wetdep_init gate direct = codon'
+     call flush(iulog)
+     neu_wetdep_init_proof_written = .true.
+  end if
 
   if (.not.do_neu_wetdep) return
 

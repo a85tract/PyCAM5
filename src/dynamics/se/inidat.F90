@@ -393,6 +393,8 @@ contains
 
 
   function get_ldof(elem, nlev) result(ldof)
+    use iso_c_binding,      only: c_int64_t, c_loc, c_ptr
+    use cam_logfile,        only: iulog
     use dimensions_mod,     only: nelemd
     use dyn_grid,           only: get_horiz_grid_dim_d
     use cam_abortutils,     only: endrun
@@ -401,28 +403,44 @@ contains
     integer, intent(in) :: nlev
     integer, pointer :: ldof(:)
 
-    integer :: lcnt, ie, j, k, ig, numpts, offset, hdim
+    integer :: lcnt, ie, hdim
+    integer(c_int64_t) :: filled_count
+    integer, allocatable, target :: num_unique_pts(:), unique_pt_offsets(:)
+    logical, save :: proof_seen = .false.
+    interface
+       function get_ldof_fill_codon(nlev_c, nelemd_c, hdim_c, num_unique_pts_p, &
+            unique_pt_offsets_p, ldof_p) result(filled_count_c) &
+            bind(c, name='get_ldof_fill_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nlev_c, nelemd_c, hdim_c
+         type(c_ptr), value :: num_unique_pts_p, unique_pt_offsets_p, ldof_p
+         integer(c_int64_t) :: filled_count_c
+       end function get_ldof_fill_codon
+    end interface
 
 
     call get_horiz_grid_dim_d(hdim)
 
     lcnt = 0
+    allocate(num_unique_pts(nelemd), unique_pt_offsets(nelemd))
     do ie=1,nelemd
-       lcnt = lcnt+nlev*elem(ie)%idxP%NumUniquePts
+       num_unique_pts(ie) = elem(ie)%idxP%NumUniquePts
+       unique_pt_offsets(ie) = elem(ie)%idxP%UniquePtOffset
+       lcnt = lcnt+nlev*num_unique_pts(ie)
     end do
     allocate(ldof(lcnt))
-    ig=1
     ldof(:) = 0
-    do k=1,nlev
-       do ie=1,nelemd
-          numpts = elem(ie)%idxP%NumUniquePts
-          offset = elem(ie)%idxP%UniquePtOffset
-          do j=1,numpts
-             ldof(ig)=offset+(j-1)+(k-1)*hdim
-             ig=ig+1
-          end do
-       end do
-    end do
+    filled_count = get_ldof_fill_codon(int(nlev, c_int64_t), int(nelemd, c_int64_t), &
+         int(hdim, c_int64_t), c_loc(num_unique_pts(1)), &
+         c_loc(unique_pt_offsets(1)), c_loc(ldof(1)))
+    if (filled_count /= int(lcnt, c_int64_t)) then
+       call endrun('get_ldof Codon fill count mismatch')
+    endif
+    if (.not. proof_seen) then
+       write(iulog,*) 'get_ldof implementation = codon'
+       proof_seen = .true.
+    endif
+    deallocate(num_unique_pts, unique_pt_offsets)
 
 
   end function get_ldof

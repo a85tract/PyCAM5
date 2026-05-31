@@ -913,76 +913,35 @@ contains
   end function GenCurve
   !---------------------------------------------------------
   function Factor(num) result(res)
+    use iso_c_binding, only : c_int64_t, c_loc
+    use cam_logfile, only : iulog
 
     implicit none
     integer,intent(in)  :: num
 
     type (factor_t)     :: res
-    integer             :: tmp,tmp2,tmp3,tmp5
-    integer             :: i,n
-    logical             :: found
+    integer             :: tmp2
+    integer, target     :: numfact
+    logical, save       :: proof_seen = .false.
+    interface
+       subroutine se_factor_fill_codon(num_c, factors_p, numfact_p) bind(c, name='se_factor_fill_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_c
+         type(c_ptr), value :: factors_p, numfact_p
+       end subroutine se_factor_fill_codon
+    end interface
 
     ! --------------------------------------
     ! Allocate for max # of factors
     ! --------------------------------------
-    tmp = num
     tmp2 = log2(num)
     allocate(res%factors(tmp2))
 
-    n=0
-    !-----------------------
-    !  Look for factors of 2
-    !-----------------------
-    found=.TRUE.
-    do while (found)
-       found = .FALSE.
-       tmp2 = tmp/2
-       if( tmp2*2 == tmp ) then
-          n = n + 1
-          res%factors(n) = 2
-          found = .TRUE.
-          tmp = tmp2
-       endif
-    enddo
-
-    !-----------------------
-    !  Look for factors of 3
-    !-----------------------
-    found=.TRUE.
-    do while (found)
-       found = .FALSE.
-       tmp3 = tmp/3
-       if( tmp3*3 == tmp ) then
-          n = n + 1
-          res%factors(n) = 3
-          found = .TRUE.
-          tmp = tmp3
-       endif
-    enddo
-
-    !-----------------------
-    !  Look for factors of 5
-    !-----------------------
-    found=.TRUE.
-    do while (found)
-       found = .FALSE.
-       tmp5 = tmp/5
-       if( tmp5*5 == tmp ) then
-          n = n + 1
-          res%factors(n) = 5
-          found = .TRUE.
-          tmp = tmp5
-       endif
-    enddo
-
-    tmp=1
-    do i=1,n
-       tmp = tmp * res%factors(i)
-    enddo
-    if(tmp == num) then
-       res%numfact = n
-    else
-       res%numfact = -1
+    call se_factor_fill_codon(int(num, c_int64_t), c_loc(res%factors(1)), c_loc(numfact))
+    res%numfact = numfact
+    if (.not. proof_seen) then
+       write(iulog,*) 'factor implementation = codon'
+       proof_seen = .true.
     endif
 
   end function Factor

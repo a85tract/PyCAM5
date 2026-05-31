@@ -123,3 +123,6 @@ def aurora_timestep_init_codon() -> int:
 
 def set_sulf_time_codon() -> int:
     return 0
+
+def neu_wetdep_init_active_codon(method_is_neu: int, wetdep_count: int) -> int:
+    return 1 if method_is_neu != 0 and wetdep_count > 0 else 0

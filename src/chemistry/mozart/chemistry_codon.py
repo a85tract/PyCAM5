@@ -146,6 +146,10 @@ def set_sulf_time_codon() -> int:
     return _common.set_sulf_time_codon()
 
 @export
+def neu_wetdep_init_active_codon(method_is_neu: int, wetdep_count: int) -> int:
+    return _common.neu_wetdep_init_active_codon(method_is_neu, wetdep_count)
+
+@export
 def rebin_codon(
     nsrc: int,
     ntrg: int,

@@ -94,6 +94,10 @@ def se_log2_codon(n: int) -> int:
     return _misc.se_log2_codon(n)
 
 @export
+def se_factor_fill_codon(num: int, factors_p: cobj, numfact_p: cobj):
+    return _misc.se_factor_fill_codon(num, factors_p, numfact_p)
+
+@export
 def se_calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
     return _misc.se_calcsegmentlength_codon(lenp, lens, mpattern, nlyr, hme_mpattern_s, hme_mpattern_p)
 
@@ -974,6 +978,56 @@ def get_dyn_grid_parm_real1d_codon(
     name_code: int,
 ) -> int:
     return _misc.get_dyn_grid_parm_real1d_codon(name_code)
+
+@export
+def get_dyn_grid_parm_codon(
+    name_code: int,
+    ne: int,
+    np: int,
+    npsq: int,
+    nelemd: int,
+    beglat: int,
+    endlat: int,
+    ngcols_d: int,
+    plat: int,
+    plev: int,
+    plevp: int,
+    nlon: int,
+    nlat: int,
+) -> int:
+    return _misc.get_dyn_grid_parm_codon(
+        name_code,
+        ne,
+        np,
+        npsq,
+        nelemd,
+        beglat,
+        endlat,
+        ngcols_d,
+        plat,
+        plev,
+        plevp,
+        nlon,
+        nlat,
+    )
+
+@export
+def get_ldof_fill_codon(
+    nlev: int,
+    nelemd: int,
+    hdim: int,
+    num_unique_pts_p: cobj,
+    unique_pt_offsets_p: cobj,
+    ldof_p: cobj,
+) -> int:
+    return _misc.get_ldof_fill_codon(
+        nlev,
+        nelemd,
+        hdim,
+        num_unique_pts_p,
+        unique_pt_offsets_p,
+        ldof_p,
+    )
 
 @export
 def latlon_interpolation_codon(

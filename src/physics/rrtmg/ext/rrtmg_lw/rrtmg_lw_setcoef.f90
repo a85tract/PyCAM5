@@ -569,8 +569,34 @@
 !***************************************************************************
       subroutine lwatmref
 !***************************************************************************
+      use iso_c_binding, only: c_int64_t, c_loc
 
       save
+      integer(c_int64_t) :: filled_count
+
+      interface
+         function rrtmg_lwatmref_codon(pref_p, preflog_p, tref_p, chi_mls_p) &
+              result(filled_count_c) bind(c, name="rrtmg_lwatmref_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            type(c_ptr), value :: pref_p, preflog_p, tref_p, chi_mls_p
+            integer(c_int64_t) :: filled_count_c
+         end function rrtmg_lwatmref_codon
+      end interface
+
+      filled_count = rrtmg_lwatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)), &
+           c_loc(chi_mls(1,1)))
+      if (filled_count /= 7_c_int64_t * 59_c_int64_t) then
+         if (masterproc) then
+            write(iulog,*) 'lwatmref Codon table fill count mismatch: ', filled_count
+            call flush(iulog)
+         endif
+         stop 1
+      endif
+      if (masterproc) then
+         write(iulog,*) 'lwatmref implementation = codon'
+         call flush(iulog)
+      endif
+      return
  
 ! These pressures are chosen such that the ln of the first pressure
 ! has only a few non-zero digits (i.e. ln(PREF(1)) = 6.96000) and
