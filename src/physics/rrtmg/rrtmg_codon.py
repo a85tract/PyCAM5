@@ -1480,6 +1480,902 @@ def rrtmg_sw_cmbgb26_codon(
         sfluxref[igc0] = sumf2
 
 
+@inline
+def _lw_cmb_weighted_1d(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+    ngn: Ptr[int],
+    rwgt: Ptr[float],
+):
+    iprsm = 0
+    for igc0 in range(ngc):
+        total = 0.0
+        for _ in range(ngn[ngs_prev + igc0]):
+            total = total + src[iprsm] * rwgt[iprsm + rwgt_offset]
+            iprsm += 1
+        dst[igc0] = total
+
+
+@inline
+def _lw_cmb_unweighted_1d(
+    ngc: int,
+    ngs_prev: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+    ngn: Ptr[int],
+):
+    iprsm = 0
+    for igc0 in range(ngc):
+        total = 0.0
+        for _ in range(ngn[ngs_prev + igc0]):
+            total = total + src[iprsm]
+            iprsm += 1
+        dst[igc0] = total
+
+
+@inline
+def _lw_cmb_unweighted_2d(
+    ngc: int,
+    ngs_prev: int,
+    ncol: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+    ngn: Ptr[int],
+):
+    for col0 in range(ncol):
+        iprsm = 0
+        for igc0 in range(ngc):
+            total = 0.0
+            for _ in range(ngn[ngs_prev + igc0]):
+                total = total + src[iprsm + col0 * 16]
+                iprsm += 1
+            dst[igc0 + col0 * ngc] = total
+
+
+@inline
+def _lw_cmb_weighted_2d(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    n1: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+    ngn: Ptr[int],
+    rwgt: Ptr[float],
+):
+    for a0 in range(n1):
+        iprsm = 0
+        for igc0 in range(ngc):
+            total = 0.0
+            for _ in range(ngn[ngs_prev + igc0]):
+                total = total + src[a0 + iprsm * n1] * rwgt[iprsm + rwgt_offset]
+                iprsm += 1
+            dst[a0 + igc0 * n1] = total
+
+
+@inline
+def _lw_cmb_weighted_3d(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    n1: int,
+    n2: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+    ngn: Ptr[int],
+    rwgt: Ptr[float],
+):
+    plane = n1 * n2
+    for a0 in range(n1):
+        for b0 in range(n2):
+            iprsm = 0
+            base = a0 + b0 * n1
+            for igc0 in range(ngc):
+                total = 0.0
+                for _ in range(ngn[ngs_prev + igc0]):
+                    total = total + src[base + iprsm * plane] * rwgt[iprsm + rwgt_offset]
+                    iprsm += 1
+                dst[base + igc0 * plane] = total
+
+
+@inline
+def _lw_cmb_weighted_4d(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    n1: int,
+    n2: int,
+    n3: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+    ngn: Ptr[int],
+    rwgt: Ptr[float],
+):
+    slab = n1 * n2 * n3
+    plane = n1 * n2
+    for a0 in range(n1):
+        for b0 in range(n2):
+            for c0 in range(n3):
+                iprsm = 0
+                base = a0 + b0 * n1 + c0 * plane
+                for igc0 in range(ngc):
+                    total = 0.0
+                    for _ in range(ngn[ngs_prev + igc0]):
+                        total = total + src[base + iprsm * slab] * rwgt[iprsm + rwgt_offset]
+                        iprsm += 1
+                    dst[base + igc0 * slab] = total
+
+
+@export
+def rrtmg_lw_cmbgb1_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mn2_p: cobj,
+    kbo_mn2_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    ka_mn2_p: cobj,
+    kb_mn2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    kao_mn2 = Ptr[float](kao_mn2_p)
+    kbo_mn2 = Ptr[float](kbo_mn2_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    ka_mn2 = Ptr[float](ka_mn2_p)
+    kb_mn2 = Ptr[float](kb_mn2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kao_mn2, ka_mn2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mn2, kb_mn2, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb2_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb3_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mn2o_p: cobj,
+    kbo_mn2o_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    ka_mn2o_p: cobj,
+    kb_mn2o_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    kao_mn2o = Ptr[float](kao_mn2o_p)
+    kbo_mn2o = Ptr[float](kbo_mn2o_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    ka_mn2o = Ptr[float](ka_mn2o_p)
+    kb_mn2o = Ptr[float](kb_mn2o_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 5, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mn2o, ka_mn2o, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 19, kbo_mn2o, kb_mn2o, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 5, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb4_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 5, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 5, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb5_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mo3_p: cobj,
+    ccl4o_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    ka_mo3_p: cobj,
+    ccl4_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    kao_mo3 = Ptr[float](kao_mo3_p)
+    ccl4o = Ptr[float](ccl4o_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    ka_mo3 = Ptr[float](ka_mo3_p)
+    ccl4 = Ptr[float](ccl4_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 5, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mo3, ka_mo3, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 5, fracrefbo, fracrefb, ngn)
+    _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, ccl4o, ccl4, ngn, rwgt)
+
+@export
+def rrtmg_lw_cmbgb6_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    kao_p: cobj,
+    kao_mco2_p: cobj,
+    cfc11adjo_p: cobj,
+    cfc12o_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    ka_p: cobj,
+    ka_mco2_p: cobj,
+    cfc11adj_p: cobj,
+    cfc12_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    kao = Ptr[float](kao_p)
+    kao_mco2 = Ptr[float](kao_mco2_p)
+    cfc11adjo = Ptr[float](cfc11adjo_p)
+    cfc12o = Ptr[float](cfc12o_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    ka = Ptr[float](ka_p)
+    ka_mco2 = Ptr[float](ka_mco2_p)
+    cfc11adj = Ptr[float](cfc11adj_p)
+    cfc12 = Ptr[float](cfc12_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kao_mco2, ka_mco2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, cfc11adjo, cfc11adj, ngn, rwgt)
+    _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, cfc12o, cfc12, ngn, rwgt)
+
+@export
+def rrtmg_lw_cmbgb7_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mco2_p: cobj,
+    kbo_mco2_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    ka_mco2_p: cobj,
+    kb_mco2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    kao_mco2 = Ptr[float](kao_mco2_p)
+    kbo_mco2 = Ptr[float](kbo_mco2_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    ka_mco2 = Ptr[float](ka_mco2_p)
+    kb_mco2 = Ptr[float](kb_mco2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mco2, ka_mco2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mco2, kb_mco2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb8_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kao_mco2_p: cobj,
+    kao_mn2o_p: cobj,
+    kao_mo3_p: cobj,
+    kbo_p: cobj,
+    kbo_mco2_p: cobj,
+    kbo_mn2o_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    cfc12o_p: cobj,
+    cfc22adjo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    ka_mco2_p: cobj,
+    ka_mn2o_p: cobj,
+    ka_mo3_p: cobj,
+    kb_p: cobj,
+    kb_mco2_p: cobj,
+    kb_mn2o_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    cfc12_p: cobj,
+    cfc22adj_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kao_mco2 = Ptr[float](kao_mco2_p)
+    kao_mn2o = Ptr[float](kao_mn2o_p)
+    kao_mo3 = Ptr[float](kao_mo3_p)
+    kbo = Ptr[float](kbo_p)
+    kbo_mco2 = Ptr[float](kbo_mco2_p)
+    kbo_mn2o = Ptr[float](kbo_mn2o_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    cfc12o = Ptr[float](cfc12o_p)
+    cfc22adjo = Ptr[float](cfc22adjo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    ka_mco2 = Ptr[float](ka_mco2_p)
+    ka_mn2o = Ptr[float](ka_mn2o_p)
+    ka_mo3 = Ptr[float](ka_mo3_p)
+    kb = Ptr[float](kb_p)
+    kb_mco2 = Ptr[float](kb_mco2_p)
+    kb_mn2o = Ptr[float](kb_mn2o_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    cfc12 = Ptr[float](cfc12_p)
+    cfc22adj = Ptr[float](cfc22adj_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kao_mco2, ka_mco2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mco2, kb_mco2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kao_mo3, ka_mo3, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kao_mn2o, ka_mn2o, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mn2o, kb_mn2o, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+    _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, cfc12o, cfc12, ngn, rwgt)
+    _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, cfc22adjo, cfc22adj, ngn, rwgt)
+
+@export
+def rrtmg_lw_cmbgb9_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kao_mn2o_p: cobj,
+    kbo_p: cobj,
+    kbo_mn2o_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    ka_mn2o_p: cobj,
+    kb_p: cobj,
+    kb_mn2o_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kao_mn2o = Ptr[float](kao_mn2o_p)
+    kbo = Ptr[float](kbo_p)
+    kbo_mn2o = Ptr[float](kbo_mn2o_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    ka_mn2o = Ptr[float](ka_mn2o_p)
+    kb = Ptr[float](kb_p)
+    kb_mn2o = Ptr[float](kb_mn2o_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mn2o, ka_mn2o, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mn2o, kb_mn2o, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb10_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb11_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kao_mo2_p: cobj,
+    kbo_p: cobj,
+    kbo_mo2_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    ka_mo2_p: cobj,
+    kb_p: cobj,
+    kb_mo2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kao_mo2 = Ptr[float](kao_mo2_p)
+    kbo = Ptr[float](kbo_p)
+    kbo_mo2 = Ptr[float](kbo_mo2_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    ka_mo2 = Ptr[float](ka_mo2_p)
+    kb = Ptr[float](kb_p)
+    kb_mo2 = Ptr[float](kb_mo2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kao_mo2, ka_mo2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mo2, kb_mo2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb12_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    kao_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    ka_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    kao = Ptr[float](kao_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    ka = Ptr[float](ka_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+
+@export
+def rrtmg_lw_cmbgb13_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kao_mco2_p: cobj,
+    kao_mco_p: cobj,
+    kbo_mo3_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    ka_mco2_p: cobj,
+    ka_mco_p: cobj,
+    kb_mo3_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kao_mco2 = Ptr[float](kao_mco2_p)
+    kao_mco = Ptr[float](kao_mco_p)
+    kbo_mo3 = Ptr[float](kbo_mo3_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    ka_mco2 = Ptr[float](ka_mco2_p)
+    ka_mco = Ptr[float](ka_mco_p)
+    kb_mo3 = Ptr[float](kb_mo3_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mco2, ka_mco2, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mco, ka_mco, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 19, kbo_mo3, kb_mo3, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+
+@export
+def rrtmg_lw_cmbgb14_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefao, fracrefa, ngn)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+
+@export
+def rrtmg_lw_cmbgb15_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    kao_p: cobj,
+    kao_mn2_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    ka_p: cobj,
+    ka_mn2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    kao = Ptr[float](kao_p)
+    kao_mn2 = Ptr[float](kao_mn2_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    ka = Ptr[float](ka_p)
+    ka_mn2 = Ptr[float](ka_mn2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 9, 19, kao_mn2, ka_mn2, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+
+@export
+def rrtmg_lw_cmbgb16_codon(
+    ngc: int,
+    ngs_prev: int,
+    rwgt_offset: int,
+    ngn_p: cobj,
+    rwgt_p: cobj,
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    selfrefo_p: cobj,
+    forrefo_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    ka_p: cobj,
+    kb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+):
+    ngn = Ptr[int](ngn_p)
+    rwgt = Ptr[float](rwgt_p)
+    fracrefao = Ptr[float](fracrefao_p)
+    fracrefbo = Ptr[float](fracrefbo_p)
+    kao = Ptr[float](kao_p)
+    kbo = Ptr[float](kbo_p)
+    selfrefo = Ptr[float](selfrefo_p)
+    forrefo = Ptr[float](forrefo_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    ka = Ptr[float](ka_p)
+    kb = Ptr[float](kb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+
+    _lw_cmb_weighted_4d(ngc, ngs_prev, rwgt_offset, 9, 5, 13, kao, ka, ngn, rwgt)
+    _lw_cmb_weighted_3d(ngc, ngs_prev, rwgt_offset, 5, 47, kbo, kb, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 10, selfrefo, selfref, ngn, rwgt)
+    _lw_cmb_weighted_2d(ngc, ngs_prev, rwgt_offset, 4, forrefo, forref, ngn, rwgt)
+    _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
+    _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
+
 @export
 def rrtmg_sw_cmbgb27_codon(
     ngc12: int,
