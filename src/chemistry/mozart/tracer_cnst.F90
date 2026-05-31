@@ -149,6 +149,8 @@ contains
     integer,          intent(in), optional :: tracer_cnst_fixed_ymd_in
     integer,          intent(in), optional :: tracer_cnst_fixed_tod_in
 
+    call chemistry_misc_codon_touch('tracer_cnst_setopts', 181)
+
     if ( present(tracer_cnst_file_in) ) then
        filename = tracer_cnst_file_in
     endif

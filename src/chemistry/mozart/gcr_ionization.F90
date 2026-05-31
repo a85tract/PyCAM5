@@ -136,6 +136,7 @@ contains
 
     ! Turn on galactic cosmic rays if user has specified an input dataset.
     if (len_trim(filename) > 0 ) has_gcr_ionization = .true.
+    call chemistry_misc_codon_touch('gcr_ionization_readnl', 186)
     call chemistry_misc_codon_touch('gcr_ionization', 124)
 
   end subroutine gcr_ionization_readnl

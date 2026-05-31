@@ -142,6 +142,7 @@ contains
     integer,          intent(in), optional :: linoz_data_fixed_ymd_in
     integer,          intent(in), optional :: linoz_data_fixed_tod_in
 
+    call chemistry_misc_codon_touch('linoz_data_setopts', 183)
     call chemistry_misc_codon_touch('linoz_data', 120)
 
     if ( present(linoz_data_file_in) ) then

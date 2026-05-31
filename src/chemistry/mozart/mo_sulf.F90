@@ -14,6 +14,7 @@
       use ppgrid,           only : begchunk, endchunk
       use physics_buffer,   only : physics_buffer_desc
 	      use ppgrid,           only : pcols, pver
+	      use mo_util,          only : chemistry_misc_codon_touch
 
 	      use spmd_utils,       only : masterproc
 	      use iso_c_binding,    only : c_int64_t
@@ -145,6 +146,7 @@ subroutine sulf_readnl(nlfile)
 
    ! Turn on prescribed volcanics if user has specified an input dataset.
    if (len_trim(filename) > 0 ) has_sulf = .true.
+   call chemistry_misc_codon_touch('sulf_readnl', 187)
 
 end subroutine sulf_readnl
 

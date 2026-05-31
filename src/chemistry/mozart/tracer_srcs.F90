@@ -124,6 +124,8 @@ contains
     integer,          intent(in), optional :: tracer_srcs_fixed_ymd_in
     integer,          intent(in), optional :: tracer_srcs_fixed_tod_in
 
+    call chemistry_misc_codon_touch('tracer_srcs_setopts', 182)
+
     if ( present(tracer_srcs_file_in) ) then
        filename = tracer_srcs_file_in
     endif
