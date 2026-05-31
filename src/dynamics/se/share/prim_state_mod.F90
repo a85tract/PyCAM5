@@ -64,7 +64,7 @@ contains
     integer               :: c0
 
 #define SE_MISC_TAG 6
-#define SE_MISC_LABEL 'prim_state_mod'
+#define SE_MISC_LABEL 'prim_printstate_init'
 ! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
 #include "se_codon_misc_touch.inc"
 #undef SE_MISC_LABEL

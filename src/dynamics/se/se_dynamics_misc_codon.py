@@ -12,6 +12,24 @@ def get_block_owner_d_codon(owner: int) -> int:
     return owner
 
 
+def get_dyn_grid_parm_real2d_codon(name_code: int) -> int:
+    if name_code == 1:
+        return 1
+    if name_code == 2:
+        return 2
+    return 0
+
+
+def get_dyn_grid_parm_real1d_codon(name_code: int) -> int:
+    if name_code == 3:
+        return 1
+    if name_code == 4:
+        return 2
+    if name_code == 5:
+        return 3
+    return 0
+
+
 def latlon_interpolation_codon(t: int, n: int, value: int) -> int:
     if t <= n:
         return value

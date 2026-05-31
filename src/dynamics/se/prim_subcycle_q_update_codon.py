@@ -934,6 +934,18 @@ def get_block_owner_d_codon(
     return _misc.get_block_owner_d_codon(owner)
 
 @export
+def get_dyn_grid_parm_real2d_codon(
+    name_code: int,
+) -> int:
+    return _misc.get_dyn_grid_parm_real2d_codon(name_code)
+
+@export
+def get_dyn_grid_parm_real1d_codon(
+    name_code: int,
+) -> int:
+    return _misc.get_dyn_grid_parm_real1d_codon(name_code)
+
+@export
 def latlon_interpolation_codon(
     t: int,
     n: int,

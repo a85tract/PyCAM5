@@ -35,6 +35,7 @@ module dyn_grid
   use cam_logfile, only : iulog
   use shr_kind_mod, only: r8 => shr_kind_r8
   use fvm_control_volume_mod, only : fvm_struct
+  use iso_c_binding, only : c_int64_t
 
   implicit none
   private
@@ -843,35 +844,89 @@ end subroutine gblocks_init
 
 !#######################################################################
    function get_dyn_grid_parm_real2d(name) result(rval)
+     use iso_c_binding, only : c_int64_t
+     use cam_logfile, only : iulog
 
      character(len=*), intent(in) :: name
      real(r8), pointer :: rval(:,:)
+     integer(c_int64_t) :: selector
+     logical, save :: proof_seen = .false.
+     interface
+        function get_dyn_grid_parm_real2d_codon(name_c) result(selector_c) &
+             bind(c, name='get_dyn_grid_parm_real2d_codon')
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: name_c
+          integer(c_int64_t) :: selector_c
+        end function get_dyn_grid_parm_real2d_codon
+     end interface
 
-     if(name.eq.'clon') then
+     selector = get_dyn_grid_parm_real2d_codon(dyn_grid_parm_name_code(name))
+     if(selector == 1_c_int64_t) then
         rval => clon
-     else if(name.eq.'londeg') then
+     else if(selector == 2_c_int64_t) then
         rval => londeg
      else
         nullify(rval)
      end if
+     if (.not. proof_seen) then
+        write(iulog,*) 'get_dyn_grid_parm_real2d implementation = codon'
+        proof_seen = .true.
+     endif
    end function get_dyn_grid_parm_real2d
 
 !#######################################################################
    function get_dyn_grid_parm_real1d(name) result(rval)
+     use iso_c_binding, only : c_int64_t
+     use cam_logfile, only : iulog
 
      character(len=*), intent(in) :: name
      real(r8), pointer :: rval(:)
+     integer(c_int64_t) :: selector
+     logical, save :: proof_seen = .false.
+     interface
+        function get_dyn_grid_parm_real1d_codon(name_c) result(selector_c) &
+             bind(c, name='get_dyn_grid_parm_real1d_codon')
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: name_c
+          integer(c_int64_t) :: selector_c
+        end function get_dyn_grid_parm_real1d_codon
+     end interface
 
-     if(name.eq.'clat') then
+     selector = get_dyn_grid_parm_real1d_codon(dyn_grid_parm_name_code(name))
+     if(selector == 1_c_int64_t) then
         rval => clat
-     else if(name.eq.'latdeg') then
+     else if(selector == 2_c_int64_t) then
         rval => latdeg
-     else if(name.eq.'w') then
+     else if(selector == 3_c_int64_t) then
         rval => w
      else
         nullify(rval)
      end if
+     if (.not. proof_seen) then
+        write(iulog,*) 'get_dyn_grid_parm_real1d implementation = codon'
+        proof_seen = .true.
+     endif
    end function get_dyn_grid_parm_real1d
+
+   integer(c_int64_t) function dyn_grid_parm_name_code(name) result(code)
+     use iso_c_binding, only : c_int64_t
+     character(len=*), intent(in) :: name
+
+     select case (trim(name))
+     case ('clon')
+        code = 1_c_int64_t
+     case ('londeg')
+        code = 2_c_int64_t
+     case ('clat')
+        code = 3_c_int64_t
+     case ('latdeg')
+        code = 4_c_int64_t
+     case ('w')
+        code = 5_c_int64_t
+     case default
+        code = 0_c_int64_t
+     end select
+   end function dyn_grid_parm_name_code
 
 
 
