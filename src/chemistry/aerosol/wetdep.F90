@@ -262,7 +262,7 @@ subroutine wetdep_inputs_set_codon_direct(state, pbuf, inputs, prec, isprx)
        c_loc(inputs%conicw(1,1)), c_loc(inputs%totcond(1,1)), c_loc(cldt(1,1)), c_loc(cldst(1,1)) &
   )
 
-  call clddiag_codon_invoke( state%t, state%pmid, state%pdel, inputs%cmfdqr, inputs%evapc, inputs%cldt, &
+  call clddiag( state%t, state%pmid, state%pdel, inputs%cmfdqr, inputs%evapc, inputs%cldt, &
        inputs%cldcu, cldst, inputs%qme, inputs%evapr, inputs%prain, inputs%cldv, inputs%cldvcu, &
        inputs%cldvst, rainmr, state%ncol )
 
@@ -491,6 +491,7 @@ subroutine clddiag_select_impl()
       else
          write(iulog,*) 'clddiag implementation = codon'
       end if
+      call flush(iulog)
    end if
 
 end subroutine clddiag_select_impl
