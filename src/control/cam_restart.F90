@@ -462,6 +462,13 @@ end subroutine restart_printopts
    integer t      ! Tape number
    integer mtapes ! Number of tapes that are active
 
+#define CAM_MISC_TAG 384
+#define CAM_MISC_LABEL 'write_rest_pfile'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    if ( nsds == -1 ) nsds = getunit()
    call opnfil(rest_pfile, nsds, 'f')
    rewind nsds

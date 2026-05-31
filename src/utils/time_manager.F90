@@ -303,6 +303,13 @@ subroutine set_time_float_from_date( time, year, month, day, sec )
   type(ESMF_TimeInterval) :: diff
   integer :: useday
 
+#define CAM_MISC_TAG 385
+#define CAM_MISC_LABEL 'set_time_float_from_date'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   call ESMF_TimeSet( date, yy=year, mm=month, dd=day, s=sec, calendar=tm_cal, rc=rc)
   !
   ! If the subroutine returned error, check if it is Feb 29 of a non-leap year
@@ -624,6 +631,13 @@ subroutine timemgr_print()
    type(ESMF_Time) :: ref_date  ! reference date
    type(ESMF_TimeInterval) :: step ! Time-step
 !-----------------------------------------------------------------------------------------
+
+#define CAM_MISC_TAG 386
+#define CAM_MISC_LABEL 'timemgr_print'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    call ESMF_ClockGet( tm_clock, startTime=start_date, currTime=curr_date, &
                        refTime=ref_date, stopTime=stop_date, timeStep=step, &
@@ -1305,8 +1319,8 @@ subroutine timemgr_write_restart(File)
   type(ESMF_Time) :: curr_date             ! temporary date used in logic
   type(ESMF_Time) :: ref_date              ! reference date for time coordinate
 
-#define CAM_MISC_TAG 203
-#define CAM_MISC_LABEL 'time_manager'
+#define CAM_MISC_TAG 387
+#define CAM_MISC_LABEL 'timemgr_write_restart'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
@@ -1439,6 +1453,13 @@ end subroutine timemgr_read_restart
 
 
 subroutine timevars_set_names()
+#define CAM_MISC_TAG 388
+#define CAM_MISC_LABEL 'timevars_set_names'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   timevars(1)%name = 'rst_calendar'
   timevars(2)%name = 'rst_nstep'
   timevars(3)%name = 'rst_step_days'

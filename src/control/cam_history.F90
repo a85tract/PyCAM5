@@ -2077,6 +2077,12 @@ CONTAINS
      integer :: cnt, cnttot, ierr, lchnk, ncol, j
      integer :: beglatxy,endlatxy,beglonxy,endlonxy
 
+#define CAM_MISC_TAG 380
+#define CAM_MISC_LABEL 'column_init'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
      plon = get_dyn_grid_parm('plon')
      splon = get_dyn_grid_parm('splon')
@@ -3004,9 +3010,16 @@ CONTAINS
 !
       type (active_entry), pointer :: tape(:)
       character*(max_fieldname_len) :: fname_loc  ! max-char equivalent of fname
-      integer :: t, f, ff          ! tape, field, masterindex indices
-      integer :: ierr
+     integer :: t, f, ff          ! tape, field, masterindex indices
+     integer :: ierr
 !-----------------------------------------------------------------------
+
+#define CAM_MISC_TAG 381
+#define CAM_MISC_LABEL 'get_field_properties'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       tape => history_tape
 
@@ -4423,6 +4436,13 @@ CONTAINS
      type(column_info) :: tmpcolumn
      integer :: ff
 
+#define CAM_MISC_TAG 382
+#define CAM_MISC_LABEL 'dump_field'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
      interpolate = (latlon_interpolation(t) .and. .not. restart )
      do i=1,max(ngroup(t),1)
         if(restart .and. i>1) exit
@@ -5540,6 +5560,13 @@ CONTAINS
    integer :: hash_key
    type(master_entry), pointer :: listentry
 !
+#define CAM_MISC_TAG 383
+#define CAM_MISC_LABEL 'bld_outfld_hash_tbls'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
 !  1) Find all collisions.
 !
    tbl_hash_pri = 0

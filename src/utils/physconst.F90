@@ -154,8 +154,8 @@ contains
       ! Physical constants needing to be reset (ie. for aqua planet experiments)
       namelist /physconst_nl/  cpwv, gravit, mwdry, mwh2o, rearth, sday, tmelt, tms_orocnst, tms_z0fac
 
-#define CAM_MISC_TAG 219
-#define CAM_MISC_LABEL 'physconst'
+#define CAM_MISC_TAG 389
+#define CAM_MISC_LABEL 'physconst_readnl'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
@@ -333,8 +333,6 @@ contains
    end subroutine physconst_update
 
 end module physconst
-
-
 
 
 
