@@ -53,7 +53,9 @@ module mo_neu_wetdep
   logical :: neu_wetdep_gas_micro_use_native_impl = .false.
   logical :: neu_wetdep_gas_micro_impl_selected = .false.
   logical :: neu_wetdep_gas_micro_selector_proof_written = .false.
+  logical :: neu_wetdep_disgas_proof_written = .false.
   logical :: neu_wetdep_disgas_wrap_proof_written = .false.
+  logical :: neu_wetdep_raingas_proof_written = .false.
   logical :: neu_wetdep_raingas_wrap_proof_written = .false.
   logical :: neu_wetdep_washgas_wrap_proof_written = .false.
   logical :: neu_wetdep_washo_use_native_impl = .false.
@@ -2504,6 +2506,12 @@ upper_level : &
 
       if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
       if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         if (masterproc .and. .not. neu_wetdep_disgas_proof_written) then
+            write(iulog,*) 'disgas implementation = codon'
+            call neu_wetdep_gas_micro_append_impl_proof('disgas implementation = codon')
+            neu_wetdep_disgas_proof_written = .true.
+            call flush(iulog)
+         end if
          call neu_wetdep_disgas_codon_wrap(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
          return
       end if
@@ -2556,6 +2564,12 @@ upper_level : &
 
       if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
       if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         if (masterproc .and. .not. neu_wetdep_raingas_proof_written) then
+            write(iulog,*) 'raingas implementation = codon'
+            call neu_wetdep_gas_micro_append_impl_proof('raingas implementation = codon')
+            neu_wetdep_raingas_proof_written = .true.
+            call flush(iulog)
+         end if
          call neu_wetdep_raingas_codon_wrap(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
          return
       end if
@@ -2653,11 +2667,7 @@ upper_level : &
       real(r8), intent(out) :: QTDIS
 
       if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
-      if (.not. neu_wetdep_gas_micro_use_native_impl) then
-         call neu_wetdep_disgas_codon_wrap(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
-      else
-         call DISGAS(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
-      end if
+      call DISGAS(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
 
       return
       end subroutine neu_wetdep_disgas_eval
@@ -2670,11 +2680,7 @@ upper_level : &
       real(r8), intent(out) :: QTRAIN
 
       if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
-      if (.not. neu_wetdep_gas_micro_use_native_impl) then
-         call neu_wetdep_raingas_codon_wrap(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
-      else
-         call RAINGAS(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
-      end if
+      call RAINGAS(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
 
       return
       end subroutine neu_wetdep_raingas_eval
