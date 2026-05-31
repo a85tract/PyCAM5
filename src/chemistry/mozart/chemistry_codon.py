@@ -10,6 +10,10 @@ def chemistry_misc_touch_codon(tag: int) -> int:
     return _common.chemistry_misc_touch_codon(tag)
 
 @export
+def init_mean_mass_ids_codon(lookup_ids_p: cobj, species_ids_p: cobj):
+    return _common.init_mean_mass_ids_codon(lookup_ids_p, species_ids_p)
+
+@export
 def phtadj_codon() -> int:
     return 1
 

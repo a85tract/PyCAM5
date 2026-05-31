@@ -31,6 +31,12 @@ def _flux_idx(i: int, m: int, pcols: int) -> int:
 def chemistry_misc_touch_codon(tag: int) -> int:
     return tag
 
+def init_mean_mass_ids_codon(lookup_ids_p: cobj, species_ids_p: cobj):
+    lookup_ids = Ptr[int](lookup_ids_p)
+    species_ids = Ptr[int](species_ids_p)
+    for i in range(4):
+        species_ids[i] = lookup_ids[i]
+
 def chem_final_codon() -> int:
     return 0
 
