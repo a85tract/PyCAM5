@@ -1902,21 +1902,34 @@ end subroutine interpolate_ce
     end do
   end subroutine interpolate_vector3d
   function var_is_vector_uvar(name)
+    use iso_c_binding, only : c_int64_t, c_loc
+    interface
+      function var_is_vector_codon(name_len_c, name_ascii_p, entry_len_c, entries_ascii_p, nentries_c) &
+           result(idx_c) bind(c, name='var_is_vector_codon')
+        use iso_c_binding, only : c_int64_t, c_ptr
+        integer(c_int64_t), value :: name_len_c, entry_len_c, nentries_c
+        type(c_ptr), value :: name_ascii_p, entries_ascii_p
+        integer(c_int64_t) :: idx_c
+      end function var_is_vector_codon
+    end interface
     character(len=*), intent(in) :: name
-    integer :: i, var_is_vector_uvar, null_index
+    integer :: i, j, var_is_vector_uvar
+    integer(c_int64_t), target :: name_ascii(max(1, len(name)))
+    integer(c_int64_t), target :: entries_ascii(len(vector_uvars(1)), MAX_VECVARS)
+    logical, save :: proof_seen = .false.
 
-    var_is_vector_uvar=0
-    null_index=0
-    do i=1,MAX_VECVARS
-       if(trim(vector_uvars(i)).eq. '') then
-          null_index=i
-          exit
-       endif
-       if(trim(vector_uvars(i)).eq.name) then
-          var_is_vector_uvar=i
-          exit
-       end if
+    do i=1,len(name)
+       name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
     end do
+    do i=1,MAX_VECVARS
+       entries_ascii(:,i) = (/ (int(iachar(vector_uvars(i)(j:j)), c_int64_t), j=1,len(vector_uvars(i))) /)
+    end do
+    var_is_vector_uvar = int(var_is_vector_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+         int(len(vector_uvars(1)), c_int64_t), c_loc(entries_ascii(1,1)), int(MAX_VECVARS, c_int64_t)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'var_is_vector_uvar implementation = codon'
+       proof_seen = .true.
+    endif
 #if 0
 DISABLED: breaks in many cases, like UV
     if (var_is_vector_uvar==0) then
@@ -1936,21 +1949,34 @@ DISABLED: breaks in many cases, like UV
 
 
   function var_is_vector_vvar(name)
+    use iso_c_binding, only : c_int64_t, c_loc
+    interface
+      function var_is_vector_codon(name_len_c, name_ascii_p, entry_len_c, entries_ascii_p, nentries_c) &
+           result(idx_c) bind(c, name='var_is_vector_codon')
+        use iso_c_binding, only : c_int64_t, c_ptr
+        integer(c_int64_t), value :: name_len_c, entry_len_c, nentries_c
+        type(c_ptr), value :: name_ascii_p, entries_ascii_p
+        integer(c_int64_t) :: idx_c
+      end function var_is_vector_codon
+    end interface
     character(len=*), intent(in) :: name
-    integer :: i, var_is_vector_vvar, null_index
+    integer :: i, j, var_is_vector_vvar
+    integer(c_int64_t), target :: name_ascii(max(1, len(name)))
+    integer(c_int64_t), target :: entries_ascii(len(vector_vvars(1)), MAX_VECVARS)
+    logical, save :: proof_seen = .false.
 
-    var_is_vector_vvar=0
-    null_index=0
-    do i=1,MAX_VECVARS
-       if(trim(vector_vvars(i)).eq. '') then
-          null_index=i
-          exit
-       endif
-       if(trim(vector_vvars(i)).eq.name) then
-          var_is_vector_vvar=i
-          exit
-       end if
+    do i=1,len(name)
+       name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
     end do
+    do i=1,MAX_VECVARS
+       entries_ascii(:,i) = (/ (int(iachar(vector_vvars(i)(j:j)), c_int64_t), j=1,len(vector_vvars(i))) /)
+    end do
+    var_is_vector_vvar = int(var_is_vector_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+         int(len(vector_vvars(1)), c_int64_t), c_loc(entries_ascii(1,1)), int(MAX_VECVARS, c_int64_t)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'var_is_vector_vvar implementation = codon'
+       proof_seen = .true.
+    endif
 #if 0
 DISABLED: breaks in many cases, like UV
     if (var_is_vector_vvar==0) then

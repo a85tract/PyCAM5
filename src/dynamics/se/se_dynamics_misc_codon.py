@@ -88,6 +88,168 @@ def gridedge_type_codon(head_processor: int, tail_processor: int, internal_edge:
     return external_edge
 
 
+def copy_buffer_codon(
+    nthreads: int,
+    ithr: int,
+    len_move_ptr: int,
+    buf_p: cobj,
+    receive_p: cobj,
+    move_ptr_p: cobj,
+    move_length_p: cobj,
+):
+    buf = Ptr[float](buf_p)
+    receive = Ptr[float](receive_p)
+    move_ptr = Ptr[i32](move_ptr_p)
+    move_length = Ptr[i32](move_length_p)
+    if len_move_ptr == nthreads:
+        iptr = int(move_ptr[ithr])
+        length = int(move_length[ithr])
+        for i in range(0, length):
+            receive[iptr + i - 1] = buf[iptr + i - 1]
+    elif ithr == 0:
+        for j in range(0, len_move_ptr):
+            iptr = int(move_ptr[j])
+            length = int(move_length[j])
+            for i in range(0, length):
+                receive[iptr + i - 1] = buf[iptr + i - 1]
+
+
+def var_is_vector_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    entry_len: int,
+    entries_ascii_p: cobj,
+    nentries: int,
+) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    entries = Ptr[int](entries_ascii_p)
+    trimmed_name_len = name_len
+    while trimmed_name_len > 0 and name_ascii[trimmed_name_len - 1] == 32:
+        trimmed_name_len -= 1
+
+    for entry in range(1, nentries + 1):
+        base = (entry - 1) * entry_len
+        trimmed_entry_len = entry_len
+        while trimmed_entry_len > 0 and entries[base + trimmed_entry_len - 1] == 32:
+            trimmed_entry_len -= 1
+        if trimmed_entry_len == 0:
+            return 0
+        if trimmed_entry_len == trimmed_name_len:
+            match = True
+            for i in range(0, trimmed_name_len):
+                if entries[base + i] != name_ascii[i]:
+                    match = False
+                    break
+            if match:
+                return entry
+    return 0
+
+
+def reduction_max_r_local_codon(
+    buf_p: cobj,
+    ctr_p: cobj,
+    redp_p: cobj,
+    length: int,
+    nthreads: int,
+):
+    buf = Ptr[float](buf_p)
+    ctr = Ptr[i32](ctr_p)
+    redp = Ptr[float](redp_p)
+    if int(ctr[0]) == 0:
+        for k in range(0, length):
+            buf[k] = -9.11e30
+    if int(ctr[0]) < nthreads:
+        for k in range(0, length):
+            if redp[k] > buf[k]:
+                buf[k] = redp[k]
+        ctr[0] += i32(1)
+    if int(ctr[0]) == nthreads:
+        ctr[0] = i32(0)
+
+
+def reduction_min_r_local_codon(
+    buf_p: cobj,
+    ctr_p: cobj,
+    redp_p: cobj,
+    length: int,
+    nthreads: int,
+):
+    buf = Ptr[float](buf_p)
+    ctr = Ptr[i32](ctr_p)
+    redp = Ptr[float](redp_p)
+    if int(ctr[0]) == 0:
+        for k in range(0, length):
+            buf[k] = 9.11e30
+    if int(ctr[0]) < nthreads:
+        for k in range(0, length):
+            if redp[k] < buf[k]:
+                buf[k] = redp[k]
+        ctr[0] += i32(1)
+    if int(ctr[0]) == nthreads:
+        ctr[0] = i32(0)
+
+
+def copy_par_codon(
+    rank2_p: cobj,
+    root2_p: cobj,
+    nprocs2_p: cobj,
+    comm2_p: cobj,
+    intercomm2_p: cobj,
+    intracomm2_p: cobj,
+    intracommsize2_p: cobj,
+    intracommrank2_p: cobj,
+    comm_graph_full2_p: cobj,
+    comm_graph_inter2_p: cobj,
+    comm_graph_intra2_p: cobj,
+    group_graph_full2_p: cobj,
+    masterproc2_p: cobj,
+    rank1_p: cobj,
+    root1_p: cobj,
+    nprocs1_p: cobj,
+    comm1_p: cobj,
+    intercomm1_p: cobj,
+    intracomm1_p: cobj,
+    intracommsize1_p: cobj,
+    intracommrank1_p: cobj,
+    comm_graph_full1_p: cobj,
+    comm_graph_inter1_p: cobj,
+    comm_graph_intra1_p: cobj,
+    group_graph_full1_p: cobj,
+    masterproc1_p: cobj,
+):
+    Ptr[i32](rank2_p)[0] = Ptr[i32](rank1_p)[0]
+    Ptr[i32](root2_p)[0] = Ptr[i32](root1_p)[0]
+    Ptr[i32](nprocs2_p)[0] = Ptr[i32](nprocs1_p)[0]
+    Ptr[i32](comm2_p)[0] = Ptr[i32](comm1_p)[0]
+    Ptr[i32](intercomm2_p)[0] = Ptr[i32](intercomm1_p)[0]
+    Ptr[i32](intracomm2_p)[0] = Ptr[i32](intracomm1_p)[0]
+    Ptr[i32](intracommsize2_p)[0] = Ptr[i32](intracommsize1_p)[0]
+    Ptr[i32](intracommrank2_p)[0] = Ptr[i32](intracommrank1_p)[0]
+    Ptr[i32](comm_graph_full2_p)[0] = Ptr[i32](comm_graph_full1_p)[0]
+    Ptr[i32](comm_graph_inter2_p)[0] = Ptr[i32](comm_graph_inter1_p)[0]
+    Ptr[i32](comm_graph_intra2_p)[0] = Ptr[i32](comm_graph_intra1_p)[0]
+    Ptr[i32](group_graph_full2_p)[0] = Ptr[i32](group_graph_full1_p)[0]
+    Ptr[i32](masterproc2_p)[0] = Ptr[i32](masterproc1_p)[0]
+
+
+def init_edge_buffer_i8_header_codon(
+    np: int,
+    max_corner_elem: int,
+    nelemd: int,
+    nlyr: int,
+    nlyr_p: cobj,
+    nbuf_p: cobj,
+):
+    Ptr[i32](nlyr_p)[0] = i32(nlyr)
+    Ptr[i32](nbuf_p)[0] = i32(4 * (np + max_corner_elem) * nelemd)
+
+
+def zero_i32_buffer_codon(n: int, buf_p: cobj):
+    buf = Ptr[i32](buf_p)
+    for i in range(0, n):
+        buf[i] = i32(0)
+
+
 from C import gbarrier_initialize(cobj, i32)
 from C import gbarrier_free(cobj)
 from C import gbarrier_synchronize(cobj, i32)

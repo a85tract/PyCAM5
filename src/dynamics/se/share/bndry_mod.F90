@@ -116,14 +116,23 @@ contains
 
   subroutine copyBuffer(nthreads,ithr,buffer,location)
     use edgetype_mod, only : Edgebuffer_t
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
+    interface
+      subroutine copy_buffer_codon(nthreads_c, ithr_c, len_move_ptr_c, buf_p, receive_p, &
+           move_ptr_p, move_length_p) bind(c, name='copy_buffer_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: nthreads_c, ithr_c, len_move_ptr_c
+        type(c_ptr), value :: buf_p, receive_p, move_ptr_p, move_length_p
+      end subroutine copy_buffer_codon
+    end interface
     integer :: nthreads
     integer :: ithr
-    type (EdgeBuffer_t)          :: buffer
+    type (EdgeBuffer_t), target  :: buffer
     character(len=80)            :: location
     logical ::  ompThreadMissmatch
-    integer lenMovePtr, iptr,length,i,j
+    integer lenMovePtr
+    logical, save :: proof_seen = .false.
 
 #define SE_MISC_TAG 8
 #define SE_MISC_LABEL 'bndry_mod'
@@ -139,24 +148,11 @@ contains
       write(*,30) TRIM(location), lenMoveptr, nthreads
     endif
 
-    if (.not. ompthreadMissmatch) then
-      iptr   = buffer%moveptr(ithr+1)
-      length = buffer%moveLength(ithr+1)
-      if(length>0) then
-        do i=0,length-1
-           buffer%receive(iptr+i) = buffer%buf(iptr+i)
-        enddo
-      endif
-    else if(ompthreadMissmatch .and. ithr == 0) then
-       do j=1,lenMovePtr
-          iptr   = buffer%moveptr(j)
-          length = buffer%moveLength(j)
-          if(length>0) then
-             do i=0,length-1
-                buffer%receive(iptr+i) = buffer%buf(iptr+i)
-             enddo
-          endif
-       enddo
+    call copy_buffer_codon(int(nthreads, c_int64_t), int(ithr, c_int64_t), int(lenMovePtr, c_int64_t), &
+         c_loc(buffer%buf(1)), c_loc(buffer%receive(1)), c_loc(buffer%moveptr(1)), c_loc(buffer%moveLength(1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'copybuffer implementation = codon'
+       proof_seen = .true.
     endif
 30  format(a,'Potential performance issue: ',a,'LenMoveptr,nthreads: ',2(i3))
   end subroutine copyBuffer

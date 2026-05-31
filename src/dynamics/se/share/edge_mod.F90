@@ -731,27 +731,48 @@ contains
   ! =========================================
   subroutine initEdgeBuffer_i8(edge,nlyr)
     use dimensions_mod, only : np, nelemd, max_corner_elem
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     implicit none
+    interface
+      subroutine init_edge_buffer_i8_header_codon(np_c, max_corner_elem_c, nelemd_c, nlyr_c, nlyr_p, nbuf_p) &
+           bind(c, name='init_edge_buffer_i8_header_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: np_c, max_corner_elem_c, nelemd_c, nlyr_c
+        type(c_ptr), value :: nlyr_p, nbuf_p
+      end subroutine init_edge_buffer_i8_header_codon
+      subroutine zero_i32_buffer_codon(n_c, buf_p) bind(c, name='zero_i32_buffer_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: n_c
+        type(c_ptr), value :: buf_p
+      end subroutine zero_i32_buffer_codon
+    end interface
     integer,intent(in)                :: nlyr
-    type (LongEdgeBuffer_t),intent(out) :: edge
+    type (LongEdgeBuffer_t),intent(out), target :: edge
 
     ! Local variables
 
-    integer :: nbuf
+    integer, target :: nlyr_tmp, nbuf_tmp
+    logical, save :: proof_seen = .false.
 
     ! sanity check for threading
     if (omp_get_num_threads()>1) then
        call haltmp('ERROR: initLongEdgeBuffer must be called before threaded reagion')
     endif
 
-    nbuf=4*(np+max_corner_elem)*nelemd
-    edge%nlyr=nlyr
-    edge%nbuf=nbuf
-    allocate(edge%buf(nlyr,nbuf))
-    edge%buf(:,:)=0
+    call init_edge_buffer_i8_header_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
+         int(nelemd, c_int64_t), int(nlyr, c_int64_t), c_loc(nlyr_tmp), c_loc(nbuf_tmp))
+    edge%nlyr=nlyr_tmp
+    edge%nbuf=nbuf_tmp
+    allocate(edge%buf(edge%nlyr,edge%nbuf))
+    call zero_i32_buffer_codon(int(edge%nlyr*edge%nbuf, c_int64_t), c_loc(edge%buf(1,1)))
 
-    allocate(edge%receive(nlyr,nbuf))
-    edge%receive(:,:)=0
+    allocate(edge%receive(edge%nlyr,edge%nbuf))
+    call zero_i32_buffer_codon(int(edge%nlyr*edge%nbuf, c_int64_t), c_loc(edge%receive(1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'initedgebuffer_i8 implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine initEdgeBuffer_i8
   ! =========================================

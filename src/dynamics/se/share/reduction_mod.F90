@@ -315,14 +315,24 @@ contains
   
   subroutine pmax_mt_r_1d(red,redp,len,hybrid)
     use hybrid_mod, only : hybrid_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 #ifdef _MPI
     use parallel_mod, only: mpi_min, mpi_max, mpireal_t,abortmp
 #else
     use parallel_mod, only: abortmp
 #endif
+    use cam_logfile, only : iulog
+    interface
+      subroutine reduction_max_r_local_codon(buf_p, ctr_p, redp_p, len_c, nthreads_c) &
+           bind(c, name='reduction_max_r_local_codon')
+        import :: c_int64_t, c_ptr
+        type(c_ptr), value :: buf_p, ctr_p, redp_p
+        integer(c_int64_t), value :: len_c, nthreads_c
+      end subroutine reduction_max_r_local_codon
+    end interface
 
-    type (ReductionBuffer_r_1d_t)     :: red     ! shared memory reduction buffer struct
-    real (kind=real_kind), intent(inout) :: redp(:) ! thread private vector of partial sum
+    type (ReductionBuffer_r_1d_t), target :: red ! shared memory reduction buffer struct
+    real (kind=real_kind), intent(inout), target :: redp(:) ! thread private vector of partial sum
     integer,               intent(in) :: len     ! buffer length
     type (hybrid_t),       intent(in) :: hybrid  ! parallel handle
 
@@ -331,21 +341,19 @@ contains
     integer ierr
 #endif
 
-    integer  :: k
+    logical, save :: proof_seen = .false.
     if (len>red%len) call abortmp('ERROR: threadsafe reduction buffer too small')
 
 #if (defined HORIZ_OPENMP)
     !$OMP BARRIER
     !$OMP CRITICAL (CRITMAX)
 #endif
-    if (red%ctr == 0) red%buf(1:len)= -9.11e30
-    if (red%ctr < hybrid%NThreads) then
-       do k=1,len
-          red%buf(k)=MAX(red%buf(k),redp(k))
-       enddo
-       red%ctr=red%ctr+1
-    end if
-    if (red%ctr == hybrid%NThreads) red%ctr=0
+    call reduction_max_r_local_codon(c_loc(red%buf(1)), c_loc(red%ctr), c_loc(redp(1)), &
+         int(len, c_int64_t), int(hybrid%NThreads, c_int64_t))
+    if (.not. proof_seen) then
+       write(iulog,*) 'pmax_mt_r_1d implementation = codon'
+       proof_seen = .true.
+    endif
 #if (defined HORIZ_OPENMP)
     !$OMP END CRITICAL (CRITMAX)
 #endif
@@ -378,14 +386,24 @@ contains
   subroutine pmin_mt_r_1d(red,redp,len,hybrid)
     use kinds, only : int_kind
     use hybrid_mod, only : hybrid_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 #ifdef _MPI
     use parallel_mod, only: mpi_min, mpireal_t,abortmp
 #else
     use parallel_mod, only: abortmp
 #endif
+    use cam_logfile, only : iulog
+    interface
+      subroutine reduction_min_r_local_codon(buf_p, ctr_p, redp_p, len_c, nthreads_c) &
+           bind(c, name='reduction_min_r_local_codon')
+        import :: c_int64_t, c_ptr
+        type(c_ptr), value :: buf_p, ctr_p, redp_p
+        integer(c_int64_t), value :: len_c, nthreads_c
+      end subroutine reduction_min_r_local_codon
+    end interface
 
-    type (ReductionBuffer_r_1d_t)     :: red     ! shared memory reduction buffer struct
-    real (kind=real_kind), intent(inout) :: redp(:) ! thread private vector of partial sum
+    type (ReductionBuffer_r_1d_t), target :: red ! shared memory reduction buffer struct
+    real (kind=real_kind), intent(inout), target :: redp(:) ! thread private vector of partial sum
     integer,               intent(in) :: len     ! buffer length
     type (hybrid_t),       intent(in) :: hybrid  ! parallel handle
 
@@ -394,7 +412,7 @@ contains
 #ifdef _MPI
     integer ierr
 #endif
-    integer (kind=int_kind) :: k
+    logical, save :: proof_seen = .false.
 
     if (len>red%len) call abortmp('ERROR: threadsafe reduction buffer too small')
 
@@ -402,14 +420,12 @@ contains
     !$OMP BARRIER
     !$OMP CRITICAL (CRITMAX)
 #endif
-    if (red%ctr == 0) red%buf(1:len)= 9.11e30
-    if (red%ctr < hybrid%NThreads) then
-       do k=1,len
-          red%buf(k)=MIN(red%buf(k),redp(k))
-       enddo
-       red%ctr=red%ctr+1
-    end if
-    if (red%ctr == hybrid%NThreads) red%ctr=0
+    call reduction_min_r_local_codon(c_loc(red%buf(1)), c_loc(red%ctr), c_loc(redp(1)), &
+         int(len, c_int64_t), int(hybrid%NThreads, c_int64_t))
+    if (.not. proof_seen) then
+       write(iulog,*) 'pmin_mt_r_1d implementation = codon'
+       proof_seen = .true.
+    endif
 #if (defined HORIZ_OPENMP)
     !$OMP END CRITICAL (CRITMAX)
 #endif

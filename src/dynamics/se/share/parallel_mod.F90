@@ -110,19 +110,42 @@ contains
 ! ================================================
 
   subroutine copy_par(par2,par1)
-    type(parallel_t), intent(out) :: par2
-    type(parallel_t), intent(in)  :: par1
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    interface
+      subroutine copy_par_codon(rank2_p, root2_p, nprocs2_p, comm2_p, intercomm2_p, &
+           intracomm2_p, intracommsize2_p, intracommrank2_p, comm_graph_full2_p, &
+           comm_graph_inter2_p, comm_graph_intra2_p, group_graph_full2_p, masterproc2_p, &
+           rank1_p, root1_p, nprocs1_p, comm1_p, intercomm1_p, intracomm1_p, &
+           intracommsize1_p, intracommrank1_p, comm_graph_full1_p, comm_graph_inter1_p, &
+           comm_graph_intra1_p, group_graph_full1_p, masterproc1_p) bind(c, name='copy_par_codon')
+        import :: c_ptr
+        type(c_ptr), value :: rank2_p, root2_p, nprocs2_p, comm2_p, intercomm2_p, &
+             intracomm2_p, intracommsize2_p, intracommrank2_p, comm_graph_full2_p, &
+             comm_graph_inter2_p, comm_graph_intra2_p, group_graph_full2_p, masterproc2_p, &
+             rank1_p, root1_p, nprocs1_p, comm1_p, intercomm1_p, intracomm1_p, &
+             intracommsize1_p, intracommrank1_p, comm_graph_full1_p, comm_graph_inter1_p, &
+             comm_graph_intra1_p, group_graph_full1_p, masterproc1_p
+      end subroutine copy_par_codon
+    end interface
+    type(parallel_t), intent(out), target :: par2
+    type(parallel_t), intent(in), target  :: par1
+    integer, target :: masterproc2_i, masterproc1_i
+    logical, save :: proof_seen = .false.
 
-    par2%rank            = par1%rank
-    par2%root            = par1%root
-    par2%nprocs          = par1%nprocs
-    par2%comm            = par1%comm
-    par2%intercomm       = par1%intercomm
-    par2%commGraphFull   = par1%commGraphFull
-    par2%commGraphInter  = par1%commGraphInter
-    par2%commGraphIntra  = par1%commGraphIntra
-    par2%groupGraphFull  = par1%groupGraphFull
-    par2%masterproc      = par1%masterproc
+    masterproc1_i = 0
+    if (par1%masterproc) masterproc1_i = 1
+    call copy_par_codon(c_loc(par2%rank), c_loc(par2%root), c_loc(par2%nprocs), c_loc(par2%comm), &
+         c_loc(par2%intercomm(0)), c_loc(par2%intracomm), c_loc(par2%intracommsize), c_loc(par2%intracommrank), &
+         c_loc(par2%commGraphFull), c_loc(par2%commGraphInter), c_loc(par2%commGraphIntra), &
+         c_loc(par2%groupGraphFull), c_loc(masterproc2_i), c_loc(par1%rank), c_loc(par1%root), &
+         c_loc(par1%nprocs), c_loc(par1%comm), c_loc(par1%intercomm(0)), c_loc(par1%intracomm), &
+         c_loc(par1%intracommsize), c_loc(par1%intracommrank), c_loc(par1%commGraphFull), &
+         c_loc(par1%commGraphInter), c_loc(par1%commGraphIntra), c_loc(par1%groupGraphFull), c_loc(masterproc1_i))
+    par2%masterproc = (masterproc2_i /= 0)
+    if (.not. proof_seen) then
+       write(iulog,*) 'copy_par implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine copy_par
 
