@@ -14,8 +14,8 @@
       integer,parameter :: ndpara = 62
       integer,parameter :: ncolgr = 10
 
-      real(r8)  :: xspara(ndpara)
-      real(r8)  :: zppara(ndpara) = (/ &
+      real(r8), target  :: xspara(ndpara)
+      real(r8), target  :: zppara(ndpara) = (/ &
         -17.00_r8,  -16.75_r8,  -16.50_r8,  -16.25_r8,  -16.00_r8, &
         -15.75_r8,  -15.50_r8,  -15.25_r8,  -15.00_r8,  -14.75_r8, &
         -14.50_r8,  -14.25_r8,  -14.00_r8,  -13.75_r8,  -13.50_r8, &
@@ -156,17 +156,28 @@ loop1:      do icolm = 1,ncolgr-1
 !-----------------------------------------------------------------------
 ! Called once per run from init (init.F) to define module data.
 !-----------------------------------------------------------------------
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+      use spmd_utils,    only : masterproc
 
 !-----------------------------------------------------------------------
 !	... local variables
 !-----------------------------------------------------------------------
-      integer :: k
+      interface
+         subroutine heatnirco2_init_xspara_codon(ndpara_c, zppara_p, xspara_p) &
+              bind(c, name="heatnirco2_init_xspara_codon")
+           import :: c_int64_t, c_ptr
+           integer(c_int64_t), value :: ndpara_c
+           type(c_ptr), value :: zppara_p, xspara_p
+         end subroutine heatnirco2_init_xspara_codon
+      end interface
 
       call chemistry_misc_codon_touch('mo_heatnirco2', 107)
-      
-      do k = 1,ndpara
-         xspara(k) = 5.e-7_r8 * exp( -zppara(k) )
-      end do
+
+      call heatnirco2_init_xspara_codon(int(ndpara, c_int64_t), c_loc(zppara(1)), c_loc(xspara(1)))
+      if (masterproc) then
+         write(iulog,'(A)') 'heatnirco2_init implementation = codon'
+         call flush(iulog)
+      end if
 
       co2stand = (/ &
         3.6000e-04_r8,  3.6000e-04_r8,  3.6000e-04_r8,  3.6000e-04_r8,  3.6000e-04_r8, &

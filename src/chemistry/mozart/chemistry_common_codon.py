@@ -1,3 +1,5 @@
+from math import exp
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
@@ -126,3 +128,19 @@ def set_sulf_time_codon() -> int:
 
 def neu_wetdep_init_active_codon(method_is_neu: int, wetdep_count: int) -> int:
     return 1 if method_is_neu != 0 and wetdep_count > 0 else 0
+
+def usrrxt_inti_has_ion_codon(
+    ion1: int,
+    ion2: int,
+    ion3: int,
+    elec1: int,
+    elec2: int,
+    elec3: int,
+) -> int:
+    return 1 if ion1 > 0 and ion2 > 0 and ion3 > 0 and elec1 > 0 and elec2 > 0 and elec3 > 0 else 0
+
+def heatnirco2_init_xspara_codon(ndpara: int, zppara_p: cobj, xspara_p: cobj):
+    zppara = Ptr[float](zppara_p)
+    xspara = Ptr[float](xspara_p)
+    for k in range(ndpara):
+        xspara[k] = 5.0e-7 * exp(-zppara[k])

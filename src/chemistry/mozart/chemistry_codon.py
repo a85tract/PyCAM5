@@ -469,6 +469,20 @@ def chm_diags_euv_codon(
         invariants_p,
         wrk_p,
     )
+@export
+def usrrxt_inti_has_ion_codon(
+    ion1: int,
+    ion2: int,
+    ion3: int,
+    elec1: int,
+    elec2: int,
+    elec3: int,
+) -> int:
+    return _common.usrrxt_inti_has_ion_codon(ion1, ion2, ion3, elec1, elec2, elec3)
+
+@export
+def heatnirco2_init_xspara_codon(ndpara: int, zppara_p: cobj, xspara_p: cobj):
+    return _common.heatnirco2_init_xspara_codon(ndpara, zppara_p, xspara_p)
 
 @export
 def rebin_codon(

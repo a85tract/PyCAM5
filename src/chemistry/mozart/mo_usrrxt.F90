@@ -142,11 +142,21 @@ contains
     !        ... intialize the user reaction constants module
     !-----------------------------------------------------------------
 
+    use iso_c_binding,  only : c_int64_t
     use mo_chem_utls,   only : get_rxt_ndx, get_spc_ndx
     use spmd_utils,     only : masterproc
     use physics_buffer, only : pbuf_get_index
 
     implicit none
+    integer(c_int64_t) :: has_ion_c
+    interface
+       function usrrxt_inti_has_ion_codon(ion1_c, ion2_c, ion3_c, elec1_c, elec2_c, elec3_c) &
+            result(has_ion_out) bind(c, name="usrrxt_inti_has_ion_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: ion1_c, ion2_c, ion3_c, elec1_c, elec2_c, elec3_c
+         integer(c_int64_t) :: has_ion_out
+       end function usrrxt_inti_has_ion_codon
+    end interface
 !
 ! full tropospheric chemistry
 !
@@ -255,8 +265,10 @@ contains
     elec2_ndx  = get_rxt_ndx( 'elec2' )
     elec3_ndx  = get_rxt_ndx( 'elec3' )
 
-    has_ion_rxts = ion1_ndx>0 .and. ion2_ndx>0 .and. ion3_ndx>0 .and. elec1_ndx>0 &
-                 .and. elec2_ndx>0 .and. elec3_ndx>0
+    has_ion_c = usrrxt_inti_has_ion_codon( int(ion1_ndx, c_int64_t), int(ion2_ndx, c_int64_t), &
+         int(ion3_ndx, c_int64_t), int(elec1_ndx, c_int64_t), int(elec2_ndx, c_int64_t), &
+         int(elec3_ndx, c_int64_t) )
+    has_ion_rxts = has_ion_c /= 0_c_int64_t
 
     so4_ndx    = get_spc_ndx( 'SO4' )
     cb2_ndx    = get_spc_ndx( 'CB2' )
@@ -330,6 +342,8 @@ contains
                             ,tag_NO2_HO2_ndx,usr_HO2NO2_M_ndx,usr_N2O5_aer_ndx,usr_NO3_aer_ndx,usr_NO2_aer_ndx &
                             ,usr_CO_OH_b_ndx,tag_C2H4_OH_ndx,tag_C3H6_OH_ndx,tag_CH3CO3_NO2_ndx,usr_PAN_M_ndx,usr_CH3COCH3_OH_ndx &
                             ,usr_MCO3_NO2_ndx,usr_MPAN_M_ndx,usr_XOOH_OH_ndx,usr_SO2_OH_ndx,usr_DMS_OH_ndx,usr_HO2_aer_ndx
+       write(iulog,'(A)') 'usrrxt_inti implementation = codon'
+       call flush(iulog)
     end if
 
   end subroutine usrrxt_inti
