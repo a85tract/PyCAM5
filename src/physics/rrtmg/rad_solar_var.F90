@@ -10,6 +10,7 @@ module rad_solar_var
   use cam_abortutils,    only : endrun
   use cam_logfile,       only : iulog
   use spmd_utils,        only : masterproc
+  use iso_c_binding,     only : c_int64_t, c_loc, c_ptr
 
   implicit none
   save
@@ -22,12 +23,24 @@ module rad_solar_var
   real(r8), allocatable :: irrad(:)           ! solar irradiance at model timestep in each band
   real(r8)              :: tsi_ref            ! total solar irradiance assumed by rrtmg                                                 
 
-  real(r8), allocatable :: radbinmax(:)
+  real(r8), allocatable, target :: radbinmax(:)
   real(r8), allocatable :: radbinmin(:)
   integer :: nradbins
+  logical :: use_native_rad_solar_var_init_impl = .false.
+  logical :: rad_solar_var_init_impl_selected = .false.
+  logical :: rad_solar_var_init_logged = .false.
   logical :: use_native_rrtmg_solar_variability_impl = .false.
   logical :: rrtmg_solar_variability_impl_selected = .false.
   logical :: rrtmg_solar_variability_entered_logged = .false.
+  interface
+     function rad_solar_var_init_far_ir_codon(nradbins_c, radbinmax_p) result(radmax_loc_c) &
+          bind(c, name="rad_solar_var_init_far_ir_codon")
+       import :: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nradbins_c
+       type(c_ptr), value :: radbinmax_p
+       integer(c_int64_t) :: radmax_loc_c
+     end function rad_solar_var_init_far_ir_codon
+  end interface
 contains
 
 !-------------------------------------------------------------------------------
@@ -77,8 +90,14 @@ contains
        ! Make sure that the far-IR is included, even if RRTMG does not
        ! extend that far down. 10^5 nm corresponds to a wavenumber of
        ! 100 cm^-1.
-       radmax_loc = maxloc(radbinmax,1)
-       radbinmax(radmax_loc) = max(100000._r8,radbinmax(radmax_loc))
+      call rad_solar_var_init_select_impl()
+      if (use_native_rad_solar_var_init_impl) then
+         radmax_loc = maxloc(radbinmax,1)
+         radbinmax(radmax_loc) = max(100000._r8,radbinmax(radmax_loc))
+      else
+         call rad_solar_var_init_log()
+         radmax_loc = int(rad_solar_var_init_far_ir_codon(int(nradbins, c_int64_t), c_loc(radbinmax(1))))
+      end if
 
        ! for rrtmg, reference spectrum from rrtmg
        call get_ref_solar_band_irrad( ref_band_irrad )
@@ -90,6 +109,48 @@ contains
     endif
 
   endsubroutine rad_solar_var_init
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine rad_solar_var_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (rad_solar_var_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RRTMG_RAD_SOLAR_VAR_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_rad_solar_var_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_rad_solar_var_init_impl = .false.
+    end if
+
+    rad_solar_var_init_impl_selected = .true.
+
+  end subroutine rad_solar_var_init_select_impl
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine rad_solar_var_init_log()
+
+    if (rad_solar_var_init_logged) return
+    rad_solar_var_init_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'rad_solar_var_init implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine rad_solar_var_init_log
 
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

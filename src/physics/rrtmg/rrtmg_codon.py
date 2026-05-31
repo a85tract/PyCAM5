@@ -2181,6 +2181,21 @@ def rrtmg_solar_variability_codon(
 
 
 @export
+def rad_solar_var_init_far_ir_codon(nradbins: int, radbinmax_p: cobj) -> int:
+    radbinmax = Ptr[float](radbinmax_p)
+    maxloc = 1
+    maxval = radbinmax[0]
+    for i in range(2, nradbins + 1):
+        value = radbinmax[i - 1]
+        if value > maxval:
+            maxval = value
+            maxloc = i
+    if radbinmax[maxloc - 1] < 100000.0:
+        radbinmax[maxloc - 1] = 100000.0
+    return maxloc
+
+
+@export
 def rrtmg_sw_setcoef_codon(
     nlayers: int,
     mxmol: int,
