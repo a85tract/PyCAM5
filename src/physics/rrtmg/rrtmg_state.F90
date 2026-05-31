@@ -57,6 +57,7 @@ module rrtmg_state
   logical :: use_native_rrtmg_state_impl = .false.
   logical :: rrtmg_state_impl_selected = .false.
   logical :: rrtmg_state_entered_logged = .false.
+  logical :: rrtmg_state_create_logged = .false.
 
 contains
 
@@ -114,15 +115,15 @@ contains
     integer  :: ncol, i, kk, k
 
     interface
-       subroutine rrtmg_state_create_fields_codon(ncol_c, pcols_c, pver_c, pverp_c, num_rrtmg_levs_c, stebol_c, &
+       subroutine rrtmg_state_create_codon(ncol_c, pcols_c, pver_c, pverp_c, num_rrtmg_levs_c, stebol_c, &
             t_p, lnpint_p, lnpmid_p, pmid_p, pint_p, lwup_p, pmidmb_p, pintmb_p, tlay_p, tlev_p) &
-            bind(c, name="rrtmg_state_create_fields_codon")
+            bind(c, name="rrtmg_state_create_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, num_rrtmg_levs_c
          real(c_double), value :: stebol_c
          type(c_ptr), value :: t_p, lnpint_p, lnpmid_p, pmid_p, pint_p, lwup_p
          type(c_ptr), value :: pmidmb_p, pintmb_p, tlay_p, tlev_p
-       end subroutine rrtmg_state_create_fields_codon
+       end subroutine rrtmg_state_create_codon
     end interface
 
     allocate( rstate )
@@ -148,8 +149,9 @@ contains
     call rrtmg_state_select_impl()
 
     if (.not. use_native_rrtmg_state_impl) then
+       call rrtmg_state_create_log()
        call rrtmg_state_log_entered()
-       call rrtmg_state_create_fields_codon( &
+       call rrtmg_state_create_codon( &
             int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
             int(num_rrtmg_levs, c_int64_t), real(stebol, c_double), &
             c_loc(pstate%t(1,1)), c_loc(pstate%lnpint(1,1)), c_loc(pstate%lnpmid(1,1)), &
@@ -387,6 +389,20 @@ contains
     end if
 
   end subroutine rrtmg_state_log_entered
+
+!--------------------------------------------------------------------------------
+
+  subroutine rrtmg_state_create_log()
+
+    if (rrtmg_state_create_logged) return
+    rrtmg_state_create_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'rrtmg_state_create implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine rrtmg_state_create_log
 
 !--------------------------------------------------------------------------------
 

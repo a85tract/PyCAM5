@@ -1034,7 +1034,7 @@ def _tint_at(
 
 
 @export
-def rrtmg_state_create_fields_codon(
+def rrtmg_state_create_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -1085,6 +1085,45 @@ def rrtmg_state_create_fields_codon(
         for i in range(1, ncol + 1):
             pmidmb[_idx2(i, 1, pcols)] = 0.5 * pintmb[_idx2(i, 2, pcols)]
             pintmb[_idx2(i, 1, pcols)] = 1.0e-4
+
+
+@export
+def rrtmg_state_create_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    num_rrtmg_levs: int,
+    stebol: float,
+    t_p: cobj,
+    lnpint_p: cobj,
+    lnpmid_p: cobj,
+    pmid_p: cobj,
+    pint_p: cobj,
+    lwup_p: cobj,
+    pmidmb_p: cobj,
+    pintmb_p: cobj,
+    tlay_p: cobj,
+    tlev_p: cobj,
+):
+    rrtmg_state_create_codon(
+        ncol,
+        pcols,
+        pver,
+        pverp,
+        num_rrtmg_levs,
+        stebol,
+        t_p,
+        lnpint_p,
+        lnpmid_p,
+        pmid_p,
+        pint_p,
+        lwup_p,
+        pmidmb_p,
+        pintmb_p,
+        tlay_p,
+        tlev_p,
+    )
 
 
 @export
