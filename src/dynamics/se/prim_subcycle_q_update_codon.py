@@ -1270,3 +1270,19 @@ def applycamforcing_dynamics_codon(
         v_p,
         fm_p,
     )
+
+@export
+def createuniqueindex_codon(
+    ig: int,
+    npts: int,
+    gdof_p: cobj,
+    ia_p: cobj,
+    ja_p: cobj,
+) -> int:
+    return _misc.createuniqueindex_codon(
+        ig,
+        npts,
+        gdof_p,
+        ia_p,
+        ja_p,
+    )

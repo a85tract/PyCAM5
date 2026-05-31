@@ -16,6 +16,7 @@ implicit none
 private
   ! public data
   ! public subroutines
+  logical, save :: createuniqueindex_codon_logged = .false.
   public :: global_dof
   public :: genLocalDof
   public :: PrintDofP
@@ -351,39 +352,37 @@ contains
   end subroutine SetElemOffset
 
   subroutine CreateUniqueIndex(ig,gdof,idx)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
 
     integer(kind=int_kind) :: ig
-    type (index_t) :: idx 
-    integer(kind=long_kind) :: gdof(:,:)
+    type (index_t), target :: idx
+    integer(kind=long_kind), target :: gdof(:,:)
     
-    integer, allocatable :: ldof(:,:)
-    integer :: i,j,ii,npts
+    integer :: npts
+
+    interface
+       function createuniqueindex_codon(ig_c, npts_c, gdof_p, ia_p, ja_p) result(num_unique_c) &
+            bind(c, name="createuniqueindex_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ig_c, npts_c
+         type(c_ptr), value :: gdof_p, ia_p, ja_p
+         integer(c_int64_t) :: num_unique_c
+       end function createuniqueindex_codon
+    end interface
 
 
     npts = size(gdof,dim=1)
-    allocate(ldof(npts,npts))
-    ! ====================
-    ! Form the local DOF
-    ! ====================
-    call genLocalDOF(ig,npts,ldof)
-    
-    ii=1
-    
-    do j=1,npts
-       do i=1,npts
-          ! ==========================
-          ! check for point ownership
-          ! ==========================
-          if(gdof(i,j) .eq. ldof(i,j)) then
-             idx%ia(ii) = i
-             idx%ja(ii) = j
-             ii=ii+1
-          endif
-       enddo
-    enddo
-    
-    idx%NumUniquePts=ii-1
-    deallocate(ldof)
+    idx%NumUniquePts = int(createuniqueindex_codon( &
+         int(ig, c_int64_t), int(npts, c_int64_t), &
+         c_loc(gdof(1,1)), c_loc(idx%ia(1)), c_loc(idx%ja(1))), int_kind)
+
+    if (masterproc .and. .not. createuniqueindex_codon_logged) then
+       write(iulog,*) 'createuniqueindex implementation = codon'
+       createuniqueindex_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end subroutine CreateUniqueIndex
 

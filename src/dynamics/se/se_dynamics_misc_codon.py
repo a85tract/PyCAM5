@@ -488,3 +488,26 @@ def applycamforcing_dynamics_codon(np: int, nlev: int, dt_q: float, t_p: cobj, f
         t[idx] = t[idx] + dt_q * ft[idx]
     for idx in range(v_size):
         v[idx] = v[idx] + dt_q * fm[idx]
+
+
+def createuniqueindex_codon(
+    ig: int,
+    npts: int,
+    gdof_p: cobj,
+    ia_p: cobj,
+    ja_p: cobj,
+) -> int:
+    gdof = Ptr[int](gdof_p)
+    ia = Ptr[i32](ia_p)
+    ja = Ptr[i32](ja_p)
+
+    npts2 = npts * npts
+    ii = 1
+    for j in range(1, npts + 1):
+        for i in range(1, npts + 1):
+            ldof = (ig - 1) * npts2 + (j - 1) * npts + i
+            if gdof[(i - 1) + (j - 1) * npts] == ldof:
+                ia[ii - 1] = i32(i)
+                ja[ii - 1] = i32(j)
+                ii += 1
+    return ii - 1
