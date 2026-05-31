@@ -1,3 +1,6 @@
+from math import asin, atan2, cos, sqrt, tan
+
+
 def se_misc_touch_codon(tag: int) -> int:
     return tag
 
@@ -248,6 +251,150 @@ def zero_i32_buffer_codon(n: int, buf_p: cobj):
     buf = Ptr[i32](buf_p)
     for i in range(0, n):
         buf[i] = i32(0)
+
+
+def _unit_face_to_sphere(x: float, y: float, face_no: int, lon_p: cobj, lat_p: cobj):
+    lon = Ptr[float](lon_p)
+    lat = Ptr[float](lat_p)
+    one = 1.0
+    two_pi = 6.2831853071795864769252867665590057683943387987502
+    threshold = 1.0e-9
+    r = sqrt(one + x**2.0 + y**2.0)
+    if face_no == 1:
+        lat[0] = asin(y / r)
+        lon[0] = atan2(x, one)
+    elif face_no == 2:
+        lat[0] = asin(y / r)
+        lon[0] = atan2(one, -x)
+    elif face_no == 3:
+        lat[0] = asin(y / r)
+        lon[0] = atan2(-x, -one)
+    elif face_no == 4:
+        lat[0] = asin(y / r)
+        lon[0] = atan2(-one, x)
+    elif face_no == 5:
+        if abs(y) > threshold or abs(x) > threshold:
+            lon[0] = atan2(x, y)
+        else:
+            lon[0] = 0.0
+        lat[0] = asin(-one / r)
+    elif face_no == 6:
+        if abs(y) > threshold or abs(x) > threshold:
+            lon[0] = atan2(x, -y)
+        else:
+            lon[0] = 0.0
+        lat[0] = asin(one / r)
+    else:
+        lon[0] = 0.0
+        lat[0] = 0.0
+    if lon[0] < 0.0:
+        lon[0] = lon[0] + two_pi
+
+
+def projectpoint_codon(cart_x: float, cart_y: float, face_no: int, r_p: cobj, lon_p: cobj, lat_p: cobj):
+    r_out = Ptr[float](r_p)
+    r_out[0] = 1.0
+    _unit_face_to_sphere(tan(cart_x), tan(cart_y), face_no, lon_p, lat_p)
+
+
+def ref2sphere_double_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    pi = (1.0 - a) / 2.0
+    pj = (1.0 - b) / 2.0
+    qi = (1.0 + a) / 2.0
+    qj = (1.0 + b) / 2.0
+    cart_x = pi * pj * c1x + qi * pj * c2x + qi * qj * c3x + pi * qj * c4x
+    cart_y = pi * pj * c1y + qi * pj * c2y + qi * qj * c3y + pi * qj * c4y
+    projectpoint_codon(cart_x, cart_y, face_no, r_p, lon_p, lat_p)
+
+
+def dmap_equiangular_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    u11: float,
+    u12: float,
+    u21: float,
+    u22: float,
+    u31: float,
+    u32: float,
+    u41: float,
+    u42: float,
+    d_p: cobj,
+):
+    d = Ptr[float](d_p)
+    j11 = u21 + u41 * b
+    j12 = u31 + u41 * a
+    j21 = u22 + u42 * b
+    j22 = u32 + u42 * a
+    pi = (1.0 - a) / 2.0
+    pj = (1.0 - b) / 2.0
+    qi = (1.0 + a) / 2.0
+    qj = (1.0 + b) / 2.0
+    x1 = pi * pj * c1x + qi * pj * c2x + qi * qj * c3x + pi * qj * c4x
+    x2 = pi * pj * c1y + qi * pj * c2y + qi * qj * c3y + pi * qj * c4y
+    tx1 = tan(x1)
+    tx2 = tan(x2)
+    r = sqrt(1.0 + tx1**2.0 + tx2**2.0)
+    poledist = sqrt(tx1**2.0 + tx2**2.0)
+    d11 = 0.0
+    d12 = 0.0
+    d21 = 0.0
+    d22 = 0.0
+    if face_no >= 1 and face_no <= 4:
+        d11 = 1.0 / (r * cos(x1))
+        d12 = 0.0
+        d21 = -tx1 * tx2 / (cos(x1) * r * r)
+        d22 = 1.0 / (r * r * cos(x1) * cos(x2) * cos(x2))
+    elif face_no == 6:
+        if poledist <= 1.0e-9:
+            d11 = 1.0
+            d12 = 0.0
+            d21 = 0.0
+            d22 = 1.0
+        else:
+            d11 = -tx2 / (poledist * cos(x1) * cos(x1) * r)
+            d12 = tx1 / (poledist * cos(x2) * cos(x2) * r)
+            d21 = -tx1 / (poledist * cos(x1) * cos(x1) * r * r)
+            d22 = -tx2 / (poledist * cos(x2) * cos(x2) * r * r)
+    elif face_no == 5:
+        if poledist <= 1.0e-9:
+            d11 = 1.0
+            d12 = 0.0
+            d21 = 0.0
+            d22 = 1.0
+        else:
+            d11 = tx2 / (poledist * cos(x1) * cos(x1) * r)
+            d12 = -tx1 / (poledist * cos(x2) * cos(x2) * r)
+            d21 = tx1 / (poledist * cos(x1) * cos(x1) * r * r)
+            d22 = tx2 / (poledist * cos(x2) * cos(x2) * r * r)
+    # Fortran column-major D(2,2): (1,1),(2,1),(1,2),(2,2).
+    d[0] = d11 * j11 + d12 * j21
+    d[2] = d11 * j12 + d12 * j22
+    d[1] = d21 * j11 + d22 * j21
+    d[3] = d21 * j12 + d22 * j22
 
 
 from C import gbarrier_initialize(cobj, i32)

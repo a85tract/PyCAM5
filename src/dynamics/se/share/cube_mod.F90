@@ -555,7 +555,9 @@ contains
   ! the sphere. 
   ! ========================================================
   subroutine Dmap(D, a,b, corners3D, ref_map, corners, u2qmap, facenum)
-    real (kind=real_kind), intent(out)  :: D(2,2)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc
+    use cam_logfile, only : iulog
+    real (kind=real_kind), intent(out), target  :: D(2,2)
     real (kind=real_kind), intent(in)     :: a,b
     type (cartesian3D_t)   :: corners3D(4)  !x,y,z coords of element corners
     integer :: ref_map 
@@ -563,13 +565,39 @@ contains
     type (cartesian2D_t),optional   :: corners(4)    ! gnomonic coords of element corners
     real (kind=real_kind),optional  :: u2qmap(4,2)   
     integer,optional  :: facenum
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine dmap_equiangular_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
+            u11, u12, u21, u22, u31, u32, u41, u42, d_p) bind(c, name='dmap_equiangular_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: a_c, b_c
+         integer(c_int64_t), value :: face_no_c
+         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
+         real(c_double), value :: u11, u12, u21, u22, u31, u32, u41, u42
+         type(c_ptr), value :: d_p
+       end subroutine dmap_equiangular_codon
+    end interface
 
 
 
     if (ref_map==0) then
        if (.not. present ( corners ) ) &
             call abortmp('Dmap(): missing arguments for equiangular map')
-       call dmap_equiangular(D,a,b,corners,u2qmap,facenum)
+       if (.not. present ( u2qmap ) .or. .not. present ( facenum ) ) &
+            call abortmp('Dmap(): missing arguments for equiangular map')
+       call dmap_equiangular_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
+            real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
+            real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
+            real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
+            real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
+            real(u2qmap(1,1), c_double), real(u2qmap(1,2), c_double), &
+            real(u2qmap(2,1), c_double), real(u2qmap(2,2), c_double), &
+            real(u2qmap(3,1), c_double), real(u2qmap(3,2), c_double), &
+            real(u2qmap(4,1), c_double), real(u2qmap(4,2), c_double), c_loc(D))
+       if (.not. proof_seen) then
+          write(iulog,*) 'dmap implementation = codon'
+          proof_seen = .true.
+       endif
     else if (ref_map==1) then
        call abortmp('equi-distance gnomonic map not yet implemented')
     else if (ref_map==2) then
@@ -2426,6 +2454,8 @@ contains
 !  need for a new map)
 !
   function ref2sphere_double(a,b, corners3D, ref_map, corners, facenum) result(sphere)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc
+    use cam_logfile, only : iulog
     real(kind=real_kind)    :: a,b
     type (spherical_polar_t)      :: sphere
     type (cartesian3d_t)            :: corners3D(4)
@@ -2433,12 +2463,38 @@ contains
     ! only needed for gnominic maps
     type (cartesian2d_t), optional  :: corners(4)  
     integer, optional               :: facenum    
+    real(c_double), target :: r_c, lon_c, lat_c
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine ref2sphere_double_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
+            r_p, lon_p, lat_p) bind(c, name='ref2sphere_double_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: a_c, b_c
+         integer(c_int64_t), value :: face_no_c
+         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
+         type(c_ptr), value :: r_p, lon_p, lat_p
+       end subroutine ref2sphere_double_codon
+    end interface
 
 
     if (ref_map==0) then
        if (.not. present(corners) ) &
             call abortmp('ref2sphere_double(): missing arguments for equiangular map')
-       sphere = ref2sphere_equiangular_double(a,b,corners,facenum)
+       if (.not. present(facenum) ) &
+            call abortmp('ref2sphere_double(): missing face number for equiangular map')
+       call ref2sphere_double_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
+            real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
+            real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
+            real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
+            real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
+            c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
+       sphere%r = r_c
+       sphere%lon = lon_c
+       sphere%lat = lat_c
+       if (.not. proof_seen) then
+          write(iulog,*) 'ref2sphere_double implementation = codon'
+          proof_seen = .true.
+       endif
     elseif (ref_map==1) then
 !       sphere = ref2sphere_gnomonic_double(a,b,corners,face_no)
        call abortmp('gnomonic map not yet coded')

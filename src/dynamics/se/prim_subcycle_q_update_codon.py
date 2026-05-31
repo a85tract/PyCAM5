@@ -1152,6 +1152,66 @@ def zero_i32_buffer_codon(n: int, buf_p: cobj):
     return _misc.zero_i32_buffer_codon(n, buf_p)
 
 @export
+def projectpoint_codon(
+    cart_x: float,
+    cart_y: float,
+    face_no: int,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    return _misc.projectpoint_codon(cart_x, cart_y, face_no, r_p, lon_p, lat_p)
+
+@export
+def ref2sphere_double_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    return _misc.ref2sphere_double_codon(
+        a, b, face_no, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, r_p, lon_p, lat_p
+    )
+
+@export
+def dmap_equiangular_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    u11: float,
+    u12: float,
+    u21: float,
+    u22: float,
+    u31: float,
+    u32: float,
+    u41: float,
+    u42: float,
+    d_p: cobj,
+):
+    return _misc.dmap_equiangular_codon(
+        a, b, face_no, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y,
+        u11, u12, u21, u22, u31, u32, u41, u42, d_p
+    )
+
+@export
 def gbarrier_init_codon(
     c_barrier_p: cobj,
     nthreads: int,
