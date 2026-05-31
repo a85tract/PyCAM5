@@ -1,5 +1,6 @@
 module mo_chm_diags
 
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
   use shr_kind_mod, only : r8 => shr_kind_r8
   use chem_mods,    only : gas_pcnst
   use mo_tracname,  only : solsym
@@ -8,8 +9,10 @@ module mo_chm_diags
   use mo_constants, only : pi, rgrav, rearth
   use mo_chem_utls, only : get_rxt_ndx, get_spc_ndx
   use cam_history,  only : fieldname_len
+  use cam_logfile,  only : iulog
   use mo_jeuv,      only : neuv
   use mo_util,      only : chemistry_misc_codon_touch
+  use spmd_utils,   only : masterproc
 
   private
 
@@ -49,6 +52,9 @@ module mo_chm_diags
   real(r8), parameter :: S_molwgt = 32.066_r8
 
   character(len=32) :: chempkg
+  logical :: chm_diags_use_native_impl = .false.
+  logical :: chm_diags_impl_selected = .false.
+  logical :: chm_diags_proof_written = .false.
 
 contains
 
@@ -384,16 +390,16 @@ contains
     !--------------------------------------------------------------------
     integer,  intent(in)  :: lchnk
     integer,  intent(in)  :: ncol
-    real(r8), intent(in)  :: vmr(ncol,pver,gas_pcnst)
-    real(r8), intent(in)  :: mmr(ncol,pver,gas_pcnst)
-    real(r8), intent(in)  :: rxt_rates(ncol,pver,rxntot)
-    real(r8), intent(in)  :: invariants(ncol,pver,max(1,nfs))
+    real(r8), target, intent(in)  :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in)  :: mmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in)  :: rxt_rates(ncol,pver,rxntot)
+    real(r8), target, intent(in)  :: invariants(ncol,pver,max(1,nfs))
     real(r8), intent(in)  :: depvel(ncol, gas_pcnst)
-    real(r8), intent(in)  :: depflx(ncol, gas_pcnst)
-    real(r8), intent(in)  :: mmr_tend(ncol,pver,gas_pcnst)
-    real(r8), intent(in)  :: pdel(ncol,pver)
-    real(r8), intent(in)  :: pmid(ncol,pver)
-    integer,  intent(in)  :: ltrop(ncol)
+    real(r8), target, intent(in)  :: depflx(ncol, gas_pcnst)
+    real(r8), target, intent(in)  :: mmr_tend(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in)  :: pdel(ncol,pver)
+    real(r8), target, intent(in)  :: pmid(ncol,pver)
+    integer,  target, intent(in)  :: ltrop(ncol)
 
     type(physics_buffer_desc), pointer :: pbuf(:)
 
@@ -402,17 +408,17 @@ contains
     !--------------------------------------------------------------------
     integer     :: i,j,k, m, n
     integer :: plat
-    real(r8)    :: wrk(ncol,pver)
+    real(r8), target :: wrk(ncol,pver)
     !      real(r8)    :: tmp(ncol,pver)
     !      real(r8)    :: m(ncol,pver)
     real(r8)    :: un2(ncol)
     
-    real(r8), dimension(ncol,pver) :: vmr_nox, vmr_noy, vmr_clox, vmr_cloy, vmr_tcly, vmr_brox, vmr_broy, vmr_toth
-    real(r8), dimension(ncol,pver) :: vmr_tbry, vmr_foy, vmr_tfy
-    real(r8), dimension(ncol,pver) :: mmr_noy, mmr_sox, mmr_nhx, net_chem
-    real(r8), dimension(ncol)      :: df_noy, df_sox, df_nhx, do3chm_trp, do3chm_lms
+    real(r8), target, dimension(ncol,pver) :: vmr_nox, vmr_noy, vmr_clox, vmr_cloy, vmr_tcly, vmr_brox, vmr_broy, vmr_toth
+    real(r8), target, dimension(ncol,pver) :: vmr_tbry, vmr_foy, vmr_tfy
+    real(r8), target, dimension(ncol,pver) :: mmr_noy, mmr_sox, mmr_nhx, net_chem
+    real(r8), target, dimension(ncol)      :: df_noy, df_sox, df_nhx, do3chm_trp, do3chm_lms
 
-    real(r8) :: area(ncol), mass(ncol,pver)
+    real(r8), target :: area(ncol), mass(ncol,pver)
     real(r8) :: wgt
     character(len=16) :: spc_name
 
@@ -439,16 +445,45 @@ contains
 
 
     call get_area_all_p(lchnk, ncol, area)
-    area = area * rearth**2
+    call chm_diags_select_impl()
+    if (.not. chm_diags_use_native_impl) then
+       call chm_diags_write_proof_line('chm_diags implementation = codon')
+       call chm_diags_mass_codon_wrap(ncol, area, pdel, mass)
+    else
+       area = area * rearth**2
 
-    do k = 1,pver
-       mass(:ncol,k) = pdel(:ncol,k) * area(:ncol) * rgrav
-    enddo
+       do k = 1,pver
+          mass(:ncol,k) = pdel(:ncol,k) * area(:ncol) * rgrav
+       enddo
+    end if
 
     call outfld( 'AREA', area(:ncol),   ncol, lchnk )
     call outfld( 'MASS', mass(:ncol,:), ncol, lchnk )
 
     do m = 1,gas_pcnst
+
+       if (.not. chm_diags_use_native_impl) then
+          call chm_diags_species_codon_wrap(m, ncol, trim(dtchem_name(m)) == 'DO3CHM', vmr, mmr, depflx, &
+               mmr_tend, mass, pmid, ltrop, vmr_nox, vmr_noy, vmr_clox, vmr_cloy, vmr_tcly, vmr_brox, &
+               vmr_broy, vmr_toth, vmr_tbry, vmr_foy, vmr_tfy, mmr_noy, mmr_sox, mmr_nhx, df_noy, df_sox, &
+               df_nhx, net_chem, do3chm_trp, do3chm_lms)
+          if ( any( aer_species == m ) ) then
+             call outfld( solsym(m), mmr(:ncol,:,m), ncol ,lchnk )
+             call outfld( trim(solsym(m))//'_SRF', mmr(:ncol,pver,m), ncol ,lchnk )
+          else
+             call outfld( solsym(m), vmr(:ncol,:,m), ncol ,lchnk )
+             call outfld( trim(solsym(m))//'_SRF', vmr(:ncol,pver,m), ncol ,lchnk )
+          endif
+
+          call outfld( depvel_name(m), depvel(:ncol,m), ncol ,lchnk )
+          call outfld( depflx_name(m), depflx(:ncol,m), ncol ,lchnk )
+          call outfld( dtchem_name(m), net_chem(:ncol,:), ncol, lchnk )
+          if ( trim(dtchem_name(m)) == 'DO3CHM' ) then
+             call outfld('DO3CHM_TRP',do3chm_trp(:ncol), ncol, lchnk )
+             call outfld('DO3CHM_LMS',do3chm_lms(:ncol), ncol, lchnk )
+          end if
+          cycle
+       end if
 
  !...FOY (counting Fluorines, not chlorines or bromines)
        if ( m == id_cfc12 .or. m == id_hcfc22 .or. m == id_cf2clbr .or. m == id_h1202 .or. m == id_hcfc142b &
@@ -607,6 +642,28 @@ contains
     !--------------------------------------------------------------------
 
     jeuvs: if ( has_jeuvs ) then
+       if (.not. chm_diags_use_native_impl) then
+          call chm_diags_euv_codon_wrap(1, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PION_EUV', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(2, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV1', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(3, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV1e', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(4, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV2', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(5, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV3', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(6, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV3e', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(7, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV4', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(8, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUV4e', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(9, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUVN2D', wrk, ncol, lchnk )
+          call chm_diags_euv_codon_wrap(10, ncol, 0, vmr, rxt_rates, invariants, wrk)
+          call outfld( 'PEUVN2De', wrk, ncol, lchnk )
+       else
        do k = 1,pver
           un2(:)   = 1._r8 - (vmr(:,k,id_o) + vmr(:,k,id_o2) + vmr(:,k,id_h))
           wrk(:,k) = vmr(:,k,id_o)*(rxt_rates(:,k,rid_jeuv(1)) + rxt_rates(:,k,rid_jeuv(2)) &
@@ -677,20 +734,29 @@ contains
           wrk(:,k) = wrk(:,k) * invariants(:,k,indexm)
        end do
        call outfld( 'PEUVN2De', wrk, ncol, lchnk )
+       end if
     endif jeuvs
 
     if ( has_jno_i ) then
-       do k = 1,pver
-          wrk(:,k) = vmr(:,k,id_no)*rxt_rates(:,k,rid_jno_i)
-          wrk(:,k) = wrk(:,k) * invariants(:,k,indexm)
-       end do
+       if (.not. chm_diags_use_native_impl) then
+          call chm_diags_euv_codon_wrap(11, ncol, rid_jno_i, vmr, rxt_rates, invariants, wrk)
+       else
+          do k = 1,pver
+             wrk(:,k) = vmr(:,k,id_no)*rxt_rates(:,k,rid_jno_i)
+             wrk(:,k) = wrk(:,k) * invariants(:,k,indexm)
+          end do
+       end if
        call outfld( 'PJNO_I', wrk, ncol, lchnk )
     endif
     if ( has_jno ) then
-       do k = 1,pver
-          wrk(:,k) = vmr(:,k,id_no)*rxt_rates(:,k,rid_jno)
-          wrk(:,k) = wrk(:,k) * invariants(:,k,indexm)
-       end do
+       if (.not. chm_diags_use_native_impl) then
+          call chm_diags_euv_codon_wrap(11, ncol, rid_jno, vmr, rxt_rates, invariants, wrk)
+       else
+          do k = 1,pver
+             wrk(:,k) = vmr(:,k,id_no)*rxt_rates(:,k,rid_jno)
+             wrk(:,k) = wrk(:,k) * invariants(:,k,indexm)
+          end do
+       end if
        call outfld( 'PJNO', wrk, ncol, lchnk )
     endif
 
@@ -756,5 +822,177 @@ contains
     call outfld( 'WD_NHX', nhx_wk(:ncol), ncol, lchnk )
 
   end subroutine het_diags
+
+  subroutine chm_diags_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (chm_diags_impl_selected) return
+
+    impl_name = 'native'
+    call get_environment_variable('CHM_DIAGS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       chm_diags_use_native_impl = trim(adjustl(impl_name(:n))) /= 'codon'
+    else
+       chm_diags_use_native_impl = .true.
+    end if
+
+    chm_diags_impl_selected = .true.
+
+    if (masterproc) then
+       if (chm_diags_use_native_impl) then
+          write(iulog,*) 'chm_diags implementation = native'
+       else
+          write(iulog,*) 'chm_diags implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine chm_diags_select_impl
+
+  subroutine chm_diags_write_proof_line(line)
+
+    character(len=*), intent(in) :: line
+    character(len=512) :: proof_file
+    integer :: status, n, proof_unit, ios
+
+    if (.not. masterproc .or. chm_diags_proof_written) return
+
+    write(iulog,*) trim(line)
+    proof_file = ''
+    call get_environment_variable('CHM_DIAGS_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=proof_unit, file=trim(proof_file(:n)), status='old', position='append', action='write', iostat=ios)
+       if (ios /= 0) then
+          open(newunit=proof_unit, file=trim(proof_file(:n)), status='replace', action='write', iostat=ios)
+       end if
+       if (ios == 0) then
+          write(proof_unit,'(A)') trim(line)
+          close(proof_unit)
+       end if
+    end if
+    chm_diags_proof_written = .true.
+    call flush(iulog)
+
+  end subroutine chm_diags_write_proof_line
+
+  subroutine chm_diags_mass_codon_wrap(ncol, area, pdel, mass)
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(inout) :: area(ncol)
+    real(r8), target, intent(in) :: pdel(ncol,pver)
+    real(r8), target, intent(out) :: mass(ncol,pver)
+
+    interface
+       subroutine chm_diags_mass_codon(ncol_c, pver_c, rgrav_c, rearth_c, area_p, pdel_p, mass_p) &
+            bind(c, name="chm_diags_mass_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c
+         real(c_double), value :: rgrav_c, rearth_c
+         type(c_ptr), value :: area_p, pdel_p, mass_p
+       end subroutine chm_diags_mass_codon
+    end interface
+
+    call chm_diags_mass_codon(int(ncol, c_int64_t), int(pver, c_int64_t), real(rgrav, c_double), &
+         real(rearth, c_double), c_loc(area), c_loc(pdel), c_loc(mass))
+
+  end subroutine chm_diags_mass_codon_wrap
+
+  subroutine chm_diags_species_codon_wrap(m, ncol, do3chm, vmr, mmr, depflx, mmr_tend, mass, pmid, ltrop, &
+       vmr_nox, vmr_noy, vmr_clox, vmr_cloy, vmr_tcly, vmr_brox, vmr_broy, vmr_toth, vmr_tbry, vmr_foy, &
+       vmr_tfy, mmr_noy, mmr_sox, mmr_nhx, df_noy, df_sox, df_nhx, net_chem, do3chm_trp, do3chm_lms)
+
+    integer, intent(in) :: m, ncol
+    logical, intent(in) :: do3chm
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst), mmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: depflx(ncol,gas_pcnst), mmr_tend(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: mass(ncol,pver), pmid(ncol,pver)
+    integer, target, intent(in) :: ltrop(ncol)
+    real(r8), target, intent(inout) :: vmr_nox(ncol,pver), vmr_noy(ncol,pver), vmr_clox(ncol,pver)
+    real(r8), target, intent(inout) :: vmr_cloy(ncol,pver), vmr_tcly(ncol,pver), vmr_brox(ncol,pver)
+    real(r8), target, intent(inout) :: vmr_broy(ncol,pver), vmr_toth(ncol,pver), vmr_tbry(ncol,pver)
+    real(r8), target, intent(inout) :: vmr_foy(ncol,pver), vmr_tfy(ncol,pver), mmr_noy(ncol,pver)
+    real(r8), target, intent(inout) :: mmr_sox(ncol,pver), mmr_nhx(ncol,pver), df_noy(ncol)
+    real(r8), target, intent(inout) :: df_sox(ncol), df_nhx(ncol)
+    real(r8), target, intent(out) :: net_chem(ncol,pver), do3chm_trp(ncol), do3chm_lms(ncol)
+
+    integer(c_int64_t), target :: ids(21), flags(13)
+    real(c_double), target :: adv_mass_c(gas_pcnst)
+
+    interface
+       subroutine chm_diags_species_packed_codon(ncol_c, pver_c, gas_pcnst_c, m_c, do3chm_c, fillvalue_c, &
+            n_molwgt_c, s_molwgt_c, ids_p, flags_p, vmr_p, mmr_p, depflx_p, mmr_tend_p, mass_p, pmid_p, &
+            adv_mass_p, ltrop_p, vmr_nox_p, vmr_noy_p, vmr_clox_p, vmr_cloy_p, vmr_tcly_p, vmr_brox_p, &
+            vmr_broy_p, vmr_toth_p, vmr_tbry_p, vmr_foy_p, vmr_tfy_p, mmr_noy_p, mmr_sox_p, mmr_nhx_p, &
+            df_noy_p, df_sox_p, df_nhx_p, net_chem_p, do3chm_trp_p, do3chm_lms_p) &
+            bind(c, name="chm_diags_species_packed_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, m_c, do3chm_c
+         real(c_double), value :: fillvalue_c, n_molwgt_c, s_molwgt_c
+         type(c_ptr), value :: ids_p, flags_p, vmr_p, mmr_p, depflx_p, mmr_tend_p, mass_p, pmid_p
+         type(c_ptr), value :: adv_mass_p, ltrop_p, vmr_nox_p, vmr_noy_p, vmr_clox_p, vmr_cloy_p
+         type(c_ptr), value :: vmr_tcly_p, vmr_brox_p, vmr_broy_p, vmr_toth_p, vmr_tbry_p, vmr_foy_p
+         type(c_ptr), value :: vmr_tfy_p, mmr_noy_p, mmr_sox_p, mmr_nhx_p, df_noy_p, df_sox_p, df_nhx_p
+         type(c_ptr), value :: net_chem_p, do3chm_trp_p, do3chm_lms_p
+       end subroutine chm_diags_species_packed_codon
+    end interface
+
+    ids(:) = int((/ id_ch4, id_n2o5, id_cfc12, id_cl2, id_cl2o2, id_cfc114, id_hcfc141b, id_h1202, &
+         id_h2402, id_ch2br2, id_cfc11, id_cfc113, id_ch3ccl3, id_chbr3, id_ccl4, id_hcfc22, &
+         id_cf2clbr, id_hcfc142b, id_cof2, id_cf3br, id_cfc115 /), c_int64_t)
+    flags(:) = int((/ merge(1, 0, any(foy_species == m)), merge(1, 0, any(tfy_species == m)), &
+         merge(1, 0, any(nox_species == m)), merge(1, 0, any(noy_species == m)), &
+         merge(1, 0, any(sox_species == m)), merge(1, 0, any(nhx_species == m)), &
+         merge(1, 0, any(clox_species == m)), merge(1, 0, any(cloy_species == m)), &
+         merge(1, 0, any(tcly_species == m)), merge(1, 0, any(brox_species == m)), &
+         merge(1, 0, any(broy_species == m)), merge(1, 0, any(tbry_species == m)), &
+         merge(1, 0, any(toth_species == m)) /), c_int64_t)
+    adv_mass_c(:) = real(adv_mass(:), c_double)
+
+    call chm_diags_species_packed_codon(int(ncol, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(m, c_int64_t), int(merge(1, 0, do3chm), c_int64_t), &
+         real(fillvalue, c_double), real(N_molwgt, c_double), real(S_molwgt, c_double), c_loc(ids), &
+         c_loc(flags), c_loc(vmr), c_loc(mmr), c_loc(depflx), c_loc(mmr_tend), c_loc(mass), c_loc(pmid), &
+         c_loc(adv_mass_c), c_loc(ltrop), c_loc(vmr_nox), c_loc(vmr_noy), c_loc(vmr_clox), c_loc(vmr_cloy), &
+         c_loc(vmr_tcly), c_loc(vmr_brox), c_loc(vmr_broy), c_loc(vmr_toth), c_loc(vmr_tbry), c_loc(vmr_foy), &
+         c_loc(vmr_tfy), c_loc(mmr_noy), c_loc(mmr_sox), c_loc(mmr_nhx), c_loc(df_noy), c_loc(df_sox), &
+         c_loc(df_nhx), c_loc(net_chem), c_loc(do3chm_trp), c_loc(do3chm_lms))
+
+  end subroutine chm_diags_species_codon_wrap
+
+  subroutine chm_diags_euv_codon_wrap(stage, ncol, rid_scalar, vmr, rxt_rates, invariants, wrk)
+
+    integer, intent(in) :: stage, ncol, rid_scalar
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst), rxt_rates(ncol,pver,rxntot)
+    real(r8), target, intent(in) :: invariants(ncol,pver,max(1,nfs))
+    real(r8), target, intent(out) :: wrk(ncol,pver)
+    integer(c_int64_t), target :: rid_jeuv_c(NJEUV)
+
+    interface
+       subroutine chm_diags_euv_codon(stage_c, ncol_c, pver_c, indexm_c, id_o_c, id_o2_c, id_h_c, id_n_c, &
+            id_no_c, rid_scalar_c, rid_jeuv_p, vmr_p, rxt_rates_p, invariants_p, wrk_p) &
+            bind(c, name="chm_diags_euv_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pver_c, indexm_c, id_o_c, id_o2_c, id_h_c
+         integer(c_int64_t), value :: id_n_c, id_no_c, rid_scalar_c
+         type(c_ptr), value :: rid_jeuv_p, vmr_p, rxt_rates_p, invariants_p, wrk_p
+       end subroutine chm_diags_euv_codon
+    end interface
+
+    rid_jeuv_c(:) = int(rid_jeuv(:), c_int64_t)
+    call chm_diags_euv_codon(int(stage, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
+         int(indexm, c_int64_t), int(id_o, c_int64_t), int(id_o2, c_int64_t), int(id_h, c_int64_t), &
+         int(id_n, c_int64_t), int(id_no, c_int64_t), int(rid_scalar, c_int64_t), c_loc(rid_jeuv_c), &
+         c_loc(vmr), c_loc(rxt_rates), c_loc(invariants), c_loc(wrk))
+
+  end subroutine chm_diags_euv_codon_wrap
 
 end module mo_chm_diags
