@@ -70,7 +70,7 @@ contains
     integer :: ithr, nthreads
 
 #define SE_MISC_TAG 37
-#define SE_MISC_LABEL 'interp_mod'
+#define SE_MISC_LABEL 'setup_history_interpolation'
 ! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
 #include "se_codon_misc_touch.inc"
 #undef SE_MISC_LABEL

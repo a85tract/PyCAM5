@@ -56,7 +56,7 @@ contains
     integer :: lsize, nets,nete
 
 #define SE_MISC_TAG 38
-#define SE_MISC_LABEL 'nctopo_util_mod'
+#define SE_MISC_LABEL 'nctopo_util_inidat'
 ! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
 #include "se_codon_misc_touch.inc"
 #undef SE_MISC_LABEL
