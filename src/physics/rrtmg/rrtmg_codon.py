@@ -14,6 +14,28 @@ def rrtmg_init_int_passthrough_codon(value: int) -> int:
 
 
 @export
+def rrtmg_rad_gas_index_codon(name_len: int, name_p: cobj) -> int:
+    name = Ptr[int](name_p)
+    if name_len == 3 and name[0] == 72 and name[1] == 50 and name[2] == 79:
+        return 1
+    if name_len == 2 and name[0] == 79 and name[1] == 51:
+        return 2
+    if name_len == 2 and name[0] == 79 and name[1] == 50:
+        return 3
+    if name_len == 3 and name[0] == 67 and name[1] == 79 and name[2] == 50:
+        return 4
+    if name_len == 3 and name[0] == 78 and name[1] == 50 and name[2] == 79:
+        return 5
+    if name_len == 3 and name[0] == 67 and name[1] == 72 and name[2] == 52:
+        return 6
+    if name_len == 5 and name[0] == 67 and name[1] == 70 and name[2] == 67 and name[3] == 49 and name[4] == 49:
+        return 7
+    if name_len == 5 and name[0] == 67 and name[1] == 70 and name[2] == 67 and name[3] == 49 and name[4] == 50:
+        return 8
+    return -1
+
+
+@export
 def rrtmg_ref_solar_band_irrad_codon(
     nbands: int,
     band_irrad_p: cobj,

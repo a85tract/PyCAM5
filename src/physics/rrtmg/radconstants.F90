@@ -148,6 +148,14 @@ interface
       integer(c_int64_t) :: result_c
    end function rrtmg_init_int_passthrough_codon
 
+   function rrtmg_rad_gas_index_codon(name_len_c, name_p) result(index_c) &
+        bind(c, name="rrtmg_rad_gas_index_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c
+      type(c_ptr), value :: name_p
+      integer(c_int64_t) :: index_c
+   end function rrtmg_rad_gas_index_codon
+
    subroutine rrtmg_ref_solar_band_irrad_codon(nbands_c, band_irrad_p, &
         c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14) &
         bind(c, name="rrtmg_ref_solar_band_irrad_codon")
@@ -369,9 +377,22 @@ integer function rad_gas_index(gasname)
 
    character(len=*),intent(in) :: gasname
    integer :: igas
+   integer(c_int64_t), target :: gasname_ascii(max(1, len_trim(gasname)))
+   integer(c_int64_t) :: codon_index
+   integer :: i
 
    call radconstants_select_impl()
-   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+   if (.not. use_native_radconstants_impl) then
+      do i = 1, len_trim(gasname)
+         gasname_ascii(i) = int(iachar(gasname(i:i)), c_int64_t)
+      end do
+      call radconstants_log_rad_gas_index()
+      codon_index = rrtmg_rad_gas_index_codon(int(len_trim(gasname), c_int64_t), c_loc(gasname_ascii(1)))
+      if (codon_index > 0_c_int64_t) then
+         rad_gas_index = int(codon_index)
+         return
+      end if
+   endif
 
    rad_gas_index = -1
    do igas = 1, nradgas
@@ -469,5 +490,18 @@ subroutine radconstants_log_get_sw_spectral_boundaries()
    endif
 
 end subroutine radconstants_log_get_sw_spectral_boundaries
+
+!------------------------------------------------------------------------------
+subroutine radconstants_log_rad_gas_index()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (masterproc) then
+      write(iulog,*) 'rad_gas_index implementation = codon'
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_log_rad_gas_index
 
 end module radconstants
