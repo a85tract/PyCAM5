@@ -430,6 +430,25 @@ def legendre_codon(x: float, n: int, leg_p: cobj):
             leg[k] = p_3
 
 
+def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> int:
+    if npts != 4:
+        return 0
+
+    points = Ptr[float](points_p)
+    weights = Ptr[float](weights_p)
+
+    points[0] = -1.0
+    points[1] = -0.4472135954999579
+    points[2] = 0.4472135954999579
+    points[3] = 1.0
+
+    weights[0] = 0.16666666666666666
+    weights[1] = 0.8333333333333334
+    weights[2] = 0.8333333333333334
+    weights[3] = 0.16666666666666666
+    return 1
+
+
 def se_log2_codon(n: int) -> int:
     ans = 1
     tmp = n

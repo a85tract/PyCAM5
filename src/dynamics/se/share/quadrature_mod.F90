@@ -8,6 +8,7 @@ module quadrature_mod
   use kinds, only : longdouble_kind, iulog
   implicit none
   private
+  logical, save :: gausslobatto_codon_logged = .false.
   logical, save :: legendre_codon_logged = .false.
 
   type, public :: quadrature_t
@@ -283,11 +284,24 @@ contains
   ! ==============================================================
 
   function gausslobatto(npts) result(gll)
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
 
     integer, intent(in) :: npts
     type (quadrature_t) :: gll
+    integer(c_int64_t) :: codon_status
+
+    interface
+       function se_gausslobatto_fill_codon(npts_c, points_p, weights_p) result(status_c) &
+            bind(c, name="se_gausslobatto_fill_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: npts_c
+         type(c_ptr), value :: points_p
+         type(c_ptr), value :: weights_p
+         integer(c_int64_t) :: status_c
+       end function se_gausslobatto_fill_codon
+    end interface
 
 #define SE_MISC_TAG 15
 #define SE_MISC_LABEL 'quadrature_mod'
@@ -298,6 +312,16 @@ contains
 
     allocate(gll%points(npts))
     allocate(gll%weights(npts))
+
+    codon_status = se_gausslobatto_fill_codon(int(npts, c_int64_t), c_loc(gll%points(1)), c_loc(gll%weights(1)))
+    if (codon_status == 1_c_int64_t) then
+       if (masterproc .and. .not. gausslobatto_codon_logged) then
+          write(iulog,*) 'gausslobatto implementation = codon'
+          gausslobatto_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     gll%points=gausslobatto_pts(npts)
     gll%weights=gausslobatto_wts(npts,gll%points)
@@ -981,6 +1005,5 @@ contains
   end function gaussian_int
 
 end module quadrature_mod
-
 
 

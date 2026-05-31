@@ -1252,6 +1252,18 @@ def legendre_codon(
     )
 
 @export
+def se_gausslobatto_fill_codon(
+    npts: int,
+    points_p: cobj,
+    weights_p: cobj,
+) -> int:
+    return _misc.se_gausslobatto_fill_codon(
+        npts,
+        points_p,
+        weights_p,
+    )
+
+@export
 def applycamforcing_dynamics_codon(
     np: int,
     nlev: int,
