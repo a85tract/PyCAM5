@@ -7,7 +7,7 @@ module interpolate_data
 ! Modules Used:
 !
   use shr_kind_mod,   only: r8 => shr_kind_r8
-  use iso_c_binding,  only: c_int64_t
+  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
   use cam_abortutils, only: endrun
   use cam_logfile,    only: iulog
   implicit none
@@ -25,6 +25,8 @@ module interpolate_data
      integer, pointer  :: jjp(:)
   end type interp_type
   logical, save :: lininterp1d_codon_logged = .false.
+  logical, save :: lininterp2d1d_codon_logged = .false.
+  logical, save :: lininterp3d2d_codon_logged = .false.
   interface lininterp
      module procedure lininterp_original
      module procedure lininterp_full1d
@@ -435,15 +437,16 @@ contains
 
   end subroutine lininterp2d2d
   subroutine lininterp2d1d(arrin, n1, n2, arrout, m1, wgt1, wgt2, fldname)
+    use spmd_utils, only: masterproc
     implicit none
     !-----------------------------------------------------------------------
     !
     ! Arguments
     !
     integer, intent(in) :: n1, n2, m1
-    real(r8), intent(in) :: arrin(n1,n2)    ! input array of values to interpolate
+    real(r8), target, intent(in) :: arrin(n1,n2)    ! input array of values to interpolate
     type(interp_type), intent(in) :: wgt1, wgt2
-    real(r8), intent(out) :: arrout(m1) ! interpolated array
+    real(r8), target, intent(out) :: arrout(m1) ! interpolated array
     character(len=*), intent(in), optional :: fldname(:)
     !
     ! locals
@@ -454,6 +457,20 @@ contains
 
     real(r8), pointer :: wgts(:), wgte(:)
     real(r8), pointer :: wgtn(:), wgtw(:)
+    integer(c_int64_t), target :: iim_c(m1)
+    integer(c_int64_t), target :: iip_c(m1)
+    integer(c_int64_t), target :: jjm_c(m1)
+    integer(c_int64_t), target :: jjp_c(m1)
+
+    interface
+       subroutine lininterp2d1d_codon(arrin_p, arrout_p, wgtw_p, wgte_p, wgts_p, wgtn_p, &
+            iim_p, iip_p, jjm_p, jjp_p, n1_c, m1_c) bind(c, name="lininterp2d1d_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         type(c_ptr), value :: arrin_p, arrout_p, wgtw_p, wgte_p, wgts_p, wgtn_p
+         type(c_ptr), value :: iim_p, iip_p, jjm_p, jjp_p
+         integer(c_int64_t), value :: n1_c, m1_c
+       end subroutine lininterp2d1d_codon
+    end interface
 
     jjm => wgt2%jjm
     jjp => wgt2%jjp
@@ -466,22 +483,34 @@ contains
     wgte => wgt1%wgtn
 
     do i=1,m1
-       arrout(i) = arrin(iim(i),jjm(i))*wgtw(i)*wgts(i)+arrin(iip(i),jjm(i))*wgte(i)*wgts(i) + &
-                   arrin(iim(i),jjp(i))*wgtw(i)*wgtn(i)+arrin(iip(i),jjp(i))*wgte(i)*wgtn(i)
+       iim_c(i) = int(iim(i), c_int64_t)
+       iip_c(i) = int(iip(i), c_int64_t)
+       jjm_c(i) = int(jjm(i), c_int64_t)
+       jjp_c(i) = int(jjp(i), c_int64_t)
     end do
 
+    call lininterp2d1d_codon(c_loc(arrin(1,1)), c_loc(arrout(1)), c_loc(wgtw(1)), c_loc(wgte(1)), &
+         c_loc(wgts(1)), c_loc(wgtn(1)), c_loc(iim_c(1)), c_loc(iip_c(1)), c_loc(jjm_c(1)), &
+         c_loc(jjp_c(1)), int(n1, c_int64_t), int(m1, c_int64_t))
+
+    if (masterproc .and. .not. lininterp2d1d_codon_logged) then
+       write(iulog,*) 'lininterp2d1d implementation = codon'
+       lininterp2d1d_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end subroutine lininterp2d1d
   subroutine lininterp3d2d(arrin, n1, n2, n3, arrout, m1, len1, wgt1, wgt2)
+    use spmd_utils, only: masterproc
     implicit none
     !-----------------------------------------------------------------------
     !
     ! Arguments
     !
     integer, intent(in) :: n1, n2, n3, m1, len1   ! m1 is to len1 as ncols is to pcols
-    real(r8), intent(in) :: arrin(n1,n2,n3)    ! input array of values to interpolate
+    real(r8), target, intent(in) :: arrin(n1,n2,n3)    ! input array of values to interpolate
     type(interp_type), intent(in) :: wgt1, wgt2
-    real(r8), intent(out) :: arrout(len1, n3) ! interpolated array
+    real(r8), target, intent(out) :: arrout(len1, n3) ! interpolated array
 
     !
     ! locals
@@ -492,6 +521,20 @@ contains
 
     real(r8), pointer :: wgts(:), wgte(:)
     real(r8), pointer :: wgtn(:), wgtw(:)
+    integer(c_int64_t), target :: iim_c(m1)
+    integer(c_int64_t), target :: iip_c(m1)
+    integer(c_int64_t), target :: jjm_c(m1)
+    integer(c_int64_t), target :: jjp_c(m1)
+
+    interface
+       subroutine lininterp3d2d_codon(arrin_p, arrout_p, wgtw_p, wgte_p, wgts_p, wgtn_p, &
+            iim_p, iip_p, jjm_p, jjp_p, n1_c, n2_c, len1_c, n3_c, m1_c) bind(c, name="lininterp3d2d_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         type(c_ptr), value :: arrin_p, arrout_p, wgtw_p, wgte_p, wgts_p, wgtn_p
+         type(c_ptr), value :: iim_p, iip_p, jjm_p, jjp_p
+         integer(c_int64_t), value :: n1_c, n2_c, len1_c, n3_c, m1_c
+       end subroutine lininterp3d2d_codon
+    end interface
 
     jjm => wgt2%jjm
     jjp => wgt2%jjp
@@ -503,12 +546,23 @@ contains
     wgtw => wgt1%wgts
     wgte => wgt1%wgtn
 
-    do k=1,n3
-       do i=1,m1
-          arrout(i,k) = arrin(iim(i),jjm(i),k)*wgtw(i)*wgts(i)+arrin(iip(i),jjm(i),k)*wgte(i)*wgts(i) + &
-               arrin(iim(i),jjp(i),k)*wgtw(i)*wgtn(i)+arrin(iip(i),jjp(i),k)*wgte(i)*wgtn(i)
-       end do
+    do i=1,m1
+       iim_c(i) = int(iim(i), c_int64_t)
+       iip_c(i) = int(iip(i), c_int64_t)
+       jjm_c(i) = int(jjm(i), c_int64_t)
+       jjp_c(i) = int(jjp(i), c_int64_t)
     end do
+
+    call lininterp3d2d_codon(c_loc(arrin(1,1,1)), c_loc(arrout(1,1)), c_loc(wgtw(1)), c_loc(wgte(1)), &
+         c_loc(wgts(1)), c_loc(wgtn(1)), c_loc(iim_c(1)), c_loc(iip_c(1)), c_loc(jjm_c(1)), &
+         c_loc(jjp_c(1)), int(n1, c_int64_t), int(n2, c_int64_t), int(len1, c_int64_t), &
+         int(n3, c_int64_t), int(m1, c_int64_t))
+
+    if (masterproc .and. .not. lininterp3d2d_codon_logged) then
+       write(iulog,*) 'lininterp3d2d implementation = codon'
+       lininterp3d2d_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end subroutine lininterp3d2d
 

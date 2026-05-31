@@ -42,6 +42,90 @@ def lininterp1d_codon(
 
 
 @export
+def lininterp2d1d_codon(
+    arrin_p: cobj,
+    arrout_p: cobj,
+    wgtw_p: cobj,
+    wgte_p: cobj,
+    wgts_p: cobj,
+    wgtn_p: cobj,
+    iim_p: cobj,
+    iip_p: cobj,
+    jjm_p: cobj,
+    jjp_p: cobj,
+    n1: int,
+    m1: int,
+):
+    arrin = Ptr[float](arrin_p)
+    arrout = Ptr[float](arrout_p)
+    wgtw = Ptr[float](wgtw_p)
+    wgte = Ptr[float](wgte_p)
+    wgts = Ptr[float](wgts_p)
+    wgtn = Ptr[float](wgtn_p)
+    iim = Ptr[int](iim_p)
+    iip = Ptr[int](iip_p)
+    jjm = Ptr[int](jjm_p)
+    jjp = Ptr[int](jjp_p)
+
+    for i in range(m1):
+        ii_m = iim[i] - 1
+        ii_p = iip[i] - 1
+        jj_m = jjm[i] - 1
+        jj_p = jjp[i] - 1
+        arrout[i] = (
+            arrin[ii_m + n1 * jj_m] * wgtw[i] * wgts[i]
+            + arrin[ii_p + n1 * jj_m] * wgte[i] * wgts[i]
+            + arrin[ii_m + n1 * jj_p] * wgtw[i] * wgtn[i]
+            + arrin[ii_p + n1 * jj_p] * wgte[i] * wgtn[i]
+        )
+
+
+@export
+def lininterp3d2d_codon(
+    arrin_p: cobj,
+    arrout_p: cobj,
+    wgtw_p: cobj,
+    wgte_p: cobj,
+    wgts_p: cobj,
+    wgtn_p: cobj,
+    iim_p: cobj,
+    iip_p: cobj,
+    jjm_p: cobj,
+    jjp_p: cobj,
+    n1: int,
+    n2: int,
+    len1: int,
+    n3: int,
+    m1: int,
+):
+    arrin = Ptr[float](arrin_p)
+    arrout = Ptr[float](arrout_p)
+    wgtw = Ptr[float](wgtw_p)
+    wgte = Ptr[float](wgte_p)
+    wgts = Ptr[float](wgts_p)
+    wgtn = Ptr[float](wgtn_p)
+    iim = Ptr[int](iim_p)
+    iip = Ptr[int](iip_p)
+    jjm = Ptr[int](jjm_p)
+    jjp = Ptr[int](jjp_p)
+
+    for k in range(n3):
+        arrin_k = n1 * n2 * k
+        arrout_k = len1 * k
+        for i in range(m1):
+            ii_m = iim[i] - 1
+            ii_p = iip[i] - 1
+            jj_m = jjm[i] - 1
+            jj_p = jjp[i] - 1
+            arrout[arrout_k + i] = (
+                arrin[ii_m + n1 * jj_m + arrin_k] * wgtw[i] * wgts[i]
+                + arrin[ii_p + n1 * jj_m + arrin_k] * wgte[i] * wgts[i]
+                + arrin[ii_m + n1 * jj_p + arrin_k] * wgtw[i] * wgtn[i]
+                + arrin[ii_p + n1 * jj_p + arrin_k] * wgte[i] * wgtn[i]
+            )
+
+
+@export
 def handle_pio_error_ok_codon(ierr: int, pio_noerr: int) -> int:
     return 1 if ierr == pio_noerr else 0
 
