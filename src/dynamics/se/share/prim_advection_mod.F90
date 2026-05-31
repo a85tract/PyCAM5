@@ -682,13 +682,7 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
 
       !This turned out a big optimization, remembering that only parts of the PPM algorithm depends on the data, namely the
       !limiting. So anything that depends only on the grid is pre-computed outside the tracer loop.
-      if (.not. remap_q_ppm_grid_use_native_impl) then
-        call remap_q_ppm_compute_ppm_grids_codon( &
-             int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(dpo), c_loc(ppmdx) &
-        )
-      else
-        ppmdx(:,:) = compute_ppm_grids( dpo )
-      endif
+      ppmdx(:,:) = compute_ppm_grids( dpo )
 
       !From here, we loop over tracers for only those portions which depend on tracer data, which includes PPM limiting and
       !mass accumulation
@@ -716,14 +710,7 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
           enddo
         endif
         !Compute monotonic and conservative PPM reconstruction over every cell
-        if (.not. remap_q_ppm_compute_use_native_impl) then
-          call remap_q_ppm_compute_ppm_codon( &
-               int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(ao), c_loc(ppmdx), &
-               c_loc(ppm_ai), c_loc(ppm_dma), c_loc(coefs) &
-          )
-        else
-          coefs(:,:) = compute_ppm( ao , ppmdx )
-        endif
+        coefs(:,:) = compute_ppm( ao , ppmdx )
         !Compute tracer values on the new grid by integrating from the old cell bottom to the new
         !cell interface to form a new grid mass accumulation. Taking the difference between
         !accumulation at successive interfaces gives the mass inside each cell. Since Qdp is
@@ -755,11 +742,33 @@ end subroutine remap_Q_ppm
 !THis compute grid-based coefficients from Collela & Woodward 1984.
 function compute_ppm_grids( dx )   result(rslt)
   use control_mod, only: vert_remap_q_alg
+  use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+  use cam_logfile, only : iulog
   implicit none
-  real(kind=real_kind), intent(in) :: dx(-1:nlev+2)  !grid spacings
-  real(kind=real_kind)             :: rslt(10,0:nlev+1)  !grid spacings
+  real(kind=real_kind), target, intent(in) :: dx(-1:nlev+2)  !grid spacings
+  real(kind=real_kind), target             :: rslt(10,0:nlev+1)  !grid spacings
   integer :: j
   integer :: indB, indE
+  logical, save :: proof_seen = .false.
+  interface
+     subroutine remap_q_ppm_compute_ppm_grids_codon(nlev_c, vert_remap_q_alg_c, dx_p, rslt_p) &
+          bind(c, name='remap_q_ppm_compute_ppm_grids_codon')
+       import :: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
+       type(c_ptr), value :: dx_p, rslt_p
+     end subroutine remap_q_ppm_compute_ppm_grids_codon
+  end interface
+
+  if (.not. remap_q_ppm_grid_use_native_impl) then
+    call remap_q_ppm_compute_ppm_grids_codon( &
+         int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(dx), c_loc(rslt) &
+    )
+    if (.not. proof_seen) then
+      write(iulog,*) 'compute_ppm_grids implementation = codon'
+      proof_seen = .true.
+    endif
+    return
+  endif
 
   !Calculate grid-based coefficients for stage 1 of compute_ppm
   if (vert_remap_q_alg == 2) then
@@ -801,18 +810,41 @@ end function compute_ppm_grids
 !This computes a limited parabolic interpolant using a net 5-cell stencil, but the stages of computation are broken up into 3 stages
 function compute_ppm( a , dx )    result(coefs)
   use control_mod, only: vert_remap_q_alg
+  use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+  use cam_logfile, only : iulog
   implicit none
-  real(kind=real_kind), intent(in) :: a    (    -1:nlev+2)  !Cell-mean values
-  real(kind=real_kind), intent(in) :: dx   (10,  0:nlev+1)  !grid spacings
-  real(kind=real_kind) ::             coefs(0:2,   nlev  )  !PPM coefficients (for parabola)
-  real(kind=real_kind) :: ai (0:nlev  )                     !fourth-order accurate, then limited interface values
-  real(kind=real_kind) :: dma(0:nlev+1)                     !An expression from Collela's '84 publication
+  real(kind=real_kind), target, intent(in) :: a    (    -1:nlev+2)  !Cell-mean values
+  real(kind=real_kind), target, intent(in) :: dx   (10,  0:nlev+1)  !grid spacings
+  real(kind=real_kind), target ::             coefs(0:2,   nlev  )  !PPM coefficients (for parabola)
+  real(kind=real_kind), target :: ai (0:nlev  )                     !fourth-order accurate, then limited interface values
+  real(kind=real_kind), target :: dma(0:nlev+1)                     !An expression from Collela's '84 publication
   real(kind=real_kind) :: da                                !Ditto
   ! Hold expressions based on the grid (which are cumbersome).
   real(kind=real_kind) :: dx1, dx2, dx3, dx4, dx5, dx6, dx7, dx8, dx9, dx10
   real(kind=real_kind) :: al, ar                            !Left and right interface values for cell-local limiting
   integer :: j
   integer :: indB, indE
+  logical, save :: proof_seen = .false.
+  interface
+     subroutine remap_q_ppm_compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
+          bind(c, name='remap_q_ppm_compute_ppm_codon')
+       import :: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
+       type(c_ptr), value :: a_p, dx_p, ai_p, dma_p, coefs_p
+     end subroutine remap_q_ppm_compute_ppm_codon
+  end interface
+
+  if (.not. remap_q_ppm_compute_use_native_impl) then
+    call remap_q_ppm_compute_ppm_codon( &
+         int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(a), c_loc(dx), &
+         c_loc(ai), c_loc(dma), c_loc(coefs) &
+    )
+    if (.not. proof_seen) then
+      write(iulog,*) 'compute_ppm implementation = codon'
+      proof_seen = .true.
+    endif
+    return
+  endif
 
   ! Stage 1: Compute dma for each cell, allowing a 1-cell ghost stencil below and above the domain
   if (vert_remap_q_alg == 2) then
