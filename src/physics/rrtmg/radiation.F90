@@ -87,6 +87,9 @@ logical :: radiation_options_impl_selected = .false.
 logical :: radiation_defaultopts_logged = .false.
 logical :: radiation_setopts_logged = .false.
 logical :: radiation_do_logged = .false.
+logical :: use_native_radiation_nextsw_cday_impl = .false.
+logical :: radiation_nextsw_cday_impl_selected = .false.
+logical :: radiation_nextsw_cday_logged = .false.
 
 interface
    subroutine radiation_defaultopts_codon(iradsw_c, iradlw_c, irad_always_c, spectralflux_c, out_p) &
@@ -114,6 +117,12 @@ interface
       type(c_ptr), value :: op_ascii_p
       logical(c_bool) :: do_rad_c
    end function radiation_do_codon
+   function radiation_nextsw_offset_codon(nstep_c, dtime_c, iradsw_c, irad_always_c) &
+        result(offset_c) bind(c, name="radiation_nextsw_offset_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: nstep_c, dtime_c, iradsw_c, irad_always_c
+      integer(c_int64_t) :: offset_c
+   end function radiation_nextsw_offset_codon
 end interface
 
 !===============================================================================
@@ -369,18 +378,28 @@ real(r8) function radiation_nextsw_cday()
    !-----------------------------------------------------------------------
 
    radiation_nextsw_cday = -1._r8
-   dosw   = .false.
    nstep  = get_nstep()
    dtime  = get_step_size()
-   offset = 0
-   do while (.not. dosw)
-      nstep = nstep + 1
-      offset = offset + dtime
-      if (radiation_do('sw', nstep)) then
-         radiation_nextsw_cday = get_curr_calday(offset=offset) 
-         dosw = .true.
-      end if
-   end do
+
+   call radiation_nextsw_cday_select_impl()
+   if (use_native_radiation_nextsw_cday_impl) then
+      dosw   = .false.
+      offset = 0
+      do while (.not. dosw)
+         nstep = nstep + 1
+         offset = offset + dtime
+         if (radiation_do('sw', nstep)) then
+            radiation_nextsw_cday = get_curr_calday(offset=offset)
+            dosw = .true.
+         end if
+      end do
+   else
+      offset = int(radiation_nextsw_offset_codon(int(nstep, c_int64_t), int(dtime, c_int64_t), &
+           int(iradsw, c_int64_t), int(irad_always, c_int64_t)))
+      call radiation_nextsw_cday_log()
+      radiation_nextsw_cday = get_curr_calday(offset=offset)
+   endif
+
    if(radiation_nextsw_cday == -1._r8) then
       call endrun('error in radiation_nextsw_cday')
    end if
@@ -763,6 +782,48 @@ end function radiation_nextsw_cday
     end if
 
   end subroutine radiation_do_log
+
+!===============================================================================
+
+  subroutine radiation_nextsw_cday_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (radiation_nextsw_cday_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RRTMG_RADIATION_NEXTSW_CDAY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_radiation_nextsw_cday_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_radiation_nextsw_cday_impl = .false.
+    end if
+
+    radiation_nextsw_cday_impl_selected = .true.
+
+  end subroutine radiation_nextsw_cday_select_impl
+
+!===============================================================================
+
+  subroutine radiation_nextsw_cday_log()
+
+    if (radiation_nextsw_cday_logged) return
+    radiation_nextsw_cday_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_nextsw_cday implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_nextsw_cday_log
 
 !===============================================================================
 

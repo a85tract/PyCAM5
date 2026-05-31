@@ -234,6 +234,22 @@ def radiation_do_codon(op_len: int, op_ascii_p: cobj, nstep: int, iradsw: int, i
 
 
 @export
+def radiation_nextsw_offset_codon(nstep: int, dtime: int, iradsw: int, irad_always: int) -> int:
+    offset = 0
+    current = nstep
+    while True:
+        current = current + 1
+        offset = offset + dtime
+        if (
+            current == 0
+            or iradsw == 1
+            or (((current - 1) % iradsw) == 0 and current != 1)
+            or current <= irad_always
+        ):
+            return offset
+
+
+@export
 def rrtmg_state_init_codon(pverp: int, pref_edge_p: cobj) -> int:
     pref_edge = Ptr[float](pref_edge_p)
     num_levs = 0
