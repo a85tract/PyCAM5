@@ -2,7 +2,7 @@
 module time_manager
 
    use shr_kind_mod,     only: r8 => shr_kind_r8, SHR_KIND_CS
-   use iso_c_binding,    only: c_int64_t
+   use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
    use shr_cal_mod,      only: shr_cal_noleap, shr_cal_gregorian
    use spmd_utils,       only: masterproc
    use ESMF
@@ -92,7 +92,7 @@ module time_manager
    logical ::&
       rst_perp_cal  = .false.         ! true when using perpetual calendar
 
-   character(len=32) :: calendar               ! Calendar type
+   character(len=32), target :: calendar       ! Calendar type
    logical :: tm_first_restart_step = .false.  ! true for first step of a restart or branch run
    logical :: tm_perp_calendar = .false.       ! true when using perpetual calendar
    integer :: cal_type = uninit_int            ! calendar type
@@ -1252,17 +1252,50 @@ function timemgr_is_caltype( cal_in )
 
 ! Return value
    logical :: timemgr_is_caltype
+   character(len=*), parameter  :: sub = 'timemgr_is_caltype'
+   character(len=len(calendar)), target :: cal_in_local
+   character(len=32) :: impl_name
+   integer :: n, status
+   integer(c_int64_t) :: is_match
+
+   interface
+      function timemgr_is_caltype_codon(calendar_p, calendar_len, cal_in_p, cal_in_len) result(is_match) &
+           bind(c, name='timemgr_is_caltype_codon')
+        import :: c_int64_t, c_ptr
+        type(c_ptr), value :: calendar_p, cal_in_p
+        integer(c_int64_t), value :: calendar_len, cal_in_len
+        integer(c_int64_t) :: is_match
+      end function timemgr_is_caltype_codon
+   end interface
+
+   logical, save :: timemgr_is_caltype_codon_logged = .false.
 
 !-----------------------------------------------------------------------------------------
 
-#define CAM_MISC_TAG 248
-#define CAM_MISC_LABEL 'timemgr_is_caltype'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   impl_name = 'codon'
+   call get_environment_variable('TIMEMGR_IS_CALTYPE_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native') then
+      if (masterproc .and. .not. timemgr_is_caltype_codon_logged) then
+         write(iulog,*) 'timemgr_is_caltype implementation = native'
+         timemgr_is_caltype_codon_logged = .true.
+         call flush(iulog)
+      endif
+      timemgr_is_caltype = ( to_upper(trim(calendar)) == to_upper(trim(cal_in)) )
+      return
+   endif
 
-   timemgr_is_caltype = ( to_upper(trim(calendar)) == to_upper(trim(cal_in)) )
+   cal_in_local = cal_in
+   is_match = timemgr_is_caltype_codon(c_loc(calendar(1:1)), int(len(calendar), c_int64_t), &
+        c_loc(cal_in_local(1:1)), int(len(cal_in_local), c_int64_t))
+   if (is_match /= 0_c_int64_t .and. is_match /= 1_c_int64_t) then
+      call endrun(sub//': unexpected Codon return value')
+   endif
+   timemgr_is_caltype = (is_match == 1_c_int64_t)
+   if (masterproc .and. .not. timemgr_is_caltype_codon_logged) then
+      write(iulog,*) 'timemgr_is_caltype direct = codon calendar comparison'
+      timemgr_is_caltype_codon_logged = .true.
+      call flush(iulog)
+   endif
 
 end function timemgr_is_caltype
 !=========================================================================================

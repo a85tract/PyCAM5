@@ -327,6 +327,40 @@ def init_calendar_codon(cal_code: int) -> int:
     return cal_code
 
 
+@inline
+def _cam_char_trim_len(chars: Ptr[byte], n: int) -> int:
+    last = n
+    while last > 0:
+        ch = int(chars[last - 1])
+        if ch != 32 and ch != 0:
+            break
+        last -= 1
+    return last
+
+
+@inline
+def _cam_ascii_upper(ch: int) -> int:
+    if ch >= 97 and ch <= 122:
+        return ch - 32
+    return ch
+
+
+@export
+def timemgr_is_caltype_codon(calendar_p: cobj, calendar_len: int, cal_in_p: cobj, cal_in_len: int) -> int:
+    calendar_chars = Ptr[byte](calendar_p)
+    cal_in_chars = Ptr[byte](cal_in_p)
+
+    calendar_trim = _cam_char_trim_len(calendar_chars, calendar_len)
+    cal_in_trim = _cam_char_trim_len(cal_in_chars, cal_in_len)
+    if calendar_trim != cal_in_trim:
+        return 0
+
+    for i in range(calendar_trim):
+        if _cam_ascii_upper(int(calendar_chars[i])) != _cam_ascii_upper(int(cal_in_chars[i])):
+            return 0
+    return 1
+
+
 @export
 def timemgr_init_restart_codon(varcnt: int) -> int:
     return varcnt
