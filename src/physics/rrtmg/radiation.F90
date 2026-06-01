@@ -140,6 +140,13 @@ contains
     use physics_buffer, only: pbuf_add_field, dtype_r8
     use radiation_data, only: rad_data_register
 
+#define CAM_MISC_TAG 346
+#define CAM_MISC_LABEL 'radiation_register'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     call pbuf_add_field('QRS' , 'global',dtype_r8,(/pcols,pver/), qrs_idx) ! shortwave radiative heating rate 
     call pbuf_add_field('QRL' , 'global',dtype_r8,(/pcols,pver/), qrl_idx) ! longwave  radiative heating rate 
 
@@ -294,6 +301,13 @@ subroutine radiation_printopts
 ! Purpose: Print runtime options to log.
 !-----------------------------------------------------------------------
 
+
+#define CAM_MISC_TAG 347
+#define CAM_MISC_LABEL 'radiation_printopts'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    if(irad_always /= 0) write(iulog,10) irad_always
    write(iulog,20) iradsw,iradlw

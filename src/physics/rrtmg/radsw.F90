@@ -19,6 +19,7 @@ use rrtmg_sw_rad,    only: rrtmg_sw
 use spmd_utils,      only: masterproc
 use perf_mod,        only: t_startf, t_stopf
 use radconstants,    only: idx_sw_diag
+use iso_c_binding,   only: c_int64_t
 
 implicit none
 
@@ -866,6 +867,13 @@ subroutine radsw_init()
 !
 !-----------------------------------------------------------------------
     use radconstants,  only: get_solar_band_fraction_irrad, get_ref_solar_band_irrad
+
+#define CAM_MISC_TAG 349
+#define CAM_MISC_LABEL 'radsw_init'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     ! get the reference fractional solar irradiance in each band
     call get_solar_band_fraction_irrad(fractional_solar_irradiance)

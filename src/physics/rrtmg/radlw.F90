@@ -16,6 +16,7 @@ use perf_mod,          only: t_startf, t_stopf
 use cam_logfile,       only: iulog
 use cam_abortutils,    only: endrun
 use radconstants,      only: nlwbands
+use iso_c_binding,     only: c_int64_t
 
 implicit none
 
@@ -367,6 +368,13 @@ subroutine radlw_init()
    use ref_pres, only : pref_mid
 
    integer :: k
+
+#define CAM_MISC_TAG 348
+#define CAM_MISC_LABEL 'radlw_init'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    ! If the top model level is above ~90 km (0.1 Pa), set the top level to compute
    ! longwave cooling to about 80 km (1 Pa)

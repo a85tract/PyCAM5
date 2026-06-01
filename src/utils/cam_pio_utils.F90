@@ -641,6 +641,13 @@ contains
 
     integer :: ierr
 
+#define CAM_MISC_TAG 344
+#define CAM_MISC_LABEL 'cam_pio_openfile'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     ierr = pio_openfile(pio_subsystem, file, pio_iotype, fname, mode)
 
     if(ierr/= PIO_NOERR) then
@@ -661,6 +668,14 @@ contains
     integer, intent(in) :: mode
     integer :: ierr
     integer :: lmode
+
+#define CAM_MISC_TAG 345
+#define CAM_MISC_LABEL 'cam_pio_createfile'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     lmode = ior(mode, pio_ioformat)
     ierr = pio_createfile(pio_subsystem, file, pio_iotype, fname, lmode)
 
