@@ -221,6 +221,37 @@ def convert_gbl_index_codon(number: int, ne: int, ie_p: cobj, je_p: cobj, face_n
     face_no[0] = i32(face)
 
 
+def set_corner_coordinates_codon(
+    number: int,
+    ne: int,
+    cube_xstart: float,
+    cube_xend: float,
+    cube_ystart: float,
+    cube_yend: float,
+    corners_p: cobj,
+    face_no_p: cobj,
+):
+    corners = Ptr[float](corners_p)
+    face_no = Ptr[i32](face_no_p)
+    face = ((number - 1) // (ne * ne)) + 1
+    ie = (number - 1) % ne
+    je = (number - 1) // ne - (face - 1) * ne
+    dx = (cube_xend - cube_xstart) / float(ne)
+    dy = (cube_yend - cube_ystart) / float(ne)
+    startx = cube_xstart + float(ie) * dx
+    starty = cube_ystart + float(je) * dy
+
+    corners[0] = startx
+    corners[1] = starty
+    corners[2] = startx + dx
+    corners[3] = starty
+    corners[4] = startx + dx
+    corners[5] = starty + dy
+    corners[6] = startx
+    corners[7] = starty + dy
+    face_no[0] = i32(face)
+
+
 def gridedge_type_codon(head_processor: int, tail_processor: int, internal_edge: int, external_edge: int) -> int:
     if head_processor == tail_processor:
         return internal_edge

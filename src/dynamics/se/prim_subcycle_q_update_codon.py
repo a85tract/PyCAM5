@@ -1079,6 +1079,28 @@ def convert_gbl_index_codon(
     return _misc.convert_gbl_index_codon(number, ne, ie_p, je_p, face_no_p)
 
 @export
+def set_corner_coordinates_codon(
+    number: int,
+    ne: int,
+    cube_xstart: float,
+    cube_xend: float,
+    cube_ystart: float,
+    cube_yend: float,
+    corners_p: cobj,
+    face_no_p: cobj,
+):
+    return _misc.set_corner_coordinates_codon(
+        number,
+        ne,
+        cube_xstart,
+        cube_xend,
+        cube_ystart,
+        cube_yend,
+        corners_p,
+        face_no_p,
+    )
+
+@export
 def gridedge_type_codon(
     head_processor: int,
     tail_processor: int,

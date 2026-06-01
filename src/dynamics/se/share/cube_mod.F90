@@ -1357,12 +1357,25 @@ contains
   subroutine set_corner_coordinates(elem)
     use element_mod,    only : element_t 
     use dimensions_mod, only : ne
+    use iso_c_binding, only : c_double, c_int, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
  
     type (element_t) :: elem 
 
     ! Local variables
-    integer  i,ie,je,face_no,nn
-    real (kind=real_kind)  :: dx,dy, startx, starty
+    integer  i,face_no
+    integer(c_int), target :: face_no_c
+    real (kind=real_kind), target :: corners_xy(8)
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine set_corner_coordinates_codon(number_c, ne_c, cube_xstart_c, cube_xend_c, &
+            cube_ystart_c, cube_yend_c, corners_p, face_no_p) bind(c, name='set_corner_coordinates_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: number_c, ne_c
+         real(c_double), value :: cube_xstart_c, cube_xend_c, cube_ystart_c, cube_yend_c
+         type(c_ptr), value :: corners_p, face_no_p
+       end subroutine set_corner_coordinates_codon
+    end interface
 
     if (0==ne) call abortmp('Error in set_corner_coordinates: ne is zero')
 
@@ -1370,23 +1383,24 @@ contains
     ! compute cube face coordinates of element
     ! =========================================
 
-    call convert_gbl_index(elem%vertex%number,ie,je,face_no)
+    call set_corner_coordinates_codon(int(elem%vertex%number, c_int64_t), int(ne, c_int64_t), &
+         real(cube_xstart, c_double), real(cube_xend, c_double), real(cube_ystart, c_double), real(cube_yend, c_double), &
+         c_loc(corners_xy(1)), c_loc(face_no_c))
 
+    face_no = int(face_no_c)
     elem%vertex%face_number = face_no 
-    dx = (cube_xend-cube_xstart)/ne
-    dy = (cube_yend-cube_ystart)/ne
-
-    startx = cube_xstart+ie*dx
-    starty = cube_ystart+je*dy
-
-    elem%corners(1)%x = startx
-    elem%corners(1)%y = starty
-    elem%corners(2)%x = startx+dx
-    elem%corners(2)%y = starty
-    elem%corners(3)%x = startx+dx
-    elem%corners(3)%y = starty+dy
-    elem%corners(4)%x = startx   
-    elem%corners(4)%y = starty+dy
+    elem%corners(1)%x = corners_xy(1)
+    elem%corners(1)%y = corners_xy(2)
+    elem%corners(2)%x = corners_xy(3)
+    elem%corners(2)%y = corners_xy(4)
+    elem%corners(3)%x = corners_xy(5)
+    elem%corners(3)%y = corners_xy(6)
+    elem%corners(4)%x = corners_xy(7)
+    elem%corners(4)%y = corners_xy(8)
+    if (.not. proof_seen) then
+       write(iulog,*) 'set_corner_coordinates implementation = codon'
+       proof_seen = .true.
+    endif
 
 #if 0
     do i=1,4
