@@ -748,6 +748,13 @@ CONTAINS
    end subroutine restart_vars_setnames
 
    subroutine restart_dims_setnames()
+#define CAM_MISC_TAG 390
+#define CAM_MISC_LABEL 'restart_dims_setnames'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
      restartdims(1)%name = 'ptapes'
      restartdims(1)%len  = ptapes
 

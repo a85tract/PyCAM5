@@ -32,18 +32,32 @@ end subroutine cam_instance_misc_touch
 subroutine cam_instance_init(in_atm_id)
 
    integer, intent(in) :: in_atm_id
-
-#define CAM_MISC_TAG 349
-#define CAM_MISC_LABEL 'cam_instance_init'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   interface
+      function cam_misc_touch_codon(tag) result(tag_out) bind(c, name='cam_misc_touch_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: tag
+        integer(c_int64_t) :: tag_out
+      end function cam_misc_touch_codon
+   end interface
+   character(len=32) :: impl_name
+   integer :: n, status
+   integer(c_int64_t) :: tag_out
 
    atm_id      = in_atm_id
    inst_name   = seq_comm_name(atm_id)
    inst_index  = seq_comm_inst(atm_id)
    inst_suffix = seq_comm_suffix(atm_id)
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM_MISC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+      tag_out = cam_misc_touch_codon(349_c_int64_t)
+      if (tag_out /= 349_c_int64_t) then
+         write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+         stop 2
+      endif
+      write(iulog,*) 'cam_instance_init implementation = codon'
+   endif
 
 end subroutine cam_instance_init
 

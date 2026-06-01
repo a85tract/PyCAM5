@@ -193,8 +193,9 @@ CONTAINS
        call shr_file_getLogUnit (shrlogunit)
        call shr_file_getLogLevel(shrloglev)
        call shr_file_setLogUnit (iulog)
-       ! 
-       ! Consistency check                              
+       call cam_instance_init(ATMID)
+       !
+       ! Consistency check
        !
        if (co2_readFlux_ocn .and. index_x2a_Faoo_fco2_ocn /= 0) then
           write(iulog,*)'error co2_readFlux_ocn and index_x2a_Faoo_fco2_ocn cannot both be active'
@@ -632,6 +633,13 @@ CONTAINS
     integer :: ier            ! error status
     !-------------------------------------------------------------------
 
+#define CAM_MISC_TAG 394
+#define CAM_MISC_LABEL 'atm_setgsmap_mct'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     ! Build the atmosphere grid numbering for MCT
     ! NOTE:  Numbering scheme is: West to East and South to North
     ! starting at south pole.  Should be the same as what's used in SCRIP
@@ -686,6 +694,14 @@ CONTAINS
     integer , pointer  :: idata(:)    ! temporary
     real(r8), parameter:: radtodeg = 180.0_r8/SHR_CONST_PI
     !-------------------------------------------------------------------
+
+#define CAM_MISC_TAG 395
+#define CAM_MISC_LABEL 'atm_domain_mct'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     !
     ! Initialize mct atm domain
     !

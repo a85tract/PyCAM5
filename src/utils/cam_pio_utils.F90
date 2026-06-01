@@ -82,6 +82,12 @@ contains
     integer :: hdim1_d, hdim2_d
     integer :: mdims(8), mdimcnt, i
 
+#define CAM_MISC_TAG 391
+#define CAM_MISC_LABEL 'get_decomp'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     if(present(numlev_in)) then
        mdimcnt=1
@@ -136,6 +142,12 @@ contains
     integer, intent(in) :: dtype
     character(len=3) :: fileorder
 
+#define CAM_MISC_TAG 392
+#define CAM_MISC_LABEL 'get_phys_decomp_md1d'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     if(present(fileorder_in)) then
        fileorder=fileorder_in
