@@ -541,6 +541,218 @@ def diagonal_operator_codon(
 
 
 @export
+def diffusion_operator_codon(
+    spr: Ptr[float],
+    sub: Ptr[float],
+    diag: Ptr[float],
+    left_bound: Ptr[float],
+    right_bound: Ptr[float],
+    d_coef: Ptr[float],
+    rdst: Ptr[float],
+    rdel: Ptr[float],
+    delta: Ptr[float],
+    l_edge_width: Ptr[float],
+    r_edge_width: Ptr[float],
+    nsys: int,
+    ncel: int,
+    l_bndry_type: int,
+    r_bndry_type: int,
+):
+    fixed_layer_bndry = 3
+
+    if l_bndry_type == fixed_layer_bndry:
+        for i in range(nsys):
+            left_bound[i] = (
+                2.0 * d_coef[i] * rdel[i] / (l_edge_width[i] + delta[i])
+            )
+    else:
+        for i in range(nsys):
+            left_bound[i] = 0.0
+
+    for k in range(ncel - 1):
+        off = k * nsys
+        dcoef_off = (k + 1) * nsys
+        next_cell_off = (k + 1) * nsys
+        for i in range(nsys):
+            flux_term = d_coef[i + dcoef_off] * rdst[i + off]
+            spr[i + off] = flux_term * rdel[i + off]
+            sub[i + off] = flux_term * rdel[i + next_cell_off]
+
+    if r_bndry_type == fixed_layer_bndry:
+        dcoef_right_off = ncel * nsys
+        cell_right_off = (ncel - 1) * nsys
+        for i in range(nsys):
+            right_bound[i] = (
+                2.0
+                * d_coef[i + dcoef_right_off]
+                * rdel[i + cell_right_off]
+                / (r_edge_width[i] + delta[i + cell_right_off])
+            )
+    else:
+        for i in range(nsys):
+            right_bound[i] = 0.0
+
+    make_tridiag_deriv_diag_codon(
+        spr, sub, diag, left_bound, right_bound, nsys, ncel
+    )
+
+
+@export
+def new_tridiagdecomp_codon(
+    ca: Ptr[float],
+    dnom: Ptr[float],
+    ze: Ptr[float],
+    op_spr: Ptr[float],
+    op_sub: Ptr[float],
+    op_diag: Ptr[float],
+    op_left_bound: Ptr[float],
+    op_right_bound: Ptr[float],
+    nsys: int,
+    ncel: int,
+):
+    for k in range(ncel - 1):
+        off = k * nsys
+        for i in range(nsys):
+            ca[i + off] = -op_spr[i + off]
+
+    last = ncel - 1
+    last_off = last * nsys
+    for i in range(nsys):
+        ca[i + last_off] = -op_right_bound[i]
+        dnom[i + last_off] = 1.0 / op_diag[i + last_off]
+
+    for k in range(ncel - 2, -1, -1):
+        off = k * nsys
+        next_off = (k + 1) * nsys
+        for i in range(nsys):
+            ze[i + next_off] = -op_sub[i + off] * dnom[i + next_off]
+            dnom[i + off] = 1.0 / (
+                op_diag[i + off] - ca[i + off] * ze[i + next_off]
+            )
+
+    for i in range(nsys):
+        ze[i] = -op_left_bound[i]
+
+
+@export
+def new_tridiagdecomp_graft_codon(
+    ca: Ptr[float],
+    dnom: Ptr[float],
+    ze: Ptr[float],
+    op_spr: Ptr[float],
+    op_sub: Ptr[float],
+    op_diag: Ptr[float],
+    op_left_bound: Ptr[float],
+    op_right_bound: Ptr[float],
+    graft_ca: Ptr[float],
+    graft_dnom: Ptr[float],
+    graft_ze: Ptr[float],
+    nsys: int,
+    op_ncel: int,
+    decomp_ncel: int,
+):
+    for k in range(op_ncel - 1):
+        off = k * nsys
+        for i in range(nsys):
+            ca[i + off] = -op_spr[i + off]
+
+    edge = op_ncel - 1
+    edge_off = edge * nsys
+    for i in range(nsys):
+        ca[i + edge_off] = -op_right_bound[i]
+
+    for k in range(op_ncel, decomp_ncel):
+        off = k * nsys
+        for i in range(nsys):
+            ca[i + off] = graft_ca[i + off]
+            dnom[i + off] = graft_dnom[i + off]
+            ze[i + off] = graft_ze[i + off]
+
+    next_off = op_ncel * nsys
+    for i in range(nsys):
+        dnom[i + edge_off] = 1.0 / (
+            op_diag[i + edge_off] - ca[i + edge_off] * ze[i + next_off]
+        )
+
+    for k in range(op_ncel - 2, -1, -1):
+        off = k * nsys
+        next_k_off = (k + 1) * nsys
+        for i in range(nsys):
+            ze[i + next_k_off] = -op_sub[i + off] * dnom[i + next_k_off]
+            dnom[i + off] = 1.0 / (
+                op_diag[i + off] - ca[i + off] * ze[i + next_k_off]
+            )
+
+    for i in range(nsys):
+        ze[i] = -op_left_bound[i]
+
+
+@export
+def decomp_left_div_codon(
+    ca: Ptr[float],
+    dnom: Ptr[float],
+    ze: Ptr[float],
+    q: Ptr[float],
+    zf: Ptr[float],
+    l_edge_data: Ptr[float],
+    r_edge_data: Ptr[float],
+    nsys: int,
+    ncel: int,
+    has_l_cond: int,
+    l_cond_type: int,
+    has_r_cond: int,
+    r_cond_type: int,
+):
+    no_data_cond = 0
+    data_cond = 1
+    flux_cond = 2
+
+    if has_l_cond != 0:
+        if l_cond_type == no_data_cond:
+            third_off = 2 * nsys
+            for i in range(nsys):
+                q[i] = q[i] + ze[i] * q[i + third_off]
+        elif l_cond_type == data_cond:
+            for i in range(nsys):
+                q[i] = q[i] + ze[i] * l_edge_data[i]
+        elif l_cond_type == flux_cond:
+            for i in range(nsys):
+                q[i] = q[i] + l_edge_data[i]
+
+    last = ncel - 1
+    last_off = last * nsys
+    if has_r_cond != 0:
+        if r_cond_type == no_data_cond:
+            edge_data_off = (ncel - 3) * nsys
+            for i in range(nsys):
+                q[i + last_off] = q[i + last_off] + ca[i + last_off] * q[i + edge_data_off]
+        elif r_cond_type == data_cond:
+            for i in range(nsys):
+                q[i + last_off] = q[i + last_off] + ca[i + last_off] * r_edge_data[i]
+        elif r_cond_type == flux_cond:
+            for i in range(nsys):
+                q[i + last_off] = q[i + last_off] + r_edge_data[i]
+
+    for i in range(nsys):
+        zf[i + last_off] = q[i + last_off] * dnom[i + last_off]
+
+    for k in range(ncel - 2, -1, -1):
+        off = k * nsys
+        next_off = (k + 1) * nsys
+        for i in range(nsys):
+            zf[i + off] = (q[i + off] + ca[i + off] * zf[i + next_off]) * dnom[i + off]
+
+    for i in range(nsys):
+        q[i] = zf[i]
+
+    for k in range(1, ncel):
+        off = k * nsys
+        prev_off = (k - 1) * nsys
+        for i in range(nsys):
+            q[i + off] = zf[i + off] + ze[i + off] * q[i + prev_off]
+
+
+@export
 def ceil2_codon(n: int) -> int:
     p = 1
     while p < n:

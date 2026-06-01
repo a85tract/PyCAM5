@@ -368,15 +368,22 @@ function diffusion_operator(coords, d_coef, l_bndry, r_bndry) &
   ! Fixed flux is default, no allocation/deallocation needed.
   type(BoundaryType), target :: bndry_default
 
-  ! Level index.
-  integer :: k
-
-#define CAM_MISC_TAG 210
-#define CAM_MISC_LABEL 'linear_1d_operators'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+  real(r8) :: l_edge_width(coords%n), r_edge_width(coords%n)
+  interface
+     subroutine diffusion_operator_codon(spr, sub, diag, left_bound, &
+          right_bound, d_coef, rdst, rdel, del, l_edge_width, &
+          r_edge_width, nsys, ncel, l_bndry_type, r_bndry_type) &
+          bind(c, name='diffusion_operator_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: spr(*), sub(*), diag(*)
+       real(r8), intent(inout) :: left_bound(*), right_bound(*)
+       real(r8), intent(in) :: d_coef(*), rdst(*), rdel(*), del(*)
+       real(r8), intent(in) :: l_edge_width(*), r_edge_width(*)
+       integer(c_int64_t), value :: nsys, ncel
+       integer(c_int64_t), value :: l_bndry_type, r_bndry_type
+     end subroutine diffusion_operator_codon
+  end interface
+  logical, save :: diffusion_operator_codon_logged = .false.
 
   if (present(l_bndry)) then
      l_bndry_loc => l_bndry
@@ -393,37 +400,33 @@ function diffusion_operator(coords, d_coef, l_bndry, r_bndry) &
   ! Allocate the operator.
   op = TriDiagOp(coords%n, coords%d)
 
-  ! d_coef over the distance to the next cell gives you the matrix term for
-  ! flux of material between cells. Dividing by cell thickness translates
-  ! this to a tendency on the concentration. Hence the basic pattern is
-  ! d_coef*rdst*rdel.
-  !
-  ! Boundary conditions for a fixed layer simply extend this by calculating
-  ! the distance to the midpoint of the extra edge layer.
-
   select case (l_bndry_loc%bndry_type)
   case (fixed_layer_bndry)
-     op%left_bound = 2._r8*d_coef(:,1)*coords%rdel(:,1) / &
-          (l_bndry_loc%edge_width+coords%del(:,1))
+     l_edge_width = l_bndry_loc%edge_width
   case default
-     op%left_bound = 0._r8
+     l_edge_width = 0._r8
   end select
-
-  do k = 1, coords%d-1
-     op%spr(:,k) = d_coef(:,k+1)*coords%rdst(:,k)*coords%rdel(:,k)
-     op%sub(:,k) = d_coef(:,k+1)*coords%rdst(:,k)*coords%rdel(:,k+1)
-  end do
 
   select case (r_bndry_loc%bndry_type)
   case (fixed_layer_bndry)
-     op%right_bound = 2._r8*d_coef(:,coords%d+1)*coords%rdel(:,coords%d) / &
-          (r_bndry_loc%edge_width+coords%del(:,coords%d))
+     r_edge_width = r_bndry_loc%edge_width
   case default
-     op%right_bound = 0._r8
+     r_edge_width = 0._r8
   end select
 
-  ! Above, we found all off-diagonals. Now get the diagonal.
-  call op%deriv_diag()
+  ! d_coef over the distance to the next cell gives you the matrix term for
+  ! flux of material between cells. Dividing by cell thickness translates
+  ! this to a tendency on the concentration. Hence the basic pattern is
+  ! d_coef*rdst*rdel. The Codon body also fills the diagonal.
+  call diffusion_operator_codon(op%spr, op%sub, op%diag, op%left_bound, &
+       op%right_bound, d_coef, coords%rdst, coords%rdel, coords%del, &
+       l_edge_width, r_edge_width, int(op%nsys, c_int64_t), &
+       int(op%ncel, c_int64_t), int(l_bndry_loc%bndry_type, c_int64_t), &
+       int(r_bndry_loc%bndry_type, c_int64_t))
+  if (.not. diffusion_operator_codon_logged) then
+     write(iulog,*) 'diffusion_operator implementation = codon'
+     diffusion_operator_codon_logged = .true.
+  end if
 
 end function diffusion_operator
 
@@ -1194,7 +1197,29 @@ function new_TriDiagDecomp(op, graft_decomp) result(decomp)
 
   type(TriDiagDecomp) :: decomp
 
-  integer :: k
+  interface
+     subroutine new_tridiagdecomp_codon(ca, dnom, ze, op_spr, op_sub, &
+          op_diag, op_left_bound, op_right_bound, nsys, ncel) &
+          bind(c, name='new_tridiagdecomp_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: ca(*), dnom(*), ze(*)
+       real(r8), intent(in) :: op_spr(*), op_sub(*), op_diag(*)
+       real(r8), intent(in) :: op_left_bound(*), op_right_bound(*)
+       integer(c_int64_t), value :: nsys, ncel
+     end subroutine new_tridiagdecomp_codon
+     subroutine new_tridiagdecomp_graft_codon(ca, dnom, ze, op_spr, &
+          op_sub, op_diag, op_left_bound, op_right_bound, graft_ca, &
+          graft_dnom, graft_ze, nsys, op_ncel, decomp_ncel) &
+          bind(c, name='new_tridiagdecomp_graft_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(inout) :: ca(*), dnom(*), ze(*)
+       real(r8), intent(in) :: op_spr(*), op_sub(*), op_diag(*)
+       real(r8), intent(in) :: op_left_bound(*), op_right_bound(*)
+       real(r8), intent(in) :: graft_ca(*), graft_dnom(*), graft_ze(*)
+       integer(c_int64_t), value :: nsys, op_ncel, decomp_ncel
+     end subroutine new_tridiagdecomp_graft_codon
+  end interface
+  logical, save :: new_tridiagdecomp_codon_logged = .false.
 
   if (present(graft_decomp)) then
      decomp%nsys = graft_decomp%nsys
@@ -1209,32 +1234,21 @@ function new_TriDiagDecomp(op, graft_decomp) result(decomp)
   allocate(decomp%dnom(decomp%nsys,decomp%ncel))
   allocate(decomp%ze(decomp%nsys,decomp%ncel))
 
-  ! decomp%ca is simply the negative of the tridiagonal's superdiagonal.
-  decomp%ca(:,:op%ncel-1) = -op%spr
-  decomp%ca(:,op%ncel) = -op%right_bound
-
   if (present(graft_decomp)) then
-     ! Copy in graft_decomp beyond op%ncel.
-     decomp%ca(:,op%ncel+1:) = graft_decomp%ca(:,op%ncel+1:)
-     decomp%dnom(:,op%ncel+1:) = graft_decomp%dnom(:,op%ncel+1:)
-     decomp%ze(:,op%ncel+1:) = graft_decomp%ze(:,op%ncel+1:)
-     ! Fill in dnom edge value.
-     decomp%dnom(:,op%ncel) = 1._r8 / (op%diag(:,op%ncel) - &
-          decomp%ca(:,op%ncel)*decomp%ze(:,op%ncel+1))
+     call new_tridiagdecomp_graft_codon(decomp%ca, decomp%dnom, &
+          decomp%ze, op%spr, op%sub, op%diag, op%left_bound, &
+          op%right_bound, graft_decomp%ca, graft_decomp%dnom, &
+          graft_decomp%ze, int(decomp%nsys, c_int64_t), &
+          int(op%ncel, c_int64_t), int(decomp%ncel, c_int64_t))
   else
-     ! If no grafting, the edge value of dnom comes from the diagonal.
-     decomp%dnom(:,op%ncel) = 1._r8 / op%diag(:,op%ncel)
+     call new_tridiagdecomp_codon(decomp%ca, decomp%dnom, decomp%ze, &
+          op%spr, op%sub, op%diag, op%left_bound, op%right_bound, &
+          int(decomp%nsys, c_int64_t), int(decomp%ncel, c_int64_t))
   end if
-
-  do k = op%ncel - 1, 1, -1
-     decomp%ze(:,k+1)   = - op%sub(:,k) * decomp%dnom(:,k+1)
-     decomp%dnom(:,k) = 1._r8 / &
-          (op%diag(:,k) - decomp%ca(:,k)*decomp%ze(:,k+1))
-  end do
-
-  ! Don't multiply edge level by denom, because we want to leave it up to
-  ! the BoundaryCond object to decide what this means in left_div.
-  decomp%ze(:,1) = -op%left_bound
+  if (.not. new_tridiagdecomp_codon_logged) then
+     write(iulog,*) 'new_tridiagdecomp implementation = codon'
+     new_tridiagdecomp_codon_logged = .true.
+  end if
 
 end function new_TriDiagDecomp
 
@@ -1254,40 +1268,51 @@ subroutine decomp_left_div(decomp, q, l_cond, r_cond)
 
   ! "F" from the equation above.
   real(r8) :: zf(decomp%nsys,decomp%ncel)
+  real(r8) :: l_edge_data(decomp%nsys), r_edge_data(decomp%nsys)
 
-  ! Level index.
-  integer :: k
+  integer(c_int64_t) :: has_l_cond, has_r_cond, l_cond_type, r_cond_type
+  interface
+     subroutine decomp_left_div_codon(ca, dnom, ze, q, zf, l_edge_data, &
+          r_edge_data, nsys, ncel, has_l_cond, l_cond_type, &
+          has_r_cond, r_cond_type) bind(c, name='decomp_left_div_codon')
+       import :: c_int64_t, r8
+       real(r8), intent(in) :: ca(*), dnom(*), ze(*)
+       real(r8), intent(inout) :: q(*), zf(*)
+       real(r8), intent(in) :: l_edge_data(*), r_edge_data(*)
+       integer(c_int64_t), value :: nsys, ncel
+       integer(c_int64_t), value :: has_l_cond, l_cond_type
+       integer(c_int64_t), value :: has_r_cond, r_cond_type
+     end subroutine decomp_left_div_codon
+  end interface
+  logical, save :: decomp_left_div_codon_logged = .false.
 
-#define CAM_MISC_TAG 267
-#define CAM_MISC_LABEL 'decomp_left_div'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+  has_l_cond = 0_c_int64_t
+  has_r_cond = 0_c_int64_t
+  l_cond_type = 0_c_int64_t
+  r_cond_type = 0_c_int64_t
+  l_edge_data = 0._r8
+  r_edge_data = 0._r8
 
-  ! Include boundary conditions.
   if (present(l_cond)) then
-     q(:,1) = q(:,1) + l_cond%apply_left(decomp%ze(:,1), q)
+     has_l_cond = 1_c_int64_t
+     l_cond_type = int(l_cond%cond_type, c_int64_t)
+     if (allocated(l_cond%edge_data)) l_edge_data = l_cond%edge_data
   end if
 
   if (present(r_cond)) then
-     q(:,decomp%ncel) = q(:,decomp%ncel) + &
-          r_cond%apply_right(decomp%ca(:,decomp%ncel), q)
+     has_r_cond = 1_c_int64_t
+     r_cond_type = int(r_cond%cond_type, c_int64_t)
+     if (allocated(r_cond%edge_data)) r_edge_data = r_cond%edge_data
   end if
 
-  zf(:,decomp%ncel) = q(:,decomp%ncel) * decomp%dnom(:,decomp%ncel)
-
-  do k = decomp%ncel - 1, 1, -1
-     zf(:,k) = (q(:,k) + decomp%ca(:,k)*zf(:,k+1)) * decomp%dnom(:,k)
-  end do
-
-  ! Perform back substitution
-
-  q(:,1) = zf(:,1)
-
-  do k = 2, decomp%ncel
-     q(:,k) = zf(:,k) + decomp%ze(:,k)*q(:,k-1)
-  end do
+  call decomp_left_div_codon(decomp%ca, decomp%dnom, decomp%ze, q, zf, &
+       l_edge_data, r_edge_data, int(decomp%nsys, c_int64_t), &
+       int(decomp%ncel, c_int64_t), has_l_cond, l_cond_type, has_r_cond, &
+       r_cond_type)
+  if (.not. decomp_left_div_codon_logged) then
+     write(iulog,*) 'decomp_left_div implementation = codon'
+     decomp_left_div_codon_logged = .true.
+  end if
 
 end subroutine decomp_left_div
 
