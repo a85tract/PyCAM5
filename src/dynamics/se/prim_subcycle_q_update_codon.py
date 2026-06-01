@@ -962,10 +962,46 @@ def get_block_gcol_d_codon(
     return _misc.get_block_gcol_d_codon(size, unique_pt_offset, cdex_p)
 
 @export
+def get_block_bounds_d_first_codon(
+    nelem: int,
+) -> int:
+    return _misc.get_block_bounds_d_first_codon(nelem)
+
+@export
+def get_block_bounds_d_last_codon(
+    nelem: int,
+) -> int:
+    return _misc.get_block_bounds_d_last_codon(nelem)
+
+@export
+def get_block_gcol_cnt_d_codon(
+    num_unique_p: int,
+) -> int:
+    return _misc.get_block_gcol_cnt_d_codon(num_unique_p)
+
+@export
 def get_block_owner_d_codon(
     owner: int,
 ) -> int:
     return _misc.get_block_owner_d_codon(owner)
+
+@export
+def get_horiz_grid_dim_d_first_codon(
+    ngcols: int,
+) -> int:
+    return _misc.get_horiz_grid_dim_d_first_codon(ngcols)
+
+@export
+def get_horiz_grid_dim_d_second_codon(
+    ngcols: int,
+) -> int:
+    return _misc.get_horiz_grid_dim_d_second_codon(ngcols)
+
+@export
+def set_horiz_grid_cnt_d_codon(
+    num_unique_cols: int,
+) -> int:
+    return _misc.set_horiz_grid_cnt_d_codon(num_unique_cols)
 
 @export
 def get_dyn_grid_parm_real2d_codon(
@@ -1099,6 +1135,40 @@ def set_corner_coordinates_codon(
         corners_p,
         face_no_p,
     )
+
+@export
+def cubeedgecount_codon(
+    nfaces: int,
+    ne: int,
+    ninner: int,
+    ncorner: int,
+) -> int:
+    return _misc.cubeedgecount_codon(nfaces, ne, ninner, ncorner)
+
+@export
+def cubeelemcount_codon(
+    nfaces: int,
+    ne: int,
+) -> int:
+    return _misc.cubeelemcount_codon(nfaces, ne)
+
+@export
+def llsetedgecount_codon(
+    value: int,
+) -> int:
+    return _misc.llsetedgecount_codon(value)
+
+@export
+def llgetedgecount_codon(
+    num_edges: int,
+) -> int:
+    return _misc.llgetedgecount_codon(num_edges)
+
+@export
+def localelemcount_codon(
+    nmembers: int,
+) -> int:
+    return _misc.localelemcount_codon(nmembers)
 
 @export
 def gridedge_type_codon(

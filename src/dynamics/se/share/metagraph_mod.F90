@@ -162,13 +162,28 @@ contains
 ! end function MetaEdgeCount
 
   function LocalElemCount(Vertex) result(nelemd)
+    use iso_c_binding, only : c_int64_t
     implicit none
 
     type (MetaVertex_t),intent(in)  :: Vertex
     integer                         :: nelemd
+    integer(c_int64_t)              :: nelemd_c
+    logical, save                   :: proof_seen = .false.
 
-    nelemd=Vertex%nmembers
+    interface
+       function localelemcount_codon(nmembers_c) result(nelemd_out_c) bind(c, name='localelemcount_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: nmembers_c
+         integer(c_int64_t) :: nelemd_out_c
+       end function localelemcount_codon
+    end interface
 
+    nelemd_c = localelemcount_codon(int(Vertex%nmembers, c_int64_t))
+    nelemd = int(nelemd_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'localelemcount implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function LocalElemCount
 

@@ -31,6 +31,16 @@ contains
     use cam_logfile, only : iulog
     implicit none
     integer,intent(in)   :: value
+    integer(c_int64_t) :: value_c
+    logical, save :: edge_count_proof_seen = .false.
+
+    interface
+       function llsetedgecount_codon(value_in_c) result(value_out_c) bind(c, name='llsetedgecount_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: value_in_c
+         integer(c_int64_t) :: value_out_c
+       end function llsetedgecount_codon
+    end interface
 
 #define SE_MISC_TAG 24
 #define SE_MISC_LABEL 'll_mod'
@@ -39,13 +49,36 @@ contains
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
 
-    NumEdges=value
+    value_c = llsetedgecount_codon(int(value, c_int64_t))
+    NumEdges = int(value_c)
+    if (.not. edge_count_proof_seen) then
+       write(iulog,*) 'llsetedgecount implementation = codon'
+       edge_count_proof_seen = .true.
+    endif
   end subroutine LLSetEdgeCount
 
   subroutine LLGetEdgeCount(value)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     implicit none
     integer,intent(out)  :: value
-    value=NumEdges
+    integer(c_int64_t) :: value_c
+    logical, save :: proof_seen = .false.
+
+    interface
+       function llgetedgecount_codon(value_in_c) result(value_out_c) bind(c, name='llgetedgecount_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: value_in_c
+         integer(c_int64_t) :: value_out_c
+       end function llgetedgecount_codon
+    end interface
+
+    value_c = llgetedgecount_codon(int(NumEdges, c_int64_t))
+    value = int(value_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'llgetedgecount implementation = codon'
+       proof_seen = .true.
+    endif
   end subroutine LLGetEdgeCount
 
   subroutine PrintEdgeList(EdgeList)

@@ -2431,11 +2431,30 @@ contains
 
   function CubeEdgeCount()  result(nedge)
     use dimensions_mod, only     : ne
+    use iso_c_binding, only      : c_int64_t
+    use cam_logfile, only        : iulog
     implicit none
     integer                     :: nedge
+    integer(c_int64_t)          :: nedge_c
+    logical, save               :: proof_seen = .false.
+
+    interface
+       function cubeedgecount_codon(nfaces_c, ne_c, ninner_c, ncorner_c) result(nedge_out_c) &
+            bind(c, name='cubeedgecount_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: nfaces_c, ne_c, ninner_c, ncorner_c
+         integer(c_int64_t) :: nedge_out_c
+       end function cubeedgecount_codon
+    end interface
 
     if (0==ne) call abortmp('Error in CubeEdgeCount: ne is zero')
-    nedge = nfaces*(ne*ne*nInnerElemEdge - nCornerElemEdge)
+    nedge_c = cubeedgecount_codon(int(nfaces, c_int64_t), int(ne, c_int64_t), &
+         int(nInnerElemEdge, c_int64_t), int(nCornerElemEdge, c_int64_t))
+    nedge = int(nedge_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'cubeedgecount implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function CubeEdgeCount
 
@@ -2449,12 +2468,31 @@ contains
   function CubeElemCount()  result(nelem)
 
     use dimensions_mod, only     : ne
+    use iso_c_binding, only      : c_int64_t
+    use cam_logfile, only        : iulog
 
     implicit none
     integer                     :: nelem
+    integer(c_int64_t)          :: nelem_c
+    logical, save               :: proof_seen = .false.
+
+    interface
+       function cubeelemcount_codon(nfaces_c, ne_c) result(nelem_out_c) &
+            bind(c, name='cubeelemcount_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: nfaces_c, ne_c
+         integer(c_int64_t) :: nelem_out_c
+       end function cubeelemcount_codon
+    end interface
+
     if (0==ne) call abortmp('Error in CubeElemCount: ne is zero')
 
-    nelem = nfaces*ne*ne
+    nelem_c = cubeelemcount_codon(int(nfaces, c_int64_t), int(ne, c_int64_t))
+    nelem = int(nelem_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'cubeelemcount implementation = codon'
+       proof_seen = .true.
+    endif
   end function CubeElemCount
 
   subroutine CubeSetupEdgeIndex(Edge)

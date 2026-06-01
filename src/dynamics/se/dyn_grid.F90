@@ -100,6 +100,7 @@ end subroutine dyn_grid_init
   !
   Subroutine get_block_bounds_d(block_first,block_last)
     use dimensions_mod, only: nelem
+    use iso_c_binding, only : c_int64_t
     !----------------------------------------------------------------------- 
     ! 
     !                          
@@ -113,10 +114,33 @@ end subroutine dyn_grid_init
     !------------------------------Arguments--------------------------------
     integer, intent(out) :: block_first  ! first (global) index used for blocks
     integer, intent(out) :: block_last   ! last (global) index used for blocks
+    integer(c_int64_t) :: block_first_c, block_last_c
+    logical, save :: proof_seen = .false.
+
+    interface
+       function get_block_bounds_d_first_codon(nelem_c) result(first_c) &
+            bind(c, name='get_block_bounds_d_first_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: nelem_c
+         integer(c_int64_t) :: first_c
+       end function get_block_bounds_d_first_codon
+       function get_block_bounds_d_last_codon(nelem_c) result(last_c) &
+            bind(c, name='get_block_bounds_d_last_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: nelem_c
+         integer(c_int64_t) :: last_c
+       end function get_block_bounds_d_last_codon
+    end interface
 
     !-----------------------------------------------------------------------
-    block_first = 1
-    block_last = nelem
+    block_first_c = get_block_bounds_d_first_codon(int(nelem, c_int64_t))
+    block_last_c = get_block_bounds_d_last_codon(int(nelem, c_int64_t))
+    block_first = int(block_first_c)
+    block_last = int(block_last_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'get_block_bounds_d implementation = codon'
+       proof_seen = .true.
+    endif
 
     return
   end subroutine get_block_bounds_d
@@ -220,6 +244,7 @@ end subroutine dyn_grid_init
   !========================================================================
   !
   integer function get_block_gcol_cnt_d(blockid)
+    use iso_c_binding, only : c_int64_t
     !----------------------------------------------------------------------- 
     ! 
     !                          
@@ -232,9 +257,25 @@ end subroutine dyn_grid_init
     !-----------------------------------------------------------------------
     integer, intent(in) :: blockid
     integer :: ie
+    integer(c_int64_t) :: count_c
+    logical, save :: proof_seen = .false.
+
+    interface
+       function get_block_gcol_cnt_d_codon(count_in_c) result(count_out_c) &
+            bind(c, name='get_block_gcol_cnt_d_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: count_in_c
+         integer(c_int64_t) :: count_out_c
+       end function get_block_gcol_cnt_d_codon
+    end interface
 
     if(gblocks_need_initialized) call gblocks_init()
-    get_block_gcol_cnt_d=gblocks(blockid)%NumUniqueP
+    count_c = get_block_gcol_cnt_d_codon(int(gblocks(blockid)%NumUniqueP, c_int64_t))
+    get_block_gcol_cnt_d = int(count_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'get_block_gcol_cnt_d implementation = codon'
+       proof_seen = .true.
+    endif
 
     return
   end function get_block_gcol_cnt_d
@@ -565,6 +606,7 @@ end function get_block_owner_d
 !========================================================================
 !
 subroutine get_horiz_grid_dim_d(hdim1_d,hdim2_d)
+  use iso_c_binding, only : c_int64_t
 
   !----------------------------------------------------------------------- 
   ! 
@@ -582,9 +624,33 @@ subroutine get_horiz_grid_dim_d(hdim1_d,hdim2_d)
   !------------------------------Arguments--------------------------------
  integer, intent(out) :: hdim1_d           ! first horizontal dimension
  integer, intent(out), optional :: hdim2_d           ! second horizontal dimension
+ integer(c_int64_t) :: hdim_c
+ logical, save :: proof_seen = .false.
+ interface
+    function get_horiz_grid_dim_d_first_codon(ngcols_c) result(hdim_c) &
+         bind(c, name='get_horiz_grid_dim_d_first_codon')
+      import :: c_int64_t
+      integer(c_int64_t), value :: ngcols_c
+      integer(c_int64_t) :: hdim_c
+    end function get_horiz_grid_dim_d_first_codon
+    function get_horiz_grid_dim_d_second_codon(ngcols_c) result(hdim_c) &
+         bind(c, name='get_horiz_grid_dim_d_second_codon')
+      import :: c_int64_t
+      integer(c_int64_t), value :: ngcols_c
+      integer(c_int64_t) :: hdim_c
+    end function get_horiz_grid_dim_d_second_codon
+ end interface
  !-----------------------------------------------------------------------
- hdim1_d = ngcols_d
- if(present(hdim2_d)) hdim2_d = 1
+ hdim_c = get_horiz_grid_dim_d_first_codon(int(ngcols_d, c_int64_t))
+ hdim1_d = int(hdim_c)
+ if(present(hdim2_d)) then
+    hdim_c = get_horiz_grid_dim_d_second_codon(int(ngcols_d, c_int64_t))
+    hdim2_d = int(hdim_c)
+ endif
+ if (.not. proof_seen) then
+    write(iulog,*) 'get_horiz_grid_dim_d implementation = codon'
+    proof_seen = .true.
+ endif
 
  return
 end subroutine get_horiz_grid_dim_d
@@ -592,6 +658,7 @@ end subroutine get_horiz_grid_dim_d
 !========================================================================
 !
 subroutine set_horiz_grid_cnt_d(NumUniqueCols)
+ use iso_c_binding, only : c_int64_t
  integer, intent(in) :: NumUniqueCols
  !----------------------------------------------------------------------- 
  ! 
@@ -603,7 +670,24 @@ subroutine set_horiz_grid_cnt_d(NumUniqueCols)
  ! Author: Jim Edwards
  ! 
  !-----------------------------------------------------------------------
- ngcols_d = NumUniqueCols
+ integer(c_int64_t) :: ngcols_c
+ logical, save :: proof_seen = .false.
+
+ interface
+    function set_horiz_grid_cnt_d_codon(num_unique_cols_c) result(num_unique_cols_out_c) &
+         bind(c, name='set_horiz_grid_cnt_d_codon')
+      import :: c_int64_t
+      integer(c_int64_t), value :: num_unique_cols_c
+      integer(c_int64_t) :: num_unique_cols_out_c
+    end function set_horiz_grid_cnt_d_codon
+ end interface
+
+ ngcols_c = set_horiz_grid_cnt_d_codon(int(NumUniqueCols, c_int64_t))
+ ngcols_d = int(ngcols_c)
+ if (.not. proof_seen) then
+    write(iulog,*) 'set_horiz_grid_cnt_d implementation = codon'
+    proof_seen = .true.
+ endif
 
 
  return
