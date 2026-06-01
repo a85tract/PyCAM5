@@ -172,6 +172,26 @@ def noy_ubc_active_codon(active: int) -> int:
 def spedata_active_codon(active: int) -> int:
     return active
 
+def spe_prod_zero_codon(active: int, ncol: int, pver: int, noxprod_p: cobj, hoxprod_p: cobj) -> int:
+    noxprod = Ptr[float](noxprod_p)
+    hoxprod = Ptr[float](hoxprod_p)
+    for k in range(pver):
+        for i in range(ncol):
+            idx = i + k * ncol
+            noxprod[idx] = 0.0
+            hoxprod[idx] = 0.0
+    return active
+
+def gcr_ionization_noxhox_zero_codon(active: int, ncol: int, pver: int, gcr_nox_p: cobj, gcr_hox_p: cobj) -> int:
+    gcr_nox = Ptr[float](gcr_nox_p)
+    gcr_hox = Ptr[float](gcr_hox_p)
+    for k in range(pver):
+        for i in range(ncol):
+            idx = i + k * ncol
+            gcr_nox[idx] = 0.0
+            gcr_hox[idx] = 0.0
+    return active
+
 def chem_final_codon() -> int:
     return 0
 

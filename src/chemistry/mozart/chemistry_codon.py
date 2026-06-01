@@ -126,6 +126,14 @@ def spedata_active_codon(active: int) -> int:
     return _common.spedata_active_codon(active)
 
 @export
+def spe_prod_zero_codon(active: int, ncol: int, pver: int, noxprod_p: cobj, hoxprod_p: cobj) -> int:
+    return _common.spe_prod_zero_codon(active, ncol, pver, noxprod_p, hoxprod_p)
+
+@export
+def gcr_ionization_noxhox_zero_codon(active: int, ncol: int, pver: int, gcr_nox_p: cobj, gcr_hox_p: cobj) -> int:
+    return _common.gcr_ionization_noxhox_zero_codon(active, ncol, pver, gcr_nox_p, gcr_hox_p)
+
+@export
 def prescribed_aero_adv_codon(active: int) -> int:
     return active
 

@@ -4,10 +4,14 @@ module mo_solarproton
 	  use shr_kind_mod,  only: r8 => shr_kind_r8
 	  use physconst,      only: pi
 	  use mo_util,        only: chemistry_misc_codon_touch
+	  use cam_logfile,    only: iulog
+	  use spmd_utils,     only: masterproc
+	  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
 
 	  implicit none
 
   save
+  logical :: spe_prod_codon_logged = .false.
 
 contains
 
@@ -52,9 +56,9 @@ contains
          pmid(pcols,pver)                 ! midpoint pressure (Pa)
     real(r8), intent(in) :: &
          zmid(ncol,pver)                  ! midpoint altitude (km)
-    real(r8), intent(out) :: &
+    real(r8), intent(out), target :: &
          noxprod(ncol,pver)                ! NO production
-    real(r8), intent(out) :: &
+    real(r8), intent(out), target :: &
          hoxprod(ncol,pver)               ! HOx production
 
     !-----------------------------------------------------------------------
@@ -64,19 +68,41 @@ contains
     integer  :: i
     real(r8) :: dlat_aur
     logical  :: do_spe(ncol)
+    integer(c_int64_t) :: active_c
 
     real(r8) :: ion_pairs(pver)
     real(r8), parameter :: noxprod_factor = 1._r8 
     real(r8) :: hoxprod_factor(pver)
 
+    interface
+       function spe_prod_zero_codon(active, ncol_c, pver_c, noxprod_p, hoxprod_p) result(out_c) &
+            bind(c, name="spe_prod_zero_codon")
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: active, ncol_c, pver_c
+         type(c_ptr), value :: noxprod_p, hoxprod_p
+         integer(c_int64_t) :: out_c
+       end function spe_prod_zero_codon
+    end interface
+
     !-----------------------------------------------------------------------
     ! 	... intialize NO production
     !-----------------------------------------------------------------------
 
-    noxprod(:ncol,:pver) = 0._r8
-    hoxprod(:ncol,:pver) = 0._r8
+    active_c = spe_prod_zero_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run), &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(noxprod(1,1)), c_loc(hoxprod(1,1)))
+    if (.not. spe_prod_codon_logged) then
+       spe_prod_codon_logged = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'spe_prod direct = codon flag-off zero no-op'
+          else
+             write(iulog,'(A)') 'spe_prod selector = codon; active ion-pair body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
 
-    if (.not.spe_run) return
+    if (active_c == 0_c_int64_t) return
 
     !-----------------------------------------------------------------------
     ! 	... check magnetic latitudes, and return if all below 60 deg

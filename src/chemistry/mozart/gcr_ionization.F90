@@ -12,7 +12,7 @@ module gcr_ionization
   use ppgrid,         only : pcols, pver
   use tracer_data,    only : trcdata_init, advance_trcdata
   use mo_util,        only : chemistry_misc_codon_touch
-  use iso_c_binding,  only : c_int64_t
+  use iso_c_binding,  only : c_int64_t, c_loc, c_ptr
 
   implicit none
   private 
@@ -41,6 +41,7 @@ module gcr_ionization
   logical :: gcr_ionization_adv_use_native_impl = .false.
   logical :: gcr_ionization_adv_impl_selected = .false.
   logical :: gcr_ionization_adv_proof_written = .false.
+  logical :: gcr_ionization_noxhox_proof_written = .false.
 
   interface
     function gcr_ionization_init_codon() result(out_c) bind(c, name="gcr_ionization_init_codon")
@@ -52,6 +53,14 @@ module gcr_ionization
       use iso_c_binding, only : c_int64_t
       integer(c_int64_t) :: out_c
     end function gcr_ionization_adv_codon
+
+    function gcr_ionization_noxhox_zero_codon(active, ncol_c, pver_c, gcr_nox_p, gcr_hox_p) result(out_c) &
+         bind(c, name="gcr_ionization_noxhox_zero_codon")
+      use iso_c_binding, only : c_int64_t, c_ptr
+      integer(c_int64_t), value :: active, ncol_c, pver_c
+      type(c_ptr), value :: gcr_nox_p, gcr_hox_p
+      integer(c_int64_t) :: out_c
+    end function gcr_ionization_noxhox_zero_codon
   end interface
 
 contains
@@ -312,17 +321,29 @@ contains
     integer, intent(in) :: ncol, lchnk
     real(r8), intent(in) :: zmid(:,:)
 
-    real(r8), intent(out) :: gcr_nox(:,:)
-    real(r8), intent(out) :: gcr_hox(:,:)
+    real(r8), intent(out), target :: gcr_nox(ncol,pver)
+    real(r8), intent(out), target :: gcr_hox(ncol,pver)
 
     real(r8) :: hoxprod_factor(pver)
     real(r8) :: ionpairs(pcols,pver)
     integer :: i
+    integer(c_int64_t) :: active_c
 
-    gcr_nox(:,:) = 0._r8
-    gcr_hox(:,:) = 0._r8
+    active_c = gcr_ionization_noxhox_zero_codon(merge(1_c_int64_t, 0_c_int64_t, has_gcr_ionization), &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(gcr_nox(1,1)), c_loc(gcr_hox(1,1)))
+    if (.not. gcr_ionization_noxhox_proof_written) then
+       gcr_ionization_noxhox_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'gcr_ionization_noxhox direct = codon flag-off zero no-op'
+          else
+             write(iulog,'(A)') 'gcr_ionization_noxhox selector = codon; active ion-pair body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
 
-    if (.not.has_gcr_ionization) return
+    if (active_c == 0_c_int64_t) return
     call  gcr_ionization_get( ncol, lchnk, ionpairs )
 
     gcr_nox(:ncol,:) = ionpairs(:ncol,:)
