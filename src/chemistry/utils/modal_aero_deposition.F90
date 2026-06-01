@@ -53,6 +53,7 @@ logical :: bin_fluxes = .false.
 logical :: initialized = .false.
 logical :: use_native_set_srf_wetdep_impl = .false.
 logical :: set_srf_wetdep_impl_selected = .false.
+logical :: set_srf_wetdep_direct_logged = .false.
 logical :: use_native_set_srf_drydep_impl = .false.
 logical :: set_srf_drydep_impl_selected = .false.
 
@@ -232,6 +233,12 @@ subroutine set_srf_wetdep_codon_invoke(aerdepwetis, aerdepwetcw, cam_out)
    if (.not.bin_fluxes) return
 
    ncol = cam_out%ncol
+
+   if (masterproc .and. .not. set_srf_wetdep_direct_logged) then
+      write(iulog,'(A)') 'set_srf_wetdep direct = codon; bin_fluxes active'
+      set_srf_wetdep_direct_logged = .true.
+      call flush(iulog)
+   end if
 
    call set_srf_wetdep_codon( &
         int(ncol, c_int64_t), int(pcols, c_int64_t), int(idx_bc1, c_int64_t), int(idx_bc4, c_int64_t), &
