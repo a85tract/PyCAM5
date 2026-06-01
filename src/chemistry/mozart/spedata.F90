@@ -104,6 +104,8 @@ module spedata
 
   logical, protected :: spe_run = .false.
   logical, save :: spedata_setopts_codon_logged = .false.
+  logical, save :: spedata_init_codon_logged = .false.
+  logical, save :: advance_spedata_codon_logged = .false.
 
 contains
 
@@ -199,6 +201,7 @@ contains
 ! Opens file, allocates arrays
 !--------------------------------------------------------------------------
 
+    use iso_c_binding, only : c_int64_t
     use cam_control_mod, only : nsrest
     use string_utils,    only : to_upper
     use mo_apex,         only : apexmag
@@ -210,8 +213,27 @@ contains
 !--------------------------------------------------------------------------
     integer :: astat
     integer :: ierr
+    integer(c_int64_t) :: active_c
 
-    if (.not. spe_run) return
+    interface
+       function spedata_active_codon(active) result(out_c) bind(c, name="spedata_active_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function spedata_active_codon
+    end interface
+
+    active_c = spedata_active_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run))
+    if (masterproc .and. .not. spedata_init_codon_logged) then
+       if (active_c == 0_c_int64_t) then
+          write(iulog,'(A)') 'spedata_init direct = codon flag-off no-op'
+       else
+          write(iulog,'(A)') 'spedata_init selector = codon; active data-file body = native'
+       end if
+       spedata_init_codon_logged = .true.
+       call flush(iulog)
+    end if
+    if (active_c == 0_c_int64_t) return
 
     ! initialize geo-magnetic coordinate module ...
     call apexmag()
@@ -259,9 +281,30 @@ contains
 !-----------------------------------------------------------------------
  subroutine advance_spedata()
 
-    implicit none
+    use iso_c_binding, only : c_int64_t
 
-    if (.not. spe_run) return
+    implicit none
+    integer(c_int64_t) :: active_c
+
+    interface
+       function spedata_active_codon(active) result(out_c) bind(c, name="spedata_active_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function spedata_active_codon
+    end interface
+
+    active_c = spedata_active_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run))
+    if (masterproc .and. .not. advance_spedata_codon_logged) then
+       if (active_c == 0_c_int64_t) then
+          write(iulog,'(A)') 'advance_spedata direct = codon flag-off no-op'
+       else
+          write(iulog,'(A)') 'advance_spedata selector = codon; active data-file body = native'
+       end if
+       advance_spedata_codon_logged = .true.
+       call flush(iulog)
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call t_startf('MET__advance')
 

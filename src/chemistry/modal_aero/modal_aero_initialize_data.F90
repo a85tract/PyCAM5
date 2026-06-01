@@ -529,8 +529,13 @@ contains
 
        if (.not. selected) then
           selected_impl = 'codon'
+          n = 0
           call get_environment_variable('SEARCH_LIST_OF_NAMES_IMPL', value=selected_impl, length=n, status=status)
-          if (status == 0 .and. n > 0) selected_impl = adjustl(selected_impl(:n))
+          if (status == 0 .and. n > 0) then
+             selected_impl = adjustl(selected_impl(:n))
+          else
+             selected_impl = 'codon'
+          end if
           select case (trim(selected_impl))
           case ('codon')
           case default

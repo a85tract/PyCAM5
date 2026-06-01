@@ -166,6 +166,12 @@ def tracer_cnst_init_codon() -> int:
 def noy_ubc_readnl_codon() -> int:
     return 173
 
+def noy_ubc_active_codon(active: int) -> int:
+    return active
+
+def spedata_active_codon(active: int) -> int:
+    return active
+
 def chem_final_codon() -> int:
     return 0
 

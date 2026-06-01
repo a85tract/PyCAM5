@@ -42,6 +42,9 @@ module noy_ubc
   real(r8)           :: fac_relax
 
   logical :: has_noy_ubc = .false.
+  logical :: noy_ubc_init_codon_logged = .false.
+  logical :: noy_ubc_advance_codon_logged = .false.
+  logical :: noy_ubc_set_codon_logged = .false.
 
 contains
   
@@ -117,6 +120,7 @@ contains
     !------------------------------------------------------------------
     !	... initialize upper boundary values
     !------------------------------------------------------------------
+    use iso_c_binding, only : c_int64_t
     use tracer_data,  only : trcdata_init
     use mo_chem_utls, only : get_spc_ndx
 
@@ -130,8 +134,29 @@ contains
     integer,          parameter :: nubc = 4
     character(len=4), parameter :: species(nubc) = (/'NO  ','NO2 ','HNO3','N2O5'/)
     character(len=4)            :: specifier(nubc) = ' '
+    integer(c_int64_t) :: active_c
 
-    if (.not.has_noy_ubc) return
+    interface
+       function noy_ubc_active_codon(active) result(out_c) bind(c, name="noy_ubc_active_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function noy_ubc_active_codon
+    end interface
+
+    active_c = noy_ubc_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
+    if (.not. noy_ubc_init_codon_logged) then
+       noy_ubc_init_codon_logged = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'noy_ubc_init direct = codon flag-off no-op'
+          else
+             write(iulog,'(A)') 'noy_ubc_init selector = codon; active data-file body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     ii = 0
 
@@ -164,6 +189,7 @@ contains
   !======================================================================
   subroutine noy_ubc_advance(pbuf2d, state)
 
+    use iso_c_binding, only : c_int64_t
     use tracer_data,    only : advance_trcdata
     use physics_types,  only : physics_state
     use physics_buffer, only : physics_buffer_desc
@@ -180,8 +206,29 @@ contains
 !
     integer             :: dtime                         ! model time step (s)
     real(r8), parameter :: tau_relax = 864000._r8        ! 10 days
+    integer(c_int64_t) :: active_c
 
-    if (.not.has_noy_ubc) return
+    interface
+       function noy_ubc_active_codon(active) result(out_c) bind(c, name="noy_ubc_active_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function noy_ubc_active_codon
+    end interface
+
+    active_c = noy_ubc_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
+    if (.not. noy_ubc_advance_codon_logged) then
+       noy_ubc_advance_codon_logged = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'noy_ubc_advance direct = codon flag-off no-op'
+          else
+             write(iulog,'(A)') 'noy_ubc_advance selector = codon; active data-file body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 !
 ! define relaxation factor
 !
@@ -198,6 +245,7 @@ contains
   !	... Set the upper boundary values
   !======================================================================
   subroutine noy_ubc_set( lchnk, ncol, vmr )
+    use iso_c_binding, only : c_int64_t
     use cam_history,  only : outfld
 
     implicit none
@@ -212,8 +260,29 @@ contains
     integer  :: m,n,m1,m2,i
     real(r8) :: xno,xno2,xnox,rno,dtime
     real(r8) :: yno,yno2,ynox
+    integer(c_int64_t) :: active_c
 
-    if (.not.has_noy_ubc) return
+    interface
+       function noy_ubc_active_codon(active) result(out_c) bind(c, name="noy_ubc_active_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function noy_ubc_active_codon
+    end interface
+
+    active_c = noy_ubc_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
+    if (.not. noy_ubc_set_codon_logged) then
+       noy_ubc_set_codon_logged = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'noy_ubc_set direct = codon flag-off no-op'
+          else
+             write(iulog,'(A)') 'noy_ubc_set selector = codon; active data-file body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 !
 ! only update model top layer (index=1)
 !

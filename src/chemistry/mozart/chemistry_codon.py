@@ -118,6 +118,14 @@ def flbc_chk_codon(active: int) -> int:
     return active
 
 @export
+def noy_ubc_active_codon(active: int) -> int:
+    return _common.noy_ubc_active_codon(active)
+
+@export
+def spedata_active_codon(active: int) -> int:
+    return _common.spedata_active_codon(active)
+
+@export
 def prescribed_aero_adv_codon(active: int) -> int:
     return active
 
