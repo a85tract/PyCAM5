@@ -365,6 +365,7 @@ contains
     implicit none
     type(file_desc_t),intent(inout) :: pioFile     ! pio File pointer
 
+    call chemistry_misc_codon_touch('init_tracer_cnst_restart', 403)
     call init_trc_restart( 'tracer_cnst', piofile, file )
 
   end subroutine init_tracer_cnst_restart
@@ -376,6 +377,7 @@ contains
 
     type(file_desc_t) :: piofile
 
+    call chemistry_misc_codon_touch('write_tracer_cnst_restart', 404)
     call write_trc_restart( piofile, file )
 
   end subroutine write_tracer_cnst_restart

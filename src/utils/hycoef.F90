@@ -244,6 +244,13 @@ subroutine init_restart_hycoef(File, vdimids)
 
    integer :: ierr
 
+#define CAM_MISC_TAG 341
+#define CAM_MISC_LABEL 'init_restart_hycoef'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    ierr = PIO_Def_Dim(File, 'lev',  plev,  vdimids(1))
    ierr = PIO_Def_Dim(File, 'ilev', plevp, vdimids(2))
     
@@ -263,6 +270,13 @@ subroutine write_restart_hycoef(file)
    ! PIO traps errors internally, no need to check ierr
 
    integer :: ierr
+
+#define CAM_MISC_TAG 342
+#define CAM_MISC_LABEL 'write_restart_hycoef'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
     
    ierr = pio_put_var(File, hyai_desc, hyai)
    ierr = pio_put_var(File, hyam_desc, hyam)

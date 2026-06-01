@@ -1998,12 +1998,14 @@ end function chem_is_active
     use tracer_cnst,      only: init_tracer_cnst_restart
     use tracer_srcs,      only: init_tracer_srcs_restart
     use linoz_data, only : init_linoz_data_restart
+    use mo_util, only : chemistry_misc_codon_touch
     implicit none
     type(file_desc_t),intent(inout) :: File     ! pio File pointer
 
     !
     ! data for offline tracers
     !
+    call chemistry_misc_codon_touch('chem_init_restart', 407)
     call init_tracer_cnst_restart(File)
     call init_tracer_srcs_restart(File)
     call init_linoz_data_restart(File)
@@ -2015,12 +2017,14 @@ end function chem_is_active
     use tracer_srcs, only: write_tracer_srcs_restart
     use linoz_data,  only: write_linoz_data_restart
     use pio, only : file_desc_t
+    use mo_util, only : chemistry_misc_codon_touch
     implicit none
     type(file_desc_t) :: File
 
     !
     ! data for offline tracers
     !
+    call chemistry_misc_codon_touch('chem_write_restart', 408)
     call write_tracer_cnst_restart(File)
     call write_tracer_srcs_restart(File)
     call write_linoz_data_restart(File)

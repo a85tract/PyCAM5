@@ -271,6 +271,7 @@ contains
     implicit none
     type(file_desc_t),intent(inout) :: piofile     ! pio File pointer
 
+    call chemistry_misc_codon_touch('init_linoz_data_restart', 401)
     call init_trc_restart( 'linoz_data', piofile, file )
 
   end subroutine init_linoz_data_restart
@@ -282,6 +283,7 @@ contains
 
     type(file_desc_T) :: piofile
 
+    call chemistry_misc_codon_touch('write_linoz_data_restart', 402)
     call write_trc_restart( piofile, file )
 
   end subroutine write_linoz_data_restart
