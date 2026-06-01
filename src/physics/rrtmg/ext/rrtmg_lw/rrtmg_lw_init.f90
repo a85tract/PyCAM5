@@ -45,6 +45,16 @@
             type(c_ptr), value :: wavenum1_p, wavenum2_p, delwave_p
             type(c_ptr), value :: ng_p, nspa_p, nspb_p, ixindx_p, constants_p
          end subroutine rrtmg_lwdatinit_codon
+         subroutine rrtmg_lw_lwcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
+              bind(c, name="rrtmg_lw_lwcmbdat_codon")
+            use iso_c_binding, only: c_ptr
+            type(c_ptr), value :: ngc_p
+            type(c_ptr), value :: ngs_p
+            type(c_ptr), value :: ngm_p
+            type(c_ptr), value :: ngn_p
+            type(c_ptr), value :: ngb_p
+            type(c_ptr), value :: wt_p
+         end subroutine rrtmg_lw_lwcmbdat_codon
          subroutine rrtmg_lw_lwcldpr_codon(abscld1_p, absliq0_p, absice0_p, &
               absice1_p, absice2_p, absice3_p, absliq1_p) &
               bind(c, name="rrtmg_lw_lwcldpr_codon")
@@ -539,7 +549,36 @@
       subroutine lwcmbdat
 !***************************************************************************
 
+      use iso_c_binding, only: c_int64_t, c_loc
+      use cam_logfile, only: iulog
+      use parrrtm, only : mg, nbndlw, ngptlw
+      use spmd_utils, only: masterproc
+
       save
+
+      integer(c_int64_t), target :: ngc_c(nbndlw)
+      integer(c_int64_t), target :: ngs_c(nbndlw)
+      integer(c_int64_t), target :: ngn_c(ngptlw)
+      integer(c_int64_t), target :: ngb_c(ngptlw)
+      integer(c_int64_t), target :: ngm_c(nbndlw*mg)
+      real(kind=r8), target :: wt_c(mg)
+
+      call rrtmg_lw_init_select_impl()
+      if (.not. use_native_rrtmg_lw_init_impl) then
+         call rrtmg_lw_lwcmbdat_codon(c_loc(ngc_c(1)), c_loc(ngs_c(1)), &
+              c_loc(ngm_c(1)), c_loc(ngn_c(1)), c_loc(ngb_c(1)), c_loc(wt_c(1)))
+         ngc(:) = int(ngc_c(:))
+         ngs(:) = int(ngs_c(:))
+         ngm(:) = int(ngm_c(:))
+         ngn(:) = int(ngn_c(:))
+         ngb(:) = int(ngb_c(:))
+         wt(:) = wt_c(:)
+         if (masterproc) then
+            write(iulog,*) 'lwcmbdat implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
  
 ! ------- Definitions -------
 !     Arrays for the g-point reduction from 256 to 140 for the 16 LW bands:
