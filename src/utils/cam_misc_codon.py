@@ -345,6 +345,64 @@ def _cam_ascii_upper(ch: int) -> int:
     return ch
 
 
+@inline
+def _cam_trim_equals_noleap(chars: Ptr[byte], trim_len: int) -> int:
+    if trim_len != 7:
+        return 0
+    if _cam_ascii_upper(int(chars[0])) != 78:
+        return 0
+    if _cam_ascii_upper(int(chars[1])) != 79:
+        return 0
+    if int(chars[2]) != 95:
+        return 0
+    if _cam_ascii_upper(int(chars[3])) != 76:
+        return 0
+    if _cam_ascii_upper(int(chars[4])) != 69:
+        return 0
+    if _cam_ascii_upper(int(chars[5])) != 65:
+        return 0
+    if _cam_ascii_upper(int(chars[6])) != 80:
+        return 0
+    return 1
+
+
+@inline
+def _cam_trim_equals_gregorian(chars: Ptr[byte], trim_len: int) -> int:
+    if trim_len != 9:
+        return 0
+    if _cam_ascii_upper(int(chars[0])) != 71:
+        return 0
+    if _cam_ascii_upper(int(chars[1])) != 82:
+        return 0
+    if _cam_ascii_upper(int(chars[2])) != 69:
+        return 0
+    if _cam_ascii_upper(int(chars[3])) != 71:
+        return 0
+    if _cam_ascii_upper(int(chars[4])) != 79:
+        return 0
+    if _cam_ascii_upper(int(chars[5])) != 82:
+        return 0
+    if _cam_ascii_upper(int(chars[6])) != 73:
+        return 0
+    if _cam_ascii_upper(int(chars[7])) != 65:
+        return 0
+    if _cam_ascii_upper(int(chars[8])) != 78:
+        return 0
+    return 1
+
+
+@export
+def timemgr_get_calendar_cf_codon(calendar_p: cobj, calendar_len: int) -> int:
+    calendar_chars = Ptr[byte](calendar_p)
+    calendar_trim = _cam_char_trim_len(calendar_chars, calendar_len)
+
+    if _cam_trim_equals_noleap(calendar_chars, calendar_trim) != 0:
+        return 1
+    if _cam_trim_equals_gregorian(calendar_chars, calendar_trim) != 0:
+        return 2
+    return 0
+
+
 @export
 def timemgr_is_caltype_codon(calendar_p: cobj, calendar_len: int, cal_in_p: cobj, cal_in_len: int) -> int:
     calendar_chars = Ptr[byte](calendar_p)

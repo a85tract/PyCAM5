@@ -1229,17 +1229,56 @@ character(len=SHR_KIND_CS) function timemgr_get_calendar_cf()
 ! Local variables
    character(len=*), parameter  :: sub = 'timemgr_get_calendar_cf'
    character(len=len(calendar)) :: caltmp
+   character(len=32) :: impl_name
+   integer :: n, status
+   integer(c_int64_t) :: cal_code
+   interface
+      function timemgr_get_calendar_cf_codon(calendar_p, calendar_len) result(cal_code) &
+           bind(c, name='timemgr_get_calendar_cf_codon')
+        import :: c_int64_t, c_ptr
+        type(c_ptr), value :: calendar_p
+        integer(c_int64_t), value :: calendar_len
+        integer(c_int64_t) :: cal_code
+      end function timemgr_get_calendar_cf_codon
+   end interface
+
+   logical, save :: timemgr_get_calendar_cf_codon_logged = .false.
 !-----------------------------------------------------------------------------------------
 
-   caltmp = to_upper(trim(calendar) )
-   if ( trim(caltmp) == trim(shr_cal_noleap) ) then
+   impl_name = 'codon'
+   call get_environment_variable('TIMEMGR_GET_CALENDAR_CF_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native') then
+      if (masterproc .and. .not. timemgr_get_calendar_cf_codon_logged) then
+         write(iulog,*) 'timemgr_get_calendar_cf implementation = native'
+         timemgr_get_calendar_cf_codon_logged = .true.
+         call flush(iulog)
+      endif
+      caltmp = to_upper(trim(calendar) )
+      if ( trim(caltmp) == trim(shr_cal_noleap) ) then
+         timemgr_get_calendar_cf = 'noleap'
+      else if ( trim(caltmp) == trim(shr_cal_gregorian) ) then
+         timemgr_get_calendar_cf = 'gregorian'
+      else
+         write(iulog,*)sub,': unrecognized calendar specified: ',calendar
+         call endrun
+      end if
+      return
+   endif
+
+   cal_code = timemgr_get_calendar_cf_codon(c_loc(calendar(1:1)), int(len(calendar), c_int64_t))
+   if (cal_code == 1_c_int64_t) then
       timemgr_get_calendar_cf = 'noleap'
-   else if ( trim(caltmp) == trim(shr_cal_gregorian) ) then
+   else if (cal_code == 2_c_int64_t) then
       timemgr_get_calendar_cf = 'gregorian'
    else
       write(iulog,*)sub,': unrecognized calendar specified: ',calendar
       call endrun
    end if
+   if (masterproc .and. .not. timemgr_get_calendar_cf_codon_logged) then
+      write(iulog,*) 'timemgr_get_calendar_cf direct = codon calendar cf'
+      timemgr_get_calendar_cf_codon_logged = .true.
+      call flush(iulog)
+   endif
 
 end function timemgr_get_calendar_cf
 !=========================================================================================
