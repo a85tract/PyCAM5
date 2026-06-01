@@ -23,6 +23,7 @@ module mo_drydep
   use mo_util,           only : chemistry_misc_codon_touch
   use dyn_grid,         only : get_dyn_grid_parm, get_horiz_grid_d
   use scamMod,          only : single_column
+  use iso_c_binding,    only : c_int64_t, c_loc, c_ptr
 
   use seq_drydep_mod,   only : nddvels =>  n_drydep, drydep_list, mapping
   use physconst,        only : karman
@@ -136,6 +137,9 @@ module mo_drydep
   real(r8) , allocatable            :: soilw_3d(:,:,:)
 
   logical, parameter :: dyn_soilw = .false.
+  logical :: has_drydep_use_native_impl = .false.
+  logical :: has_drydep_impl_selected = .false.
+  logical :: has_drydep_codon_logged = .false.
 
   real(r8), allocatable  :: fraction_landuse(:,:,:)
   real(r8), allocatable, dimension(:,:,:) :: dep_ra ! [s/m] aerodynamic resistance
@@ -3244,9 +3248,47 @@ contains
     character(len=*), intent(in) :: name
 
     logical :: has_drydep
-    integer :: i
+    integer :: i, ichar
+    integer(c_int64_t), allocatable, target :: name_ascii(:)
+    integer(c_int64_t), allocatable, target :: drydep_ascii(:,:)
+    integer(c_int64_t) :: found_c
+
+    interface
+       function has_drydep_codon(name_len_c, name_ascii_p, list_len_c, list_ascii_p, list_count_c) result(found_c) &
+            bind(c, name="has_drydep_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: name_len_c, list_len_c, list_count_c
+         type(c_ptr), value :: name_ascii_p, list_ascii_p
+         integer(c_int64_t) :: found_c
+       end function has_drydep_codon
+    end interface
 
     has_drydep = .false.
+
+    call has_drydep_select_impl()
+
+    if (.not. has_drydep_use_native_impl) then
+       allocate(name_ascii(max(1, len(name))))
+       allocate(drydep_ascii(len(drydep_list), max(1, nddvels)))
+
+       do ichar = 1,len(name)
+          name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+       end do
+       if (len(name) == 0) name_ascii(1) = 32_c_int64_t
+
+       drydep_ascii(:,:) = 32_c_int64_t
+       do i = 1,nddvels
+          do ichar = 1,len(drydep_list)
+             drydep_ascii(ichar,i) = int(iachar(drydep_list(i)(ichar:ichar)), c_int64_t)
+          end do
+       end do
+
+       found_c = has_drydep_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            int(len(drydep_list), c_int64_t), c_loc(drydep_ascii(1,1)), int(nddvels, c_int64_t))
+       has_drydep = found_c /= 0_c_int64_t
+       call has_drydep_log_direct()
+       return
+    end if
 
     do i=1,nddvels
        if ( trim(name) == trim(drydep_list(i)) ) then
@@ -3256,5 +3298,63 @@ contains
     enddo
 
   endfunction has_drydep
+
+  subroutine has_drydep_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (has_drydep_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('HAS_DRYDEP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       select case (trim(adjustl(impl_name(:n))))
+       case ('codon')
+          has_drydep_use_native_impl = .false.
+       case ('native', 'fortran')
+          has_drydep_use_native_impl = .true.
+       case default
+          call endrun('has_drydep_select_impl: unsupported HAS_DRYDEP_IMPL='//trim(impl_name(:n)))
+       end select
+    else
+       has_drydep_use_native_impl = .false.
+    end if
+
+    has_drydep_impl_selected = .true.
+
+    if (masterproc) then
+       if (has_drydep_use_native_impl) then
+          write(iulog,'(A)') 'has_drydep implementation = native'
+       else
+          write(iulog,'(A)') 'has_drydep implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine has_drydep_select_impl
+
+  subroutine has_drydep_log_direct()
+
+    implicit none
+
+    if (has_drydep_codon_logged) return
+    has_drydep_codon_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'has_drydep direct = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine has_drydep_log_direct
 
 end module mo_drydep

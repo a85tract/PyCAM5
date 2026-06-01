@@ -15,6 +15,10 @@ def chem_lookup_name_codon(name_len: int, name_ascii_p: cobj, list_len: int, lis
     return _common.chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
 
 @export
+def has_drydep_codon(name_len: int, name_ascii_p: cobj, list_len: int, list_ascii_p: cobj, list_count: int) -> int:
+    return _common.has_drydep_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
+
+@export
 def chem_lookup_mapped_name_codon(
     name_len: int,
     name_ascii_p: cobj,
