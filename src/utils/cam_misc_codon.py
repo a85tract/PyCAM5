@@ -130,6 +130,46 @@ def lininterp3d2d_codon(
             )
 
 
+@inline
+def _hbuf_idx(i: int, k: int, ld: int) -> int:
+    return i + k * ld
+
+
+@inline
+def _field_idx(i: int, k: int, idim: int) -> int:
+    return i + k * idim
+
+
+@export
+def hbuf_accum_inst_codon(
+    buf8_p: cobj,
+    field_p: cobj,
+    nacs_p: cobj,
+    buf8_ld: int,
+    idim: int,
+    ieu: int,
+    jeu: int,
+    flag_xyfill: int,
+    fillvalue: float,
+):
+    buf8 = Ptr[float](buf8_p)
+    field = Ptr[float](field_p)
+    nacs = Ptr[int](nacs_p)
+
+    for k in range(jeu):
+        for i in range(ieu):
+            buf8[_hbuf_idx(i, k, buf8_ld)] = field[_field_idx(i, k, idim)]
+
+    if flag_xyfill != 0:
+        for i in range(ieu):
+            if field[_field_idx(i, 0, idim)] == fillvalue:
+                nacs[i] = 0
+            else:
+                nacs[i] = 1
+    else:
+        nacs[0] = 1
+
+
 @export
 def handle_pio_error_ok_codon(ierr: int, pio_noerr: int) -> int:
     return 1 if ierr == pio_noerr else 0

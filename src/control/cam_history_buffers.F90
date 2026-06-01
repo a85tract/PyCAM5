@@ -24,6 +24,17 @@ module cam_history_buffers
 
 
 contains
+  logical function cam_history_buffers_use_codon()
+    character(len=32) :: impl_name
+    integer :: impl_len, impl_status
+
+    impl_name = 'codon'
+    call get_environment_variable('CAM_HISTORY_BUFFERS_IMPL', value=impl_name, &
+         length=impl_len, status=impl_status)
+    cam_history_buffers_use_codon = .not. (impl_status == 0 .and. impl_len > 0 .and. &
+         trim(adjustl(impl_name(:impl_len))) == 'native')
+  end function cam_history_buffers_use_codon
+
   subroutine hbuf_accum_inst (buf8, field, nacs, dimind, idim, flag_xyfill, fillvalue)
     !
     !-----------------------------------------------------------------------
@@ -47,16 +58,20 @@ contains
     integer :: jb, je    ! beginning and ending indices of second dimension
     integer :: ieu, jeu  ! number of elements in each dimension
     integer :: i, k      ! loop indices
-
-    logical :: bad       ! flag indicates input field fillvalues not applied consistently
-    ! with vertical level
-
-#define CAM_MISC_TAG 215
-#define CAM_MISC_LABEL 'cam_history_buffers'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    integer :: nacs_len
+    integer(c_int64_t), target :: nacs_c(idim)
+    interface
+       subroutine hbuf_accum_inst_codon(buf8, field, nacs_c, buf8_ld, idim_c, ieu_c, jeu_c, &
+            flag_xyfill_c, fillvalue_c) bind(c, name='hbuf_accum_inst_codon')
+         import :: c_int64_t, r8
+         real(r8), intent(inout) :: buf8(*)
+         real(r8), intent(in) :: field(*)
+         integer(c_int64_t), intent(inout) :: nacs_c(*)
+         integer(c_int64_t), value :: buf8_ld, idim_c, ieu_c, jeu_c, flag_xyfill_c
+         real(r8), value :: fillvalue_c
+       end subroutine hbuf_accum_inst_codon
+    end interface
+    logical, save :: hbuf_accum_inst_codon_logged = .false.
 
     ib = dimind%beg1
     ie = dimind%end1
@@ -65,6 +80,25 @@ contains
 
     ieu = ie-ib+1
     jeu = je-jb+1
+
+    if (cam_history_buffers_use_codon()) then
+       nacs_len = 1
+       if (flag_xyfill) nacs_len = ieu
+       do i=1,nacs_len
+          nacs_c(i) = int(nacs(i), c_int64_t)
+       end do
+       call hbuf_accum_inst_codon(buf8, field, nacs_c, int(size(buf8,1), c_int64_t), &
+            int(idim, c_int64_t), int(ieu, c_int64_t), int(jeu, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, flag_xyfill), fillvalue)
+       do i=1,nacs_len
+          nacs(i) = int(nacs_c(i))
+       end do
+       if (.not. hbuf_accum_inst_codon_logged) then
+          write(iulog,*) 'hbuf_accum_inst implementation = codon'
+          hbuf_accum_inst_codon_logged = .true.
+       end if
+       return
+    end if
 
     do k=1,jeu
        do i=1,ieu
@@ -119,6 +153,7 @@ contains
 
     ieu = ie-ib+1
     jeu = je-jb+1
+
 
     if (flag_xyfill) then
        do k=1,jeu
@@ -190,6 +225,7 @@ contains
     ieu = ie-ib+1
     jeu = je-jb+1
 
+
     if (flag_xyfill) then
        do k=1,jeu
           do i=1,ieu
@@ -252,7 +288,6 @@ contains
 
     ieu = ie-ib+1
     jeu = je-jb+1
-
 
     if (flag_xyfill) then
        do k=1,jeu
@@ -325,7 +360,6 @@ contains
 
     ieu = ie-ib+1
     jeu = je-jb+1
-
 
     if (flag_xyfill) then
        do k=1,jeu
