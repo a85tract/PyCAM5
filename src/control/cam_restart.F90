@@ -219,7 +219,7 @@ end subroutine restart_printopts
       integer, pointer :: hdimids(:)
 
 #define CAM_MISC_TAG 216
-#define CAM_MISC_LABEL 'cam_restart'
+#define CAM_MISC_LABEL 'cam_write_restart'
 ! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL

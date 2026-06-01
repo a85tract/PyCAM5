@@ -885,6 +885,13 @@ CONTAINS
     type(mct_string)          :: mstring     ! mct char type
     !-----------------------------------------------------------------------
 
+#define CAM_MISC_TAG 397
+#define CAM_MISC_LABEL 'atm_write_srfrest_mct'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     ! Determine and open surface restart dataset
 
     fname_srf_cam = interpret_filename_spec( rsfilename_spec_cam, &

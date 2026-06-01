@@ -5315,6 +5315,13 @@ CONTAINS
       real(r8) tday             ! Model day number for printout
 !-----------------------------------------------------------------------
 
+#define CAM_MISC_TAG 396
+#define CAM_MISC_LABEL 'wrapup'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
       tape => history_tape
 
       nstep = get_nstep()

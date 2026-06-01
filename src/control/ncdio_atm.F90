@@ -201,6 +201,13 @@ contains
     !
     !-----------------------------------------------------------------------
     !
+#define CAM_MISC_TAG 398
+#define CAM_MISC_LABEL 'infld_real_2d'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     grid_map_tmp = trim( to_upper(trim(grid_map)) )
 
     !
@@ -466,6 +473,13 @@ contains
     integer :: hdim1_d, hdim2_d
     character(len=3) :: array_order
 
+
+#define CAM_MISC_TAG 399
+#define CAM_MISC_LABEL 'infld_real_3d'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     nullify(iodesc)
 
