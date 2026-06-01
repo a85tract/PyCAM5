@@ -40,6 +40,7 @@
       logical :: use_native_taugb3_7_9_13_15_lw_impl = .false.
       logical :: taugb3_7_9_13_15_lw_impl_selected = .false.
       logical :: taugb3_7_9_13_15_lw_entered_logged(5) = .false.
+      logical :: taumol_lw_impl_logged = .false.
 
       contains
 
@@ -287,6 +288,7 @@
 
 ! Calculate gaseous optical depth and planck fractions for each spectral band.
 
+      call taumol_lw_log_impl()
       call taugb1
       call taugb2
       call taugb3
@@ -4188,5 +4190,24 @@
       end if
 
       end subroutine taugb10_11_14_lw_log_entered
+
+      subroutine taumol_lw_log_impl()
+
+      call taugb1_2_6_8_12_16_lw_select_impl()
+      call taugb3_7_9_13_15_lw_select_impl()
+      call taugb4_5_lw_select_impl()
+      call taugb10_11_14_lw_select_impl()
+      if (use_native_taugb1_2_6_8_12_16_lw_impl .or. use_native_taugb3_7_9_13_15_lw_impl .or. &
+          use_native_taugb4_5_lw_impl .or. use_native_taugb10_11_14_lw_impl) return
+
+      if (taumol_lw_impl_logged) return
+      taumol_lw_impl_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'taumol implementation = codon'
+         call flush(iulog)
+      end if
+
+      end subroutine taumol_lw_log_impl
 
       end module rrtmg_lw_taumol
