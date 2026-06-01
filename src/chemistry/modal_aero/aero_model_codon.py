@@ -104,6 +104,54 @@ def qqcw_get_field_codon(index: int, pcnst: int, qqcw_p: cobj) -> int:
 
 
 @inline
+def _modal_aero_trimmed_equal(name: Ptr[int], name_len: int, items: Ptr[int], item_len: int, item_index: int) -> bool:
+    name_trim = name_len
+    while name_trim > 0 and name[name_trim - 1] == 32:
+        name_trim -= 1
+
+    item_trim = item_len
+    item_offset = item_index * item_len
+    while item_trim > 0 and items[item_offset + item_trim - 1] == 32:
+        item_trim -= 1
+
+    if name_trim != item_trim:
+        return False
+
+    for i in range(name_trim):
+        if name[i] != items[item_offset + i]:
+            return False
+
+    return True
+
+
+@export
+def modal_aero_search_list_of_names_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    list_len: int,
+    list_ascii_p: cobj,
+    list_count: int,
+) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    list_ascii = Ptr[int](list_ascii_p)
+
+    nonblank = False
+    for i in range(name_len):
+        if name_ascii[i] != 32:
+            nonblank = True
+            break
+
+    if not nonblank:
+        return -999888777
+
+    for i in range(list_count):
+        if _modal_aero_trimmed_equal(name_ascii, name_len, list_ascii, list_len, i):
+            return i + 1
+
+    return -999888777
+
+
+@inline
 def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
     return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))
 

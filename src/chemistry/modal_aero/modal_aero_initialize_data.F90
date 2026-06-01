@@ -2,6 +2,7 @@ module modal_aero_initialize_data
   use cam_logfile,           only: iulog
   use cam_abortutils,        only: endrun
   use spmd_utils,            only: masterproc, iam
+  use iso_c_binding,         only: c_int64_t, c_loc
   use ppgrid,                only: pcols, pver, begchunk, endchunk
   use modal_aero_data
   use time_manager,          only: is_first_step
@@ -509,15 +510,56 @@ contains
        integer, intent(in) :: list_length
        integer, intent(out) :: name_id
        
-       integer :: i
-       name_id = -999888777
-       if (name_to_find .ne. ' ') then
-          do i = 1, list_length
-             if (name_to_find .eq. list_of_names(i)) then
-                name_id = i
-                exit
-             end if
+       integer :: i, j, n, status
+       character(len=32), save :: selected_impl = ''
+       logical, save :: selected = .false.
+       logical, save :: proof_seen = .false.
+       integer(c_int64_t), target :: name_ascii(max(1,len(name_to_find)))
+       integer(c_int64_t), target :: list_ascii(max(1,len(list_of_names(1)))*max(1,list_length))
+
+       interface
+          function modal_aero_search_list_of_names_codon(name_len_c, name_ascii_p, list_len_c, list_ascii_p, &
+               list_count_c) result(out_c) bind(c, name="modal_aero_search_list_of_names_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: name_len_c, list_len_c, list_count_c
+            type(c_ptr), value :: name_ascii_p, list_ascii_p
+            integer(c_int64_t) :: out_c
+          end function modal_aero_search_list_of_names_codon
+       end interface
+
+       if (.not. selected) then
+          selected_impl = 'codon'
+          call get_environment_variable('SEARCH_LIST_OF_NAMES_IMPL', value=selected_impl, length=n, status=status)
+          if (status == 0 .and. n > 0) selected_impl = adjustl(selected_impl(:n))
+          select case (trim(selected_impl))
+          case ('codon')
+          case default
+             call endrun('search_list_of_names: unsupported SEARCH_LIST_OF_NAMES_IMPL='//trim(selected_impl))
+          end select
+          selected = .true.
+          if (masterproc) then
+             write(iulog,'(A)') 'search_list_of_names selector SEARCH_LIST_OF_NAMES_IMPL=codon'
+             call flush(iulog)
+          end if
+       end if
+
+       do i = 1, len(name_to_find)
+          name_ascii(i) = int(iachar(name_to_find(i:i)), c_int64_t)
+       end do
+       do j = 1, list_length
+          do i = 1, len(list_of_names(1))
+             list_ascii(i + (j-1)*len(list_of_names(1))) = int(iachar(list_of_names(j)(i:i)), c_int64_t)
           end do
+       end do
+
+       name_id = int(modal_aero_search_list_of_names_codon( &
+            int(len(name_to_find), c_int64_t), c_loc(name_ascii(1)), &
+            int(len(list_of_names(1)), c_int64_t), c_loc(list_ascii(1)), int(list_length, c_int64_t) ))
+
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,'(A)') 'search_list_of_names implementation = codon'
+          call flush(iulog)
+          proof_seen = .true.
        end if
      end subroutine search_list_of_names
 
