@@ -2,6 +2,7 @@
       module charge_neutrality
 
       use shr_kind_mod,      only : r8 => shr_kind_r8
+      use iso_c_binding,     only : c_int64_t
       use cam_logfile,       only : iulog
 
       implicit none
@@ -13,6 +14,15 @@
                                ! mean mass assumed to be mwdry
       logical :: charge_balance_use_native_impl = .false.
       logical :: charge_balance_impl_selected = .false.
+      logical :: charge_fix_proof_written = .false.
+
+      interface
+         function charge_fix_active_codon(active) result(out_c) bind(c, name="charge_fix_active_codon")
+           import :: c_int64_t
+           integer(c_int64_t), value :: active
+           integer(c_int64_t) :: out_c
+         end function charge_fix_active_codon
+      end interface
 
       contains
 
@@ -178,7 +188,8 @@
       use chem_mods,           only : adv_mass
       use physics_buffer,      only : pbuf_get_field,physics_buffer_desc ! Needed to get variables from physics buffer
       use physics_types,       only : physics_state
-      
+      use spmd_utils,          only : masterproc
+
       implicit none
 
 !-----------------------------------------------------------------------      
@@ -202,11 +213,33 @@
       real(r8), dimension(:,:,:), pointer   :: q         ! model mass mixing ratios
       real(r8), dimension(:,:),   pointer   :: qs        ! Pointer to access fields in pbuf
       real(r8), dimension(:,:),   pointer   :: qse       ! Pointer to access electrons in pbuf
+      integer(c_int64_t) :: active_c
 
-!-----------------------------------------------------------------------      
+!-----------------------------------------------------------------------
       lchnk = state%lchnk
       ncol  = state%ncol
       q => state%q
+
+     !-----------------------------------------------------
+     ! Get index to access electron mass mixing ratio
+     !-----------------------------------------------------
+      elec_sndx = -1
+      call cnst_get_ind( 'e', elec_ndx, abort=.false. )
+      if (elec_ndx < 0) elec_sndx = slvd_index( 'e' )
+      active_c = charge_fix_active_codon(merge(1_c_int64_t, 0_c_int64_t, &
+           elec_ndx > 0 .or. elec_sndx > 0))
+      if (.not. charge_fix_proof_written) then
+         charge_fix_proof_written = .true.
+         if (masterproc) then
+            if (active_c == 0_c_int64_t) then
+               write(iulog,'(A)') 'charge_fix direct = codon no-electron-species no-op'
+            else
+               write(iulog,'(A)') 'charge_fix selector = codon; active electron/ion balance body = native'
+            end if
+            call flush(iulog)
+         end if
+      end if
+      if (active_c == 0_c_int64_t) return
 
      !------------------------------------------------
      ! assume that mbar = mwdry except for WACCM-X
@@ -214,15 +247,9 @@
       mbar(:ncol,:) = mwdry
       if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) mbar(:ncol,:) = mbarv(:ncol,:,lchnk)
 
-     !-----------------------------------------------------
-     ! Get index to access electron mass mixing ratio
-     !-----------------------------------------------------     
-      call cnst_get_ind( 'e', elec_ndx, abort=.false. )  
-      if (elec_ndx < 0) elec_sndx = slvd_index( 'e' )
-    
       !--------------------------------------------------------------------
       ! If electrons are in state%q or pbuf, add up ions to get electrons
-      !--------------------------------------------------------------------  
+      !--------------------------------------------------------------------
       if( elec_ndx > 0 .or. elec_sndx > 0) then
 	 wrk(:,:) = 0._r8
          call cnst_get_ind( 'Np', n, abort=.false. )

@@ -54,6 +54,8 @@ module mo_fstrat
   logical :: has_fstrat(gas_pcnst)
   real(r8), parameter :: mb2pa = 100._r8
   logical :: fstrat_inti_proof_written = .false.
+  logical :: set_fstrat_vals_proof_written = .false.
+  logical :: set_fstrat_h2o_proof_written = .false.
 
   interface
      function fstrat_inti_active_codon(active) result(out_c) bind(c, name="fstrat_inti_active_codon")
@@ -61,6 +63,16 @@ module mo_fstrat
        integer(c_int64_t), value :: active
        integer(c_int64_t) :: out_c
      end function fstrat_inti_active_codon
+     function set_fstrat_vals_active_codon(active) result(out_c) bind(c, name="set_fstrat_vals_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active
+       integer(c_int64_t) :: out_c
+     end function set_fstrat_vals_active_codon
+     function set_fstrat_h2o_active_codon(active) result(out_c) bind(c, name="set_fstrat_h2o_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active
+       integer(c_int64_t) :: out_c
+     end function set_fstrat_h2o_active_codon
   end interface
 
 contains
@@ -450,7 +462,9 @@ contains
     !           ox, nox, hno3, ch4, co, n2o, n2o5 & stratospheric o3
     !--------------------------------------------------------------------
 
+    use iso_c_binding, only : c_int64_t
     use mo_synoz, only : synoz_region => po3
+    use spmd_utils, only : masterproc
 
     implicit none
 
@@ -490,8 +504,22 @@ contains
     real(r8), allocatable :: table_ox(:)
     logical  ::  found_trop
     integer  :: lat
+    integer(c_int64_t) :: active_c
 
-    if (.not. any(has_fstrat(:))) return
+    active_c = set_fstrat_vals_active_codon(merge(1_c_int64_t, 0_c_int64_t, any(has_fstrat(:))))
+    if (.not. set_fstrat_vals_proof_written) then
+       set_fstrat_vals_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'set_fstrat_vals direct = codon no-fstrat-species no-op'
+          else
+             write(iulog,'(A)') 'set_fstrat_vals selector = codon; active fixed-stratosphere values body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
 
     !--------------------------------------------------------
     !	... setup the time interpolation
@@ -817,7 +845,8 @@ contains
     !--------------------------------------------------------------------
     !	... set the h2o upper boundary values
     !--------------------------------------------------------------------
-
+    use iso_c_binding, only : c_int64_t
+    use spmd_utils, only : masterproc
 
     implicit none
 
@@ -849,6 +878,23 @@ contains
     real(r8) ::  pint_vals(2)
     logical  ::  found_trop
     integer  ::  lat
+    integer(c_int64_t) :: active_c
+
+    active_c = set_fstrat_h2o_active_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, h2o_ndx > 0 .and. table_h2o_ndx > 0))
+    if (.not. set_fstrat_h2o_proof_written) then
+       set_fstrat_h2o_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'set_fstrat_h2o direct = codon no-fstrat-h2o no-op'
+          else
+             write(iulog,'(A)') 'set_fstrat_h2o selector = codon; active fixed-stratosphere h2o body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
 
     h2o_overwrite : if( h2o_ndx > 0 .and. table_h2o_ndx > 0 ) then
        !--------------------------------------------------------

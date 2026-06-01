@@ -1,9 +1,10 @@
        module mo_jeuv
 
-	       use shr_kind_mod,     only : r8 => shr_kind_r8
-	       use cam_abortutils,   only : endrun
-	       use cam_logfile,      only : iulog
-	       use mo_util,          only : chemistry_misc_codon_touch
+		       use shr_kind_mod,     only : r8 => shr_kind_r8
+		       use iso_c_binding,    only : c_int64_t
+		       use cam_abortutils,   only : endrun
+		       use cam_logfile,      only : iulog
+		       use mo_util,          only : chemistry_misc_codon_touch
 
 	       implicit none
 
@@ -28,12 +29,21 @@
        real(r8), parameter :: hc = 6.62608e-34_r8 * 2.9979e8_r8 / 1.e-9_r8
 
        real(r8) :: d2r
-       real(r8) :: sigabs(lmax,nspecies)               ! absorption cross sections of major species
-       real(r8) :: branch_p(lmax,nstat,nmaj) = 0._r8   ! branching ratios for photoionization/dissociation
-       real(r8) :: branch_e(lmax,nstat,nmaj) = 0._r8   ! branching ratios for photoelectron ionization/dissociation/excitation
-       real(r8) :: energy(lmax)                        ! solar energy
+	       real(r8) :: sigabs(lmax,nspecies)               ! absorption cross sections of major species
+	       real(r8) :: branch_p(lmax,nstat,nmaj) = 0._r8   ! branching ratios for photoionization/dissociation
+	       real(r8) :: branch_e(lmax,nstat,nmaj) = 0._r8   ! branching ratios for photoelectron ionization/dissociation/excitation
+	       real(r8) :: energy(lmax)                        ! solar energy
+	       logical :: jeuv_init_proof_written = .false.
 
-       contains
+	       interface
+	          function jeuv_init_active_codon(active) result(out_c) bind(c, name="jeuv_init_active_codon")
+	            import :: c_int64_t
+	            integer(c_int64_t), value :: active
+	            integer(c_int64_t) :: out_c
+	          end function jeuv_init_active_codon
+	       end interface
+
+	       contains
 
        subroutine jeuv_init (euvacdat_file, photon_file, electron_file, indexer)
 !==============================================================================
@@ -48,11 +58,12 @@
 
        use physconst,     only : pi
        use units,         only : getunit, freeunit
-       use ppgrid,        only : pver
-       use ioFileMod,     only : getfil
-       use mo_chem_utls,  only : get_rxt_ndx
+	       use ppgrid,        only : pver
+	       use ioFileMod,     only : getfil
+	       use mo_chem_utls,  only : get_rxt_ndx
+	       use spmd_utils,    only : masterproc
 
-       implicit none
+	       implicit none
 
        character(len=*), intent(in) :: euvacdat_file
        character(len=*), intent(in) :: photon_file
@@ -71,15 +82,28 @@
         real(r8) :: sflux(lmax)                  ! solar flux (photon cm-2 s-1)
         real(r8) :: dummy                        ! temp variable
         character(len=200) :: str,fmt            ! string for comments in data file
-        character(len=256) :: locfn
+	        character(len=256) :: locfn
 
-	        integer :: jeuv_1_ndx
+		        integer :: jeuv_1_ndx
+		        integer(c_int64_t) :: active_c
 
-	        call chemistry_misc_codon_touch('mo_jeuv', 153)
-	        jeuv_1_ndx = get_rxt_ndx( 'jeuv_1' )
-        if (.not.jeuv_1_ndx>0) return
+		        call chemistry_misc_codon_touch('mo_jeuv', 153)
+		        jeuv_1_ndx = get_rxt_ndx( 'jeuv_1' )
+		        active_c = jeuv_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, jeuv_1_ndx > 0))
+	        if (.not. jeuv_init_proof_written) then
+	           jeuv_init_proof_written = .true.
+	           if (masterproc) then
+	              if (active_c == 0_c_int64_t) then
+	                 write(iulog,'(A)') 'jeuv_init direct = codon no-jeuv-reactions no-op'
+	              else
+	                 write(iulog,'(A)') 'jeuv_init selector = codon; active EUV table-read body = native'
+	              end if
+	              call flush(iulog)
+	           end if
+	        end if
+	        if (active_c == 0_c_int64_t) return
 
-        d2r = pi/180._r8
+	        d2r = pi/180._r8
 !------------------------------------------------------------------------------
 !       read from data file the absorption cross sections for neutral species,
 !       braching ratios for photoionization/dissociation, and braching ratios 

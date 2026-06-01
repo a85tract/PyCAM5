@@ -150,6 +150,22 @@ def fstrat_inti_active_codon(active: int) -> int:
     return _common.fstrat_inti_active_codon(active)
 
 @export
+def set_fstrat_vals_active_codon(active: int) -> int:
+    return _common.set_fstrat_vals_active_codon(active)
+
+@export
+def set_fstrat_h2o_active_codon(active: int) -> int:
+    return _common.set_fstrat_h2o_active_codon(active)
+
+@export
+def jeuv_init_active_codon(active: int) -> int:
+    return _common.jeuv_init_active_codon(active)
+
+@export
+def charge_fix_active_codon(active: int) -> int:
+    return _common.charge_fix_active_codon(active)
+
+@export
 def o1d_to_2oh_adj_init_active_codon(active: int) -> int:
     return _common.o1d_to_2oh_adj_init_active_codon(active)
 

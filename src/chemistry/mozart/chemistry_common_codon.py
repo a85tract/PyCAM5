@@ -211,6 +211,18 @@ def sulf_inti_active_codon(active: int) -> int:
 def fstrat_inti_active_codon(active: int) -> int:
     return active
 
+def set_fstrat_vals_active_codon(active: int) -> int:
+    return active
+
+def set_fstrat_h2o_active_codon(active: int) -> int:
+    return active
+
+def jeuv_init_active_codon(active: int) -> int:
+    return active
+
+def charge_fix_active_codon(active: int) -> int:
+    return active
+
 def o1d_to_2oh_adj_init_active_codon(active: int) -> int:
     return active
 
