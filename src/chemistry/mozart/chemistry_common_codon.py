@@ -192,6 +192,43 @@ def gcr_ionization_noxhox_zero_codon(active: int, ncol: int, pver: int, gcr_nox_
             gcr_hox[idx] = 0.0
     return active
 
+def airpl_src_active_codon(active: int) -> int:
+    return active
+
+def airpl_set_zero_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_air_p: cobj) -> int:
+    no_air = Ptr[float](no_air_p)
+    co_air = Ptr[float](co_air_p)
+    for k in range(pver):
+        for i in range(ncol):
+            idx = i + k * ncol
+            no_air[idx] = 0.0
+            co_air[idx] = 0.0
+    return active
+
+def sulf_inti_active_codon(active: int) -> int:
+    return active
+
+def fstrat_inti_active_codon(active: int) -> int:
+    return active
+
+def o1d_to_2oh_adj_init_active_codon(active: int) -> int:
+    return active
+
+def init_airglow_active_codon(active: int) -> int:
+    return active
+
+def register_cfc11star_active_codon(active: int) -> int:
+    return active
+
+def update_cfc11star_active_codon(active: int) -> int:
+    return active
+
+def chlorine_loading_init_active_codon(active: int) -> int:
+    return active
+
+def parse_rate_sums_active_codon(active: int) -> int:
+    return active
+
 def chem_final_codon() -> int:
     return 0
 

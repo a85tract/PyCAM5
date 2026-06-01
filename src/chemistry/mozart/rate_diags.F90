@@ -12,6 +12,8 @@ module rate_diags
   use ppgrid,           only : pver
   use spmd_utils,       only : masterproc
   use cam_abortutils,   only : endrun
+  use cam_logfile,      only : iulog
+  use iso_c_binding,    only : c_int64_t
 
   implicit none
   private 
@@ -36,6 +38,15 @@ module rate_diags
   logical :: rate_diags_batch_use_native_impl = .false.
   logical :: rate_diags_batch_impl_selected = .false.
   logical :: rate_diags_batch_entered_logged = .false.
+  logical :: parse_rate_sums_proof_written = .false.
+
+  interface
+    function parse_rate_sums_active_codon(active) result(out_c) bind(c, name="parse_rate_sums_active_codon")
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t), value :: active
+      integer(c_int64_t) :: out_c
+    end function parse_rate_sums_active_codon
+  end interface
 
 contains
 
@@ -261,6 +272,7 @@ contains
     real(r8) :: xdbl
 
     character(len=CX) :: sum_string
+    integer(c_int64_t) :: active_c
 
     ! a group is  a sum of reaction rates 
 
@@ -273,6 +285,21 @@ contains
           exit sumcnt
        endif
     enddo sumcnt
+
+    active_c = parse_rate_sums_active_codon(merge(1_c_int64_t, 0_c_int64_t, ngrps > 0))
+    if (.not. parse_rate_sums_proof_written) then
+       parse_rate_sums_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'parse_rate_sums direct = codon empty-rate-sums no-op'
+          else
+             write(iulog,'(A)') 'parse_rate_sums selector = codon; active rate-sum parser body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
 
     ! parse the individual sum strings...  and form the groupings
     has_grps: if (ngrps>0) then

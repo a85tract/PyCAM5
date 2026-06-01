@@ -134,6 +134,46 @@ def gcr_ionization_noxhox_zero_codon(active: int, ncol: int, pver: int, gcr_nox_
     return _common.gcr_ionization_noxhox_zero_codon(active, ncol, pver, gcr_nox_p, gcr_hox_p)
 
 @export
+def airpl_src_active_codon(active: int) -> int:
+    return _common.airpl_src_active_codon(active)
+
+@export
+def airpl_set_zero_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_air_p: cobj) -> int:
+    return _common.airpl_set_zero_codon(active, ncol, pver, no_air_p, co_air_p)
+
+@export
+def sulf_inti_active_codon(active: int) -> int:
+    return _common.sulf_inti_active_codon(active)
+
+@export
+def fstrat_inti_active_codon(active: int) -> int:
+    return _common.fstrat_inti_active_codon(active)
+
+@export
+def o1d_to_2oh_adj_init_active_codon(active: int) -> int:
+    return _common.o1d_to_2oh_adj_init_active_codon(active)
+
+@export
+def init_airglow_active_codon(active: int) -> int:
+    return _common.init_airglow_active_codon(active)
+
+@export
+def register_cfc11star_active_codon(active: int) -> int:
+    return _common.register_cfc11star_active_codon(active)
+
+@export
+def update_cfc11star_active_codon(active: int) -> int:
+    return _common.update_cfc11star_active_codon(active)
+
+@export
+def chlorine_loading_init_active_codon(active: int) -> int:
+    return _common.chlorine_loading_init_active_codon(active)
+
+@export
+def parse_rate_sums_active_codon(active: int) -> int:
+    return _common.parse_rate_sums_active_codon(active)
+
+@export
 def prescribed_aero_adv_codon(active: int) -> int:
     return active
 

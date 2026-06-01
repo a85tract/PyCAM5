@@ -8,6 +8,7 @@ module chlorine_loading_data
   use cam_logfile,      only: iulog
   use linoz_data,       only: has_linoz_data
   use mo_util,          only: chemistry_misc_codon_touch
+  use iso_c_binding,    only: c_int64_t
 
   implicit none
 
@@ -33,6 +34,15 @@ module chlorine_loading_data
 
   logical  :: fixed
   real(r8) :: offset_time
+  logical :: chlorine_loading_init_proof_written = .false.
+
+  interface
+    function chlorine_loading_init_active_codon(active) result(out_c) bind(c, name="chlorine_loading_init_active_codon")
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t), value :: active
+      integer(c_int64_t) :: out_c
+    end function chlorine_loading_init_active_codon
+  end interface
 
 ! namelist vars
   character(len=256) :: chlorine_loading_file = ''
@@ -67,11 +77,25 @@ contains
     integer :: i, ierr
 
     real(r8) :: model_time, time
+    integer(c_int64_t) :: active_c
 
     call chemistry_misc_codon_touch('chlorine_loading_data', 147)
     chlorine_loading_file = file
   
-    if (.not.has_linoz_data) return
+    active_c = chlorine_loading_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_linoz_data))
+    if (.not. chlorine_loading_init_proof_written) then
+       chlorine_loading_init_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'chlorine_loading_init direct = codon has_linoz_data=false no-op'
+          else
+             write(iulog,'(A)') 'chlorine_loading_init selector = codon; active loading file body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
 
     if ( present(type) ) then
        chlorine_loading_type = type

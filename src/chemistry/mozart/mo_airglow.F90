@@ -5,6 +5,9 @@
 	      use physconst,     only : avogad
 	      use cam_abortutils,    only : endrun
 	      use mo_util,       only : chemistry_misc_codon_touch
+	      use cam_logfile,   only : iulog
+	      use spmd_utils,    only : masterproc
+	      use iso_c_binding, only : c_int64_t
 
 	      implicit none
 
@@ -20,9 +23,18 @@
 
       integer :: rid_ag1, rid_ag2, rid_ag3
       logical :: has_airglow
+      logical :: init_airglow_proof_written = .false.
 
       private
       public :: airglow, init_airglow
+
+      interface
+        function init_airglow_active_codon(active) result(out_c) bind(c, name="init_airglow_active_codon")
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: active
+          integer(c_int64_t) :: out_c
+        end function init_airglow_active_codon
+      end interface
 
       contains
 
@@ -34,6 +46,7 @@
           use ppgrid,       only : pver
 
 	          implicit none
+          integer(c_int64_t) :: active_c
 
 	          call chemistry_misc_codon_touch('mo_airglow', 152)
 	          rid_ag1 = get_rxt_ndx( 'ag1' )
@@ -42,7 +55,20 @@
 
           has_airglow = rid_ag1 > 0 .and. rid_ag2 > 0 .and. rid_ag3 > 0
 
-          if (.not. has_airglow) return
+          active_c = init_airglow_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_airglow))
+          if (.not. init_airglow_proof_written) then
+             init_airglow_proof_written = .true.
+             if (masterproc) then
+                if (active_c == 0_c_int64_t) then
+                   write(iulog,'(A)') 'init_airglow direct = codon missing-airglow-reactions no-op'
+                else
+                   write(iulog,'(A)') 'init_airglow selector = codon; active airglow addfld body = native'
+                end if
+                call flush(iulog)
+             end if
+          end if
+
+          if (active_c == 0_c_int64_t) return
 
           call addfld( 'AIRGLW1',   'K/s ', pver, 'I', 'O2_1D -> O2 + 1.27 micron airglow loss', phys_decomp )
           call addfld( 'AIRGLW2',   'K/s ', pver, 'I', 'O2_1S -> O2 + 762nm airglow loss', phys_decomp )

@@ -8,6 +8,7 @@
 module llnl_O1D_to_2OH_adj
 
   use shr_kind_mod, only : r8 => shr_kind_r8
+  use iso_c_binding, only : c_int64_t
 
   implicit none
 
@@ -16,8 +17,17 @@ module llnl_O1D_to_2OH_adj
 
   logical :: o1d_to_2oh_adj_use_native_impl = .false.
   logical :: o1d_to_2oh_adj_impl_selected = .false.
+  logical :: o1d_to_2oh_adj_init_proof_written = .false.
 
   integer :: jo1d_ndx
+
+  interface
+     function o1d_to_2oh_adj_init_active_codon(active) result(out_c) bind(c, name="o1d_to_2oh_adj_init_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active
+       integer(c_int64_t) :: out_c
+     end function o1d_to_2oh_adj_init_active_codon
+  end interface
 
 contains
 !===========================================================================
@@ -30,11 +40,18 @@ contains
     use spmd_utils,       only : masterproc
 
     implicit none
+    integer(c_int64_t) :: active_c
 
     jo1d_ndx  = get_rxt_ndx( 'j2oh' )
+    active_c = o1d_to_2oh_adj_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, jo1d_ndx > 0))
     if (masterproc) then
        write (iulog,*) 'O1D_to_2OH_adj_init: Found j2oh index in O1D_to_2OH_adj_init of   ', jo1d_ndx
-       write (iulog,*) 'O1D_to_2OH_adj_init: O1D_to_2OH_adj is active'
+       if (active_c == 0_c_int64_t) then
+          write (iulog,'(A)') 'o1d_to_2oh_adj_init direct = codon missing-j2oh no-op'
+       else
+          write (iulog,'(A)') 'o1d_to_2oh_adj_init selector = codon; active j2oh setup body = native'
+       end if
+       call flush(iulog)
     endif
 
   end subroutine O1D_to_2OH_adj_init

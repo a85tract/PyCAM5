@@ -53,6 +53,15 @@ module mo_fstrat
   integer :: dtime               ! model time step (s)
   logical :: has_fstrat(gas_pcnst)
   real(r8), parameter :: mb2pa = 100._r8
+  logical :: fstrat_inti_proof_written = .false.
+
+  interface
+     function fstrat_inti_active_codon(active) result(out_c) bind(c, name="fstrat_inti_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active
+       integer(c_int64_t) :: out_c
+     end function fstrat_inti_active_codon
+  end interface
 
 contains
 
@@ -77,6 +86,7 @@ contains
     use constituents, only : pcnst
     use dyn_grid,     only : get_dyn_grid_parm
     use interpolate_data, only : interp_type, lininterp_init, lininterp
+    use iso_c_binding, only : c_int64_t
     implicit none
 
     character(len=*), intent(in) :: fstrat_file
@@ -87,6 +97,7 @@ contains
     !------------------------------------------------------------------
 
     integer :: i, j, nchar
+    integer(c_int64_t) :: active_c
     integer :: spcno, lev, month, ierr
     integer :: vid, ndims
     type(file_desc_t) :: ncid
@@ -162,7 +173,20 @@ contains
 
     enddo
 
-    if (.not. any(has_fstrat(:))) return
+    active_c = fstrat_inti_active_codon(merge(1_c_int64_t, 0_c_int64_t, any(has_fstrat(:))))
+    if (.not. fstrat_inti_proof_written) then
+       fstrat_inti_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'fstrat_inti direct = codon no-fstrat-species no-op'
+          else
+             write(iulog,'(A)') 'fstrat_inti selector = codon; active fixed-stratosphere init body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
 
     !-----------------------------------------------------------------------
     !       ... open netcdf file

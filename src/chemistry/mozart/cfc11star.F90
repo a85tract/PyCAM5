@@ -14,6 +14,7 @@ module cfc11star
   use spmd_utils,   only : masterproc
   use constituents, only : cnst_get_ind
   use mo_util,      only : chemistry_misc_codon_touch
+  use iso_c_binding, only : c_int64_t
 
   implicit none
   save 
@@ -31,6 +32,22 @@ module cfc11star
   integer, target :: indices(ncfcs)
   
   real(r8) :: rel_rf(ncfcs)
+  logical :: register_cfc11star_proof_written = .false.
+  logical :: update_cfc11star_proof_written = .false.
+
+  interface
+    function register_cfc11star_active_codon(active) result(out_c) bind(c, name="register_cfc11star_active_codon")
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t), value :: active
+      integer(c_int64_t) :: out_c
+    end function register_cfc11star_active_codon
+
+    function update_cfc11star_active_codon(active) result(out_c) bind(c, name="update_cfc11star_active_codon")
+      use iso_c_binding, only : c_int64_t
+      integer(c_int64_t), value :: active
+      integer(c_int64_t) :: out_c
+    end function update_cfc11star_active_codon
+  end interface
 
 contains
 
@@ -41,6 +58,7 @@ contains
     implicit none
 
     integer :: m
+    integer(c_int64_t) :: active_c
 
     character(len=8), parameter :: species(ncfcs) = &
       (/ 'CFC11   ','CFC113  ','CFC114  ','CFC115  ','CCL4    ','CH3CCL3 ','CH3CL   ','HCFC22  ',&
@@ -55,7 +73,19 @@ contains
     enddo
 
     do_cfc11star = any(indices(:)>0)
-    if (.not.do_cfc11star) return
+    active_c = register_cfc11star_active_codon(merge(1_c_int64_t, 0_c_int64_t, do_cfc11star))
+    if (.not. register_cfc11star_proof_written) then
+       register_cfc11star_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'register_cfc11star direct = codon no-cfc-species no-op'
+          else
+             write(iulog,'(A)') 'register_cfc11star selector = codon; active pbuf registration body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call pbuf_add_field(pbufname,'global',dtype_r8,(/pcols,pver/),pbf_idx)
 
@@ -103,8 +133,22 @@ contains
     integer :: lchnk, ncol
     integer :: c, m
     real(r8), pointer :: cf11star(:,:)
+    integer(c_int64_t) :: active_c
 
-    if (.not.do_cfc11star) return
+    active_c = update_cfc11star_active_codon(merge(1_c_int64_t, 0_c_int64_t, do_cfc11star))
+    if (.not. update_cfc11star_proof_written) then
+       update_cfc11star_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'update_cfc11star direct = codon do_cfc11star=false no-op'
+          else
+             write(iulog,'(A)') 'update_cfc11star selector = codon; active CFC11STAR update body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
     
     do c = begchunk,endchunk
        lchnk = phys_state(c)%lchnk

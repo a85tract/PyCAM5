@@ -12,6 +12,7 @@ module mo_airplane
 	  use cam_pio_utils,    only : cam_pio_openfile
 	  use cam_logfile,      only : iulog
 	  use mo_util,          only : chemistry_misc_codon_touch
+	  use iso_c_binding,    only : c_int64_t, c_loc, c_ptr
 	  implicit none
 
   private
@@ -27,12 +28,31 @@ module mo_airplane
 
 
   logical :: has_airpl_src = .false.
+  logical :: airpl_src_proof_written = .false.
+  logical :: airpl_set_proof_written = .false.
+
+  interface
+     function airpl_src_active_codon(active) result(out_c) bind(c, name="airpl_src_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active
+       integer(c_int64_t) :: out_c
+     end function airpl_src_active_codon
+
+     function airpl_set_zero_codon(active, ncol_c, pver_c, no_air_p, co_air_p) result(out_c) &
+          bind(c, name="airpl_set_zero_codon")
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: active, ncol_c, pver_c
+       type(c_ptr), value :: no_air_p, co_air_p
+       integer(c_int64_t) :: out_c
+     end function airpl_set_zero_codon
+  end interface
 
 contains
 
   subroutine airpl_set( lchnk, ncol, no_ndx, co_ndx, xno_ndx, cldtop, zint_abs, extfrc)
     use ppgrid,       only : pver
     use cam_history,  only : outfld
+    use spmd_utils,   only : masterproc
 
     implicit none
     integer, intent(in) :: lchnk, ncol, no_ndx, co_ndx, xno_ndx
@@ -41,16 +61,28 @@ contains
     
 
 ! Local Variables
-    real(r8), dimension(ncol,pver) :: no_air, co_air
+    real(r8), target :: no_air(ncol,pver), co_air(ncol,pver)
     real(r8) :: ztab_top, ztab_bot, zdel, zdeli, frac, zlev_top, zlev_bot
 	    integer :: nlev
 	    integer :: cldind, kk, i, k
+    integer(c_int64_t) :: active_c
 
 	    call chemistry_misc_codon_touch('mo_airplane', 138)
-	    no_air(:,:) = 0._r8
-    co_air(:,:) = 0._r8
+    active_c = airpl_set_zero_codon(merge(1_c_int64_t, 0_c_int64_t, has_airpl_src), &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(no_air(1,1)), c_loc(co_air(1,1)))
+    if (.not. airpl_set_proof_written) then
+       airpl_set_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'airpl_set direct = codon no-aircraft zero stage; outfld native boundary'
+          else
+             write(iulog,'(A)') 'airpl_set selector = codon; active aircraft interpolation body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
 
-    if(has_airpl_src) then
+    if(active_c /= 0_c_int64_t) then
        !---------------------------------------------------------------------
        !     ... Add the airplane emissions; must do vertical interpolation
        !---------------------------------------------------------------------
@@ -164,12 +196,26 @@ contains
     type(interp_type) :: lon_wgts, lat_wgts    
 	    real(r8) :: to_lats(pcols), to_lons(pcols)
 	    integer :: ncols, c
+    integer(c_int64_t) :: active_c
 
 	    call chemistry_misc_codon_touch('mo_airplane', 138)
 	    co_ndx = get_extfrc_ndx('CO')
     no_ndx = get_extfrc_ndx('NO')
 
-    if ( co_ndx < 0 .and. no_ndx < 0 ) then
+    active_c = airpl_src_active_codon(merge(1_c_int64_t, 0_c_int64_t, co_ndx >= 0 .or. no_ndx >= 0))
+    if (.not. airpl_src_proof_written) then
+       airpl_src_proof_written = .true.
+       if (masterproc) then
+          if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'airpl_src direct = codon no-external-source no-op'
+          else
+             write(iulog,'(A)') 'airpl_src selector = codon; active source-file body = native'
+          end if
+          call flush(iulog)
+       end if
+    end if
+
+    if ( active_c == 0_c_int64_t ) then
        if( masterproc ) then
           write(iulog,*) 'airpl_src: NO and CO do not have external source --> no aircraft sources will be applied'      
        endif
