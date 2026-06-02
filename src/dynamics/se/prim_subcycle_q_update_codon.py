@@ -1012,6 +1012,34 @@ def get_block_gcol_cnt_d_codon(
     return _misc.get_block_gcol_cnt_d_codon(num_unique_p)
 
 @export
+def get_block_levels_d_codon(
+    plev: int,
+    lvlsiz: int,
+    levels_p: cobj,
+):
+    return _misc.get_block_levels_d_codon(plev, lvlsiz, levels_p)
+
+@export
+def dyn_grid_get_pref_codon(
+    plev: int,
+    hypi_p: cobj,
+    hypm_p: cobj,
+    nprlev: int,
+    pref_edge_p: cobj,
+    pref_mid_p: cobj,
+    num_pr_lev_p: cobj,
+):
+    return _misc.dyn_grid_get_pref_codon(
+        plev,
+        hypi_p,
+        hypm_p,
+        nprlev,
+        pref_edge_p,
+        pref_mid_p,
+        num_pr_lev_p,
+    )
+
+@export
 def get_block_owner_d_codon(
     owner: int,
 ) -> int:
@@ -1465,6 +1493,30 @@ def set_thread_ranges_1d_codon(
         idthread,
         beg_range_p,
         end_range_p,
+    )
+
+@export
+def init_loop_ranges_codon(
+    nelemd: int,
+    nlev: int,
+    qsize: int,
+    horz_num_threads: int,
+    vert_num_threads: int,
+    tracer_num_threads: int,
+    work_pool_horz_p: cobj,
+    work_pool_vert_p: cobj,
+    work_pool_trac_p: cobj,
+):
+    return _misc.init_loop_ranges_codon(
+        nelemd,
+        nlev,
+        qsize,
+        horz_num_threads,
+        vert_num_threads,
+        tracer_num_threads,
+        work_pool_horz_p,
+        work_pool_vert_p,
+        work_pool_trac_p,
     )
 
 @export

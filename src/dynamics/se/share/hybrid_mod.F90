@@ -42,9 +42,9 @@ private
      logical           :: masterthread
   end type 
 
-  integer, allocatable :: work_pool_horz(:,:)
-  integer, allocatable :: work_pool_vert(:,:)
-  integer, allocatable :: work_pool_trac(:,:)
+  integer, allocatable, target :: work_pool_horz(:,:)
+  integer, allocatable, target :: work_pool_vert(:,:)
+  integer, allocatable, target :: work_pool_trac(:,:)
 
   integer :: nelemd_save
   logical :: init_ranges = .true.
@@ -240,14 +240,25 @@ contains
   end function config_thread_region_par
 
   subroutine init_loop_ranges(nelemd)
-      use iso_c_binding, only : c_int64_t
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
       use cam_logfile, only : iulog
 
       integer, intent(in) :: nelemd
-      integer :: ith, beg_index, end_index
+      logical, save :: proof_seen = .false.
+
+      interface
+         subroutine init_loop_ranges_codon(nelemd_c, nlev_c, qsize_c, horz_num_threads_c, &
+              vert_num_threads_c, tracer_num_threads_c, work_pool_horz_p, work_pool_vert_p, &
+              work_pool_trac_p) bind(c, name='init_loop_ranges_codon')
+           import :: c_int64_t, c_ptr
+           integer(c_int64_t), value :: nelemd_c, nlev_c, qsize_c
+           integer(c_int64_t), value :: horz_num_threads_c, vert_num_threads_c, tracer_num_threads_c
+           type(c_ptr), value :: work_pool_horz_p, work_pool_vert_p, work_pool_trac_p
+         end subroutine init_loop_ranges_codon
+      end interface
 
 #define SE_MISC_TAG 22
-#define SE_MISC_LABEL 'hybrid_mod'
+#define SE_MISC_LABEL 'init_loop_ranges'
 ! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
 #include "se_codon_misc_touch.inc"
 #undef SE_MISC_LABEL
@@ -258,25 +269,16 @@ contains
         nelemd_save=nelemd
 !JMD#ifdef _OPENMP
         if ( .NOT. allocated(work_pool_horz) ) allocate(work_pool_horz(horz_num_threads,2))
-        do ith=0,horz_num_threads-1
-          call create_work_pool( 1, nelemd, horz_num_threads, ith, beg_index, end_index )
-          work_pool_horz(ith+1,1) = beg_index
-          work_pool_horz(ith+1,2) = end_index
-        end do
-
         if ( .NOT. allocated(work_pool_vert) ) allocate(work_pool_vert(vert_num_threads,2))
-        do ith=0,vert_num_threads-1
-          call create_work_pool( 1, nlev, vert_num_threads, ith, beg_index, end_index )
-          work_pool_vert(ith+1,1) = beg_index
-          work_pool_vert(ith+1,2) = end_index
-        end do
-
         if ( .NOT. allocated(work_pool_trac) ) allocate(work_pool_trac(tracer_num_threads,2))
-        do ith=0,tracer_num_threads-1
-          call create_work_pool( 1, qsize, tracer_num_threads, ith, beg_index, end_index )
-          work_pool_trac(ith+1,1) = beg_index
-          work_pool_trac(ith+1,2) = end_index
-        end do
+        call init_loop_ranges_codon(int(nelemd, c_int64_t), int(nlev, c_int64_t), &
+             int(qsize, c_int64_t), int(horz_num_threads, c_int64_t), &
+             int(vert_num_threads, c_int64_t), int(tracer_num_threads, c_int64_t), &
+             c_loc(work_pool_horz(1,1)), c_loc(work_pool_vert(1,1)), c_loc(work_pool_trac(1,1)))
+        if (.not. proof_seen) then
+          write(iulog,*) 'init_loop_ranges implementation = codon'
+          proof_seen = .true.
+        endif
 
 !JMD#endif
         init_ranges = .false.

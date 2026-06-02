@@ -35,7 +35,7 @@ module dyn_grid
   use cam_logfile, only : iulog
   use shr_kind_mod, only: r8 => shr_kind_r8
   use fvm_control_volume_mod, only : fvm_struct
-  use iso_c_binding, only : c_int64_t
+  use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
   implicit none
   private
@@ -343,6 +343,7 @@ end subroutine dyn_grid_init
   subroutine get_block_levels_d(blockid, bcid, lvlsiz, levels)
     use pmgrid,         only: plev
     use cam_abortutils, only: endrun
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     !-----------------------------------------------------------------------
     !
@@ -363,14 +364,23 @@ end subroutine dyn_grid_init
     integer, intent(in) :: bcid    ! column index within block
     integer, intent(in) :: lvlsiz   ! dimension of levels array
 
-    integer, intent(out) :: levels(lvlsiz) ! levels indices for block
+    integer, target, intent(out) :: levels(lvlsiz) ! levels indices for block
 
     !---------------------------Local workspace-----------------------------
     !
 
     !---------------------------Local workspace-----------------------------
     !
-    integer k                      ! loop index
+    logical, save :: proof_seen = .false.
+
+    interface
+       subroutine get_block_levels_d_codon(plev_c, lvlsiz_c, levels_p) &
+            bind(c, name='get_block_levels_d_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: plev_c, lvlsiz_c
+         type(c_ptr), value :: levels_p
+       end subroutine get_block_levels_d_codon
+    end interface
     !-----------------------------------------------------------------------
     !  latitude slice block
     if (lvlsiz < plev + 1) then
@@ -378,12 +388,12 @@ end subroutine dyn_grid_init
             lvlsiz,' < ',plev + 1,' ) '
        call endrun
     else
-       do k=0,plev
-          levels(k+1) = k
-       enddo
-       do k=plev+2,lvlsiz
-          levels(k) = -1
-       enddo
+       call get_block_levels_d_codon(int(plev, c_int64_t), int(lvlsiz, c_int64_t), &
+            c_loc(levels(1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'get_block_levels_d implementation = codon'
+          proof_seen = .true.
+       endif
     endif
 
     return
@@ -1100,22 +1110,33 @@ subroutine dyn_grid_get_pref(pref_edge, pref_mid, num_pr_lev)
 
    use pmgrid, only: plev
    use hycoef, only: hypi, hypm, nprlev
+   use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
    ! arguments
-   real(r8), intent(out) :: pref_edge(:) ! reference pressure at layer edges (Pa)
-   real(r8), intent(out) :: pref_mid(:)  ! reference pressure at layer midpoints (Pa)
+   real(r8), target, intent(out) :: pref_edge(:) ! reference pressure at layer edges (Pa)
+   real(r8), target, intent(out) :: pref_mid(:)  ! reference pressure at layer midpoints (Pa)
    integer,  intent(out) :: num_pr_lev   ! number of top levels using pure pressure representation
 
-   integer :: k
+   integer(c_int64_t), target :: num_pr_lev_c
+   logical, save :: proof_seen = .false.
+
+   interface
+      subroutine dyn_grid_get_pref_codon(plev_c, hypi_p, hypm_p, nprlev_c, pref_edge_p, &
+           pref_mid_p, num_pr_lev_p) bind(c, name='dyn_grid_get_pref_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: plev_c, nprlev_c
+        type(c_ptr), value :: hypi_p, hypm_p, pref_edge_p, pref_mid_p, num_pr_lev_p
+      end subroutine dyn_grid_get_pref_codon
+   end interface
    !-----------------------------------------------------------------------
 
-   do k = 1, plev
-      pref_edge(k) = hypi(k)
-      pref_mid(k)  = hypm(k)
-   end do
-   pref_edge(plev+1) = hypi(plev+1)
-   
-   num_pr_lev = nprlev
+   call dyn_grid_get_pref_codon(int(plev, c_int64_t), c_loc(hypi(1)), c_loc(hypm(1)), &
+        int(nprlev, c_int64_t), c_loc(pref_edge(1)), c_loc(pref_mid(1)), c_loc(num_pr_lev_c))
+   num_pr_lev = int(num_pr_lev_c)
+   if (.not. proof_seen) then
+      write(iulog,*) 'dyn_grid_get_pref implementation = codon'
+      proof_seen = .true.
+   endif
 
 end subroutine dyn_grid_get_pref
 

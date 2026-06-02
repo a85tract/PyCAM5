@@ -129,6 +129,35 @@ def get_block_gcol_cnt_d_codon(num_unique_p: int) -> int:
     return num_unique_p
 
 
+def get_block_levels_d_codon(plev: int, lvlsiz: int, levels_p: cobj):
+    levels = Ptr[i32](levels_p)
+    for k in range(0, plev + 1):
+        levels[k] = i32(k)
+    for k in range(plev + 2, lvlsiz + 1):
+        levels[k - 1] = i32(-1)
+
+
+def dyn_grid_get_pref_codon(
+    plev: int,
+    hypi_p: cobj,
+    hypm_p: cobj,
+    nprlev: int,
+    pref_edge_p: cobj,
+    pref_mid_p: cobj,
+    num_pr_lev_p: cobj,
+):
+    hypi = Ptr[float](hypi_p)
+    hypm = Ptr[float](hypm_p)
+    pref_edge = Ptr[float](pref_edge_p)
+    pref_mid = Ptr[float](pref_mid_p)
+    num_pr_lev = Ptr[int](num_pr_lev_p)
+    for k in range(1, plev + 1):
+        pref_edge[k - 1] = hypi[k - 1]
+        pref_mid[k - 1] = hypm[k - 1]
+    pref_edge[plev] = hypi[plev]
+    num_pr_lev[0] = nprlev
+
+
 def get_block_owner_d_codon(owner: int) -> int:
     return owner
 
@@ -720,6 +749,44 @@ def create_work_pool_codon(
         next_beg += length // ndomains
     beg_index[0] = i32(beg)
     end_index[0] = i32(next_beg - 1)
+
+
+def _fill_work_pool(start_domain: int, end_domain: int, ndomains: int, work_pool: Ptr[i32]):
+    for ipe in range(ndomains):
+        length = end_domain - start_domain + 1
+        beg = start_domain
+        for n in range(1, ipe + 1):
+            if n <= length % ndomains:
+                beg += (length - 1) // ndomains + 1
+            else:
+                beg += length // ndomains
+        next_beg = beg
+        n = ipe + 1
+        if n <= length % ndomains:
+            next_beg += (length - 1) // ndomains + 1
+        else:
+            next_beg += length // ndomains
+        work_pool[ipe] = i32(beg)
+        work_pool[ipe + ndomains] = i32(next_beg - 1)
+
+
+def init_loop_ranges_codon(
+    nelemd: int,
+    nlev: int,
+    qsize: int,
+    horz_num_threads: int,
+    vert_num_threads: int,
+    tracer_num_threads: int,
+    work_pool_horz_p: cobj,
+    work_pool_vert_p: cobj,
+    work_pool_trac_p: cobj,
+):
+    work_pool_horz = Ptr[i32](work_pool_horz_p)
+    work_pool_vert = Ptr[i32](work_pool_vert_p)
+    work_pool_trac = Ptr[i32](work_pool_trac_p)
+    _fill_work_pool(1, nelemd, horz_num_threads, work_pool_horz)
+    _fill_work_pool(1, nlev, vert_num_threads, work_pool_vert)
+    _fill_work_pool(1, qsize, tracer_num_threads, work_pool_trac)
 
 
 def set_thread_ranges_1d_codon(

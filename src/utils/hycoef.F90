@@ -31,8 +31,8 @@ real(r8), public, target :: hybm(plev)  ! ps component of hybrid coordinate - mi
 real(r8), public :: etamid(plev)      ! hybrid coordinate - midpoints
 
 real(r8), public :: hybd(plev)        ! difference  in b (hybi) across layers
-real(r8), public :: hypi(plevp)       ! reference pressures at interfaces
-real(r8), public :: hypm(plev)        ! reference pressures at midpoints
+real(r8), public, target :: hypi(plevp)       ! reference pressures at interfaces
+real(r8), public, target :: hypm(plev)        ! reference pressures at midpoints
 real(r8), public :: hypd(plev)        ! reference pressure layer thickness
 
 real(r8), public, parameter :: ps0 = 1.0e5_r8    ! Base state surface pressure (pascals)
