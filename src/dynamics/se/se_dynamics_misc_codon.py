@@ -900,6 +900,92 @@ def set_thread_ranges_1d_codon(
     end_range[0] = work_pool[(index - 1) + nrows]
 
 
+@inline
+def _work_pool_range(work_pool: Ptr[i32], nrows: int, idthread: int) -> tuple[int, int]:
+    index = 1
+    ind = 0
+    for i in range(1, nrows + 1):
+        if ind == idthread:
+            index = i
+        ind += 1
+    return int(work_pool[index - 1]), int(work_pool[(index - 1) + nrows])
+
+
+def config_thread_region_par_codon(
+    region_code: int,
+    ithr: int,
+    nelemd: int,
+    nlev: int,
+    qsize: int,
+    horz_num_threads: int,
+    vert_num_threads: int,
+    tracer_num_threads: int,
+    work_pool_horz_p: cobj,
+    work_pool_vert_p: cobj,
+    work_pool_trac_p: cobj,
+    region_num_threads_p: cobj,
+    ibeg_p: cobj,
+    iend_p: cobj,
+    kbeg_p: cobj,
+    kend_p: cobj,
+    qbeg_p: cobj,
+    qend_p: cobj,
+):
+    work_pool_horz = Ptr[i32](work_pool_horz_p)
+    work_pool_vert = Ptr[i32](work_pool_vert_p)
+    work_pool_trac = Ptr[i32](work_pool_trac_p)
+    region_num_threads_out = Ptr[i32](region_num_threads_p)
+    ibeg = Ptr[i32](ibeg_p)
+    iend = Ptr[i32](iend_p)
+    kbeg = Ptr[i32](kbeg_p)
+    kend = Ptr[i32](kend_p)
+    qbeg = Ptr[i32](qbeg_p)
+    qend = Ptr[i32](qend_p)
+
+    region_threads = 1
+    ibeg_v = 1
+    iend_v = nelemd
+    kbeg_v = 1
+    kend_v = nlev
+    qbeg_v = 1
+    qend_v = qsize
+
+    if region_code == 1:
+        region_threads = 1
+    elif region_code == 2:
+        region_threads = horz_num_threads
+        ibeg_v, iend_v = _work_pool_range(work_pool_horz, horz_num_threads, ithr)
+    elif region_code == 3:
+        region_threads = vert_num_threads
+        kbeg_v, kend_v = _work_pool_range(work_pool_vert, vert_num_threads, ithr)
+    elif region_code == 4:
+        region_threads = tracer_num_threads
+        qbeg_v, qend_v = _work_pool_range(work_pool_trac, tracer_num_threads, ithr)
+    elif region_code == 5:
+        region_threads = vert_num_threads * tracer_num_threads
+        ind = 0
+        x_index = 1
+        y_index = 1
+        for j in range(1, tracer_num_threads + 1):
+            for i in range(1, vert_num_threads + 1):
+                if ind == ithr:
+                    x_index = i
+                    y_index = j
+                ind += 1
+        kbeg_v = int(work_pool_vert[x_index - 1])
+        kend_v = int(work_pool_vert[(x_index - 1) + vert_num_threads])
+        qbeg_v = int(work_pool_trac[y_index - 1])
+        qend_v = int(work_pool_trac[(y_index - 1) + tracer_num_threads])
+
+    region_num_threads_out[0] = i32(region_threads)
+    ibeg[0] = i32(ibeg_v)
+    iend[0] = i32(iend_v)
+    kbeg[0] = i32(kbeg_v)
+    kend[0] = i32(kend_v)
+    qbeg[0] = i32(qbeg_v)
+    qend[0] = i32(qend_v)
+
+
 def get_loop_ranges_codon(
     ibeg_in: int,
     iend_in: int,

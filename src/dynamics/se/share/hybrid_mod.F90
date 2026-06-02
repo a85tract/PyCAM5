@@ -175,17 +175,76 @@ contains
   end function config_thread_region_hybrid
 
   function config_thread_region_par(par,region_name) result(hybrid)
+      use cam_logfile, only : iulog
+      interface
+         subroutine config_thread_region_par_codon(region_code_c, ithr_c, nelemd_c, nlev_c, &
+              qsize_c, horz_num_threads_c, vert_num_threads_c, tracer_num_threads_c, &
+              work_pool_horz_p, work_pool_vert_p, work_pool_trac_p, region_num_threads_p, &
+              ibeg_p, iend_p, kbeg_p, kend_p, qbeg_p, qend_p) &
+              bind(c, name='config_thread_region_par_codon')
+           import :: c_int64_t, c_ptr
+           integer(c_int64_t), value :: region_code_c, ithr_c, nelemd_c, nlev_c, qsize_c
+           integer(c_int64_t), value :: horz_num_threads_c, vert_num_threads_c
+           integer(c_int64_t), value :: tracer_num_threads_c
+           type(c_ptr), value :: work_pool_horz_p, work_pool_vert_p, work_pool_trac_p
+           type(c_ptr), value :: region_num_threads_p
+           type(c_ptr), value :: ibeg_p, iend_p, kbeg_p, kend_p, qbeg_p, qend_p
+         end subroutine config_thread_region_par_codon
+      end interface
       type (parallel_t) , intent(in) :: par
       character(len=*), intent(in) :: region_name
       type (hybrid_t)                :: hybrid
       ! local 
       integer    :: ithr
-      integer    :: ibeg_range, iend_range
-      integer    :: kbeg_range, kend_range
-      integer    :: qbeg_range, qend_range
+      integer, target :: ibeg_range, iend_range
+      integer, target :: kbeg_range, kend_range
+      integer, target :: qbeg_range, qend_range
+      integer, target :: region_num_threads_codon
       integer    :: nthreads
+      integer    :: region_code
+      integer    :: impl_n, impl_status
+      character(len=32) :: impl_name
+      logical    :: use_native_impl
+      logical, save :: proof_seen = .false.
 
       ithr            = omp_get_thread_num()
+      impl_name = 'codon'
+      call get_environment_variable('CONFIG_THREAD_REGION_PAR_IMPL', value=impl_name, &
+           length=impl_n, status=impl_status)
+      use_native_impl = (impl_status == 0 .and. impl_n > 0 .and. &
+           trim(adjustl(impl_name(:impl_n))) == 'native')
+
+      region_code = 0
+      if ( TRIM(region_name) == 'serial') region_code = 1
+      if ( TRIM(region_name) == 'horizontal') region_code = 2
+      if ( TRIM(region_name) == 'vertical') region_code = 3
+      if ( TRIM(region_name) == 'tracer') region_code = 4
+      if ( TRIM(region_name) == 'vertical_and_tracer') region_code = 5
+
+      if (region_code /= 0 .and. .not. use_native_impl) then
+         call config_thread_region_par_codon(int(region_code, c_int64_t), int(ithr, c_int64_t), &
+              int(nelemd_save, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), &
+              int(horz_num_threads, c_int64_t), int(vert_num_threads, c_int64_t), &
+              int(tracer_num_threads, c_int64_t), c_loc(work_pool_horz(1,1)), &
+              c_loc(work_pool_vert(1,1)), c_loc(work_pool_trac(1,1)), &
+              c_loc(region_num_threads_codon), c_loc(ibeg_range), c_loc(iend_range), &
+              c_loc(kbeg_range), c_loc(kend_range), c_loc(qbeg_range), c_loc(qend_range))
+         region_num_threads = region_num_threads_codon
+         hybrid%ibeg = ibeg_range; hybrid%iend = iend_range
+         hybrid%kbeg = kbeg_range; hybrid%kend = kend_range
+         hybrid%qbeg = qbeg_range; hybrid%qend = qend_range
+         call omp_set_num_threads(region_num_threads)
+         call copy_par(hybrid%par,par)
+         hybrid%nthreads     = region_num_threads
+         hybrid%ithr         = ithr
+         hybrid%localsense   = 0
+         hybrid%masterthread = (par%masterproc .and. ithr==0)
+         if (.not. proof_seen) then
+            write(iulog,*) 'config_thread_region_par implementation = codon'
+            proof_seen = .true.
+         endif
+         return
+      endif
 
       if ( TRIM(region_name) == 'serial') then
          region_num_threads = 1

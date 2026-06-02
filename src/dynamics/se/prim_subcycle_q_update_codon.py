@@ -1616,6 +1616,48 @@ def set_thread_ranges_1d_codon(
     )
 
 @export
+def config_thread_region_par_codon(
+    region_code: int,
+    ithr: int,
+    nelemd: int,
+    nlev: int,
+    qsize: int,
+    horz_num_threads: int,
+    vert_num_threads: int,
+    tracer_num_threads: int,
+    work_pool_horz_p: cobj,
+    work_pool_vert_p: cobj,
+    work_pool_trac_p: cobj,
+    region_num_threads_p: cobj,
+    ibeg_p: cobj,
+    iend_p: cobj,
+    kbeg_p: cobj,
+    kend_p: cobj,
+    qbeg_p: cobj,
+    qend_p: cobj,
+):
+    return _misc.config_thread_region_par_codon(
+        region_code,
+        ithr,
+        nelemd,
+        nlev,
+        qsize,
+        horz_num_threads,
+        vert_num_threads,
+        tracer_num_threads,
+        work_pool_horz_p,
+        work_pool_vert_p,
+        work_pool_trac_p,
+        region_num_threads_p,
+        ibeg_p,
+        iend_p,
+        kbeg_p,
+        kend_p,
+        qbeg_p,
+        qend_p,
+    )
+
+@export
 def init_loop_ranges_codon(
     nelemd: int,
     nlev: int,
