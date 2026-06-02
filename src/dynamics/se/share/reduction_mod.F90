@@ -245,10 +245,25 @@ contains
   subroutine InitReductionBuffer_int_1d(red,len)
     use parallel_mod, only: abortmp
     use thread_mod, only: omp_get_num_threads
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_int, c_loc, c_ptr
     use cam_logfile, only : iulog
     integer, intent(in)           :: len
-    type (ReductionBuffer_int_1d_t),intent(out) :: red
+    type (ReductionBuffer_int_1d_t), intent(inout), target :: red
+    integer(c_int), target :: new_len_c, new_ctr_c
+    integer(c_int64_t) :: realloc_c
+    logical, save :: proof_seen = .false.
+
+    interface
+       function initreductionbuffer_int_1d_codon(current_len_c, requested_len_c, len_p, ctr_p) result(realloc_c) &
+            bind(c, name='initreductionbuffer_int_1d_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: current_len_c
+         integer(c_int64_t), value :: requested_len_c
+         type(c_ptr), value :: len_p
+         type(c_ptr), value :: ctr_p
+         integer(c_int64_t) :: realloc_c
+       end function initreductionbuffer_int_1d_codon
+    end interface
 
 #define SE_MISC_TAG 21
 #define SE_MISC_LABEL 'reduction_mod'
@@ -261,14 +276,18 @@ contains
        call abortmp("Error: attempt to allocate reduction buffer in threaded region")
     endif
 
-    ! if buffer is already allocated and large enough, do nothing
-    if (len > red%len) then
-       !buffer is too small, or has not yet been allocated
+    realloc_c = initreductionbuffer_int_1d_codon(int(red%len, c_int64_t), int(len, c_int64_t), &
+         c_loc(new_len_c), c_loc(new_ctr_c))
+    if (realloc_c /= 0_c_int64_t) then
        if (red%len>0) deallocate(red%buf)
-       red%len  = len
-       allocate(red%buf(len))
+       red%len  = int(new_len_c)
+       allocate(red%buf(red%len))
        red%buf  = 0
-       red%ctr  = 0
+    endif
+    red%ctr = int(new_ctr_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'initreductionbuffer_int_1d implementation = codon'
+       proof_seen = .true.
     endif
 
   end subroutine InitReductionBuffer_int_1d
@@ -276,39 +295,86 @@ contains
   subroutine InitReductionBuffer_r_1d(red,len)
     use parallel_mod, only: abortmp
     use thread_mod, only: omp_get_num_threads
+    use iso_c_binding, only : c_int64_t, c_int, c_loc, c_ptr
+    use cam_logfile, only : iulog
     integer, intent(in)           :: len
-    type (ReductionBuffer_r_1d_t),intent(out) :: red
+    type (ReductionBuffer_r_1d_t), intent(inout), target :: red
+    integer(c_int), target :: new_len_c, new_ctr_c
+    integer(c_int64_t) :: realloc_c
+    logical, save :: proof_seen = .false.
+
+    interface
+       function initreductionbuffer_r_1d_codon(current_len_c, requested_len_c, len_p, ctr_p) result(realloc_c) &
+            bind(c, name='initreductionbuffer_r_1d_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: current_len_c
+         integer(c_int64_t), value :: requested_len_c
+         type(c_ptr), value :: len_p
+         type(c_ptr), value :: ctr_p
+         integer(c_int64_t) :: realloc_c
+       end function initreductionbuffer_r_1d_codon
+    end interface
 
     if (omp_get_num_threads()>1) then
        call abortmp("Error: attempt to allocate reduction buffer in threaded region")
     endif
 
-    if (len > red%len) then
+    realloc_c = initreductionbuffer_r_1d_codon(int(red%len, c_int64_t), int(len, c_int64_t), &
+         c_loc(new_len_c), c_loc(new_ctr_c))
+    if (realloc_c /= 0_c_int64_t) then
        if (red%len>0) deallocate(red%buf)
-       red%len  = len
-       allocate(red%buf(len))
+       red%len  = int(new_len_c)
+       allocate(red%buf(red%len))
        red%buf  = 0.0D0
-       red%ctr  = 0
+    endif
+    red%ctr = int(new_ctr_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'initreductionbuffer_r_1d implementation = codon'
+       proof_seen = .true.
     endif
   end subroutine InitReductionBuffer_r_1d
   !****************************************************************
   subroutine InitReductionBuffer_ordered_1d(red,len,nthread)
     use parallel_mod, only: abortmp
     use thread_mod, only: omp_get_num_threads
+    use iso_c_binding, only : c_int64_t, c_int, c_loc, c_ptr
+    use cam_logfile, only : iulog
     integer, intent(in)           :: len
     integer, intent(in)           :: nthread
-    type (ReductionBuffer_ordered_1d_t),intent(out) :: red
+    type (ReductionBuffer_ordered_1d_t), intent(inout), target :: red
+    integer(c_int), target :: new_len_c, new_ctr_c
+    integer(c_int64_t) :: realloc_c
+    logical, save :: proof_seen = .false.
+
+    interface
+       function initreductionbuffer_ordered_1d_codon(current_len_c, requested_len_c, nthread_c, len_p, ctr_p) &
+            result(realloc_c) bind(c, name='initreductionbuffer_ordered_1d_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: current_len_c
+         integer(c_int64_t), value :: requested_len_c
+         integer(c_int64_t), value :: nthread_c
+         type(c_ptr), value :: len_p
+         type(c_ptr), value :: ctr_p
+         integer(c_int64_t) :: realloc_c
+       end function initreductionbuffer_ordered_1d_codon
+    end interface
 
     if (omp_get_num_threads()>1) then
        call abortmp("Error: attempt to allocate reduction buffer in threaded region")
     endif
 
-    if (len > red%len) then
+    realloc_c = initreductionbuffer_ordered_1d_codon(int(red%len, c_int64_t), int(len, c_int64_t), &
+         int(nthread, c_int64_t), c_loc(new_len_c), c_loc(new_ctr_c))
+    if (realloc_c /= 0_c_int64_t) then
        if (red%len>0) deallocate(red%buf)
-       red%len  = len
+       red%len  = int(new_len_c)
        allocate(red%buf(len,nthread+1))
        red%buf  = 0.0D0
-       red%ctr  = 0
+    endif
+    red%ctr = int(new_ctr_c)
+    if (.not. proof_seen) then
+       write(iulog,*) 'initreductionbuffer_ordered_1d implementation = codon'
+       proof_seen = .true.
     endif
   end subroutine InitReductionBuffer_ordered_1d
 

@@ -474,6 +474,42 @@ def reduction_min_r_local_codon(
         ctr[0] = i32(0)
 
 
+def initreductionbuffer_int_1d_codon(current_len: int, requested_len: int, len_p: cobj, ctr_p: cobj) -> int:
+    out_len = Ptr[i32](len_p)
+    out_ctr = Ptr[i32](ctr_p)
+    if requested_len > current_len:
+        out_len[0] = i32(requested_len)
+        out_ctr[0] = i32(0)
+        return 1
+    out_len[0] = i32(current_len)
+    out_ctr[0] = i32(0)
+    return 0
+
+
+def initreductionbuffer_r_1d_codon(current_len: int, requested_len: int, len_p: cobj, ctr_p: cobj) -> int:
+    out_len = Ptr[i32](len_p)
+    out_ctr = Ptr[i32](ctr_p)
+    if requested_len > current_len:
+        out_len[0] = i32(requested_len)
+        out_ctr[0] = i32(0)
+        return 1
+    out_len[0] = i32(current_len)
+    out_ctr[0] = i32(0)
+    return 0
+
+
+def initreductionbuffer_ordered_1d_codon(current_len: int, requested_len: int, nthread: int, len_p: cobj, ctr_p: cobj) -> int:
+    out_len = Ptr[i32](len_p)
+    out_ctr = Ptr[i32](ctr_p)
+    if requested_len > current_len:
+        out_len[0] = i32(requested_len)
+        out_ctr[0] = i32(0)
+        return 1
+    out_len[0] = i32(current_len)
+    out_ctr[0] = i32(0)
+    return 0
+
+
 def copy_par_codon(
     rank2_p: cobj,
     root2_p: cobj,

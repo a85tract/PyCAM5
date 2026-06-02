@@ -1335,6 +1335,50 @@ def reduction_min_r_local_codon(
     )
 
 @export
+def initreductionbuffer_int_1d_codon(
+    current_len: int,
+    requested_len: int,
+    len_p: cobj,
+    ctr_p: cobj,
+) -> int:
+    return _misc.initreductionbuffer_int_1d_codon(
+        current_len,
+        requested_len,
+        len_p,
+        ctr_p,
+    )
+
+@export
+def initreductionbuffer_r_1d_codon(
+    current_len: int,
+    requested_len: int,
+    len_p: cobj,
+    ctr_p: cobj,
+) -> int:
+    return _misc.initreductionbuffer_r_1d_codon(
+        current_len,
+        requested_len,
+        len_p,
+        ctr_p,
+    )
+
+@export
+def initreductionbuffer_ordered_1d_codon(
+    current_len: int,
+    requested_len: int,
+    nthread: int,
+    len_p: cobj,
+    ctr_p: cobj,
+) -> int:
+    return _misc.initreductionbuffer_ordered_1d_codon(
+        current_len,
+        requested_len,
+        nthread,
+        len_p,
+        ctr_p,
+    )
+
+@export
 def copy_par_codon(
     rank2_p: cobj,
     root2_p: cobj,
