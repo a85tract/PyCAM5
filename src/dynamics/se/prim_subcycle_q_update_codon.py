@@ -1038,6 +1038,10 @@ def parallelmin1d_local_codon(data_p: cobj, length: int) -> float:
     return _misc.parallelmin1d_local_codon(data_p, length)
 
 @export
+def global_integral_local_codon(npts: int, mp_p: cobj, metdet_p: cobj, h_p: cobj) -> float:
+    return _misc.global_integral_local_codon(npts, mp_p, metdet_p, h_p)
+
+@export
 def get_block_gcol_d_codon(
     size: int,
     unique_pt_offset: int,

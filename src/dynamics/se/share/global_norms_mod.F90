@@ -43,11 +43,11 @@ contains
     use dimensions_mod, only : np, nelemd
     use physical_constants, only : dd_pi
     use parallel_mod, only: global_shared_buf, global_shared_sum
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_double, c_ptr, c_loc
 
-    type(element_t)      , intent(in) :: elem(:)
+    type(element_t)      , intent(in), target :: elem(:)
     integer              , intent(in) :: npts,nets,nete
-    real (kind=real_kind), intent(in) :: h(npts,npts,nets:nete)
+    real (kind=real_kind), intent(in), target :: h(npts,npts,nets:nete)
     type (hybrid_t)      , intent(in) :: hybrid
 
     real (kind=real_kind) :: I_sphere
@@ -63,19 +63,32 @@ contains
 
     real (kind=real_kind) :: da
     real (kind=real_kind) :: J_tmp(nets:nete)
+    character(len=32) :: global_integral_impl_name
+    integer :: global_integral_impl_len, global_integral_impl_status
+    logical, save :: global_integral_codon_logged = .false.
+
+    interface
+       function global_integral_local_codon(npts_c, mp_p, metdet_p, h_p) result(local_sum) &
+            bind(c, name='global_integral_local_codon')
+         import :: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: npts_c
+         type(c_ptr), value :: mp_p
+         type(c_ptr), value :: metdet_p
+         type(c_ptr), value :: h_p
+         real(c_double) :: local_sum
+       end function global_integral_local_codon
+    end interface
 !
 ! This algorythm is independent of thread count and task count.
 ! This is a requirement of consistancy checking in cam.
 !
-#define SE_MISC_TAG 14
-#define SE_MISC_LABEL 'global_norms_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
-
     J_tmp = 0.0D0
 
+    global_integral_impl_name = 'codon'
+    call get_environment_variable('GLOBAL_INTEGRAL_IMPL', value=global_integral_impl_name, &
+         length=global_integral_impl_len, status=global_integral_impl_status)
+    if (global_integral_impl_status == 0 .and. global_integral_impl_len > 0 .and. &
+         trim(adjustl(global_integral_impl_name(:global_integral_impl_len))) == 'native') then
        do ie=nets,nete
           do j=1,np
              do i=1,np
@@ -84,6 +97,16 @@ contains
              end do
           end do
        end do       
+    else
+       do ie=nets,nete
+          J_tmp(ie) = global_integral_local_codon(int(npts, c_int64_t), &
+               c_loc(elem(ie)%mp(1,1)), c_loc(elem(ie)%metdet(1,1)), c_loc(h(1,1,ie)))
+       end do
+       if (.not. global_integral_codon_logged) then
+          write(iulog,'(A)') 'global_integral implementation = codon'
+          global_integral_codon_logged = .true.
+       endif
+    endif
     do ie=nets,nete
       global_shared_buf(ie,1) = J_tmp(ie)
     enddo

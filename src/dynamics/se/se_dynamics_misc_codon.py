@@ -81,6 +81,20 @@ def parallelmin1d_local_codon(data_p: cobj, length: int) -> float:
     return pmin
 
 
+def global_integral_local_codon(npts: int, mp_p: cobj, metdet_p: cobj, h_p: cobj) -> float:
+    mp = Ptr[float](mp_p)
+    metdet = Ptr[float](metdet_p)
+    h = Ptr[float](h_p)
+    local_sum = 0.0
+    for j in range(npts):
+        joff = j * npts
+        for i in range(npts):
+            idx = joff + i
+            da = mp[idx] * metdet[idx]
+            local_sum = local_sum + da * h[idx]
+    return local_sum
+
+
 def set_interp_parameter_codon(
     parm_code: int,
     value: int,
