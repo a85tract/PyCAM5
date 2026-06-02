@@ -40,6 +40,7 @@ module sox_cldaero_mod
   logical :: sox_cldaero_finalize_wrap_proof_written = .false.
   logical :: sox_cldaero_destroy_obj_codon_logged = .false.
   logical :: sox_cldaero_init_proof_written = .false.
+  logical :: sox_cldaero_create_obj_proof_written = .false.
 
   interface
      function sox_cldaero_init_active_codon(active_c) result(out_c) bind(c, name="sox_cldaero_init_active_codon")
@@ -262,91 +263,55 @@ contains
 !----------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------
   function sox_cldaero_create_obj(cldfrc, qcw, lwc, cfact, ncol, loffset) result( conc_obj )
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile,   only : iulog
+    use spmd_utils,    only : masterproc
     
-    real(r8), intent(in) :: cldfrc(:,:)
-    real(r8), intent(in) :: qcw(:,:,:)
-    real(r8), intent(in) :: lwc(:,:)
-    real(r8), intent(in) :: cfact(:,:)
+    real(r8), target, intent(in) :: cldfrc(:,:)
+    real(r8), target, intent(in) :: qcw(:,:,:)
+    real(r8), target, intent(in) :: lwc(:,:)
+    real(r8), target, intent(in) :: cfact(:,:)
     integer,  intent(in) :: ncol
     integer,  intent(in) :: loffset
 
     type(cldaero_conc_t), pointer :: conc_obj
 
+    integer(c_int64_t), target :: lptr_so4_cw_amode_c(ntot_amode)
+    integer(c_int64_t), target :: lptr_nh4_cw_amode_c(ntot_amode)
+    character(len=160) :: proof_line
+    integer :: n
 
-    integer :: id_so4_1a, id_so4_2a, id_so4_3a, id_so4_4a, id_so4_5a, id_so4_6a
-    integer :: id_nh4_1a, id_nh4_2a, id_nh4_3a, id_nh4_4a, id_nh4_5a, id_nh4_6a
-    integer :: l,n
-    integer :: i,k
-
-    logical :: mode7
-
-    mode7 = ntot_amode == 7
+    interface
+       subroutine sox_cldaero_create_obj_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, ntot_amode_c, loffset_c, &
+            cldfrc_p, qcw_p, lwc_p, cfact_p, so4c_p, nh4c_p, no3c_p, xlwc_p, so4_fact_p, &
+            lptr_so4_cw_amode_p, lptr_nh4_cw_amode_p) bind(c, name="sox_cldaero_create_obj_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, ntot_amode_c, loffset_c
+         type(c_ptr), value :: cldfrc_p, qcw_p, lwc_p, cfact_p, so4c_p, nh4c_p, no3c_p, xlwc_p, so4_fact_p
+         type(c_ptr), value :: lptr_so4_cw_amode_p, lptr_nh4_cw_amode_p
+       end subroutine sox_cldaero_create_obj_codon
+    end interface
 
     conc_obj => cldaero_allocate()
 
-    do k = 1,pver
-       do i = 1,ncol
-          if( cldfrc(i,k) >0._r8) then
-             conc_obj%xlwc(i,k) = lwc(i,k) *cfact(i,k) ! cloud water L(water)/L(air)
-             conc_obj%xlwc(i,k) = conc_obj%xlwc(i,k) / cldfrc(i,k) ! liquid water in the cloudy fraction of cell
-          else
-             conc_obj%xlwc(i,k) = 0._r8
-          endif
-       enddo
-    enddo
+    do n = 1, ntot_amode
+       lptr_so4_cw_amode_c(n) = int(lptr_so4_cw_amode(n), c_int64_t)
+       lptr_nh4_cw_amode_c(n) = int(lptr_nh4_cw_amode(n), c_int64_t)
+    end do
 
-    conc_obj%no3c(:,:) = 0._r8
+    call sox_cldaero_create_obj_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(ntot_amode, c_int64_t), int(loffset, c_int64_t), c_loc(cldfrc), c_loc(qcw), c_loc(lwc), c_loc(cfact), &
+         c_loc(conc_obj%so4c(1,1)), c_loc(conc_obj%nh4c(1,1)), c_loc(conc_obj%no3c(1,1)), c_loc(conc_obj%xlwc(1,1)), &
+         c_loc(conc_obj%so4_fact), c_loc(lptr_so4_cw_amode_c), c_loc(lptr_nh4_cw_amode_c) )
 
-    if (mode7) then
-#if ( defined MODAL_AERO_7MODE )
-!put ifdef here so ifort will compile 
-       id_so4_1a = lptr_so4_cw_amode(1) - loffset
-       id_so4_2a = lptr_so4_cw_amode(2) - loffset
-       id_so4_3a = lptr_so4_cw_amode(4) - loffset
-       id_so4_4a = lptr_so4_cw_amode(5) - loffset
-       id_so4_5a = lptr_so4_cw_amode(6) - loffset
-       id_so4_6a = lptr_so4_cw_amode(7) - loffset
-
-       id_nh4_1a = lptr_nh4_cw_amode(1) - loffset
-       id_nh4_2a = lptr_nh4_cw_amode(2) - loffset
-       id_nh4_3a = lptr_nh4_cw_amode(4) - loffset
-       id_nh4_4a = lptr_nh4_cw_amode(5) - loffset
-       id_nh4_5a = lptr_nh4_cw_amode(6) - loffset
-       id_nh4_6a = lptr_nh4_cw_amode(7) - loffset
-#endif
-       conc_obj%so4c(:ncol,:) &
-            = qcw(:ncol,:,id_so4_1a) &
-            + qcw(:ncol,:,id_so4_2a) &
-            + qcw(:ncol,:,id_so4_3a) &
-            + qcw(:ncol,:,id_so4_4a) &
-            + qcw(:ncol,:,id_so4_5a) &
-            + qcw(:ncol,:,id_so4_6a) 
-
-       conc_obj%nh4c(:ncol,:) &
-            = qcw(:ncol,:,id_nh4_1a) &
-            + qcw(:ncol,:,id_nh4_2a) &
-            + qcw(:ncol,:,id_nh4_3a) &
-            + qcw(:ncol,:,id_nh4_4a) &
-            + qcw(:ncol,:,id_nh4_5a) &
-            + qcw(:ncol,:,id_nh4_6a) 
-    else
-       id_so4_1a = lptr_so4_cw_amode(1) - loffset
-       id_so4_2a = lptr_so4_cw_amode(2) - loffset
-       id_so4_3a = lptr_so4_cw_amode(3) - loffset
-       conc_obj%so4c(:ncol,:) &
-            = qcw(:,:,id_so4_1a) &
-            + qcw(:,:,id_so4_2a) &
-            + qcw(:,:,id_so4_3a)
-
-        ! for 3-mode, so4 is assumed to be nh4hso4
-        ! the partial neutralization of so4 is handled by using a 
-        !    -1 charge (instead of -2) in the electro-neutrality equation
-       conc_obj%nh4c(:ncol,:) = 0._r8
-
-       ! with 3-mode, assume so4 is nh4hso4, and so half-neutralized
-       conc_obj%so4_fact = 1._r8
-
-    endif
+    if (masterproc .and. .not. sox_cldaero_create_obj_proof_written) then
+       proof_line = 'sox_cldaero_create_obj implementation = codon; allocation/pointer boundary = native'
+       write(iulog,'(A)') trim(proof_line)
+       call sox_cldaero_append_impl_proof(trim(proof_line))
+       sox_cldaero_create_obj_proof_written = .true.
+       call flush(iulog)
+    end if
 
   end function sox_cldaero_create_obj
 

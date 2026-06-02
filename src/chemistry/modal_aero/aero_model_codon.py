@@ -69,6 +69,97 @@ def sox_cldaero_destroy_obj_codon(stage: int) -> int:
     return stage
 
 
+@export
+def sox_cldaero_create_obj_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    ntot_amode: int,
+    loffset: int,
+    cldfrc_p: cobj,
+    qcw_p: cobj,
+    lwc_p: cobj,
+    cfact_p: cobj,
+    so4c_p: cobj,
+    nh4c_p: cobj,
+    no3c_p: cobj,
+    xlwc_p: cobj,
+    so4_fact_p: cobj,
+    lptr_so4_cw_amode_p: cobj,
+    lptr_nh4_cw_amode_p: cobj,
+):
+    cldfrc = Ptr[float](cldfrc_p)
+    qcw = Ptr[float](qcw_p)
+    lwc = Ptr[float](lwc_p)
+    cfact = Ptr[float](cfact_p)
+    so4c = Ptr[float](so4c_p)
+    nh4c = Ptr[float](nh4c_p)
+    no3c = Ptr[float](no3c_p)
+    xlwc = Ptr[float](xlwc_p)
+    so4_fact = Ptr[float](so4_fact_p)
+    lptr_so4_cw_amode = Ptr[int](lptr_so4_cw_amode_p)
+    lptr_nh4_cw_amode = Ptr[int](lptr_nh4_cw_amode_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            idxp = _idx2(i, k, pcols)
+            if cldfrc[idxp] > 0.0:
+                xlwc[idxp] = lwc[idx] * cfact[idx]
+                xlwc[idxp] = xlwc[idxp] / cldfrc[idxp]
+            else:
+                xlwc[idxp] = 0.0
+            no3c[idxp] = 0.0
+
+    if ntot_amode == 7:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idxp = _idx2(i, k, pcols)
+                id_so4_1a = lptr_so4_cw_amode[0] - loffset
+                id_so4_2a = lptr_so4_cw_amode[1] - loffset
+                id_so4_3a = lptr_so4_cw_amode[3] - loffset
+                id_so4_4a = lptr_so4_cw_amode[4] - loffset
+                id_so4_5a = lptr_so4_cw_amode[5] - loffset
+                id_so4_6a = lptr_so4_cw_amode[6] - loffset
+                id_nh4_1a = lptr_nh4_cw_amode[0] - loffset
+                id_nh4_2a = lptr_nh4_cw_amode[1] - loffset
+                id_nh4_3a = lptr_nh4_cw_amode[3] - loffset
+                id_nh4_4a = lptr_nh4_cw_amode[4] - loffset
+                id_nh4_5a = lptr_nh4_cw_amode[5] - loffset
+                id_nh4_6a = lptr_nh4_cw_amode[6] - loffset
+                so4c[idxp] = (
+                    qcw[_idx3(i, k, id_so4_1a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_2a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_3a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_4a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_5a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_6a, ncol, pver)]
+                )
+                nh4c[idxp] = (
+                    qcw[_idx3(i, k, id_nh4_1a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_nh4_2a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_nh4_3a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_nh4_4a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_nh4_5a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_nh4_6a, ncol, pver)]
+                )
+    else:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idxp = _idx2(i, k, pcols)
+                id_so4_1a = lptr_so4_cw_amode[0] - loffset
+                id_so4_2a = lptr_so4_cw_amode[1] - loffset
+                id_so4_3a = lptr_so4_cw_amode[2] - loffset
+                so4c[idxp] = (
+                    qcw[_idx3(i, k, id_so4_1a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_2a, ncol, pver)]
+                    + qcw[_idx3(i, k, id_so4_3a, ncol, pver)]
+                )
+                nh4c[idxp] = 0.0
+        so4_fact[0] = 1.0
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array declared as (ld1, *)."""
