@@ -1725,6 +1725,101 @@ def edge_spack_r8_codon(
                 buf[iptr + edge_map] = v[k - 1]
 
 
+def edge_vpack_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    putmap_p: cobj,
+    reverse_p: cobj,
+    v_p: cobj,
+):
+    buf = Ptr[float](buf_p)
+    putmap = Ptr[i32](putmap_p)
+    reverse = Ptr[i32](reverse_p)
+    v = Ptr[float](v_p)
+    south_map = int(putmap[_edge_map_idx(south, ielem, max_neigh_edges)])
+    east_map = int(putmap[_edge_map_idx(east, ielem, max_neigh_edges)])
+    north_map = int(putmap[_edge_map_idx(north, ielem, max_neigh_edges)])
+    west_map = int(putmap[_edge_map_idx(west, ielem, max_neigh_edges)])
+
+    for k in range(1, vlyr + 1):
+        iptr = np * (kptr + k - 1)
+        for i in range(1, np + 1):
+            buf[iptr + east_map + i - 1] = v[_vol_idx(np, i, k, np)]
+            buf[iptr + south_map + i - 1] = v[_vol_idx(i, 1, k, np)]
+            buf[iptr + north_map + i - 1] = v[_vol_idx(i, np, k, np)]
+            buf[iptr + west_map + i - 1] = v[_vol_idx(1, i, k, np)]
+
+    if int(reverse[_edge_map_idx(south, ielem, max_neigh_edges)]) != 0:
+        for k in range(1, vlyr + 1):
+            iptr = np * (kptr + k - 1) + south_map
+            for i in range(1, np + 1):
+                ir = np - i + 1
+                buf[iptr + ir - 1] = v[_vol_idx(i, 1, k, np)]
+
+    if int(reverse[_edge_map_idx(east, ielem, max_neigh_edges)]) != 0:
+        for k in range(1, vlyr + 1):
+            iptr = np * (kptr + k - 1) + east_map
+            for i in range(1, np + 1):
+                ir = np - i + 1
+                buf[iptr + ir - 1] = v[_vol_idx(np, i, k, np)]
+
+    if int(reverse[_edge_map_idx(north, ielem, max_neigh_edges)]) != 0:
+        for k in range(1, vlyr + 1):
+            iptr = np * (kptr + k - 1) + north_map
+            for i in range(1, np + 1):
+                ir = np - i + 1
+                buf[iptr + ir - 1] = v[_vol_idx(i, np, k, np)]
+
+    if int(reverse[_edge_map_idx(west, ielem, max_neigh_edges)]) != 0:
+        for k in range(1, vlyr + 1):
+            iptr = np * (kptr + k - 1) + west_map
+            for i in range(1, np + 1):
+                ir = np - i + 1
+                buf[iptr + ir - 1] = v[_vol_idx(1, i, k, np)]
+
+    for ll in range(swest, swest + max_corner_elem):
+        edge_map = int(putmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            edgeptr = edge_map + 1
+            for k in range(1, vlyr + 1):
+                iptr = kptr + k - 1 + edgeptr
+                buf[iptr - 1] = v[_vol_idx(1, 1, k, np)]
+
+    for ll in range(swest + max_corner_elem, swest + 2 * max_corner_elem):
+        edge_map = int(putmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            edgeptr = edge_map + 1
+            for k in range(1, vlyr + 1):
+                iptr = kptr + k - 1 + edgeptr
+                buf[iptr - 1] = v[_vol_idx(np, 1, k, np)]
+
+    for ll in range(swest + 3 * max_corner_elem, swest + 4 * max_corner_elem):
+        edge_map = int(putmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            edgeptr = edge_map + 1
+            for k in range(1, vlyr + 1):
+                iptr = kptr + k - 1 + edgeptr
+                buf[iptr - 1] = v[_vol_idx(np, np, k, np)]
+
+    for ll in range(swest + 2 * max_corner_elem, swest + 3 * max_corner_elem):
+        edge_map = int(putmap[_edge_map_idx(ll, ielem, max_neigh_edges)])
+        if edge_map != -1:
+            edgeptr = edge_map + 1
+            for k in range(1, vlyr + 1):
+                iptr = kptr + k - 1 + edgeptr
+                buf[iptr - 1] = v[_vol_idx(1, np, k, np)]
+
+
 def edge_vunpack_codon(
     np: int,
     max_neigh_edges: int,

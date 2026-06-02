@@ -913,12 +913,14 @@ contains
   !! data will be located.
   ! =========================================
   subroutine edgeVpack(edge,v,vlyr,kptr,ielem)
-    use dimensions_mod, only : np, max_corner_elem
+    use dimensions_mod, only : np, max_corner_elem, max_neigh_edges
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (EdgeBuffer_t)                :: edge
+    type (EdgeBuffer_t), target        :: edge
     integer,              intent(in)   :: vlyr
-    real (kind=real_kind),intent(in)   :: v(np,np,vlyr)
+    real (kind=real_kind),intent(in), target :: v(np,np,vlyr)
     integer,              intent(in)   :: kptr
     integer,              intent(in)   :: ielem
 !    type (EdgeDescriptor_t),intent(in) :: desc
@@ -927,17 +929,41 @@ contains
     integer :: i,k,ir,ll,iptr
 
     integer :: is,ie,in,iw,edgeptr
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine edgevpack_codon(np_c, max_neigh_edges_c, max_corner_elem_c, &
+            vlyr_c, kptr_c, ielem_c, south_c, east_c, north_c, west_c, swest_c, &
+            buf_p, putmap_p, reverse_p, v_p) bind(c, name='edgevpack_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, max_neigh_edges_c, max_corner_elem_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c, ielem_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: buf_p, putmap_p, reverse_p, v_p
+       end subroutine edgevpack_codon
+    end interface
 
 
-    is = edge%putmap(south,ielem)
-    ie = edge%putmap(east,ielem)
-    in = edge%putmap(north,ielem)
-    iw = edge%putmap(west,ielem)
     if (edge%nlyr < (kptr+vlyr) ) then
        print *,'edge%nlyr = ',edge%nlyr
        print *,'kptr+vlyr = ',kptr+vlyr
        call haltmp('edgeVpack: Buffer overflow: size of the vertical dimension must be increased!')
     endif
+    call edgevpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
+         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+         int(swest, c_int64_t), c_loc(edge%buf(1)), c_loc(edge%putmap(1,1)), &
+         c_loc(edge%reverse(1,1)), c_loc(v(1,1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'edgevpack implementation = codon'
+       proof_seen = .true.
+    endif
+    return
+
+    is = edge%putmap(south,ielem)
+    ie = edge%putmap(east,ielem)
+    in = edge%putmap(north,ielem)
+    iw = edge%putmap(west,ielem)
 !JMD    call t_adj_detailf(+2)
 !dir$ ivdep
     do k=1,vlyr

@@ -2146,6 +2146,42 @@ def copy_gridvertex_codon(
     )
 
 @export
+def edgevpack_codon(
+    np: int,
+    max_neigh_edges: int,
+    max_corner_elem: int,
+    vlyr: int,
+    kptr: int,
+    ielem: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    putmap_p: cobj,
+    reverse_p: cobj,
+    v_p: cobj,
+):
+    return _misc.edge_vpack_codon(
+        np,
+        max_neigh_edges,
+        max_corner_elem,
+        vlyr,
+        kptr,
+        ielem,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        buf_p,
+        putmap_p,
+        reverse_p,
+        v_p,
+    )
+
+@export
 def edgespack_r8_codon(
     np: int,
     max_neigh_edges: int,
