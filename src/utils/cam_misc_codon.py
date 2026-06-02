@@ -7,6 +7,38 @@ def cam_misc_touch_codon(tag: int) -> int:
     return tag
 
 
+@inline
+def _write_two_digits(out: Ptr[int], off: int, value: int):
+    out[off] = 48 + value // 10
+    out[off + 1] = 48 + value % 10
+
+
+@export
+def datetime_format_codon(values_p: cobj, cdate_p: cobj, ctime_p: cobj):
+    values = Ptr[int](values_p)
+    cdate = Ptr[int](cdate_p)
+    ctime = Ptr[int](ctime_p)
+
+    year = values[0]
+    month = values[1]
+    day = values[2]
+    hour = values[4]
+    minute = values[5]
+    second = values[6]
+
+    _write_two_digits(cdate, 0, month)
+    cdate[2] = 47
+    _write_two_digits(cdate, 3, day)
+    cdate[5] = 47
+    _write_two_digits(cdate, 6, year % 100)
+
+    _write_two_digits(ctime, 0, hour)
+    ctime[2] = 58
+    _write_two_digits(ctime, 3, minute)
+    ctime[5] = 58
+    _write_two_digits(ctime, 6, second)
+
+
 @export
 def wrap_mpi_mpialltoallint_codon(
     sendbuf_p: cobj,

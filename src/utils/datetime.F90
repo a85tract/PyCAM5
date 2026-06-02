@@ -1,6 +1,6 @@
 module datetime_mod
 
-use iso_c_binding, only: c_int64_t
+use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 use cam_logfile, only: iulog
 
 implicit none
@@ -46,19 +46,28 @@ contains
 !---------------------------Local Variables------------------------------
    integer, dimension(8) :: values 
    character :: date*8, time*10, zone*5 
+   integer(c_int64_t), target :: values_c(8), cdate_codes(8), ctime_codes(8)
+   integer :: n
+   logical, save :: datetime_codon_logged = .false.
+   interface
+      subroutine datetime_format_codon(values_p, cdate_p, ctime_p) bind(c, name='datetime_format_codon')
+         import :: c_ptr
+         type(c_ptr), value :: values_p, cdate_p, ctime_p
+      end subroutine datetime_format_codon
+   end interface
 !-----------------------------------------------------------------------
  
    call date_and_time (date, time, zone, values) 
-   cdate(1:2) = date(5:6) 
-   cdate(3:3) = '/' 
-   cdate(4:5) = date(7:8) 
-   cdate(6:6) = '/' 
-   cdate(7:8) = date(3:4) 
-   ctime(1:2) = time(1:2) 
-   ctime(3:3) = ':' 
-   ctime(4:5) = time(3:4) 
-   ctime(6:6) = ':' 
-   ctime(7:8) = time(5:6) 
+   values_c = int(values, c_int64_t)
+   call datetime_format_codon(c_loc(values_c(1)), c_loc(cdate_codes(1)), c_loc(ctime_codes(1)))
+   if (.not. datetime_codon_logged) then
+      write(iulog,*) 'datetime implementation = codon'
+      datetime_codon_logged = .true.
+   endif
+   do n = 1, 8
+      cdate(n:n) = achar(int(cdate_codes(n)))
+      ctime(n:n) = achar(int(ctime_codes(n)))
+   enddo
  
    return  
    end subroutine datetime 
