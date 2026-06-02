@@ -1336,6 +1336,14 @@ def zero_i32_buffer_codon(n: int, buf_p: cobj):
         buf[i] = i32(0)
 
 
+def allocate_element_desc_init_codon(max_neigh_edges: int, loc2buf_p: cobj, globalID_p: cobj):
+    loc2buf = Ptr[i32](loc2buf_p)
+    globalID = Ptr[i32](globalID_p)
+    for i in range(0, max_neigh_edges):
+        loc2buf[i] = i32(i + 1)
+        globalID[i] = i32(-1)
+
+
 from C import gbarrier_initialize(cobj, i32)
 from C import gbarrier_free(cobj)
 from C import gbarrier_synchronize(cobj, i32)

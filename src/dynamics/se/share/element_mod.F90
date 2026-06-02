@@ -463,11 +463,20 @@ contains
 
   !___________________________________________________________________
   subroutine allocate_element_desc(elem)
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
 
     type (element_t), intent(inout)   :: elem(:)
-    integer                           :: num, j,i
+    integer                           :: num, j
+
+    interface
+       subroutine allocate_element_desc_init_codon(max_neigh_edges_c, loc2buf_p, globalID_p) &
+            bind(c, name='allocate_element_desc_init_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: max_neigh_edges_c
+         type(c_ptr), value :: loc2buf_p, globalID_p
+       end subroutine allocate_element_desc_init_codon
+    end interface
 
 #define SE_MISC_TAG 31
 #define SE_MISC_LABEL 'element_mod'
@@ -488,12 +497,11 @@ contains
        allocate(elem(j)%desc%reverse(max_neigh_edges))
        allocate(elem(j)%desc%globalID(max_neigh_edges))
        allocate(elem(j)%desc%loc2buf(max_neigh_edges))
-       do i=1,max_neigh_edges
-          elem(j)%desc%loc2buf(i)=i
-          elem(j)%desc%globalID(i)=-1
-       enddo
+       call allocate_element_desc_init_codon(int(max_neigh_edges, c_int64_t), &
+            c_loc(elem(j)%desc%loc2buf(1)), c_loc(elem(j)%desc%globalID(1)))
 
     end do
+    write(iulog,*) 'allocate_element_desc implementation = codon'
   end subroutine allocate_element_desc
 
 

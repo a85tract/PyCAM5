@@ -1496,6 +1496,14 @@ def zero_i32_buffer_codon(n: int, buf_p: cobj):
     return _misc.zero_i32_buffer_codon(n, buf_p)
 
 @export
+def allocate_element_desc_init_codon(
+    max_neigh_edges: int,
+    loc2buf_p: cobj,
+    globalID_p: cobj,
+):
+    return _misc.allocate_element_desc_init_codon(max_neigh_edges, loc2buf_p, globalID_p)
+
+@export
 def projectpoint_codon(
     cart_x: float,
     cart_y: float,
