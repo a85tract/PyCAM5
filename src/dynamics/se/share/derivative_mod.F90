@@ -2492,9 +2492,13 @@ end do
              endif
           endif
        endif
-       call vlaplace_sphere_wk_apply_codon(v, deriv%Dvv, elem%mp, elem%spheremp, elem%metinv, elem%metdet, &
-            elem%rmetdet, elem%D, elem%Dinv, elem%variable_hyperviscosity, elem%tensorVisc, elem%vec_sphere2cart, &
-            laplace, var_coef, nu_ratio)
+       if (hypervis_scaling/=0 .and. var_coef) then
+          call vlaplace_sphere_wk_apply_codon(v, deriv%Dvv, elem%mp, elem%spheremp, elem%metinv, elem%metdet, &
+               elem%rmetdet, elem%D, elem%Dinv, elem%variable_hyperviscosity, elem%tensorVisc, elem%vec_sphere2cart, &
+               laplace, var_coef, nu_ratio)
+       else
+          call vlaplace_sphere_wk_contra(v,deriv,elem,laplace,var_coef,nu_ratio)
+       endif
     else
        call vlaplace_sphere_wk_native(v,deriv,elem,laplace,var_coef,nu_ratio)
     endif
@@ -2575,7 +2579,7 @@ end do
        call vlaplace_sphere_wk_cartesian(v,deriv,elem,laplace,var_coef)
     else  
        ! all other cases, use contra formulation:
-       call vlaplace_sphere_wk_contra(v,deriv,elem,laplace,var_coef,nu_ratio)
+       call vlaplace_sphere_wk_contra_native(v,deriv,elem,laplace,var_coef,nu_ratio)
     endif
 
   end subroutine vlaplace_sphere_wk_native
@@ -2621,6 +2625,30 @@ end do
 
 
   subroutine vlaplace_sphere_wk_contra(v,deriv,elem,laplace,var_coef,nu_ratio)
+    use cam_logfile, only : iulog
+!
+!   input:  v = vector in lat-lon coordinates
+!   ouput:  weak laplacian of v, in lat-lon coordinates
+!
+    real(kind=real_kind), intent(in), target :: v(np,np,2)
+    logical, intent(in) :: var_coef
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), target :: laplace(np,np,2)
+    real(kind=real_kind), optional :: nu_ratio
+    logical, save :: proof_seen = .false.
+
+    call vlaplace_sphere_wk_apply_codon(v, deriv%Dvv, elem%mp, elem%spheremp, elem%metinv, elem%metdet, &
+         elem%rmetdet, elem%D, elem%Dinv, elem%variable_hyperviscosity, elem%tensorVisc, elem%vec_sphere2cart, &
+         laplace, var_coef, nu_ratio)
+    if (.not. proof_seen) then
+       write(iulog,*) 'vlaplace_sphere_wk_contra implementation = codon'
+       proof_seen = .true.
+    endif
+  end subroutine vlaplace_sphere_wk_contra
+
+
+  subroutine vlaplace_sphere_wk_contra_native(v,deriv,elem,laplace,var_coef,nu_ratio)
 !
 !   input:  v = vector in lat-lon coordinates
 !   ouput:  weak laplacian of v, in lat-lon coordinates
@@ -2669,7 +2697,7 @@ end do
 #endif
        enddo
     enddo
-  end subroutine vlaplace_sphere_wk_contra
+  end subroutine vlaplace_sphere_wk_contra_native
 
   subroutine gll_to_dgmodal(p,deriv,phat)
 !
