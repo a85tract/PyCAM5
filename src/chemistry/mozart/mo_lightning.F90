@@ -37,6 +37,7 @@ contains
     !----------------------------------------------------------------------
     !       ... initialize the lightning module
     !----------------------------------------------------------------------
+    use iso_c_binding, only : c_int64_t
     use mo_constants,  only : pi
     use ioFileMod,     only : getfil
     use mo_chem_utls,  only : get_spc_ndx
@@ -66,11 +67,29 @@ contains
     real(r8), allocatable :: lons(:)
     real(r8), allocatable :: landmask(:,:)
     character(len=256) :: locfn
+    integer(c_int64_t) :: active_c
+
+    interface
+       function lightning_inti_active_codon(no_ndx_c, xno_ndx_c) result(active) &
+            bind(c, name="lightning_inti_active_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: no_ndx_c, xno_ndx_c
+         integer(c_int64_t) :: active
+       end function lightning_inti_active_codon
+    end interface
 
     no_ndx = get_spc_ndx('NO')
     xno_ndx = get_spc_ndx('XNO')
 
-    has_no_lightning_prod = no_ndx>0 .or. xno_ndx>0
+    active_c = lightning_inti_active_codon(int(no_ndx, c_int64_t), int(xno_ndx, c_int64_t))
+    if (active_c /= 0_c_int64_t .and. active_c /= 1_c_int64_t) then
+       call endrun('lightning_inti_active_codon: unexpected return value')
+    end if
+    has_no_lightning_prod = active_c == 1_c_int64_t
+    if (masterproc) then
+       write(iulog,*) 'lightning_inti implementation = codon'
+       call flush(iulog)
+    end if
     if (.not.has_no_lightning_prod) return
 
     

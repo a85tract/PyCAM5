@@ -172,6 +172,12 @@ def noy_ubc_active_codon(active: int) -> int:
 def spedata_active_codon(active: int) -> int:
     return active
 
+def lightning_inti_active_codon(no_ndx: int, xno_ndx: int) -> int:
+    return 1 if no_ndx > 0 or xno_ndx > 0 else 0
+
+def euvac_set_etf_active_codon(active: int) -> int:
+    return active
+
 def spe_prod_zero_codon(active: int, ncol: int, pver: int, noxprod_p: cobj, hoxprod_p: cobj) -> int:
     noxprod = Ptr[float](noxprod_p)
     hoxprod = Ptr[float](hoxprod_p)

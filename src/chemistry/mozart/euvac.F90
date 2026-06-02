@@ -119,6 +119,7 @@
 !	... set euvac etf
 !---------------------------------------------------------------
 
+      use iso_c_binding,  only : c_int64_t
       use spmd_utils,     only : masterproc
 
       implicit none
@@ -135,8 +136,27 @@
       real(r8), parameter :: factor = 80._r8
       integer  :: w
       real(r8) :: pindex
+      integer(c_int64_t) :: active_c
 
-      if (.not.euvac_on) return
+      interface
+         function euvac_set_etf_active_codon(active_in) result(active_out) &
+              bind(c, name="euvac_set_etf_active_codon")
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t), value :: active_in
+            integer(c_int64_t) :: active_out
+         end function euvac_set_etf_active_codon
+      end interface
+
+      active_c = euvac_set_etf_active_codon(merge(1_c_int64_t, 0_c_int64_t, euvac_on))
+      if (active_c /= 0_c_int64_t .and. active_c /= 1_c_int64_t) then
+         call endrun('euvac_set_etf_active_codon: unexpected return value')
+      end if
+      if (masterproc) then
+         write(iulog,*) 'euvac_set_etf implementation = codon'
+         call flush(iulog)
+      end if
+
+      if (active_c == 0_c_int64_t) return
 
       pindex = .5_r8*(f107 + f107a) - factor
       euvac_etf(:) = refmin(:) * max( .8_r8,(1._r8 + afac(:)*pindex) )

@@ -126,6 +126,14 @@ def spedata_active_codon(active: int) -> int:
     return _common.spedata_active_codon(active)
 
 @export
+def lightning_inti_active_codon(no_ndx: int, xno_ndx: int) -> int:
+    return _common.lightning_inti_active_codon(no_ndx, xno_ndx)
+
+@export
+def euvac_set_etf_active_codon(active: int) -> int:
+    return _common.euvac_set_etf_active_codon(active)
+
+@export
 def spe_prod_zero_codon(active: int, ncol: int, pver: int, noxprod_p: cobj, hoxprod_p: cobj) -> int:
     return _common.spe_prod_zero_codon(active, ncol, pver, noxprod_p, hoxprod_p)
 
