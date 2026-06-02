@@ -759,13 +759,7 @@ contains
              ! ... the linear component
              !-----------------------------------------------------------------------
              !if( cls_rxt_cnt(2,4) > 0 ) then
-                if (imp_sol_inner_batch_use_native_impl) then
-                   call linmat( lin_jac, lsol, lrxt, lhet )
-                else
-                   call imp_sol_inner_batch_codon(0_c_int64_t, 0_c_int64_t, int(clscnt4, c_int64_t), real(dti, c_double), &
-                        c_loc(lin_jac), c_loc(sys_jac), c_loc(prod), c_loc(loss), c_loc(lsol), c_loc(lrxt), &
-                        c_loc(lhet), c_loc(solution), c_loc(iter_invariant), c_loc(forcing))
-                end if
+                call linmat( lin_jac, lsol, lrxt, lhet )
              !end if
              !=======================================================================
              ! the newton-raphson iteration for f(y) = 0
@@ -774,31 +768,24 @@ contains
                 !-----------------------------------------------------------------------
                 ! ... the non-linear component
                 !-----------------------------------------------------------------------
-                if (imp_sol_inner_batch_use_native_impl) then
-                   if( factor(nr_iter) ) then
-                      call nlnmat( sys_jac, lsol, lrxt, lin_jac, dti )
-                      !-----------------------------------------------------------------------
-                      ! ... factor the "system" matrix
-                      !-----------------------------------------------------------------------
-                      call lu_fac( sys_jac )
-                   end if
+                if( factor(nr_iter) ) then
+                   call nlnmat( sys_jac, lsol, lrxt, lin_jac, dti )
                    !-----------------------------------------------------------------------
-                   ! ... form f(y)
+                   ! ... factor the "system" matrix
                    !-----------------------------------------------------------------------
-                   call imp_prod_loss( prod, loss, lsol, lrxt, lhet )
-                   do m = 1,clscnt4
-                      forcing(m) = solution(m)*dti - (iter_invariant(m) + prod(m) - loss(m))
-                   end do
-                   !-----------------------------------------------------------------------
-                   ! ... solve for the mixing ratio at t(n+1)
-                   !-----------------------------------------------------------------------
-                   call lu_slv( sys_jac, forcing )
-                else
-                   call imp_sol_inner_batch_codon(1_c_int64_t, int(merge(1, 0, factor(nr_iter)), c_int64_t), &
-                        int(clscnt4, c_int64_t), real(dti, c_double), c_loc(lin_jac), c_loc(sys_jac), &
-                        c_loc(prod), c_loc(loss), c_loc(lsol), c_loc(lrxt), c_loc(lhet), c_loc(solution), &
-                        c_loc(iter_invariant), c_loc(forcing))
+                   call lu_fac( sys_jac )
                 end if
+                !-----------------------------------------------------------------------
+                ! ... form f(y)
+                !-----------------------------------------------------------------------
+                call imp_prod_loss( prod, loss, lsol, lrxt, lhet )
+                do m = 1,clscnt4
+                   forcing(m) = solution(m)*dti - (iter_invariant(m) + prod(m) - loss(m))
+                end do
+                !-----------------------------------------------------------------------
+                ! ... solve for the mixing ratio at t(n+1)
+                !-----------------------------------------------------------------------
+                call lu_slv( sys_jac, forcing )
                 if (imp_sol_outer_batch_use_native_impl) then
                    do m = 1,clscnt4
                       solution(m) = solution(m) + forcing(m)
