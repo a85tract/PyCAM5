@@ -1240,6 +1240,34 @@ def cubeelemcount_codon(
     return _misc.cubeelemcount_codon(nfaces, ne)
 
 @export
+def contravariant_rot_codon(
+    da_p: cobj,
+    db_p: cobj,
+    r_p: cobj,
+):
+    return _misc.contravariant_rot_codon(da_p, db_p, r_p)
+
+@export
+def coreolis_init_atomic_codon(
+    np: int,
+    rotate_grid: float,
+    dd_pi: float,
+    omega: float,
+    lat_p: cobj,
+    lon_p: cobj,
+    fcor_p: cobj,
+):
+    return _misc.coreolis_init_atomic_codon(
+        np,
+        rotate_grid,
+        dd_pi,
+        omega,
+        lat_p,
+        lon_p,
+        fcor_p,
+    )
+
+@export
 def llsetedgecount_codon(
     value: int,
 ) -> int:
@@ -1487,6 +1515,27 @@ def ref2sphere_double_codon(
     lat_p: cobj,
 ):
     return _misc.ref2sphere_double_codon(
+        a, b, face_no, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, r_p, lon_p, lat_p
+    )
+
+@export
+def ref2sphere_equiangular_double_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    return _misc.ref2sphere_equiangular_double_codon(
         a, b, face_no, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, r_p, lon_p, lat_p
     )
 

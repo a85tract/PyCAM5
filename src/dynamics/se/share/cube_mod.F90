@@ -538,19 +538,28 @@ contains
   ! ========================================
 
   function contravariant_rot(Da,Db) result(R)
+    use iso_c_binding, only : c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    real (kind=real_kind) :: Da(2,2)
-    real (kind=real_kind) :: Db(2,2)
+    real (kind=real_kind), intent(in), target :: Da(2,2)
+    real (kind=real_kind), intent(in), target :: Db(2,2)
     real (kind=real_kind) :: R(2,2)
+    real (kind=real_kind), target :: rbuf(2,2)
 
-    real (kind=real_kind) :: detDb
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine contravariant_rot_codon(da_p, db_p, r_p) bind(c, name='contravariant_rot_codon')
+         use iso_c_binding, only : c_ptr
+         type(c_ptr), value :: da_p, db_p, r_p
+       end subroutine contravariant_rot_codon
+    end interface
 
-    detDb = Db(2,2)*Db(1,1) - Db(1,2)*Db(2,1)
-
-    R(1,1)=(Da(1,1)*Db(2,2) - Da(2,1)*Db(1,2))/detDb
-    R(1,2)=(Da(1,2)*Db(2,2) - Da(2,2)*Db(1,2))/detDb
-    R(2,1)=(Da(2,1)*Db(1,1) - Da(1,1)*Db(2,1))/detDb
-    R(2,2)=(Da(2,2)*Db(1,1) - Da(1,2)*Db(2,1))/detDb
+    call contravariant_rot_codon(c_loc(Da(1,1)), c_loc(Db(1,1)), c_loc(rbuf(1,1)))
+    R = rbuf
+    if (.not. proof_seen) then
+       write(iulog,*) 'contravariant_rot implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function contravariant_rot
 
@@ -917,27 +926,44 @@ contains
     use element_mod, only : element_t
     use dimensions_mod, only : np
     use physical_constants, only : omega
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (element_t) :: elem
+    type (element_t), target :: elem
 
     ! Local variables
 
     integer                  :: i,j
-    real (kind=real_kind) :: lat,lon,rangle
+    real (kind=real_kind), target :: lat_buf(np,np), lon_buf(np,np), fcor_buf(np,np)
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine coreolis_init_atomic_codon(np_c, rotate_grid_c, dd_pi_c, omega_c, &
+            lat_p, lon_p, fcor_p) bind(c, name='coreolis_init_atomic_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rotate_grid_c, dd_pi_c, omega_c
+         type(c_ptr), value :: lat_p, lon_p, fcor_p
+       end subroutine coreolis_init_atomic_codon
+    end interface
 
-    rangle = rotate_grid*DD_PI/180
     do j=1,np
        do i=1,np
-             if ( rotate_grid /= 0) then
-                lat = elem%spherep(i,j)%lat
-                lon = elem%spherep(i,j)%lon
-             	elem%fcor(i,j)= 2*omega* &
-                     (-cos(lon)*cos(lat)*sin(rangle) + sin(lat)*cos(rangle))
-             else
-                elem%fcor(i,j) = 2.0D0*omega*SIN(elem%spherep(i,j)%lat)
-             endif
+          lat_buf(i,j) = elem%spherep(i,j)%lat
+          lon_buf(i,j) = elem%spherep(i,j)%lon
        end do
     end do
+    call coreolis_init_atomic_codon(int(np, c_int64_t), real(rotate_grid, c_double), &
+         real(DD_PI, c_double), real(omega, c_double), c_loc(lat_buf(1,1)), &
+         c_loc(lon_buf(1,1)), c_loc(fcor_buf(1,1)))
+    do j=1,np
+       do i=1,np
+          elem%fcor(i,j) = fcor_buf(i,j)
+       end do
+    end do
+    if (.not. proof_seen) then
+       write(iulog,*) 'coreolis_init_atomic implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine coreolis_init_atomic
 
@@ -2550,7 +2576,6 @@ contains
 !  need for a new map)
 !
   function ref2sphere_double(a,b, corners3D, ref_map, corners, facenum) result(sphere)
-    use iso_c_binding, only : c_double, c_int64_t, c_loc
     use cam_logfile, only : iulog
     real(kind=real_kind)    :: a,b
     type (spherical_polar_t)      :: sphere
@@ -2559,18 +2584,7 @@ contains
     ! only needed for gnominic maps
     type (cartesian2d_t), optional  :: corners(4)  
     integer, optional               :: facenum    
-    real(c_double), target :: r_c, lon_c, lat_c
     logical, save :: proof_seen = .false.
-    interface
-       subroutine ref2sphere_double_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
-            r_p, lon_p, lat_p) bind(c, name='ref2sphere_double_codon')
-         use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         real(c_double), value :: a_c, b_c
-         integer(c_int64_t), value :: face_no_c
-         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
-         type(c_ptr), value :: r_p, lon_p, lat_p
-       end subroutine ref2sphere_double_codon
-    end interface
 
 
     if (ref_map==0) then
@@ -2578,15 +2592,7 @@ contains
             call abortmp('ref2sphere_double(): missing arguments for equiangular map')
        if (.not. present(facenum) ) &
             call abortmp('ref2sphere_double(): missing face number for equiangular map')
-       call ref2sphere_double_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
-            real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
-            real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
-            real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
-            real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
-            c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
-       sphere%r = r_c
-       sphere%lon = lon_c
-       sphere%lat = lat_c
+       sphere = ref2sphere_equiangular_double(a,b,corners,facenum)
        if (.not. proof_seen) then
           write(iulog,*) 'ref2sphere_double implementation = codon'
           proof_seen = .true.
@@ -2629,32 +2635,40 @@ contains
 ! map a point in the referece element to the sphere
 !
   function ref2sphere_equiangular_double(a,b, corners, face_no) result(sphere)         
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     implicit none
     real(kind=real_kind)    :: a,b
     integer,intent(in)            :: face_no
     type (spherical_polar_t)      :: sphere
     type (cartesian2d_t)          :: corners(4)
-    ! local
-    real(kind=real_kind)               :: pi,pj,qi,qj
-    type (cartesian2d_t)                 :: cart   
+    real(c_double), target :: r_c, lon_c, lat_c
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine ref2sphere_equiangular_double_codon(a_c, b_c, face_no_c, c1x, c1y, &
+            c2x, c2y, c3x, c3y, c4x, c4y, r_p, lon_p, lat_p) &
+            bind(c, name='ref2sphere_equiangular_double_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: a_c, b_c
+         integer(c_int64_t), value :: face_no_c
+         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
+         type(c_ptr), value :: r_p, lon_p, lat_p
+       end subroutine ref2sphere_equiangular_double_codon
+    end interface
 
-    ! map (a,b) to the [-pi/2,pi/2] equi angular cube face:  x1,x2
-    ! a = gp%points(i)
-    ! b = gp%points(j)
-    pi = (1-a)/2
-    pj = (1-b)/2
-    qi = (1+a)/2
-    qj = (1+b)/2
-    cart%x = pi*pj*corners(1)%x &
-         + qi*pj*corners(2)%x &
-         + qi*qj*corners(3)%x &
-         + pi*qj*corners(4)%x 
-    cart%y = pi*pj*corners(1)%y &
-         + qi*pj*corners(2)%y &
-         + qi*qj*corners(3)%y &
-         + pi*qj*corners(4)%y 
-    ! map from [pi/2,pi/2] equ angular cube face to sphere:   
-    sphere=projectpoint(cart,face_no)
+    call ref2sphere_equiangular_double_codon(real(a, c_double), real(b, c_double), &
+         int(face_no, c_int64_t), real(corners(1)%x, c_double), &
+         real(corners(1)%y, c_double), real(corners(2)%x, c_double), &
+         real(corners(2)%y, c_double), real(corners(3)%x, c_double), &
+         real(corners(3)%y, c_double), real(corners(4)%x, c_double), &
+         real(corners(4)%y, c_double), c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
+    sphere%r = r_c
+    sphere%lon = lon_c
+    sphere%lat = lat_c
+    if (.not. proof_seen) then
+       write(iulog,*) 'ref2sphere_equiangular_double implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function ref2sphere_equiangular_double
 

@@ -1,4 +1,4 @@
-from math import asin, atan2, cos, log, sqrt, tan
+from math import asin, atan2, cos, log, sin, sqrt, tan
 
 
 def se_misc_touch_codon(tag: int) -> int:
@@ -355,6 +355,42 @@ def cubeelemcount_codon(nfaces: int, ne: int) -> int:
     return nfaces * ne * ne
 
 
+def contravariant_rot_codon(da_p: cobj, db_p: cobj, r_p: cobj):
+    da = Ptr[float](da_p)
+    db = Ptr[float](db_p)
+    r = Ptr[float](r_p)
+    det_db = db[3] * db[0] - db[2] * db[1]
+    # Fortran column-major 2x2: (1,1),(2,1),(1,2),(2,2).
+    r[0] = (da[0] * db[3] - da[1] * db[2]) / det_db
+    r[2] = (da[2] * db[3] - da[3] * db[2]) / det_db
+    r[1] = (da[1] * db[0] - da[0] * db[1]) / det_db
+    r[3] = (da[3] * db[0] - da[2] * db[1]) / det_db
+
+
+def coreolis_init_atomic_codon(
+    np: int,
+    rotate_grid: float,
+    dd_pi: float,
+    omega: float,
+    lat_p: cobj,
+    lon_p: cobj,
+    fcor_p: cobj,
+):
+    lat_buf = Ptr[float](lat_p)
+    lon_buf = Ptr[float](lon_p)
+    fcor = Ptr[float](fcor_p)
+    rangle = rotate_grid * dd_pi / 180.0
+    for j in range(0, np):
+        for i in range(0, np):
+            idx = i + j * np
+            lat = lat_buf[idx]
+            if rotate_grid != 0.0:
+                lon = lon_buf[idx]
+                fcor[idx] = 2.0 * omega * (((-cos(lon)) * cos(lat)) * sin(rangle) + sin(lat) * cos(rangle))
+            else:
+                fcor[idx] = 2.0 * omega * sin(lat)
+
+
 def llsetedgecount_codon(value: int) -> int:
     return value
 
@@ -638,6 +674,25 @@ def ref2sphere_double_codon(
     cart_x = pi * pj * c1x + qi * pj * c2x + qi * qj * c3x + pi * qj * c4x
     cart_y = pi * pj * c1y + qi * pj * c2y + qi * qj * c3y + pi * qj * c4y
     projectpoint_codon(cart_x, cart_y, face_no, r_p, lon_p, lat_p)
+
+
+def ref2sphere_equiangular_double_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    ref2sphere_double_codon(a, b, face_no, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, r_p, lon_p, lat_p)
 
 
 def dmap_equiangular_codon(
