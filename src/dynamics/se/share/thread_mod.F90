@@ -34,24 +34,72 @@ contains
 
 #ifndef _OPENMP
   function omp_get_thread_num() result(ithr)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+    interface
+      function se_omp_get_thread_num_codon() result(ithr_c) bind(c, name='se_omp_get_thread_num_codon')
+        import :: c_int64_t
+        integer(c_int64_t) :: ithr_c
+      end function se_omp_get_thread_num_codon
+    end interface
     integer ithr
-    ithr=0
+    logical, save :: proof_seen = .false.
+    ithr=int(se_omp_get_thread_num_codon())
+    if (.not. proof_seen) then
+       write(iulog,*) 'omp_get_thread_num implementation = codon'
+       proof_seen = .true.
+    endif
   end function omp_get_thread_num
 
   function omp_get_num_threads() result(ithr)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+    interface
+      function se_omp_get_num_threads_codon() result(ithr_c) bind(c, name='se_omp_get_num_threads_codon')
+        import :: c_int64_t
+        integer(c_int64_t) :: ithr_c
+      end function se_omp_get_num_threads_codon
+    end interface
     integer ithr
-    ithr=1
+    logical, save :: proof_seen = .false.
+    ithr=int(se_omp_get_num_threads_codon())
+    if (.not. proof_seen) then
+       write(iulog,*) 'omp_get_num_threads implementation = codon'
+       proof_seen = .true.
+    endif
   end function omp_get_num_threads
 
   function omp_in_parallel() result(ans)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+    interface
+      function se_omp_in_parallel_codon() result(ans_c) bind(c, name='se_omp_in_parallel_codon')
+        import :: c_int64_t
+        integer(c_int64_t) :: ans_c
+      end function se_omp_in_parallel_codon
+    end interface
     logical ans
-    ans=.FALSE.
+    logical, save :: proof_seen = .false.
+    ans=(se_omp_in_parallel_codon() /= 0_c_int64_t)
+    if (.not. proof_seen) then
+       write(iulog,*) 'omp_in_parallel implementation = codon'
+       proof_seen = .true.
+    endif
   end function omp_in_parallel
 
   subroutine omp_set_num_threads(NThreads)
     use iso_c_binding, only : c_int64_t
     use cam_logfile, only : iulog
+    interface
+      function se_omp_set_num_threads_codon(nthreads_c) result(nthreads_out_c) &
+           bind(c, name='se_omp_set_num_threads_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: nthreads_c
+        integer(c_int64_t) :: nthreads_out_c
+      end function se_omp_set_num_threads_codon
+    end interface
     integer Nthreads
+    logical, save :: proof_seen = .false.
 
 #define SE_MISC_TAG 33
 #define SE_MISC_LABEL 'thread_mod'
@@ -60,7 +108,11 @@ contains
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
 
-    NThreads=1
+    NThreads=int(se_omp_set_num_threads_codon(int(NThreads, c_int64_t)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'omp_set_num_threads implementation = codon'
+       proof_seen = .true.
+    endif
   end subroutine omp_set_num_threads
 
   integer function omp_get_max_threads()

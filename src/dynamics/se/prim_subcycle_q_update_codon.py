@@ -954,6 +954,22 @@ def se_misc_touch_codon(
     )
 
 @export
+def se_omp_get_thread_num_codon() -> int:
+    return _misc.se_omp_get_thread_num_codon()
+
+@export
+def se_omp_get_num_threads_codon() -> int:
+    return _misc.se_omp_get_num_threads_codon()
+
+@export
+def se_omp_in_parallel_codon() -> int:
+    return _misc.se_omp_in_parallel_codon()
+
+@export
+def se_omp_set_num_threads_codon(nthreads: int) -> int:
+    return _misc.se_omp_set_num_threads_codon(nthreads)
+
+@export
 def parallelmax0d_local_codon(data: float) -> float:
     return _misc.parallelmax0d_local_codon(data)
 

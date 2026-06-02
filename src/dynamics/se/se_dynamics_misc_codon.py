@@ -5,6 +5,22 @@ def se_misc_touch_codon(tag: int) -> int:
     return tag
 
 
+def se_omp_get_thread_num_codon() -> int:
+    return 0
+
+
+def se_omp_get_num_threads_codon() -> int:
+    return 1
+
+
+def se_omp_in_parallel_codon() -> int:
+    return 0
+
+
+def se_omp_set_num_threads_codon(nthreads: int) -> int:
+    return 1
+
+
 def parallelmax0d_local_codon(data: float) -> float:
     return data
 
