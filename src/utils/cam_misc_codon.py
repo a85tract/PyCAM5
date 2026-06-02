@@ -419,6 +419,18 @@ def scalar_add_tridiag_codon(diag: Ptr[float], nsys: int, ncel: int, constant: f
 
 
 @export
+def new_boundaryfixedlayer_codon(
+    bndry_type: Ptr[int],
+    edge_width: Ptr[float],
+    width: Ptr[float],
+    n: int,
+):
+    bndry_type[0] = 3
+    for i in range(n):
+        edge_width[i] = width[i]
+
+
+@export
 def advance_timestep_codon() -> int:
     return 0
 

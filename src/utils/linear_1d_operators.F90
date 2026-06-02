@@ -43,6 +43,7 @@ use iso_c_binding, only: c_int64_t
 use cam_logfile, only: iulog
 use shr_log_mod, only: errMsg => shr_log_errMsg
 use shr_sys_mod, only: shr_sys_abort
+use spmd_utils, only: masterproc
 use coords_1d, only: Coords1D
 
 implicit none
@@ -677,16 +678,27 @@ end function new_BoundaryExtrapolate
 function new_BoundaryFixedLayer(width) result(new_bndry)
   real(r8), USE_CONTIGUOUS intent(in) :: width(:)
   type(BoundaryType) :: new_bndry
+  integer(c_int64_t) :: bndry_type_c
+  interface
+     subroutine new_boundaryfixedlayer_codon(bndry_type, edge_width, width, n) &
+          bind(c, name='new_boundaryfixedlayer_codon')
+       import :: c_int64_t, r8
+       integer(c_int64_t), intent(out) :: bndry_type
+       real(r8), intent(out) :: edge_width(*)
+       real(r8), intent(in) :: width(*)
+       integer(c_int64_t), value :: n
+     end subroutine new_boundaryfixedlayer_codon
+  end interface
+  logical, save :: new_boundaryfixedlayer_codon_logged = .false.
 
-#define CAM_MISC_TAG 242
-#define CAM_MISC_LABEL 'new_BoundaryFixedLayer'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
-
-  new_bndry%bndry_type = fixed_layer_bndry
-  new_bndry%edge_width = width
+  allocate(new_bndry%edge_width(size(width)))
+  call new_boundaryfixedlayer_codon(bndry_type_c, new_bndry%edge_width, &
+       width, int(size(width), c_int64_t))
+  new_bndry%bndry_type = int(bndry_type_c)
+  if (masterproc .and. .not. new_boundaryfixedlayer_codon_logged) then
+     write(iulog,*) 'new_BoundaryFixedLayer implementation = codon'
+     new_boundaryfixedlayer_codon_logged = .true.
+  end if
 
 end function new_BoundaryFixedLayer
 
