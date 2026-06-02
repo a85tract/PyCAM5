@@ -24,9 +24,11 @@ module interpolate_data
      integer, pointer  :: jjm(:)
      integer, pointer  :: jjp(:)
   end type interp_type
+  logical, save :: lininterp_full1d_codon_logged = .false.
   logical, save :: lininterp1d_codon_logged = .false.
   logical, save :: lininterp2d1d_codon_logged = .false.
   logical, save :: lininterp3d2d_codon_logged = .false.
+  logical, save :: vertinterp_codon_logged = .false.
   interface lininterp
      module procedure lininterp_original
      module procedure lininterp_full1d
@@ -42,21 +44,43 @@ integer, parameter, public :: extrap_method_cycle = 2
 
 contains
   subroutine lininterp_full1d (arrin, yin, nin, arrout, yout, nout)
+    use spmd_utils, only: masterproc
     integer, intent(in) :: nin, nout
-    real(r8), intent(in) :: arrin(nin), yin(nin), yout(nout)
-    real(r8), intent(out) :: arrout(nout)
-    type (interp_type) :: interp_wgts
+    real(r8), target, intent(in) :: arrin(nin), yin(nin), yout(nout)
+    real(r8), target, intent(out) :: arrout(nout)
+    integer(c_int64_t) :: ierr
 
-#define CAM_MISC_TAG 255
-#define CAM_MISC_LABEL 'lininterp_full1d'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    interface
+       function lininterp_full1d_codon(arrin_p, yin_p, yout_p, arrout_p, nin_c, nout_c) &
+            result(ierr) bind(c, name='lininterp_full1d_codon')
+         import :: c_int64_t, c_ptr
+         type(c_ptr), value :: arrin_p, yin_p, yout_p, arrout_p
+         integer(c_int64_t), value :: nin_c, nout_c
+         integer(c_int64_t) :: ierr
+       end function lininterp_full1d_codon
+    end interface
 
-    call lininterp_init(yin, nin, yout, nout, extrap_method_bndry, interp_wgts)
-    call lininterp1d(arrin, nin, arrout, nout, interp_wgts)
-    call lininterp_finish(interp_wgts)
+    ierr = lininterp_full1d_codon(c_loc(arrin(1)), c_loc(yin(1)), c_loc(yout(1)), &
+         c_loc(arrout(1)), int(nin, c_int64_t), int(nout, c_int64_t))
+
+    select case (ierr)
+    case (0_c_int64_t)
+       continue
+    case (1_c_int64_t)
+       call endrun('LININTERP: Must have at least 2 input points for interpolation')
+    case (2_c_int64_t)
+       call endrun('LININTERP: Non-monotonic input coordinate array found')
+    case (3_c_int64_t)
+       call endrun('Bad weight computed in LININTERP_init')
+    case default
+       call endrun('LININTERP: Point found without interp indices')
+    end select
+
+    if (masterproc .and. .not. lininterp_full1d_codon_logged) then
+       write(iulog,*) 'lininterp_full1d implementation = codon'
+       lininterp_full1d_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end subroutine lininterp_full1d
 
@@ -1004,6 +1028,7 @@ contains
 !=========================================================================================
 
   subroutine vertinterp(ncol, ncold, nlev, pmid, pout, arrin, arrout)
+    use spmd_utils, only: masterproc
 
     !-----------------------------------------------------------------------
     !
@@ -1022,10 +1047,10 @@ contains
     integer , intent(in)  :: ncol              ! column dimension
     integer , intent(in)  :: ncold             ! declared column dimension
     integer , intent(in)  :: nlev              ! vertical dimension
-    real(r8), intent(in)  :: pmid(ncold,nlev)  ! input level pressure levels
+    real(r8), target, intent(in)  :: pmid(ncold,nlev)  ! input level pressure levels
     real(r8), intent(in)  :: pout              ! output pressure level
-    real(r8), intent(in)  :: arrin(ncold,nlev) ! input  array
-    real(r8), intent(out) :: arrout(ncold)     ! output array (interpolated)
+    real(r8), target, intent(in)  :: arrin(ncold,nlev) ! input  array
+    real(r8), target, intent(out) :: arrout(ncold)     ! output array (interpolated)
     !--------------------------------------------------------------------------
 
     !---------------------------Local variables-----------------------------
@@ -1035,8 +1060,30 @@ contains
     real(r8) dpl              ! lower level pressure difference
     logical found(ncold)      ! true if input levels found
     logical error             ! error flag
+    integer(c_int64_t) :: ierr
+    interface
+       function vertinterp_codon(ncol_c, ncold_c, nlev_c, pmid_p, pout_c, arrin_p, arrout_p) &
+            result(ierr) bind(c, name='vertinterp_codon')
+         import :: c_int64_t, c_ptr, r8
+         integer(c_int64_t), value :: ncol_c, ncold_c, nlev_c
+         type(c_ptr), value :: pmid_p, arrin_p, arrout_p
+         real(r8), value :: pout_c
+         integer(c_int64_t) :: ierr
+       end function vertinterp_codon
+    end interface
     !-----------------------------------------------------------------
     !-----------------------------------------------------------------
+    ierr = vertinterp_codon(int(ncol, c_int64_t), int(ncold, c_int64_t), &
+         int(nlev, c_int64_t), c_loc(pmid(1,1)), pout, c_loc(arrin(1,1)), c_loc(arrout(1)))
+    if (ierr /= 0_c_int64_t) then
+       call endrun ('VERTINTERP: ERROR FLAG')
+    end if
+    if (masterproc .and. .not. vertinterp_codon_logged) then
+       write(iulog,*) 'vertinterp implementation = codon'
+       vertinterp_codon_logged = .true.
+       call flush(iulog)
+    end if
+    return
     !
     ! Initialize index array and logical flags
     !

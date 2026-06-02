@@ -26,6 +26,94 @@ def findplb_codon(x: Ptr[float], nx: int, xval: float) -> int:
 
 
 @export
+def lininterp_full1d_codon(
+    arrin_p: cobj,
+    yin_p: cobj,
+    yout_p: cobj,
+    arrout_p: cobj,
+    nin: int,
+    nout: int,
+) -> int:
+    arrin = Ptr[float](arrin_p)
+    yin = Ptr[float](yin_p)
+    yout = Ptr[float](yout_p)
+    arrout = Ptr[float](arrout_p)
+
+    if nin < 2:
+        return 1
+
+    icount = 0
+    for j in range(nin - 1):
+        if yin[j] > yin[j + 1]:
+            icount += 1
+
+    increasing = True
+    if icount == nin - 1:
+        increasing = False
+        icount = 0
+
+    if icount > 0:
+        return 2
+
+    for j in range(nout):
+        jjm = 0
+        jjp = 0
+        wgts = 0.0
+        wgtn = 0.0
+
+        if increasing:
+            if yout[j] <= yin[0]:
+                jjm = 1
+                jjp = 1
+                wgts = 1.0
+                wgtn = 0.0
+            elif yout[j] > yin[nin - 1]:
+                jjm = nin
+                jjp = nin
+                wgts = 1.0
+                wgtn = 0.0
+        else:
+            if yout[j] > yin[0]:
+                jjm = 1
+                jjp = 1
+                wgts = 1.0
+                wgtn = 0.0
+            elif yout[j] <= yin[nin - 1]:
+                jjm = nin
+                jjp = nin
+                wgts = 1.0
+                wgtn = 0.0
+
+        if increasing:
+            for jj in range(nin - 1):
+                if yout[j] > yin[jj] and yout[j] <= yin[jj + 1]:
+                    jjm = jj + 1
+                    jjp = jj + 2
+                    wgts = (yin[jj + 1] - yout[j]) / (yin[jj + 1] - yin[jj])
+                    wgtn = (yout[j] - yin[jj]) / (yin[jj + 1] - yin[jj])
+                    break
+        else:
+            for jj in range(nin - 1):
+                if yout[j] <= yin[jj] and yout[j] > yin[jj + 1]:
+                    jjm = jj + 1
+                    jjp = jj + 2
+                    wgts = (yin[jj + 1] - yout[j]) / (yin[jj + 1] - yin[jj])
+                    wgtn = (yout[j] - yin[jj]) / (yin[jj + 1] - yin[jj])
+                    break
+
+        if jjm == 0 or jjp == 0:
+            return 4
+
+        ratio = wgts + wgtn
+        if ratio < 0.9 or ratio > 1.1:
+            return 3
+
+        arrout[j] = arrin[jjm - 1] * wgts + arrin[jjp - 1] * wgtn
+
+    return 0
+
+
+@export
 def lininterp1d_codon(
     arrin_p: cobj,
     arrout_p: cobj,
@@ -44,6 +132,45 @@ def lininterp1d_codon(
 
     for j in range(m1):
         arrout[j] = arrin[jjm[j] - 1] * wgts[j] + arrin[jjp[j] - 1] * wgtn[j]
+
+
+@export
+def vertinterp_codon(
+    ncol: int,
+    ncold: int,
+    nlev: int,
+    pmid_p: cobj,
+    pout: float,
+    arrin_p: cobj,
+    arrout_p: cobj,
+) -> int:
+    pmid = Ptr[float](pmid_p)
+    arrin = Ptr[float](arrin_p)
+    arrout = Ptr[float](arrout_p)
+
+    for i in range(ncol):
+        found = False
+        kupper = 1
+        for k in range(nlev - 1):
+            if (not found) and pmid[i + ncold * k] < pout and pout <= pmid[i + ncold * (k + 1)]:
+                found = True
+                kupper = k + 1
+
+        if pout <= pmid[i]:
+            arrout[i] = arrin[i]
+        elif pout >= pmid[i + ncold * (nlev - 1)]:
+            arrout[i] = arrin[i + ncold * (nlev - 1)]
+        elif found:
+            k0 = kupper - 1
+            dpu = pout - pmid[i + ncold * k0]
+            dpl = pmid[i + ncold * (k0 + 1)] - pout
+            arrout[i] = (
+                arrin[i + ncold * k0] * dpl + arrin[i + ncold * (k0 + 1)] * dpu
+            ) / (dpl + dpu)
+        else:
+            return 1
+
+    return 0
 
 
 @export
