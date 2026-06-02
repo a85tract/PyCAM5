@@ -3,6 +3,7 @@ module MO_SETSOX
 
   use shr_kind_mod, only : r8 => shr_kind_r8
   use cam_logfile,  only : iulog
+  use iso_c_binding, only : c_int64_t
 
   private
   public :: sox_inti, setsox, setsox_shell_codon_wrap
@@ -38,6 +39,15 @@ module MO_SETSOX
   logical :: setsox_xph_lwc_diag_wrap_proof_written = .false.
   logical :: setsox_shell_wrap_proof_written = .false.
   logical :: setsox_shell_finalize_wrap_proof_written = .false.
+  logical :: sox_inti_proof_written = .false.
+
+  interface
+     function sox_inti_active_codon(active_c) result(out_c) bind(c, name="sox_inti_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function sox_inti_active_codon
+  end interface
 
 contains
 
@@ -606,6 +616,18 @@ contains
     implicit none
 
     logical :: history_aerosol   ! Output aerosol diagnostics
+    integer(c_int64_t) :: init_active_c
+
+    init_active_c = sox_inti_active_codon(1_c_int64_t)
+    if (init_active_c == 0_c_int64_t) return
+
+    if (masterproc .and. .not. sox_inti_proof_written) then
+       write(iulog,'(A)') 'sox_inti direct = codon; SOX active-policy direct; phys_getopts/species/history native CAM API islands'
+       call setsox_append_impl_proof('sox_inti direct = codon; SOX active-policy direct; ' // &
+            'phys_getopts/species/history native CAM API islands')
+       sox_inti_proof_written = .true.
+       call flush(iulog)
+    end if
 
     call phys_getopts( &
          history_aerosol_out = history_aerosol, &

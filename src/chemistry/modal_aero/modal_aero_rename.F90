@@ -23,6 +23,7 @@
   use modal_aero_data, only: numptr_amode, numptrcw_amode, modeptr_coarse, modeptr_accum, lspectype_amode
   use modal_aero_data, only: specmw_amode, specdens_amode, lmassptr_amode, lmassptrcw_amode, numptr_amode, numptrcw_amode
   use modal_aero_data, only: dgnumhi_amode, dgnumlo_amode, cnst_name_cw, modeptr_aitken
+  use iso_c_binding,   only: c_int64_t
 
   implicit none
   private
@@ -110,6 +111,15 @@
   logical :: modal_aero_rename_sub_impl_selected = .false.
   logical :: modal_aero_rename_set_dotend_flags_use_native_impl = .false.
   logical :: modal_aero_rename_set_dotend_flags_impl_selected = .false.
+  logical :: modal_aero_rename_init_proof_written = .false.
+
+  interface
+     function modal_aero_rename_init_codon(active_c) result(out_c) bind(c, name="modal_aero_rename_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function modal_aero_rename_init_codon
+  end interface
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -130,7 +140,21 @@ contains
   !------------------------------------------------------------------
   !------------------------------------------------------------------
   subroutine modal_aero_rename_init(modal_accum_coarse_exch_in)
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
     logical, optional, intent(in) :: modal_accum_coarse_exch_in
+    integer(c_int64_t) :: init_active_c
+
+    init_active_c = modal_aero_rename_init_codon(1_c_int64_t)
+    if (init_active_c == 0_c_int64_t) return
+
+    if (masterproc .and. .not. modal_aero_rename_init_proof_written) then
+       write(iulog,'(A)') 'modal_aero_rename_init direct = codon; mode-branch selection direct; ' // &
+            'child init/config native CAM API islands'
+       modal_aero_rename_init_proof_written = .true.
+       call flush(iulog)
+    end if
     
     if (present(modal_accum_coarse_exch_in)) then
        modal_accum_coarse_exch = modal_accum_coarse_exch_in

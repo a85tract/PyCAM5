@@ -19,6 +19,7 @@ module sox_cldaero_mod
   use cldaero_mod,     only : cldaero_uptakerate
   use chem_mods,       only : gas_pcnst
   use mo_constants,    only : pi
+  use iso_c_binding,   only : c_int64_t
 
   implicit none
   private
@@ -38,6 +39,15 @@ module sox_cldaero_mod
   logical :: sox_cldaero_update_core_wrap_proof_written = .false.
   logical :: sox_cldaero_finalize_wrap_proof_written = .false.
   logical :: sox_cldaero_destroy_obj_codon_logged = .false.
+  logical :: sox_cldaero_init_proof_written = .false.
+
+  interface
+     function sox_cldaero_init_active_codon(active_c) result(out_c) bind(c, name="sox_cldaero_init_active_codon")
+       use iso_c_binding, only : c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function sox_cldaero_init_active_codon
+  end interface
 
 contains
 
@@ -186,9 +196,23 @@ contains
 !----------------------------------------------------------------------------------
 
   subroutine sox_cldaero_init
+    use cam_logfile, only : iulog
+    use spmd_utils,  only : masterproc
 
     integer :: l, m
     logical :: history_aerosol      ! Output the MAM aerosol tendencies
+    integer(c_int64_t) :: init_active_c
+
+    init_active_c = sox_cldaero_init_active_codon(1_c_int64_t)
+    if (init_active_c == 0_c_int64_t) return
+
+    if (masterproc .and. .not. sox_cldaero_init_proof_written) then
+       write(iulog,'(A)') 'sox_cldaero_init direct = codon; init active-policy direct; species/history native CAM API islands'
+       call sox_cldaero_append_impl_proof('sox_cldaero_init direct = codon; init active-policy direct; ' // &
+            'species/history native CAM API islands')
+       sox_cldaero_init_proof_written = .true.
+       call flush(iulog)
+    end if
 
     id_msa = get_spc_ndx( 'MSA' )
     id_h2so4 = get_spc_ndx( 'H2SO4' )

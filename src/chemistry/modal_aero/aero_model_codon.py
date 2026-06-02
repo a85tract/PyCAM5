@@ -118,6 +118,11 @@ def qqcw_get_field_codon(index: int, pcnst: int, qqcw_p: cobj) -> int:
     return int(qqcw[index - 1])
 
 
+@export
+def modal_aero_rename_init_codon(active: int) -> int:
+    return active
+
+
 @inline
 def _modal_aero_trimmed_equal(name: Ptr[int], name_len: int, items: Ptr[int], item_len: int, item_index: int) -> bool:
     name_trim = name_len

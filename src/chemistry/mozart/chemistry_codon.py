@@ -154,6 +154,14 @@ def sulf_inti_active_codon(active: int) -> int:
     return _common.sulf_inti_active_codon(active)
 
 @export
+def sox_inti_active_codon(active: int) -> int:
+    return active
+
+@export
+def sox_cldaero_init_active_codon(active: int) -> int:
+    return active
+
+@export
 def fstrat_inti_active_codon(active: int) -> int:
     return _common.fstrat_inti_active_codon(active)
 
