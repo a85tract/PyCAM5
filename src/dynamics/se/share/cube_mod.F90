@@ -601,15 +601,7 @@ contains
             call abortmp('Dmap(): missing arguments for equiangular map')
        if (.not. present ( u2qmap ) .or. .not. present ( facenum ) ) &
             call abortmp('Dmap(): missing arguments for equiangular map')
-       call dmap_equiangular_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
-            real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
-            real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
-            real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
-            real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
-            real(u2qmap(1,1), c_double), real(u2qmap(1,2), c_double), &
-            real(u2qmap(2,1), c_double), real(u2qmap(2,2), c_double), &
-            real(u2qmap(3,1), c_double), real(u2qmap(3,2), c_double), &
-            real(u2qmap(4,1), c_double), real(u2qmap(4,2), c_double), c_loc(D))
+      call dmap_equiangular(D, a, b, corners, u2qmap, facenum)
        if (.not. proof_seen) then
           write(iulog,*) 'dmap implementation = codon'
           proof_seen = .true.
@@ -634,63 +626,39 @@ contains
   ! ========================================================
   subroutine dmap_equiangular(D, a,b, corners,u2qmap,facenum )
     use dimensions_mod, only : np
-    real (kind=real_kind), intent(out)  :: D(2,2)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc
+    use cam_logfile, only : iulog
+    real (kind=real_kind), intent(out), target  :: D(2,2)
     real (kind=real_kind), intent(in)     :: a,b
     real (kind=real_kind)    :: u2qmap(4,2)   
     type (cartesian2D_t)     :: corners(4)                          ! gnomonic coords of element corners
     integer :: facenum
-    ! local
-    real (kind=real_kind)  :: tmpD(2,2), Jp(2,2),x1,x2,pi,pj,qi,qj
-    real (kind=real_kind), dimension(4,2) :: unif2quadmap
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine dmap_equiangular_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
+            u11, u12, u21, u22, u31, u32, u41, u42, d_p) bind(c, name='dmap_equiangular_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: a_c, b_c
+         integer(c_int64_t), value :: face_no_c
+         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
+         real(c_double), value :: u11, u12, u21, u22, u31, u32, u41, u42
+         type(c_ptr), value :: d_p
+       end subroutine dmap_equiangular_codon
+    end interface
 
-#if 0
-    ! we shoud get rid of elem%u2qmap() and routine cube_mod.F90::elem_jacobian()
-    ! and replace with this code below:
-    ! but this produces roundoff level changes
-    !unif2quadmap(1,1)=(elem%cartp(1,1)%x+elem%cartp(np,1)%x+elem%cartp(np,np)%x+elem%cartp(1,np)%x)/4.0d0
-    !unif2quadmap(1,2)=(elem%cartp(1,1)%y+elem%cartp(np,1)%y+elem%cartp(np,np)%y+elem%cartp(1,np)%y)/4.0d0
-    unif2quadmap(2,1)=(-elem%cartp(1,1)%x+elem%cartp(np,1)%x+elem%cartp(np,np)%x-elem%cartp(1,np)%x)/4.0d0
-    unif2quadmap(2,2)=(-elem%cartp(1,1)%y+elem%cartp(np,1)%y+elem%cartp(np,np)%y-elem%cartp(1,np)%y)/4.0d0
-    unif2quadmap(3,1)=(-elem%cartp(1,1)%x-elem%cartp(np,1)%x+elem%cartp(np,np)%x+elem%cartp(1,np)%x)/4.0d0
-    unif2quadmap(3,2)=(-elem%cartp(1,1)%y-elem%cartp(np,1)%y+elem%cartp(np,np)%y+elem%cartp(1,np)%y)/4.0d0
-    unif2quadmap(4,1)=(elem%cartp(1,1)%x-elem%cartp(np,1)%x+elem%cartp(np,np)%x-elem%cartp(1,np)%x)/4.0d0
-    unif2quadmap(4,2)=(elem%cartp(1,1)%y-elem%cartp(np,1)%y+elem%cartp(np,np)%y-elem%cartp(1,np)%y)/4.0d0
-    Jp(1,1) = unif2quadmap(2,1) + unif2quadmap(4,1)*b
-    Jp(1,2) = unif2quadmap(3,1) + unif2quadmap(4,1)*a
-    Jp(2,1) = unif2quadmap(2,2) + unif2quadmap(4,2)*b
-    Jp(2,2) = unif2quadmap(3,2) + unif2quadmap(4,2)*a
-#else
-    ! input (a,b) shold be a point in the reference element [-1,1]
-    ! compute Jp(a,b)
-    Jp(1,1) = u2qmap(2,1) + u2qmap(4,1)*b
-    Jp(1,2) = u2qmap(3,1) + u2qmap(4,1)*a
-    Jp(2,1) = u2qmap(2,2) + u2qmap(4,2)*b
-    Jp(2,2) = u2qmap(3,2) + u2qmap(4,2)*a
-#endif
-
-    ! map (a,b) to the [-pi/2,pi/2] equi angular cube face:  x1,x2
-    ! a = gp%points(i)
-    ! b = gp%points(j)
-    pi = (1-a)/2
-    pj = (1-b)/2
-    qi = (1+a)/2
-    qj = (1+b)/2
-    x1 = pi*pj*corners(1)%x &
-         + qi*pj*corners(2)%x &
-         + qi*qj*corners(3)%x &
-         + pi*qj*corners(4)%x 
-    x2 = pi*pj*corners(1)%y &
-         + qi*pj*corners(2)%y &
-         + qi*qj*corners(3)%y &
-         + pi*qj*corners(4)%y 
-    
-    call vmap(tmpD,x1,x2,facenum) 
-
-    ! Include map from element -> ref element in D
-    D(1,1) = tmpD(1,1)*Jp(1,1) + tmpD(1,2)*Jp(2,1)
-    D(1,2) = tmpD(1,1)*Jp(1,2) + tmpD(1,2)*Jp(2,2)
-    D(2,1) = tmpD(2,1)*Jp(1,1) + tmpD(2,2)*Jp(2,1)
-    D(2,2) = tmpD(2,1)*Jp(1,2) + tmpD(2,2)*Jp(2,2)
+    call dmap_equiangular_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
+         real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
+         real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
+         real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
+         real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
+         real(u2qmap(1,1), c_double), real(u2qmap(1,2), c_double), &
+         real(u2qmap(2,1), c_double), real(u2qmap(2,2), c_double), &
+         real(u2qmap(3,1), c_double), real(u2qmap(3,2), c_double), &
+         real(u2qmap(4,1), c_double), real(u2qmap(4,2), c_double), c_loc(D))
+    if (.not. proof_seen) then
+       write(iulog,*) 'dmap_equiangular implementation = codon'
+       proof_seen = .true.
+    endif
   end subroutine dmap_equiangular
 
 
