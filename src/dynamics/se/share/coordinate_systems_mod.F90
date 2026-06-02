@@ -556,13 +556,37 @@ contains
   ! takes a 2D point on a face of the cube of size [-\pi/4, \pi/4] and projects it 
   ! onto a 3D point on a cube of size [-1,1] in R^3
   function cubedsphere2cart(cartin, face_no) result(cart)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc
+    use cam_logfile, only : iulog
     implicit none
     type (cartesian2d_t), intent(in)    :: cartin   ! assumed to be cartesian coordinates of cube
     integer,              intent(in)    :: face_no
 
     type(cartesian3D_t)                 :: cart
+    type(spherical_polar_t)             :: sphere
+    real(c_double), target              :: r_c, lon_c, lat_c
+    logical, save                       :: proof_seen = .false.
+    interface
+       subroutine projectpoint_codon(cart_x_c, cart_y_c, face_no_c, r_p, lon_p, lat_p) &
+            bind(c, name='projectpoint_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: cart_x_c, cart_y_c
+         integer(c_int64_t), value :: face_no_c
+         type(c_ptr), value :: r_p, lon_p, lat_p
+       end subroutine projectpoint_codon
+    end interface
 
-    cart = spherical_to_cart(projectpoint(cartin, face_no))
+    call projectpoint_codon(real(cartin%x, c_double), real(cartin%y, c_double), &
+         int(face_no, c_int64_t), c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
+    sphere%r = r_c
+    sphere%lon = lon_c
+    sphere%lat = lat_c
+
+    cart = spherical_to_cart(sphere)
+    if (.not. proof_seen) then
+       write(iulog,*) 'cubedsphere2cart implementation = codon; spherical_to_cart native trig island'
+       proof_seen = .true.
+    endif
 
   end function cubedsphere2cart
 
