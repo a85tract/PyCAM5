@@ -13,7 +13,7 @@ module rate_diags
   use spmd_utils,       only : masterproc
   use cam_abortutils,   only : endrun
   use cam_logfile,      only : iulog
-  use iso_c_binding,    only : c_int64_t
+  use iso_c_binding,    only : c_int64_t, c_loc, c_ptr
 
   implicit none
   private 
@@ -38,9 +38,18 @@ module rate_diags
   logical :: rate_diags_batch_use_native_impl = .false.
   logical :: rate_diags_batch_impl_selected = .false.
   logical :: rate_diags_batch_entered_logged = .false.
+  logical :: rate_diags_init_proof_written = .false.
   logical :: parse_rate_sums_proof_written = .false.
 
   interface
+    function rate_diags_init_codon(tag_len_c, fieldname_len_c, rxt_tag_cnt_c, &
+         rxt_tag_ascii_p, rate_name_ascii_p) result(out_c) bind(c, name="rate_diags_init_codon")
+      use iso_c_binding, only : c_int64_t, c_ptr
+      integer(c_int64_t), value :: tag_len_c, fieldname_len_c, rxt_tag_cnt_c
+      type(c_ptr), value :: rxt_tag_ascii_p, rate_name_ascii_p
+      integer(c_int64_t) :: out_c
+    end function rate_diags_init_codon
+
     function parse_rate_sums_active_codon(active) result(out_c) bind(c, name="parse_rate_sums_active_codon")
       use iso_c_binding, only : c_int64_t
       integer(c_int64_t), value :: active
@@ -169,23 +178,35 @@ contains
 !--------------------------------------------------------------------------------
   subroutine rate_diags_init
 
-    integer :: i, len, pos
+    integer :: i, ichar
+    integer(c_int64_t) :: codon_count
+    integer(c_int64_t), target :: rxt_tag_ascii(len(rxt_tag_lst), max(1, rxt_tag_cnt))
+    integer(c_int64_t), target :: rate_name_ascii(fieldname_len, max(1, rxt_tag_cnt))
 
-    character(len=64) :: name
+    do i = 1, rxt_tag_cnt
+       do ichar = 1, len(rxt_tag_lst)
+          rxt_tag_ascii(ichar,i) = int(iachar(rxt_tag_lst(i)(ichar:ichar)), c_int64_t)
+       end do
+    end do
+
+    codon_count = rate_diags_init_codon(int(len(rxt_tag_lst), c_int64_t), int(fieldname_len, c_int64_t), &
+         int(rxt_tag_cnt, c_int64_t), c_loc(rxt_tag_ascii(1,1)), c_loc(rate_name_ascii(1,1)))
+    if (codon_count /= int(rxt_tag_cnt, c_int64_t)) then
+       call endrun('rate_diags_init: Codon rate-name count mismatch')
+    end if
+
+    if (masterproc .and. .not. rate_diags_init_proof_written) then
+       write(iulog,'(A)') 'rate_diags_init direct = codon; rate-name construction direct; addfld native CAM API boundary'
+       call rate_diags_batch_append_proof('rate_diags_init direct = codon; rate-name construction direct; addfld native CAM API boundary')
+       rate_diags_init_proof_written = .true.
+       call flush(iulog)
+    end if
 
     do i = 1,rxt_tag_cnt
-       pos = 0
-       pos = index(rxt_tag_lst(i),'tag_')
-       if (pos <= 0) pos = index(rxt_tag_lst(i),'usr_')
-       if (pos <= 0) pos = index(rxt_tag_lst(i),'cph_')
-       if (pos <= 0) pos = index(rxt_tag_lst(i),'ion_')
-       if (pos>0) then
-          name = 'r_'//trim(rxt_tag_lst(i)(5:))
-       else
-          name = 'r_'//trim(rxt_tag_lst(i)(1:))
-       endif
-       len = min(fieldname_len,len_trim(name))
-       rate_names(i) = trim(name(1:len))
+       rate_names(i) = ' '
+       do ichar = 1, fieldname_len
+          rate_names(i)(ichar:ichar) = achar(int(rate_name_ascii(ichar,i)))
+       end do
        call addfld(rate_names(i), 'molecules/cm3/sec', pver,'A','reaction rate', phys_decomp)
     enddo
 

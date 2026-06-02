@@ -58,6 +58,16 @@ def tracer_cnst_init_codon() -> int:
     return _common.tracer_cnst_init_codon()
 
 @export
+def rate_diags_init_codon(
+    tag_len: int,
+    fieldname_len: int,
+    tag_count: int,
+    tag_ascii_p: cobj,
+    rate_name_ascii_p: cobj,
+) -> int:
+    return _common.rate_diags_init_codon(tag_len, fieldname_len, tag_count, tag_ascii_p, rate_name_ascii_p)
+
+@export
 def noy_ubc_readnl_codon() -> int:
     return _common.noy_ubc_readnl_codon()
 

@@ -193,6 +193,64 @@ def gas_wetdep_readnl_status_codon(pcnst: int, list_p: cobj, method_p: cobj, sta
 def tracer_cnst_init_codon() -> int:
     return 189
 
+@inline
+def _has_four_char_prefix(chars: Ptr[int], offset: int, length: int, c0: int, c1: int, c2: int, c3: int) -> bool:
+    for j in range(max(0, length - 3)):
+        if (
+            chars[offset + j] == c0
+            and chars[offset + j + 1] == c1
+            and chars[offset + j + 2] == c2
+            and chars[offset + j + 3] == c3
+        ):
+            return True
+    return False
+
+def rate_diags_init_codon(
+    tag_len: int,
+    fieldname_len: int,
+    tag_count: int,
+    tag_ascii_p: cobj,
+    rate_name_ascii_p: cobj,
+) -> int:
+    tag_ascii = Ptr[int](tag_ascii_p)
+    rate_name_ascii = Ptr[int](rate_name_ascii_p)
+
+    for item in range(tag_count):
+        tag_offset = item * tag_len
+        name_offset = item * fieldname_len
+
+        for j in range(fieldname_len):
+            rate_name_ascii[name_offset + j] = 32
+
+        start = 0
+        if (
+            _has_four_char_prefix(tag_ascii, tag_offset, tag_len, 116, 97, 103, 95)
+            or _has_four_char_prefix(tag_ascii, tag_offset, tag_len, 117, 115, 114, 95)
+            or _has_four_char_prefix(tag_ascii, tag_offset, tag_len, 99, 112, 104, 95)
+            or _has_four_char_prefix(tag_ascii, tag_offset, tag_len, 105, 111, 110, 95)
+        ):
+            start = 4
+
+        tag_end = tag_len
+        while tag_end > start and tag_ascii[tag_offset + tag_end - 1] == 32:
+            tag_end -= 1
+
+        out_pos = 0
+        if fieldname_len > 0:
+            rate_name_ascii[name_offset] = 114
+            out_pos = 1
+        if fieldname_len > 1:
+            rate_name_ascii[name_offset + 1] = 95
+            out_pos = 2
+
+        tag_pos = start
+        while tag_pos < tag_end and out_pos < fieldname_len:
+            rate_name_ascii[name_offset + out_pos] = tag_ascii[tag_offset + tag_pos]
+            tag_pos += 1
+            out_pos += 1
+
+    return tag_count
+
 def noy_ubc_readnl_codon() -> int:
     return 173
 
