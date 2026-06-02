@@ -4,6 +4,7 @@ import se_dynamics_sphere_ops_codon as _sphere
 import se_dynamics_vertical_remap_codon as _vertical
 import se_dynamics_remap_q_ppm_codon as _remap
 import se_dynamics_misc_codon as _misc
+import se_dynamics_prim_si_codon as _prim_si
 
 @export
 def get_block_lvl_cnt_d_codon(plevp: int) -> int:
@@ -88,6 +89,32 @@ def prim_subcycle_q_update_codon(
         qdp_p,
         q_p,
     )
+
+@export
+def preq_hydrostatic_codon(
+    np: int,
+    nlev: int,
+    rgas: float,
+    phi_p: cobj,
+    phis_p: cobj,
+    tv_p: cobj,
+    p_p: cobj,
+    dp_p: cobj,
+    phii_p: cobj,
+):
+    return _prim_si.preq_hydrostatic_codon(np, nlev, rgas, phi_p, phis_p, tv_p, p_p, dp_p, phii_p)
+
+@export
+def preq_omega_ps_codon(
+    np: int,
+    nlev: int,
+    omega_p_p: cobj,
+    p_p: cobj,
+    vgrad_p_p: cobj,
+    divdp_p: cobj,
+    suml_p: cobj,
+):
+    return _prim_si.preq_omega_ps_codon(np, nlev, omega_p_p, p_p, vgrad_p_p, divdp_p, suml_p)
 
 @export
 def se_log2_codon(n: int) -> int:

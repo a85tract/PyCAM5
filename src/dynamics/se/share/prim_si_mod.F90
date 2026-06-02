@@ -174,25 +174,32 @@ contains
     use kinds, only : real_kind
     use dimensions_mod, only : np, nlev
     use hybvcoord_mod, only : hvcoord_t
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
     implicit none
 
 
     !------------------------------Arguments---------------------------------------------------------------
-    real(kind=real_kind), intent(in) :: divdp(np,np,nlev)      ! divergence
-    real(kind=real_kind), intent(in) :: vgrad_p(np,np,nlev) ! v.grad(p)
-    real(kind=real_kind), intent(in) :: p(np,np,nlev)     ! layer thicknesses (pressure)
+    real(kind=real_kind), intent(in), target :: divdp(np,np,nlev)      ! divergence
+    real(kind=real_kind), intent(in), target :: vgrad_p(np,np,nlev) ! v.grad(p)
+    real(kind=real_kind), intent(in), target :: p(np,np,nlev)     ! layer thicknesses (pressure)
     type (hvcoord_t),     intent(in) :: hvcoord
-    real(kind=real_kind), intent(out):: omega_p(np,np,nlev)   ! vertical pressure velocity
+    real(kind=real_kind), intent(out), target :: omega_p(np,np,nlev)   ! vertical pressure velocity
     !------------------------------------------------------------------------------------------------------
 
     !---------------------------Local workspace-----------------------------
-    integer i,j,k                         ! longitude, level indices
-    real(kind=real_kind) term             ! one half of basic term in omega/p summation 
-    real(kind=real_kind) Ckk,Ckl          ! diagonal term of energy conversion matrix
-    real(kind=real_kind) suml(np,np)      ! partial sum over l = (1, k-1)
+    real(kind=real_kind), target :: suml(np,np)      ! partial sum over l = (1, k-1)
+    logical, save :: proof_seen = .false.
     !-----------------------------------------------------------------------
+
+    interface
+      subroutine preq_omega_ps_codon(np_c, nlev_c, omega_p_p, p_p, vgrad_p_p, divdp_p, suml_p) &
+           bind(c, name='preq_omega_ps_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: np_c, nlev_c
+        type(c_ptr), value :: omega_p_p, p_p, vgrad_p_p, divdp_p, suml_p
+      end subroutine preq_omega_ps_codon
+    end interface
 
 #define SE_MISC_TAG 25
 #define SE_MISC_LABEL 'prim_si_mod'
@@ -201,43 +208,13 @@ contains
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
 
-#if (defined COLUMN_OPENMP)
-!$omp parallel do private(k,j,i,ckk,term,ckl)
-#endif
-       do j=1,np   !   Loop inversion (AAM)
-
-          do i=1,np
-             ckk = 0.5d0/p(i,j,1)
-             term = divdp(i,j,1)
-!             omega_p(i,j,1) = hvcoord%hybm(1)*vgrad_ps(i,j,1)/p(i,j,1)
-             omega_p(i,j,1) = vgrad_p(i,j,1)/p(i,j,1)
-             omega_p(i,j,1) = omega_p(i,j,1) - ckk*term
-             suml(i,j) = term
-          end do
-
-          do k=2,nlev-1
-             do i=1,np
-                ckk = 0.5d0/p(i,j,k)
-                ckl = 2*ckk
-                term = divdp(i,j,k)
-!                omega_p(i,j,k) = hvcoord%hybm(k)*vgrad_ps(i,j,k)/p(i,j,k)
-                omega_p(i,j,k) = vgrad_p(i,j,k)/p(i,j,k)
-                omega_p(i,j,k) = omega_p(i,j,k) - ckl*suml(i,j) - ckk*term
-                suml(i,j) = suml(i,j) + term
-
-             end do
-          end do
-
-          do i=1,np
-             ckk = 0.5d0/p(i,j,nlev)
-             ckl = 2*ckk
-             term = divdp(i,j,nlev)
-!             omega_p(i,j,nlev) = hvcoord%hybm(nlev)*vgrad_ps(i,j,nlev)/p(i,j,nlev)
-             omega_p(i,j,nlev) = vgrad_p(i,j,nlev)/p(i,j,nlev)
-             omega_p(i,j,nlev) = omega_p(i,j,nlev) - ckl*suml(i,j) - ckk*term
-          end do
-
-       end do
+    call preq_omega_ps_codon(int(np, c_int64_t), int(nlev, c_int64_t), &
+         c_loc(omega_p(1,1,1)), c_loc(p(1,1,1)), c_loc(vgrad_p(1,1,1)), c_loc(divdp(1,1,1)), &
+         c_loc(suml(1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'preq_omega_ps implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine preq_omega_ps
 
@@ -322,53 +299,42 @@ contains
     use dimensions_mod, only : np, nlev
     use physical_constants, only : rgas
 !    use hybvcoord_mod, only : hvcoord_t
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     implicit none
 
 
     !------------------------------Arguments---------------------------------------------------------------
-    real(kind=real_kind), intent(out) :: phi(np,np,nlev)     
-    real(kind=real_kind), intent(in) :: phis(np,np)
-    real(kind=real_kind), intent(in) :: T_v(np,np,nlev)
-    real(kind=real_kind), intent(in) :: p(np,np,nlev)   
-    real(kind=real_kind), intent(in) :: dp(np,np,nlev)  
+    real(kind=real_kind), intent(out), target :: phi(np,np,nlev)
+    real(kind=real_kind), intent(in), target :: phis(np,np)
+    real(kind=real_kind), intent(in), target :: T_v(np,np,nlev)
+    real(kind=real_kind), intent(in), target :: p(np,np,nlev)
+    real(kind=real_kind), intent(in), target :: dp(np,np,nlev)
  !   type (hvcoord_t),     intent(in) :: hvcoord
     !------------------------------------------------------------------------------------------------------
 
     !---------------------------Local workspace-----------------------------
-    integer i,j,k                         ! longitude, level indices
-    real(kind=real_kind) Hkk,Hkl          ! diagonal term of energy conversion matrix
-    real(kind=real_kind), dimension(np,np,nlev) :: phii       ! Geopotential at interfaces
+    real(kind=real_kind), target :: phii(np,np,nlev)       ! Geopotential at interfaces
+    logical, save :: proof_seen = .false.
     !-----------------------------------------------------------------------
 
-#if (defined COLUMN_OPENMP)
-!$omp parallel do private(k,j,i,hkk,hkl)
-#endif
-       do j=1,np   !   Loop inversion (AAM)
+    interface
+      subroutine preq_hydrostatic_codon(np_c, nlev_c, rgas_c, phi_p, phis_p, tv_p, p_p, dp_p, phii_p) &
+           bind(c, name='preq_hydrostatic_codon')
+        import :: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: np_c, nlev_c
+        real(c_double), value :: rgas_c
+        type(c_ptr), value :: phi_p, phis_p, tv_p, p_p, dp_p, phii_p
+      end subroutine preq_hydrostatic_codon
+    end interface
 
-          do i=1,np
-             hkk = dp(i,j,nlev)*0.5d0/p(i,j,nlev)
-             hkl = 2*hkk
-             phii(i,j,nlev)  = Rgas*T_v(i,j,nlev)*hkl
-             phi(i,j,nlev) = phis(i,j) + Rgas*T_v(i,j,nlev)*hkk 
-          end do
-
-          do k=nlev-1,2,-1
-             do i=1,np
-                ! hkk = dp*ckk
-                hkk = dp(i,j,k)*0.5d0/p(i,j,k)
-                hkl = 2*hkk
-                phii(i,j,k) = phii(i,j,k+1) + Rgas*T_v(i,j,k)*hkl
-                phi(i,j,k) = phis(i,j) + phii(i,j,k+1) + Rgas*T_v(i,j,k)*hkk
-             end do
-          end do
-
-          do i=1,np
-             ! hkk = dp*ckk
-             hkk = 0.5d0*dp(i,j,1)/p(i,j,1)
-             phi(i,j,1) = phis(i,j) + phii(i,j,2) + Rgas*T_v(i,j,1)*hkk
-          end do
-
-       end do
+    call preq_hydrostatic_codon(int(np, c_int64_t), int(nlev, c_int64_t), real(rgas, c_double), &
+         c_loc(phi(1,1,1)), c_loc(phis(1,1)), c_loc(T_v(1,1,1)), c_loc(p(1,1,1)), c_loc(dp(1,1,1)), &
+         c_loc(phii(1,1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'preq_hydrostatic implementation = codon'
+       proof_seen = .true.
+    endif
 
 
 end subroutine preq_hydrostatic
