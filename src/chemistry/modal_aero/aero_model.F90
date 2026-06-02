@@ -139,6 +139,8 @@ module aero_model
   logical :: qqcw2vmr_impl_selected = .false.
   logical :: vmr2qqcw_use_native_impl = .false.
   logical :: vmr2qqcw_impl_selected = .false.
+  logical :: aero_model_register_codon_logged = .false.
+  logical :: aero_model_strat_surfarea_codon_logged = .false.
 
 contains
   
@@ -200,7 +202,29 @@ contains
   !=============================================================================
   !=============================================================================
   subroutine aero_model_register
+    use iso_c_binding, only : c_int64_t
     use modal_aero_initialize_data, only : modal_aero_register
+
+    integer(c_int64_t) :: active_c
+
+    interface
+       function aero_model_register_codon(stage_c) result(out_c) bind(c, name="aero_model_register_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: out_c
+       end function aero_model_register_codon
+    end interface
+
+    active_c = aero_model_register_codon(1_c_int64_t)
+    if (.not. aero_model_register_codon_logged) then
+       aero_model_register_codon_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'aero_model_register direct = codon; modal_aero_register native CAM API island'
+          call flush(iulog)
+       end if
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call modal_aero_register()
 
@@ -2830,6 +2854,7 @@ contains
   ! if modal_strat_sulfate = TRUE -- called from mo_gas_phase_chemdr
   !-------------------------------------------------------------------------
   subroutine aero_model_strat_surfarea( ncol, mmr, pmid, temp, ltrop, pbuf, strato_sad )
+    use iso_c_binding, only : c_int64_t
 
     ! dummy args
     integer,  intent(in)    :: ncol
@@ -2844,10 +2869,29 @@ contains
     real(r8), pointer, dimension(:,:,:) :: dgnum
     integer :: beglev(ncol)
     integer :: endlev(ncol)
+    integer(c_int64_t) :: active_c
+
+    interface
+       function aero_model_strat_surfarea_codon(active_c) result(out_c) bind(c, name="aero_model_strat_surfarea_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active_c
+         integer(c_int64_t) :: out_c
+       end function aero_model_strat_surfarea_codon
+    end interface
 
     strato_sad = 0._r8
 
-    if (.not.modal_strat_sulfate) return
+    active_c = aero_model_strat_surfarea_codon(merge(1_c_int64_t, 0_c_int64_t, modal_strat_sulfate))
+    if (.not. aero_model_strat_surfarea_codon_logged) then
+       aero_model_strat_surfarea_codon_logged = .true.
+       if (masterproc) then
+          write(iulog,'(A)') &
+               'aero_model_strat_surfarea direct = codon; inactive/default branch selected in Codon'
+          call flush(iulog)
+       end if
+    end if
+
+    if (active_c == 0_c_int64_t) return
 
     call pbuf_get_field(pbuf, dgnum_idx, dgnum )
 

@@ -56,6 +56,7 @@ logical :: set_srf_wetdep_impl_selected = .false.
 logical :: set_srf_wetdep_direct_logged = .false.
 logical :: use_native_set_srf_drydep_impl = .false.
 logical :: set_srf_drydep_impl_selected = .false.
+logical :: modal_aero_deposition_init_codon_logged = .false.
 
 !==============================================================================
 contains
@@ -63,6 +64,7 @@ contains
 
 subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_ndx, &
                             dst3_ndx,ncl3_ndx,so43_ndx,num3_ndx,bc4_ndx,pom4_ndx)
+   use iso_c_binding, only: c_int64_t
 
 ! set aerosol indices for re-mapping surface deposition fluxes:
 ! *_a1 = accumulation mode
@@ -74,9 +76,28 @@ subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_nd
 
    integer, optional, intent(in) :: bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_ndx,dst3_ndx,ncl3_ndx,so43_ndx,num3_ndx
    integer, optional, intent(in) :: bc4_ndx,pom4_ndx
+   integer(c_int64_t) :: active_c
+
+   interface
+      function modal_aero_deposition_init_codon(active_c) result(out_c) bind(c, name="modal_aero_deposition_init_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active_c
+         integer(c_int64_t) :: out_c
+      end function modal_aero_deposition_init_codon
+   end interface
+
+   active_c = modal_aero_deposition_init_codon(merge(1_c_int64_t, 0_c_int64_t, .not. initialized))
+   if (.not. modal_aero_deposition_init_codon_logged) then
+      modal_aero_deposition_init_codon_logged = .true.
+      if (masterproc) then
+         write(iulog,'(A)') &
+              'modal_aero_deposition_init direct = codon; constituent lookup/module-state setup native CAM API island'
+         call flush(iulog)
+      end if
+   end if
 
    ! if already initialized abort the run
-   if (initialized) then
+   if (active_c == 0_c_int64_t) then
      call endrun('modal_aero_deposition_init is already initialized')
    endif
 

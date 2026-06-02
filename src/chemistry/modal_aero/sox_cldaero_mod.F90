@@ -37,6 +37,7 @@ module sox_cldaero_mod
   logical :: sox_cldaero_update_core_proof_written = .false.
   logical :: sox_cldaero_update_core_wrap_proof_written = .false.
   logical :: sox_cldaero_finalize_wrap_proof_written = .false.
+  logical :: sox_cldaero_destroy_obj_codon_logged = .false.
 
 contains
 
@@ -770,7 +771,33 @@ contains
   !----------------------------------------------------------------------------------
   !----------------------------------------------------------------------------------
   subroutine sox_cldaero_destroy_obj( conc_obj )
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile,   only : iulog
+    use spmd_utils,    only : masterproc
+
     type(cldaero_conc_t), pointer :: conc_obj
+    integer(c_int64_t) :: active_c
+    character(len=80) :: proof_line
+
+    interface
+       function sox_cldaero_destroy_obj_codon(stage_c) result(out_c) bind(c, name="sox_cldaero_destroy_obj_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: out_c
+       end function sox_cldaero_destroy_obj_codon
+    end interface
+
+    active_c = sox_cldaero_destroy_obj_codon(1_c_int64_t)
+    if (.not. sox_cldaero_destroy_obj_codon_logged) then
+       sox_cldaero_destroy_obj_codon_logged = .true.
+       proof_line = 'sox_cldaero_destroy_obj implementation = codon'
+       if (masterproc) then
+          write(iulog,'(A)') trim(proof_line)
+          call flush(iulog)
+       end if
+       call sox_cldaero_append_impl_proof(proof_line)
+    end if
+    if (active_c == 0_c_int64_t) return
 
     call cldaero_deallocate( conc_obj )
 

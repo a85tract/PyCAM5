@@ -13,6 +13,11 @@ def chem_surfvals_init_codon(flag: int) -> int:
 
 
 @export
+def prescribed_strataero_adv_codon(active: int) -> int:
+    return active
+
+
+@export
 def chem_surfvals_get_codon(
     name_len: int,
     name_ascii_p: cobj,

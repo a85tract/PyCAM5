@@ -4,6 +4,11 @@ def _idx2(i: int, j: int, ld1: int) -> int:
 
 
 @export
+def modal_aero_deposition_init_codon(active: int) -> int:
+    return active
+
+
+@export
 def set_srf_wetdep_codon(
     ncol: int,
     pcols: int,

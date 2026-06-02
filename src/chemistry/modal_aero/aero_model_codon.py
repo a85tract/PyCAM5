@@ -54,6 +54,21 @@ def wetdep_init_codon() -> int:
     return 1
 
 
+@export
+def aero_model_register_codon(stage: int) -> int:
+    return stage
+
+
+@export
+def aero_model_strat_surfarea_codon(active: int) -> int:
+    return active
+
+
+@export
+def sox_cldaero_destroy_obj_codon(stage: int) -> int:
+    return stage
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array declared as (ld1, *)."""

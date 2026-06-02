@@ -60,6 +60,11 @@ module prescribed_strataero
        integer(c_int64_t), value :: active_c
        integer(c_int64_t) :: out_c
      end function prescribed_strataero_register_codon
+     function prescribed_strataero_adv_codon(active_c) result(out_c) bind(c, name="prescribed_strataero_adv_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function prescribed_strataero_adv_codon
   end interface
 
 
@@ -265,11 +270,12 @@ end subroutine prescribed_strataero_readnl
     real(r8), pointer :: mass(:,:)
     real(r8), pointer :: area(:,:)
     real(r8), pointer :: radius(:,:)
+    integer(c_int64_t) :: active_c
 
     !WACCM-derived relation between mass concentration and wet aerosol radius in meters
     real(r8),parameter :: radius_conversion = 1.9e-4_r8
 
-    call chemistry_misc_codon_touch('prescribed_strataero_adv', 125)
+    active_c = prescribed_strataero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_strataero))
     if (.not. prescribed_strataero_adv_logged) then
        prescribed_strataero_adv_logged = .true.
        if (masterproc) then
@@ -279,7 +285,7 @@ end subroutine prescribed_strataero_readnl
        end if
     end if
 
-    if( .not. has_prescribed_strataero ) return
+    if( active_c == 0_c_int64_t ) return
 
     call advance_trcdata( fields, file, state, pbuf2d )
 
