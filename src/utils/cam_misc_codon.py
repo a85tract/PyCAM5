@@ -1,6 +1,54 @@
+from C import MPI_Alltoall(Ptr[byte], i32, i32, Ptr[byte], i32, i32, i32) -> i32
+from C import MPI_Allgather(Ptr[byte], i32, i32, Ptr[byte], i32, i32, i32) -> i32
+
+
 @export
 def cam_misc_touch_codon(tag: int) -> int:
     return tag
+
+
+@export
+def wrap_mpi_mpialltoallint_codon(
+    sendbuf_p: cobj,
+    sendcnt: int,
+    recvbuf_p: cobj,
+    recvcnt: int,
+    comm: int,
+    mpiint_arg: int,
+) -> int:
+    return int(
+        MPI_Alltoall(
+            Ptr[byte](sendbuf_p),
+            i32(sendcnt),
+            i32(mpiint_arg),
+            Ptr[byte](recvbuf_p),
+            i32(recvcnt),
+            i32(mpiint_arg),
+            i32(comm),
+        )
+    )
+
+
+@export
+def wrap_mpi_mpiallgatherint_codon(
+    sendbuf_p: cobj,
+    scount: int,
+    recvbuf_p: cobj,
+    rcount: int,
+    comm: int,
+    mpiint_arg: int,
+) -> int:
+    return int(
+        MPI_Allgather(
+            Ptr[byte](sendbuf_p),
+            i32(scount),
+            i32(mpiint_arg),
+            Ptr[byte](recvbuf_p),
+            i32(rcount),
+            i32(mpiint_arg),
+            i32(comm),
+        )
+    )
 
 
 @export

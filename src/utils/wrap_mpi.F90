@@ -1127,20 +1127,30 @@
    use mpishorthand
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
-   use iso_c_binding,    only: c_int64_t
+   use iso_c_binding,    only: c_int64_t, c_int, c_loc, c_ptr
 #if defined( WRAP_MPI_TIMING )
    use perf_mod
 #endif
 
    implicit none
 
-   integer, intent(in)  :: sendbuf(*)
+   integer, intent(in), target  :: sendbuf(*)
    integer, intent(in)  :: sendcnt
-   integer, intent(out) :: recvbuf(*)
+   integer, intent(out), target :: recvbuf(*)
    integer, intent(in)  :: recvcnt
    integer, intent(in)  :: comm
  
    integer :: ier              ! MPI error code
+
+   interface
+      function wrap_mpi_mpialltoallint_codon(sendbuf_p, sendcnt, recvbuf_p, recvcnt, comm, mpiint_arg) result(ierr) &
+            bind(c, name='wrap_mpi_mpialltoallint_codon')
+         import :: c_int, c_ptr
+         type(c_ptr), value :: sendbuf_p, recvbuf_p
+         integer(c_int), value :: sendcnt, recvcnt, comm, mpiint_arg
+         integer(c_int) :: ierr
+      end function wrap_mpi_mpialltoallint_codon
+   end interface
 
 #define CAM_MISC_TAG 258
 #define CAM_MISC_LABEL 'mpialltoallint'
@@ -1152,9 +1162,9 @@
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_alltoallint')
 #endif
-   call mpi_alltoall (sendbuf, sendcnt, mpiint, &
-                      recvbuf, recvcnt, mpiint, &
-                      comm, ier)
+   ier = wrap_mpi_mpialltoallint_codon(c_loc(sendbuf), int(sendcnt, c_int), &
+                                       c_loc(recvbuf), int(recvcnt, c_int), &
+                                       int(comm, c_int), int(mpiint, c_int))
    if (ier/=mpi_success) then
       write(iulog,*)'mpi_alltoallint failed ier=',ier
       call endrun
@@ -1223,20 +1233,30 @@
    use mpishorthand
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
-   use iso_c_binding,    only: c_int64_t
+   use iso_c_binding,    only: c_int64_t, c_int, c_loc, c_ptr
 #if defined( WRAP_MPI_TIMING )
    use perf_mod
 #endif
 
    implicit none
 
-   integer, intent(in)  :: sendbuf(*)
-   integer, intent(out) :: recvbuf(*)
+   integer, intent(in), target  :: sendbuf(*)
+   integer, intent(out), target :: recvbuf(*)
    integer, intent(in)  :: scount
    integer, intent(in)  :: rcount
    integer, intent(in)  :: comm
  
    integer ier   !MP error code
+
+   interface
+      function wrap_mpi_mpiallgatherint_codon(sendbuf_p, scount, recvbuf_p, rcount, comm, mpiint_arg) result(ierr) &
+            bind(c, name='wrap_mpi_mpiallgatherint_codon')
+         import :: c_int, c_ptr
+         type(c_ptr), value :: sendbuf_p, recvbuf_p
+         integer(c_int), value :: scount, rcount, comm, mpiint_arg
+         integer(c_int) :: ierr
+      end function wrap_mpi_mpiallgatherint_codon
+   end interface
 
 #define CAM_MISC_TAG 259
 #define CAM_MISC_LABEL 'mpiallgatherint'
@@ -1248,8 +1268,9 @@
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_allgather')
 #endif
-   call mpi_allgather (sendbuf, scount, mpiint, recvbuf, rcount, &
-                       mpiint, comm, ier)
+   ier = wrap_mpi_mpiallgatherint_codon(c_loc(sendbuf), int(scount, c_int), &
+                                        c_loc(recvbuf), int(rcount, c_int), &
+                                        int(comm, c_int), int(mpiint, c_int))
    if (ier/=mpi_success) then
       write(iulog,*)'mpi_allgather failed ier=',ier
       call endrun
