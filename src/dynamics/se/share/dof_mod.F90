@@ -225,20 +225,30 @@ contains
   end subroutine UniqueCoords
 
   subroutine UniquePoints3D(idxUnique,nlyr,src,dest)
-    type (index_t) :: idxUnique
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    type (index_t), target :: idxUnique
     integer(kind=int_kind) :: nlyr
-    real (kind=real_kind) :: src(:,:,:)
-    real (kind=real_kind) :: dest(:,:)
-    
-    integer(kind=int_kind) :: i,j,k,ii
+    real (kind=real_kind), target, contiguous :: src(:,:,:)
+    real (kind=real_kind), target, contiguous :: dest(:,:)
 
-    do ii=1,idxUnique%NumUniquePts
-       i=idxUnique%ia(ii)
-       j=idxUnique%ja(ii)
-       do k=1,nlyr
-          dest(ii,k)=src(i,j,k)
-       enddo
-    enddo
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine uniquepoints3d_codon(num_unique_pts_c, nlyr_c, ia_p, ja_p, ni_c, nj_c, &
+            src_p, dest_p) bind(c, name='uniquepoints3d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_unique_pts_c, nlyr_c, ni_c, nj_c
+         type(c_ptr), value :: ia_p, ja_p, src_p, dest_p
+       end subroutine uniquepoints3d_codon
+    end interface
+
+    call uniquepoints3d_codon(int(idxUnique%NumUniquePts, c_int64_t), int(nlyr, c_int64_t), &
+         c_loc(idxUnique%ia(1)), c_loc(idxUnique%ja(1)), int(size(src, 1), c_int64_t), &
+         int(size(src, 2), c_int64_t), c_loc(src(1,1,1)), c_loc(dest(1,1)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'uniquepoints3d implementation = codon'
+       proof_seen = .true.
+    endif
 
   end subroutine UniquePoints3D
   subroutine UniquePoints4D(idxUnique,d3,d4,src,dest)

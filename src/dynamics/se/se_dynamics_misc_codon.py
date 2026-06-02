@@ -306,6 +306,27 @@ def uniquepoints2d_codon(num_unique_pts: int, ia_p: cobj, ja_p: cobj, ni: int, s
         dest[ii - 1] = src[(i - 1) + (j - 1) * ni]
 
 
+def uniquepoints3d_codon(
+    num_unique_pts: int,
+    nlyr: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    ni: int,
+    nj: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    ia = Ptr[i32](ia_p)
+    ja = Ptr[i32](ja_p)
+    src = Ptr[float](src_p)
+    dest = Ptr[float](dest_p)
+    for ii in range(1, num_unique_pts + 1):
+        i = int(ia[ii - 1])
+        j = int(ja[ii - 1])
+        for k in range(1, nlyr + 1):
+            dest[(ii - 1) + (k - 1) * num_unique_pts] = src[(i - 1) + (j - 1) * ni + (k - 1) * ni * nj]
+
+
 def convert_gbl_index_codon(number: int, ne: int, ie_p: cobj, je_p: cobj, face_no_p: cobj):
     ie = Ptr[i32](ie_p)
     je = Ptr[i32](je_p)

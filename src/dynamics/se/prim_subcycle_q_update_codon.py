@@ -1205,6 +1205,19 @@ def uniquepoints2d_codon(
     return _misc.uniquepoints2d_codon(num_unique_pts, ia_p, ja_p, ni, src_p, dest_p)
 
 @export
+def uniquepoints3d_codon(
+    num_unique_pts: int,
+    nlyr: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    ni: int,
+    nj: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    return _misc.uniquepoints3d_codon(num_unique_pts, nlyr, ia_p, ja_p, ni, nj, src_p, dest_p)
+
+@export
 def convert_gbl_index_codon(
     number: int,
     ne: int,
