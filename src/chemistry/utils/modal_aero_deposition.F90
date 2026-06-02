@@ -64,7 +64,7 @@ contains
 
 subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_ndx, &
                             dst3_ndx,ncl3_ndx,so43_ndx,num3_ndx,bc4_ndx,pom4_ndx)
-   use iso_c_binding, only: c_int64_t
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
 ! set aerosol indices for re-mapping surface deposition fluxes:
 ! *_a1 = accumulation mode
@@ -76,22 +76,172 @@ subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_nd
 
    integer, optional, intent(in) :: bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_ndx,dst3_ndx,ncl3_ndx,so43_ndx,num3_ndx
    integer, optional, intent(in) :: bc4_ndx,pom4_ndx
+   integer(c_int64_t), target :: bc1_present_c, pom1_present_c, soa1_present_c, soa2_present_c
+   integer(c_int64_t), target :: dst1_present_c, dst3_present_c, ncl3_present_c, so43_present_c
+   integer(c_int64_t), target :: bc4_present_c, pom4_present_c
+   integer(c_int64_t), target :: bc1_opt_c, pom1_opt_c, soa1_opt_c, soa2_opt_c
+   integer(c_int64_t), target :: dst1_opt_c, dst3_opt_c, ncl3_opt_c, so43_opt_c
+   integer(c_int64_t), target :: bc4_opt_c, pom4_opt_c
+   integer(c_int64_t), target :: bc1_lookup_c, pom1_lookup_c, soa1_lookup_c, soa2_lookup_c
+   integer(c_int64_t), target :: dst1_lookup_c, dst3_lookup_c, ncl3_lookup_c, so43_lookup_c
+   integer(c_int64_t), target :: bc4_lookup_c, pom4_lookup_c
+   integer(c_int64_t), target :: idx_bc1_c, idx_pom1_c, idx_soa1_c, idx_soa2_c
+   integer(c_int64_t), target :: idx_dst1_c, idx_dst3_c, idx_ncl3_c, idx_so43_c
+   integer(c_int64_t), target :: idx_bc4_c, idx_pom4_c, bin_fluxes_c, initialized_c
    integer(c_int64_t) :: active_c
+   integer :: lookup_value
 
    interface
-      function modal_aero_deposition_init_codon(active_c) result(out_c) bind(c, name="modal_aero_deposition_init_codon")
-         import :: c_int64_t
+      function modal_aero_deposition_init_codon(active_c, &
+                                                bc1_present_c, pom1_present_c, soa1_present_c, soa2_present_c, &
+                                                dst1_present_c, dst3_present_c, ncl3_present_c, so43_present_c, &
+                                                bc4_present_c, pom4_present_c, &
+                                                bc1_opt_c, pom1_opt_c, soa1_opt_c, soa2_opt_c, &
+                                                dst1_opt_c, dst3_opt_c, ncl3_opt_c, so43_opt_c, &
+                                                bc4_opt_c, pom4_opt_c, &
+                                                bc1_lookup_c, pom1_lookup_c, soa1_lookup_c, soa2_lookup_c, &
+                                                dst1_lookup_c, dst3_lookup_c, ncl3_lookup_c, so43_lookup_c, &
+                                                bc4_lookup_c, pom4_lookup_c, &
+                                                idx_bc1_c, idx_pom1_c, idx_soa1_c, idx_soa2_c, &
+                                                idx_dst1_c, idx_dst3_c, idx_ncl3_c, idx_so43_c, &
+                                                idx_bc4_c, idx_pom4_c, bin_fluxes_c, initialized_c) &
+                                                result(out_c) bind(c, name="modal_aero_deposition_init_codon")
+         import :: c_int64_t, c_ptr
          integer(c_int64_t), value :: active_c
+         integer(c_int64_t), value :: bc1_present_c, pom1_present_c, soa1_present_c, soa2_present_c
+         integer(c_int64_t), value :: dst1_present_c, dst3_present_c, ncl3_present_c, so43_present_c
+         integer(c_int64_t), value :: bc4_present_c, pom4_present_c
+         integer(c_int64_t), value :: bc1_opt_c, pom1_opt_c, soa1_opt_c, soa2_opt_c
+         integer(c_int64_t), value :: dst1_opt_c, dst3_opt_c, ncl3_opt_c, so43_opt_c
+         integer(c_int64_t), value :: bc4_opt_c, pom4_opt_c
+         integer(c_int64_t), value :: bc1_lookup_c, pom1_lookup_c, soa1_lookup_c, soa2_lookup_c
+         integer(c_int64_t), value :: dst1_lookup_c, dst3_lookup_c, ncl3_lookup_c, so43_lookup_c
+         integer(c_int64_t), value :: bc4_lookup_c, pom4_lookup_c
+         type(c_ptr), value :: idx_bc1_c, idx_pom1_c, idx_soa1_c, idx_soa2_c
+         type(c_ptr), value :: idx_dst1_c, idx_dst3_c, idx_ncl3_c, idx_so43_c
+         type(c_ptr), value :: idx_bc4_c, idx_pom4_c, bin_fluxes_c, initialized_c
          integer(c_int64_t) :: out_c
       end function modal_aero_deposition_init_codon
    end interface
 
-   active_c = modal_aero_deposition_init_codon(merge(1_c_int64_t, 0_c_int64_t, .not. initialized))
+   bc1_present_c  = merge(1_c_int64_t, 0_c_int64_t, present(bc1_ndx))
+   pom1_present_c = merge(1_c_int64_t, 0_c_int64_t, present(pom1_ndx))
+   soa1_present_c = merge(1_c_int64_t, 0_c_int64_t, present(soa1_ndx))
+   soa2_present_c = merge(1_c_int64_t, 0_c_int64_t, present(soa2_ndx))
+   dst1_present_c = merge(1_c_int64_t, 0_c_int64_t, present(dst1_ndx))
+   dst3_present_c = merge(1_c_int64_t, 0_c_int64_t, present(dst3_ndx))
+   ncl3_present_c = merge(1_c_int64_t, 0_c_int64_t, present(ncl3_ndx))
+   so43_present_c = merge(1_c_int64_t, 0_c_int64_t, present(so43_ndx))
+   bc4_present_c  = merge(1_c_int64_t, 0_c_int64_t, present(bc4_ndx))
+   pom4_present_c = merge(1_c_int64_t, 0_c_int64_t, present(pom4_ndx))
+
+   bc1_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(bc1_ndx)) then
+      bc1_opt_c = int(bc1_ndx, c_int64_t)
+   else
+      call cnst_get_ind('bc_a1', lookup_value)
+   endif
+   bc1_lookup_c = int(lookup_value, c_int64_t)
+
+   pom1_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(pom1_ndx)) then
+      pom1_opt_c = int(pom1_ndx, c_int64_t)
+   else
+      call cnst_get_ind('pom_a1', lookup_value)
+   endif
+   pom1_lookup_c = int(lookup_value, c_int64_t)
+
+   soa1_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(soa1_ndx)) then
+      soa1_opt_c = int(soa1_ndx, c_int64_t)
+   else
+      call cnst_get_ind('soa_a1', lookup_value)
+   endif
+   soa1_lookup_c = int(lookup_value, c_int64_t)
+
+   soa2_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(soa2_ndx)) then
+      soa2_opt_c = int(soa2_ndx, c_int64_t)
+   else
+      call cnst_get_ind('soa_a2', lookup_value)
+   endif
+   soa2_lookup_c = int(lookup_value, c_int64_t)
+
+   dst1_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(dst1_ndx)) then
+      dst1_opt_c = int(dst1_ndx, c_int64_t)
+   else
+      call cnst_get_ind('dst_a1', lookup_value, abort=.false.)
+   endif
+   dst1_lookup_c = int(lookup_value, c_int64_t)
+
+   dst3_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(dst3_ndx)) then
+      dst3_opt_c = int(dst3_ndx, c_int64_t)
+   else
+      call cnst_get_ind('dst_a3', lookup_value, abort=.false.)
+   endif
+   dst3_lookup_c = int(lookup_value, c_int64_t)
+
+   ncl3_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(ncl3_ndx)) then
+      ncl3_opt_c = int(ncl3_ndx, c_int64_t)
+   else
+      call cnst_get_ind('ncl_a3', lookup_value, abort=.false.)
+   endif
+   ncl3_lookup_c = int(lookup_value, c_int64_t)
+
+   so43_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(so43_ndx)) then
+      so43_opt_c = int(so43_ndx, c_int64_t)
+   else
+      call cnst_get_ind('so4_a3', lookup_value, abort=.false.)
+   endif
+   so43_lookup_c = int(lookup_value, c_int64_t)
+
+   bc4_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(bc4_ndx)) then
+      bc4_opt_c = int(bc4_ndx, c_int64_t)
+   else
+      call cnst_get_ind('bc_a4', lookup_value, abort=.false.)
+   endif
+   bc4_lookup_c = int(lookup_value, c_int64_t)
+
+   pom4_opt_c = 0_c_int64_t
+   lookup_value = 0
+   if (present(pom4_ndx)) then
+      pom4_opt_c = int(pom4_ndx, c_int64_t)
+   else
+      call cnst_get_ind('pom_a4', lookup_value, abort=.false.)
+   endif
+   pom4_lookup_c = int(lookup_value, c_int64_t)
+
+   active_c = modal_aero_deposition_init_codon(merge(1_c_int64_t, 0_c_int64_t, .not. initialized), &
+                                               bc1_present_c, pom1_present_c, soa1_present_c, soa2_present_c, &
+                                               dst1_present_c, dst3_present_c, ncl3_present_c, so43_present_c, &
+                                               bc4_present_c, pom4_present_c, &
+                                               bc1_opt_c, pom1_opt_c, soa1_opt_c, soa2_opt_c, &
+                                               dst1_opt_c, dst3_opt_c, ncl3_opt_c, so43_opt_c, &
+                                               bc4_opt_c, pom4_opt_c, &
+                                               bc1_lookup_c, pom1_lookup_c, soa1_lookup_c, soa2_lookup_c, &
+                                               dst1_lookup_c, dst3_lookup_c, ncl3_lookup_c, so43_lookup_c, &
+                                               bc4_lookup_c, pom4_lookup_c, &
+                                               c_loc(idx_bc1_c), c_loc(idx_pom1_c), c_loc(idx_soa1_c), c_loc(idx_soa2_c), &
+                                               c_loc(idx_dst1_c), c_loc(idx_dst3_c), c_loc(idx_ncl3_c), c_loc(idx_so43_c), &
+                                               c_loc(idx_bc4_c), c_loc(idx_pom4_c), c_loc(bin_fluxes_c), c_loc(initialized_c))
    if (.not. modal_aero_deposition_init_codon_logged) then
       modal_aero_deposition_init_codon_logged = .true.
       if (masterproc) then
-         write(iulog,'(A)') &
-              'modal_aero_deposition_init direct = codon; constituent lookup/module-state setup native CAM API island'
+         write(iulog,'(A)') 'modal_aero_deposition_init implementation = codon'
          call flush(iulog)
       end if
    end if
@@ -101,60 +251,18 @@ subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_nd
      call endrun('modal_aero_deposition_init is already initialized')
    endif
 
-   if (present(bc1_ndx)) then
-      idx_bc1  = bc1_ndx
-   else
-      call cnst_get_ind('bc_a1',  idx_bc1)
-   endif
-   if (present(pom1_ndx)) then
-      idx_pom1 = pom1_ndx
-   else
-      call cnst_get_ind('pom_a1', idx_pom1)
-   endif
-   if (present(soa1_ndx)) then
-      idx_soa1 = soa1_ndx
-   else
-      call cnst_get_ind('soa_a1', idx_soa1)
-   endif
-   if (present(soa2_ndx)) then
-      idx_soa2 = soa2_ndx
-   else
-      call cnst_get_ind('soa_a2', idx_soa2)
-   endif
-   if (present(dst1_ndx)) then
-      idx_dst1 = dst1_ndx
-   else
-      call cnst_get_ind('dst_a1', idx_dst1,abort=.false.)
-   endif
-   if (present(dst3_ndx)) then
-      idx_dst3 = dst3_ndx
-   else
-      call cnst_get_ind('dst_a3', idx_dst3,abort=.false.)
-   endif
-   if (present(ncl3_ndx)) then
-      idx_ncl3 = ncl3_ndx
-   else
-      call cnst_get_ind('ncl_a3', idx_ncl3,abort=.false.)
-   endif
-   if (present(so43_ndx)) then
-      idx_so43 = so43_ndx
-   else
-      call cnst_get_ind('so4_a3', idx_so43,abort=.false.)
-   endif
-   if (present(bc4_ndx)) then
-      idx_bc4 = bc4_ndx
-   else
-      call cnst_get_ind('bc_a4', idx_bc4,abort=.false.)
-   endif
-   if (present(pom4_ndx)) then
-      idx_pom4 = pom4_ndx
-   else
-      call cnst_get_ind('pom_a4', idx_pom4,abort=.false.)   
-   endif
-
-!  for 7 mode bin_fluxes will be false
-   bin_fluxes = idx_dst1>0 .and. idx_dst3>0 .and.idx_ncl3>0 .and. idx_so43>0
-   initialized = .true.
+   idx_bc1 = int(idx_bc1_c)
+   idx_pom1 = int(idx_pom1_c)
+   idx_soa1 = int(idx_soa1_c)
+   idx_soa2 = int(idx_soa2_c)
+   idx_dst1 = int(idx_dst1_c)
+   idx_dst3 = int(idx_dst3_c)
+   idx_ncl3 = int(idx_ncl3_c)
+   idx_so43 = int(idx_so43_c)
+   idx_bc4 = int(idx_bc4_c)
+   idx_pom4 = int(idx_pom4_c)
+   bin_fluxes = bin_fluxes_c /= 0_c_int64_t
+   initialized = initialized_c /= 0_c_int64_t
 
 end subroutine modal_aero_deposition_init
 

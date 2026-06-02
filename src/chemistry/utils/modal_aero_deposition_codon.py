@@ -4,7 +4,83 @@ def _idx2(i: int, j: int, ld1: int) -> int:
 
 
 @export
-def modal_aero_deposition_init_codon(active: int) -> int:
+def modal_aero_deposition_init_codon(
+    active: int,
+    bc1_present: int,
+    pom1_present: int,
+    soa1_present: int,
+    soa2_present: int,
+    dst1_present: int,
+    dst3_present: int,
+    ncl3_present: int,
+    so43_present: int,
+    bc4_present: int,
+    pom4_present: int,
+    bc1_opt: int,
+    pom1_opt: int,
+    soa1_opt: int,
+    soa2_opt: int,
+    dst1_opt: int,
+    dst3_opt: int,
+    ncl3_opt: int,
+    so43_opt: int,
+    bc4_opt: int,
+    pom4_opt: int,
+    bc1_lookup: int,
+    pom1_lookup: int,
+    soa1_lookup: int,
+    soa2_lookup: int,
+    dst1_lookup: int,
+    dst3_lookup: int,
+    ncl3_lookup: int,
+    so43_lookup: int,
+    bc4_lookup: int,
+    pom4_lookup: int,
+    idx_bc1_p: cobj,
+    idx_pom1_p: cobj,
+    idx_soa1_p: cobj,
+    idx_soa2_p: cobj,
+    idx_dst1_p: cobj,
+    idx_dst3_p: cobj,
+    idx_ncl3_p: cobj,
+    idx_so43_p: cobj,
+    idx_bc4_p: cobj,
+    idx_pom4_p: cobj,
+    bin_fluxes_p: cobj,
+    initialized_p: cobj,
+) -> int:
+    idx_bc1 = Ptr[int](idx_bc1_p)
+    idx_pom1 = Ptr[int](idx_pom1_p)
+    idx_soa1 = Ptr[int](idx_soa1_p)
+    idx_soa2 = Ptr[int](idx_soa2_p)
+    idx_dst1 = Ptr[int](idx_dst1_p)
+    idx_dst3 = Ptr[int](idx_dst3_p)
+    idx_ncl3 = Ptr[int](idx_ncl3_p)
+    idx_so43 = Ptr[int](idx_so43_p)
+    idx_bc4 = Ptr[int](idx_bc4_p)
+    idx_pom4 = Ptr[int](idx_pom4_p)
+    bin_fluxes = Ptr[int](bin_fluxes_p)
+    initialized = Ptr[int](initialized_p)
+
+    if active == 0:
+        return active
+
+    idx_bc1[0] = bc1_opt if bc1_present != 0 else bc1_lookup
+    idx_pom1[0] = pom1_opt if pom1_present != 0 else pom1_lookup
+    idx_soa1[0] = soa1_opt if soa1_present != 0 else soa1_lookup
+    idx_soa2[0] = soa2_opt if soa2_present != 0 else soa2_lookup
+    idx_dst1[0] = dst1_opt if dst1_present != 0 else dst1_lookup
+    idx_dst3[0] = dst3_opt if dst3_present != 0 else dst3_lookup
+    idx_ncl3[0] = ncl3_opt if ncl3_present != 0 else ncl3_lookup
+    idx_so43[0] = so43_opt if so43_present != 0 else so43_lookup
+    idx_bc4[0] = bc4_opt if bc4_present != 0 else bc4_lookup
+    idx_pom4[0] = pom4_opt if pom4_present != 0 else pom4_lookup
+    bin_fluxes[0] = (
+        1
+        if idx_dst1[0] > 0 and idx_dst3[0] > 0 and idx_ncl3[0] > 0 and idx_so43[0] > 0
+        else 0
+    )
+    initialized[0] = 1
     return active
 
 
