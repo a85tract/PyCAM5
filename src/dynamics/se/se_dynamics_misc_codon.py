@@ -5,6 +5,40 @@ def se_misc_touch_codon(tag: int) -> int:
     return tag
 
 
+def mass_matrix_vgrid_init_codon(np: int, mp_p: cobj, rmp_p: cobj, weights_p: cobj):
+    mp = Ptr[float](mp_p)
+    rmp = Ptr[float](rmp_p)
+    weights = Ptr[float](weights_p)
+    for j in range(np):
+        wj = weights[j]
+        for i in range(np):
+            idx = i + np * j
+            value = weights[i] * wj
+            mp[idx] = value
+            rmp[idx] = value
+
+
+def mass_matrix_invert_codon(np: int, field_p: cobj):
+    field = Ptr[float](field_p)
+    for j in range(np):
+        for i in range(np):
+            idx = i + np * j
+            field[idx] = 1.0 / field[idx]
+
+
+def mass_matrix_sphere_init_codon(np: int, mp_p: cobj, metdet_p: cobj, spheremp_p: cobj, rspheremp_p: cobj):
+    mp = Ptr[float](mp_p)
+    metdet = Ptr[float](metdet_p)
+    spheremp = Ptr[float](spheremp_p)
+    rspheremp = Ptr[float](rspheremp_p)
+    for j in range(np):
+        for i in range(np):
+            idx = i + np * j
+            value = mp[idx] * metdet[idx]
+            spheremp[idx] = value
+            rspheremp[idx] = value
+
+
 def se_omp_get_thread_num_codon() -> int:
     return 0
 

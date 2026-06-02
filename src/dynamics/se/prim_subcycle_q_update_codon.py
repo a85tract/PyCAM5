@@ -985,6 +985,18 @@ def se_misc_touch_codon(
     )
 
 @export
+def mass_matrix_vgrid_init_codon(np: int, mp_p: cobj, rmp_p: cobj, weights_p: cobj):
+    return _misc.mass_matrix_vgrid_init_codon(np, mp_p, rmp_p, weights_p)
+
+@export
+def mass_matrix_invert_codon(np: int, field_p: cobj):
+    return _misc.mass_matrix_invert_codon(np, field_p)
+
+@export
+def mass_matrix_sphere_init_codon(np: int, mp_p: cobj, metdet_p: cobj, spheremp_p: cobj, rspheremp_p: cobj):
+    return _misc.mass_matrix_sphere_init_codon(np, mp_p, metdet_p, spheremp_p, rspheremp_p)
+
+@export
 def virtual_temperature1d_codon(
     tin: float,
     rin: float,
