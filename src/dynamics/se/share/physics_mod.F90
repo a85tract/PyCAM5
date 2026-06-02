@@ -83,21 +83,42 @@ contains
   !================================
   
   function Virtual_Temperature1d(Tin,rin) result(Tv)
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_double
     use cam_logfile, only : iulog
     
     real (kind=real_kind),intent(in) :: Tin
     real (kind=real_kind),intent(in) :: rin
     real (kind=real_kind)            :: Tv
-
-#define SE_MISC_TAG 41
-#define SE_MISC_LABEL 'physics_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    character(len=32)                :: impl_name
+    integer                          :: impl_n, impl_status
+    logical, save                    :: proof_seen = .false.
+    interface
+       function virtual_temperature1d_codon(tin_c, rin_c, rwater_vapor_c, rgas_c) result(tv_c) &
+            bind(c, name='virtual_temperature1d_codon')
+         import :: c_double
+         real(c_double), value :: tin_c
+         real(c_double), value :: rin_c
+         real(c_double), value :: rwater_vapor_c
+         real(c_double), value :: rgas_c
+         real(c_double) :: tv_c
+       end function virtual_temperature1d_codon
+    end interface
 
 !    Tv = Tin*(1_real_kind + rin/Rd_on_Rv)/(1_real_kind + rin)
+
+    impl_name = 'codon'
+    call get_environment_variable('VIRTUAL_TEMPERATURE1D_IMPL', value=impl_name, &
+         length=impl_n, status=impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       Tv = virtual_temperature1d_codon(real(Tin, c_double), real(rin, c_double), &
+            real(Rwater_vapor, c_double), real(Rgas, c_double))
+       if (.not. proof_seen) then
+          write(iulog,*) 'Virtual_Temperature1d implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     Tv = Tin*(1_real_kind + (Rwater_vapor/Rgas - 1.0_real_kind)*rin)
 

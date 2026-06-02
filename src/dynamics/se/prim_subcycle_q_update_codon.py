@@ -981,6 +981,15 @@ def se_misc_touch_codon(
     )
 
 @export
+def virtual_temperature1d_codon(
+    tin: float,
+    rin: float,
+    rwater_vapor: float,
+    rgas: float,
+) -> float:
+    return tin * (1.0 + (rwater_vapor / rgas - 1.0) * rin)
+
+@export
 def se_omp_get_thread_num_codon() -> int:
     return _misc.se_omp_get_thread_num_codon()
 
