@@ -103,6 +103,7 @@ module spedata
   character(len=16) :: calendar
 
   logical, protected :: spe_run = .false.
+  logical, save :: spedata_defaultopts_codon_logged = .false.
   logical, save :: spedata_setopts_codon_logged = .false.
   logical, save :: spedata_init_codon_logged = .false.
   logical, save :: advance_spedata_codon_logged = .false.
@@ -115,6 +116,7 @@ contains
   subroutine spedata_defaultopts( spe_data_file_out, &
                                   spe_remove_file_out , &
                                   spe_filenames_list_out )
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
 
@@ -122,18 +124,66 @@ contains
     character(len=shr_kind_cl), intent(out), optional :: spe_filenames_list_out
     logical, intent(out), optional :: spe_remove_file_out
 
-    call chemistry_misc_codon_touch('spedata', 134)
+    integer :: i
+    integer(c_int64_t), target :: spe_data_file_ascii(shr_kind_cl)
+    integer(c_int64_t), target :: spe_filenames_list_ascii(shr_kind_cl)
+    integer(c_int64_t), target :: spe_data_file_out_ascii(shr_kind_cl)
+    integer(c_int64_t), target :: spe_filenames_list_out_ascii(shr_kind_cl)
+    integer(c_int64_t), target :: spe_remove_file_c(1)
+    type(c_ptr) :: spe_data_file_out_p, spe_filenames_list_out_p, spe_remove_file_out_p
+
+    interface
+       subroutine spedata_defaultopts_codon(spe_data_file_len_c, spe_data_file_p, spe_remove_file_c, &
+            spe_filenames_list_len_c, spe_filenames_list_p, present_data_file_c, spe_data_file_out_p, &
+            present_remove_file_c, spe_remove_file_out_p, present_filenames_list_c, spe_filenames_list_out_p) &
+            bind(c, name="spedata_defaultopts_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: spe_data_file_len_c, spe_remove_file_c, spe_filenames_list_len_c
+         integer(c_int64_t), value :: present_data_file_c, present_remove_file_c, present_filenames_list_c
+         type(c_ptr), value :: spe_data_file_p, spe_filenames_list_p
+         type(c_ptr), value :: spe_data_file_out_p, spe_remove_file_out_p, spe_filenames_list_out_p
+       end subroutine spedata_defaultopts_codon
+    end interface
+
+    do i = 1, shr_kind_cl
+       spe_data_file_ascii(i) = int(iachar(spedata_file(i:i)), c_int64_t)
+       spe_filenames_list_ascii(i) = int(iachar(filenames_list(i:i)), c_int64_t)
+    end do
+    spe_data_file_out_ascii = 32_c_int64_t
+    spe_filenames_list_out_ascii = 32_c_int64_t
+    spe_remove_file_c(1) = 0_c_int64_t
+    spe_data_file_out_p = c_loc(spe_data_file_out_ascii(1))
+    spe_filenames_list_out_p = c_loc(spe_filenames_list_out_ascii(1))
+    spe_remove_file_out_p = c_loc(spe_remove_file_c(1))
+
+    call spedata_defaultopts_codon(int(shr_kind_cl, c_int64_t), c_loc(spe_data_file_ascii(1)), &
+         merge(1_c_int64_t, 0_c_int64_t, remove_spe_file), int(shr_kind_cl, c_int64_t), &
+         c_loc(spe_filenames_list_ascii(1)), merge(1_c_int64_t, 0_c_int64_t, present(spe_data_file_out)), &
+         spe_data_file_out_p, merge(1_c_int64_t, 0_c_int64_t, present(spe_remove_file_out)), &
+         spe_remove_file_out_p, merge(1_c_int64_t, 0_c_int64_t, present(spe_filenames_list_out)), &
+         spe_filenames_list_out_p)
+
     if ( present( spe_data_file_out ) ) then
-       spe_data_file_out = spedata_file
-    endif
+       do i = 1, shr_kind_cl
+          spe_data_file_out(i:i) = achar(int(spe_data_file_out_ascii(i)))
+       end do
+    end if
 
     if ( present( spe_remove_file_out ) ) then
-       spe_remove_file_out = remove_spe_file
-    endif
+       spe_remove_file_out = spe_remove_file_c(1) /= 0_c_int64_t
+    end if
 
     if ( present( spe_filenames_list_out ) ) then
-       spe_filenames_list_out =  filenames_list
-    endif
+       do i = 1, shr_kind_cl
+          spe_filenames_list_out(i:i) = achar(int(spe_filenames_list_out_ascii(i)))
+       end do
+    end if
+
+    if (masterproc .and. .not. spedata_defaultopts_codon_logged) then
+       write(iulog,'(A)') 'spedata_defaultopts implementation = codon'
+       spedata_defaultopts_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end subroutine spedata_defaultopts
 

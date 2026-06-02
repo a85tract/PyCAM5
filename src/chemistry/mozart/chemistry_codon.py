@@ -70,6 +70,34 @@ def spedata_setopts_codon() -> int:
     return 1
 
 @export
+def spedata_defaultopts_codon(
+    spe_data_file_len: int,
+    spe_data_file_p: cobj,
+    spe_remove_file: int,
+    spe_filenames_list_len: int,
+    spe_filenames_list_p: cobj,
+    present_data_file: int,
+    spe_data_file_out_p: cobj,
+    present_remove_file: int,
+    spe_remove_file_out_p: cobj,
+    present_filenames_list: int,
+    spe_filenames_list_out_p: cobj,
+):
+    return _common.spedata_defaultopts_codon(
+        spe_data_file_len,
+        spe_data_file_p,
+        spe_remove_file,
+        spe_filenames_list_len,
+        spe_filenames_list_p,
+        present_data_file,
+        spe_data_file_out_p,
+        present_remove_file,
+        spe_remove_file_out_p,
+        present_filenames_list,
+        spe_filenames_list_out_p,
+    )
+
+@export
 def aerodep_flx_prescribed_codon(active: int) -> int:
     return active
 

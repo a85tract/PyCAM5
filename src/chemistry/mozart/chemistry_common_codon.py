@@ -33,6 +33,36 @@ def _flux_idx(i: int, m: int, pcols: int) -> int:
 def chemistry_misc_touch_codon(tag: int) -> int:
     return tag
 
+def spedata_defaultopts_codon(
+    spe_data_file_len: int,
+    spe_data_file_p: cobj,
+    spe_remove_file: int,
+    spe_filenames_list_len: int,
+    spe_filenames_list_p: cobj,
+    present_data_file: int,
+    spe_data_file_out_p: cobj,
+    present_remove_file: int,
+    spe_remove_file_out_p: cobj,
+    present_filenames_list: int,
+    spe_filenames_list_out_p: cobj,
+):
+    spe_data_file = Ptr[int](spe_data_file_p)
+    spe_filenames_list = Ptr[int](spe_filenames_list_p)
+    spe_data_file_out = Ptr[int](spe_data_file_out_p)
+    spe_remove_file_out = Ptr[int](spe_remove_file_out_p)
+    spe_filenames_list_out = Ptr[int](spe_filenames_list_out_p)
+
+    if present_data_file != 0:
+        for i in range(spe_data_file_len):
+            spe_data_file_out[i] = spe_data_file[i]
+
+    if present_remove_file != 0:
+        spe_remove_file_out[0] = 1 if spe_remove_file != 0 else 0
+
+    if present_filenames_list != 0:
+        for i in range(spe_filenames_list_len):
+            spe_filenames_list_out[i] = spe_filenames_list[i]
+
 
 @inline
 def _trimmed_equal(name: Ptr[int], name_len: int, items: Ptr[int], item_len: int, item_index: int) -> bool:
