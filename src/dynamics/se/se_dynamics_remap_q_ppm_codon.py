@@ -236,3 +236,9 @@ def remap_q_ppm_mass_apply_codon(
         massn2 = masso[_common._col_idx(kk)] + mass * dpo[_common._ghost_col_idx(kk)]
         qdp[_common._q_idx(iidx, jidx, k, qidx, nx, nlev)] = massn2 - massn1
         massn1 = massn2
+
+
+def integrate_parabola_codon(a0: float, a1: float, a2: float, x1: float, x2: float) -> float:
+    x1_sq = x1 * x1
+    x2_sq = x2 * x2
+    return a0 * (x2 - x1) + a1 * (x2_sq - x1_sq) / 2.0 + a2 * ((x2_sq * x2) - (x1_sq * x1)) / 3.0

@@ -914,12 +914,32 @@ end function compute_ppm
 !Simple function computes the definite integral of a parabola in normalized coordinates, xi=(x-x0)/dx,
 !given two bounds. Make sure this gets inlined during compilation.
 function integrate_parabola( a , x1 , x2 )    result(mass)
+  use iso_c_binding, only : c_double
+  use cam_logfile, only : iulog
+  use spmd_utils, only : masterproc
   implicit none
   real(kind=real_kind), intent(in) :: a(0:2)  !Coefficients of the parabola
   real(kind=real_kind), intent(in) :: x1      !lower domain bound for integration
   real(kind=real_kind), intent(in) :: x2      !upper domain bound for integration
   real(kind=real_kind)             :: mass
-  mass = a(0) * (x2 - x1) + a(1) * (x2 ** 2 - x1 ** 2) / 0.2D1 + a(2) * (x2 ** 3 - x1 ** 3) / 0.3D1
+  logical, save :: proof_seen = .false.
+  interface
+     function integrate_parabola_codon(a0_c, a1_c, a2_c, x1_c, x2_c) result(mass_c) &
+          bind(c, name='integrate_parabola_codon')
+       import :: c_double
+       real(c_double), value :: a0_c, a1_c, a2_c, x1_c, x2_c
+       real(c_double) :: mass_c
+     end function integrate_parabola_codon
+  end interface
+  mass = integrate_parabola_codon(real(a(0), c_double), real(a(1), c_double), real(a(2), c_double), &
+       real(x1, c_double), real(x2, c_double))
+  if (.not. proof_seen) then
+     if (masterproc) then
+        write(iulog,*) 'integrate_parabola implementation = codon'
+        call flush(iulog)
+     endif
+     proof_seen = .true.
+  endif
 end function integrate_parabola
 
 subroutine remap_q_ppm_interval_select_impl()

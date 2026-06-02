@@ -973,6 +973,10 @@ def remap_q_ppm_mass_apply_codon(
     )
 
 @export
+def integrate_parabola_codon(a0: float, a1: float, a2: float, x1: float, x2: float) -> float:
+    return _remap.integrate_parabola_codon(a0, a1, a2, x1, x2)
+
+@export
 def se_misc_touch_codon(
     tag: int,
 ):
