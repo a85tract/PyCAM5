@@ -5,6 +5,32 @@ def se_misc_touch_codon(tag: int) -> int:
     return tag
 
 
+def parallelmax0d_local_codon(data: float) -> float:
+    return data
+
+
+def parallelmin0d_local_codon(data: float) -> float:
+    return data
+
+
+def parallelmax1d_local_codon(data_p: cobj, length: int) -> float:
+    data = Ptr[float](data_p)
+    pmax = data[0]
+    for k in range(1, length):
+        if data[k] > pmax:
+            pmax = data[k]
+    return pmax
+
+
+def parallelmin1d_local_codon(data_p: cobj, length: int) -> float:
+    data = Ptr[float](data_p)
+    pmin = data[0]
+    for k in range(1, length):
+        if data[k] < pmin:
+            pmin = data[k]
+    return pmin
+
+
 def set_interp_parameter_codon(
     parm_code: int,
     value: int,

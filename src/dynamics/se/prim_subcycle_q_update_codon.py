@@ -954,6 +954,22 @@ def se_misc_touch_codon(
     )
 
 @export
+def parallelmax0d_local_codon(data: float) -> float:
+    return _misc.parallelmax0d_local_codon(data)
+
+@export
+def parallelmin0d_local_codon(data: float) -> float:
+    return _misc.parallelmin0d_local_codon(data)
+
+@export
+def parallelmax1d_local_codon(data_p: cobj, length: int) -> float:
+    return _misc.parallelmax1d_local_codon(data_p, length)
+
+@export
+def parallelmin1d_local_codon(data_p: cobj, length: int) -> float:
+    return _misc.parallelmin1d_local_codon(data_p, length)
+
+@export
 def get_block_gcol_d_codon(
     size: int,
     unique_pt_offset: int,

@@ -73,30 +73,61 @@ contains
 
   function ParallelMin1d(data,hybrid) result(pmin)
     use hybrid_mod, only : hybrid_t
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     implicit none
-    real(kind=real_kind), intent(in)    :: data(:)
+    interface
+      function parallelmin1d_local_codon(data_p, len_c) result(pmin_c) &
+           bind(c, name='parallelmin1d_local_codon')
+        import :: c_double, c_int64_t, c_ptr
+        type(c_ptr), value :: data_p
+        integer(c_int64_t), value :: len_c
+        real(c_double) :: pmin_c
+      end function parallelmin1d_local_codon
+    end interface
+    real(kind=real_kind), intent(in), target :: data(:)
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmin
 
     real(kind=real_kind)                :: tmp(1)
+    logical, save :: proof_seen = .false.
 
 
-    tmp(1) = MINVAL(data)
+    tmp(1) = parallelmin1d_local_codon(c_loc(data(1)), int(size(data), c_int64_t))
     call pmin_mt(red_min,tmp,1,hybrid)
     pmin = red_min%buf(1)
+    if (.not. proof_seen) then
+       write(iulog,*) 'parallelmin1d implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function ParallelMin1d
 
   function ParallelMin0d(data,hybrid) result(pmin)
     use hybrid_mod, only : hybrid_t
+    use iso_c_binding, only : c_double
+    use cam_logfile, only : iulog
     implicit none
+    interface
+      function parallelmin0d_local_codon(data_c) result(pmin_c) &
+           bind(c, name='parallelmin0d_local_codon')
+        import :: c_double
+        real(c_double), value :: data_c
+        real(c_double) :: pmin_c
+      end function parallelmin0d_local_codon
+    end interface
     real(kind=real_kind), intent(in)    :: data
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmin
     real(kind=real_kind)                :: tmp(1)
-    tmp(1) = data
+    logical, save :: proof_seen = .false.
+    tmp(1) = parallelmin0d_local_codon(data)
     call pmin_mt(red_min,tmp,1,hybrid)
     pmin = red_min%buf(1)
+    if (.not. proof_seen) then
+       write(iulog,*) 'parallelmin0d implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function ParallelMin0d
   !==================================================
@@ -138,31 +169,62 @@ contains
   end function ParallelMax1d_int
   function ParallelMax1d(data,hybrid) result(pmax)
     use hybrid_mod, only : hybrid_t
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
     implicit none
-    real(kind=real_kind), intent(in)    :: data(:)
+    interface
+      function parallelmax1d_local_codon(data_p, len_c) result(pmax_c) &
+           bind(c, name='parallelmax1d_local_codon')
+        import :: c_double, c_int64_t, c_ptr
+        type(c_ptr), value :: data_p
+        integer(c_int64_t), value :: len_c
+        real(c_double) :: pmax_c
+      end function parallelmax1d_local_codon
+    end interface
+    real(kind=real_kind), intent(in), target :: data(:)
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmax
 
     real(kind=real_kind)                :: tmp(1)
+    logical, save :: proof_seen = .false.
 
 
-    tmp(1) = MAXVAL(data)
+    tmp(1) = parallelmax1d_local_codon(c_loc(data(1)), int(size(data), c_int64_t))
     call pmax_mt(red_max,tmp,1,hybrid)
     pmax = red_max%buf(1)
+    if (.not. proof_seen) then
+       write(iulog,*) 'parallelmax1d implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function ParallelMax1d
   function ParallelMax0d(data,hybrid) result(pmax)
     use hybrid_mod, only : hybrid_t
+    use iso_c_binding, only : c_double
+    use cam_logfile, only : iulog
     implicit none
+    interface
+      function parallelmax0d_local_codon(data_c) result(pmax_c) &
+           bind(c, name='parallelmax0d_local_codon')
+        import :: c_double
+        real(c_double), value :: data_c
+        real(c_double) :: pmax_c
+      end function parallelmax0d_local_codon
+    end interface
     real(kind=real_kind), intent(in)    :: data
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmax
     real(kind=real_kind)                :: tmp(1)
+    logical, save :: proof_seen = .false.
 
-    tmp(1)=data
+    tmp(1)=parallelmax0d_local_codon(data)
 
     call pmax_mt(red_max,tmp,1,hybrid)
     pmax = red_max%buf(1)
+    if (.not. proof_seen) then
+       write(iulog,*) 'parallelmax0d implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function ParallelMax0d
   function ParallelMax0d_int(data,hybrid) result(pmax)
