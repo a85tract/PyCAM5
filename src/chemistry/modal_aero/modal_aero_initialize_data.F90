@@ -832,11 +832,49 @@ contains
 
        !   local variables
        character*8 dumnamea, dumnamec
+       integer i, j
+       integer(c_int64_t) :: status_c
+       integer(c_int64_t), target :: cnst_names_ascii(len(cnst_name(1)), pcnst)
+       integer(c_int64_t), target :: dumnamea_ascii(8), dumnamec_ascii(8)
+       logical, save :: proof_seen = .false.
 
-       dumnamea = 'none'
-       dumnamec = 'none'
-       if (laptr .gt. 0) dumnamea = cnst_name(laptr)
-       if (lcptr .gt. 0) dumnamec = cnst_name(lcptr)
+       interface
+          function modal_aero_initaermodes_setspecptrs_write2_codon(laptr_c, lcptr_c, name_len_c, cnst_names_ascii_p, &
+               pcnst_c, out_len_c, dumnamea_ascii_p, dumnamec_ascii_p) result(status_out_c) &
+               bind(c, name="modal_aero_initaermodes_setspecptrs_write2_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: laptr_c, lcptr_c, name_len_c, pcnst_c, out_len_c
+            type(c_ptr), value :: cnst_names_ascii_p, dumnamea_ascii_p, dumnamec_ascii_p
+            integer(c_int64_t) :: status_out_c
+          end function modal_aero_initaermodes_setspecptrs_write2_codon
+       end interface
+
+       do j = 1, pcnst
+          do i = 1, len(cnst_name(1))
+             cnst_names_ascii(i,j) = int(iachar(cnst_name(j)(i:i)), c_int64_t)
+          end do
+       end do
+
+       status_c = modal_aero_initaermodes_setspecptrs_write2_codon( &
+            int(laptr, c_int64_t), int(lcptr, c_int64_t), int(len(cnst_name(1)), c_int64_t), &
+            c_loc(cnst_names_ascii(1,1)), int(pcnst, c_int64_t), 8_c_int64_t, &
+            c_loc(dumnamea_ascii(1)), c_loc(dumnamec_ascii(1)) )
+
+       if (status_c /= 1_c_int64_t) then
+          call endrun('initaermodes_setspecptrs_write2: Codon name selection failed')
+       end if
+
+       do i = 1, 8
+          dumnamea(i:i) = achar(int(dumnamea_ascii(i)))
+          dumnamec(i:i) = achar(int(dumnamec_ascii(i)))
+       end do
+
+       if (.not. proof_seen) then
+          write(iulog,'(A)') 'initaermodes_setspecptrs_write2 implementation = codon'
+          call flush(iulog)
+          proof_seen = .true.
+       end if
+
        write(iulog,9241) m, laptr, dumnamea, lcptr, dumnamec, txtdum
 
 9241   format( i4, 2( 2x, i12, 2x, a ),                                &

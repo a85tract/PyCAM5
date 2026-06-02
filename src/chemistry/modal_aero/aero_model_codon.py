@@ -263,6 +263,73 @@ def modal_aero_search_list_of_names_codon(
 
 
 @inline
+def _modal_aero_write_none(out_chars: Ptr[int], out_len: int):
+    for i in range(out_len):
+        out_chars[i] = 32
+
+    if out_len > 0:
+        out_chars[0] = 110
+    if out_len > 1:
+        out_chars[1] = 111
+    if out_len > 2:
+        out_chars[2] = 110
+    if out_len > 3:
+        out_chars[3] = 101
+
+
+@inline
+def _modal_aero_copy_cnst_name(
+    ptr_index: int,
+    name_len: int,
+    cnst_names: Ptr[int],
+    pcnst: int,
+    out_len: int,
+    out_chars: Ptr[int],
+) -> int:
+    if ptr_index <= 0:
+        _modal_aero_write_none(out_chars, out_len)
+        return 1
+
+    if ptr_index > pcnst:
+        return 0
+
+    base = (ptr_index - 1) * name_len
+    copy_len = out_len
+    if name_len < copy_len:
+        copy_len = name_len
+
+    for i in range(copy_len):
+        out_chars[i] = cnst_names[base + i]
+    for i in range(copy_len, out_len):
+        out_chars[i] = 32
+
+    return 1
+
+
+@export
+def modal_aero_initaermodes_setspecptrs_write2_codon(
+    laptr: int,
+    lcptr: int,
+    name_len: int,
+    cnst_names_p: cobj,
+    pcnst: int,
+    out_len: int,
+    dumnamea_p: cobj,
+    dumnamec_p: cobj,
+) -> int:
+    cnst_names = Ptr[int](cnst_names_p)
+    dumnamea = Ptr[int](dumnamea_p)
+    dumnamec = Ptr[int](dumnamec_p)
+
+    if _modal_aero_copy_cnst_name(laptr, name_len, cnst_names, pcnst, out_len, dumnamea) == 0:
+        return 0
+    if _modal_aero_copy_cnst_name(lcptr, name_len, cnst_names, pcnst, out_len, dumnamec) == 0:
+        return 0
+
+    return 1
+
+
+@inline
 def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
     return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))
 
