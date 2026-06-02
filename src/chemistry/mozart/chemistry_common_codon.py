@@ -275,6 +275,12 @@ def usrrxt_inti_has_ion_codon(
 ) -> int:
     return 1 if ion1 > 0 and ion2 > 0 and ion3 > 0 and elec1 > 0 and elec2 > 0 and elec3 > 0 else 0
 
+def comp_exp_codon(x_p: cobj, y_p: cobj, n: int):
+    x = Ptr[float](x_p)
+    y = Ptr[float](y_p)
+    for i in range(n):
+        x[i] = exp(y[i])
+
 def heatnirco2_init_xspara_codon(ndpara: int, zppara_p: cobj, xspara_p: cobj):
     zppara = Ptr[float](zppara_p)
     xspara = Ptr[float](xspara_p)

@@ -580,6 +580,10 @@ def usrrxt_inti_has_ion_codon(
     return _common.usrrxt_inti_has_ion_codon(ion1, ion2, ion3, elec1, elec2, elec3)
 
 @export
+def comp_exp_codon(x_p: cobj, y_p: cobj, n: int):
+    return _common.comp_exp_codon(x_p, y_p, n)
+
+@export
 def heatnirco2_init_xspara_codon(ndpara: int, zppara_p: cobj, xspara_p: cobj):
     return _common.heatnirco2_init_xspara_codon(ndpara, zppara_p, xspara_p)
 

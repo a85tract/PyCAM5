@@ -1227,18 +1227,34 @@ contains
 !-------------------------------------------------------------------------
 !-------------------------------------------------------------------------
   subroutine comp_exp( x, y, n )
+    use iso_c_binding, only : c_int64_t, c_loc
+    use spmd_utils, only : masterproc
+    use cam_logfile, only : iulog
 
     implicit none
 
-    real(r8), intent(out) :: x(:)
-    real(r8), intent(in)  :: y(:)
+    real(r8), target, intent(out) :: x(:)
+    real(r8), target, intent(in)  :: y(:)
     integer,  intent(in)  :: n
-    
+    logical, save :: comp_exp_codon_logged = .false.
+    interface
+       subroutine comp_exp_codon(x_p, y_p, n_c) bind(c, name="comp_exp_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         type(c_ptr), value :: x_p, y_p
+         integer(c_int64_t), value :: n_c
+       end subroutine comp_exp_codon
+    end interface
+
 #ifdef IBM
     call vexp( x, y, n )
 #else
-    x(:n) = exp( y(:n) )
+    call comp_exp_codon(c_loc(x(1)), c_loc(y(1)), int(n, c_int64_t))
 #endif
+    if (masterproc .and. .not. comp_exp_codon_logged) then
+       write(iulog,*) 'comp_exp implementation = codon'
+       comp_exp_codon_logged = .true.
+       call flush(iulog)
+    end if
 
   end subroutine comp_exp
 
