@@ -52,6 +52,20 @@ module dust_model
   character(len=cl) :: soil_erod_file = 'soil_erod_file' ! full pathname for soil erodibility dataset
 
   logical :: dust_active = .false.
+  logical :: dust_emis_codon_logged = .false.
+
+  interface
+     subroutine dust_emis_codon(ncol_c, pcols_c, ndstflx_c, dust_nbin_c, soil_erod_fact_c, pi_c, &
+                                dust_density_c, soil_erod_threshold_c, dust_flux_in_p, cflx_p, soil_erod_p, &
+                                soil_erodibility_p, dust_indices_p, dust_emis_sclfctr_p, dust_dmt_vwr_p) &
+                                bind(c, name="dust_emis_codon")
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, ndstflx_c, dust_nbin_c
+       real(c_double), value :: soil_erod_fact_c, pi_c, dust_density_c, soil_erod_threshold_c
+       type(c_ptr), value :: dust_flux_in_p, cflx_p, soil_erod_p, soil_erodibility_p
+       type(c_ptr), value :: dust_indices_p, dust_emis_sclfctr_p, dust_dmt_vwr_p
+     end subroutine dust_emis_codon
+  end interface
 
  contains
 
@@ -130,17 +144,61 @@ module dust_model
     use soil_erod_mod, only : soil_erodibility
     use mo_constants,  only : dust_density
     use physconst,     only : pi
+    use ppgrid,        only : pcols
+    use cam_logfile,   only : iulog
+    use iso_c_binding, only : c_double, c_int64_t, c_loc
 
   ! args
     integer,  intent(in)    :: ncol, lchnk
-    real(r8), intent(in)    :: dust_flux_in(:,:)
-    real(r8), intent(inout) :: cflx(:,:)
-    real(r8), intent(out)   :: soil_erod(:)
+    real(r8), intent(in), target    :: dust_flux_in(:,:)
+    real(r8), intent(inout), target :: cflx(:,:)
+    real(r8), intent(out), target   :: soil_erod(:)
 
   ! local vars
     integer :: i, m, idst, inum
+    integer :: status, n, code, ndstflx
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+    integer(c_int64_t), target :: dust_indices_c(dust_nbin+dust_nnum)
+    real(c_double), target :: dust_emis_sclfctr_c(dust_nbin)
+    real(c_double), target :: dust_dmt_vwr_c(dust_nbin)
     real(r8) :: x_mton
     real(r8),parameter :: soil_erod_threshold = 0.1_r8
+
+    impl_name = 'codon'
+    call get_environment_variable('DUST_EMIS_IMPL', value=impl_name, length=n, status=status)
+    use_native_impl = .false.
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    end if
+
+    if (.not. use_native_impl) then
+       ndstflx = size(dust_flux_in, 2)
+       dust_indices_c(:) = int(dust_indices(:), c_int64_t)
+       dust_emis_sclfctr_c(:) = real(dust_emis_sclfctr(:), c_double)
+       dust_dmt_vwr_c(:) = real(dust_dmt_vwr(:), c_double)
+
+       if (masterproc .and. .not. dust_emis_codon_logged) then
+          write(iulog,'(A)') 'dust_emis implementation = codon'
+          call flush(iulog)
+          dust_emis_codon_logged = .true.
+       end if
+
+       call dust_emis_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(ndstflx, c_int64_t), int(dust_nbin, c_int64_t), &
+            real(soil_erod_fact, c_double), real(pi, c_double), real(dust_density, c_double), &
+            real(soil_erod_threshold, c_double), c_loc(dust_flux_in(1,1)), c_loc(cflx(1,1)), c_loc(soil_erod(1)), &
+            c_loc(soil_erodibility(1,lchnk)), c_loc(dust_indices_c(1)), c_loc(dust_emis_sclfctr_c(1)), &
+            c_loc(dust_dmt_vwr_c(1)) &
+       )
+       return
+    end if
 
     ! set dust emissions
 

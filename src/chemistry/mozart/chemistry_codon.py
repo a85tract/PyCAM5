@@ -4944,6 +4944,42 @@ def aero_model_emissions_accumulate_sflx_codon(
     )
 
 @export
+def dust_emis_codon(
+    ncol: int,
+    pcols: int,
+    ndstflx: int,
+    dust_nbin: int,
+    soil_erod_fact: float,
+    pi_val: float,
+    dust_density: float,
+    soil_erod_threshold: float,
+    dust_flux_in_p: cobj,
+    cflx_p: cobj,
+    soil_erod_p: cobj,
+    soil_erodibility_p: cobj,
+    dust_indices_p: cobj,
+    dust_emis_sclfctr_p: cobj,
+    dust_dmt_vwr_p: cobj,
+):
+    return _emissions.dust_emis_codon(
+        ncol,
+        pcols,
+        ndstflx,
+        dust_nbin,
+        soil_erod_fact,
+        pi_val,
+        dust_density,
+        soil_erod_threshold,
+        dust_flux_in_p,
+        cflx_p,
+        soil_erod_p,
+        soil_erodibility_p,
+        dust_indices_p,
+        dust_emis_sclfctr_p,
+        dust_dmt_vwr_p,
+    )
+
+@export
 def aero_model_emissions_seasalt_wind_codon(
     ncol: int,
     pcols: int,

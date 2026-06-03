@@ -345,6 +345,57 @@ def _aero_model_emissions_dust_shell(
     )
 
 
+def dust_emis_codon(
+    ncol: int,
+    pcols: int,
+    ndstflx: int,
+    dust_nbin: int,
+    soil_erod_fact: float,
+    pi_val: float,
+    dust_density: float,
+    soil_erod_threshold: float,
+    dust_flux_in_p: cobj,
+    cflx_p: cobj,
+    soil_erod_p: cobj,
+    soil_erodibility_p: cobj,
+    dust_indices_p: cobj,
+    dust_emis_sclfctr_p: cobj,
+    dust_dmt_vwr_p: cobj,
+):
+    dust_flux_in = Ptr[float](dust_flux_in_p)
+    cflx = Ptr[float](cflx_p)
+    soil_erod = Ptr[float](soil_erod_p)
+    soil_erodibility = Ptr[float](soil_erodibility_p)
+    dust_indices = Ptr[int](dust_indices_p)
+    dust_emis_sclfctr = Ptr[float](dust_emis_sclfctr_p)
+    dust_dmt_vwr = Ptr[float](dust_dmt_vwr_p)
+
+    for i in range(1, ncol + 1):
+        soil_erod[i - 1] = soil_erodibility[i - 1]
+
+        if soil_erod[i - 1] < soil_erod_threshold:
+            soil_erod[i - 1] = 0.0
+
+        for m in range(1, dust_nbin + 1):
+            dust_flux_sum = 0.0
+            for j in range(1, ndstflx + 1):
+                dust_flux_sum = dust_flux_sum + (-dust_flux_in[_idx2(i, j, pcols)])
+
+            idst = dust_indices[m - 1]
+
+            value = dust_flux_sum * dust_emis_sclfctr[m - 1]
+            value = value * soil_erod[i - 1]
+            value = value / soil_erod_fact
+            value = value * 1.15
+            cflx[_flux_idx(i, idst, pcols)] = value
+
+            x_mton = 6.0 / (pi_val * dust_density * (dust_dmt_vwr[m - 1] ** 3.0))
+
+            inum = dust_indices[m + dust_nbin - 1]
+
+            cflx[_flux_idx(i, inum, pcols)] = cflx[_flux_idx(i, idst, pcols)] * x_mton
+
+
 def _aero_model_emissions_seasalt_shell(
     ncol: int,
     pcols: int,
