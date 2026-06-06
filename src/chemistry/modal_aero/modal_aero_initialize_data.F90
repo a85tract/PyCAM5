@@ -513,6 +513,7 @@ contains
        integer :: i, j, n, status
        character(len=32), save :: selected_impl = ''
        logical, save :: selected = .false.
+       logical, save :: use_native = .false.
        logical, save :: proof_seen = .false.
        integer(c_int64_t), target :: name_ascii(max(1,len(name_to_find)))
        integer(c_int64_t), target :: list_ascii(max(1,len(list_of_names(1)))*max(1,list_length))
@@ -538,14 +539,35 @@ contains
           end if
           select case (trim(selected_impl))
           case ('codon')
+             use_native = .false.
+          case ('native', 'fortran')
+             use_native = .true.
           case default
              call endrun('search_list_of_names: unsupported SEARCH_LIST_OF_NAMES_IMPL='//trim(selected_impl))
           end select
           selected = .true.
           if (masterproc) then
-             write(iulog,'(A)') 'search_list_of_names selector SEARCH_LIST_OF_NAMES_IMPL=codon'
+             write(iulog,'(A,A)') 'search_list_of_names selector SEARCH_LIST_OF_NAMES_IMPL=', trim(selected_impl)
              call flush(iulog)
           end if
+       end if
+
+       if (use_native) then
+          name_id = -999888777
+          if (name_to_find .ne. ' ') then
+             do i = 1, list_length
+                if (name_to_find .eq. list_of_names(i)) then
+                   name_id = i
+                   exit
+                end if
+             end do
+          end if
+          if (masterproc .and. .not. proof_seen) then
+             write(iulog,'(A)') 'search_list_of_names implementation = native'
+             call flush(iulog)
+             proof_seen = .true.
+          end if
+          return
        end if
 
        do i = 1, len(name_to_find)
@@ -836,6 +858,9 @@ contains
        integer(c_int64_t) :: status_c
        integer(c_int64_t), target :: cnst_names_ascii(len(cnst_name(1)), pcnst)
        integer(c_int64_t), target :: dumnamea_ascii(8), dumnamec_ascii(8)
+       character(len=32) :: impl_name
+       integer :: n, status, code
+       logical :: use_native
        logical, save :: proof_seen = .false.
 
        interface
@@ -848,6 +873,33 @@ contains
             integer(c_int64_t) :: status_out_c
           end function modal_aero_initaermodes_setspecptrs_write2_codon
        end interface
+
+       use_native = .false.
+       impl_name = 'codon'
+       call get_environment_variable('INITAERMODES_SETSPECPTRS_WRITE2_IMPL', value=impl_name, length=n, status=status)
+       if (status == 0 .and. n > 0) then
+          do i = 1, n
+             code = iachar(impl_name(i:i))
+             if (code >= iachar('A') .and. code <= iachar('Z')) then
+                impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+             end if
+          end do
+          use_native = trim(adjustl(impl_name(:n))) == 'native'
+       end if
+
+       if (use_native) then
+          dumnamea = 'none'
+          dumnamec = 'none'
+          if (laptr .gt. 0) dumnamea = cnst_name(laptr)
+          if (lcptr .gt. 0) dumnamec = cnst_name(lcptr)
+          if (.not. proof_seen) then
+             write(iulog,'(A)') 'initaermodes_setspecptrs_write2 implementation = native'
+             call flush(iulog)
+             proof_seen = .true.
+          end if
+          write(iulog,9241) m, laptr, dumnamea, lcptr, dumnamec, txtdum
+          return
+       end if
 
        do j = 1, pcnst
           do i = 1, len(cnst_name(1))

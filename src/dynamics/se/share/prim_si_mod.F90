@@ -12,6 +12,27 @@ module prim_si_mod
   public :: preq_pressure
   public :: preq_vertadv
 contains
+
+  logical function prim_si_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       prim_si_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       prim_si_use_native = .false.
+    end if
+  end function prim_si_use_native
 	
 ! ==========================================================
 ! Implicit system for semi-implicit primitive equations.
@@ -188,8 +209,12 @@ contains
     !------------------------------------------------------------------------------------------------------
 
     !---------------------------Local workspace-----------------------------
+    integer i,j,k                         ! longitude, level indices
+    real(kind=real_kind) term             ! one half of basic term in omega/p summation
+    real(kind=real_kind) Ckk,Ckl          ! diagonal term of energy conversion matrix
     real(kind=real_kind), target :: suml(np,np)      ! partial sum over l = (1, k-1)
     logical, save :: proof_seen = .false.
+    logical, save :: native_proof_seen = .false.
     !-----------------------------------------------------------------------
 
     interface
@@ -207,6 +232,51 @@ contains
 #include "se_codon_misc_touch.inc"
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
+
+    if (prim_si_use_native('PREQ_OMEGA_PS_IMPL')) then
+#if (defined COLUMN_OPENMP)
+!$omp parallel do private(k,j,i,ckk,term,ckl)
+#endif
+       do j=1,np   !   Loop inversion (AAM)
+
+          do i=1,np
+             ckk = 0.5d0/p(i,j,1)
+             term = divdp(i,j,1)
+!             omega_p(i,j,1) = hvcoord%hybm(1)*vgrad_ps(i,j,1)/p(i,j,1)
+             omega_p(i,j,1) = vgrad_p(i,j,1)/p(i,j,1)
+             omega_p(i,j,1) = omega_p(i,j,1) - ckk*term
+             suml(i,j) = term
+          end do
+
+          do k=2,nlev-1
+             do i=1,np
+                ckk = 0.5d0/p(i,j,k)
+                ckl = 2*ckk
+                term = divdp(i,j,k)
+!                omega_p(i,j,k) = hvcoord%hybm(k)*vgrad_ps(i,j,k)/p(i,j,k)
+                omega_p(i,j,k) = vgrad_p(i,j,k)/p(i,j,k)
+                omega_p(i,j,k) = omega_p(i,j,k) - ckl*suml(i,j) - ckk*term
+                suml(i,j) = suml(i,j) + term
+
+             end do
+          end do
+
+          do i=1,np
+             ckk = 0.5d0/p(i,j,nlev)
+             ckl = 2*ckk
+             term = divdp(i,j,nlev)
+!             omega_p(i,j,nlev) = hvcoord%hybm(nlev)*vgrad_ps(i,j,nlev)/p(i,j,nlev)
+             omega_p(i,j,nlev) = vgrad_p(i,j,nlev)/p(i,j,nlev)
+             omega_p(i,j,nlev) = omega_p(i,j,nlev) - ckl*suml(i,j) - ckk*term
+          end do
+
+       end do
+       if (.not. native_proof_seen) then
+          write(iulog,*) 'preq_omega_ps implementation = native'
+          native_proof_seen = .true.
+       endif
+       return
+    end if
 
     call preq_omega_ps_codon(int(np, c_int64_t), int(nlev, c_int64_t), &
          c_loc(omega_p(1,1,1)), c_loc(p(1,1,1)), c_loc(vgrad_p(1,1,1)), c_loc(divdp(1,1,1)), &
@@ -314,8 +384,11 @@ contains
     !------------------------------------------------------------------------------------------------------
 
     !---------------------------Local workspace-----------------------------
+    integer i,j,k                         ! longitude, level indices
+    real(kind=real_kind) Hkk,Hkl          ! diagonal term of energy conversion matrix
     real(kind=real_kind), target :: phii(np,np,nlev)       ! Geopotential at interfaces
     logical, save :: proof_seen = .false.
+    logical, save :: native_proof_seen = .false.
     !-----------------------------------------------------------------------
 
     interface
@@ -327,6 +400,43 @@ contains
         type(c_ptr), value :: phi_p, phis_p, tv_p, p_p, dp_p, phii_p
       end subroutine preq_hydrostatic_codon
     end interface
+
+    if (prim_si_use_native('PREQ_HYDROSTATIC_IMPL')) then
+#if (defined COLUMN_OPENMP)
+!$omp parallel do private(k,j,i,hkk,hkl)
+#endif
+       do j=1,np   !   Loop inversion (AAM)
+
+          do i=1,np
+             hkk = dp(i,j,nlev)*0.5d0/p(i,j,nlev)
+             hkl = 2*hkk
+             phii(i,j,nlev)  = Rgas*T_v(i,j,nlev)*hkl
+             phi(i,j,nlev) = phis(i,j) + Rgas*T_v(i,j,nlev)*hkk
+          end do
+
+          do k=nlev-1,2,-1
+             do i=1,np
+                ! hkk = dp*ckk
+                hkk = dp(i,j,k)*0.5d0/p(i,j,k)
+                hkl = 2*hkk
+                phii(i,j,k) = phii(i,j,k+1) + Rgas*T_v(i,j,k)*hkl
+                phi(i,j,k) = phis(i,j) + phii(i,j,k+1) + Rgas*T_v(i,j,k)*hkk
+             end do
+          end do
+
+          do i=1,np
+             ! hkk = dp*ckk
+             hkk = 0.5d0*dp(i,j,1)/p(i,j,1)
+             phi(i,j,1) = phis(i,j) + phii(i,j,2) + Rgas*T_v(i,j,1)*hkk
+          end do
+
+       end do
+       if (.not. native_proof_seen) then
+          write(iulog,*) 'preq_hydrostatic implementation = native'
+          native_proof_seen = .true.
+       endif
+       return
+    end if
 
     call preq_hydrostatic_codon(int(np, c_int64_t), int(nlev, c_int64_t), real(rgas, c_double), &
          c_loc(phi(1,1,1)), c_loc(phis(1,1)), c_loc(T_v(1,1,1)), c_loc(p(1,1,1)), c_loc(dp(1,1,1)), &

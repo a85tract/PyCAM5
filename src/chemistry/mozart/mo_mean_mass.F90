@@ -15,11 +15,16 @@ contains
   subroutine init_mean_mass
     use mo_chem_utls, only : get_spc_ndx
     use iso_c_binding, only : c_int64_t, c_loc
+    use cam_logfile, only : iulog
+    use spmd_utils,  only : masterproc
 
     implicit none
 
     integer(c_int64_t), target :: lookup_ids(4)
     integer(c_int64_t), target :: species_ids(4)
+    integer :: status, n, i, code
+    character(len=32) :: impl_name
+    logical :: use_native_impl
 
     interface
        subroutine init_mean_mass_ids_codon(lookup_ids_p, species_ids_p) bind(c, name="init_mean_mass_ids_codon")
@@ -28,19 +33,44 @@ contains
        end subroutine init_mean_mass_ids_codon
     end interface
 
-    lookup_ids(1) = int(get_spc_ndx('O2'), c_int64_t)
-    lookup_ids(2) = int(get_spc_ndx('O'), c_int64_t)
-    lookup_ids(3) = int(get_spc_ndx('H'), c_int64_t)
-    lookup_ids(4) = int(get_spc_ndx('N'), c_int64_t)
-    species_ids(:) = 0_c_int64_t
+    impl_name = 'codon'
+    call get_environment_variable('INIT_MEAN_MASS_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
 
-    call init_mean_mass_ids_codon(c_loc(lookup_ids), c_loc(species_ids))
-    call init_mean_mass_log_codon()
+    if (use_native_impl) then
+       id_o2 = get_spc_ndx('O2')
+       id_o  = get_spc_ndx('O')
+       id_h  = get_spc_ndx('H')
+       id_n  = get_spc_ndx('N')
+       if (masterproc) then
+          write(iulog,*) 'init_mean_mass implementation = native'
+          call flush(iulog)
+       end if
+    else
+       lookup_ids(1) = int(get_spc_ndx('O2'), c_int64_t)
+       lookup_ids(2) = int(get_spc_ndx('O'), c_int64_t)
+       lookup_ids(3) = int(get_spc_ndx('H'), c_int64_t)
+       lookup_ids(4) = int(get_spc_ndx('N'), c_int64_t)
+       species_ids(:) = 0_c_int64_t
 
-    id_o2 = int(species_ids(1))
-    id_o  = int(species_ids(2))
-    id_h  = int(species_ids(3))
-    id_n  = int(species_ids(4))
+       call init_mean_mass_ids_codon(c_loc(lookup_ids), c_loc(species_ids))
+       call init_mean_mass_log_codon()
+
+       id_o2 = int(species_ids(1))
+       id_o  = int(species_ids(2))
+       id_h  = int(species_ids(3))
+       id_n  = int(species_ids(4))
+    end if
 
   endsubroutine init_mean_mass
 

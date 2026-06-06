@@ -107,6 +107,27 @@ module vertremap_mod
 
   contains
 
+  logical function vertremap_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       vertremap_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       vertremap_use_native = .false.
+    end if
+  end function vertremap_use_native
+
 !=======================================================================================================!
 
 !remap_calc_grids computes the vertical pressures and pressure differences for one vertical column for the reference grid
@@ -931,14 +952,26 @@ function integrate_parabola( a , x1 , x2 )    result(mass)
        real(c_double) :: mass_c
      end function integrate_parabola_codon
   end interface
-  mass = integrate_parabola_codon(real(a(0), c_double), real(a(1), c_double), real(a(2), c_double), &
-       real(x1, c_double), real(x2, c_double))
-  if (.not. proof_seen) then
-     if (masterproc) then
-        write(iulog,*) 'integrate_parabola implementation = codon'
-        call flush(iulog)
+  if (vertremap_use_native('INTEGRATE_PARABOLA_IMPL')) then
+     mass = a(0) * (x2 - x1) + a(1) * (x2 ** 2 - x1 ** 2) / 0.2D1 + &
+          a(2) * (x2 ** 3 - x1 ** 3) / 0.3D1
+     if (.not. proof_seen) then
+        if (masterproc) then
+           write(iulog,*) 'integrate_parabola implementation = native'
+           call flush(iulog)
+        endif
+        proof_seen = .true.
      endif
-     proof_seen = .true.
+  else
+     mass = integrate_parabola_codon(real(a(0), c_double), real(a(1), c_double), real(a(2), c_double), &
+          real(x1, c_double), real(x2, c_double))
+     if (.not. proof_seen) then
+        if (masterproc) then
+           write(iulog,*) 'integrate_parabola implementation = codon'
+           call flush(iulog)
+        endif
+        proof_seen = .true.
+     endif
   endif
 end function integrate_parabola
 

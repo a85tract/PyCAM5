@@ -205,6 +205,27 @@ module edge_mod
 
 contains
 
+  logical function edge_mod_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       edge_mod_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       edge_mod_use_native = .false.
+    end if
+  end function edge_mod_use_native
+
   subroutine initEdgeSBuffer_r8(par,edge,elem,nlyr,bptr,rptr,bndry_type, nthreads)
     implicit none 
     type (parallel_t), intent(in) :: par
@@ -703,6 +724,9 @@ contains
      integer, parameter :: alignment=1  ! align on word boundaries
 !     integer, parameter :: alignment=2  ! align on 2 word boundaries
 !     integer, parameter :: alignment=8  ! align on 8 word boundaries
+     character(len=32) :: impl_name
+     integer :: impl_n, impl_status
+     logical, save :: proof_seen = .false.
      interface
         function se_calcsegmentlength_codon(lenp_c, lens_c, mpattern_c, nlyr_c, hme_s_c, hme_p_c) result(len_c) &
              bind(c, name='se_calcsegmentlength_codon')
@@ -712,15 +736,34 @@ contains
         end function se_calcsegmentlength_codon
      end interface
 
-     
-     len = int(se_calcsegmentlength_codon(int(pgIndx%lenP, c_int64_t), int(pgIndx%lenS, c_int64_t), &
-          int(mPattern, c_int64_t), int(nlyr, c_int64_t), int(HME_MPATTERN_S, c_int64_t), &
-          int(HME_MPATTERN_P, c_int64_t)))
+     impl_name = 'codon'
+     call get_environment_variable('CALCSEGMENTLENGTH_IMPL', value=impl_name, length=impl_n, status=impl_status)
+     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+        select case(mPattern)
+        CASE(HME_MPATTERN_S)
+           len = nlyr*pgIndx%lenS
+        CASE(HME_MPATTERN_P)
+           len = nlyr*pgIndx%lenP
+        CASE DEFAULT
+           len = nlyr*pgIndx%lenP
+        end select
+        if (.not. proof_seen) then
+           write(iulog,*) 'calcsegmentlength implementation = native'
+           proof_seen = .true.
+        endif
+     else
+       len = int(se_calcsegmentlength_codon(int(pgIndx%lenP, c_int64_t), int(pgIndx%lenS, c_int64_t), &
+            int(mPattern, c_int64_t), int(nlyr, c_int64_t), int(HME_MPATTERN_S, c_int64_t), &
+            int(HME_MPATTERN_P, c_int64_t)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'calcsegmentlength implementation = codon'
+          proof_seen = .true.
+       endif
+     endif
      rem = MODULO(len,alignment)
      if(rem .ne. 0) then 
         len = len + (alignment-rem)
      endif
-     write(iulog,*) 'calcsegmentlength implementation = codon'
         
 
   end function calcSegmentLength 
@@ -929,6 +972,8 @@ contains
     integer :: i,k,ir,ll,iptr
 
     integer :: is,ie,in,iw,edgeptr
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine edgevpack_codon(np_c, max_neigh_edges_c, max_corner_elem_c, &
@@ -948,17 +993,25 @@ contains
        print *,'kptr+vlyr = ',kptr+vlyr
        call haltmp('edgeVpack: Buffer overflow: size of the vertical dimension must be increased!')
     endif
-    call edgevpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
-         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
-         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
-         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
-         int(swest, c_int64_t), c_loc(edge%buf(1)), c_loc(edge%putmap(1,1)), &
-         c_loc(edge%reverse(1,1)), c_loc(v(1,1,1)))
+    impl_name = 'codon'
+    call get_environment_variable('EDGEVPACK_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       call edgevpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
+            int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+            int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+            int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+            int(swest, c_int64_t), c_loc(edge%buf(1)), c_loc(edge%putmap(1,1)), &
+            c_loc(edge%reverse(1,1)), c_loc(v(1,1,1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgevpack implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
     if (.not. proof_seen) then
-       write(iulog,*) 'edgevpack implementation = codon'
+       write(iulog,*) 'edgevpack implementation = native'
        proof_seen = .true.
     endif
-    return
 
     is = edge%putmap(south,ielem)
     ie = edge%putmap(east,ielem)
@@ -1120,17 +1173,24 @@ contains
     if (edge%nlyr < (kptr+vlyr) ) then
        call haltmp('edgeSpack: Buffer overflow: size of the vertical dimension must be increased!')
     endif
-    call edgespack_r8_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
-         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
-         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
-         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
-         int(swest, c_int64_t), c_loc(edge%buf(1)), c_loc(edge%putmap(1,1)), &
-         c_loc(v(1)))
-    if (.not. proof_seen) then
-       write(iulog,*) 'edgespack_r8 implementation = codon'
-       proof_seen = .true.
+    if (edge_mod_use_native('EDGE_SPACK_R8_IMPL')) then
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgespack_r8 implementation = native'
+          proof_seen = .true.
+       endif
+    else
+       call edgespack_r8_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
+            int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+            int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+            int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+            int(swest, c_int64_t), c_loc(edge%buf(1)), c_loc(edge%putmap(1,1)), &
+            c_loc(v(1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgespack_r8 implementation = codon'
+          proof_seen = .true.
+       endif
+       return
     endif
-    return
 
     is = edge%putmap(south,ielem)
     ie = edge%putmap(east,ielem)
@@ -1352,6 +1412,8 @@ contains
     integer :: is,ie,in,iw
     integer :: ks,ke,kblock
     logical :: done
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine edgevunpack_codon(np_c, max_neigh_edges_c, max_corner_elem_c, &
@@ -1367,17 +1429,25 @@ contains
 
 !JMD    call t_adj_detailf(+2)
 
-    call edgevunpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
-         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
-         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
-         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
-         int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
-         c_loc(v(1,1,1)))
+    impl_name = 'codon'
+    call get_environment_variable('EDGEVUNPACK_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       call edgevunpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
+            int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+            int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+            int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+            int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
+            c_loc(v(1,1,1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgevunpack implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
     if (.not. proof_seen) then
-       write(iulog,*) 'edgevunpack implementation = codon'
+       write(iulog,*) 'edgevunpack implementation = native'
        proof_seen = .true.
     endif
-    return
 
     is=edge%getmap(south,ielem)
     ie=edge%getmap(east,ielem)
@@ -1866,17 +1936,24 @@ contains
     end interface
 
     threadsafe=.false.
-    call edgesunpackmax_codon(int(max_neigh_edges, c_int64_t), &
-         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
-         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
-         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
-         int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
-         c_loc(v(1)))
-    if (.not. proof_seen) then
-       write(iulog,*) 'edgesunpackmax implementation = codon'
-       proof_seen = .true.
+    if (edge_mod_use_native('EDGE_SUNPACK_MAX_IMPL')) then
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgesunpackmax implementation = native'
+          proof_seen = .true.
+       endif
+    else
+       call edgesunpackmax_codon(int(max_neigh_edges, c_int64_t), &
+            int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+            int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+            int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+            int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
+            c_loc(v(1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgesunpackmax implementation = codon'
+          proof_seen = .true.
+       endif
+       return
     endif
-    return
 
     is=edge%getmap(south,ielem)
     ie=edge%getmap(east,ielem)
@@ -1960,17 +2037,24 @@ contains
     end interface
 
     threadsafe=.false.
-    call edgesunpackmin_codon(int(max_neigh_edges, c_int64_t), &
-         int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
-         int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
-         int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
-         int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
-         c_loc(v(1)))
-    if (.not. proof_seen) then
-       write(iulog,*) 'edgesunpackmin implementation = codon'
-       proof_seen = .true.
+    if (edge_mod_use_native('EDGE_SUNPACK_MIN_IMPL')) then
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgesunpackmin implementation = native'
+          proof_seen = .true.
+       endif
+    else
+       call edgesunpackmin_codon(int(max_neigh_edges, c_int64_t), &
+            int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
+            int(kptr, c_int64_t), int(ielem, c_int64_t), int(south, c_int64_t), &
+            int(east, c_int64_t), int(north, c_int64_t), int(west, c_int64_t), &
+            int(swest, c_int64_t), c_loc(edge%receive(1)), c_loc(edge%getmap(1,1)), &
+            c_loc(v(1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'edgesunpackmin implementation = codon'
+          proof_seen = .true.
+       endif
+       return
     endif
-    return
 
     is=edge%getmap(south,ielem)
     ie=edge%getmap(east,ielem)
@@ -2115,6 +2199,8 @@ contains
 
     integer :: i,k,l
     integer :: is,ie,in,iw
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine longedgevunpackmin_codon(np_c, max_corner_elem_c, nlyr_c, &
@@ -2129,16 +2215,24 @@ contains
     end interface
 
     threadsafe=.false.
-    call longedgevunpackmin_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
-         int(edge%nlyr, c_int64_t), int(vlyr, c_int64_t), int(kptr, c_int64_t), &
-         int(south, c_int64_t), int(east, c_int64_t), int(north, c_int64_t), &
-         int(west, c_int64_t), int(swest, c_int64_t), c_loc(edge%buf(1,1)), &
-         c_loc(desc%getmapP(1)), c_loc(v(1,1,1)))
+    impl_name = 'codon'
+    call get_environment_variable('LONGEDGEVUNPACKMIN_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       call longedgevunpackmin_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
+            int(edge%nlyr, c_int64_t), int(vlyr, c_int64_t), int(kptr, c_int64_t), &
+            int(south, c_int64_t), int(east, c_int64_t), int(north, c_int64_t), &
+            int(west, c_int64_t), int(swest, c_int64_t), c_loc(edge%buf(1,1)), &
+            c_loc(desc%getmapP(1)), c_loc(v(1,1,1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'longedgevunpackmin implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
     if (.not. proof_seen) then
-       write(iulog,*) 'longedgevunpackmin implementation = codon'
+       write(iulog,*) 'longedgevunpackmin implementation = native'
        proof_seen = .true.
     endif
-    return
 
     is=desc%getmapP(south)
     ie=desc%getmapP(east)

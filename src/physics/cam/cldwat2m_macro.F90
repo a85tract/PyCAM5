@@ -267,7 +267,10 @@
 
    subroutine mmacro_pcond_select_impl()
    character(len=32) :: impl_name
+   character(len=32) :: child_impl_name
    integer :: n, status
+   integer :: n_child, status_child
+   logical :: force_native_children
 
    if (mmacro_pcond_impl_selected) return
    impl_name = 'codon'
@@ -285,7 +288,22 @@
    end if
    mmacro_pcond_impl_selected = .true.
 
+   force_native_children = .true.
+   child_impl_name = 'native'
    if (use_native_mmacro_pcond_impl) then
+      call get_environment_variable('CLDWAT2M_MMACRO_PCOND_CHILDREN_IMPL', &
+           value=child_impl_name, length=n_child, status=status_child)
+      if (status_child == 0 .and. n_child > 0) then
+         select case (adjustl(child_impl_name(:n_child)))
+         case ('codon', 'Codon', 'CODON', 'keep', 'Keep', 'KEEP')
+            force_native_children = .false.
+         case default
+            force_native_children = .true.
+         end select
+      end if
+   end if
+
+   if (use_native_mmacro_pcond_impl .and. force_native_children) then
       use_native_positive_moisture_impl = .true.
       positive_moisture_impl_selected = .true.
       use_native_rhcrit_const_impl = .true.
@@ -2430,6 +2448,69 @@ end subroutine rhcrit_calc
 
    end subroutine qq_coeff_solve_codon_wrap
 
+   function cldwat2m_qq_coeff_solve_native_cb(k_c, ncol_c, pcols_c, pver_c, latvap_c, latice_c, cpair_c, cc_c, &
+        qsat_b_p, dqsdt_b_p, qv_p, a_t_p, a_t_adj_p, a_ql_p, a_ql_adj_p, a_qi_p, a_qi_adj_p, &
+        a_qv_p, a_qv_adj_p, c_t_p, c_ql_p, c_qi_p, c_qv_p, c_qlst_p, a_cu_p, g_nc_p, &
+        al_st_p, ql_st_p, al_st_nc_p, dacudt_p, f_nc_p, qq_p) result(status_c) &
+        bind(C, name="cldwat2m_qq_coeff_solve_native_cb")
+   integer(c_int64_t), value :: k_c, ncol_c, pcols_c, pver_c
+   real(c_double), value :: latvap_c, latice_c, cpair_c, cc_c
+   type(c_ptr), value :: qsat_b_p, dqsdt_b_p, qv_p, a_t_p, a_t_adj_p
+   type(c_ptr), value :: a_ql_p, a_ql_adj_p, a_qi_p, a_qi_adj_p
+   type(c_ptr), value :: a_qv_p, a_qv_adj_p, c_t_p, c_ql_p, c_qi_p, c_qv_p, c_qlst_p
+   type(c_ptr), value :: a_cu_p, g_nc_p, al_st_p, ql_st_p, al_st_nc_p, dacudt_p, f_nc_p, qq_p
+   integer(c_int64_t) :: status_c
+   real(r8), pointer :: qsat_b_cb(:), dqsdt_b_cb(:)
+   real(r8), pointer :: qv_cb(:,:), a_t_cb(:,:), a_t_adj_cb(:,:), a_ql_cb(:,:), a_ql_adj_cb(:,:)
+   real(r8), pointer :: a_qi_cb(:,:), a_qi_adj_cb(:,:), a_qv_cb(:,:), a_qv_adj_cb(:,:)
+   real(r8), pointer :: c_t_cb(:,:), c_ql_cb(:,:), c_qi_cb(:,:), c_qv_cb(:,:), c_qlst_cb(:,:)
+   real(r8), pointer :: a_cu_cb(:,:), g_nc_cb(:,:), al_st_cb(:,:), ql_st_cb(:,:)
+   real(r8), pointer :: al_st_nc_cb(:,:), dacudt_cb(:,:), f_nc_cb(:,:), qq_cb(:,:)
+   integer :: k_i, ncol_i, pcols_i, pver_i
+   logical :: old_use_native, old_selected
+
+   k_i = int(k_c)
+   ncol_i = int(ncol_c)
+   pcols_i = int(pcols_c)
+   pver_i = int(pver_c)
+   call c_f_pointer(qsat_b_p, qsat_b_cb, [pcols_i])
+   call c_f_pointer(dqsdt_b_p, dqsdt_b_cb, [pcols_i])
+   call c_f_pointer(qv_p, qv_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_t_p, a_t_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_t_adj_p, a_t_adj_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_ql_p, a_ql_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_ql_adj_p, a_ql_adj_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_qi_p, a_qi_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_qi_adj_p, a_qi_adj_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_qv_p, a_qv_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_qv_adj_p, a_qv_adj_cb, [pcols_i, pver_i])
+   call c_f_pointer(c_t_p, c_t_cb, [pcols_i, pver_i])
+   call c_f_pointer(c_ql_p, c_ql_cb, [pcols_i, pver_i])
+   call c_f_pointer(c_qi_p, c_qi_cb, [pcols_i, pver_i])
+   call c_f_pointer(c_qv_p, c_qv_cb, [pcols_i, pver_i])
+   call c_f_pointer(c_qlst_p, c_qlst_cb, [pcols_i, pver_i])
+   call c_f_pointer(a_cu_p, a_cu_cb, [pcols_i, pver_i])
+   call c_f_pointer(g_nc_p, g_nc_cb, [pcols_i, pver_i])
+   call c_f_pointer(al_st_p, al_st_cb, [pcols_i, pver_i])
+   call c_f_pointer(ql_st_p, ql_st_cb, [pcols_i, pver_i])
+   call c_f_pointer(al_st_nc_p, al_st_nc_cb, [pcols_i, pver_i])
+   call c_f_pointer(dacudt_p, dacudt_cb, [pcols_i, pver_i])
+   call c_f_pointer(f_nc_p, f_nc_cb, [pcols_i, pver_i])
+   call c_f_pointer(qq_p, qq_cb, [pcols_i, pver_i])
+
+   old_use_native = use_native_qq_coeff_impl
+   old_selected = qq_coeff_impl_selected
+   use_native_qq_coeff_impl = .true.
+   qq_coeff_impl_selected = .true.
+   call qq_coeff_solve_codon_wrap(k_i, ncol_i, qsat_b_cb, dqsdt_b_cb, qv_cb, a_t_cb, a_t_adj_cb, &
+        a_ql_cb, a_ql_adj_cb, a_qi_cb, a_qi_adj_cb, a_qv_cb, a_qv_adj_cb, c_t_cb, c_ql_cb, &
+        c_qi_cb, c_qv_cb, c_qlst_cb, a_cu_cb, g_nc_cb, al_st_cb, ql_st_cb, al_st_nc_cb, &
+        dacudt_cb, f_nc_cb, qq_cb)
+   use_native_qq_coeff_impl = old_use_native
+   qq_coeff_impl_selected = old_selected
+   status_c = 0_c_int64_t
+   end function cldwat2m_qq_coeff_solve_native_cb
+
 !=======================================================================================================
 
    subroutine advective_state_select_impl()
@@ -3326,6 +3407,72 @@ end subroutine rhcrit_calc
    return
    end subroutine instratus_condensate
 
+   subroutine cldwat2m_instratus_condensate_native_cb(ncol_c, pcols_c, camstfrac_c, &
+        cpair_c, latvap_c, latice_c, qlst_min_c, qlst_max_c, rhmaxi_c, p_p, t0_p, qv0_p, &
+        ql0_p, qi0_p, ni0_p, a_dc_p, ql_dc_p, qi_dc_p, a_sc_p, ql_sc_p, qi_sc_p, &
+        landfrac_p, snowh_p, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, t_out_p, &
+        qv_out_p, ql_out_p, qi_out_p, al_st_out_p, ai_st_out_p, ql_st_out_p, qi_st_out_p, &
+        status_p) bind(C, name="cldwat2m_instratus_condensate_native_cb")
+   integer(c_int64_t), value :: ncol_c, pcols_c, camstfrac_c
+   real(c_double), value :: cpair_c, latvap_c, latice_c, qlst_min_c, qlst_max_c, rhmaxi_c
+   type(c_ptr), value :: p_p, t0_p, qv0_p, ql0_p, qi0_p, ni0_p
+   type(c_ptr), value :: a_dc_p, ql_dc_p, qi_dc_p, a_sc_p, ql_sc_p, qi_sc_p
+   type(c_ptr), value :: landfrac_p, snowh_p, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p
+   type(c_ptr), value :: t_out_p, qv_out_p, ql_out_p, qi_out_p
+   type(c_ptr), value :: al_st_out_p, ai_st_out_p, ql_st_out_p, qi_st_out_p, status_p
+   real(r8), pointer :: p_cb(:), t0_cb(:), qv0_cb(:), ql0_cb(:), qi0_cb(:), ni0_cb(:)
+   real(r8), pointer :: a_dc_cb(:), ql_dc_cb(:), qi_dc_cb(:), a_sc_cb(:), ql_sc_cb(:), qi_sc_cb(:)
+   real(r8), pointer :: landfrac_cb(:), snowh_cb(:), rhmini_cb(:), rhminl_cb(:)
+   real(r8), pointer :: rhminl_adj_land_cb(:), rhminh_cb(:)
+   real(r8), pointer :: t_out_cb(:), qv_out_cb(:), ql_out_cb(:), qi_out_cb(:)
+   real(r8), pointer :: al_st_out_cb(:), ai_st_out_cb(:), ql_st_out_cb(:), qi_st_out_cb(:)
+   integer(c_int64_t), pointer :: status_cb(:)
+   integer :: ncol_i, pcols_i
+   logical :: old_use_native, old_selected
+
+   ncol_i = int(ncol_c)
+   pcols_i = int(pcols_c)
+   call c_f_pointer(p_p, p_cb, [pcols_i])
+   call c_f_pointer(t0_p, t0_cb, [pcols_i])
+   call c_f_pointer(qv0_p, qv0_cb, [pcols_i])
+   call c_f_pointer(ql0_p, ql0_cb, [pcols_i])
+   call c_f_pointer(qi0_p, qi0_cb, [pcols_i])
+   call c_f_pointer(ni0_p, ni0_cb, [pcols_i])
+   call c_f_pointer(a_dc_p, a_dc_cb, [pcols_i])
+   call c_f_pointer(ql_dc_p, ql_dc_cb, [pcols_i])
+   call c_f_pointer(qi_dc_p, qi_dc_cb, [pcols_i])
+   call c_f_pointer(a_sc_p, a_sc_cb, [pcols_i])
+   call c_f_pointer(ql_sc_p, ql_sc_cb, [pcols_i])
+   call c_f_pointer(qi_sc_p, qi_sc_cb, [pcols_i])
+   call c_f_pointer(landfrac_p, landfrac_cb, [pcols_i])
+   call c_f_pointer(snowh_p, snowh_cb, [pcols_i])
+   call c_f_pointer(rhmini_p, rhmini_cb, [pcols_i])
+   call c_f_pointer(rhminl_p, rhminl_cb, [pcols_i])
+   call c_f_pointer(rhminl_adj_land_p, rhminl_adj_land_cb, [pcols_i])
+   call c_f_pointer(rhminh_p, rhminh_cb, [pcols_i])
+   call c_f_pointer(t_out_p, t_out_cb, [pcols_i])
+   call c_f_pointer(qv_out_p, qv_out_cb, [pcols_i])
+   call c_f_pointer(ql_out_p, ql_out_cb, [pcols_i])
+   call c_f_pointer(qi_out_p, qi_out_cb, [pcols_i])
+   call c_f_pointer(al_st_out_p, al_st_out_cb, [pcols_i])
+   call c_f_pointer(ai_st_out_p, ai_st_out_cb, [pcols_i])
+   call c_f_pointer(ql_st_out_p, ql_st_out_cb, [pcols_i])
+   call c_f_pointer(qi_st_out_p, qi_st_out_cb, [pcols_i])
+   call c_f_pointer(status_p, status_cb, [1])
+
+   status_cb(1) = 0_c_int64_t
+   old_use_native = use_native_instratus_condensate_impl
+   old_selected = instratus_condensate_impl_selected
+   use_native_instratus_condensate_impl = .true.
+   instratus_condensate_impl_selected = .true.
+   call instratus_condensate(0, ncol_i, 0, p_cb, t0_cb, qv0_cb, ql0_cb, qi0_cb, ni0_cb, &
+        a_dc_cb, ql_dc_cb, qi_dc_cb, a_sc_cb, ql_sc_cb, qi_sc_cb, landfrac_cb, snowh_cb, &
+        rhmini_cb, rhminl_cb, rhminl_adj_land_cb, rhminh_cb, t_out_cb, qv_out_cb, ql_out_cb, &
+        qi_out_cb, al_st_out_cb, ai_st_out_cb, ql_st_out_cb, qi_st_out_cb)
+   use_native_instratus_condensate_impl = old_use_native
+   instratus_condensate_impl_selected = old_selected
+   end subroutine cldwat2m_instratus_condensate_native_cb
+
    ! ----------------- !
    ! End of subroutine !
    ! ----------------- !
@@ -3910,6 +4057,21 @@ end subroutine rhcrit_calc
 
    call qsat_water(real(t_c, r8), real(p_c, r8), es_c, qs_c, dqsdt=dqsdt_c)
    end subroutine cldwat2m_qsat_water_native_cb
+
+   subroutine cldwat2m_qsat_water_vector_native_cb(n_c, t_p, p_p, es_p, qs_p) &
+        bind(C, name="cldwat2m_qsat_water_vector_native_cb")
+   integer(c_int64_t), value :: n_c
+   type(c_ptr), value :: t_p, p_p, es_p, qs_p
+   real(r8), pointer :: t(:), p(:), es(:), qs(:)
+   integer :: n
+
+   n = int(n_c)
+   call c_f_pointer(t_p, t, [n])
+   call c_f_pointer(p_p, p, [n])
+   call c_f_pointer(es_p, es, [n])
+   call c_f_pointer(qs_p, qs, [n])
+   call qsat_water(t(1:n), p(1:n), es(1:n), qs(1:n))
+   end subroutine cldwat2m_qsat_water_vector_native_cb
 
    subroutine cldwat2m_qsat_ice_native_cb(t_c, p_c, es_c, qs_c) &
         bind(C, name="cldwat2m_qsat_ice_native_cb")

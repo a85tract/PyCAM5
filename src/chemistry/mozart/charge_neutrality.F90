@@ -226,15 +226,14 @@
       elec_sndx = -1
       call cnst_get_ind( 'e', elec_ndx, abort=.false. )
       if (elec_ndx < 0) elec_sndx = slvd_index( 'e' )
-      active_c = charge_fix_active_codon(merge(1_c_int64_t, 0_c_int64_t, &
-           elec_ndx > 0 .or. elec_sndx > 0))
+      active_c = merge(1_c_int64_t, 0_c_int64_t, elec_ndx > 0 .or. elec_sndx > 0)
       if (.not. charge_fix_proof_written) then
          charge_fix_proof_written = .true.
          if (masterproc) then
             if (active_c == 0_c_int64_t) then
-               write(iulog,'(A)') 'charge_fix direct = codon no-electron-species no-op'
+               write(iulog,'(A)') 'charge_fix direct = native no-electron-species no-op'
             else
-               write(iulog,'(A)') 'charge_fix selector = codon; active electron/ion balance body = native'
+               write(iulog,'(A)') 'charge_fix selector = native; active electron/ion balance body = native'
             end if
             call flush(iulog)
          end if

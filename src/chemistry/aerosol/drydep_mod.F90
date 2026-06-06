@@ -14,6 +14,7 @@ module drydep_mod
       logical, save :: calcram_use_native_impl = .false.
       logical, save :: calcram_impl_selected = .false.
       logical, save :: inidrydep_codon_logged = .false.
+      logical, save :: inidrydep_native_logged = .false.
 
 contains
 
@@ -42,6 +43,17 @@ contains
 !-----------------------------------------------------------------------
 !      ns = size(xphi)
 !      allocate(phi(ns))
+      if (drydep_env_native_enabled('INIDRYDEP_IMPL')) then
+         rair = xrair
+         gravit = xgravit
+         if (masterproc .and. .not. inidrydep_native_logged) then
+            write(iulog,*) 'inidrydep implementation = native'
+            inidrydep_native_logged = .true.
+            call flush(iulog)
+         end if
+         return
+      end if
+
       call inidrydep_codon(real(xrair, c_double), real(xgravit, c_double), c_loc(rair), c_loc(gravit))
       if (masterproc .and. .not. inidrydep_codon_logged) then
          write(iulog,*) 'inidrydep implementation = codon'
@@ -54,6 +66,30 @@ contains
 
       return
       end subroutine inidrydep
+
+!##############################################################################
+
+      logical function drydep_env_native_enabled(selector)
+      implicit none
+      character(len=*), intent(in) :: selector
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      impl_name = 'codon'
+      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         drydep_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         drydep_env_native_enabled = .false.
+      end if
+      end function drydep_env_native_enabled
 
 !##############################################################################
 

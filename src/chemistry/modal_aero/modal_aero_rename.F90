@@ -112,6 +112,7 @@
   logical :: modal_aero_rename_set_dotend_flags_use_native_impl = .false.
   logical :: modal_aero_rename_set_dotend_flags_impl_selected = .false.
   logical :: modal_aero_rename_init_proof_written = .false.
+  logical :: modal_aero_rename_init_native_proof_written = .false.
 
   interface
      function modal_aero_rename_init_codon(active_c) result(out_c) bind(c, name="modal_aero_rename_init_codon")
@@ -146,14 +147,22 @@ contains
     logical, optional, intent(in) :: modal_accum_coarse_exch_in
     integer(c_int64_t) :: init_active_c
 
-    init_active_c = modal_aero_rename_init_codon(1_c_int64_t)
-    if (init_active_c == 0_c_int64_t) return
+    if (modal_aero_rename_env_native_enabled('MODAL_AERO_RENAME_INIT_IMPL')) then
+       if (masterproc .and. .not. modal_aero_rename_init_native_proof_written) then
+          write(iulog,'(A)') 'modal_aero_rename_init direct = native'
+          modal_aero_rename_init_native_proof_written = .true.
+          call flush(iulog)
+       end if
+    else
+       init_active_c = modal_aero_rename_init_codon(1_c_int64_t)
+       if (init_active_c == 0_c_int64_t) return
 
-    if (masterproc .and. .not. modal_aero_rename_init_proof_written) then
-       write(iulog,'(A)') 'modal_aero_rename_init direct = codon; mode-branch selection direct; ' // &
-            'child init/config native CAM API islands'
-       modal_aero_rename_init_proof_written = .true.
-       call flush(iulog)
+       if (masterproc .and. .not. modal_aero_rename_init_proof_written) then
+          write(iulog,'(A)') 'modal_aero_rename_init direct = codon; mode-branch selection direct; ' // &
+               'child init/config native CAM API islands'
+          modal_aero_rename_init_proof_written = .true.
+          call flush(iulog)
+       end if
     end if
     
     if (present(modal_accum_coarse_exch_in)) then
@@ -167,6 +176,32 @@ contains
     endif
 
   end subroutine modal_aero_rename_init
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  logical function modal_aero_rename_env_native_enabled(env_name)
+
+    character(len=*), intent(in) :: env_name
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_env_native_enabled = .false.
+    end if
+
+  end function modal_aero_rename_env_native_enabled
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------

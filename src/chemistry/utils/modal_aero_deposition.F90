@@ -57,6 +57,7 @@ logical :: set_srf_wetdep_direct_logged = .false.
 logical :: use_native_set_srf_drydep_impl = .false.
 logical :: set_srf_drydep_impl_selected = .false.
 logical :: modal_aero_deposition_init_codon_logged = .false.
+logical :: modal_aero_deposition_init_native_logged = .false.
 
 !==============================================================================
 contains
@@ -123,6 +124,73 @@ subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_nd
          integer(c_int64_t) :: out_c
       end function modal_aero_deposition_init_codon
    end interface
+
+   if (modal_aero_deposition_env_native_enabled('MODAL_AERO_DEPOSITION_INIT_IMPL')) then
+      if (initialized) then
+        call endrun('modal_aero_deposition_init is already initialized')
+      endif
+
+      if (present(bc1_ndx)) then
+         idx_bc1  = bc1_ndx
+      else
+         call cnst_get_ind('bc_a1',  idx_bc1)
+      endif
+      if (present(pom1_ndx)) then
+         idx_pom1 = pom1_ndx
+      else
+         call cnst_get_ind('pom_a1', idx_pom1)
+      endif
+      if (present(soa1_ndx)) then
+         idx_soa1 = soa1_ndx
+      else
+         call cnst_get_ind('soa_a1', idx_soa1)
+      endif
+      if (present(soa2_ndx)) then
+         idx_soa2 = soa2_ndx
+      else
+         call cnst_get_ind('soa_a2', idx_soa2)
+      endif
+      if (present(dst1_ndx)) then
+         idx_dst1 = dst1_ndx
+      else
+         call cnst_get_ind('dst_a1', idx_dst1, abort=.false.)
+      endif
+      if (present(dst3_ndx)) then
+         idx_dst3 = dst3_ndx
+      else
+         call cnst_get_ind('dst_a3', idx_dst3, abort=.false.)
+      endif
+      if (present(ncl3_ndx)) then
+         idx_ncl3 = ncl3_ndx
+      else
+         call cnst_get_ind('ncl_a3', idx_ncl3, abort=.false.)
+      endif
+      if (present(so43_ndx)) then
+         idx_so43 = so43_ndx
+      else
+         call cnst_get_ind('so4_a3', idx_so43, abort=.false.)
+      endif
+      if (present(bc4_ndx)) then
+         idx_bc4 = bc4_ndx
+      else
+         call cnst_get_ind('bc_a4', idx_bc4, abort=.false.)
+      endif
+      if (present(pom4_ndx)) then
+         idx_pom4 = pom4_ndx
+      else
+         call cnst_get_ind('pom_a4', idx_pom4, abort=.false.)
+      endif
+
+      bin_fluxes = idx_dst1 > 0 .and. idx_dst3 > 0 .and. idx_ncl3 > 0 .and. idx_so43 > 0
+      initialized = .true.
+
+      if (masterproc .and. .not. modal_aero_deposition_init_native_logged) then
+         write(iulog,'(A)') 'modal_aero_deposition_init implementation = native'
+         modal_aero_deposition_init_native_logged = .true.
+         call flush(iulog)
+      end if
+      return
+   end if
 
    bc1_present_c  = merge(1_c_int64_t, 0_c_int64_t, present(bc1_ndx))
    pom1_present_c = merge(1_c_int64_t, 0_c_int64_t, present(pom1_ndx))
@@ -265,6 +333,30 @@ subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_nd
    initialized = initialized_c /= 0_c_int64_t
 
 end subroutine modal_aero_deposition_init
+
+!==============================================================================
+logical function modal_aero_deposition_env_native_enabled(selector)
+
+   character(len=*), intent(in) :: selector
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   impl_name = 'codon'
+   call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_deposition_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_deposition_env_native_enabled = .false.
+   end if
+
+end function modal_aero_deposition_env_native_enabled
 
 !==============================================================================
 subroutine set_srf_wetdep_select_impl()

@@ -149,6 +149,27 @@ contains
 
 !========================================================================
 
+   logical function spmd_utils_use_native(selector)
+      character(len=*), intent(in) :: selector
+      character(len=32) :: impl_name
+      integer :: n, status, i, code
+
+      spmd_utils_use_native = .false.
+      impl_name = 'codon'
+      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         spmd_utils_use_native = trim(adjustl(impl_name(:n))) == 'native'
+      end if
+   end function spmd_utils_use_native
+
+!========================================================================
+
    integer function pair(np,p,k)
 
       integer np,p,k,q
@@ -162,6 +183,21 @@ contains
          end function pair_codon
       end interface
       logical, save :: pair_codon_logged = .false.
+      logical, save :: pair_native_logged = .false.
+
+      if (spmd_utils_use_native('SPMD_PAIR_IMPL')) then
+         q = ieor(p,k)
+         if(q.gt.np-1) then
+            pair = -1
+         else
+            pair = q
+         endif
+         if (.not. pair_native_logged) then
+            write(iulog,*) 'pair implementation = native'
+            pair_native_logged = .true.
+         endif
+         return
+      endif
 
       pair = int(pair_codon(int(np, c_int64_t), int(p, c_int64_t), int(k, c_int64_t)))
       if (.not. pair_codon_logged) then
@@ -184,6 +220,19 @@ contains
         end function ceil2_codon
      end interface
      logical, save :: ceil2_codon_logged = .false.
+     logical, save :: ceil2_native_logged = .false.
+     if (spmd_utils_use_native('SPMD_CEIL2_IMPL')) then
+        p=1
+        do while(p.lt.n)
+           p=p*2
+        enddo
+        ceil2=p
+        if (.not. ceil2_native_logged) then
+           write(iulog,*) 'ceil2 implementation = native'
+           ceil2_native_logged = .true.
+        endif
+        return
+     endif
      p = int(ceil2_codon(int(n, c_int64_t)))
      ceil2 = p
      if (.not. ceil2_codon_logged) then

@@ -210,10 +210,30 @@ contains
     type (cartesian2D_t),  dimension(np,np), intent(in) :: coords
     real (kind=real_kind), dimension(4,2), intent(out), target :: unif2quadmap
     real (kind=real_kind), target :: coords_xy(8)
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
 
     coords_xy = (/ coords(1,1)%x, coords(1,1)%y, coords(np,1)%x, coords(np,1)%y, &
                    coords(np,np)%x, coords(np,np)%y, coords(1,np)%x, coords(1,np)%y /)
+    impl_name = 'codon'
+    call get_environment_variable('ELEM_JACOBIANS_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       unif2quadmap(1,1)=(coords(1,1)%x+coords(np,1)%x+coords(np,np)%x+coords(1,np)%x)/4.0d0
+       unif2quadmap(1,2)=(coords(1,1)%y+coords(np,1)%y+coords(np,np)%y+coords(1,np)%y)/4.0d0
+       unif2quadmap(2,1)=(-coords(1,1)%x+coords(np,1)%x+coords(np,np)%x-coords(1,np)%x)/4.0d0
+       unif2quadmap(2,2)=(-coords(1,1)%y+coords(np,1)%y+coords(np,np)%y-coords(1,np)%y)/4.0d0
+       unif2quadmap(3,1)=(-coords(1,1)%x-coords(np,1)%x+coords(np,np)%x+coords(1,np)%x)/4.0d0
+       unif2quadmap(3,2)=(-coords(1,1)%y-coords(np,1)%y+coords(np,np)%y+coords(1,np)%y)/4.0d0
+       unif2quadmap(4,1)=(coords(1,1)%x-coords(np,1)%x+coords(np,np)%x-coords(1,np)%x)/4.0d0
+       unif2quadmap(4,2)=(coords(1,1)%y-coords(np,1)%y+coords(np,np)%y-coords(1,np)%y)/4.0d0
+       if (.not. proof_seen) then
+          write(iulog,*) 'elem_jacobians implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
+
     call elem_jacobians_codon(c_loc(coords_xy(1)), c_loc(unif2quadmap(1,1)))
     if (.not. proof_seen) then
        write(iulog,*) 'elem_jacobians implementation = codon'
@@ -633,6 +653,9 @@ contains
     real (kind=real_kind)    :: u2qmap(4,2)   
     type (cartesian2D_t)     :: corners(4)                          ! gnomonic coords of element corners
     integer :: facenum
+    real (kind=real_kind)  :: tmpD(2,2), Jp(2,2), x1, x2, pi, pj, qi, qj
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine dmap_equiangular_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
@@ -645,6 +668,39 @@ contains
          type(c_ptr), value :: d_p
        end subroutine dmap_equiangular_codon
     end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('DMAP_EQUIANGULAR_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       Jp(1,1) = u2qmap(2,1) + u2qmap(4,1)*b
+       Jp(1,2) = u2qmap(3,1) + u2qmap(4,1)*a
+       Jp(2,1) = u2qmap(2,2) + u2qmap(4,2)*b
+       Jp(2,2) = u2qmap(3,2) + u2qmap(4,2)*a
+
+       pi = (1-a)/2
+       pj = (1-b)/2
+       qi = (1+a)/2
+       qj = (1+b)/2
+       x1 = pi*pj*corners(1)%x &
+            + qi*pj*corners(2)%x &
+            + qi*qj*corners(3)%x &
+            + pi*qj*corners(4)%x
+       x2 = pi*pj*corners(1)%y &
+            + qi*pj*corners(2)%y &
+            + qi*qj*corners(3)%y &
+            + pi*qj*corners(4)%y
+
+       call vmap(tmpD,x1,x2,facenum)
+       D(1,1) = tmpD(1,1)*Jp(1,1) + tmpD(1,2)*Jp(2,1)
+       D(1,2) = tmpD(1,1)*Jp(1,2) + tmpD(1,2)*Jp(2,2)
+       D(2,1) = tmpD(2,1)*Jp(1,1) + tmpD(2,2)*Jp(2,1)
+       D(2,2) = tmpD(2,1)*Jp(1,2) + tmpD(2,2)*Jp(2,2)
+       if (.not. proof_seen) then
+          write(iulog,*) 'dmap_equiangular implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     call dmap_equiangular_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
          real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
@@ -903,6 +959,9 @@ contains
 
     integer                  :: i,j
     real (kind=real_kind), target :: lat_buf(np,np), lon_buf(np,np), fcor_buf(np,np)
+    real (kind=real_kind) :: lat, lon, rangle
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine coreolis_init_atomic_codon(np_c, rotate_grid_c, dd_pi_c, omega_c, &
@@ -913,6 +972,29 @@ contains
          type(c_ptr), value :: lat_p, lon_p, fcor_p
        end subroutine coreolis_init_atomic_codon
     end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('COREOLIS_INIT_ATOMIC_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       rangle = rotate_grid*DD_PI/180
+       do j=1,np
+          do i=1,np
+             if ( rotate_grid /= 0) then
+                lat = elem%spherep(i,j)%lat
+                lon = elem%spherep(i,j)%lon
+                elem%fcor(i,j)= 2*omega* &
+                     (-cos(lon)*cos(lat)*sin(rangle) + sin(lat)*cos(rangle))
+             else
+                elem%fcor(i,j) = 2.0D0*omega*SIN(elem%spherep(i,j)%lat)
+             endif
+          end do
+       end do
+       if (.not. proof_seen) then
+          write(iulog,*) 'coreolis_init_atomic implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     do j=1,np
        do i=1,np
@@ -1358,8 +1440,12 @@ contains
 
     ! Local variables
     integer  i,face_no
+    integer  ie,je
     integer(c_int), target :: face_no_c
     real (kind=real_kind), target :: corners_xy(8)
+    real (kind=real_kind) :: dx, dy, startx, starty
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine set_corner_coordinates_codon(number_c, ne_c, cube_xstart_c, cube_xend_c, &
@@ -1376,6 +1462,33 @@ contains
     ! ========================================
     ! compute cube face coordinates of element
     ! =========================================
+
+    impl_name = 'codon'
+    call get_environment_variable('SET_CORNER_COORDINATES_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       face_no = ((elem%vertex%number - 1) / (ne * ne)) + 1
+       ie = mod(elem%vertex%number - 1, ne)
+       je = (elem%vertex%number - 1) / ne - (face_no - 1) * ne
+       dx = (cube_xend - cube_xstart) / real(ne, kind=real_kind)
+       dy = (cube_yend - cube_ystart) / real(ne, kind=real_kind)
+       startx = cube_xstart + real(ie, kind=real_kind) * dx
+       starty = cube_ystart + real(je, kind=real_kind) * dy
+
+       elem%vertex%face_number = face_no
+       elem%corners(1)%x = startx
+       elem%corners(1)%y = starty
+       elem%corners(2)%x = startx + dx
+       elem%corners(2)%y = starty
+       elem%corners(3)%x = startx + dx
+       elem%corners(3)%y = starty + dy
+       elem%corners(4)%x = startx
+       elem%corners(4)%y = starty + dy
+       if (.not. proof_seen) then
+          write(iulog,*) 'set_corner_coordinates implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     call set_corner_coordinates_codon(int(elem%vertex%number, c_int64_t), int(ne, c_int64_t), &
          real(cube_xstart, c_double), real(cube_xend, c_double), real(cube_ystart, c_double), real(cube_yend, c_double), &
@@ -2611,6 +2724,10 @@ contains
     type (spherical_polar_t)      :: sphere
     type (cartesian2d_t)          :: corners(4)
     real(c_double), target :: r_c, lon_c, lat_c
+    real(kind=real_kind) :: pi, pj, qi, qj
+    type (cartesian2d_t) :: cart
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     logical, save :: proof_seen = .false.
     interface
        subroutine ref2sphere_equiangular_double_codon(a_c, b_c, face_no_c, c1x, c1y, &
@@ -2623,6 +2740,29 @@ contains
          type(c_ptr), value :: r_p, lon_p, lat_p
        end subroutine ref2sphere_equiangular_double_codon
     end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('REF2SPHERE_EQUIANGULAR_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       pi = (1-a)/2
+       pj = (1-b)/2
+       qi = (1+a)/2
+       qj = (1+b)/2
+       cart%x = pi*pj*corners(1)%x &
+            + qi*pj*corners(2)%x &
+            + qi*qj*corners(3)%x &
+            + pi*qj*corners(4)%x
+       cart%y = pi*pj*corners(1)%y &
+            + qi*pj*corners(2)%y &
+            + qi*qj*corners(3)%y &
+            + pi*qj*corners(4)%y
+       sphere=projectpoint(cart,face_no)
+       if (.not. proof_seen) then
+          write(iulog,*) 'ref2sphere_equiangular_double implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     call ref2sphere_equiangular_double_codon(real(a, c_double), real(b, c_double), &
          int(face_no, c_int64_t), real(corners(1)%x, c_double), &

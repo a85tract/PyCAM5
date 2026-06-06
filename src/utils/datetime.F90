@@ -47,8 +47,10 @@ contains
    integer, dimension(8) :: values 
    character :: date*8, time*10, zone*5 
    integer(c_int64_t), target :: values_c(8), cdate_codes(8), ctime_codes(8)
-   integer :: n
+   character(len=32) :: impl_name
+   integer :: n, status, i, code
    logical, save :: datetime_codon_logged = .false.
+   logical, save :: datetime_native_logged = .false.
    interface
       subroutine datetime_format_codon(values_p, cdate_p, ctime_p) bind(c, name='datetime_format_codon')
          import :: c_ptr
@@ -58,6 +60,34 @@ contains
 !-----------------------------------------------------------------------
  
    call date_and_time (date, time, zone, values) 
+   impl_name = 'codon'
+   call get_environment_variable('DATETIME_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      if (trim(adjustl(impl_name(:n))) == 'native') then
+         cdate(1:2) = date(5:6)
+         cdate(3:3) = '/'
+         cdate(4:5) = date(7:8)
+         cdate(6:6) = '/'
+         cdate(7:8) = date(3:4)
+         ctime(1:2) = time(1:2)
+         ctime(3:3) = ':'
+         ctime(4:5) = time(3:4)
+         ctime(6:6) = ':'
+         ctime(7:8) = time(5:6)
+         if (.not. datetime_native_logged) then
+            write(iulog,*) 'datetime implementation = native'
+            datetime_native_logged = .true.
+         endif
+         return
+      end if
+   end if
+
    values_c = int(values, c_int64_t)
    call datetime_format_codon(c_loc(values_c(1)), c_loc(cdate_codes(1)), c_loc(ctime_codes(1)))
    if (.not. datetime_codon_logged) then

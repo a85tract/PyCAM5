@@ -88,15 +88,16 @@ contains
     ! 	... intialize NO production
     !-----------------------------------------------------------------------
 
-    active_c = spe_prod_zero_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run), &
-         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(noxprod(1,1)), c_loc(hoxprod(1,1)))
+    noxprod(:ncol,:) = 0._r8
+    hoxprod(:ncol,:) = 0._r8
+    active_c = merge(1_c_int64_t, 0_c_int64_t, spe_run)
     if (.not. spe_prod_codon_logged) then
        spe_prod_codon_logged = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'spe_prod direct = codon flag-off zero no-op'
+             write(iulog,'(A)') 'spe_prod direct = native flag-off zero no-op'
           else
-             write(iulog,'(A)') 'spe_prod selector = codon; active ion-pair body = native'
+             write(iulog,'(A)') 'spe_prod selector = native; active ion-pair body = native'
           end if
           call flush(iulog)
        end if

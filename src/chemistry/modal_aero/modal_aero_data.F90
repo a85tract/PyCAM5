@@ -199,6 +199,8 @@
       integer, private, target :: qqcw(pcnst)=-1 ! Remaps modal_aero indices into pbuf
       logical, private :: qqcw_set_ptr_proof_written = .false.
       logical, private :: qqcw_get_field_proof_written = .false.
+      logical, private :: qqcw_set_ptr_native_proof_written = .false.
+      logical, private :: qqcw_get_field_native_proof_written = .false.
 
       contains
 
@@ -220,15 +222,29 @@
              end function qqcw_set_ptr_codon
           end interface
 
-          status = qqcw_set_ptr_codon(int(index, c_int64_t), int(pcnst, c_int64_t), &
-               int(iptr, c_int64_t), c_loc(qqcw(1)))
-          if (status == 0_c_int64_t) then
-             if (masterproc .and. .not. qqcw_set_ptr_proof_written) then
-                write(iulog,'(A)') 'qqcw_set_ptr direct = codon'
-                call flush(iulog)
-                qqcw_set_ptr_proof_written = .true.
+          if (qqcw_env_native_enabled('QQCW_SET_PTR_IMPL')) then
+             if(index>0 .and. index <= pcnst ) then
+                qqcw(index)=iptr
+                if (masterproc .and. .not. qqcw_set_ptr_native_proof_written) then
+                   write(iulog,'(A)') 'qqcw_set_ptr direct = native'
+                   call flush(iulog)
+                   qqcw_set_ptr_native_proof_written = .true.
+                end if
+                return
+             else
+                call endrun('attempting to set qqcw pointer already defined')
              end if
-             return
+          else
+             status = qqcw_set_ptr_codon(int(index, c_int64_t), int(pcnst, c_int64_t), &
+                  int(iptr, c_int64_t), c_loc(qqcw(1)))
+             if (status == 0_c_int64_t) then
+                if (masterproc .and. .not. qqcw_set_ptr_proof_written) then
+                   write(iulog,'(A)') 'qqcw_set_ptr direct = codon'
+                   call flush(iulog)
+                   qqcw_set_ptr_proof_written = .true.
+                end if
+                return
+             end if
           end if
 
           if(index>0 .and. index <= pcnst ) then
@@ -262,24 +278,41 @@
 
           nullify(qqcw_get_field)
           error = .false.
-          iptr_c = qqcw_get_field_codon(int(index, c_int64_t), int(pcnst, c_int64_t), c_loc(qqcw(1)))
-          if (iptr_c > 0_c_int64_t) then
-             if (masterproc .and. .not. qqcw_get_field_proof_written) then
-                write(iulog,'(A)') 'qqcw_get_field direct = codon'
-                call flush(iulog)
-                qqcw_get_field_proof_written = .true.
-             end if
-             call pbuf_get_field(pbuf, int(iptr_c), qqcw_get_field)
-          else
+          if (qqcw_env_native_enabled('QQCW_GET_FIELD_IMPL')) then
              if (index>0 .and. index <= pcnst) then
-                if (iptr_c > 0_c_int64_t) then
-                   call pbuf_get_field(pbuf, int(iptr_c), qqcw_get_field)
+                if (qqcw(index) > 0) then
+                   if (masterproc .and. .not. qqcw_get_field_native_proof_written) then
+                      write(iulog,'(A)') 'qqcw_get_field direct = native'
+                      call flush(iulog)
+                      qqcw_get_field_native_proof_written = .true.
+                   end if
+                   call pbuf_get_field(pbuf, qqcw(index), qqcw_get_field)
                 else
                    error = .true.
                 endif
              else
                 error = .true.
              endif
+          else
+             iptr_c = qqcw_get_field_codon(int(index, c_int64_t), int(pcnst, c_int64_t), c_loc(qqcw(1)))
+             if (iptr_c > 0_c_int64_t) then
+                if (masterproc .and. .not. qqcw_get_field_proof_written) then
+                   write(iulog,'(A)') 'qqcw_get_field direct = codon'
+                   call flush(iulog)
+                   qqcw_get_field_proof_written = .true.
+                end if
+                call pbuf_get_field(pbuf, int(iptr_c), qqcw_get_field)
+             else
+                if (index>0 .and. index <= pcnst) then
+                   if (iptr_c > 0_c_int64_t) then
+                      call pbuf_get_field(pbuf, int(iptr_c), qqcw_get_field)
+                   else
+                      error = .true.
+                   endif
+                else
+                   error = .true.
+                endif
+             end if
           end if
 
           if (error .and. .not. present(errorhandle)) then
@@ -287,6 +320,30 @@
           end if
 
         end function qqcw_get_field
+
+        logical function qqcw_env_native_enabled(env_name)
+
+          character(len=*), intent(in) :: env_name
+
+          character(len=32) :: impl_name
+          integer :: status, n, i, code
+
+          impl_name = 'codon'
+          call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+
+          if (status == 0 .and. n > 0) then
+             do i = 1, n
+                code = iachar(impl_name(i:i))
+                if (code >= iachar('A') .and. code <= iachar('Z')) then
+                   impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+                end if
+             end do
+             qqcw_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+          else
+             qqcw_env_native_enabled = .false.
+          end if
+
+        end function qqcw_env_native_enabled
 
         subroutine qqcw_fill_cptrs(pbuf, qqcw_cptrs)
           use iso_c_binding, only : c_ptr, c_null_ptr, c_loc

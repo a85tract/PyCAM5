@@ -329,15 +329,16 @@ contains
     integer :: i
     integer(c_int64_t) :: active_c
 
-    active_c = gcr_ionization_noxhox_zero_codon(merge(1_c_int64_t, 0_c_int64_t, has_gcr_ionization), &
-         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(gcr_nox(1,1)), c_loc(gcr_hox(1,1)))
+    gcr_nox(:ncol,:) = 0._r8
+    gcr_hox(:ncol,:) = 0._r8
+    active_c = merge(1_c_int64_t, 0_c_int64_t, has_gcr_ionization)
     if (.not. gcr_ionization_noxhox_proof_written) then
        gcr_ionization_noxhox_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'gcr_ionization_noxhox direct = codon flag-off zero no-op'
+             write(iulog,'(A)') 'gcr_ionization_noxhox direct = native flag-off zero no-op'
           else
-             write(iulog,'(A)') 'gcr_ionization_noxhox selector = codon; active ion-pair body = native'
+             write(iulog,'(A)') 'gcr_ionization_noxhox selector = native; active ion-pair body = native'
           end if
           call flush(iulog)
        end if

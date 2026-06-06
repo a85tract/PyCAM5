@@ -13,8 +13,30 @@ public :: findplb
 public :: intp_util_misc_touch
 
 logical :: findplb_codon_logged = .false.
+logical :: findplb_native_logged = .false.
 
 contains
+
+logical function intp_util_use_native(selector)
+   character(len=*), intent(in) :: selector
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   impl_name = 'codon'
+   call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      intp_util_use_native = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      intp_util_use_native = .false.
+   end if
+end function intp_util_use_native
 
 subroutine intp_util_misc_touch()
 #define CAM_MISC_TAG 234
@@ -46,6 +68,7 @@ subroutine findplb( x, nx, xval, index )
    real(r8), intent(in) ::  xval       ! value to be searched for in x
    
    integer, intent(out) ::  index
+   integer :: i
 
    interface
       function findplb_codon(x_p, nx_c, xval_c) result(index_c) bind(c, name="findplb_codon")
@@ -57,6 +80,24 @@ subroutine findplb( x, nx, xval, index )
       end function findplb_codon
    end interface
    !-----------------------------------------------------------------------
+
+   if (intp_util_use_native('FINDPLB_IMPL')) then
+      if ( xval .lt. x(1) .or. xval .ge. x(nx) ) then
+         index = nx
+      else
+         do i = 2, nx
+            if ( xval .lt. x(i) ) then
+               index = i-1
+               exit
+            end if
+         end do
+      end if
+      if (masterproc .and. .not. findplb_native_logged) then
+         write(iulog,'(A)') 'findplb implementation = native'
+         findplb_native_logged = .true.
+      end if
+      return
+   end if
 
    index = int(findplb_codon(x, int(nx, c_int64_t), xval))
    if (masterproc .and. .not. findplb_codon_logged) then

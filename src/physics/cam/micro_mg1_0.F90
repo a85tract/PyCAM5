@@ -156,12 +156,16 @@ logical :: micro_mg1_0_init_scalars_logged = .false.
 logical :: micro_mg1_0_colzero_use_native_impl = .false.
 logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
+logical :: micro_mg1_0_phase_change_use_native_impl = .false.
+logical :: micro_mg1_0_phase_change_impl_selected = .false.
 logical :: micro_mg1_0_rate1ord_logged = .false.
 logical :: micro_mg1_0_substep_setup_logged = .false.
 logical :: micro_mg1_0_substep_accum_logged = .false.
 logical :: micro_mg1_0_incloud_activation_logged = .false.
 logical :: micro_mg1_0_conservation_limiter_logged = .false.
 logical :: micro_mg1_0_process_output_logged = .false.
+logical :: micro_mg1_0_post_iter_avg_use_native_impl = .false.
+logical :: micro_mg1_0_post_iter_avg_impl_selected = .false.
 logical :: micro_mg1_0_post_iter_avg_logged = .false.
 logical :: micro_mg1_0_phase_change_logged = .false.
 logical :: micro_mg1_0_number_cleanup_logged = .false.
@@ -986,6 +990,7 @@ logical  :: do_clubb_sgs
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 call micro_mg1_0_select_tend_impl()
+call micro_mg1_0_select_colzero_impl()
 
 if (.not. micro_mg1_0_tend_use_native_impl) then
    touch_c = micro_mg_tend_codon(1_c_int64_t)
@@ -4174,9 +4179,15 @@ end subroutine micro_mg1_0_select_colzero_impl
 
 subroutine micro_mg1_0_colzero_log_entry()
   if (masterproc .and. .not. micro_mg1_0_colzero_wrapper_logged) then
-     write(iulog,*) 'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = codon)'
-     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
-          'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = codon)')
+     if (micro_mg1_0_colzero_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = native)'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = native)')
+     else
+        write(iulog,*) 'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = codon)'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = codon)')
+     end if
      micro_mg1_0_colzero_wrapper_logged = .true.
   end if
 end subroutine micro_mg1_0_colzero_log_entry
@@ -4235,20 +4246,60 @@ subroutine micro_mg1_0_process_output_log_entry()
   end if
 end subroutine micro_mg1_0_process_output_log_entry
 
+subroutine micro_mg1_0_select_post_iter_avg_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_post_iter_avg_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_POST_ITER_AVG_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_post_iter_avg_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_post_iter_avg_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_post_iter_avg_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_post_iter_avg implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_post_iter_avg implementation = native')
+     else
+        write(iulog,*) 'micro_mg1_0_post_iter_avg implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_post_iter_avg implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_post_iter_avg_impl_selected = .true.
+end subroutine micro_mg1_0_select_post_iter_avg_impl
+
 subroutine micro_mg1_0_post_iter_avg_log_entry()
   if (masterproc .and. .not. micro_mg1_0_post_iter_avg_logged) then
-     write(iulog,*) 'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = codon)'
-     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
-          'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = codon)')
+     if (micro_mg1_0_post_iter_avg_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = native)'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = native)')
+     else
+        write(iulog,*) 'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = codon)'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_post_iter_avg entered (post-iteration averaging/state restore = codon)')
+     end if
      micro_mg1_0_post_iter_avg_logged = .true.
   end if
 end subroutine micro_mg1_0_post_iter_avg_log_entry
 
 subroutine micro_mg1_0_phase_change_log_entry()
   if (masterproc .and. .not. micro_mg1_0_phase_change_logged) then
-     write(iulog,*) 'micro_mg1_0_phase_change entered (cloud ice melting/freezing = codon)'
-     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
-          'micro_mg1_0_phase_change entered (cloud ice melting/freezing = codon)')
+     if (micro_mg1_0_phase_change_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_phase_change entered (cloud ice melting/freezing = native)'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_phase_change entered (cloud ice melting/freezing = native)')
+     else
+        write(iulog,*) 'micro_mg1_0_phase_change entered (cloud ice melting/freezing = codon)'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_phase_change entered (cloud ice melting/freezing = codon)')
+     end if
      micro_mg1_0_phase_change_logged = .true.
   end if
 end subroutine micro_mg1_0_phase_change_log_entry
@@ -4826,6 +4877,7 @@ subroutine micro_mg1_0_post_iter_avg_codon_wrap(i_local, pcols_local, pver_local
      frzro_local, meltso_local, wtprelat_local, prer_evap_local)
   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
   integer, intent(in) :: i_local, pcols_local, pver_local, top_lev_local, iter_local
+  integer :: k
   real(r8), target, intent(in) :: prect1_local(pcols_local), preci1_local(pcols_local)
   real(r8), target, intent(inout) :: prect_local(pcols_local), preci_local(pcols_local)
   real(r8), target, intent(in) :: t1_local(pcols_local,pver_local), q1_local(pcols_local,pver_local)
@@ -4886,8 +4938,78 @@ subroutine micro_mg1_0_post_iter_avg_codon_wrap(i_local, pcols_local, pver_local
      end subroutine micro_mg1_0_post_iter_avg_codon
   end interface
 
+  call micro_mg1_0_select_post_iter_avg_impl()
   call micro_mg1_0_colzero_log_entry()
   call micro_mg1_0_post_iter_avg_log_entry()
+  if (micro_mg1_0_post_iter_avg_use_native_impl) then
+     prect_local(i_local)=prect1_local(i_local)/real(iter_local)
+     preci_local(i_local)=preci1_local(i_local)/real(iter_local)
+
+     do k = top_lev_local,pver_local
+        t_local(i_local,k)=t1_local(i_local,k)
+        q_local(i_local,k)=q1_local(i_local,k)
+        qc_local(i_local,k)=qc1_local(i_local,k)
+        qi_local(i_local,k)=qi1_local(i_local,k)
+        nc_local(i_local,k)=nc1_local(i_local,k)
+        ni_local(i_local,k)=ni1_local(i_local,k)
+
+        tlat_local(i_local,k)=tlat1_local(i_local,k)/real(iter_local)
+        qvlat_local(i_local,k)=qvlat1_local(i_local,k)/real(iter_local)
+        qctend_local(i_local,k)=qctend1_local(i_local,k)/real(iter_local)
+        qitend_local(i_local,k)=qitend1_local(i_local,k)/real(iter_local)
+        nctend_local(i_local,k)=nctend1_local(i_local,k)/real(iter_local)
+        nitend_local(i_local,k)=nitend1_local(i_local,k)/real(iter_local)
+
+        rainrt_local(i_local,k)=rainrt1_local(i_local,k)/real(iter_local)
+
+        rflx_local(i_local,k+1)=rflx1_local(i_local,k+1)/real(iter_local)
+        sflx_local(i_local,k+1)=sflx1_local(i_local,k+1)/real(iter_local)
+
+        qrout_local(i_local,k)=qrout_local(i_local,k)/real(iter_local)
+        qsout_local(i_local,k)=qsout_local(i_local,k)/real(iter_local)
+        nrout_local(i_local,k)=nrout_local(i_local,k)/real(iter_local)
+        nsout_local(i_local,k)=nsout_local(i_local,k)/real(iter_local)
+
+        nevapr_local(i_local,k) = nevapr_local(i_local,k)/real(iter_local)
+        nevapr2_local(i_local,k) = nevapr2_local(i_local,k)/real(iter_local)
+        evapsnow_local(i_local,k) = evapsnow_local(i_local,k)/real(iter_local)
+        prain_local(i_local,k) = prain_local(i_local,k)/real(iter_local)
+        prodsnow_local(i_local,k) = prodsnow_local(i_local,k)/real(iter_local)
+        cmeout_local(i_local,k) = cmeout_local(i_local,k)/real(iter_local)
+
+        cmeiout_local(i_local,k) = cmeiout_local(i_local,k)/real(iter_local)
+        meltsdt_local(i_local,k) = meltsdt_local(i_local,k)/real(iter_local)
+        frzrdt_local(i_local,k) = frzrdt_local(i_local,k)/real(iter_local)
+
+        prao_local(i_local,k)=prao_local(i_local,k)/real(iter_local)
+        prco_local(i_local,k)=prco_local(i_local,k)/real(iter_local)
+        mnuccco_local(i_local,k)=mnuccco_local(i_local,k)/real(iter_local)
+        mnuccto_local(i_local,k)=mnuccto_local(i_local,k)/real(iter_local)
+        msacwio_local(i_local,k)=msacwio_local(i_local,k)/real(iter_local)
+        psacwso_local(i_local,k)=psacwso_local(i_local,k)/real(iter_local)
+        bergso_local(i_local,k)=bergso_local(i_local,k)/real(iter_local)
+        bergo_local(i_local,k)=bergo_local(i_local,k)/real(iter_local)
+        prcio_local(i_local,k)=prcio_local(i_local,k)/real(iter_local)
+        praio_local(i_local,k)=praio_local(i_local,k)/real(iter_local)
+
+        mnuccro_local(i_local,k)=mnuccro_local(i_local,k)/real(iter_local)
+        pracso_local(i_local,k)=pracso_local(i_local,k)/real(iter_local)
+
+        mnuccdo_local(i_local,k)=mnuccdo_local(i_local,k)/real(iter_local)
+
+        preo_local(i_local,k)=preo_local(i_local,k)/real(iter_local)
+        prdso_local(i_local,k)=prdso_local(i_local,k)/real(iter_local)
+        frzro_local(i_local,k)=frzro_local(i_local,k)/real(iter_local)
+        meltso_local(i_local,k)=meltso_local(i_local,k)/real(iter_local)
+        wtprelat_local(i_local,k) = tlat_local(i_local,k)
+
+        nevapr_local(i_local,k) = nevapr_local(i_local,k) + evapsnow_local(i_local,k)
+        prer_evap_local(i_local,k) = nevapr2_local(i_local,k)
+        prain_local(i_local,k) = prain_local(i_local,k) + prodsnow_local(i_local,k)
+     end do
+     return
+  end if
+
   call micro_mg1_0_post_iter_avg_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
        int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), int(iter_local, c_int64_t), &
        c_loc(prect1_local), c_loc(preci1_local), c_loc(prect_local), c_loc(preci_local), &
@@ -4928,6 +5050,7 @@ subroutine micro_mg1_0_phase_change_codon_wrap(i_local, k_local, pcols_local, pv
   real(r8), target, intent(inout) :: dumnc_local(pcols_local,pver_local), dumni_local(pcols_local,pver_local)
   real(r8), target, intent(inout) :: melto_local(pcols_local,pver_local), homoo_local(pcols_local,pver_local)
   real(r8), target, intent(inout) :: wtpostlat_local(pcols_local,pver_local)
+  real(r8) :: dum
 
   interface
      subroutine micro_mg1_0_phase_change_codon(i_c, k_c, pcols_c, pver_c, deltat_c, cpp_c, xlf_c, &
@@ -4942,8 +5065,95 @@ subroutine micro_mg1_0_phase_change_codon_wrap(i_local, k_local, pcols_local, pv
      end subroutine micro_mg1_0_phase_change_codon
   end interface
 
+  call micro_mg1_0_select_phase_change_impl()
   call micro_mg1_0_colzero_log_entry()
   call micro_mg1_0_phase_change_log_entry()
+
+  if (micro_mg1_0_phase_change_use_native_impl) then
+     dumc_local(i_local,k_local) = max(qc_local(i_local,k_local) + &
+          qctend_local(i_local,k_local) * deltat_local, 0._r8)
+     dumi_local(i_local,k_local) = max(qi_local(i_local,k_local) + &
+          qitend_local(i_local,k_local) * deltat_local, 0._r8)
+     dumnc_local(i_local,k_local) = max(nc_local(i_local,k_local) + &
+          nctend_local(i_local,k_local) * deltat_local, 0._r8)
+     dumni_local(i_local,k_local) = max(ni_local(i_local,k_local) + &
+          nitend_local(i_local,k_local) * deltat_local, 0._r8)
+
+     if (dumc_local(i_local,k_local) < qsmall_local) then
+        dumnc_local(i_local,k_local) = 0._r8
+     end if
+     if (dumi_local(i_local,k_local) < qsmall_local) then
+        dumni_local(i_local,k_local) = 0._r8
+     end if
+
+     if (do_cldice_local) then
+        if (t_local(i_local,k_local) + tlat_local(i_local,k_local) / cpp_local * &
+             deltat_local > tmelt_local) then
+           if (dumi_local(i_local,k_local) > 0._r8) then
+              dum = -dumi_local(i_local,k_local) * xlf_local / cpp_local
+              if (t_local(i_local,k_local) + tlat_local(i_local,k_local) / cpp_local * &
+                   deltat_local + dum < tmelt_local) then
+                 dum = (t_local(i_local,k_local) + tlat_local(i_local,k_local) / cpp_local * &
+                      deltat_local - tmelt_local) * cpp_local / xlf_local
+                 dum = dum / dumi_local(i_local,k_local) * xlf_local / cpp_local
+                 dum = max(0._r8, dum)
+                 dum = min(1._r8, dum)
+              else
+                 dum = 1._r8
+              end if
+
+              qctend_local(i_local,k_local) = qctend_local(i_local,k_local) + &
+                   dum * dumi_local(i_local,k_local) / deltat_local
+              melto_local(i_local,k_local) = dum * dumi_local(i_local,k_local) / deltat_local
+              nctend_local(i_local,k_local) = nctend_local(i_local,k_local) + &
+                   3._r8 * dum * dumi_local(i_local,k_local) / deltat_local / &
+                   (4._r8 * pi_local * 5.12e-16_r8 * rhow_local)
+              qitend_local(i_local,k_local) = ((1._r8 - dum) * dumi_local(i_local,k_local) - &
+                   qi_local(i_local,k_local)) / deltat_local
+              nitend_local(i_local,k_local) = ((1._r8 - dum) * dumni_local(i_local,k_local) - &
+                   ni_local(i_local,k_local)) / deltat_local
+              tlat_local(i_local,k_local) = tlat_local(i_local,k_local) - &
+                   xlf_local * dum * dumi_local(i_local,k_local) / deltat_local
+              wtpostlat_local(i_local,k_local) = wtpostlat_local(i_local,k_local) - &
+                   (xlf_local * dum * dumi_local(i_local,k_local) / deltat_local)
+           end if
+        end if
+
+        if (t_local(i_local,k_local) + tlat_local(i_local,k_local) / cpp_local * &
+             deltat_local < 233.15_r8) then
+           if (dumc_local(i_local,k_local) > 0._r8) then
+              dum = dumc_local(i_local,k_local) * xlf_local / cpp_local
+              if (t_local(i_local,k_local) + tlat_local(i_local,k_local) / cpp_local * &
+                   deltat_local + dum > 233.15_r8) then
+                 dum = -(t_local(i_local,k_local) + tlat_local(i_local,k_local) / cpp_local * &
+                      deltat_local - 233.15_r8) * cpp_local / xlf_local
+                 dum = dum / dumc_local(i_local,k_local) * xlf_local / cpp_local
+                 dum = max(0._r8, dum)
+                 dum = min(1._r8, dum)
+              else
+                 dum = 1._r8
+              end if
+
+              qitend_local(i_local,k_local) = qitend_local(i_local,k_local) + &
+                   dum * dumc_local(i_local,k_local) / deltat_local
+              homoo_local(i_local,k_local) = dum * dumc_local(i_local,k_local) / deltat_local
+              nitend_local(i_local,k_local) = nitend_local(i_local,k_local) + &
+                   dum * 3._r8 * dumc_local(i_local,k_local) / &
+                   (4._r8 * 3.14_r8 * 1.563e-14_r8 * 500._r8) / deltat_local
+              qctend_local(i_local,k_local) = ((1._r8 - dum) * dumc_local(i_local,k_local) - &
+                   qc_local(i_local,k_local)) / deltat_local
+              nctend_local(i_local,k_local) = ((1._r8 - dum) * dumnc_local(i_local,k_local) - &
+                   nc_local(i_local,k_local)) / deltat_local
+              tlat_local(i_local,k_local) = tlat_local(i_local,k_local) + &
+                   xlf_local * dum * dumc_local(i_local,k_local) / deltat_local
+              wtpostlat_local(i_local,k_local) = wtpostlat_local(i_local,k_local) + &
+                   (xlf_local * dum * dumc_local(i_local,k_local) / deltat_local)
+           end if
+        end if
+     end if
+     return
+  end if
+
   call micro_mg1_0_phase_change_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), &
        int(pcols_local, c_int64_t), int(pver_local, c_int64_t), real(deltat_local, c_double), &
        real(cpp_local, c_double), real(xlf_local, c_double), real(tmelt_local, c_double), &
@@ -4954,6 +5164,34 @@ subroutine micro_mg1_0_phase_change_codon_wrap(i_local, k_local, pcols_local, pv
        c_loc(dumi_local), c_loc(dumnc_local), c_loc(dumni_local), c_loc(melto_local), &
        c_loc(homoo_local), c_loc(wtpostlat_local))
 end subroutine micro_mg1_0_phase_change_codon_wrap
+
+subroutine micro_mg1_0_select_phase_change_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_phase_change_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_PHASE_CHANGE_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_phase_change_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_phase_change_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_phase_change_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_phase_change implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_phase_change implementation = native')
+     else
+        write(iulog,*) 'micro_mg1_0_phase_change implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_phase_change implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_phase_change_impl_selected = .true.
+end subroutine micro_mg1_0_select_phase_change_impl
 
 subroutine micro_mg1_0_number_cleanup_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
      deltat_local, qsmall_local, do_cldice_local, qc_local, qi_local, nc_local, ni_local, &

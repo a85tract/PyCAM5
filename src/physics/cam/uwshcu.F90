@@ -2929,9 +2929,43 @@ contains
   real(r8) function exnf(pressure)
            use iso_c_binding, only: c_double
            real(r8), intent(in)              :: pressure
-           call uwshcu_log_exnf_direct_entered()
-           exnf = real(exnf_codon(real(pressure, c_double), &
-                real(p00, c_double), real(rovcp, c_double)), r8)
+           character(len=32) :: impl_name
+           integer :: status, env_len, i, code
+           logical, save :: exnf_impl_selected = .false.
+           logical, save :: use_native_exnf_impl = .false.
+
+           if (.not. exnf_impl_selected) then
+              impl_name = 'codon'
+              call get_environment_variable('UWSHCU_EXNF_IMPL', value=impl_name, length=env_len, status=status)
+              if (status == 0 .and. env_len > 0) then
+                 do i = 1, env_len
+                    code = iachar(impl_name(i:i))
+                    if (code >= iachar('A') .and. code <= iachar('Z')) then
+                       impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+                    end if
+                 end do
+                 use_native_exnf_impl = trim(adjustl(impl_name(:env_len))) == 'native'
+              else
+                 use_native_exnf_impl = .false.
+              end if
+              exnf_impl_selected = .true.
+           end if
+
+           if (use_native_exnf_impl) then
+              if (.not. exnf_direct_entered_logged) then
+                 exnf_direct_entered_logged = .true.
+                 if (masterproc) then
+                    write(iulog,'(A)') 'uwshcu exnf direct = native'
+                    call uwshcu_append_proof('uwshcu exnf direct = native')
+                    call flush(iulog)
+                 end if
+              end if
+              exnf = (pressure / p00) ** rovcp
+           else
+              call uwshcu_log_exnf_direct_entered()
+              exnf = real(exnf_codon(real(pressure, c_double), &
+                   real(p00, c_double), real(rovcp, c_double)), r8)
+           end if
            return
   end function exnf
 
@@ -2940,7 +2974,7 @@ contains
   pure function uwshcu_exnf_native_cb(pressure_c, p00_c, rovcp_c) result(exnf_c) &
        bind(C, name="uwshcu_exnf_native_cb")
     use iso_c_binding, only: c_double
-    real(c_double), value :: pressure_c, p00_c, rovcp_c
+    real(c_double), intent(in), value :: pressure_c, p00_c, rovcp_c
     real(c_double) :: exnf_c
 
     exnf_c = (pressure_c / p00_c) ** rovcp_c
@@ -2991,7 +3025,9 @@ subroutine uwshcu_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr
+   integer :: env_len, env_status
    character(len=*), parameter :: subname = 'uwshcu_readnl'
+   character(len=16) :: impl_name
 
    ! Namelist variables
    real(r8) :: uwshcu_rpen =  unset_r8    !  For penetrative entrainment efficiency
@@ -3018,8 +3054,15 @@ subroutine uwshcu_readnl(nlfile)
    call mpibcast(uwshcu_rpen,            1, mpir8,  0, mpicom)
 #endif
    
-   rpen = uwshcu_readnl_param_codon(real(uwshcu_rpen, c_double))
-   call uwshcu_log_readnl_direct()
+   call get_environment_variable('UWSHCU_READNL_IMPL', value=impl_name, &
+        length=env_len, status=env_status)
+   if (env_status == 0 .and. env_len > 0 .and. &
+        trim(adjustl(impl_name(:env_len))) == 'native') then
+      rpen = uwshcu_rpen
+   else
+      rpen = uwshcu_readnl_param_codon(real(uwshcu_rpen, c_double))
+      call uwshcu_log_readnl_direct()
+   end if
   
 
 end subroutine uwshcu_readnl

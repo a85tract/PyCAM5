@@ -89,22 +89,22 @@ interface
   pure function wv_sat_valid_idx_codon(idx_c) result(status_c) &
        bind(c, name="wv_sat_valid_idx_codon")
     use iso_c_binding, only: c_int64_t
-    integer(c_int64_t), value :: idx_c
+    integer(c_int64_t), intent(in), value :: idx_c
     integer(c_int64_t) :: status_c
   end function wv_sat_valid_idx_codon
 
   pure function wv_sat_svp_to_qsat_codon(es_c, p_c, epsilo_c, omeps_c) result(qs_c) &
        bind(c, name="wv_sat_svp_to_qsat_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: es_c, p_c, epsilo_c, omeps_c
+    real(c_double), intent(in), value :: es_c, p_c, epsilo_c, omeps_c
     real(c_double) :: qs_c
   end function wv_sat_svp_to_qsat_codon
 
   pure function wv_sat_get_scheme_idx_codon(name_len_c, name_ascii_p) result(idx_c) &
        bind(c, name="wv_sat_get_scheme_idx_codon")
     use iso_c_binding, only: c_int64_t, c_ptr
-    integer(c_int64_t), value :: name_len_c
-    type(c_ptr), value :: name_ascii_p
+    integer(c_int64_t), intent(in), value :: name_len_c
+    type(c_ptr), intent(in), value :: name_ascii_p
     integer(c_int64_t) :: idx_c
   end function wv_sat_get_scheme_idx_codon
 
@@ -119,81 +119,81 @@ interface
   pure subroutine wv_sat_qsat_water_codon(t_c, p_c, idx_c, epsilo_c, omeps_c, es_p, qs_p) &
        bind(c, name="wv_sat_qsat_water_codon")
     use iso_c_binding, only: c_double, c_int64_t, c_ptr
-    real(c_double), value :: t_c, p_c, epsilo_c, omeps_c
-    integer(c_int64_t), value :: idx_c
-    type(c_ptr), value :: es_p, qs_p
+    real(c_double), intent(in), value :: t_c, p_c, epsilo_c, omeps_c
+    integer(c_int64_t), intent(in), value :: idx_c
+    type(c_ptr), intent(in), value :: es_p, qs_p
   end subroutine wv_sat_qsat_water_codon
 
   pure function wv_sat_svp_water_codon(t_c, idx_c) result(es_c) &
        bind(c, name="wv_sat_svp_water_codon")
     use iso_c_binding, only: c_double, c_int64_t
-    real(c_double), value :: t_c
-    integer(c_int64_t), value :: idx_c
+    real(c_double), intent(in), value :: t_c
+    integer(c_int64_t), intent(in), value :: idx_c
     real(c_double) :: es_c
   end function wv_sat_svp_water_codon
 
   pure function wv_sat_svp_ice_codon(t_c, idx_c) result(es_c) &
        bind(c, name="wv_sat_svp_ice_codon")
     use iso_c_binding, only: c_double, c_int64_t
-    real(c_double), value :: t_c
-    integer(c_int64_t), value :: idx_c
+    real(c_double), intent(in), value :: t_c
+    integer(c_int64_t), intent(in), value :: idx_c
     real(c_double) :: es_c
   end function wv_sat_svp_ice_codon
 
   pure function wv_sat_svp_trans_codon(t_c, idx_c, tmelt_c, ttrice_c) result(es_c) &
        bind(c, name="wv_sat_svp_trans_codon")
     use iso_c_binding, only: c_double, c_int64_t
-    real(c_double), value :: t_c, tmelt_c, ttrice_c
-    integer(c_int64_t), value :: idx_c
+    real(c_double), intent(in), value :: t_c, tmelt_c, ttrice_c
+    integer(c_int64_t), intent(in), value :: idx_c
     real(c_double) :: es_c
   end function wv_sat_svp_trans_codon
 
   pure function goffgratch_svp_water_codon(t_c) result(es_c) &
        bind(c, name="goffgratch_svp_water_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function goffgratch_svp_water_codon
 
   pure function goffgratch_svp_ice_codon(t_c) result(es_c) &
        bind(c, name="goffgratch_svp_ice_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function goffgratch_svp_ice_codon
 
   pure function murphykoop_svp_water_codon(t_c) result(es_c) &
        bind(c, name="murphykoop_svp_water_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function murphykoop_svp_water_codon
 
   pure function murphykoop_svp_ice_codon(t_c) result(es_c) &
        bind(c, name="murphykoop_svp_ice_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function murphykoop_svp_ice_codon
 
   pure function oldgoffgratch_svp_water_codon(t_c) result(es_c) &
        bind(c, name="oldgoffgratch_svp_water_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function oldgoffgratch_svp_water_codon
 
   pure function oldgoffgratch_svp_ice_codon(t_c) result(es_c) &
        bind(c, name="oldgoffgratch_svp_ice_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function oldgoffgratch_svp_ice_codon
 
   pure function bolton_svp_water_codon(t_c) result(es_c) &
        bind(c, name="bolton_svp_water_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c
+    real(c_double), intent(in), value :: t_c
     real(c_double) :: es_c
   end function bolton_svp_water_codon
 end interface
@@ -368,6 +368,22 @@ pure function wv_sat_get_scheme_idx(name) result(idx)
   integer :: i
   integer(c_int64_t), target :: name_ascii(len(name))
 
+  if (use_native_wv_sat_methods_impl) then
+     select case (name)
+     case("GoffGratch")
+        idx = GoffGratch_idx
+     case("MurphyKoop")
+        idx = MurphyKoop_idx
+     case("OldGoffGratch")
+        idx = OldGoffGratch_idx
+     case("Bolton")
+        idx = Bolton_idx
+     case default
+        idx = Invalid_idx
+     end select
+     return
+  end if
+
   do i = 1, len(name)
      name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
   end do
@@ -380,6 +396,11 @@ end function wv_sat_get_scheme_idx
 pure function wv_sat_valid_idx(idx) result(status)
   integer, intent(in) :: idx
   logical :: status
+
+  if (use_native_wv_sat_methods_impl) then
+     status = (idx /= Invalid_idx)
+     return
+  end if
 
   status = wv_sat_valid_idx_codon(int(idx, c_int64_t)) /= 0_c_int64_t
 
@@ -395,12 +416,35 @@ function wv_sat_set_default(name) result(status)
   ! Don't want to overwrite valid default with invalid,
   ! so assign to temporary and check it first.
   integer :: tmp_idx
+  character(len=16) :: impl_name
+  integer :: impl_len, impl_status
 
-  tmp_idx = wv_sat_get_scheme_idx(name)
-
-  status = wv_sat_set_default_codon(int(tmp_idx, c_int64_t), c_loc(default_idx)) /= 0_c_int64_t
-  if (status) call wv_sat_methods_log_direct(wv_sat_set_default_logged, &
-       'wv_sat_set_default direct = codon')
+  call get_environment_variable('WV_SAT_SET_DEFAULT_IMPL', value=impl_name, &
+       length=impl_len, status=impl_status)
+  if (impl_status == 0 .and. impl_len > 0 .and. &
+       trim(adjustl(impl_name(:impl_len))) == 'native') then
+     select case (name)
+     case("GoffGratch")
+        tmp_idx = GoffGratch_idx
+     case("MurphyKoop")
+        tmp_idx = MurphyKoop_idx
+     case("OldGoffGratch")
+        tmp_idx = OldGoffGratch_idx
+     case("Bolton")
+        tmp_idx = Bolton_idx
+     case default
+        tmp_idx = Invalid_idx
+     end select
+     status = (tmp_idx /= Invalid_idx)
+     if (status) default_idx = tmp_idx
+     if (status) call wv_sat_methods_log_direct(wv_sat_set_default_logged, &
+          'wv_sat_set_default direct = native')
+  else
+     tmp_idx = wv_sat_get_scheme_idx(name)
+     status = wv_sat_set_default_codon(int(tmp_idx, c_int64_t), c_loc(default_idx)) /= 0_c_int64_t
+     if (status) call wv_sat_methods_log_direct(wv_sat_set_default_logged, &
+          'wv_sat_set_default direct = codon')
+  end if
 
 end function wv_sat_set_default
 
@@ -434,6 +478,16 @@ elemental function wv_sat_svp_to_qsat(es, p) result(qs)
   real(r8), intent(in) :: p   ! Current pressure.
   real(r8) :: qs
 
+  if (use_native_wv_sat_methods_impl) then
+     ! If pressure is less than SVP, set qs to maximum of 1.
+     if ( (p - es) <= 0._r8 ) then
+        qs = 1.0_r8
+     else
+        qs = epsilo*es / (p - omeps*es)
+     end if
+     return
+  end if
+
   qs = real(wv_sat_svp_to_qsat_codon(real(es, c_double), real(p, c_double), &
        real(epsilo, c_double), real(omeps, c_double)), r8)
 
@@ -460,6 +514,13 @@ elemental subroutine wv_sat_qsat_water(t, p, es, qs, idx)
      use_idx = idx
   else
      use_idx = default_idx
+  end if
+
+  if (use_native_wv_sat_methods_impl) then
+     es = wv_sat_svp_water(t, idx)
+     qs = wv_sat_svp_to_qsat(es, p)
+     es = min(es, p)
+     return
   end if
 
   call wv_sat_qsat_water_codon(real(t, c_double), real(p, c_double), &
@@ -535,6 +596,20 @@ elemental function wv_sat_svp_water(t, idx) result(es)
      use_idx = default_idx
   end if
 
+  if (use_native_wv_sat_methods_impl) then
+     select case (use_idx)
+     case(GoffGratch_idx)
+        es = GoffGratch_svp_water(t)
+     case(MurphyKoop_idx)
+        es = MurphyKoop_svp_water(t)
+     case(OldGoffGratch_idx)
+        es = OldGoffGratch_svp_water(t)
+     case(Bolton_idx)
+        es = Bolton_svp_water(t)
+     end select
+     return
+  end if
+
   es = wv_sat_svp_water_codon(real(t, c_double), int(use_idx, c_int64_t))
 
 end function wv_sat_svp_water
@@ -552,6 +627,20 @@ elemental function wv_sat_svp_ice(t, idx) result(es)
      use_idx = default_idx
   end if
 
+  if (use_native_wv_sat_methods_impl) then
+     select case (use_idx)
+     case(GoffGratch_idx)
+        es = GoffGratch_svp_ice(t)
+     case(MurphyKoop_idx)
+        es = MurphyKoop_svp_ice(t)
+     case(OldGoffGratch_idx)
+        es = OldGoffGratch_svp_ice(t)
+     case(Bolton_idx)
+        es = Bolton_svp_water(t)
+     end select
+     return
+  end if
+
   es = wv_sat_svp_ice_codon(real(t, c_double), int(use_idx, c_int64_t))
 
 end function wv_sat_svp_ice
@@ -563,11 +652,34 @@ elemental function wv_sat_svp_trans(t, idx) result (es)
 
   real(r8) :: es
   integer :: use_idx
+  real(r8) :: esice
+  real(r8) :: weight
 
   if (present(idx)) then
      use_idx = idx
   else
      use_idx = default_idx
+  end if
+
+  if (use_native_wv_sat_methods_impl) then
+     if (t >= (tmelt - ttrice)) then
+        es = wv_sat_svp_water(t,idx)
+     else
+        es = 0.0_r8
+     end if
+
+     if (t < tmelt) then
+        esice = wv_sat_svp_ice(t,idx)
+
+        if ( (tmelt - t) > ttrice ) then
+           weight = 1.0_r8
+        else
+           weight = (tmelt - t)/ttrice
+        end if
+
+        es = weight*esice + (1.0_r8 - weight)*es
+     end if
+     return
   end if
 
   es = wv_sat_svp_trans_codon(real(t, c_double), int(use_idx, c_int64_t), &
@@ -585,6 +697,16 @@ elemental function GoffGratch_svp_water(t) result(es)
   real(r8), intent(in) :: t  ! Temperature in Kelvin
   real(r8) :: es             ! SVP in Pa
 
+  if (use_native_wv_sat_methods_impl) then
+     ! uncertain below -70 C
+     es = 10._r8**(-7.90298_r8*(tboil/t-1._r8)+ &
+          5.02808_r8*log10(tboil/t)- &
+          1.3816e-7_r8*(10._r8**(11.344_r8*(1._r8-t/tboil))-1._r8)+ &
+          8.1328e-3_r8*(10._r8**(-3.49149_r8*(tboil/t-1._r8))-1._r8)+ &
+          log10(1013.246_r8))*100._r8
+     return
+  end if
+
   es = goffgratch_svp_water_codon(real(t, c_double))
 
 end function GoffGratch_svp_water
@@ -592,6 +714,14 @@ end function GoffGratch_svp_water
 elemental function GoffGratch_svp_ice(t) result(es)
   real(r8), intent(in) :: t  ! Temperature in Kelvin
   real(r8) :: es             ! SVP in Pa
+
+  if (use_native_wv_sat_methods_impl) then
+     ! good down to -100 C
+     es = 10._r8**(-9.09718_r8*(h2otrip/t-1._r8)-3.56654_r8* &
+          log10(h2otrip/t)+0.876793_r8*(1._r8-t/h2otrip)+ &
+          log10(6.1071_r8))*100._r8
+     return
+  end if
 
   es = goffgratch_svp_ice_codon(real(t, c_double))
 
@@ -635,6 +765,15 @@ elemental function MurphyKoop_svp_water(t) result(es)
   real(r8), intent(in) :: t  ! Temperature in Kelvin
   real(r8) :: es             ! SVP in Pa
 
+  if (use_native_wv_sat_methods_impl) then
+     ! (good for 123 < T < 332 K)
+     es = exp(54.842763_r8 - (6763.22_r8 / t) - (4.210_r8 * log(t)) + &
+          (0.000367_r8 * t) + (tanh(0.0415_r8 * (t - 218.8_r8)) * &
+          (53.878_r8 - (1331.22_r8 / t) - (9.44523_r8 * log(t)) + &
+          0.014025_r8 * t)))
+     return
+  end if
+
   es = murphykoop_svp_water_codon(real(t, c_double))
 
 end function MurphyKoop_svp_water
@@ -642,6 +781,13 @@ end function MurphyKoop_svp_water
 elemental function MurphyKoop_svp_ice(t) result(es)
   real(r8), intent(in) :: t  ! Temperature in Kelvin
   real(r8) :: es             ! SVP in Pa
+
+  if (use_native_wv_sat_methods_impl) then
+     ! (good down to 110 K)
+     es = exp(9.550426_r8 - (5723.265_r8 / t) + (3.53068_r8 * log(t)) &
+          - (0.00728332_r8 * t))
+     return
+  end if
 
   es = murphykoop_svp_ice_codon(real(t, c_double))
 
@@ -694,6 +840,22 @@ end function murphykoop_svp_ice_native_cb
 elemental function OldGoffGratch_svp_water(t) result(es)
   real(r8), intent(in) :: t
   real(r8) :: es
+  real(r8) :: ps, e1, e2, f1, f2, f3, f4, f5, f
+
+  if (use_native_wv_sat_methods_impl) then
+     ps = 1013.246_r8
+     e1 = 11.344_r8*(1.0_r8 - t/tboil)
+     e2 = -3.49149_r8*(tboil/t - 1.0_r8)
+     f1 = -7.90298_r8*(tboil/t - 1.0_r8)
+     f2 = 5.02808_r8*log10(tboil/t)
+     f3 = -1.3816_r8*(10.0_r8**e1 - 1.0_r8)/10000000.0_r8
+     f4 = 8.1328_r8*(10.0_r8**e2 - 1.0_r8)/1000.0_r8
+     f5 = log10(ps)
+     f  = f1 + f2 + f3 + f4 + f5
+
+     es = (10.0_r8**f)*100.0_r8
+     return
+  end if
 
   es = oldgoffgratch_svp_water_codon(real(t, c_double))
 
@@ -702,6 +864,16 @@ end function OldGoffGratch_svp_water
 elemental function OldGoffGratch_svp_ice(t) result(es)
   real(r8), intent(in) :: t
   real(r8) :: es
+  real(r8) :: term1, term2, term3
+
+  if (use_native_wv_sat_methods_impl) then
+     term1 = 2.01889049_r8/(tmelt/t)
+     term2 = 3.56654_r8*log(tmelt/t)
+     term3 = 20.947031_r8*(tmelt/t)
+
+     es = 575.185606e10_r8*exp(-(term1 + term2 + term3))
+     return
+  end if
 
   es = oldgoffgratch_svp_ice_codon(real(t, c_double))
 
@@ -763,6 +935,11 @@ elemental function Bolton_svp_water(t) result(es)
 
   real(r8), intent(in) :: t  ! Temperature in Kelvin
   real(r8) :: es             ! SVP in Pa
+
+  if (use_native_wv_sat_methods_impl) then
+     es = c1*exp( (c2*(t - tmelt))/((t - tmelt)+c3) )
+     return
+  end if
 
   es = bolton_svp_water_codon(real(t, c_double))
 

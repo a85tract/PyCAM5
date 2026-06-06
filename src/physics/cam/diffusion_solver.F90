@@ -97,6 +97,7 @@
   logical :: diffusion_solver_dse_logged = .false.
   logical :: diffusion_solver_constituent_logged = .false.
   logical :: compute_vdiff_parent_logged = .false.
+  logical :: vdiff_select_logged = .false.
   logical :: my_any_logged = .false.
   logical :: diffuse_logged = .false.
 
@@ -113,23 +114,23 @@
      pure function vdiff_select_codon(name_len_c, name_ascii_p, has_qindex_c, qindex_c) result(field_idx_c) &
           bind(c, name="vdiff_select_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
-       integer(c_int64_t), value :: name_len_c, has_qindex_c, qindex_c
-       type(c_ptr), value :: name_ascii_p
+       integer(c_int64_t), intent(in), value :: name_len_c, has_qindex_c, qindex_c
+       type(c_ptr), intent(in), value :: name_ascii_p
        integer(c_int64_t) :: field_idx_c
      end function vdiff_select_codon
 
      pure function diffuse_codon(name_len_c, name_ascii_p, has_qindex_c, qindex_c) result(field_idx_c) &
           bind(c, name="diffuse_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
-       integer(c_int64_t), value :: name_len_c, has_qindex_c, qindex_c
-       type(c_ptr), value :: name_ascii_p
+       integer(c_int64_t), intent(in), value :: name_len_c, has_qindex_c, qindex_c
+       type(c_ptr), intent(in), value :: name_ascii_p
        integer(c_int64_t) :: field_idx_c
      end function diffuse_codon
 
      pure function new_fieldlist_vdiff_codon(ncnst_c) result(nfields_c) &
           bind(c, name="new_fieldlist_vdiff_codon")
        use iso_c_binding, only: c_int64_t
-       integer(c_int64_t), value :: ncnst_c
+       integer(c_int64_t), intent(in), value :: ncnst_c
        integer(c_int64_t) :: nfields_c
      end function new_fieldlist_vdiff_codon
 
@@ -404,6 +405,30 @@
     end if
 
   end subroutine diffusion_solver_log_direct
+
+  ! =============================================================================== !
+
+  logical function diffusion_solver_selector_use_native()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('VDIFF_SELECTOR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       diffusion_solver_selector_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       diffusion_solver_selector_use_native = .false.
+    end if
+
+  end function diffusion_solver_selector_use_native
 
   ! =============================================================================== !
 
@@ -1607,6 +1632,27 @@
     
     vdiff_select = ''
 
+    if (diffusion_solver_selector_use_native()) then
+       call diffusion_solver_log_direct(vdiff_select_logged, 'vdiff_select direct = native')
+       select case (name)
+       case ('u','U')
+          fieldlist%fields(1) = .true.
+       case ('v','V')
+          fieldlist%fields(2) = .true.
+       case ('s','S')
+          fieldlist%fields(3) = .true.
+       case ('q','Q')
+          if( present(qindex) ) then
+              fieldlist%fields(3 + qindex) = .true.
+          else
+              fieldlist%fields(4) = .true.
+          endif
+       case default
+          write(vdiff_select,*) 'Bad argument to vdiff_index: ', name
+       end select
+       return
+    end if
+
     do i = 1, len(name)
        name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
     end do
@@ -1648,6 +1694,12 @@
     integer(c_int64_t), target :: values(size(a%fields))
     integer :: i
 
+    if (diffusion_solver_selector_use_native()) then
+       my_any = any(a%fields)
+       call diffusion_solver_log_direct(my_any_logged, 'my_any direct = native')
+       return
+    end if
+
     do i = 1, size(a%fields)
        values(i) = merge(1_c_int64_t, 0_c_int64_t, a%fields(i))
     end do
@@ -1665,6 +1717,27 @@
     integer,              intent(in), optional :: qindex
     integer(c_int64_t), target :: name_ascii(len(name))
     integer :: i, field_idx
+
+    if (diffusion_solver_selector_use_native()) then
+       select case (name)
+       case ('u','U')
+          diffuse = fieldlist%fields(1)
+       case ('v','V')
+          diffuse = fieldlist%fields(2)
+       case ('s','S')
+          diffuse = fieldlist%fields(3)
+       case ('q','Q')
+          if( present(qindex) ) then
+              diffuse = fieldlist%fields(3 + qindex)
+          else
+              diffuse = fieldlist%fields(4)
+          endif
+       case default
+          diffuse = .false.
+       end select
+       call diffusion_solver_log_direct(diffuse_logged, 'diffuse direct = native')
+       return
+    end if
     
     do i = 1, len(name)
        name_ascii(i) = int(iachar(name(i:i)), c_int64_t)

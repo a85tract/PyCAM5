@@ -262,7 +262,7 @@ CONTAINS
   subroutine cnst_add (name, mwc, cpc, qminc, &
                        ind, longname, readiv, mixtype, molectype, cam_outfld, &
                        fixed_ubc, fixed_ubflx, is_convtran1)
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 ! 
 ! Purpose: Register a constituent to be advected by the large scale winds and transported by
 !          subgrid scale processes.
@@ -627,10 +627,20 @@ CONTAINS
     integer, intent(in) :: m    ! constituent index
 
     logical :: cnst_read_iv     ! true => read initial values from inital file
+    character(len=16) :: impl_name
+    integer :: impl_len, impl_status
 !-----------------------------------------------------------------------
 
-    cnst_read_iv = cnst_read_iv_codon(merge(1_c_int64_t, 0_c_int64_t, read_init_vals(m))) /= 0_c_int64_t
-    call constituents_log_direct(cnst_read_iv_logged, 'cnst_read_iv direct = codon')
+    call get_environment_variable('CNST_READ_IV_IMPL', value=impl_name, &
+         length=impl_len, status=impl_status)
+    if (impl_status == 0 .and. impl_len > 0 .and. &
+         trim(adjustl(impl_name(:impl_len))) == 'native') then
+       cnst_read_iv = read_init_vals(m)
+       call constituents_log_direct(cnst_read_iv_logged, 'cnst_read_iv direct = native')
+    else
+       cnst_read_iv = cnst_read_iv_codon(merge(1_c_int64_t, 0_c_int64_t, read_init_vals(m))) /= 0_c_int64_t
+       call constituents_log_direct(cnst_read_iv_logged, 'cnst_read_iv direct = codon')
+    end if
  end function cnst_read_iv
 
 !==============================================================================
@@ -698,6 +708,13 @@ function cnst_cam_outfld(m)
    integer, intent(in) :: m                ! constituent index
    logical             :: cnst_cam_outfld  ! true => use default CAM outfld calls
 !-----------------------------------------------------------------------
+
+   call constituents_thermo_select_impl()
+   if (use_native_constituents_thermo_impl) then
+      cnst_cam_outfld = cam_outfld_(m)
+      call constituents_log_direct(cnst_cam_outfld_logged, 'cnst_cam_outfld direct = native')
+      return
+   end if
 
    cnst_cam_outfld = cnst_cam_outfld_codon(merge(1_c_int64_t, 0_c_int64_t, cam_outfld_(m))) /= 0_c_int64_t
    call constituents_log_direct(cnst_cam_outfld_logged, 'cnst_cam_outfld direct = codon')

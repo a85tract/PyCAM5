@@ -51,6 +51,27 @@
 
       contains
 
+      logical function mcica_sw_use_native(selector)
+        character(len=*), intent(in) :: selector
+        character(len=32) :: impl_name
+        integer :: status, n, i, code
+
+        impl_name = 'codon'
+        call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+        if (status == 0 .and. n > 0) then
+           do i = 1, n
+              code = iachar(impl_name(i:i))
+              if (code >= iachar('A') .and. code <= iachar('Z')) then
+                 impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+              end if
+           end do
+           mcica_sw_use_native = trim(adjustl(impl_name(:n))) == 'native'
+        else
+           mcica_sw_use_native = .false.
+        end if
+      end function mcica_sw_use_native
+
 !------------------------------------------------------------------
 ! Public subroutines
 !------------------------------------------------------------------
@@ -795,18 +816,30 @@
          end subroutine rrtmg_mcica_kissvec_codon
       end interface
 
-      call rrtmg_mcica_kissvec_codon(int(size(ran_arr), c_int64_t), &
-           c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)), c_loc(ran_arr(1)))
-      if (.not. kissvec_sw_entered_logged) then
-         kissvec_sw_entered_logged = .true.
-         if (masterproc) then
-            write(iulog,*) 'kissvec implementation = codon'
-            write(iulog,*) 'm implementation = codon'
-            write(iulog,*) 'low_byte implementation = codon'
-            call flush(iulog)
+      if (mcica_sw_use_native('RRTMG_MCICA_KISSVEC_IMPL')) then
+         if (.not. kissvec_sw_entered_logged) then
+            kissvec_sw_entered_logged = .true.
+            if (masterproc) then
+               write(iulog,*) 'kissvec implementation = native'
+               write(iulog,*) 'm implementation = native'
+               write(iulog,*) 'low_byte implementation = native'
+               call flush(iulog)
+            endif
          endif
+      else
+         call rrtmg_mcica_kissvec_codon(int(size(ran_arr), c_int64_t), &
+              c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)), c_loc(ran_arr(1)))
+         if (.not. kissvec_sw_entered_logged) then
+            kissvec_sw_entered_logged = .true.
+            if (masterproc) then
+               write(iulog,*) 'kissvec implementation = codon'
+               write(iulog,*) 'm implementation = codon'
+               write(iulog,*) 'low_byte implementation = codon'
+               call flush(iulog)
+            endif
+         endif
+         return
       endif
-      return
 
       big_endian = (transfer(1_i8, 1) == 0)
 

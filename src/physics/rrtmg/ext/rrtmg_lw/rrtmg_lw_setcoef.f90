@@ -583,20 +583,26 @@
          end function rrtmg_lwatmref_codon
       end interface
 
-      filled_count = rrtmg_lwatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)), &
-           c_loc(chi_mls(1,1)))
-      if (filled_count /= 7_c_int64_t * 59_c_int64_t) then
+      if (.not. setcoef_use_native('LWATMREF_IMPL')) then
+         filled_count = rrtmg_lwatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)), &
+              c_loc(chi_mls(1,1)))
+         if (filled_count /= 7_c_int64_t * 59_c_int64_t) then
+            if (masterproc) then
+               write(iulog,*) 'lwatmref Codon table fill count mismatch: ', filled_count
+               call flush(iulog)
+            endif
+            stop 1
+         endif
          if (masterproc) then
-            write(iulog,*) 'lwatmref Codon table fill count mismatch: ', filled_count
+            write(iulog,*) 'lwatmref implementation = codon'
             call flush(iulog)
          endif
-         stop 1
+         return
       endif
       if (masterproc) then
-         write(iulog,*) 'lwatmref implementation = codon'
+         write(iulog,*) 'lwatmref implementation = native'
          call flush(iulog)
       endif
-      return
  
 ! These pressures are chosen such that the ln of the first pressure
 ! has only a few non-zero digits (i.e. ln(PREF(1)) = 6.96000) and
@@ -1590,5 +1596,29 @@
       end if
 
       end subroutine setcoef_log_entered
+
+! --------------------------------------------------------------------------
+      logical function setcoef_use_native(selector)
+
+      character(len=*), intent(in) :: selector
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      impl_name = 'codon'
+      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         setcoef_use_native = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         setcoef_use_native = .false.
+      end if
+
+      end function setcoef_use_native
 
       end module rrtmg_lw_setcoef

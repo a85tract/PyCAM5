@@ -180,6 +180,10 @@ module physics_types
   logical :: state_cnst_min_nz_logged = .false.
   logical :: physics_dme_adjust_logged = .false.
   logical :: physics_update_logged = .false.
+  logical :: physics_update_selector_selected = .false.
+  logical :: physics_update_native_field = .false.
+  logical :: physics_update_native_q = .false.
+  logical :: physics_update_native_s = .false.
   logical :: physics_type_alloc_logged = .false.
   logical :: physics_ptend_init_logged = .false.
   logical :: physics_ptend_alloc_logged = .false.
@@ -519,6 +523,49 @@ contains
        end if
     end if
   end subroutine physics_types_zero_select_impl
+
+  subroutine physics_update_select_impl()
+    character(len=96) :: mask, normalized
+    integer :: status, n, i, code
+
+    if (physics_update_selector_selected) return
+
+    mask = 'q'
+    n = len_trim(mask)
+    call get_environment_variable('PHYSICS_UPDATE_NATIVE', value=mask, length=n, status=status)
+
+    if (status /= 0 .or. n <= 0) then
+       mask = 'q'
+       n = len_trim(mask)
+    end if
+
+    normalized = ',' // trim(adjustl(mask(:n))) // ','
+    do i = 1, len_trim(normalized)
+       code = iachar(normalized(i:i))
+       if (code >= iachar('A') .and. code <= iachar('Z')) then
+          normalized(i:i) = achar(code + iachar('a') - iachar('A'))
+       else if (normalized(i:i) == ' ' .or. normalized(i:i) == ';' .or. &
+                normalized(i:i) == ':' .or. normalized(i:i) == '/') then
+          normalized(i:i) = ','
+       end if
+    end do
+
+    if (index(normalized, ',all,') > 0) then
+       physics_update_native_field = .true.
+       physics_update_native_q = .true.
+       physics_update_native_s = .true.
+    else
+       physics_update_native_field = index(normalized, ',field,') > 0 .or. index(normalized, ',uv,') > 0
+       physics_update_native_q = index(normalized, ',q,') > 0
+       physics_update_native_s = index(normalized, ',s,') > 0
+    end if
+
+    physics_update_selector_selected = .true.
+
+    if (masterproc .and. (physics_update_native_field .or. physics_update_native_q .or. physics_update_native_s)) then
+       write(iulog,*) 'physics_update native selector = ', trim(adjustl(mask(:n)))
+    end if
+  end subroutine physics_update_select_impl
 
   subroutine physics_types_zero_proof_once()
     if (zero_proof_written) return
@@ -1025,6 +1072,7 @@ contains
     !-----------------------------------------------------------------------
 
     call physics_types_zero_select_impl()
+    call physics_update_select_impl()
     if (.not. use_native_zero_impl) then
        if (physics_types_touch_codon(2_c_int64_t) == 2_c_int64_t) then
           call physics_types_zero_proof_once()
@@ -1090,7 +1138,7 @@ contains
 
     ! Update u,v fields
     if(ptend%lu) then
-       if (use_native_zero_impl) then
+       if (use_native_zero_impl .or. physics_update_native_field) then
           do k = ptend%top_level, ptend%bot_level
              state%u  (:ncol,k) = state%u  (:ncol,k) + ptend%u(:ncol,k) * dt
              if (present(tend)) &
@@ -1106,7 +1154,7 @@ contains
     end if
 
     if(ptend%lv) then
-       if (use_native_zero_impl) then
+       if (use_native_zero_impl .or. physics_update_native_field) then
           do k = ptend%top_level, ptend%bot_level
              state%v  (:ncol,k) = state%v  (:ncol,k) + ptend%v(:ncol,k) * dt
              if (present(tend)) &
@@ -1137,7 +1185,7 @@ contains
           ! don't call qneg3 for number concentration variables
           if (m /= ixnumice  .and.  m /= ixnumliq .and. &
               m /= ixnumrain .and.  m /= ixnumsnow ) then
-             if (use_native_zero_impl) then
+             if (use_native_zero_impl .or. physics_update_native_q) then
                 do k = ptend%top_level, ptend%bot_level
                    state%q(:ncol,k,m) = state%q(:ncol,k,m) + ptend%q(:ncol,k,m) * dt
                 end do
@@ -1148,7 +1196,7 @@ contains
              name = trim(ptend%name) // '/' // trim(cnst_name(m))
              call qneg3(trim(name), state%lchnk, ncol, state%psetcols, pver, m, m, qmin(m), state%q(1,1,m))
           else
-             if (use_native_zero_impl) then
+             if (use_native_zero_impl .or. physics_update_native_q) then
                 do k = ptend%top_level, ptend%bot_level
                    state%q(:ncol,k,m) = state%q(:ncol,k,m) + ptend%q(:ncol,k,m) * dt
                    ! checks for number concentration
@@ -1270,7 +1318,7 @@ contains
     ! Update dry static energy(moved from above for WACCM-X so updating after cpairv_loc update)
     !-------------------------------------------------------------------------------------------
     if(ptend%ls) then
-       if (use_native_zero_impl) then
+       if (use_native_zero_impl .or. physics_update_native_s) then
           do k = ptend%top_level, ptend%bot_level
              state%s(:ncol,k)   = state%s(:ncol,k)   + ptend%s(:ncol,k) * dt
              if (present(tend)) &
@@ -1322,11 +1370,28 @@ contains
       ! Number concentration that goes with qix.
       ! Ignored if <= 0 (and therefore constituent is not present).
       integer,  intent(in) :: numix
+      integer :: i, k
 
-      call state_cnst_min_nz_codon(ncol, state%psetcols, state%q, lim, qix, numix)
-      if (.not. state_cnst_min_nz_logged) then
-         call physics_types_zero_proof_once()
-         call physics_types_log_direct(state_cnst_min_nz_logged, 'state_cnst_min_nz direct = codon')
+      if (use_native_zero_impl) then
+         do k = 1, pver
+            do i = 1, ncol
+               if (state%q(i,k,qix) < lim) then
+                  state%q(i,k,qix) = 0._r8
+                  if (numix > 0) then
+                     state%q(i,k,numix) = 0._r8
+                  end if
+               end if
+            end do
+         end do
+         if (.not. state_cnst_min_nz_logged) then
+            call physics_types_log_direct(state_cnst_min_nz_logged, 'state_cnst_min_nz direct = native')
+         end if
+      else
+         call state_cnst_min_nz_codon(ncol, state%psetcols, state%q, lim, qix, numix)
+         if (.not. state_cnst_min_nz_logged) then
+            call physics_types_zero_proof_once()
+            call physics_types_log_direct(state_cnst_min_nz_logged, 'state_cnst_min_nz direct = codon')
+         end if
       end if
 
     end subroutine state_cnst_min_nz

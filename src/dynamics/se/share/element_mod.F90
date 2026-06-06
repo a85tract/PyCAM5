@@ -404,8 +404,39 @@ contains
 
     real (kind=longdouble_kind), target :: corners_xy(8)
     real (kind=longdouble_kind), target :: cart_xy(SIZE(points),SIZE(points),2)
+    real (kind=longdouble_kind) :: p(size(points))
+    real (kind=longdouble_kind) :: q(size(points))
     integer i,j
     logical, save :: proof_seen = .false.
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+
+    impl_name = 'codon'
+    call get_environment_variable('ELEMENT_VAR_COORDINATES_IMPL', value=impl_name, &
+         length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native') then
+       p(:) = (1.0D0-points(:))/2.0D0
+       q(:) = (1.0D0+points(:))/2.0D0
+
+       do j=1,SIZE(points)
+          do i=1,SIZE(points)
+             cart(i,j)%x = p(i)*p(j)*c(1)%x &
+                         + q(i)*p(j)*c(2)%x &
+                         + q(i)*q(j)*c(3)%x &
+                         + p(i)*q(j)*c(4)%x
+             cart(i,j)%y = p(i)*p(j)*c(1)%y &
+                         + q(i)*p(j)*c(2)%y &
+                         + q(i)*q(j)*c(3)%y &
+                         + p(i)*q(j)*c(4)%y
+          end do
+       end do
+       if (.not. proof_seen) then
+          write(iulog,*) 'element_var_coordinates implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    end if
 
     corners_xy = (/ c(1)%x, c(1)%y, c(2)%x, c(2)%y, c(3)%x, c(3)%y, c(4)%x, c(4)%y /)
     call element_var_coordinates_codon(int(size(points), c_int64_t), c_loc(corners_xy(1)), &

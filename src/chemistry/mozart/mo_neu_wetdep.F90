@@ -86,10 +86,13 @@ subroutine neu_wetdep_init
 !
   integer :: m,l
   integer(c_int64_t) :: active_c
+  integer :: env_len, env_status
   character*20 :: test_name
+  character(len=16) :: impl_name
 
   logical :: history_chemistry
   logical :: method_is_neu
+  logical :: init_native
 
   interface
      function neu_wetdep_init_active_codon(method_is_neu_c, wetdep_count_c) result(out_c) &
@@ -102,14 +105,30 @@ subroutine neu_wetdep_init
 
   call phys_getopts(history_chemistry_out=history_chemistry)
 
+  init_native = .false.
+  call get_environment_variable('NEU_WETDEP_INIT_IMPL', value=impl_name, &
+       length=env_len, status=env_status)
+  if (env_status == 0 .and. env_len > 0) then
+     init_native = trim(adjustl(impl_name(:env_len))) == 'native'
+  end if
+
   method_is_neu = gas_wetdep_method == 'NEU'
-  active_c = neu_wetdep_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, method_is_neu), &
-       int(gas_wetdep_cnt, c_int64_t))
-  do_neu_wetdep = active_c /= 0_c_int64_t
-  if (masterproc .and. .not. neu_wetdep_init_proof_written) then
-     write(iulog,'(A)') 'neu_wetdep_init gate direct = codon'
-     call flush(iulog)
-     neu_wetdep_init_proof_written = .true.
+  if (init_native) then
+     do_neu_wetdep = method_is_neu .and. gas_wetdep_cnt > 0
+     if (masterproc .and. .not. neu_wetdep_init_proof_written) then
+        write(iulog,'(A)') 'neu_wetdep_init gate direct = native'
+        call flush(iulog)
+        neu_wetdep_init_proof_written = .true.
+     end if
+  else
+     active_c = neu_wetdep_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, method_is_neu), &
+          int(gas_wetdep_cnt, c_int64_t))
+     do_neu_wetdep = active_c /= 0_c_int64_t
+     if (masterproc .and. .not. neu_wetdep_init_proof_written) then
+        write(iulog,'(A)') 'neu_wetdep_init gate direct = codon'
+        call flush(iulog)
+        neu_wetdep_init_proof_written = .true.
+     end if
   end if
 
   if (.not.do_neu_wetdep) return
@@ -118,7 +137,7 @@ subroutine neu_wetdep_init
   allocate( mapping_to_mmr(gas_wetdep_cnt) )
   allocate( ice_uptake(gas_wetdep_cnt) )
   allocate( mol_weight(gas_wetdep_cnt) )
-  dheff_cache(:) = dheff(:)
+  if (.not. init_native) dheff_cache(:) = dheff(:)
 
 !
 ! find mapping to heff table
@@ -2733,11 +2752,24 @@ upper_level : &
 
       real(r8) :: DEMPIRICAL
 
-      call neu_wetdep_dempirical_codon_wrap(CWATER, RRATE, DEMPIRICAL)
-      if (masterproc .and. .not. dempirical_codon_logged) then
-         write(iulog,*) 'dempirical implementation = codon'
-         dempirical_codon_logged = .true.
-         call flush(iulog)
+      if (.not. neu_wetdep_washo_dempirical_impl_selected) then
+        call neu_wetdep_washo_dempirical_select_impl()
+      end if
+
+      if (neu_wetdep_washo_dempirical_use_native_impl) then
+         DEMPIRICAL = DEMPIRICAL_NATIVE(CWATER, RRATE)
+         if (masterproc .and. .not. dempirical_codon_logged) then
+            write(iulog,*) 'dempirical implementation = native'
+            dempirical_codon_logged = .true.
+            call flush(iulog)
+         end if
+      else
+         call neu_wetdep_dempirical_codon_wrap(CWATER, RRATE, DEMPIRICAL)
+         if (masterproc .and. .not. dempirical_codon_logged) then
+            write(iulog,*) 'dempirical implementation = codon'
+            dempirical_codon_logged = .true.
+            call flush(iulog)
+         end if
       end if
 
       return
@@ -2791,7 +2823,7 @@ upper_level : &
       real(c_double), value, intent(in) :: cwater_c, rrate_c
       real(c_double) :: dempirical_c
 
-      dempirical_c = DEMPIRICAL(real(cwater_c, r8), real(rrate_c, r8))
+      dempirical_c = DEMPIRICAL_NATIVE(real(cwater_c, r8), real(rrate_c, r8))
 
       end function neu_wetdep_dempirical_native_cb
 !

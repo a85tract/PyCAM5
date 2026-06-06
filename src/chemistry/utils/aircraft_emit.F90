@@ -95,6 +95,27 @@ module aircraft_emit
 
 contains
 
+  logical function aircraft_emit_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aircraft_emit_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aircraft_emit_use_native = .false.
+    end if
+  end function aircraft_emit_use_native
+
   subroutine aircraft_emit_register()
 
 !------------------------------------------------------------------
@@ -327,12 +348,20 @@ contains
    !------------------------------------------------------------------
    ! Return if aircraft_cnt is zero (no aircraft data to process)
    !------------------------------------------------------------------
-    active_c = aircraft_emit_adv_codon(merge(1_c_int64_t, 0_c_int64_t, aircraft_cnt /= 0))
+    if (aircraft_emit_use_native('AIRCRAFT_EMIT_ADV_IMPL')) then
+       active_c = merge(1_c_int64_t, 0_c_int64_t, aircraft_cnt /= 0)
+    else
+       active_c = aircraft_emit_adv_codon(merge(1_c_int64_t, 0_c_int64_t, aircraft_cnt /= 0))
+    end if
     if (.not. aircraft_emit_adv_logged) then
        aircraft_emit_adv_logged = .true.
        if (masterproc) then
-          write(iulog,'(A)') &
-               'aircraft_emit_adv direct = codon; active branch selected in Codon; tracer-data/unit-conversion native body remains'
+          if (aircraft_emit_use_native('AIRCRAFT_EMIT_ADV_IMPL')) then
+             write(iulog,'(A)') 'aircraft_emit_adv direct = native'
+          else
+             write(iulog,'(A)') &
+                  'aircraft_emit_adv direct = codon; active branch selected in Codon; tracer-data/unit-conversion native body remains'
+          end if
           call flush(iulog)
        end if
     end if

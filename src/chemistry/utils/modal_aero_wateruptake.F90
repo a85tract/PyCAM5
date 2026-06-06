@@ -52,7 +52,9 @@ logical :: modal_aero_wateruptake_fullshell_wrap_proof_written = .false.
 logical :: modal_aero_wateruptake_dr_wet_stage_selected = .false.
 logical :: modal_aero_wateruptake_dr_kohler_stage_selected = .false.
 logical :: modal_aero_wateruptake_reg_logged = .false.
+logical :: modal_aero_wateruptake_reg_native_logged = .false.
 logical :: modal_aero_wateruptake_init_logged = .false.
+logical :: modal_aero_wateruptake_init_native_logged = .false.
 logical :: modal_aero_kohler_logged = .false.
 integer :: modal_aero_wateruptake_dr_wet_stage = 0
 integer :: modal_aero_wateruptake_dr_kohler_stage = 0
@@ -90,13 +92,23 @@ subroutine modal_aero_wateruptake_reg()
 
    integer :: nmodes
 
-   call chemistry_misc_codon_touch('modal_aero_wateruptake_reg', 311)
-   if (.not. modal_aero_wateruptake_reg_logged) then
-      modal_aero_wateruptake_reg_logged = .true.
-      if (masterproc) then
-         write(iulog,'(A)') &
-              'modal_aero_wateruptake_reg direct = codon; rad constituent query and pbuf registration native CAM API islands'
-         call flush(iulog)
+   if (modal_aero_wateruptake_env_native_enabled('MODAL_AERO_WATERUPTAKE_REG_IMPL')) then
+      if (.not. modal_aero_wateruptake_reg_native_logged) then
+         modal_aero_wateruptake_reg_native_logged = .true.
+         if (masterproc) then
+            write(iulog,'(A)') 'modal_aero_wateruptake_reg direct = native'
+            call flush(iulog)
+         end if
+      end if
+   else
+      call chemistry_misc_codon_touch('modal_aero_wateruptake_reg', 311)
+      if (.not. modal_aero_wateruptake_reg_logged) then
+         modal_aero_wateruptake_reg_logged = .true.
+         if (masterproc) then
+            write(iulog,'(A)') &
+                 'modal_aero_wateruptake_reg direct = codon; rad constituent query and pbuf registration native CAM API islands'
+            call flush(iulog)
+         end if
       end if
    end if
    
@@ -129,13 +141,23 @@ subroutine modal_aero_wateruptake_init(pbuf2d)
    character(len=3) :: trnum       ! used to hold mode number (as characters)
    !----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('modal_aero_wateruptake_init', 312)
-   if (.not. modal_aero_wateruptake_init_logged) then
-      modal_aero_wateruptake_init_logged = .true.
-      if (masterproc) then
-         write(iulog,'(A)') &
-              'modal_aero_wateruptake_init direct = codon; history and pbuf initialization native CAM API islands'
-         call flush(iulog)
+   if (modal_aero_wateruptake_env_native_enabled('MODAL_AERO_WATERUPTAKE_INIT_IMPL')) then
+      if (.not. modal_aero_wateruptake_init_native_logged) then
+         modal_aero_wateruptake_init_native_logged = .true.
+         if (masterproc) then
+            write(iulog,'(A)') 'modal_aero_wateruptake_init direct = native'
+            call flush(iulog)
+         end if
+      end if
+   else
+      call chemistry_misc_codon_touch('modal_aero_wateruptake_init', 312)
+      if (.not. modal_aero_wateruptake_init_logged) then
+         modal_aero_wateruptake_init_logged = .true.
+         if (masterproc) then
+            write(iulog,'(A)') &
+                 'modal_aero_wateruptake_init direct = codon; history and pbuf initialization native CAM API islands'
+            call flush(iulog)
+         end if
       end if
    end if
 
@@ -179,6 +201,33 @@ subroutine modal_aero_wateruptake_init(pbuf2d)
    endif
 
 end subroutine modal_aero_wateruptake_init
+
+!===============================================================================
+!===============================================================================
+
+logical function modal_aero_wateruptake_env_native_enabled(env_name)
+
+  character(len=*), intent(in) :: env_name
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_wateruptake_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_wateruptake_env_native_enabled = .false.
+  end if
+
+end function modal_aero_wateruptake_env_native_enabled
 
 !===============================================================================
 !===============================================================================

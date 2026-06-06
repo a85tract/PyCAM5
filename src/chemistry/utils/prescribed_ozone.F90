@@ -60,6 +60,27 @@ module prescribed_ozone
 
 contains
 
+logical function prescribed_ozone_use_native(selector)
+  character(len=*), intent(in) :: selector
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     prescribed_ozone_use_native = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     prescribed_ozone_use_native = .false.
+  end if
+end function prescribed_ozone_use_native
+
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
   subroutine prescribed_ozone_register()
@@ -248,12 +269,18 @@ end subroutine prescribed_ozone_readnl
 
     character(len=32) :: units_str
 
-    call chemistry_misc_codon_touch('prescribed_ozone_adv', 124)
+    if (.not. prescribed_ozone_use_native('PRESCRIBED_OZONE_ADV_IMPL')) then
+       call chemistry_misc_codon_touch('prescribed_ozone_adv', 124)
+    end if
     if (.not. prescribed_ozone_adv_logged) then
        prescribed_ozone_adv_logged = .true.
        if (masterproc) then
-          write(iulog,'(A)') &
-               'prescribed_ozone_adv direct = codon; active branch selected in Codon; tracer-data/unit conversion native body remains'
+          if (prescribed_ozone_use_native('PRESCRIBED_OZONE_ADV_IMPL')) then
+             write(iulog,'(A)') 'prescribed_ozone_adv direct = native'
+          else
+             write(iulog,'(A)') &
+                  'prescribed_ozone_adv direct = codon; active branch selected in Codon; tracer-data/unit conversion native body remains'
+          end if
           call flush(iulog)
        end if
     end if

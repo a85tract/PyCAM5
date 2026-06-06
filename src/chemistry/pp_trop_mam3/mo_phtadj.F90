@@ -15,6 +15,25 @@
 
       contains
 
+      logical function phtadj_use_native()
+      character(len=32) :: impl_name
+      integer :: n, status, i, code
+
+      impl_name = 'codon'
+      call get_environment_variable('PHTADJ_IMPL', value=impl_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         phtadj_use_native = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         phtadj_use_native = .false.
+      end if
+      end function phtadj_use_native
+
       subroutine phtadj( p_rate, inv, m, ncol )
 
       use chem_mods, only : nfs, phtcnt
@@ -42,13 +61,18 @@
          end function phtadj_codon
       end interface
 
-      if (phtadj_codon() /= 1_c_int64_t) then
-         stop 2
-      end if
       if (masterproc .and. .not. phtadj_codon_logged) then
-         write(iulog,*) 'phtadj implementation = codon'
+         if (phtadj_use_native()) then
+            write(iulog,*) 'phtadj implementation = native'
+         else
+            write(iulog,*) 'phtadj implementation = codon'
+         end if
          phtadj_codon_logged = .true.
          call flush(iulog)
+      end if
+      if (phtadj_use_native()) return
+      if (phtadj_codon() /= 1_c_int64_t) then
+         stop 2
       end if
 
       end subroutine phtadj

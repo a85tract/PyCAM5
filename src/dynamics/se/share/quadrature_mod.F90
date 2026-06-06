@@ -505,6 +505,36 @@ contains
     real (kind=longdouble_kind), intent(in), target :: glpts(np1)
     real (kind=longdouble_kind), target             :: wts(np1)
     logical, save :: proof_seen = .false.
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    real (kind=longdouble_kind) :: c0,c2
+    real (kind=longdouble_kind) :: alpha
+    real (kind=longdouble_kind) :: beta
+    real (kind=longdouble_kind) :: jac(np1)
+    integer i,n
+
+    impl_name = 'codon'
+    call get_environment_variable('GAUSSLOBATTO_WTS_IMPL', value=impl_name, &
+         length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native') then
+       c0    = 0.0_longdouble_kind
+       c2    = 2.0_longdouble_kind
+       alpha = c0
+       beta  = c0
+       n     = np1-1
+
+       jac = jacobi_polynomials(n,alpha,beta,np1,glpts)
+
+       do i=1,np1
+          wts(i)=c2/(n*(n+1)*jac(i)*jac(i))
+       end do
+       if (.not. proof_seen) then
+          write(iulog,*) 'gausslobatto_wts implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    end if
 
     call gausslobatto_wts_codon(int(np1, c_int64_t), c_loc(glpts(1)), c_loc(wts(1)))
     if (.not. proof_seen) then

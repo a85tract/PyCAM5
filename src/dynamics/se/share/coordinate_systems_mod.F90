@@ -528,6 +528,8 @@ contains
     type (spherical_polar_t)             :: sphere
     type (cartesian2d_t)                 :: cart   
     real(c_double), target               :: r_c, lon_c, lat_c
+    character(len=32)                    :: impl_name
+    integer                              :: impl_n, impl_status
     logical, save                        :: proof_seen = .false.
     interface
        subroutine projectpoint_codon(cart_x_c, cart_y_c, face_no_c, r_p, lon_p, lat_p) &
@@ -540,6 +542,19 @@ contains
     end interface
 
     !ASC  This is X and Y and not xhi eta ...
+
+    impl_name = 'codon'
+    call get_environment_variable('PROJECTPOINT_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       cart%x = TAN(cartin%x)
+       cart%y = TAN(cartin%y)
+       sphere = cart2spherical(cart%x, cart%y, face_no)
+       if (.not. proof_seen) then
+          write(iulog,*) 'projectpoint implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    end if
 
     call projectpoint_codon(real(cartin%x, c_double), real(cartin%y, c_double), &
          int(face_no, c_int64_t), c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
@@ -565,6 +580,8 @@ contains
     type(cartesian3D_t)                 :: cart
     type(spherical_polar_t)             :: sphere
     real(c_double), target              :: r_c, lon_c, lat_c
+    character(len=32)                   :: impl_name
+    integer                             :: impl_n, impl_status
     logical, save                       :: proof_seen = .false.
     interface
        subroutine projectpoint_codon(cart_x_c, cart_y_c, face_no_c, r_p, lon_p, lat_p) &
@@ -575,6 +592,18 @@ contains
          type(c_ptr), value :: r_p, lon_p, lat_p
        end subroutine projectpoint_codon
     end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('PROJECTPOINT_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
+       sphere = cart2spherical(TAN(cartin%x), TAN(cartin%y), face_no)
+       cart = spherical_to_cart(sphere)
+       if (.not. proof_seen) then
+          write(iulog,*) 'cubedsphere2cart implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    end if
 
     call projectpoint_codon(real(cartin%x, c_double), real(cartin%y, c_double), &
          int(face_no, c_int64_t), c_loc(r_c), c_loc(lon_c), c_loc(lat_c))

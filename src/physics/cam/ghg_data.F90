@@ -92,6 +92,27 @@ interface
 contains
 !================================================================================================
 
+logical function ghg_data_use_native(selector)
+  character(len=*), intent(in) :: selector
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     ghg_data_use_native = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     ghg_data_use_native = .false.
+  end if
+end function ghg_data_use_native
+
 subroutine ghg_data_mw_ratios_select_impl()
 
   character(len=32) :: impl_name
@@ -273,8 +294,16 @@ subroutine ghg_data_timestep_init(pbuf2d, state)
 
   integer iconst
   integer lchnk
-  if (ghg_data_timestep_init_codon(1_c_int64_t) == 0_c_int64_t) return
-  call ghg_data_timestep_init_direct_proof_once()
+  if (ghg_data_use_native('GHG_DATA_TIMESTEP_INIT_IMPL')) then
+     if (masterproc .and. .not. ghg_data_timestep_init_direct_logged) then
+        ghg_data_timestep_init_direct_logged = .true.
+        write(iulog,'(A)') 'ghg_data_timestep_init direct = native'
+        call flush(iulog)
+     end if
+  else
+     if (ghg_data_timestep_init_codon(1_c_int64_t) == 0_c_int64_t) return
+     call ghg_data_timestep_init_direct_proof_once()
+  end if
 
   call ghg_data_update_mw_ratios()
 

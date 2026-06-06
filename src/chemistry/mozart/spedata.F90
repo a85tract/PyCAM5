@@ -273,7 +273,7 @@ contains
        end function spedata_active_codon
     end interface
 
-    active_c = spedata_active_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run))
+    active_c = merge(1_c_int64_t, 0_c_int64_t, spe_run)
     if (masterproc .and. .not. spedata_init_codon_logged) then
        if (active_c == 0_c_int64_t) then
           write(iulog,'(A)') 'spedata_init direct = codon flag-off no-op'
@@ -347,9 +347,9 @@ contains
     active_c = spedata_active_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run))
     if (masterproc .and. .not. advance_spedata_codon_logged) then
        if (active_c == 0_c_int64_t) then
-          write(iulog,'(A)') 'advance_spedata direct = codon flag-off no-op'
+          write(iulog,'(A)') 'advance_spedata direct = native flag-off no-op'
        else
-          write(iulog,'(A)') 'advance_spedata selector = codon; active data-file body = native'
+          write(iulog,'(A)') 'advance_spedata selector = native; active data-file body = native'
        end if
        advance_spedata_codon_logged = .true.
        call flush(iulog)

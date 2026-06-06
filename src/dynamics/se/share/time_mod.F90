@@ -44,6 +44,27 @@ module time_mod
 
 contains
 
+  logical function time_mod_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       time_mod_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       time_mod_use_native = .false.
+    end if
+  end function time_mod_use_native
+
   function Time_at(nstep) result(tat)
     integer, intent(in) :: nstep
     real (kind=real_kind) :: tat
@@ -68,6 +89,16 @@ contains
 #include "se_codon_misc_touch.inc"
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
+
+    if (time_mod_use_native('TIMELEVEL_INIT_DEFAULT_IMPL')) then
+       tl%nm1   = 1
+       tl%n0    = 2
+       tl%np1   = 3
+       tl%nstep = 0
+       tl%nstep0 = 2
+       write(iulog,*) 'timelevel_init_default implementation = native'
+       return
+    end if
 
     call se_timelevel_init_default_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
          c_loc(tl%nstep), c_loc(tl%nstep0))
@@ -112,7 +143,30 @@ contains
     integer, intent(inout), target :: n0
     integer, intent(inout), optional, target :: np1
     integer, target :: np1_dummy
+    integer :: i_temp
     logical, save :: proof_seen = .false.
+    logical, save :: native_proof_seen = .false.
+
+    if (time_mod_use_native('TIMELEVEL_QDP_IMPL')) then
+       i_temp = tl%nstep/qsplit
+
+       if (mod(i_temp,2)  ==0) then
+          n0 = 1
+          if (present(np1)) then
+             np1 = 2
+          endif
+       else
+          n0 = 2
+          if (present(np1)) then
+             np1 = 1
+          end if
+       end if
+       if (.not. native_proof_seen) then
+          write(iulog,*) 'timelevel_qdp implementation = native'
+          native_proof_seen = .true.
+       endif
+       return
+    end if
 
     if (present(np1)) then
        call timelevel_qdp_codon(int(tl%nstep, c_int64_t), int(qsplit, c_int64_t), &
@@ -139,7 +193,8 @@ contains
 
     ! Local Variable
 
-    integer :: ierr, uptype_code
+    integer :: ierr, ntmp, uptype_code
+    logical, save :: native_proof_seen = .false.
     interface
        function se_timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code_c) result(ierr_c) &
             bind(c, name='se_timelevel_update_codon')
@@ -153,17 +208,38 @@ contains
 !$OMP BARRIER
 !$OMP MASTER
 #endif
-    if (uptype == "leapfrog") then
-       uptype_code = 1
-    else if (uptype == "forward") then
-       uptype_code = 2
-    else 
-       print *,'WARNING: TimeLevel_update called wint invalid uptype=',uptype
-       uptype_code = 0
+    if (time_mod_use_native('TIMELEVEL_UPDATE_IMPL')) then
+       if (uptype == "leapfrog") then
+          ntmp    = tl%np1
+          tl%np1  = tl%nm1
+          tl%nm1  = tl%n0
+          tl%n0   = ntmp
+       else if (uptype == "forward") then
+          ntmp    = tl%np1
+          tl%np1  = tl%n0
+          tl%n0   = ntmp
+       else
+          print *,'WARNING: TimeLevel_update called wint invalid uptype=',uptype
+       end if
+
+       tl%nstep = tl%nstep+1
+       if (.not. native_proof_seen) then
+          write(iulog,*) 'timelevel_update implementation = native'
+          native_proof_seen = .true.
+       endif
+    else
+       if (uptype == "leapfrog") then
+          uptype_code = 1
+       else if (uptype == "forward") then
+          uptype_code = 2
+       else
+          print *,'WARNING: TimeLevel_update called wint invalid uptype=',uptype
+          uptype_code = 0
+       end if
+       ierr = int(se_timelevel_update_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
+            c_loc(tl%nstep), int(uptype_code, c_int64_t)))
+       if (ierr == 0) write(iulog,*) 'timelevel_update implementation = codon'
     end if
-    ierr = int(se_timelevel_update_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
-         c_loc(tl%nstep), int(uptype_code, c_int64_t)))
-    if (ierr == 0) write(iulog,*) 'timelevel_update implementation = codon'
 #if (defined HORIZ_OPENMP)
 !$OMP END MASTER
 !$OMP BARRIER    

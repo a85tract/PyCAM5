@@ -67,16 +67,16 @@ contains
 	    integer :: cldind, kk, i, k
     integer(c_int64_t) :: active_c
 
-	    call chemistry_misc_codon_touch('mo_airplane', 138)
-    active_c = airpl_set_zero_codon(merge(1_c_int64_t, 0_c_int64_t, has_airpl_src), &
-         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(no_air(1,1)), c_loc(co_air(1,1)))
+    no_air(:ncol,:) = 0._r8
+    co_air(:ncol,:) = 0._r8
+    active_c = merge(1_c_int64_t, 0_c_int64_t, has_airpl_src)
     if (.not. airpl_set_proof_written) then
        airpl_set_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'airpl_set direct = codon no-aircraft zero stage; outfld native boundary'
+             write(iulog,'(A)') 'airpl_set direct = native no-aircraft zero stage; outfld native boundary'
           else
-             write(iulog,'(A)') 'airpl_set selector = codon; active aircraft interpolation body = native'
+             write(iulog,'(A)') 'airpl_set selector = native; active aircraft interpolation body = native'
           end if
           call flush(iulog)
        end if

@@ -558,6 +558,36 @@ subroutine wtrc_control_enter(stage, enabled, logged, proof_line)
 end subroutine wtrc_control_enter
 
 !=======================================================================
+subroutine wtrc_control_enter_stage(stage_id, enabled, logged, proof_line)
+
+  integer, intent(in) :: stage_id
+  logical, intent(in) :: enabled
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  integer :: stage
+
+  call wtrc_control_select_impl()
+  if (use_native_wtrc_control_impl) return
+
+  select case (stage_id)
+  case (2)
+    stage = int(wtrc_init_codon(2_c_int64_t))
+  case (3)
+    stage = int(wtrc_register_codon(3_c_int64_t))
+  case (4)
+    stage = int(wtrc_setup_diag_codon(4_c_int64_t))
+  case (5)
+    stage = int(wtrc_output_precip_codon(5_c_int64_t))
+  case default
+    stage = stage_id
+  end select
+
+  call wtrc_control_enter(stage, enabled, logged, proof_line)
+
+end subroutine wtrc_control_enter_stage
+
+!=======================================================================
 subroutine wtrc_batch_append_proof(proof_line)
 
   character(len=*), intent(in) :: proof_line
@@ -1324,7 +1354,7 @@ end subroutine wtrc_readnl
   character(len=128) :: longname
 !-----------------------------------------------------------------------
 
-    call wtrc_control_enter(int(wtrc_init_codon(2_c_int64_t)), water_tracer_model /= "none", wtrc_init_logged, &
+    call wtrc_control_enter_stage(2, water_tracer_model /= "none", wtrc_init_logged, &
          'wtrc_init direct = codon; history registration and isotope/type init native CAM API islands')
 
     if (water_tracer_model /= "none") then
@@ -1445,7 +1475,7 @@ end subroutine wtrc_init
 
 !-----------------------------------------------------------------------
 !
-    call wtrc_control_enter(int(wtrc_register_codon(3_c_int64_t)), water_tracer_model /= "none", wtrc_register_logged, &
+    call wtrc_control_enter_stage(3, water_tracer_model /= "none", wtrc_register_logged, &
          'wtrc_register direct = codon; cnst_add/pbuf/init-file/name lookup native CAM API islands')
 
 ! Initialize all tracers as non-water, with unknown species
@@ -4799,7 +4829,7 @@ end subroutine wtrc_diagnose_bulk_precip_native
 
 !-----------------------------------------------------------------------
 !
-  call wtrc_control_enter(int(wtrc_output_precip_codon(5_c_int64_t)), trace_water, wtrc_output_precip_logged, &
+  call wtrc_control_enter_stage(5, trace_water, wtrc_output_precip_logged, &
        'wtrc_output_precip direct = codon; pbuf_get_field/outfld native CAM API islands')
 
   ! Output fields for the isotopes.
@@ -7632,7 +7662,7 @@ end subroutine wtrc_q1q2_pjr
 2         format(i4,' ',a8)
 3         format(i4,' ',a8,' ',i4,a10)
 
-    call wtrc_control_enter(int(wtrc_setup_diag_codon(4_c_int64_t)), .true., wtrc_setup_diag_logged, &
+    call wtrc_control_enter_stage(4, .true., wtrc_setup_diag_logged, &
          'wtrc_setup_diag direct = codon; formatted diagnostic output and CAM name lookups native islands')
 
     write(iulog,*) ' ' 

@@ -343,6 +343,18 @@ function new_MGPacker(pcols, pver, mgcols, top_lev)
   type(MGPacker) :: new_MGPacker
   integer(c_int64_t), target :: plan(4)
 
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     new_MGPacker%pcols = pcols
+     new_MGPacker%pver = pver
+     new_MGPacker%mgncol = size(mgcols)
+     new_MGPacker%nlev = pver - top_lev + 1
+     allocate(new_MGPacker%mgcols(new_MGPacker%mgncol))
+     new_MGPacker%mgcols = mgcols
+     new_MGPacker%top_lev = top_lev
+     return
+  end if
+
   call new_mgpacker_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(size(mgcols), c_int64_t), int(top_lev, c_int64_t), c_loc(plan))
   call micro_mg_data_log_new_mgpacker_direct()
@@ -365,6 +377,9 @@ end function new_MGPacker
 subroutine MGPacker_finalize(self)
   class(MGPacker), intent(out) :: self
   integer(c_int64_t), target :: plan(1)
+
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) return
 
   call mgpacker_finalize_codon(c_loc(plan))
   if (plan(1) /= 0_c_int64_t) call micro_mg_data_log_mgpacker_finalize_direct()
@@ -1068,7 +1083,11 @@ function MGFieldPostProc_1D(unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
   type(MGFieldPostProc) :: field_proc
-  if (mgfieldpostproc_1d_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgfieldpostproc_1d_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   field_proc%rank = 1
   field_proc%unpacked_1D => unpacked_ptr
@@ -1093,7 +1112,11 @@ function MGFieldPostProc_2D(unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
   type(MGFieldPostProc) :: field_proc
-  if (mgfieldpostproc_2d_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgfieldpostproc_2d_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   field_proc%rank = 2
   field_proc%unpacked_2D => unpacked_ptr
@@ -1116,6 +1139,9 @@ end function MGFieldPostProc_2D
 subroutine MGFieldPostProc_finalize(self)
   class(MGFieldPostProc), intent(out) :: self
   integer(c_int64_t), target :: plan(1)
+
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) return
 
   call mgfieldpostproc_finalize_codon(c_loc(plan))
   if (plan(1) /= 0_c_int64_t) call micro_mg_data_log_mgfield_finalize_direct()
@@ -1173,7 +1199,11 @@ end subroutine MGFieldPostProc_accumulate
 subroutine MGFieldPostProc_process_and_unpack(self, packer)
   class(MGFieldPostProc), intent(inout) :: self
   class(MGPacker), intent(in) :: packer
-  if (mgfieldpostproc_process_and_unpack_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgfieldpostproc_process_and_unpack_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   select case (self%accum_method)
   case (accum_null)
@@ -1203,7 +1233,11 @@ end subroutine MGFieldPostProc_process_and_unpack
 subroutine MGFieldPostProc_unpack_only(self, packer)
   class(MGFieldPostProc), intent(inout) :: self
   class(MGPacker), intent(in) :: packer
-  if (mgfieldpostproc_unpack_only_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgfieldpostproc_unpack_only_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   select case (self%rank)
   case (1)
@@ -1227,6 +1261,13 @@ function new_MGPostProc(packer) result(post_proc)
   type(MGPostProc) :: post_proc
   integer(c_int64_t), target :: plan(1)
 
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     post_proc%packer = packer
+     call post_proc%field_procs%clear()
+     return
+  end if
+
   call new_mgpostproc_codon(c_loc(plan))
   if (plan(1) == 0_c_int64_t) return
   call micro_mg_data_log_new_mgpostproc_direct()
@@ -1243,6 +1284,17 @@ subroutine MGPostProc_finalize(self)
 
   integer :: i
   integer(c_int64_t), target :: plan(3)
+
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     call self%packer%finalize()
+     do i = 1, self%field_procs%vsize()
+        call self%field_procs%data(i)%finalize()
+     end do
+     call self%field_procs%clear()
+     call self%field_procs%shrink_to_fit()
+     return
+  end if
 
   call mgpostproc_finalize_codon(int(self%field_procs%vsize(), c_int64_t), c_loc(plan))
   if (plan(1) == 0_c_int64_t) return
@@ -1276,6 +1328,16 @@ subroutine add_field_1D(self, unpacked_ptr, packed_ptr, fillvalue, &
   accum_in_c = 0_c_int64_t
   if (present(accum_method)) accum_in_c = int(accum_method, c_int64_t)
 
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     fill_plan(1) = real(fill_in_c, r8)
+     plan(2) = int(accum_mean, c_int64_t)
+     if (present(accum_method)) plan(2) = int(accum_method, c_int64_t)
+     call self%field_procs%push_back(MGFieldPostProc(unpacked_ptr, &
+          packed_ptr, fill_plan(1), int(plan(2))))
+     return
+  end if
+
   call add_field_1d_codon(fill_present_c, accum_present_c, fill_in_c, accum_in_c, &
        c_loc(plan), c_loc(fill_plan))
   if (plan(1) == 0_c_int64_t) return
@@ -1305,6 +1367,16 @@ subroutine add_field_2D(self, unpacked_ptr, packed_ptr, fillvalue, &
   accum_in_c = 0_c_int64_t
   if (present(accum_method)) accum_in_c = int(accum_method, c_int64_t)
 
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     fill_plan(1) = real(fill_in_c, r8)
+     plan(2) = int(accum_mean, c_int64_t)
+     if (present(accum_method)) plan(2) = int(accum_method, c_int64_t)
+     call self%field_procs%push_back(MGFieldPostProc(unpacked_ptr, &
+          packed_ptr, fill_plan(1), int(plan(2))))
+     return
+  end if
+
   call add_field_2d_codon(fill_present_c, accum_present_c, fill_in_c, accum_in_c, &
        c_loc(plan), c_loc(fill_plan))
   if (plan(1) == 0_c_int64_t) return
@@ -1319,7 +1391,11 @@ subroutine MGPostProc_accumulate(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
-  if (mgpostproc_accumulate_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgpostproc_accumulate_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   do i = 1, self%field_procs%vsize()
      call self%field_procs%data(i)%accumulate()
@@ -1331,7 +1407,11 @@ subroutine MGPostProc_process_and_unpack(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
-  if (mgpostproc_process_and_unpack_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgpostproc_process_and_unpack_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   do i = 1, self%field_procs%vsize()
      call self%field_procs%data(i)%process_and_unpack(self%packer)
@@ -1343,7 +1423,11 @@ subroutine MGPostProc_unpack_only(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
-  if (mgpostproc_unpack_only_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgpostproc_unpack_only_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   do i = 1, self%field_procs%vsize()
      call self%field_procs%data(i)%unpack_only(self%packer)
@@ -1355,7 +1439,11 @@ end subroutine MGPostProc_unpack_only
 subroutine MGPostProc_copy(lhs, rhs)
   class(MGPostProc), intent(out) :: lhs
   type(MGPostProc), intent(in) :: rhs
-  if (mgpostproc_copy_codon(1_c_int64_t) == 0_c_int64_t) return
+
+  call micro_mg_data_select_packer_impl()
+  if (.not. micro_mg_data_packer_use_native_impl) then
+     if (mgpostproc_copy_codon(1_c_int64_t) == 0_c_int64_t) return
+  end if
 
   lhs%packer = rhs%packer
   lhs%field_procs = rhs%field_procs

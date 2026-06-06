@@ -1237,6 +1237,9 @@ contains
     real(r8), target, intent(in)  :: y(:)
     integer,  intent(in)  :: n
     logical, save :: comp_exp_codon_logged = .false.
+    character(len=32) :: impl_name
+    integer :: status, env_len, i, code
+    logical :: use_native_impl
     interface
        subroutine comp_exp_codon(x_p, y_p, n_c) bind(c, name="comp_exp_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
@@ -1244,6 +1247,30 @@ contains
          integer(c_int64_t), value :: n_c
        end subroutine comp_exp_codon
     end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('COMP_EXP_IMPL', value=impl_name, length=env_len, status=status)
+    if (status == 0 .and. env_len > 0) then
+       do i = 1, env_len
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:env_len))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (use_native_impl) then
+       if (n > 0) x(1:n) = exp(y(1:n))
+       if (masterproc .and. .not. comp_exp_codon_logged) then
+          write(iulog,*) 'comp_exp implementation = native'
+          comp_exp_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
 #ifdef IBM
     call vexp( x, y, n )

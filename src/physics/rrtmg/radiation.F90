@@ -26,7 +26,7 @@ use scamMod,         only: scm_crm_mode, single_column,have_cld,cldobs,&
                            have_clwp,clwpobs,have_tg,tground
 use perf_mod,        only: t_startf, t_stopf
 use cam_logfile,     only: iulog
-use iso_c_binding,   only: c_bool, c_int64_t, c_loc, c_ptr
+use iso_c_binding,   only: c_bool, c_f_pointer, c_int64_t, c_loc, c_ptr
 
 use rad_constituents, only: N_DIAG, rad_cnst_get_call_list, rad_cnst_get_info
 use radconstants,     only: rrtmg_sw_cloudsim_band, rrtmg_lw_cloudsim_band, nswbands, nlwbands
@@ -82,6 +82,11 @@ integer :: ihirsfq = 1      ! frequency (timesteps) of brightness temperature ca
 logical :: use_native_radiation_diag_prep_impl = .false.
 logical :: radiation_diag_prep_impl_selected = .false.
 logical :: radiation_diag_prep_entered_logged = .false.
+logical :: radiation_diag_prep_cloud_logged = .false.
+logical :: radiation_diag_prep_qdp_logged = .false.
+logical :: radiation_diag_prep_tint_logged = .false.
+logical :: radiation_diag_prep_lwupcgs_logged = .false.
+logical :: radiation_diag_prep_misc_logged = .false.
 logical :: use_native_radiation_options_impl = .false.
 logical :: radiation_options_impl_selected = .false.
 logical :: radiation_defaultopts_logged = .false.
@@ -856,6 +861,44 @@ end function radiation_nextsw_cday
 
 !===============================================================================
 
+  logical function radinp_native_enabled()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('RADINP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       radinp_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       radinp_native_enabled = .false.
+    end if
+
+  end function radinp_native_enabled
+
+!===============================================================================
+
+  subroutine radinp_log_native()
+
+    if (radinp_logged) return
+    radinp_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radinp implementation = native'
+       call flush(iulog)
+    end if
+
+  end subroutine radinp_log_native
+
+!===============================================================================
+
   subroutine radiation_diag_prep_select_impl()
 
     character(len=32) :: impl_name
@@ -901,12 +944,133 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (unified radiation diagnostics stage dispatch = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (unified radiation diagnostics stage dispatch = codon; history output/rrtmg core = native)')
+       if (use_native_radiation_diag_prep_impl) then
+          write(iulog,*) 'radiation_diag_prep entered (unified radiation diagnostics stage dispatch = native; history output/rrtmg core = native)'
+          call radiation_diag_prep_append_proof('radiation_diag_prep entered (unified radiation diagnostics stage dispatch = native; history output/rrtmg core = native)')
+       else
+          write(iulog,*) 'radiation_diag_prep entered (unified radiation diagnostics stage dispatch = codon; history output/rrtmg core = native)'
+          call radiation_diag_prep_append_proof('radiation_diag_prep entered (unified radiation diagnostics stage dispatch = codon; history output/rrtmg core = native)')
+       end if
        call flush(iulog)
     end if
 
   end subroutine radiation_diag_prep_log_entered
+
+!===============================================================================
+
+  logical function radiation_diag_prep_cloud_native_enabled()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('RADIATION_DIAG_PREP_CLOUD_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       radiation_diag_prep_cloud_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       radiation_diag_prep_cloud_native_enabled = .false.
+    end if
+
+  end function radiation_diag_prep_cloud_native_enabled
+
+  subroutine radiation_diag_prep_cloud_log_native()
+
+    if (radiation_diag_prep_cloud_logged) return
+    radiation_diag_prep_cloud_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_diag_prep cloud optics stages = native'
+       call radiation_diag_prep_append_proof('radiation_diag_prep cloud optics stages = native')
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_diag_prep_cloud_log_native
+
+!===============================================================================
+
+  logical function radiation_diag_prep_qdp_native_enabled()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('RADIATION_DIAG_PREP_QDP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       radiation_diag_prep_qdp_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       radiation_diag_prep_qdp_native_enabled = .false.
+    end if
+
+  end function radiation_diag_prep_qdp_native_enabled
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_qdp_log_native()
+
+    if (radiation_diag_prep_qdp_logged) return
+    radiation_diag_prep_qdp_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_diag_prep qdp stage = native'
+       call radiation_diag_prep_append_proof('radiation_diag_prep qdp stage = native')
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_diag_prep_qdp_log_native
+
+!===============================================================================
+
+  logical function radiation_diag_env_native_enabled(var_name)
+
+    character(len=*), intent(in) :: var_name
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(var_name, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       radiation_diag_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       radiation_diag_env_native_enabled = .false.
+    end if
+
+  end function radiation_diag_env_native_enabled
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_misc_log_native()
+
+    if (radiation_diag_prep_misc_logged) return
+    radiation_diag_prep_misc_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_diag_prep remaining simple stages = native'
+       call radiation_diag_prep_append_proof('radiation_diag_prep remaining simple stages = native')
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_diag_prep_misc_log_native
 
 !===============================================================================
 
@@ -946,6 +1110,9 @@ end function radiation_nextsw_cday
     if (present(idxday_override_p)) idxday_arg_p = idxday_override_p
     if (present(idxnite_override_p)) idxnite_arg_p = idxnite_override_p
 
+    call radiation_diag_prep_select_impl()
+    if (use_native_radiation_diag_prep_impl) return
+
     call radiation_diag_prep_stage_dispatch_codon(int(stage, c_int64_t), int(mode, c_int64_t), int(ncol, c_int64_t), &
          int(pcols, c_int64_t), int(pver, c_int64_t), int(nday_arg, c_int64_t), int(nnite_arg, c_int64_t), &
          real(cpair_local, c_double), real(1._r8, c_double), real(fillvalue_local, c_double), &
@@ -958,10 +1125,24 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_div_field(ncol, input_p, output_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: input_p, output_p, dummy_p
+    real(r8), pointer :: input(:,:), output(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(input_p, input, (/pcols, pver/))
+       call c_f_pointer(output_p, output, (/pcols, pver/))
+       do k = 1, pver
+          do i = 1, ncol
+             output(i,k) = input(i,k)/cpair
+          end do
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(2, ncol, 0, cpair, 0._r8, dummy_p, input_p, output_p, dummy_p, dummy_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -973,10 +1154,24 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_compact_div_field(ncol, input_p, output_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: input_p, output_p, dummy_p
+    real(r8), pointer :: input(:,:), output(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(input_p, input, (/pcols, pver/))
+       call c_f_pointer(output_p, output, (/ncol, pver/))
+       do k = 1, pver
+          do i = 1, ncol
+             output(i,k) = input(i,k)/cpair
+          end do
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(15, ncol, 0, cpair, 0._r8, dummy_p, input_p, output_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -988,10 +1183,23 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_diff_field(ncol, a_p, b_p, output_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: a_p, b_p, output_p, dummy_p
+    real(r8), pointer :: a(:), b(:), output(:)
+    integer :: i
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(a_p, a, (/pcols/))
+       call c_f_pointer(b_p, b, (/pcols/))
+       call c_f_pointer(output_p, output, (/pcols/))
+       do i = 1, ncol
+          output(i) = a(i) - b(i)
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(6, ncol, 0, cpair, 0._r8, dummy_p, a_p, b_p, output_p, dummy_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1003,10 +1211,35 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_qdp(ncol, mode, qrs_p, pdel_p, qrl_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, mode
     type(c_ptr), intent(in) :: qrs_p, pdel_p, qrl_p, dummy_p
+    real(r8), pointer :: qrs(:,:), pdel(:,:), qrl(:,:)
+    integer :: i, k
+
+    if (radiation_diag_prep_qdp_native_enabled()) then
+       call radiation_diag_prep_qdp_log_native()
+       call c_f_pointer(qrs_p, qrs, (/pcols, pver/))
+       call c_f_pointer(pdel_p, pdel, (/pcols, pver/))
+       call c_f_pointer(qrl_p, qrl, (/pcols, pver/))
+       if (mode == 1) then
+          do k = 1, pver
+             do i = 1, ncol
+                qrs(i,k) = qrs(i,k)/pdel(i,k)
+                qrl(i,k) = qrl(i,k)/pdel(i,k)
+             end do
+          end do
+       else
+          do k = 1, pver
+             do i = 1, ncol
+                qrs(i,k) = qrs(i,k)*pdel(i,k)
+                qrl(i,k) = qrl(i,k)*pdel(i,k)
+             end do
+          end do
+       end if
+       return
+    end if
 
     call radiation_diag_prep_codon_call(5, ncol, mode, cpair, 0._r8, dummy_p, qrs_p, pdel_p, qrl_p, dummy_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1018,10 +1251,30 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_pressure(ncol, pmid_p, pint_p, pmidrd_p, pintrd_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: pmid_p, pint_p, pmidrd_p, pintrd_p, dummy_p
+    real(r8), pointer :: pmid(:,:), pint(:,:), pmidrd(:,:), pintrd(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(pmid_p, pmid, (/pcols, pver/))
+       call c_f_pointer(pint_p, pint, (/pcols, pverp/))
+       call c_f_pointer(pmidrd_p, pmidrd, (/pcols, pver/))
+       call c_f_pointer(pintrd_p, pintrd, (/pcols, pverp/))
+       do k = 1, pver
+          do i = 1, ncol
+             pmidrd(i,k) = pmid(i,k)*10.0_r8
+             pintrd(i,k) = pint(i,k)*10.0_r8
+          end do
+       end do
+       do i = 1, ncol
+          pintrd(i,pverp) = pint(i,pverp)*10.0_r8
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(7, ncol, 0, 10._r8, 0._r8, dummy_p, pmid_p, pint_p, &
          pmidrd_p, pintrd_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1033,10 +1286,32 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_col_mean(ncol, mmr_p, pdeldry_p, mean_p, ptot_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: mmr_p, pdeldry_p, mean_p, ptot_p, dummy_p
+    real(r8), pointer :: mmr(:,:), pdeldry(:,:), mean(:), ptot(:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(mmr_p, mmr, (/pcols, pver/))
+       call c_f_pointer(pdeldry_p, pdeldry, (/pcols, pver/))
+       call c_f_pointer(mean_p, mean, (/pcols/))
+       call c_f_pointer(ptot_p, ptot, (/pcols/))
+       mean = 0.0_r8
+       ptot = 0.0_r8
+       do k = 1, pver
+          do i = 1, ncol
+             mean(i) = mean(i) + mmr(i,k)*pdeldry(i,k)
+             ptot(i) = ptot(i) + pdeldry(i,k)
+          end do
+       end do
+       do i = 1, ncol
+          mean(i) = mean(i) / ptot(i)
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(8, ncol, 0, cpair, 0._r8, dummy_p, mmr_p, pdeldry_p, &
          mean_p, ptot_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1048,7 +1323,7 @@ end function radiation_nextsw_cday
        cld_tau_w_g_p, cld_tau_w_f_p, snow_tau_p, snow_tau_w_p, snow_tau_w_g_p, snow_tau_w_f_p, &
        c_cld_tau_p, c_cld_tau_w_p, c_cld_tau_w_g_p, c_cld_tau_w_f_p, cldfprime_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, nbnd
     logical, intent(in) :: has_snow
@@ -1056,6 +1331,60 @@ end function radiation_nextsw_cday
     type(c_ptr), intent(in) :: snow_tau_p, snow_tau_w_p, snow_tau_w_g_p, snow_tau_w_f_p
     type(c_ptr), intent(in) :: c_cld_tau_p, c_cld_tau_w_p, c_cld_tau_w_g_p, c_cld_tau_w_f_p
     type(c_ptr), intent(in) :: cldfprime_p, dummy_p
+    real(r8), pointer :: cld(:,:), cldfsnow(:,:), cldfprime(:,:)
+    real(r8), pointer :: cld_tau(:,:,:), cld_tau_w(:,:,:), cld_tau_w_g(:,:,:), cld_tau_w_f(:,:,:)
+    real(r8), pointer :: snow_tau(:,:,:), snow_tau_w(:,:,:), snow_tau_w_g(:,:,:), snow_tau_w_f(:,:,:)
+    real(r8), pointer :: c_cld_tau(:,:,:), c_cld_tau_w(:,:,:), c_cld_tau_w_g(:,:,:), c_cld_tau_w_f(:,:,:)
+    integer :: i, k
+
+    if (radiation_diag_prep_cloud_native_enabled()) then
+       call radiation_diag_prep_cloud_log_native()
+       call c_f_pointer(cld_p, cld, (/pcols, pver/))
+       call c_f_pointer(cldfsnow_p, cldfsnow, (/pcols, pver/))
+       call c_f_pointer(cld_tau_p, cld_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_w_p, cld_tau_w, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_w_g_p, cld_tau_w_g, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_w_f_p, cld_tau_w_f, (/nbnd, pcols, pver/))
+       call c_f_pointer(snow_tau_p, snow_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(snow_tau_w_p, snow_tau_w, (/nbnd, pcols, pver/))
+       call c_f_pointer(snow_tau_w_g_p, snow_tau_w_g, (/nbnd, pcols, pver/))
+       call c_f_pointer(snow_tau_w_f_p, snow_tau_w_f, (/nbnd, pcols, pver/))
+       call c_f_pointer(c_cld_tau_p, c_cld_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(c_cld_tau_w_p, c_cld_tau_w, (/nbnd, pcols, pver/))
+       call c_f_pointer(c_cld_tau_w_g_p, c_cld_tau_w_g, (/nbnd, pcols, pver/))
+       call c_f_pointer(c_cld_tau_w_f_p, c_cld_tau_w_f, (/nbnd, pcols, pver/))
+       call c_f_pointer(cldfprime_p, cldfprime, (/pcols, pver/))
+
+       if (has_snow) then
+          do i = 1, ncol
+             do k = 1, pver
+                cldfprime(i,k) = max(cld(i,k), cldfsnow(i,k))
+                if (cldfprime(i,k) > 0._r8) then
+                   c_cld_tau(1:nbnd,i,k) = &
+                        (cldfsnow(i,k)*snow_tau(1:nbnd,i,k) + cld(i,k)*cld_tau(1:nbnd,i,k))/cldfprime(i,k)
+                   c_cld_tau_w(1:nbnd,i,k) = &
+                        (cldfsnow(i,k)*snow_tau_w(1:nbnd,i,k) + cld(i,k)*cld_tau_w(1:nbnd,i,k))/cldfprime(i,k)
+                   c_cld_tau_w_g(1:nbnd,i,k) = &
+                        (cldfsnow(i,k)*snow_tau_w_g(1:nbnd,i,k) + cld(i,k)*cld_tau_w_g(1:nbnd,i,k))/cldfprime(i,k)
+                   c_cld_tau_w_f(1:nbnd,i,k) = &
+                        (cldfsnow(i,k)*snow_tau_w_f(1:nbnd,i,k) + cld(i,k)*cld_tau_w_f(1:nbnd,i,k))/cldfprime(i,k)
+                else
+                   c_cld_tau(1:nbnd,i,k) = 0._r8
+                   c_cld_tau_w(1:nbnd,i,k) = 0._r8
+                   c_cld_tau_w_g(1:nbnd,i,k) = 0._r8
+                   c_cld_tau_w_f(1:nbnd,i,k) = 0._r8
+                end if
+             end do
+          end do
+       else
+          c_cld_tau(1:nbnd,1:ncol,:) = cld_tau(1:nbnd,1:ncol,:)
+          c_cld_tau_w(1:nbnd,1:ncol,:) = cld_tau_w(1:nbnd,1:ncol,:)
+          c_cld_tau_w_g(1:nbnd,1:ncol,:) = cld_tau_w_g(1:nbnd,1:ncol,:)
+          c_cld_tau_w_f(1:nbnd,1:ncol,:) = cld_tau_w_f(1:nbnd,1:ncol,:)
+          cldfprime(1:ncol,:) = cld(1:ncol,:)
+       end if
+       return
+    end if
 
     call radiation_diag_prep_codon_call(9, ncol, 0, cpair, 0._r8, dummy_p, cld_p, cldfsnow_p, &
          cld_tau_p, cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, snow_tau_p, snow_tau_w_p, &
@@ -1068,12 +1397,43 @@ end function radiation_nextsw_cday
   subroutine radiation_diag_prep_cloud_lw(ncol, nbnd, has_snow, cld_p, cldfsnow_p, cld_lw_abs_p, &
        snow_lw_abs_p, c_cld_lw_abs_p, cldfprime_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, nbnd
     logical, intent(in) :: has_snow
     type(c_ptr), intent(in) :: cld_p, cldfsnow_p, cld_lw_abs_p, snow_lw_abs_p, c_cld_lw_abs_p
     type(c_ptr), intent(in) :: cldfprime_p, dummy_p
+    real(r8), pointer :: cld(:,:), cldfsnow(:,:), cldfprime(:,:)
+    real(r8), pointer :: cld_lw_abs(:,:,:), snow_lw_abs(:,:,:), c_cld_lw_abs(:,:,:)
+    integer :: i, k
+
+    if (radiation_diag_prep_cloud_native_enabled()) then
+       call radiation_diag_prep_cloud_log_native()
+       call c_f_pointer(cld_p, cld, (/pcols, pver/))
+       call c_f_pointer(cldfsnow_p, cldfsnow, (/pcols, pver/))
+       call c_f_pointer(cld_lw_abs_p, cld_lw_abs, (/nbnd, pcols, pver/))
+       call c_f_pointer(snow_lw_abs_p, snow_lw_abs, (/nbnd, pcols, pver/))
+       call c_f_pointer(c_cld_lw_abs_p, c_cld_lw_abs, (/nbnd, pcols, pver/))
+       call c_f_pointer(cldfprime_p, cldfprime, (/pcols, pver/))
+
+       if (has_snow) then
+          do i = 1, ncol
+             do k = 1, pver
+                cldfprime(i,k) = max(cld(i,k), cldfsnow(i,k))
+                if (cldfprime(i,k) > 0._r8) then
+                   c_cld_lw_abs(1:nbnd,i,k) = &
+                        (cldfsnow(i,k)*snow_lw_abs(1:nbnd,i,k) + cld(i,k)*cld_lw_abs(1:nbnd,i,k))/cldfprime(i,k)
+                else
+                   c_cld_lw_abs(1:nbnd,i,k) = 0._r8
+                end if
+             end do
+          end do
+       else
+          c_cld_lw_abs(1:nbnd,1:ncol,:) = cld_lw_abs(1:nbnd,1:ncol,:)
+          cldfprime(1:ncol,:) = cld(1:ncol,:)
+       end if
+       return
+    end if
 
     call radiation_diag_prep_codon_call(10, ncol, 0, cpair, 0._r8, dummy_p, cld_p, cldfsnow_p, &
          cld_lw_abs_p, snow_lw_abs_p, c_cld_lw_abs_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1088,12 +1448,37 @@ end function radiation_nextsw_cday
        liq_tau_w_f_p, ice_tau_p, ice_tau_w_p, ice_tau_w_g_p, ice_tau_w_f_p, cld_tau_p, &
        cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, nbnd
     type(c_ptr), intent(in) :: liq_tau_p, liq_tau_w_p, liq_tau_w_g_p, liq_tau_w_f_p
     type(c_ptr), intent(in) :: ice_tau_p, ice_tau_w_p, ice_tau_w_g_p, ice_tau_w_f_p
     type(c_ptr), intent(in) :: cld_tau_p, cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, dummy_p
+    real(r8), pointer :: liq_tau(:,:,:), liq_tau_w(:,:,:), liq_tau_w_g(:,:,:), liq_tau_w_f(:,:,:)
+    real(r8), pointer :: ice_tau(:,:,:), ice_tau_w(:,:,:), ice_tau_w_g(:,:,:), ice_tau_w_f(:,:,:)
+    real(r8), pointer :: cld_tau(:,:,:), cld_tau_w(:,:,:), cld_tau_w_g(:,:,:), cld_tau_w_f(:,:,:)
+
+    if (radiation_diag_prep_cloud_native_enabled()) then
+       call radiation_diag_prep_cloud_log_native()
+       call c_f_pointer(liq_tau_p, liq_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(liq_tau_w_p, liq_tau_w, (/nbnd, pcols, pver/))
+       call c_f_pointer(liq_tau_w_g_p, liq_tau_w_g, (/nbnd, pcols, pver/))
+       call c_f_pointer(liq_tau_w_f_p, liq_tau_w_f, (/nbnd, pcols, pver/))
+       call c_f_pointer(ice_tau_p, ice_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(ice_tau_w_p, ice_tau_w, (/nbnd, pcols, pver/))
+       call c_f_pointer(ice_tau_w_g_p, ice_tau_w_g, (/nbnd, pcols, pver/))
+       call c_f_pointer(ice_tau_w_f_p, ice_tau_w_f, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_p, cld_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_w_p, cld_tau_w, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_w_g_p, cld_tau_w_g, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_tau_w_f_p, cld_tau_w_f, (/nbnd, pcols, pver/))
+
+       cld_tau(1:nbnd,1:ncol,:) = liq_tau(1:nbnd,1:ncol,:) + ice_tau(1:nbnd,1:ncol,:)
+       cld_tau_w(1:nbnd,1:ncol,:) = liq_tau_w(1:nbnd,1:ncol,:) + ice_tau_w(1:nbnd,1:ncol,:)
+       cld_tau_w_g(1:nbnd,1:ncol,:) = liq_tau_w_g(1:nbnd,1:ncol,:) + ice_tau_w_g(1:nbnd,1:ncol,:)
+       cld_tau_w_f(1:nbnd,1:ncol,:) = liq_tau_w_f(1:nbnd,1:ncol,:) + ice_tau_w_f(1:nbnd,1:ncol,:)
+       return
+    end if
 
     call radiation_diag_prep_codon_call(13, ncol, 0, cpair, 0._r8, dummy_p, liq_tau_p, &
          liq_tau_w_p, liq_tau_w_g_p, liq_tau_w_f_p, ice_tau_p, ice_tau_w_p, ice_tau_w_g_p, &
@@ -1106,10 +1491,21 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_cloud_lw_sum(ncol, nbnd, liq_lw_abs_p, ice_lw_abs_p, cld_lw_abs_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, nbnd
     type(c_ptr), intent(in) :: liq_lw_abs_p, ice_lw_abs_p, cld_lw_abs_p, dummy_p
+    real(r8), pointer :: liq_lw_abs(:,:,:), ice_lw_abs(:,:,:), cld_lw_abs(:,:,:)
+
+    if (radiation_diag_prep_cloud_native_enabled()) then
+       call radiation_diag_prep_cloud_log_native()
+       call c_f_pointer(liq_lw_abs_p, liq_lw_abs, (/nbnd, pcols, pver/))
+       call c_f_pointer(ice_lw_abs_p, ice_lw_abs, (/nbnd, pcols, pver/))
+       call c_f_pointer(cld_lw_abs_p, cld_lw_abs, (/nbnd, pcols, pver/))
+
+       cld_lw_abs(1:nbnd,1:ncol,:) = liq_lw_abs(1:nbnd,1:ncol,:) + ice_lw_abs(1:nbnd,1:ncol,:)
+       return
+    end if
 
     call radiation_diag_prep_codon_call(14, ncol, 0, cpair, 0._r8, dummy_p, liq_lw_abs_p, &
          ice_lw_abs_p, cld_lw_abs_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1122,11 +1518,31 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_snow_diag_field(ncol, nbnd, band, has_snow, cldfsnow_p, band_input_p, output_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, nbnd, band
     logical, intent(in) :: has_snow
     type(c_ptr), intent(in) :: cldfsnow_p, band_input_p, output_p, dummy_p
+    real(r8), pointer :: cldfsnow(:,:), band_input(:,:,:), output(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(band_input_p, band_input, (/nbnd, pcols, pver/))
+       call c_f_pointer(output_p, output, (/pcols, pver/))
+       output = 0._r8
+       if (has_snow) then
+          call c_f_pointer(cldfsnow_p, cldfsnow, (/pcols, pver/))
+          do k = 1, pver
+             do i = 1, ncol
+                if (cldfsnow(i,k) > 0._r8) then
+                   output(i,k) = band_input(band,i,k)*cldfsnow(i,k)
+                end if
+             end do
+          end do
+       end if
+       return
+    end if
 
     call radiation_diag_prep_codon_call(11, ncol, 0, cpair, 0._r8, dummy_p, cldfsnow_p, band_input_p, &
          output_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1139,10 +1555,25 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_emis_field(ncol, nbnd, band, cld_lw_abs_p, emis_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol, nbnd, band
     type(c_ptr), intent(in) :: cld_lw_abs_p, emis_p, dummy_p
+    real(r8), pointer :: cld_lw_abs(:,:,:), emis(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(cld_lw_abs_p, cld_lw_abs, (/nbnd, pcols, pver/))
+       call c_f_pointer(emis_p, emis, (/pcols, pver/))
+       emis = 0._r8
+       do k = 1, pver
+          do i = 1, ncol
+             emis(i,k) = 1._r8 - exp(-cld_lw_abs(band,i,k))
+          end do
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(16, ncol, 0, cpair, 0._r8, dummy_p, cld_lw_abs_p, emis_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1155,10 +1586,38 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_tint(ncol, t_p, lnpint_p, lnpmid_p, lwup_p, tint_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: t_p, lnpint_p, lnpmid_p, lwup_p, tint_p, dummy_p
+    real(r8), pointer :: t(:,:), lnpint(:,:), lnpmid(:,:), lwup(:), tint(:,:)
+    real(r8) :: dy
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_TINT_IMPL')) then
+       if (.not. radiation_diag_prep_tint_logged) then
+          radiation_diag_prep_tint_logged = .true.
+          if (masterproc) then
+             write(iulog,*) 'radiation_diag_prep tint stage = native'
+             call radiation_diag_prep_append_proof('radiation_diag_prep tint stage = native')
+             call flush(iulog)
+          end if
+       end if
+       call c_f_pointer(t_p, t, (/pcols, pver/))
+       call c_f_pointer(lnpint_p, lnpint, (/pcols, pverp/))
+       call c_f_pointer(lnpmid_p, lnpmid, (/pcols, pver/))
+       call c_f_pointer(lwup_p, lwup, (/pcols/))
+       call c_f_pointer(tint_p, tint, (/pcols, pverp/))
+       do i = 1, ncol
+          tint(i,1) = t(i,1)
+          tint(i,pverp) = sqrt(sqrt(lwup(i)/stebol))
+          do k = 2, pver
+             dy = (lnpint(i,k) - lnpmid(i,k))/(lnpmid(i,k-1) - lnpmid(i,k))
+             tint(i,k) = t(i,k) - dy*(t(i,k) - t(i,k-1))
+          end do
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(17, ncol, 0, stebol, 0._r8, dummy_p, t_p, lnpint_p, &
          lnpmid_p, lwup_p, tint_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1170,10 +1629,35 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_hirs(ncol, lwup_p, landfrac_p, pint_p, ts_p, oro_p, pintmb_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: lwup_p, landfrac_p, pint_p, ts_p, oro_p, pintmb_p, dummy_p
+    real(r8), pointer :: lwup(:), landfrac(:), pint(:,:), ts(:), oro(:), pintmb(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(lwup_p, lwup, (/pcols/))
+       call c_f_pointer(landfrac_p, landfrac, (/pcols/))
+       call c_f_pointer(pint_p, pint, (/pcols, pverp/))
+       call c_f_pointer(ts_p, ts, (/pcols/))
+       call c_f_pointer(oro_p, oro, (/pcols/))
+       call c_f_pointer(pintmb_p, pintmb, (/pcols, pverp/))
+       do i = 1, ncol
+          ts(i) = sqrt(sqrt(lwup(i)/stebol))
+          if (landfrac(i) >= 0.001_r8) then
+             oro(i) = 1._r8
+          else
+             oro(i) = 0._r8
+          endif
+          do k = 1, pver
+             pintmb(i,k) = pint(i,k)*1.e-2_r8
+          end do
+          pintmb(i,pverp) = pint(i,pverp)*1.e-2_r8
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(18, ncol, 0, stebol, 0._r8, dummy_p, lwup_p, landfrac_p, &
          pint_p, ts_p, oro_p, pintmb_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1185,10 +1669,29 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_lwupcgs(ncol, lwup_p, lwupcgs_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: lwup_p, lwupcgs_p, dummy_p
+    real(r8), pointer :: lwup(:), lwupcgs(:)
+    integer :: i
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_LWUPCGS_IMPL')) then
+       if (.not. radiation_diag_prep_lwupcgs_logged) then
+          radiation_diag_prep_lwupcgs_logged = .true.
+          if (masterproc) then
+             write(iulog,*) 'radiation_diag_prep lwupcgs stage = native'
+             call radiation_diag_prep_append_proof('radiation_diag_prep lwupcgs stage = native')
+             call flush(iulog)
+          end if
+       end if
+       call c_f_pointer(lwup_p, lwup, (/pcols/))
+       call c_f_pointer(lwupcgs_p, lwupcgs, (/pcols/))
+       do i = 1, ncol
+          lwupcgs(i) = lwup(i)*1000._r8
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(19, ncol, 0, cpair, 0._r8, dummy_p, lwup_p, lwupcgs_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1200,10 +1703,22 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_netsw_copy(ncol, fsns_p, netsw_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: fsns_p, netsw_p, dummy_p
+    real(r8), pointer :: fsns(:), netsw(:)
+    integer :: i
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(fsns_p, fsns, (/pcols/))
+       call c_f_pointer(netsw_p, netsw, (/pcols/))
+       do i = 1, ncol
+          netsw(i) = fsns(i)
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(20, ncol, 0, cpair, 0._r8, dummy_p, fsns_p, netsw_p, &
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1215,10 +1730,26 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_hr_field(ncol, qrs_p, qrl_p, hr_factor_p, ftem_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_ptr
 
     integer, intent(in) :: ncol
     type(c_ptr), intent(in) :: qrs_p, qrl_p, hr_factor_p, ftem_p, dummy_p
+    real(r8), pointer :: qrs(:,:), qrl(:,:), hr_factor(:,:), ftem(:,:)
+    integer :: i, k
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(qrs_p, qrs, (/pcols, pver/))
+       call c_f_pointer(qrl_p, qrl, (/pcols, pver/))
+       call c_f_pointer(hr_factor_p, hr_factor, (/pcols, pver/))
+       call c_f_pointer(ftem_p, ftem, (/pcols, pver/))
+       do k = 1, pver
+          do i = 1, ncol
+             ftem(i,k) = (qrs(i,k) + qrl(i,k))/cpair * hr_factor(i,k)
+          end do
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(21, ncol, 0, cpair, 0._r8, dummy_p, qrs_p, qrl_p, &
          hr_factor_p, ftem_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
@@ -1232,7 +1763,7 @@ end function radiation_nextsw_cday
        ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p, &
        idxnite_p, dummy_p)
 
-    use iso_c_binding, only: c_ptr
+    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
     use cam_history_support, only: fillvalue
 
     integer, intent(in) :: ncol, nbnd, band, nnite
@@ -1240,6 +1771,43 @@ end function radiation_nextsw_cday
     type(c_ptr), intent(in) :: c_cld_tau_p, liq_tau_p, ice_tau_p, snow_tau_p, cldfprime_p
     type(c_ptr), intent(in) :: tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p
     type(c_ptr), intent(in) :: idxnite_p, dummy_p
+    real(r8), pointer :: c_cld_tau(:,:,:), liq_tau(:,:,:), ice_tau(:,:,:), snow_tau(:,:,:), cldfprime(:,:)
+    real(r8), pointer :: tot_cld(:,:), tot_icld(:,:), liq_icld(:,:), ice_icld(:,:), snow_icld(:,:)
+    integer(c_int64_t), pointer :: idxnite(:)
+    integer :: i, k, idx
+
+    if (radiation_diag_env_native_enabled('RADIATION_DIAG_PREP_MISC_IMPL')) then
+       call radiation_diag_prep_misc_log_native()
+       call c_f_pointer(c_cld_tau_p, c_cld_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(liq_tau_p, liq_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(ice_tau_p, ice_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(snow_tau_p, snow_tau, (/nbnd, pcols, pver/))
+       call c_f_pointer(cldfprime_p, cldfprime, (/pcols, pver/))
+       call c_f_pointer(tot_cld_p, tot_cld, (/pcols, pver/))
+       call c_f_pointer(tot_icld_p, tot_icld, (/pcols, pver/))
+       call c_f_pointer(liq_icld_p, liq_icld, (/pcols, pver/))
+       call c_f_pointer(ice_icld_p, ice_icld, (/pcols, pver/))
+       call c_f_pointer(snow_icld_p, snow_icld, (/pcols, pver/))
+       call c_f_pointer(idxnite_p, idxnite, (/pcols/))
+       do k = 1, pver
+          do i = 1, ncol
+             tot_icld(i,k) = c_cld_tau(band,i,k)
+             liq_icld(i,k) = liq_tau(band,i,k)
+             ice_icld(i,k) = ice_tau(band,i,k)
+             if (has_snow) snow_icld(i,k) = snow_tau(band,i,k)
+             tot_cld(i,k) = c_cld_tau(band,i,k)*cldfprime(i,k)
+          end do
+       end do
+       do i = 1, nnite
+          idx = int(idxnite(i))
+          tot_cld(idx,:) = fillvalue
+          tot_icld(idx,:) = fillvalue
+          liq_icld(idx,:) = fillvalue
+          ice_icld(idx,:) = fillvalue
+          if (has_snow) snow_icld(idx,:) = fillvalue
+       end do
+       return
+    end if
 
     call radiation_diag_prep_codon_call(12, ncol, nnite, cpair, fillvalue, dummy_p, c_cld_tau_p, &
          liq_tau_p, ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, &
@@ -2031,10 +2599,11 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
                       delta   ,eccf)
 
    call radiation_diag_prep_select_impl()
-   if (use_native_radiation_diag_prep_impl) then
+   if (use_native_radiation_diag_prep_impl .or. radinp_native_enabled()) then
 !
 ! Convert pressure from pascals to dynes/cm2
 !
+      if (.not. use_native_radiation_diag_prep_impl) call radinp_log_native()
       do k=1,pver
          do i=1,ncol
             pmidrd(i,k) = pmid(i,k)*10.0_r8

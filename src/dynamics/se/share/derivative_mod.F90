@@ -420,18 +420,25 @@ end do
     c0 = 0.0_longdouble_kind
     c1 = 1.0_longdouble_kind
 
-    gll_pts = gausslobatto(n1)
-    call v2pinit_codon(int(n1, c_int64_t), int(n2, c_int64_t), &
-         c_loc(v2p_new), c_loc(gll), c_loc(gs), c_loc(leg), &
-         c_loc(leg_out), c_loc(gamma), c_loc(gll_pts%weights(1)))
-    v2p = v2p_new
-    deallocate(gll_pts%points)
-    deallocate(gll_pts%weights)
+    if (.not. derivative_use_native('V2PINIT_IMPL')) then
+       gll_pts = gausslobatto(n1)
+       call v2pinit_codon(int(n1, c_int64_t), int(n2, c_int64_t), &
+            c_loc(v2p_new), c_loc(gll), c_loc(gs), c_loc(leg), &
+            c_loc(leg_out), c_loc(gamma), c_loc(gll_pts%weights(1)))
+       v2p = v2p_new
+       deallocate(gll_pts%points)
+       deallocate(gll_pts%weights)
+       if (.not. proof_seen) then
+          write(iulog,*) 'v2pinit implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
     if (.not. proof_seen) then
-       write(iulog,*) 'v2pinit implementation = codon'
+       write(iulog,*) 'v2pinit implementation = native'
        proof_seen = .true.
     endif
-    return
+    gll_pts = gausslobatto(n1)
 
     ! ==============================================================
     ! Compute Legendre polynomials on Gauss-Lobatto grid (velocity)
@@ -539,12 +546,18 @@ end do
        end subroutine dvvinit_codon
     end interface
 
-    call dvvinit_codon(int(np, c_int64_t), c_loc(dvv), c_loc(gll%points(1)), c_loc(leg))
+    if (.not. derivative_use_native('DVVINIT_IMPL')) then
+       call dvvinit_codon(int(np, c_int64_t), c_loc(dvv), c_loc(gll%points(1)), c_loc(leg))
+       if (.not. proof_seen) then
+          write(iulog,*) 'dvvinit implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
     if (.not. proof_seen) then
-       write(iulog,*) 'dvvinit implementation = codon'
+       write(iulog,*) 'dvvinit implementation = native'
        proof_seen = .true.
     endif
-    return
 
     c0 = 0.0_longdouble_kind
     c1 = 1.0_longdouble_kind
@@ -3139,6 +3152,27 @@ end do
 
     ugradv_sphere_impl_selected = .true.
   end subroutine ugradv_sphere_select_impl
+
+  logical function derivative_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      derivative_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      derivative_use_native = .false.
+    end if
+  end function derivative_use_native
 
 
 

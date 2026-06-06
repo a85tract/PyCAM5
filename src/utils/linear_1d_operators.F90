@@ -281,6 +281,31 @@ end interface TriDiagDecomp
 
 contains
 
+logical function linear_1d_use_native()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable('LINEAR_1D_OPERATORS_IMPL', value=impl_name, length=n, status=status)
+  if (status /= 0 .or. n <= 0) then
+     call get_environment_variable('DIFFUSION_SOLVER_TRIDIAG_IMPL', value=impl_name, length=n, status=status)
+  end if
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     linear_1d_use_native = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     linear_1d_use_native = .false.
+  end if
+
+end function linear_1d_use_native
+
 ! Operator that sets to 0.
 function zero_operator(nsys, ncel) result(op)
   ! Sizes for operator.
@@ -332,8 +357,22 @@ function diagonal_operator(diag) result(op)
      end subroutine diagonal_operator_codon
   end interface
   logical, save :: diagonal_operator_codon_logged = .false.
+  logical, save :: diagonal_operator_native_logged = .false.
 
   op = TriDiagOp(size(diag, 1), size(diag, 2))
+
+  if (linear_1d_use_native()) then
+     op%spr = 0._r8
+     op%sub = 0._r8
+     op%diag = diag
+     op%left_bound = 0._r8
+     op%right_bound = 0._r8
+     if (.not. diagonal_operator_native_logged) then
+        write(iulog,*) 'diagonal_operator implementation = native'
+        diagonal_operator_native_logged = .true.
+     end if
+     return
+  end if
 
   call diagonal_operator_codon(op%spr, op%sub, op%diag, op%left_bound, &
        op%right_bound, diag, int(op%nsys, c_int64_t), int(op%ncel, c_int64_t))
@@ -370,6 +409,7 @@ function diffusion_operator(coords, d_coef, l_bndry, r_bndry) &
   type(BoundaryType), target :: bndry_default
 
   real(r8) :: l_edge_width(coords%n), r_edge_width(coords%n)
+  integer :: k
   interface
      subroutine diffusion_operator_codon(spr, sub, diag, left_bound, &
           right_bound, d_coef, rdst, rdel, del, l_edge_width, &
@@ -385,6 +425,7 @@ function diffusion_operator(coords, d_coef, l_bndry, r_bndry) &
      end subroutine diffusion_operator_codon
   end interface
   logical, save :: diffusion_operator_codon_logged = .false.
+  logical, save :: diffusion_operator_native_logged = .false.
 
   if (present(l_bndry)) then
      l_bndry_loc => l_bndry
@@ -400,6 +441,45 @@ function diffusion_operator(coords, d_coef, l_bndry, r_bndry) &
 
   ! Allocate the operator.
   op = TriDiagOp(coords%n, coords%d)
+
+  if (linear_1d_use_native()) then
+     ! d_coef over the distance to the next cell gives you the matrix term for
+     ! flux of material between cells. Dividing by cell thickness translates
+     ! this to a tendency on the concentration. Hence the basic pattern is
+     ! d_coef*rdst*rdel.
+     !
+     ! Boundary conditions for a fixed layer simply extend this by calculating
+     ! the distance to the midpoint of the extra edge layer.
+
+     select case (l_bndry_loc%bndry_type)
+     case (fixed_layer_bndry)
+        op%left_bound = 2._r8*d_coef(:,1)*coords%rdel(:,1) / &
+             (l_bndry_loc%edge_width+coords%del(:,1))
+     case default
+        op%left_bound = 0._r8
+     end select
+
+     do k = 1, coords%d-1
+        op%spr(:,k) = d_coef(:,k+1)*coords%rdst(:,k)*coords%rdel(:,k)
+        op%sub(:,k) = d_coef(:,k+1)*coords%rdst(:,k)*coords%rdel(:,k+1)
+     end do
+
+     select case (r_bndry_loc%bndry_type)
+     case (fixed_layer_bndry)
+        op%right_bound = 2._r8*d_coef(:,coords%d+1)*coords%rdel(:,coords%d) / &
+             (r_bndry_loc%edge_width+coords%del(:,coords%d))
+     case default
+        op%right_bound = 0._r8
+     end select
+
+     ! Above, we found all off-diagonals. Now get the diagonal.
+     call op%deriv_diag()
+     if (.not. diffusion_operator_native_logged) then
+        write(iulog,*) 'diffusion_operator implementation = native'
+        diffusion_operator_native_logged = .true.
+     end if
+     return
+  end if
 
   select case (l_bndry_loc%bndry_type)
   case (fixed_layer_bndry)
@@ -690,6 +770,17 @@ function new_BoundaryFixedLayer(width) result(new_bndry)
      end subroutine new_boundaryfixedlayer_codon
   end interface
   logical, save :: new_boundaryfixedlayer_codon_logged = .false.
+  logical, save :: new_boundaryfixedlayer_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     new_bndry%bndry_type = fixed_layer_bndry
+     new_bndry%edge_width = width
+     if (masterproc .and. .not. new_boundaryfixedlayer_native_logged) then
+        write(iulog,*) 'new_BoundaryFixedLayer implementation = native'
+        new_boundaryfixedlayer_native_logged = .true.
+     end if
+     return
+  end if
 
   allocate(new_bndry%edge_width(size(width)))
   call new_boundaryfixedlayer_codon(bndry_type_c, new_bndry%edge_width, &
@@ -842,6 +933,23 @@ subroutine tridiag_finalize(self)
      end subroutine finalize_dims_codon
   end interface
   logical, save :: tridiag_finalize_codon_logged = .false.
+  logical, save :: tridiag_finalize_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     self%nsys = 0
+     self%ncel = 0
+
+     if (allocated(self%spr)) deallocate(self%spr)
+     if (allocated(self%sub)) deallocate(self%sub)
+     if (allocated(self%diag)) deallocate(self%diag)
+     if (allocated(self%left_bound)) deallocate(self%left_bound)
+     if (allocated(self%right_bound)) deallocate(self%right_bound)
+     if (.not. tridiag_finalize_native_logged) then
+        write(iulog,*) 'tridiag_finalize implementation = native'
+        tridiag_finalize_native_logged = .true.
+     end if
+     return
+  end if
 
   dims = [int(self%nsys, c_int64_t), int(self%ncel, c_int64_t)]
   call finalize_dims_codon(dims)
@@ -1026,10 +1134,23 @@ subroutine make_tridiag_deriv_diag(self)
      end subroutine make_tridiag_deriv_diag_codon
   end interface
   logical, save :: make_tridiag_deriv_diag_codon_logged = .false.
+  logical, save :: make_tridiag_deriv_diag_native_logged = .false.
 
   ! If a derivative operator operates on a constant function, it must
   ! return 0 everywhere. To force this, make sure that all rows add to
   ! zero in the matrix.
+  if (linear_1d_use_native()) then
+     self%diag(:,:self%ncel-1) = - self%spr
+     self%diag(:,self%ncel) = - self%right_bound
+     self%diag(:,1) = self%diag(:,1) - self%left_bound
+     self%diag(:,2:) = self%diag(:,2:) - self%sub
+     if (.not. make_tridiag_deriv_diag_native_logged) then
+        write(iulog,*) 'make_tridiag_deriv_diag implementation = native'
+        make_tridiag_deriv_diag_native_logged = .true.
+     end if
+     return
+  end if
+
   call make_tridiag_deriv_diag_codon(self%spr, self%sub, self%diag, &
        self%left_bound, self%right_bound, int(self%nsys, c_int64_t), &
        int(self%ncel, c_int64_t))
@@ -1071,6 +1192,21 @@ subroutine add_in_place_tridiag_ops(self, other)
      end subroutine add_in_place_tridiag_ops_codon
   end interface
   logical, save :: add_in_place_tridiag_ops_codon_logged = .false.
+  logical, save :: add_in_place_tridiag_ops_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     self%spr = self%spr + other%spr
+     self%sub = self%sub + other%sub
+     self%diag = self%diag + other%diag
+
+     self%left_bound = self%left_bound + other%left_bound
+     self%right_bound = self%right_bound + other%right_bound
+     if (.not. add_in_place_tridiag_ops_native_logged) then
+        write(iulog,*) 'add_in_place_tridiag_ops implementation = native'
+        add_in_place_tridiag_ops_native_logged = .true.
+     end if
+     return
+  end if
 
   call add_in_place_tridiag_ops_codon(self%spr, self%sub, self%diag, &
        self%left_bound, self%right_bound, other%spr, other%sub, &
@@ -1126,6 +1262,16 @@ subroutine scalar_add_tridiag(self, constant)
      end subroutine scalar_add_tridiag_codon
   end interface
   logical, save :: scalar_add_tridiag_codon_logged = .false.
+  logical, save :: scalar_add_tridiag_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     self%diag = self%diag + constant
+     if (.not. scalar_add_tridiag_native_logged) then
+        write(iulog,*) 'scalar_add_tridiag implementation = native'
+        scalar_add_tridiag_native_logged = .true.
+     end if
+     return
+  end if
 
   call scalar_add_tridiag_codon(self%diag, int(self%nsys, c_int64_t), &
        int(self%ncel, c_int64_t), constant)
@@ -1161,6 +1307,21 @@ subroutine scalar_lmult_tridiag(self, constant)
      end subroutine scalar_lmult_tridiag_codon
   end interface
   logical, save :: scalar_lmult_tridiag_codon_logged = .false.
+  logical, save :: scalar_lmult_tridiag_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     self%spr = constant*self%spr
+     self%sub = constant*self%sub
+     self%diag = constant*self%diag
+
+     self%left_bound = constant*self%left_bound
+     self%right_bound = constant*self%right_bound
+     if (.not. scalar_lmult_tridiag_native_logged) then
+        write(iulog,*) 'scalar_lmult_tridiag implementation = native'
+        scalar_lmult_tridiag_native_logged = .true.
+     end if
+     return
+  end if
 
   call scalar_lmult_tridiag_codon(self%spr, self%sub, self%diag, &
        self%left_bound, self%right_bound, &
@@ -1232,6 +1393,8 @@ function new_TriDiagDecomp(op, graft_decomp) result(decomp)
      end subroutine new_tridiagdecomp_graft_codon
   end interface
   logical, save :: new_tridiagdecomp_codon_logged = .false.
+  logical, save :: new_tridiagdecomp_native_logged = .false.
+  integer :: k
 
   if (present(graft_decomp)) then
      decomp%nsys = graft_decomp%nsys
@@ -1245,6 +1408,40 @@ function new_TriDiagDecomp(op, graft_decomp) result(decomp)
   allocate(decomp%ca(decomp%nsys,decomp%ncel))
   allocate(decomp%dnom(decomp%nsys,decomp%ncel))
   allocate(decomp%ze(decomp%nsys,decomp%ncel))
+
+  if (linear_1d_use_native()) then
+     ! decomp%ca is simply the negative of the tridiagonal's superdiagonal.
+     decomp%ca(:,:op%ncel-1) = -op%spr
+     decomp%ca(:,op%ncel) = -op%right_bound
+
+     if (present(graft_decomp)) then
+        ! Copy in graft_decomp beyond op%ncel.
+        decomp%ca(:,op%ncel+1:) = graft_decomp%ca(:,op%ncel+1:)
+        decomp%dnom(:,op%ncel+1:) = graft_decomp%dnom(:,op%ncel+1:)
+        decomp%ze(:,op%ncel+1:) = graft_decomp%ze(:,op%ncel+1:)
+        ! Fill in dnom edge value.
+        decomp%dnom(:,op%ncel) = 1._r8 / (op%diag(:,op%ncel) - &
+             decomp%ca(:,op%ncel)*decomp%ze(:,op%ncel+1))
+     else
+        ! If no grafting, the edge value of dnom comes from the diagonal.
+        decomp%dnom(:,op%ncel) = 1._r8 / op%diag(:,op%ncel)
+     end if
+
+     do k = op%ncel - 1, 1, -1
+        decomp%ze(:,k+1)   = - op%sub(:,k) * decomp%dnom(:,k+1)
+        decomp%dnom(:,k) = 1._r8 / &
+             (op%diag(:,k) - decomp%ca(:,k)*decomp%ze(:,k+1))
+     end do
+
+     ! Don't multiply edge level by denom, because we want to leave it up to
+     ! the BoundaryCond object to decide what this means in left_div.
+     decomp%ze(:,1) = -op%left_bound
+     if (.not. new_tridiagdecomp_native_logged) then
+        write(iulog,*) 'new_tridiagdecomp implementation = native'
+        new_tridiagdecomp_native_logged = .true.
+     end if
+     return
+  end if
 
   if (present(graft_decomp)) then
      call new_tridiagdecomp_graft_codon(decomp%ca, decomp%dnom, &
@@ -1283,6 +1480,7 @@ subroutine decomp_left_div(decomp, q, l_cond, r_cond)
   real(r8) :: l_edge_data(decomp%nsys), r_edge_data(decomp%nsys)
 
   integer(c_int64_t) :: has_l_cond, has_r_cond, l_cond_type, r_cond_type
+  integer :: k
   interface
      subroutine decomp_left_div_codon(ca, dnom, ze, q, zf, l_edge_data, &
           r_edge_data, nsys, ncel, has_l_cond, l_cond_type, &
@@ -1297,6 +1495,38 @@ subroutine decomp_left_div(decomp, q, l_cond, r_cond)
      end subroutine decomp_left_div_codon
   end interface
   logical, save :: decomp_left_div_codon_logged = .false.
+  logical, save :: decomp_left_div_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     ! Include boundary conditions.
+     if (present(l_cond)) then
+        q(:,1) = q(:,1) + l_cond%apply_left(decomp%ze(:,1), q)
+     end if
+
+     if (present(r_cond)) then
+        q(:,decomp%ncel) = q(:,decomp%ncel) + &
+             r_cond%apply_right(decomp%ca(:,decomp%ncel), q)
+     end if
+
+     zf(:,decomp%ncel) = q(:,decomp%ncel) * decomp%dnom(:,decomp%ncel)
+
+     do k = decomp%ncel - 1, 1, -1
+        zf(:,k) = (q(:,k) + decomp%ca(:,k)*zf(:,k+1)) * decomp%dnom(:,k)
+     end do
+
+     ! Perform back substitution
+
+     q(:,1) = zf(:,1)
+
+     do k = 2, decomp%ncel
+        q(:,k) = zf(:,k) + decomp%ze(:,k)*q(:,k-1)
+     end do
+     if (.not. decomp_left_div_native_logged) then
+        write(iulog,*) 'decomp_left_div implementation = native'
+        decomp_left_div_native_logged = .true.
+     end if
+     return
+  end if
 
   has_l_cond = 0_c_int64_t
   has_r_cond = 0_c_int64_t
@@ -1339,6 +1569,21 @@ subroutine decomp_finalize(decomp)
      end subroutine finalize_dims_codon
   end interface
   logical, save :: decomp_finalize_codon_logged = .false.
+  logical, save :: decomp_finalize_native_logged = .false.
+
+  if (linear_1d_use_native()) then
+     decomp%nsys = 0
+     decomp%ncel = 0
+
+     if (allocated(decomp%ca)) deallocate(decomp%ca)
+     if (allocated(decomp%dnom)) deallocate(decomp%dnom)
+     if (allocated(decomp%ze)) deallocate(decomp%ze)
+     if (.not. decomp_finalize_native_logged) then
+        write(iulog,*) 'decomp_finalize implementation = native'
+        decomp_finalize_native_logged = .true.
+     end if
+     return
+  end if
 
   dims = [int(decomp%nsys, c_int64_t), int(decomp%ncel, c_int64_t)]
   call finalize_dims_codon(dims)

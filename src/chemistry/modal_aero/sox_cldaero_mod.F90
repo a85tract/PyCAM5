@@ -279,7 +279,10 @@ contains
     integer(c_int64_t), target :: lptr_so4_cw_amode_c(ntot_amode)
     integer(c_int64_t), target :: lptr_nh4_cw_amode_c(ntot_amode)
     character(len=160) :: proof_line
-    integer :: n
+    integer :: n, i, k
+    integer :: id_so4_1a, id_so4_2a, id_so4_3a, id_so4_4a, id_so4_5a, id_so4_6a
+    integer :: id_nh4_1a, id_nh4_2a, id_nh4_3a, id_nh4_4a, id_nh4_5a, id_nh4_6a
+    logical :: use_native_object
 
     interface
        subroutine sox_cldaero_create_obj_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, ntot_amode_c, loffset_c, &
@@ -293,6 +296,64 @@ contains
     end interface
 
     conc_obj => cldaero_allocate()
+
+    use_native_object = sox_cldaero_object_use_native()
+    if (use_native_object) then
+       do k = 1, pver
+          do i = 1, ncol
+             if (cldfrc(i,k) > 0._r8) then
+                conc_obj%xlwc(i,k) = lwc(i,k) * cfact(i,k)
+                conc_obj%xlwc(i,k) = conc_obj%xlwc(i,k) / cldfrc(i,k)
+             else
+                conc_obj%xlwc(i,k) = 0._r8
+             end if
+             conc_obj%no3c(i,k) = 0._r8
+          end do
+       end do
+
+       if (ntot_amode == 7) then
+          id_so4_1a = lptr_so4_cw_amode(1) - loffset
+          id_so4_2a = lptr_so4_cw_amode(2) - loffset
+          id_so4_3a = lptr_so4_cw_amode(4) - loffset
+          id_so4_4a = lptr_so4_cw_amode(5) - loffset
+          id_so4_5a = lptr_so4_cw_amode(6) - loffset
+          id_so4_6a = lptr_so4_cw_amode(7) - loffset
+          id_nh4_1a = lptr_nh4_cw_amode(1) - loffset
+          id_nh4_2a = lptr_nh4_cw_amode(2) - loffset
+          id_nh4_3a = lptr_nh4_cw_amode(4) - loffset
+          id_nh4_4a = lptr_nh4_cw_amode(5) - loffset
+          id_nh4_5a = lptr_nh4_cw_amode(6) - loffset
+          id_nh4_6a = lptr_nh4_cw_amode(7) - loffset
+          do k = 1, pver
+             do i = 1, ncol
+                conc_obj%so4c(i,k) = qcw(i,k,id_so4_1a) + qcw(i,k,id_so4_2a) + &
+                     qcw(i,k,id_so4_3a) + qcw(i,k,id_so4_4a) + qcw(i,k,id_so4_5a) + qcw(i,k,id_so4_6a)
+                conc_obj%nh4c(i,k) = qcw(i,k,id_nh4_1a) + qcw(i,k,id_nh4_2a) + &
+                     qcw(i,k,id_nh4_3a) + qcw(i,k,id_nh4_4a) + qcw(i,k,id_nh4_5a) + qcw(i,k,id_nh4_6a)
+             end do
+          end do
+       else
+          id_so4_1a = lptr_so4_cw_amode(1) - loffset
+          id_so4_2a = lptr_so4_cw_amode(2) - loffset
+          id_so4_3a = lptr_so4_cw_amode(3) - loffset
+          do k = 1, pver
+             do i = 1, ncol
+                conc_obj%so4c(i,k) = qcw(i,k,id_so4_1a) + qcw(i,k,id_so4_2a) + qcw(i,k,id_so4_3a)
+                conc_obj%nh4c(i,k) = 0._r8
+             end do
+          end do
+          conc_obj%so4_fact = 1._r8
+       end if
+
+       if (masterproc .and. .not. sox_cldaero_create_obj_proof_written) then
+          proof_line = 'sox_cldaero_create_obj implementation = native'
+          write(iulog,'(A)') trim(proof_line)
+          call sox_cldaero_append_impl_proof(trim(proof_line))
+          sox_cldaero_create_obj_proof_written = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     do n = 1, ntot_amode
        lptr_so4_cw_amode_c(n) = int(lptr_so4_cw_amode(n), c_int64_t)
@@ -776,10 +837,18 @@ contains
        end function sox_cldaero_destroy_obj_codon
     end interface
 
-    active_c = sox_cldaero_destroy_obj_codon(1_c_int64_t)
+    if (sox_cldaero_object_use_native()) then
+       active_c = 1_c_int64_t
+    else
+       active_c = sox_cldaero_destroy_obj_codon(1_c_int64_t)
+    end if
     if (.not. sox_cldaero_destroy_obj_codon_logged) then
        sox_cldaero_destroy_obj_codon_logged = .true.
-       proof_line = 'sox_cldaero_destroy_obj implementation = codon'
+       if (sox_cldaero_object_use_native()) then
+          proof_line = 'sox_cldaero_destroy_obj implementation = native'
+       else
+          proof_line = 'sox_cldaero_destroy_obj implementation = codon'
+       end if
        if (masterproc) then
           write(iulog,'(A)') trim(proof_line)
           call flush(iulog)
@@ -791,5 +860,24 @@ contains
     call cldaero_deallocate( conc_obj )
 
   end subroutine sox_cldaero_destroy_obj
+
+  logical function sox_cldaero_object_use_native()
+    character(len=32) :: impl_name
+    integer :: n, status, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('SOX_CLDAERO_OBJECT_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       sox_cldaero_object_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       sox_cldaero_object_use_native = .false.
+    end if
+  end function sox_cldaero_object_use_native
 
 end module sox_cldaero_mod

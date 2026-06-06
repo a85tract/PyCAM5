@@ -2881,12 +2881,12 @@ contains
 
     strato_sad = 0._r8
 
-    active_c = aero_model_strat_surfarea_codon(merge(1_c_int64_t, 0_c_int64_t, modal_strat_sulfate))
+    active_c = merge(1_c_int64_t, 0_c_int64_t, modal_strat_sulfate)
     if (.not. aero_model_strat_surfarea_codon_logged) then
        aero_model_strat_surfarea_codon_logged = .true.
        if (masterproc) then
           write(iulog,'(A)') &
-               'aero_model_strat_surfarea direct = codon; inactive/default branch selected in Codon'
+               'aero_model_strat_surfarea direct = native; inactive/default branch selected'
           call flush(iulog)
        end if
     end if

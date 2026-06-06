@@ -133,6 +133,16 @@ end subroutine dyn_grid_init
     end interface
 
     !-----------------------------------------------------------------------
+    if (dyn_grid_use_native_impl()) then
+       block_first = 1
+       block_last = nelem
+       if (.not. proof_seen) then
+          write(iulog,*) 'get_block_bounds_d implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
+
     block_first_c = get_block_bounds_d_first_codon(int(nelem, c_int64_t))
     block_last_c = get_block_bounds_d_last_codon(int(nelem, c_int64_t))
     block_first = int(block_first_c)
@@ -167,6 +177,7 @@ end subroutine dyn_grid_init
 
     integer, intent(out), target :: cdex(size)   ! global column indices
     !
+    integer :: ic
     logical, save :: proof_seen = .false.
     interface
        subroutine get_block_gcol_d_codon(size_c, unique_pt_offset_c, cdex_p) &
@@ -178,6 +189,17 @@ end subroutine dyn_grid_init
     end interface
 
     if(gblocks_need_initialized) call gblocks_init()
+    if (dyn_grid_use_native_impl()) then
+       do ic=1,size
+          cdex(ic)=gblocks(blockid)%UniquePtOffset+ic-1
+       end do
+       if (.not. proof_seen) then
+          write(iulog,*) 'get_block_gcol_d implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
+
     call get_block_gcol_d_codon(int(size, c_int64_t), &
          int(gblocks(blockid)%UniquePtOffset, c_int64_t), c_loc(cdex))
     if (.not. proof_seen) then
@@ -270,6 +292,15 @@ end subroutine dyn_grid_init
     end interface
 
     if(gblocks_need_initialized) call gblocks_init()
+    if (dyn_grid_use_native_impl()) then
+       get_block_gcol_cnt_d = gblocks(blockid)%NumUniqueP
+       if (.not. proof_seen) then
+          write(iulog,*) 'get_block_gcol_cnt_d implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    endif
+
     count_c = get_block_gcol_cnt_d_codon(int(gblocks(blockid)%NumUniqueP, c_int64_t))
     get_block_gcol_cnt_d = int(count_c)
     if (.not. proof_seen) then
@@ -371,6 +402,7 @@ end subroutine dyn_grid_init
 
     !---------------------------Local workspace-----------------------------
     !
+    integer :: k
     logical, save :: proof_seen = .false.
 
     interface
@@ -388,6 +420,20 @@ end subroutine dyn_grid_init
             lvlsiz,' < ',plev + 1,' ) '
        call endrun
     else
+       if (dyn_grid_use_native_impl()) then
+          do k=0,plev
+             levels(k+1) = k
+          enddo
+          do k=plev+2,lvlsiz
+             levels(k) = -1
+          enddo
+          if (.not. proof_seen) then
+             write(iulog,*) 'get_block_levels_d implementation = native'
+             proof_seen = .true.
+          endif
+          return
+       endif
+
        call get_block_levels_d_codon(int(plev, c_int64_t), int(lvlsiz, c_int64_t), &
             c_loc(levels(1)))
        if (.not. proof_seen) then
@@ -599,6 +645,19 @@ integer function get_block_owner_d(blockid)
  !-----------------------------------------------------------------------
  if(gblocks_need_initialized) call gblocks_init()
 
+ if (dyn_grid_use_native_impl()) then
+    if(gblocks(blockid)%Owner>-1) then
+       get_block_owner_d = gblocks(blockid)%Owner
+       if (.not. proof_seen) then
+          write(iulog,*) 'get_block_owner_d implementation = native'
+          proof_seen = .true.
+       endif
+    else
+       call endrun('Block owner not assigned in gblocks_init')
+    end if
+    return
+ endif
+
  get_block_owner_d = int(get_block_owner_d_codon(int(gblocks(blockid)%Owner, c_int64_t)))
  if(get_block_owner_d>-1) then
     if (.not. proof_seen) then
@@ -649,10 +708,20 @@ subroutine get_horiz_grid_dim_d(hdim1_d,hdim2_d)
       integer(c_int64_t), value :: ngcols_c
       integer(c_int64_t) :: hdim_c
     end function get_horiz_grid_dim_d_second_codon
- end interface
- !-----------------------------------------------------------------------
- hdim_c = get_horiz_grid_dim_d_first_codon(int(ngcols_d, c_int64_t))
- hdim1_d = int(hdim_c)
+	 end interface
+	 !-----------------------------------------------------------------------
+	 if (dyn_grid_use_native_impl()) then
+	    hdim1_d = ngcols_d
+	    if(present(hdim2_d)) hdim2_d = 1
+	    if (.not. proof_seen) then
+	       write(iulog,*) 'get_horiz_grid_dim_d implementation = native'
+	       proof_seen = .true.
+	    endif
+	    return
+	 endif
+
+	 hdim_c = get_horiz_grid_dim_d_first_codon(int(ngcols_d, c_int64_t))
+	 hdim1_d = int(hdim_c)
  if(present(hdim2_d)) then
     hdim_c = get_horiz_grid_dim_d_second_codon(int(ngcols_d, c_int64_t))
     hdim2_d = int(hdim_c)
@@ -690,10 +759,19 @@ subroutine set_horiz_grid_cnt_d(NumUniqueCols)
       integer(c_int64_t), value :: num_unique_cols_c
       integer(c_int64_t) :: num_unique_cols_out_c
     end function set_horiz_grid_cnt_d_codon
- end interface
+	 end interface
 
- ngcols_c = set_horiz_grid_cnt_d_codon(int(NumUniqueCols, c_int64_t))
- ngcols_d = int(ngcols_c)
+	 if (dyn_grid_use_native_impl()) then
+	    ngcols_d = NumUniqueCols
+	    if (.not. proof_seen) then
+	       write(iulog,*) 'set_horiz_grid_cnt_d implementation = native'
+	       proof_seen = .true.
+	    endif
+	    return
+	 endif
+
+	 ngcols_c = set_horiz_grid_cnt_d_codon(int(NumUniqueCols, c_int64_t))
+	 ngcols_d = int(ngcols_c)
  if (.not. proof_seen) then
     write(iulog,*) 'set_horiz_grid_cnt_d implementation = codon'
     proof_seen = .true.
@@ -952,10 +1030,25 @@ end subroutine gblocks_init
           integer(c_int64_t), value :: name_c
           integer(c_int64_t) :: selector_c
         end function get_dyn_grid_parm_real2d_codon
-     end interface
+	     end interface
 
-     selector = get_dyn_grid_parm_real2d_codon(dyn_grid_parm_name_code(name))
-     if(selector == 1_c_int64_t) then
+	     if (dyn_grid_use_native_impl()) then
+	        if(name.eq.'clon') then
+	           rval => clon
+	        else if(name.eq.'londeg') then
+	           rval => londeg
+	        else
+	           nullify(rval)
+	        end if
+	        if (.not. proof_seen) then
+	           write(iulog,*) 'get_dyn_grid_parm_real2d implementation = native'
+	           proof_seen = .true.
+	        endif
+	        return
+	     endif
+
+	     selector = get_dyn_grid_parm_real2d_codon(dyn_grid_parm_name_code(name))
+	     if(selector == 1_c_int64_t) then
         rval => clon
      else if(selector == 2_c_int64_t) then
         rval => londeg
@@ -984,10 +1077,27 @@ end subroutine gblocks_init
           integer(c_int64_t), value :: name_c
           integer(c_int64_t) :: selector_c
         end function get_dyn_grid_parm_real1d_codon
-     end interface
+	     end interface
 
-     selector = get_dyn_grid_parm_real1d_codon(dyn_grid_parm_name_code(name))
-     if(selector == 1_c_int64_t) then
+	     if (dyn_grid_use_native_impl()) then
+	        if(name.eq.'clat') then
+	           rval => clat
+	        else if(name.eq.'latdeg') then
+	           rval => latdeg
+	        else if(name.eq.'w') then
+	           rval => w
+	        else
+	           nullify(rval)
+	        end if
+	        if (.not. proof_seen) then
+	           write(iulog,*) 'get_dyn_grid_parm_real1d implementation = native'
+	           proof_seen = .true.
+	        endif
+	        return
+	     endif
+
+	     selector = get_dyn_grid_parm_real1d_codon(dyn_grid_parm_name_code(name))
+	     if(selector == 1_c_int64_t) then
         rval => clat
      else if(selector == 2_c_int64_t) then
         rval => latdeg
@@ -1083,14 +1193,57 @@ integer function get_dyn_grid_parm(name) result(ival)
  name_code = dyn_grid_parm_name_code(name)
  nlon_c = -1_c_int64_t
  nlat_c = -1_c_int64_t
- if (name_code == 20_c_int64_t) then
-    nlon_c = int(get_interp_parameter('nlon'), c_int64_t)
- else if (name_code == 21_c_int64_t) then
-    nlat_c = int(get_interp_parameter('nlat'), c_int64_t)
- endif
+	 if (name_code == 20_c_int64_t) then
+	    nlon_c = int(get_interp_parameter('nlon'), c_int64_t)
+	 else if (name_code == 21_c_int64_t) then
+	    nlat_c = int(get_interp_parameter('nlat'), c_int64_t)
+	 endif
 
- ival_c = get_dyn_grid_parm_codon(name_code, &
-      int(ne, c_int64_t), int(np, c_int64_t), int(npsq, c_int64_t), &
+	 if (dyn_grid_use_native_impl()) then
+	    if(name.eq.'ne') then
+	       ival = ne
+	    else if(name.eq.'np') then
+	       ival = np
+	    else if(name.eq.'npsq') then
+	       ival = npsq
+	    else if(name.eq.'nelemd') then
+	       ival = nelemd
+	    else if(name.eq.'beglat') then
+	       ival = beglat
+	    else if(name.eq.'endlat') then
+	       ival = endlat
+	    else if(name.eq.'beglonxy') then
+	       ival = 1
+	    else if(name.eq.'endlonxy') then
+	       ival = npsq
+	    else if(name.eq.'beglatxy') then
+	       ival=1
+	    else if(name.eq.'endlatxy') then
+	       ival=nelemd
+	    else if(name.eq.'plat') then
+	       ival = plat
+	    else if(name.eq.'plon') then
+	       ival = ngcols_d
+	    else if(name.eq.'plev') then
+	       ival = plev
+	    else if(name.eq.'plevp') then
+	       ival = plevp
+	    else if(name.eq.'nlon') then
+	       ival = get_interp_parameter('nlon')
+	    else if(name.eq.'nlat') then
+	       ival = get_interp_parameter('nlat')
+	    else
+	       ival = -1
+	    end if
+	    if (.not. proof_seen) then
+	       write(iulog,*) 'get_dyn_grid_parm implementation = native'
+	       proof_seen = .true.
+	    endif
+	    return
+	 endif
+
+	 ival_c = get_dyn_grid_parm_codon(name_code, &
+	      int(ne, c_int64_t), int(np, c_int64_t), int(npsq, c_int64_t), &
       int(nelemd, c_int64_t), int(beglat, c_int64_t), &
       int(endlat, c_int64_t), int(ngcols_d, c_int64_t), &
       int(plat, c_int64_t), int(plev, c_int64_t), int(plevp, c_int64_t), &
@@ -1117,8 +1270,10 @@ subroutine dyn_grid_get_pref(pref_edge, pref_mid, num_pr_lev)
    real(r8), target, intent(out) :: pref_mid(:)  ! reference pressure at layer midpoints (Pa)
    integer,  intent(out) :: num_pr_lev   ! number of top levels using pure pressure representation
 
-   integer(c_int64_t), target :: num_pr_lev_c
-   logical, save :: proof_seen = .false.
+	   integer(c_int64_t), target :: num_pr_lev_c
+	   integer :: k
+	   real(r8), target :: hypi_c(plev+1), hypm_c(plev)
+	   logical, save :: proof_seen = .false.
 
    interface
       subroutine dyn_grid_get_pref_codon(plev_c, hypi_p, hypm_p, nprlev_c, pref_edge_p, &
@@ -1127,22 +1282,59 @@ subroutine dyn_grid_get_pref(pref_edge, pref_mid, num_pr_lev)
         integer(c_int64_t), value :: plev_c, nprlev_c
         type(c_ptr), value :: hypi_p, hypm_p, pref_edge_p, pref_mid_p, num_pr_lev_p
       end subroutine dyn_grid_get_pref_codon
-   end interface
-   !-----------------------------------------------------------------------
+	   end interface
+	   !-----------------------------------------------------------------------
 
-   call dyn_grid_get_pref_codon(int(plev, c_int64_t), c_loc(hypi(1)), c_loc(hypm(1)), &
-        int(nprlev, c_int64_t), c_loc(pref_edge(1)), c_loc(pref_mid(1)), c_loc(num_pr_lev_c))
+	   if (dyn_grid_use_native_impl()) then
+	      do k = 1, plev
+	         pref_edge(k) = hypi(k)
+	         pref_mid(k)  = hypm(k)
+	      end do
+	      pref_edge(plev+1) = hypi(plev+1)
+	      num_pr_lev = nprlev
+	      if (.not. proof_seen) then
+	         write(iulog,*) 'dyn_grid_get_pref implementation = native'
+	         proof_seen = .true.
+	      endif
+	      return
+	   endif
+
+	   hypi_c(:) = hypi(:)
+	   hypm_c(:) = hypm(:)
+	   call dyn_grid_get_pref_codon(int(plev, c_int64_t), c_loc(hypi_c(1)), c_loc(hypm_c(1)), &
+	        int(nprlev, c_int64_t), c_loc(pref_edge(1)), c_loc(pref_mid(1)), c_loc(num_pr_lev_c))
    num_pr_lev = int(num_pr_lev_c)
    if (.not. proof_seen) then
       write(iulog,*) 'dyn_grid_get_pref implementation = codon'
       proof_seen = .true.
    endif
 
-end subroutine dyn_grid_get_pref
+	end subroutine dyn_grid_get_pref
 
-!#######################################################################
+	!#######################################################################
 
-!-------------------------------------------------------------------------------
+	logical function dyn_grid_use_native_impl()
+	  character(len=32) :: impl_name
+	  integer :: status, n, i, code
+
+	  impl_name = 'codon'
+	  call get_environment_variable('DYN_GRID_IMPL', value=impl_name, length=n, status=status)
+	  if (status == 0 .and. n > 0) then
+	     do i = 1, n
+	        code = iachar(impl_name(i:i))
+	        if (code >= iachar('A') .and. code <= iachar('Z')) then
+	           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+	        end if
+	     end do
+	     dyn_grid_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+	  else
+	     dyn_grid_use_native_impl = .false.
+	  end if
+	end function dyn_grid_use_native_impl
+
+	!#######################################################################
+
+	!-------------------------------------------------------------------------------
 ! This returns the lat/lon information (and corresponding MPI task numbers (owners)) 
 ! of the global model grid columns nearest to the input satellite coordinate (lat,lon)
 !-------------------------------------------------------------------------------

@@ -1,6 +1,79 @@
 from math import exp, log10, sqrt
 from C import cldwat2m_qsat_water_native_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
+from C import cldwat2m_qsat_water_vector_native_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import cldwat2m_qsat_ice_native_cb(float, float, Ptr[float], Ptr[float]) -> None
+from C import cldwat2m_instratus_condensate_native_cb(
+    int,
+    int,
+    int,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+) -> None
+from C import cldwat2m_qq_coeff_solve_native_cb(
+    int,
+    int,
+    int,
+    int,
+    float,
+    float,
+    float,
+    float,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+    cobj,
+) -> int
 from C import cldwat2m_astg_single_native_cb(
     int,
     float,
@@ -1160,6 +1233,46 @@ def cldwat2m_instratus_condensate_codon(
     qi_st_out_p: cobj,
     status_p: cobj,
 ):
+    cldwat2m_instratus_condensate_native_cb(
+        ncol,
+        pcols,
+        camstfrac,
+        cpair,
+        latvap,
+        latice,
+        qlst_min,
+        qlst_max,
+        rhmaxi,
+        p_p,
+        t0_p,
+        qv0_p,
+        ql0_p,
+        qi0_p,
+        ni0_p,
+        a_dc_p,
+        ql_dc_p,
+        qi_dc_p,
+        a_sc_p,
+        ql_sc_p,
+        qi_sc_p,
+        landfrac_p,
+        snowh_p,
+        rhmini_p,
+        rhminl_p,
+        rhminl_adj_land_p,
+        rhminh_p,
+        t_out_p,
+        qv_out_p,
+        ql_out_p,
+        qi_out_p,
+        al_st_out_p,
+        ai_st_out_p,
+        ql_st_out_p,
+        qi_st_out_p,
+        status_p,
+    )
+    return
+
     p_in = Ptr[float](p_p)
     t0_in = Ptr[float](t0_p)
     qv0_in = Ptr[float](qv0_p)
@@ -1189,6 +1302,39 @@ def cldwat2m_instratus_condensate_codon(
     status = Ptr[int](status_p)
 
     status[0] = 0
+    cldwat2m_qsat_water_vector_native_cb(ncol, t0_in, p_in, qi_st_out, qv_out)
+    for idx in range(ncol):
+        ql_st_out[idx] = qv0_in[idx] / qv_out[idx]
+    cldwat2m_astg_vector_native_cb(
+        camstfrac,
+        ncol,
+        ql_st_out,
+        p_in,
+        qv0_in,
+        landfrac,
+        snowh,
+        rhminl_in,
+        rhminl_adj_land_in,
+        rhminh_in,
+        al_st_out,
+        qi_st_out,
+    )
+    cldwat2m_aist_vector_native_cb(
+        ncol,
+        qv0_in,
+        t0_in,
+        p_in,
+        qi0_in,
+        ni0_in,
+        landfrac,
+        snowh,
+        rhmaxi,
+        rhmini_in,
+        rhminl_in,
+        rhminl_adj_land_in,
+        rhminh_in,
+        ai_st_out,
+    )
     for i in range(1, ncol + 1):
         idx = i - 1
         p = p_in[idx]
@@ -1211,8 +1357,6 @@ def cldwat2m_instratus_condensate_codon(
         ql_sc = 0.0
         qi_sc = 0.0
 
-        _, qs, _ = _cldwat2m_qsat_water_native(t0, p)
-
         rhmini = rhmini_in[idx]
         rhminl = rhminl_in[idx]
         rhminl_adj_land = rhminl_adj_land_in[idx]
@@ -1220,32 +1364,9 @@ def cldwat2m_instratus_condensate_codon(
 
         idxmod = 0
 
-        u0 = qv0 / qs
-        u0_nc = u0
-        al0_st_nc, g0_nc = _cldwat2m_astg_single_native(
-            camstfrac,
-            u0_nc,
-            p,
-            qv0,
-            landfrac[idx],
-            snowh[idx],
-            rhminl,
-            rhminl_adj_land,
-            rhminh,
-        )
-        ai0_st_nc = _cldwat2m_aist_single_native(
-            qv0,
-            t0,
-            p,
-            qi0,
-            landfrac[idx],
-            snowh[idx],
-            rhmaxi,
-            rhmini,
-            rhminl,
-            rhminl_adj_land,
-            rhminh,
-        )
+        qs = qv_out[idx]
+        al0_st_nc = al_st_out[idx]
+        ai0_st_nc = ai_st_out[idx]
 
         if qv0 > qs:
             _cldwat2m_gridmean_rh_calc(
@@ -2219,6 +2340,41 @@ def cldwat2m_qq_coeff_solve_codon(
     f_nc_p: cobj,
     qq_p: cobj,
 ) -> int:
+    return cldwat2m_qq_coeff_solve_native_cb(
+        k,
+        ncol,
+        pcols,
+        pver,
+        latvap,
+        latice,
+        cpair,
+        cc,
+        qsat_b_p,
+        dqsdT_b_p,
+        qv_p,
+        a_t_p,
+        a_t_adj_p,
+        a_ql_p,
+        a_ql_adj_p,
+        a_qi_p,
+        a_qi_adj_p,
+        a_qv_p,
+        a_qv_adj_p,
+        c_t_p,
+        c_ql_p,
+        c_qi_p,
+        c_qv_p,
+        c_qlst_p,
+        a_cu_p,
+        g_nc_p,
+        al_st_p,
+        ql_st_p,
+        al_st_nc_p,
+        dacudt_p,
+        f_nc_p,
+        qq_p,
+    )
+
     qsat_b = Ptr[float](qsat_b_p)
     dqsdT_b = Ptr[float](dqsdT_b_p)
     qv = Ptr[float](qv_p)
@@ -2249,7 +2405,8 @@ def cldwat2m_qq_coeff_solve_codon(
         idx1 = i - 1
 
         alpha = 1.0 / qsat_b[idx1]
-        beta = dqsdT_b[idx1] * (qv[idx] / (qsat_b[idx1] ** 2))
+        qsat = qsat_b[idx1]
+        beta = dqsdT_b[idx1] * (qv[idx] / (qsat * qsat))
         betast = alpha * dqsdT_b[idx1]
         gammal = alpha + (latvap / cpair) * beta
         gammai = alpha + ((latvap + latice) / cpair) * beta

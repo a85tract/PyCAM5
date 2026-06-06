@@ -25,10 +25,16 @@ module interpolate_data
      integer, pointer  :: jjp(:)
   end type interp_type
   logical, save :: lininterp_full1d_codon_logged = .false.
+  logical, save :: lininterp_full1d_native_logged = .false.
   logical, save :: lininterp1d_codon_logged = .false.
+  logical, save :: lininterp1d_native_logged = .false.
   logical, save :: lininterp2d1d_codon_logged = .false.
+  logical, save :: lininterp2d1d_native_logged = .false.
   logical, save :: lininterp3d2d_codon_logged = .false.
+  logical, save :: lininterp3d2d_native_logged = .false.
+  logical, save :: lininterp_finish_native_logged = .false.
   logical, save :: vertinterp_codon_logged = .false.
+  logical, save :: vertinterp_native_logged = .false.
   interface lininterp
      module procedure lininterp_original
      module procedure lininterp_full1d
@@ -43,12 +49,33 @@ integer, parameter, public :: extrap_method_bndry = 1
 integer, parameter, public :: extrap_method_cycle = 2
 
 contains
+  logical function interpolate_data_use_native()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('INTERPOLATE_DATA_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       interpolate_data_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       interpolate_data_use_native = .false.
+    end if
+  end function interpolate_data_use_native
+
   subroutine lininterp_full1d (arrin, yin, nin, arrout, yout, nout)
     use spmd_utils, only: masterproc
     integer, intent(in) :: nin, nout
     real(r8), target, intent(in) :: arrin(nin), yin(nin), yout(nout)
     real(r8), target, intent(out) :: arrout(nout)
     integer(c_int64_t) :: ierr
+    type(interp_type) :: interp_wgts
 
     interface
        function lininterp_full1d_codon(arrin_p, yin_p, yout_p, arrout_p, nin_c, nout_c) &
@@ -58,7 +85,19 @@ contains
          integer(c_int64_t), value :: nin_c, nout_c
          integer(c_int64_t) :: ierr
        end function lininterp_full1d_codon
-    end interface
+	    end interface
+
+    if (interpolate_data_use_native()) then
+       call lininterp_init(yin, nin, yout, nout, extrap_method_bndry, interp_wgts)
+       call lininterp1d(arrin, nin, arrout, nout, interp_wgts)
+       call lininterp_finish(interp_wgts)
+       if (masterproc .and. .not. lininterp_full1d_native_logged) then
+          write(iulog,*) 'lininterp_full1d implementation = native'
+          lininterp_full1d_native_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     ierr = lininterp_full1d_codon(c_loc(arrin(1)), c_loc(yin(1)), c_loc(yout(1)), &
          c_loc(arrout(1)), int(nin, c_int64_t), int(nout, c_int64_t))
@@ -397,6 +436,18 @@ contains
     wgts =>  interp_wgts%wgts
     wgtn =>  interp_wgts%wgtn
 
+    if (interpolate_data_use_native()) then
+       do j=1,m1
+          arrout(j) = arrin(jjm(j))*wgts(j) + arrin(jjp(j))*wgtn(j)
+       end do
+       if (masterproc .and. .not. lininterp1d_native_logged) then
+          write(iulog,*) 'lininterp1d implementation = native'
+          lininterp1d_native_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
+
     do j=1,m1
        jjm_c(j) = int(jjm(j), c_int64_t)
        jjp_c(j) = int(jjp(j), c_int64_t)
@@ -506,6 +557,21 @@ contains
     wgtw => wgt1%wgts
     wgte => wgt1%wgtn
 
+    if (interpolate_data_use_native()) then
+       do i=1,m1
+          arrout(i) = arrin(iim(i),jjm(i))*wgtw(i)*wgts(i) + &
+               arrin(iip(i),jjm(i))*wgte(i)*wgts(i) + &
+               arrin(iim(i),jjp(i))*wgtw(i)*wgtn(i) + &
+               arrin(iip(i),jjp(i))*wgte(i)*wgtn(i)
+       end do
+       if (masterproc .and. .not. lininterp2d1d_native_logged) then
+          write(iulog,*) 'lininterp2d1d implementation = native'
+          lininterp2d1d_native_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
+
     do i=1,m1
        iim_c(i) = int(iim(i), c_int64_t)
        iip_c(i) = int(iip(i), c_int64_t)
@@ -570,6 +636,23 @@ contains
     wgtw => wgt1%wgts
     wgte => wgt1%wgtn
 
+    if (interpolate_data_use_native()) then
+       do k=1,n3
+          do i=1,m1
+             arrout(i,k) = arrin(iim(i),jjm(i),k)*wgtw(i)*wgts(i) + &
+                  arrin(iip(i),jjm(i),k)*wgte(i)*wgts(i) + &
+                  arrin(iim(i),jjp(i),k)*wgtw(i)*wgtn(i) + &
+                  arrin(iip(i),jjp(i),k)*wgte(i)*wgtn(i)
+          end do
+       end do
+       if (masterproc .and. .not. lininterp3d2d_native_logged) then
+          write(iulog,*) 'lininterp3d2d implementation = native'
+          lininterp3d2d_native_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
+
     do i=1,m1
        iim_c(i) = int(iim(i), c_int64_t)
        iip_c(i) = int(iip(i), c_int64_t)
@@ -614,6 +697,13 @@ contains
          interp_wgts%jjp, &
          interp_wgts%wgts, &
          interp_wgts%wgtn)
+    if (interpolate_data_use_native()) then
+       if (.not. lininterp_finish_native_logged) then
+          write(iulog,*) 'lininterp_finish implementation = native'
+          lininterp_finish_native_logged = .true.
+       end if
+       return
+    end if
     if (lininterp_finish_codon(1237_c_int64_t) /= 1237_c_int64_t) then
        call endrun('lininterp_finish_codon tag roundtrip failed')
     end if
@@ -1073,17 +1163,23 @@ contains
     end interface
     !-----------------------------------------------------------------
     !-----------------------------------------------------------------
-    ierr = vertinterp_codon(int(ncol, c_int64_t), int(ncold, c_int64_t), &
-         int(nlev, c_int64_t), c_loc(pmid(1,1)), pout, c_loc(arrin(1,1)), c_loc(arrout(1)))
-    if (ierr /= 0_c_int64_t) then
-       call endrun ('VERTINTERP: ERROR FLAG')
-    end if
-    if (masterproc .and. .not. vertinterp_codon_logged) then
-       write(iulog,*) 'vertinterp implementation = codon'
-       vertinterp_codon_logged = .true.
+    if (.not. interpolate_data_use_native()) then
+       ierr = vertinterp_codon(int(ncol, c_int64_t), int(ncold, c_int64_t), &
+            int(nlev, c_int64_t), c_loc(pmid(1,1)), pout, c_loc(arrin(1,1)), c_loc(arrout(1)))
+       if (ierr /= 0_c_int64_t) then
+          call endrun ('VERTINTERP: ERROR FLAG')
+       end if
+       if (masterproc .and. .not. vertinterp_codon_logged) then
+          write(iulog,*) 'vertinterp implementation = codon'
+          vertinterp_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    else if (masterproc .and. .not. vertinterp_native_logged) then
+       write(iulog,*) 'vertinterp implementation = native'
+       vertinterp_native_logged = .true.
        call flush(iulog)
     end if
-    return
     !
     ! Initialize index array and logical flags
     !

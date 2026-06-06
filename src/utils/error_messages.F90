@@ -29,6 +29,27 @@ module error_messages
 contains
 !##############################################################################
 
+   logical function error_messages_use_native(selector)
+      character(len=*), intent(in) :: selector
+      character(len=32) :: impl_name
+      integer :: n, status, i, code
+
+      error_messages_use_native = .false.
+      impl_name = 'codon'
+      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         error_messages_use_native = trim(adjustl(impl_name(:n))) == 'native'
+      end if
+   end function error_messages_use_native
+
+!##############################################################################
+
    subroutine error_messages_misc_touch()
 #define CAM_MISC_TAG 225
 #define CAM_MISC_LABEL 'error_messages'
@@ -64,7 +85,23 @@ contains
          end function alloc_err_codon
       end interface
       logical, save :: alloc_err_codon_logged = .false.
+      logical, save :: alloc_err_native_logged = .false.
       !-----------------------------------------------------------------------
+
+      if (error_messages_use_native('ALLOC_ERR_IMPL')) then
+         if (.not. alloc_err_native_logged) then
+            write(iulog,*) 'alloc_err implementation = native'
+            alloc_err_native_logged = .true.
+         end if
+         if ( istat .ne. 0 ) then
+            write(iulog,*)'ERROR trying to allocate memory in routine: ' &
+                      //trim(routine)
+            write(iulog,*)'  Variable name: '//trim(name)
+            write(iulog,*)'  Number of elements: ',nelem
+            call endrun ('ALLOC_ERR')
+         end if
+         return
+      end if
 
       if (.not. alloc_err_codon_logged) then
          write(iulog,*) 'alloc_err implementation = codon'
@@ -103,7 +140,19 @@ contains
          end function handle_err_codon
       end interface
       logical, save :: handle_err_codon_logged = .false.
+      logical, save :: handle_err_native_logged = .false.
       !-----------------------------------------------------------------------
+
+      if (error_messages_use_native('HANDLE_ERR_IMPL')) then
+         if (.not. handle_err_native_logged) then
+            write(iulog,*) 'handle_err implementation = native'
+            handle_err_native_logged = .true.
+         end if
+         if ( istat .ne. 0 ) then
+            call endrun (trim(msg))
+         end if
+         return
+      end if
 
       if (.not. handle_err_codon_logged) then
          write(iulog,*) 'handle_err implementation = codon'
@@ -148,7 +197,25 @@ contains
          end function handle_ncerr_codon
       end interface
       logical, save :: handle_ncerr_codon_logged = .false.
+      logical, save :: handle_ncerr_native_logged = .false.
       !-----------------------------------------------------------------------
+
+      if (error_messages_use_native('HANDLE_NCERR_IMPL')) then
+         if (.not. handle_ncerr_native_logged) then
+            write(iulog,*) 'handle_ncerr implementation = native'
+            handle_ncerr_native_logged = .true.
+         end if
+         if ( ret .ne. NF90_NOERR ) then
+            if(present(line)) then
+               write(iulog,*) mes, line
+            else
+               write(iulog,*) mes
+            end if
+            write(iulog,*) nf90_strerror( ret )
+            call endrun ('HANDLE_NCERR')
+         endif
+         return
+      end if
 
       if (.not. handle_ncerr_codon_logged) then
          write(iulog,*) 'handle_ncerr implementation = codon'

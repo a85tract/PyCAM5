@@ -74,6 +74,27 @@ module mo_flbc
 
 contains
 
+  logical function mo_flbc_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       mo_flbc_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       mo_flbc_use_native = .false.
+    end if
+  end function mo_flbc_use_native
+
   subroutine flbc_inti( flbc_file, flbc_list, flbc_timing_in, co2vmr, ch4vmr, n2ovmr, f11vmr, f12vmr )
     !-----------------------------------------------------------------------
     ! 	... initialize the fixed lower bndy cond
@@ -379,13 +400,21 @@ contains
     integer ::  yr, mon, day
     integer(c_int64_t) :: active_c
 
-    call chemistry_misc_codon_touch('mo_flbc', 150)
-    active_c = flbc_chk_codon(merge(1_c_int64_t, 0_c_int64_t, flbc_cnt > 0 .and. flbc_timing%type == 'SERIAL'))
+    if (mo_flbc_use_native('FLBC_CHK_IMPL')) then
+       active_c = merge(1_c_int64_t, 0_c_int64_t, flbc_cnt > 0 .and. flbc_timing%type == 'SERIAL')
+    else
+       call chemistry_misc_codon_touch('mo_flbc', 150)
+       active_c = flbc_chk_codon(merge(1_c_int64_t, 0_c_int64_t, flbc_cnt > 0 .and. flbc_timing%type == 'SERIAL'))
+    end if
     if (.not. flbc_chk_logged) then
        flbc_chk_logged = .true.
        if (masterproc) then
-          write(iulog,'(A)') &
-               'flbc_chk direct = codon; active serial-window branch selected in Codon; PIO/reallocation native CAM API island'
+          if (mo_flbc_use_native('FLBC_CHK_IMPL')) then
+             write(iulog,'(A)') 'flbc_chk direct = native'
+          else
+             write(iulog,'(A)') &
+                  'flbc_chk direct = codon; active serial-window branch selected in Codon; PIO/reallocation native CAM API island'
+          end if
           call flush(iulog)
        end if
     end if

@@ -135,14 +135,14 @@ contains
     real(r8), pointer :: cf11star(:,:)
     integer(c_int64_t) :: active_c
 
-    active_c = update_cfc11star_active_codon(merge(1_c_int64_t, 0_c_int64_t, do_cfc11star))
+    active_c = merge(1_c_int64_t, 0_c_int64_t, do_cfc11star)
     if (.not. update_cfc11star_proof_written) then
        update_cfc11star_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'update_cfc11star direct = codon do_cfc11star=false no-op'
+             write(iulog,'(A)') 'update_cfc11star direct = native do_cfc11star=false no-op'
           else
-             write(iulog,'(A)') 'update_cfc11star selector = codon; active CFC11STAR update body = native'
+             write(iulog,'(A)') 'update_cfc11star selector = native; active CFC11STAR update body = native'
           end if
           call flush(iulog)
        end if

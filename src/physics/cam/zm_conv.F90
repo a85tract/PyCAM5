@@ -5882,8 +5882,6 @@ end subroutine parcel_dilute
 
 !-----------------------------------------------------------------------------------------
 real(r8) function entropy(TK,p,qtot)
-     use iso_c_binding, only: c_double, c_int64_t
-     use wv_sat_methods, only: wv_sat_get_default_idx
 !-----------------------------------------------------------------------------------------
 !
 ! TK(K),p(mb),qtot(kg/kg)
@@ -5892,30 +5890,6 @@ real(r8) function entropy(TK,p,qtot)
      real(r8), intent(in) :: p,qtot,TK
      real(r8) :: qv,qst,e,est,L
      real(r8), parameter :: pref = 1000._r8
-
-     interface
-        function entropy_codon(TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c, &
-             cpres_c, rgas_c, eps1_c, rh2o_c, wv_idx_c, epsilo_c, omeps_c) result(out_c) &
-             bind(c, name="entropy_codon")
-          use iso_c_binding, only: c_double, c_int64_t
-          real(c_double), value :: TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c
-          real(c_double), value :: cpres_c, rgas_c, eps1_c, rh2o_c, epsilo_c, omeps_c
-          integer(c_int64_t), value :: wv_idx_c
-          real(c_double) :: out_c
-        end function entropy_codon
-     end interface
-
-     call zm_entropy_select_impl()
-     if (.not. use_native_zm_entropy) then
-        entropy = real(entropy_codon(real(TK, c_double), real(p, c_double), real(qtot, c_double), &
-             real(rl, c_double), real(cpliq, c_double), real(cpwv, c_double), real(tfreez, c_double), &
-             real(cpres, c_double), real(rgas, c_double), real(eps1, c_double), real(rh2o, c_double), &
-             int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
-             real(1._r8 - epsilo, c_double)), r8)
-        call zm_conv_log_direct(zm_entropy_logged, &
-             'entropy direct = codon; entropy expression native callback')
-        return
-     end if
 
 L = rl - (cpliq - cpwv)*(TK-tfreez)         ! T IN CENTIGRADE
 

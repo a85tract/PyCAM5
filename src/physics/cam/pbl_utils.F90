@@ -62,43 +62,43 @@ interface
   pure function calc_ustar_rrho_codon(rair_c, t_c, pmid_c) result(rrho_out) &
        bind(c, name="calc_ustar_rrho_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: rair_c, t_c, pmid_c
+    real(c_double), intent(in), value :: rair_c, t_c, pmid_c
     real(c_double) :: rrho_out
   end function calc_ustar_rrho_codon
   pure function calc_ustar_codon(taux_c, tauy_c, rrho_c, ustar_min_c) result(ustar_out) &
        bind(c, name="calc_ustar_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: taux_c, tauy_c, rrho_c, ustar_min_c
+    real(c_double), intent(in), value :: taux_c, tauy_c, rrho_c, ustar_min_c
     real(c_double) :: ustar_out
   end function calc_ustar_codon
   pure function calc_obklen_khfs_codon(shflx_c, rrho_c, cpair_c) result(khfs_out) &
        bind(c, name="calc_obklen_khfs_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: shflx_c, rrho_c, cpair_c
+    real(c_double), intent(in), value :: shflx_c, rrho_c, cpair_c
     real(c_double) :: khfs_out
   end function calc_obklen_khfs_codon
   pure function calc_obklen_kqfs_codon(qflx_c, rrho_c) result(kqfs_out) &
        bind(c, name="calc_obklen_kqfs_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: qflx_c, rrho_c
+    real(c_double), intent(in), value :: qflx_c, rrho_c
     real(c_double) :: kqfs_out
   end function calc_obklen_kqfs_codon
   pure function calc_obklen_kbfs_codon(khfs_c, zvir_c, ths_c, kqfs_c) result(kbfs_out) &
        bind(c, name="calc_obklen_kbfs_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: khfs_c, zvir_c, ths_c, kqfs_c
+    real(c_double), intent(in), value :: khfs_c, zvir_c, ths_c, kqfs_c
     real(c_double) :: kbfs_out
   end function calc_obklen_kbfs_codon
   pure function calc_obklen_codon(thvs_c, ustar_c, g_c, vk_c, kbfs_c) result(obklen_out) &
        bind(c, name="calc_obklen_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: thvs_c, ustar_c, g_c, vk_c, kbfs_c
+    real(c_double), intent(in), value :: thvs_c, ustar_c, g_c, vk_c, kbfs_c
     real(c_double) :: obklen_out
   end function calc_obklen_codon
   pure function virtem_codon(t_c, q_c, zvir_c) result(value_out) &
        bind(c, name="virtem_codon")
     use iso_c_binding, only: c_double
-    real(c_double), value :: t_c, q_c, zvir_c
+    real(c_double), intent(in), value :: t_c, q_c, zvir_c
     real(c_double) :: value_out
   end function virtem_codon
   subroutine compute_radf_codon(i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c, qmin_c, g_c, &

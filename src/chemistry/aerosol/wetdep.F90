@@ -65,6 +65,7 @@ logical :: clddiag_impl_selected = .false.
 logical :: wetdepa_v2_use_native_impl = .false.
 logical :: wetdepa_v2_impl_selected = .false.
 logical, save :: wetdep_init_codon_logged = .false.
+logical, save :: wetdep_init_native_logged = .false.
 
 !==============================================================================
 contains
@@ -101,6 +102,15 @@ subroutine wetdep_init()
   call cnst_get_ind('CLDICE', ixcldice)
   call cnst_get_ind('CLDLIQ', ixcldliq)
 
+  if (wetdep_env_native_enabled('WETDEP_INIT_IMPL')) then
+     if (masterproc .and. .not. wetdep_init_native_logged) then
+        write(iulog,*) 'wetdep_init implementation = native'
+        wetdep_init_native_logged = .true.
+        call flush(iulog)
+     end if
+     return
+  end if
+
   if (wetdep_init_codon() /= 1_c_int64_t) then
      stop 2
   end if
@@ -111,6 +121,28 @@ subroutine wetdep_init()
   end if
 
 endsubroutine wetdep_init
+
+!==============================================================================
+logical function wetdep_env_native_enabled(selector)
+  character(len=*), intent(in) :: selector
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     wetdep_env_native_enabled = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     wetdep_env_native_enabled = .false.
+  end if
+end function wetdep_env_native_enabled
 
 !==============================================================================
 ! gathers up the inputs needed for the wetdepa routines

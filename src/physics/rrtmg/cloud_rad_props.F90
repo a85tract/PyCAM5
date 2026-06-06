@@ -76,6 +76,27 @@ logical :: gam_liquid_sw_entered_logged = .false.
 contains
 !==============================================================================
 
+logical function cloud_rad_props_use_native(selector)
+  character(len=*), intent(in) :: selector
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     cloud_rad_props_use_native = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     cloud_rad_props_use_native = .false.
+  end if
+end function cloud_rad_props_use_native
+
 subroutine cloud_rad_props_init()
 
    use netcdf
@@ -799,17 +820,27 @@ subroutine gam_liquid_lw(clwptn, lamc, pgam, abs_od)
      end subroutine rrtmg_gam_liquid_lw_codon
   end interface
 
-  call rrtmg_gam_liquid_lw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
-       int(nlwbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
-       c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(abs_lw_liq(1,1,1)), c_loc(abs_od(1)))
-  if (.not. gam_liquid_lw_entered_logged) then
-     gam_liquid_lw_entered_logged = .true.
-     if (masterproc) then
-        write(iulog,*) 'gam_liquid_lw implementation = codon'
-        call flush(iulog)
+  if (cloud_rad_props_use_native('RRTMG_GAM_LIQUID_LW_IMPL')) then
+     if (.not. gam_liquid_lw_entered_logged) then
+        gam_liquid_lw_entered_logged = .true.
+        if (masterproc) then
+           write(iulog,*) 'gam_liquid_lw implementation = native'
+           call flush(iulog)
+        end if
      end if
+  else
+     call rrtmg_gam_liquid_lw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
+          int(nlwbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
+          c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(abs_lw_liq(1,1,1)), c_loc(abs_od(1)))
+     if (.not. gam_liquid_lw_entered_logged) then
+        gam_liquid_lw_entered_logged = .true.
+        if (masterproc) then
+           write(iulog,*) 'gam_liquid_lw implementation = codon'
+           call flush(iulog)
+        end if
+     end if
+     return
   end if
-  return
 
   if (clwptn < 1.e-80_r8) then
     abs_od = 0._r8
@@ -859,19 +890,29 @@ subroutine gam_liquid_sw(clwptn, lamc, pgam, tau, tau_w, tau_w_g, tau_w_f)
      end subroutine rrtmg_gam_liquid_sw_codon
   end interface
 
-  call rrtmg_gam_liquid_sw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
-       int(nswbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
-       c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(ext_sw_liq(1,1,1)), &
-       c_loc(ssa_sw_liq(1,1,1)), c_loc(asm_sw_liq(1,1,1)), c_loc(tau(1)), &
-       c_loc(tau_w(1)), c_loc(tau_w_g(1)), c_loc(tau_w_f(1)))
-  if (.not. gam_liquid_sw_entered_logged) then
-     gam_liquid_sw_entered_logged = .true.
-     if (masterproc) then
-        write(iulog,*) 'gam_liquid_sw implementation = codon'
-        call flush(iulog)
+  if (cloud_rad_props_use_native('RRTMG_GAM_LIQUID_SW_IMPL')) then
+     if (.not. gam_liquid_sw_entered_logged) then
+        gam_liquid_sw_entered_logged = .true.
+        if (masterproc) then
+           write(iulog,*) 'gam_liquid_sw implementation = native'
+           call flush(iulog)
+        end if
      end if
+  else
+     call rrtmg_gam_liquid_sw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
+          int(nswbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
+          c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(ext_sw_liq(1,1,1)), &
+          c_loc(ssa_sw_liq(1,1,1)), c_loc(asm_sw_liq(1,1,1)), c_loc(tau(1)), &
+          c_loc(tau_w(1)), c_loc(tau_w_g(1)), c_loc(tau_w_f(1)))
+     if (.not. gam_liquid_sw_entered_logged) then
+        gam_liquid_sw_entered_logged = .true.
+        if (masterproc) then
+           write(iulog,*) 'gam_liquid_sw implementation = codon'
+           call flush(iulog)
+        end if
+     end if
+     return
   end if
-  return
 
   if (clwptn < 1.e-80_r8) then
     tau = 0._r8

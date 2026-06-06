@@ -117,6 +117,7 @@ logical  :: run_npccn_copy_entered_logged = .false.
 logical  :: run_parent_modal_entered_logged = .false.
 logical  :: microp_aero_register_logged = .false.
 logical  :: microp_aero_init_logged = .false.
+logical  :: microp_aero_init_native_logged = .false.
 logical  :: microp_aero_readnl_logged = .false.
 
 interface
@@ -189,10 +190,15 @@ subroutine microp_aero_init
    logical :: history_amwg
    integer(c_int64_t) :: active_c
    !-----------------------------------------------------------------------
-   active_c = microp_aero_init_codon(1_c_int64_t)
-   if (active_c == 0_c_int64_t) return
-   call microp_aero_log_direct(microp_aero_init_logged, &
-        'microp_aero_init direct = codon; aerosol init shell direct = codon; rad_constituents/pbuf/history native CAM API islands')
+   if (.not. microp_aero_selector_defaults_codon('MICROP_AERO_INIT_IMPL')) then
+      call microp_aero_log_direct(microp_aero_init_native_logged, &
+           'microp_aero_init direct = native')
+   else
+      active_c = microp_aero_init_codon(1_c_int64_t)
+      if (active_c == 0_c_int64_t) return
+      call microp_aero_log_direct(microp_aero_init_logged, &
+           'microp_aero_init direct = codon; aerosol init shell direct = codon; rad_constituents/pbuf/history native CAM API islands')
+   end if
 
    ! Query the PBL eddy scheme
    call phys_getopts(eddy_scheme_out          = eddy_scheme,  &

@@ -108,6 +108,9 @@ contains
     implicit none
     
     integer :: ierr
+    integer :: status, n, i, code
+    character(len=32) :: impl_name
+    logical :: use_native_impl
     interface
        subroutine physconst_init_codon(count, cpair_in, rair_in, mwdry_in, &
             cpairv_p, rairv_p, cappav_p, mbarv_p) bind(c, name='physconst_init_codon')
@@ -134,13 +137,38 @@ contains
 !-------------------------------------------------------------------------------
 !  Initialize constituent dependent properties 
 !-------------------------------------------------------------------------------    
-    call physconst_init_codon(int(pcols*pver*(endchunk-begchunk+1), c_int64_t), &
-         cpair, rair, mwdry, c_loc(cpairv(1,1,begchunk)), &
-         c_loc(rairv(1,1,begchunk)), c_loc(cappav(1,1,begchunk)), &
-         c_loc(mbarv(1,1,begchunk)))
-    if (.not. physconst_init_codon_logged) then
-       write(iulog,*) 'physconst_init implementation = codon'
-       physconst_init_codon_logged = .true.
+    impl_name = 'codon'
+    call get_environment_variable('PHYSCONST_INIT_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (use_native_impl) then
+       cpairv(:,:,:) = cpair
+       rairv(:,:,:) = rair
+       cappav(:,:,:) = rair/cpair
+       mbarv(:,:,:) = mwdry
+       if (.not. physconst_init_codon_logged) then
+          write(iulog,*) 'physconst_init implementation = native'
+          physconst_init_codon_logged = .true.
+       end if
+    else
+       call physconst_init_codon(int(pcols*pver*(endchunk-begchunk+1), c_int64_t), &
+            cpair, rair, mwdry, c_loc(cpairv(1,1,begchunk)), &
+            c_loc(rairv(1,1,begchunk)), c_loc(cappav(1,1,begchunk)), &
+            c_loc(mbarv(1,1,begchunk)))
+       if (.not. physconst_init_codon_logged) then
+          write(iulog,*) 'physconst_init implementation = codon'
+          physconst_init_codon_logged = .true.
+       end if
     end if
 
     return
@@ -349,7 +377,6 @@ contains
    end subroutine physconst_update
 
 end module physconst
-
 
 
 

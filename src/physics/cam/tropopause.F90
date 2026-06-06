@@ -1273,8 +1273,11 @@ contains
        end function tropopause_findusing_codon
     end interface
 
-    call tropopause_log_cleanup_touch(tropopause_findusing_logged, tropopause_findusing_codon(1405_c_int64_t), 1405, &
-         'tropopause_findUsing direct = codon; algorithm dispatch/native non-TWMO islands')
+    call tropopause_find_select_impl()
+    if (.not. use_native_tropopause_find_impl) then
+       call tropopause_log_cleanup_touch(tropopause_findusing_logged, tropopause_findusing_codon(1405_c_int64_t), 1405, &
+            'tropopause_findUsing direct = codon; algorithm dispatch/native non-TWMO islands')
+    end if
 
     ! Dispatch the request to the appropriate routine.
     select case(algorithm)
@@ -1618,20 +1621,32 @@ contains
        end function tropopause_interpolatet_codon
     end interface
 
+    call tropopause_find_select_impl()
+    if (.not. use_native_tropopause_find_impl) then
+       if (.not. tropopause_interpolateT_logged) then
+          if (masterproc) then
+             write(iulog,'(A)') 'tropopause_interpolateT direct = codon'
+             call tropopause_find_append_proof('tropopause_interpolateT direct = codon')
+             call flush(iulog)
+          end if
+          tropopause_interpolateT_logged = .true.
+       end if
+
+       tropopause_interpolateT = real(tropopause_interpolatet_codon( &
+            int(icol, c_int64_t), int(tropLev, c_int64_t), real(tropP, c_double), &
+            int(pcols, c_int64_t), int(pver, c_int64_t), &
+            c_loc(pstate%t(1,1)), c_loc(pstate%pmid(1,1))), r8)
+       return
+    end if
+
     if (.not. tropopause_interpolateT_logged) then
        if (masterproc) then
-          write(iulog,'(A)') 'tropopause_interpolateT direct = codon'
-          call tropopause_find_append_proof('tropopause_interpolateT direct = codon')
+          write(iulog,'(A)') 'tropopause_interpolateT direct = native'
+          call tropopause_find_append_proof('tropopause_interpolateT direct = native')
           call flush(iulog)
        end if
        tropopause_interpolateT_logged = .true.
     end if
-
-    tropopause_interpolateT = real(tropopause_interpolatet_codon( &
-         int(icol, c_int64_t), int(tropLev, c_int64_t), real(tropP, c_double), &
-         int(pcols, c_int64_t), int(pver, c_int64_t), &
-         c_loc(pstate%t(1,1)), c_loc(pstate%pmid(1,1))), r8)
-    return
     
     ! Intrepolate the temperature linearly against log(P)
     
@@ -1690,20 +1705,32 @@ contains
        end function tropopause_interpolatez_codon
     end interface
 
+    call tropopause_find_select_impl()
+    if (.not. use_native_tropopause_find_impl) then
+       if (.not. tropopause_interpolateZ_logged) then
+          if (masterproc) then
+             write(iulog,'(A)') 'tropopause_interpolateZ direct = codon'
+             call tropopause_find_append_proof('tropopause_interpolateZ direct = codon')
+             call flush(iulog)
+          end if
+          tropopause_interpolateZ_logged = .true.
+       end if
+
+       tropopause_interpolateZ = real(tropopause_interpolatez_codon( &
+            int(icol, c_int64_t), int(tropLev, c_int64_t), real(tropP, c_double), &
+            int(pcols, c_int64_t), c_loc(pstate%zm(1,1)), c_loc(pstate%zi(1,1)), &
+            c_loc(pstate%pmid(1,1)), c_loc(pstate%pint(1,1))), r8)
+       return
+    end if
+
     if (.not. tropopause_interpolateZ_logged) then
        if (masterproc) then
-          write(iulog,'(A)') 'tropopause_interpolateZ direct = codon'
-          call tropopause_find_append_proof('tropopause_interpolateZ direct = codon')
+          write(iulog,'(A)') 'tropopause_interpolateZ direct = native'
+          call tropopause_find_append_proof('tropopause_interpolateZ direct = native')
           call flush(iulog)
        end if
        tropopause_interpolateZ_logged = .true.
     end if
-
-    tropopause_interpolateZ = real(tropopause_interpolatez_codon( &
-         int(icol, c_int64_t), int(tropLev, c_int64_t), real(tropP, c_double), &
-         int(pcols, c_int64_t), c_loc(pstate%zm(1,1)), c_loc(pstate%zi(1,1)), &
-         c_loc(pstate%pmid(1,1)), c_loc(pstate%pint(1,1))), r8)
-    return
     
     ! Intrepolate the geopotential height linearly against log(P)
     

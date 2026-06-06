@@ -70,6 +70,27 @@ module prescribed_strataero
 
 contains
 
+logical function prescribed_strataero_use_native(selector)
+  character(len=*), intent(in) :: selector
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     prescribed_strataero_use_native = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     prescribed_strataero_use_native = .false.
+  end if
+end function prescribed_strataero_use_native
+
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
 subroutine prescribed_strataero_readnl(nlfile)
@@ -275,12 +296,20 @@ end subroutine prescribed_strataero_readnl
     !WACCM-derived relation between mass concentration and wet aerosol radius in meters
     real(r8),parameter :: radius_conversion = 1.9e-4_r8
 
-    active_c = prescribed_strataero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_strataero))
+    if (prescribed_strataero_use_native('PRESCRIBED_STRATAERO_ADV_IMPL')) then
+       active_c = merge(1_c_int64_t, 0_c_int64_t, has_prescribed_strataero)
+    else
+       active_c = prescribed_strataero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_strataero))
+    end if
     if (.not. prescribed_strataero_adv_logged) then
        prescribed_strataero_adv_logged = .true.
        if (masterproc) then
-          write(iulog,'(A)') &
-               'prescribed_strataero_adv direct = codon; active branch selected in Codon; tracer-data/tropopause/native body remains'
+          if (prescribed_strataero_use_native('PRESCRIBED_STRATAERO_ADV_IMPL')) then
+             write(iulog,'(A)') 'prescribed_strataero_adv direct = native'
+          else
+             write(iulog,'(A)') &
+                  'prescribed_strataero_adv direct = codon; active branch selected in Codon; tracer-data/tropopause/native body remains'
+          end if
           call flush(iulog)
        end if
     end if

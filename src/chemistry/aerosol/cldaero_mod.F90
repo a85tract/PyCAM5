@@ -32,6 +32,25 @@ module cldaero_mod
 
 contains
 
+  logical function cldaero_use_native()
+    character(len=32) :: impl_name
+    integer :: n, status, i, code
+
+    impl_name = 'codon'
+    call get_environment_variable('SOX_CLDAERO_OBJECT_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       cldaero_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       cldaero_use_native = .false.
+    end if
+  end function cldaero_use_native
+
 !----------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------
   function cldaero_allocate( ) result( cldconc )
@@ -53,6 +72,20 @@ contains
     allocate( cldconc%nh4c(pcols,pver) )
     allocate( cldconc%no3c(pcols,pver) )
     allocate( cldconc%xlwc(pcols,pver) )
+
+    if (cldaero_use_native()) then
+       cldconc%so4c(:,:) = 0._r8
+       cldconc%nh4c(:,:) = 0._r8
+       cldconc%no3c(:,:) = 0._r8
+       cldconc%xlwc(:,:) = 0._r8
+       cldconc%so4_fact = 2._r8
+       if (masterproc .and. .not. cldaero_allocate_codon_logged) then
+          write(iulog,*) 'cldaero_allocate implementation = native'
+          cldaero_allocate_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     call cldaero_allocate_codon(int(pcols*pver, c_int64_t), c_loc(cldconc%so4c(1,1)), &
          c_loc(cldconc%nh4c(1,1)), c_loc(cldconc%no3c(1,1)), c_loc(cldconc%xlwc(1,1)), &
@@ -79,13 +112,21 @@ contains
        end function cldaero_deallocate_codon
     end interface
 
-    if (cldaero_deallocate_codon() /= 1_c_int64_t) then
-       stop 2
-    end if
-    if (masterproc .and. .not. cldaero_deallocate_codon_logged) then
-       write(iulog,*) 'cldaero_deallocate implementation = codon'
-       cldaero_deallocate_codon_logged = .true.
-       call flush(iulog)
+    if (cldaero_use_native()) then
+       if (masterproc .and. .not. cldaero_deallocate_codon_logged) then
+          write(iulog,*) 'cldaero_deallocate implementation = native'
+          cldaero_deallocate_codon_logged = .true.
+          call flush(iulog)
+       end if
+    else
+       if (cldaero_deallocate_codon() /= 1_c_int64_t) then
+          stop 2
+       end if
+       if (masterproc .and. .not. cldaero_deallocate_codon_logged) then
+          write(iulog,*) 'cldaero_deallocate implementation = codon'
+          cldaero_deallocate_codon_logged = .true.
+          call flush(iulog)
+       end if
     end if
 
     if ( associated(cldconc%so4c) ) then

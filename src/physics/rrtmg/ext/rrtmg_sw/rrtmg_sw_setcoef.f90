@@ -416,12 +416,18 @@
          end subroutine rrtmg_swatmref_codon
       end interface
 
-      call rrtmg_swatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)))
+      if (.not. setcoef_sw_use_native('SWATMREF_IMPL')) then
+         call rrtmg_swatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)))
+         if (masterproc) then
+            write(iulog,*) 'swatmref implementation = codon'
+            call flush(iulog)
+         endif
+         return
+      endif
       if (masterproc) then
-         write(iulog,*) 'swatmref implementation = codon'
+         write(iulog,*) 'swatmref implementation = native'
          call flush(iulog)
       endif
-      return
  
 ! These pressures are chosen such that the ln of the first pressure
 ! has only a few non-zero digits (i.e. ln(PREF(1)) = 6.96000) and
@@ -522,5 +528,29 @@
       end if
 
       end subroutine setcoef_sw_log_entered
+
+! --------------------------------------------------------------------------
+      logical function setcoef_sw_use_native(selector)
+
+      character(len=*), intent(in) :: selector
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      impl_name = 'codon'
+      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         setcoef_sw_use_native = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         setcoef_sw_use_native = .false.
+      end if
+
+      end function setcoef_sw_use_native
 
       end module rrtmg_sw_setcoef

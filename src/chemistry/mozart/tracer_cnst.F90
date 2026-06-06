@@ -63,7 +63,10 @@ contains
     implicit none
 
     integer :: i ,ndx, istat
+    integer :: status, n, j, code
     integer(c_int64_t) :: codon_tag
+    character(len=32) :: impl_name
+    logical :: use_native_impl
 
     interface
        function tracer_cnst_init_codon() result(out_c) bind(c, name="tracer_cnst_init_codon")
@@ -72,13 +75,34 @@ contains
        end function tracer_cnst_init_codon
     end interface
 
-    codon_tag = tracer_cnst_init_codon()
-    if (codon_tag /= 189_c_int64_t) then
-       call endrun('tracer_cnst_init: Codon tag roundtrip mismatch')
+    impl_name = 'codon'
+    call get_environment_variable('TRACER_CNST_INIT_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do j = 1, n
+          code = iachar(impl_name(j:j))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(j:j) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
     end if
-    if (masterproc) then
-       write(iulog,'(A)') 'tracer_cnst_init implementation = codon'
-       call flush(iulog)
+
+    if (use_native_impl) then
+       if (masterproc) then
+          write(iulog,'(A)') 'tracer_cnst_init implementation = native'
+          call flush(iulog)
+       end if
+    else
+       codon_tag = tracer_cnst_init_codon()
+       if (codon_tag /= 189_c_int64_t) then
+          call endrun('tracer_cnst_init: Codon tag roundtrip mismatch')
+       end if
+       if (masterproc) then
+          write(iulog,'(A)') 'tracer_cnst_init implementation = codon'
+          call flush(iulog)
+       end if
     end if
 
     call chemistry_misc_codon_touch('tracer_cnst', 110)

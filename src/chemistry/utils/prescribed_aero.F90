@@ -106,6 +106,27 @@ module prescribed_aero
 
 contains
 
+logical function prescribed_aero_use_native(selector)
+  character(len=*), intent(in) :: selector
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  impl_name = 'codon'
+  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     prescribed_aero_use_native = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     prescribed_aero_use_native = .false.
+  end if
+end function prescribed_aero_use_native
+
 !-------------------------------------------------------------------
 ! registers aerosol fields to the phys buffer
 !-------------------------------------------------------------------
@@ -439,12 +460,20 @@ end subroutine spec_c_to_a
     logical :: cld_borne_aero = .FALSE.
     integer(c_int64_t) :: active_c
 
-    active_c = prescribed_aero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_aero))
+    if (prescribed_aero_use_native('PRESCRIBED_AERO_ADV_IMPL')) then
+       active_c = merge(1_c_int64_t, 0_c_int64_t, has_prescribed_aero)
+    else
+       active_c = prescribed_aero_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_aero))
+    end if
     if (.not. prescribed_aero_adv_logged) then
        prescribed_aero_adv_logged = .true.
        if (masterproc) then
-          write(iulog,'(A)') &
-               'prescribed_aero_adv direct = codon; active branch selected in Codon; tracer-data/random-sample native body remains'
+          if (prescribed_aero_use_native('PRESCRIBED_AERO_ADV_IMPL')) then
+             write(iulog,'(A)') 'prescribed_aero_adv direct = native'
+          else
+             write(iulog,'(A)') &
+                  'prescribed_aero_adv direct = codon; active branch selected in Codon; tracer-data/random-sample native body remains'
+          end if
           call flush(iulog)
        end if
     end if

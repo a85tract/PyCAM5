@@ -93,6 +93,8 @@ contains
 
   logical function is_satfile (file_index)
     integer, intent(in) :: file_index ! index of file in question
+    character(len=32) :: impl_name
+    integer :: n, status, i, code
 
     interface
        function is_satfile_codon(file_index_c, sat_tape_num_c) result(is_satfile_c) bind(c, name="is_satfile_codon")
@@ -102,6 +104,25 @@ contains
          integer(c_int64_t) :: is_satfile_c
        end function is_satfile_codon
     end interface
+
+    impl_name = 'codon'
+    call get_environment_variable('IS_SATFILE_IMPL', value=impl_name, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       if (trim(adjustl(impl_name(:n))) == 'native') then
+          is_satfile = file_index == sat_tape_num
+          if (masterproc .and. .not. is_satfile_codon_logged) then
+             write(iulog,'(A)') 'is_satfile implementation = native'
+             is_satfile_codon_logged = .true.
+          end if
+          return
+       end if
+    end if
 
     is_satfile = is_satfile_codon(int(file_index, c_int64_t), int(sat_tape_num, c_int64_t)) /= 0_c_int64_t
     if (masterproc .and. .not. is_satfile_codon_logged) then

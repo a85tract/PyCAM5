@@ -312,11 +312,17 @@ contains
        end function rrtmg_state_destroy_codon_touch
     end interface
 
-    destroy_token = rrtmg_state_destroy_codon_touch(int(num_rrtmg_levs, c_int64_t))
-    if (masterproc .and. destroy_token >= 0_c_int64_t) then
-       write(iulog,*) 'rrtmg_state_destroy implementation = codon'
+    call rrtmg_state_select_impl()
+    if (.not. use_native_rrtmg_state_impl) then
+       destroy_token = rrtmg_state_destroy_codon_touch(int(num_rrtmg_levs, c_int64_t))
+       if (masterproc .and. destroy_token >= 0_c_int64_t) then
+          write(iulog,*) 'rrtmg_state_destroy implementation = codon'
+          call flush(iulog)
+       endif
+    else if (masterproc) then
+       write(iulog,*) 'rrtmg_state_destroy implementation = native'
        call flush(iulog)
-    endif
+    end if
 
     deallocate(rstate%h2ovmr)
     deallocate(rstate%o3vmr)

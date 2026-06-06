@@ -111,6 +111,28 @@ module time_manager
 contains
 !=========================================================================================
 
+logical function time_manager_use_native(selector)
+   character(len=*), intent(in) :: selector
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   impl_name = 'codon'
+   call get_environment_variable(selector, value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      time_manager_use_native = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      time_manager_use_native = .false.
+   end if
+end function time_manager_use_native
+!=========================================================================================
+
 subroutine timemgr_init( calendar_in, start_ymd, start_tod, ref_ymd, &
                          ref_tod, stop_ymd, stop_tod,                &
                          perpetual_run, perpetual_ymd )
@@ -281,6 +303,26 @@ function TimeSetymd( ymd, tod, desc )
       end function timesetymd_codon
    end interface
    logical, save :: timesetymd_codon_logged = .false.
+   logical, save :: timesetymd_native_logged = .false.
+
+   if (time_manager_use_native('TIMESETYMD_IMPL')) then
+      if ( (ymd < 0) .or. (tod < 0) .or. (tod > 24*3600) )then
+         write(iulog,*) sub//': error yymmdd is a negative number or time-of-day out of bounds', &
+                    ymd, tod
+         call endrun
+      end if
+      yr  = ymd / 10000
+      mon = (ymd - yr*10000) / 100
+      day =  ymd - yr*10000 - mon*100
+      call ESMF_TimeSet( TimeSetymd, yy=yr, mm=mon, dd=day, s=tod, &
+                         calendar=tm_cal, rc=rc)
+      call chkrc(rc, sub//': error return from ESMF_TimeSet: setting '//trim(desc))
+      if (.not. timesetymd_native_logged) then
+         write(iulog,*) 'timesetymd implementation = native'
+         timesetymd_native_logged = .true.
+      end if
+      return
+   end if
 
    if (timesetymd_codon(int(ymd, c_int64_t), int(tod, c_int64_t), &
         ymd_parts) == 0_c_int64_t) then
@@ -610,8 +652,27 @@ subroutine init_calendar( )
       end function init_calendar_codon
    end interface
    logical, save :: init_calendar_codon_logged = .false.
+   logical, save :: init_calendar_native_logged = .false.
 
    caltmp = to_upper(trim(calendar) )
+   if (time_manager_use_native('INIT_CALENDAR_IMPL')) then
+      if ( trim(caltmp) == trim(shr_cal_noleap) ) then
+         cal_type = ESMF_CALKIND_NOLEAP
+      else if ( trim(caltmp) == trim(shr_cal_gregorian) ) then
+         cal_type = ESMF_CALKIND_GREGORIAN
+      else
+         write(iulog,*)sub,': unrecognized calendar specified: ',calendar
+         call endrun
+      end if
+      tm_cal = ESMF_CalendarCreate( name=caltmp, calkindflag=cal_type, rc=rc )
+      call chkrc(rc, sub//': error return from ESMF_CalendarSet')
+      if (.not. init_calendar_native_logged) then
+         write(iulog,*) 'init_calendar implementation = native'
+         init_calendar_native_logged = .true.
+      end if
+      return
+   end if
+
    if ( trim(caltmp) == trim(shr_cal_noleap) ) then
       cal_code = init_calendar_codon(1_c_int64_t)
    else if ( trim(caltmp) == trim(shr_cal_gregorian) ) then
@@ -738,12 +799,22 @@ subroutine advance_timestep()
       end function advance_timestep_codon
    end interface
    logical, save :: advance_timestep_codon_logged = .false.
+   logical, save :: advance_timestep_native_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockAdvance( tm_clock, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockAdvance')
 
 ! Set first step flag off.
+
+   if (time_manager_use_native('ADVANCE_TIMESTEP_IMPL')) then
+      tm_first_restart_step = .false.
+      if (.not. advance_timestep_native_logged) then
+         write(iulog,*) 'advance_timestep implementation = native'
+         advance_timestep_native_logged = .true.
+      end if
+      return
+   end if
 
    tm_first_restart_step = (advance_timestep_codon() /= 0_c_int64_t)
    if (.not. advance_timestep_codon_logged) then
@@ -772,16 +843,25 @@ integer function get_step_size()
       end function get_step_size_codon
    end interface
    logical, save :: get_step_size_codon_logged = .false.
+   logical, save :: get_step_size_native_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet(tm_clock, timeStep=step_size, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
    call ESMF_TimeIntervalGet(step_size, s=step_seconds, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_ClockTimeIntervalGet')
-   get_step_size = int(get_step_size_codon(int(step_seconds, c_int64_t)))
-   if (.not. get_step_size_codon_logged) then
-      write(iulog,*) 'get_step_size implementation = codon'
-      get_step_size_codon_logged = .true.
+   if (time_manager_use_native('GET_STEP_SIZE_IMPL')) then
+      get_step_size = step_seconds
+      if (.not. get_step_size_native_logged) then
+         write(iulog,*) 'get_step_size implementation = native'
+         get_step_size_native_logged = .true.
+      end if
+   else
+      get_step_size = int(get_step_size_codon(int(step_seconds, c_int64_t)))
+      if (.not. get_step_size_codon_logged) then
+         write(iulog,*) 'get_step_size implementation = codon'
+         get_step_size_codon_logged = .true.
+      end if
    end if
 
 end function get_step_size
@@ -804,14 +884,23 @@ integer function get_nstep()
       end function get_nstep_codon
    end interface
    logical, save :: get_nstep_codon_logged = .false.
+   logical, save :: get_nstep_native_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet(tm_clock, advanceCount=step_no, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
-   get_nstep = int(get_nstep_codon(int(step_no, c_int64_t)))
-   if (.not. get_nstep_codon_logged) then
-      write(iulog,*) 'get_nstep implementation = codon'
-      get_nstep_codon_logged = .true.
+   if (time_manager_use_native('GET_NSTEP_IMPL')) then
+      get_nstep = int(step_no)
+      if (.not. get_nstep_native_logged) then
+         write(iulog,*) 'get_nstep implementation = native'
+         get_nstep_native_logged = .true.
+      end if
+   else
+      get_nstep = int(get_nstep_codon(int(step_no, c_int64_t)))
+      if (.not. get_nstep_codon_logged) then
+         write(iulog,*) 'get_nstep implementation = codon'
+         get_nstep_codon_logged = .true.
+      end if
    end if
 
 end function get_nstep
@@ -1003,6 +1092,15 @@ subroutine get_ref_date(yr, mon, day, tod)
 
    call ESMF_TimeGet(date, yy=yr, mm=mon, dd=day, s=tod, rc=rc)
    call chkrc(rc, sub//': error return from ESMF_TimeGet')
+
+   if (time_manager_use_native('GET_REF_DATE_IMPL')) then
+      if (.not. get_ref_date_codon_logged) then
+         write(iulog,*) 'get_ref_date implementation = native'
+         get_ref_date_codon_logged = .true.
+      end if
+      return
+   end if
+
    call get_ref_date_codon(int(yr, c_int64_t), int(mon, c_int64_t), &
         int(day, c_int64_t), int(tod, c_int64_t), date_parts)
    yr = int(date_parts(1))
@@ -1191,6 +1289,7 @@ function get_calday(ymd, tod)
       end function get_calday_codon
    end interface
    logical, save :: get_calday_codon_logged = .false.
+   logical, save :: get_calday_native_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    date = TimeSetymd( ymd, tod, "get_calday" )
@@ -1207,12 +1306,22 @@ function get_calday(ymd, tod)
 ! bundy, July 2008
 !
    is_gregorian = timemgr_is_caltype(trim(shr_cal_gregorian))
-   get_calday = get_calday_codon(get_calday, &
-        merge(1_c_int64_t, 0_c_int64_t, is_gregorian))
-   if (.not. get_calday_codon_logged) then
-      write(iulog,*) 'get_calday implementation = codon'
-      get_calday_codon_logged = .true.
-   endif
+   if (time_manager_use_native('GET_CALDAY_IMPL')) then
+      if (is_gregorian .and. get_calday > 365.0_r8 .and. get_calday <= 366.0_r8) then
+         get_calday = get_calday - 1.0_r8
+      end if
+      if (.not. get_calday_native_logged) then
+         write(iulog,*) 'get_calday implementation = native'
+         get_calday_native_logged = .true.
+      endif
+   else
+      get_calday = get_calday_codon(get_calday, &
+           merge(1_c_int64_t, 0_c_int64_t, is_gregorian))
+      if (.not. get_calday_codon_logged) then
+         write(iulog,*) 'get_calday implementation = codon'
+         get_calday_codon_logged = .true.
+      endif
+   end if
 
    if ( (get_calday < 1.0_r8) .or. (get_calday > 366.0_r8) )then
       write(iulog,*) 'atm '//sub//' calday = ', get_calday
@@ -1361,9 +1470,19 @@ function is_end_curr_day()
       end function is_end_curr_day_codon
    end interface
    logical, save :: is_end_curr_day_codon_logged = .false.
+   logical, save :: is_end_curr_day_native_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call get_curr_date(yr, mon, day, tod)
+   if (time_manager_use_native('IS_END_CURR_DAY_IMPL')) then
+      is_end_curr_day = (tod == 0)
+      if (.not. is_end_curr_day_native_logged) then
+         write(iulog,*) 'is_end_curr_day implementation = native'
+         is_end_curr_day_native_logged = .true.
+      end if
+      return
+   end if
+
    is_end_curr_day = (is_end_curr_day_codon(int(tod, c_int64_t)) /= 0_c_int64_t)
    if (.not. is_end_curr_day_codon_logged) then
       write(iulog,*) 'is_end_curr_day implementation = codon'
@@ -1409,15 +1528,24 @@ logical function is_first_step()
       end function is_first_step_codon
    end interface
    logical, save :: is_first_step_codon_logged = .false.
+   logical, save :: is_first_step_native_logged = .false.
 !-----------------------------------------------------------------------------------------
 
    call ESMF_ClockGet( tm_clock, advanceCount=step_no, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
    nstep = step_no
-   is_first_step = (is_first_step_codon(int(nstep, c_int64_t)) /= 0_c_int64_t)
-   if (.not. is_first_step_codon_logged) then
-      write(iulog,*) 'is_first_step implementation = codon'
-      is_first_step_codon_logged = .true.
+   if (time_manager_use_native('IS_FIRST_STEP_IMPL')) then
+      is_first_step = (nstep == 0)
+      if (.not. is_first_step_native_logged) then
+         write(iulog,*) 'is_first_step implementation = native'
+         is_first_step_native_logged = .true.
+      end if
+   else
+      is_first_step = (is_first_step_codon(int(nstep, c_int64_t)) /= 0_c_int64_t)
+      if (.not. is_first_step_codon_logged) then
+         write(iulog,*) 'is_first_step implementation = codon'
+         is_first_step_codon_logged = .true.
+      end if
    end if
 
 end function is_first_step
@@ -1436,7 +1564,17 @@ logical function is_first_restart_step()
       end function is_first_restart_step_codon
    end interface
    logical, save :: is_first_restart_step_codon_logged = .false.
+   logical, save :: is_first_restart_step_native_logged = .false.
 !-----------------------------------------------------------------------------------------
+
+   if (time_manager_use_native('IS_FIRST_RESTART_STEP_IMPL')) then
+      is_first_restart_step = tm_first_restart_step
+      if (.not. is_first_restart_step_native_logged) then
+         write(iulog,*) 'is_first_restart_step implementation = native'
+         is_first_restart_step_native_logged = .true.
+      end if
+      return
+   end if
 
    is_first_restart_step = (is_first_restart_step_codon( &
         merge(1_c_int64_t, 0_c_int64_t, tm_first_restart_step)) /= 0_c_int64_t)
@@ -1498,9 +1636,23 @@ subroutine timemgr_init_restart(File)
   end interface
   integer :: varcnt_local
   logical, save :: timemgr_init_restart_codon_logged = .false.
+  logical, save :: timemgr_init_restart_native_logged = .false.
 
   call timevars_set_names()
   rst_calendar  = trim(calendar)
+  if (time_manager_use_native('TIMEMGR_INIT_RESTART_IMPL')) then
+     ret = PIO_DEF_dim(File, 'cal_strlen', 32, dims(1))
+     ret = PIO_def_var(File, timevars(1)%name, PIO_CHAR,dims(1:1),timevars(1)%vardesc)
+     do i=2,varcnt
+        ret = PIO_def_var(File, timevars(i)%name, PIO_INT, dims(1:0), timevars(i)%vardesc)
+     end do
+     if (.not. timemgr_init_restart_native_logged) then
+        write(iulog,*) 'timemgr_init_restart implementation = native'
+        timemgr_init_restart_native_logged = .true.
+     end if
+     return
+  end if
+
   varcnt_local = int(timemgr_init_restart_codon(int(varcnt, c_int64_t)))
   if (.not. timemgr_init_restart_codon_logged) then
      write(iulog,*) 'timemgr_init_restart implementation = codon'
@@ -1812,6 +1964,17 @@ subroutine chkrc(rc, mes)
    end interface
    integer(c_int64_t) :: chkrc_ok
    logical, save :: chkrc_codon_logged = .false.
+   logical, save :: chkrc_native_logged = .false.
+
+   if (time_manager_use_native('CHKRC_IMPL')) then
+      if (.not. chkrc_native_logged) then
+         write(iulog,*) 'chkrc implementation = native'
+         chkrc_native_logged = .true.
+      end if
+      if ( rc == ESMF_SUCCESS ) return
+      write(iulog,*) mes
+      call endrun ('CHKRC')
+   end if
 
    chkrc_ok = chkrc_codon(int(rc, c_int64_t), int(ESMF_SUCCESS, c_int64_t))
    if (.not. chkrc_codon_logged) then

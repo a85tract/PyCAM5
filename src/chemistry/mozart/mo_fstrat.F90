@@ -506,14 +506,14 @@ contains
     integer  :: lat
     integer(c_int64_t) :: active_c
 
-    active_c = set_fstrat_vals_active_codon(merge(1_c_int64_t, 0_c_int64_t, any(has_fstrat(:))))
+    active_c = merge(1_c_int64_t, 0_c_int64_t, any(has_fstrat(:)))
     if (.not. set_fstrat_vals_proof_written) then
        set_fstrat_vals_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'set_fstrat_vals direct = codon no-fstrat-species no-op'
+             write(iulog,'(A)') 'set_fstrat_vals direct = native no-fstrat-species no-op'
           else
-             write(iulog,'(A)') 'set_fstrat_vals selector = codon; active fixed-stratosphere values body = native'
+             write(iulog,'(A)') 'set_fstrat_vals selector = native; active fixed-stratosphere values body = native'
           end if
           call flush(iulog)
        end if
@@ -880,15 +880,14 @@ contains
     integer  ::  lat
     integer(c_int64_t) :: active_c
 
-    active_c = set_fstrat_h2o_active_codon( &
-         merge(1_c_int64_t, 0_c_int64_t, h2o_ndx > 0 .and. table_h2o_ndx > 0))
+    active_c = merge(1_c_int64_t, 0_c_int64_t, h2o_ndx > 0 .and. table_h2o_ndx > 0)
     if (.not. set_fstrat_h2o_proof_written) then
        set_fstrat_h2o_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'set_fstrat_h2o direct = codon no-fstrat-h2o no-op'
+             write(iulog,'(A)') 'set_fstrat_h2o direct = native no-fstrat-h2o no-op'
           else
-             write(iulog,'(A)') 'set_fstrat_h2o selector = codon; active fixed-stratosphere h2o body = native'
+             write(iulog,'(A)') 'set_fstrat_h2o selector = native; active fixed-stratosphere h2o body = native'
           end if
           call flush(iulog)
        end if
