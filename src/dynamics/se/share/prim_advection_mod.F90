@@ -935,44 +935,12 @@ end function compute_ppm
 !Simple function computes the definite integral of a parabola in normalized coordinates, xi=(x-x0)/dx,
 !given two bounds. Make sure this gets inlined during compilation.
 function integrate_parabola( a , x1 , x2 )    result(mass)
-  use iso_c_binding, only : c_double
-  use cam_logfile, only : iulog
-  use spmd_utils, only : masterproc
   implicit none
   real(kind=real_kind), intent(in) :: a(0:2)  !Coefficients of the parabola
   real(kind=real_kind), intent(in) :: x1      !lower domain bound for integration
   real(kind=real_kind), intent(in) :: x2      !upper domain bound for integration
   real(kind=real_kind)             :: mass
-  logical, save :: proof_seen = .false.
-  interface
-     function integrate_parabola_codon(a0_c, a1_c, a2_c, x1_c, x2_c) result(mass_c) &
-          bind(c, name='integrate_parabola_codon')
-       import :: c_double
-       real(c_double), value :: a0_c, a1_c, a2_c, x1_c, x2_c
-       real(c_double) :: mass_c
-     end function integrate_parabola_codon
-  end interface
-  if (vertremap_use_native('INTEGRATE_PARABOLA_IMPL')) then
-     mass = a(0) * (x2 - x1) + a(1) * (x2 ** 2 - x1 ** 2) / 0.2D1 + &
-          a(2) * (x2 ** 3 - x1 ** 3) / 0.3D1
-     if (.not. proof_seen) then
-        if (masterproc) then
-           write(iulog,*) 'integrate_parabola implementation = native'
-           call flush(iulog)
-        endif
-        proof_seen = .true.
-     endif
-  else
-     mass = integrate_parabola_codon(real(a(0), c_double), real(a(1), c_double), real(a(2), c_double), &
-          real(x1, c_double), real(x2, c_double))
-     if (.not. proof_seen) then
-        if (masterproc) then
-           write(iulog,*) 'integrate_parabola implementation = codon'
-           call flush(iulog)
-        endif
-        proof_seen = .true.
-     endif
-  endif
+  mass = a(0) * (x2 - x1) + a(1) * (x2 ** 2 - x1 ** 2) / 0.2D1 + a(2) * (x2 ** 3 - x1 ** 3) / 0.3D1
 end function integrate_parabola
 
 subroutine remap_q_ppm_interval_select_impl()
@@ -1257,10 +1225,10 @@ contains
     call initEdgeBuffer(par,edgeAdv1,elem,nlev)
     call initEdgeBuffer(par,edgeveloc,elem,2*nlev)
 
-    ! This is a different type of buffer pointer allocation 
-    ! used for determine the minimum and maximum value from 
+    ! This is a different type of buffer pointer allocation
+    ! used for determine the minimum and maximum value from
     ! neighboring  elements
-    call initEdgeSBuffer(par,edgeAdvQminmax,elem,qsize*nlev*2) 
+    call initEdgeSBuffer(par,edgeAdvQminmax,elem,qsize*nlev*2)
 
     ! Don't actually want these saved, if this is ever called twice.
     nullify(buf_ptr)
@@ -1327,7 +1295,7 @@ contains
     !
     ! spelt%v0:      velocity at beginning of tracer timestep (time n0_qdp)
     !                this was saved before the (possibly many) dynamics steps
-    ! elem%derived%vstar:    
+    ! elem%derived%vstar:
     !                velocity at end of tracer timestep (time np1 = np1_qdp)
     !                for lagrangian dynamics, this is on lagrangian levels
     !                for eulerian dynamcis, this is on reference levels
@@ -1449,7 +1417,7 @@ contains
     !
     ! fvm%v0:        velocity at beginning of tracer timestep (time n0_qdp)
     !                this was saved before the (possibly many) dynamics steps
-    ! elem%derived%vstar:    
+    ! elem%derived%vstar:
     !                velocity at end of tracer timestep (time np1 = np1_qdp)
     !                for lagrangian dynamics, this is on lagrangian levels
     !                for eulerian dynamcis, this is on reference levels
@@ -1501,8 +1469,8 @@ contains
        end do
     else
        ! do nothing
-       ! for rsplit>0:  dynamics is also vertically lagrangian, so we do not need 
-       ! to interpolate v(np1). 
+       ! for rsplit>0:  dynamics is also vertically lagrangian, so we do not need
+       ! to interpolate v(np1).
     endif
 
 
@@ -1518,7 +1486,7 @@ contains
 !     call t_stopf('fvm_depalg')
 
 !------------------------------------------------------------------------------------
-    
+
     ! fvm departure calcluation should use vstar.
     ! from c(n0) compute c(np1):
     if (tracer_transport_type == TRACERTRANSPORT_FLUXFORM_FVM) then
@@ -1753,7 +1721,7 @@ subroutine VDOT(rp,Que,rho,mass,hybrid,nets,nete)
 
   integer                                       :: k,n,q,ie
 
-  global_shared_buf = 0 
+  global_shared_buf = 0
   do ie=nets,nete
     n=0
     do q=1,qsize
@@ -1773,10 +1741,10 @@ subroutine VDOT(rp,Que,rho,mass,hybrid,nets,nete)
     rp(k,q) = global_shared_sum(n) - mass(k,q)
   enddo
   enddo
-  
+
 end subroutine VDOT
 
-subroutine Cobra_SLBQP(Que, Que_t, rho, minq, maxq, mass, hybrid, nets, nete) 
+subroutine Cobra_SLBQP(Que, Que_t, rho, minq, maxq, mass, hybrid, nets, nete)
 
   use parallel_mod,        only: global_shared_buf, global_shared_sum
   use global_norms_mod,    only: wrap_repro_sum
@@ -1793,8 +1761,8 @@ subroutine Cobra_SLBQP(Que, Que_t, rho, minq, maxq, mass, hybrid, nets, nete)
   type (hybrid_t)     , intent(in)              :: hybrid
 
   integer,                            parameter :: max_clip = 100
-  real(kind=real_kind),               parameter :: eta = 1D-12           
-  real(kind=real_kind),               parameter :: hfd = 1D-12             
+  real(kind=real_kind),               parameter :: eta = 1D-12
+  real(kind=real_kind),               parameter :: hfd = 1D-12
   real(kind=real_kind)                          :: lambda_p          (nlev,qsize)
   real(kind=real_kind)                          :: lambda_c          (nlev,qsize)
   real(kind=real_kind)                          :: rp                (nlev,qsize)
@@ -1828,10 +1796,10 @@ subroutine Cobra_SLBQP(Que, Que_t, rho, minq, maxq, mass, hybrid, nets, nete)
   call VDOT(rc,Que,rho,mass,hybrid,nets,nete)
 
   rd = rc-rp
-  if (MAXVAL(ABS(rd)).eq.0) return 
-  
+  if (MAXVAL(ABS(rd)).eq.0) return
+
   alpha = 0
-  WHERE (rd.ne.0) alpha = hfd / rd 
+  WHERE (rd.ne.0) alpha = hfd / rd
 
   lambda_p = 0
   lambda_c =  -alpha*rp
@@ -1855,7 +1823,7 @@ subroutine Cobra_SLBQP(Que, Que_t, rho, minq, maxq, mass, hybrid, nets, nete)
     if (MAXVAL(ABS(rd)).eq.0) exit
 
     alpha = 0
-    WHERE (rd.ne.0) alpha = (lambda_p - lambda_c) / rd 
+    WHERE (rd.ne.0) alpha = (lambda_p - lambda_c) / rd
 
     rp       = rc
     lambda_p = lambda_c
@@ -2341,7 +2309,7 @@ end subroutine ALE_parametric_coords
   qbeg = 1
   qend = qsize
   kbeg = 1
-  kend = nlev 
+  kend = nlev
 
   rhs_viss = 0
   if ( limiter_option == 8  ) then
@@ -2437,7 +2405,7 @@ end subroutine ALE_parametric_coords
                  Qtens_biharmonic(:,:,:,:,ie), elem(ie)%derived%dpdiss_ave, dp0 &
             )
           else
-            do k = 1 , nlev 
+            do k = 1 , nlev
               do j=1,np
                 do i=1,np
                   dpdiss(i,j) = elem(ie)%derived%dpdiss_ave(i,j,k)
@@ -2455,7 +2423,7 @@ end subroutine ALE_parametric_coords
           endif
         enddo
       endif
-#ifdef OVERLAP 
+#ifdef OVERLAP
       call neighbor_minmax_start(hybrid,edgeAdvQminmax,nets,nete,qmin(:,:,nets:nete),qmax(:,:,nets:nete))
       call biharmonic_wk_scalar(elem,qtens_biharmonic,deriv,edgeAdv,hybrid,nets,nete)
       do ie = nets, nete
@@ -2510,7 +2478,7 @@ end subroutine ALE_parametric_coords
 !      call biharmonic_wk_scalar_minmax( elem , qtens_biharmonic , deriv , edgeAdvQ3 , hybrid , &
 !           nets , nete , qmin(:,:,nets:nete) , qmax(:,:,nets:nete) )
 !      do ie = nets , nete
-!        do k = 1 , nlev 
+!        do k = 1 , nlev
 !          do q = 1 , qsize
 !            ! note: biharmonic_wk() output has mass matrix already applied. Un-apply since we apply again below:
 !            do j=1,np
@@ -2660,8 +2628,8 @@ end subroutine ALE_parametric_coords
       call edgeVpack(edgeAdvp1  , elem(ie)%state%Qdp(:,:,:,q,np1_qdp) , nlev , kptr , ie )
 
      enddo
-   
-      
+
+
      if ( DSSopt == DSSeta         ) DSSvar => elem(ie)%derived%eta_dot_dpdn(:,:,:)
      if ( DSSopt == DSSomega       ) DSSvar => elem(ie)%derived%omega_p(:,:,:)
      if ( DSSopt == DSSdiv_vdp_ave ) DSSvar => elem(ie)%derived%divdp_proj(:,:,:)
@@ -2677,7 +2645,7 @@ end subroutine ALE_parametric_coords
          enddo
        enddo
      endif
-    
+
      kptr = nlev*qsize
      call edgeVpack( edgeAdvp1 , DSSvar(:,:,1:nlev) , nlev , kptr , ie )
   enddo
@@ -3494,7 +3462,7 @@ end subroutine ALE_parametric_coords
 
 #ifdef LIMITER_REWRITE_OPT
   subroutine limiter_optim_iter_full(ptens,sphweights,minp,maxp,dpmass)
-    ! 
+    !
     !The idea here is the following: We need to find a grid field which is closest
     !to the initial field (in terms of weighted sum), but satisfies the min/max constraints.
     !So, first we find values which do not satisfy constraints and bring these values
@@ -3503,8 +3471,8 @@ end subroutine ALE_parametric_coords
     !This redistribution might violate constraints thus, we do a few iterations.
     !
     ! O. Guba ~2012                    Documented in Guba, Taylor & St-Cyr, JCP 2014
-    ! I. Demeshko & M. Taylor 7/2015:  Removed indirect addressing.  
-    ! N. Lopez & M. Taylor 8/2015:     Mass redistributon tweak which is better at 
+    ! I. Demeshko & M. Taylor 7/2015:  Removed indirect addressing.
+    ! N. Lopez & M. Taylor 8/2015:     Mass redistributon tweak which is better at
     !                                  linear coorelation preservation
     !
     use kinds         , only : real_kind
@@ -3604,7 +3572,7 @@ end subroutine ALE_parametric_coords
       ptens(k1,k)=ptens(k1,k)*dpmass(k1,k)
     enddo
   enddo
- 
+
   end subroutine limiter_optim_iter_full
 #endif
 
@@ -4154,15 +4122,8 @@ end subroutine ALE_parametric_coords
         endif
         call remap1(ttmp,np,2,dp_star,dp)
 !        call remap1_nofilter(ttmp,np,2,dp_star,dp)
-        if (.not. vertical_remap_v_scale_use_native_impl) then
-           call vertical_remap_v_unscale_codon( &
-                int(np, c_int64_t), int(nlev, c_int64_t), c_loc(ttmp), c_loc(dp), &
-                c_loc(elem(ie)%state%v(:,:,:,:,np1)) &
-           )
-        else
-           elem(ie)%state%v(:,:,1,:,np1)=ttmp(:,:,:,1)/dp
-           elem(ie)%state%v(:,:,2,:,np1)=ttmp(:,:,:,2)/dp
-        endif
+        elem(ie)%state%v(:,:,1,:,np1)=ttmp(:,:,:,1)/dp
+        elem(ie)%state%v(:,:,2,:,np1)=ttmp(:,:,:,2)/dp
 #ifdef REMAP_TE
         ! back out T from TE
         elem(ie)%state%t(:,:,:,np1) = &

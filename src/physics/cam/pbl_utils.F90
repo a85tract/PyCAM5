@@ -4,7 +4,7 @@ module pbl_utils
 ! different vertical diffusion schemes.                                 !
 !                                                                       !
 ! Public subroutines:                                                   !
-!     
+!
 !     calc_obklen                                                       !
 !                                                                       !
 !------------------ History --------------------------------------------!
@@ -287,9 +287,8 @@ elemental subroutine calc_ustar( t,    pmid, taux, tauy, &
 
   rrho = real(calc_ustar_rrho_codon(real(rair, c_double), real(t, c_double), &
        real(pmid, c_double)), r8)
-  ustar = real(calc_ustar_codon(real(taux, c_double), real(tauy, c_double), &
-       real(rrho, c_double), real(ustar_min, c_double)), r8)
-  
+  ustar = max( sqrt( sqrt(taux**2 + tauy**2)*rrho ), ustar_min )
+
 end subroutine calc_ustar
 
 elemental subroutine calc_obklen( ths,  thvs, qflx, shflx, rrho, ustar, &
@@ -306,22 +305,20 @@ elemental subroutine calc_obklen( ths,  thvs, qflx, shflx, rrho, ustar, &
 
   real(r8), intent(in)  :: rrho          ! 1./bottom level density [ m3/kg ]
   real(r8), intent(in)  :: ustar         ! Surface friction velocity [ m/s ]
-  
+
   real(r8), intent(out) :: khfs          ! sfc kinematic heat flux [mK/s]
   real(r8), intent(out) :: kqfs          ! sfc kinematic water vapor flux [m/s]
   real(r8), intent(out) :: kbfs          ! sfc kinematic buoyancy flux [m^2/s^3]
   real(r8), intent(out) :: obklen        ! Obukhov length
-  
+
   ! Need kinematic fluxes for Obukhov:
   khfs = real(calc_obklen_khfs_codon(real(shflx, c_double), real(rrho, c_double), &
        real(cpair, c_double)), r8)
   kqfs = real(calc_obklen_kqfs_codon(real(qflx, c_double), real(rrho, c_double)), r8)
-  kbfs = real(calc_obklen_kbfs_codon(real(khfs, c_double), real(zvir, c_double), &
-       real(ths, c_double), real(kqfs, c_double)), r8)
-  
+  kbfs = khfs + zvir*ths*kqfs
+
   ! Compute Obukhov length:
-  obklen = real(calc_obklen_codon(real(thvs, c_double), real(ustar, c_double), &
-       real(g, c_double), real(vk, c_double), real(kbfs, c_double)), r8)
+  obklen = -thvs * ustar**3 / (g*vk*(kbfs + sign(1.e-10_r8,kbfs)))
 
 end subroutine calc_obklen
 
@@ -334,7 +331,7 @@ elemental real(r8) function virtem(t,q)
 
   real(r8), intent(in) :: t, q
 
-  virtem = real(virtem_codon(real(t, c_double), real(q, c_double), real(zvir, c_double)), r8)
+  virtem = t * (1.0_r8 + zvir*q)
 
 end function virtem
 
@@ -350,7 +347,7 @@ subroutine compute_radf( choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin
   ! within the cloud is not included in this radiative buoyancy production     !
   ! since SW heating is more broadly distributed throughout the CL top layer.  !
   ! -------------------------------------------------------------------------- !
-  
+
   !-----------------!
   ! Input variables !
   !-----------------!
@@ -421,14 +418,14 @@ subroutine compute_radf( choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin
     ! Compute radf for each CL regime and for each column !
     !-----------------------------------------------------!
     if( choice_radf .eq. 'orig' ) then
-      if( ql(i,kt) .gt. qmin .and. ql(i,kt-1) .lt. qmin ) then 
+      if( ql(i,kt) .gt. qmin .and. ql(i,kt-1) .lt. qmin ) then
         lwp       = ql(i,kt) * ( pi(i,kt+1) - pi(i,kt) ) / g
         opt_depth = 156._r8 * lwp  ! Estimated LW optical depth in the CL top layer
         ! Approximate LW cooling fraction concentrated at the inversion by using
         ! polynomial approx to exact formula 1-2/opt_depth+2/(exp(opt_depth)-1))
 
         radinvfrac  = opt_depth * ( 4._r8 + opt_depth ) / ( 6._r8 * ( 4._r8 + opt_depth ) + opt_depth**2 )
-        radf        = qrlw(i,kt) / ( pi(i,kt) - pi(i,kt+1) ) ! Cp*radiative cooling = [ W/kg ] 
+        radf        = qrlw(i,kt) / ( pi(i,kt) - pi(i,kt+1) ) ! Cp*radiative cooling = [ W/kg ]
         radf        = max( radinvfrac * radf * ( zi(i,kt) - zi(i,kt+1) ), 0._r8 ) * chs(i,kt)
         ! We can disable cloud LW cooling contribution to turbulence by uncommenting:
         ! radf = 0._r8
@@ -439,13 +436,13 @@ subroutine compute_radf( choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin
       lwp         = ql(i,kt) * ( pi(i,kt+1) - pi(i,kt) ) / g
       opt_depth   = 156._r8 * lwp  ! Estimated LW optical depth in the CL top layer
       radinvfrac  = opt_depth * ( 4._r8 + opt_depth ) / ( 6._r8 * ( 4._r8 + opt_depth ) + opt_depth**2 )
-      radinvfrac  = max(cldeff(i,kt)-cldeff(i,kt-1),0._r8) * radinvfrac 
-      radf        = qrlw(i,kt) / ( pi(i,kt) - pi(i,kt+1) ) ! Cp*radiative cooling [W/kg] 
+      radinvfrac  = max(cldeff(i,kt)-cldeff(i,kt-1),0._r8) * radinvfrac
+      radf        = qrlw(i,kt) / ( pi(i,kt) - pi(i,kt+1) ) ! Cp*radiative cooling [W/kg]
       radf        = max( radinvfrac * radf * ( zi(i,kt) - zi(i,kt+1) ), 0._r8 ) * chs(i,kt)
 
     elseif( choice_radf .eq. 'maxi' ) then
 
-      ! Radiative flux divergence both in 'kt' and 'kt-1' layers are included 
+      ! Radiative flux divergence both in 'kt' and 'kt-1' layers are included
       ! 1. From 'kt' layer
         lwp         = ql(i,kt) * ( pi(i,kt+1) - pi(i,kt) ) / g
         opt_depth   = 156._r8 * lwp  ! Estimated LW optical depth in the CL top layer
@@ -456,14 +453,14 @@ subroutine compute_radf( choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin
         opt_depth   = 156._r8 * lwp  ! Estimated LW optical depth in the CL top layer
         radinvfrac  = opt_depth * ( 4._r8 + opt_depth ) / ( 6._r8 * ( 4._r8 + opt_depth) + opt_depth**2 )
         radf        = radf + max( radinvfrac * qrlw(i,kt-1) / ( pi(i,kt-1) - pi(i,kt) ) * ( zi(i,kt-1) - zi(i,kt) ), 0._r8 )
-        radf        = max( radf, 0._r8 ) * chs(i,kt) 
+        radf        = max( radf, 0._r8 ) * chs(i,kt)
 
     endif
 
     lwp_CL(ncv)        = lwp
     opt_depth_CL(ncv)  = opt_depth
     radinvfrac_CL(ncv) = radinvfrac
-    radf_CL(ncv)       = radf 
+    radf_CL(ncv)       = radf
   end do ! ncv = 1, ncvfin(i)
 end subroutine compute_radf
 

@@ -17,7 +17,7 @@
      init_uwshcu,        &
      compute_uwshcu,     &
      compute_uwshcu_inv
-  
+
   integer , parameter :: r8 = selected_real_kind(12)    !  8 byte real
   real(r8), parameter :: unset_r8 = huge(1.0_r8)
   real(r8)            :: xlv                            !  Latent heat of vaporization
@@ -27,7 +27,7 @@
   real(r8)            :: zvir                           !  rh2o/rair - 1
   real(r8)            :: r                              !  Gas constant for dry air
   real(r8)            :: g                              !  Gravitational constant
-  real(r8)            :: ep2                            !  mol wgt water vapor / mol wgt dry air 
+  real(r8)            :: ep2                            !  mol wgt water vapor / mol wgt dry air
   real(r8)            :: p00                            !  Reference pressure for exner function
   real(r8)            :: rovcp                          !  R/cp
 
@@ -2925,7 +2925,7 @@ contains
   end subroutine uwshcu_log_slope_recon_shell_entered
 
 !===============================================================================
-  
+
   real(r8) function exnf(pressure)
            use iso_c_binding, only: c_double
            real(r8), intent(in)              :: pressure
@@ -3053,7 +3053,7 @@ subroutine uwshcu_readnl(nlfile)
    ! Broadcast namelist variables
    call mpibcast(uwshcu_rpen,            1, mpir8,  0, mpicom)
 #endif
-   
+
    call get_environment_variable('UWSHCU_READNL_IMPL', value=impl_name, &
         length=env_len, status=env_status)
    if (env_status == 0 .and. env_len > 0 .and. &
@@ -3063,7 +3063,7 @@ subroutine uwshcu_readnl(nlfile)
       rpen = uwshcu_readnl_param_codon(real(uwshcu_rpen, c_double))
       call uwshcu_log_readnl_direct()
    end if
-  
+
 
 end subroutine uwshcu_readnl
 
@@ -3071,7 +3071,7 @@ end subroutine uwshcu_readnl
 
   subroutine init_uwshcu( kind, xlv_in, cp_in, xlf_in, zvir_in, r_in, g_in, ep2_in )
 
-    !------------------------------------------------------------- ! 
+    !------------------------------------------------------------- !
     ! Purpose:                                                     !
     ! Initialize key constants for the shallow convection package. !
     !------------------------------------------------------------- !
@@ -3087,7 +3087,7 @@ end subroutine uwshcu_readnl
     real(r8), intent(in) :: zvir_in    !  rh2o/rair - 1
     real(r8), intent(in) :: r_in       !  Gas constant for dry air
     real(r8), intent(in) :: g_in       !  Gravitational constant
-    real(r8), intent(in) :: ep2_in     !  mol wgt water vapor / mol wgt dry air 
+    real(r8), intent(in) :: ep2_in     !  mol wgt water vapor / mol wgt dry air
 
     character(len=*), parameter :: subname = 'init_uwshcu'
     real(r8), target :: init_constants(10)
@@ -3232,23 +3232,23 @@ end subroutine uwshcu_readnl
        call endrun(subname//': uwshcu_rpen must be set in the namelist')
     end if
 
-    if ( masterproc ) then 
+    if ( masterproc ) then
        write(iulog,*) subname//': tuning parameters: rpen=',rpen
     endif
 
   end subroutine init_uwshcu
 
-  subroutine compute_uwshcu_inv( mix      , mkx        , iend          , ncnst     , dt       ,  & 
+  subroutine compute_uwshcu_inv( mix      , mkx        , iend          , ncnst     , dt       ,  &
                                  ps0_inv  , zs0_inv    , p0_inv        , z0_inv    , dp0_inv  ,  &
                                  u0_inv   , v0_inv     , qv0_inv       , ql0_inv   , qi0_inv  ,  &
                                  t0_inv   , s0_inv     , tr0_inv       ,                         &
-                                 tke_inv  , cldfrct_inv, concldfrct_inv, pblh      , cush     ,  & 
-                                 umf_inv  , slflx_inv  , qtflx_inv     ,                         & 
+                                 tke_inv  , cldfrct_inv, concldfrct_inv, pblh      , cush     ,  &
+                                 umf_inv  , slflx_inv  , qtflx_inv     ,                         &
                                  flxprc1_inv, flxsnow1_inv,     				 &
                                  qvten_inv, qlten_inv  , qiten_inv     ,                         &
-                                 sten_inv , uten_inv   , vten_inv      , trten_inv ,             &  
+                                 sten_inv , uten_inv   , vten_inv      , trten_inv ,             &
                                  qrten_inv, qsten_inv  , precip        , snow      , evapc_inv,  &
-                                 cufrc_inv, qcu_inv    , qlu_inv       , qiu_inv   ,             &   
+                                 cufrc_inv, qcu_inv    , qlu_inv       , qiu_inv   ,             &
                                  cbmf     , qc_inv     , rliq          ,                         &
                                  cnt_inv  , cnb_inv    , lchnk         , dpdry0_inv,             &
                                  wtprec   , wtsnow     , wtqc_inv  )
@@ -3261,7 +3261,7 @@ end subroutine uwshcu_readnl
 
 
     implicit none
-    integer , intent(in)    :: lchnk     
+    integer , intent(in)    :: lchnk
     integer , intent(in)    :: mix
     integer , intent(in)    :: mkx
     integer , intent(in)    :: iend
@@ -3369,7 +3369,7 @@ end subroutine uwshcu_readnl
     real(r8), target        :: qc(mix,mkx)              !  Tendency of cumulus condensate detrained into the environment [ kg/kg/s ]
     real(r8), target        :: cnt(mix)                 !  Cumulus top  interface index, cnt = kpen [ no ]
     real(r8), target        :: cnb(mix)                 !  Cumulus base interface index, cnb = krel - 1 [ no ]
-    integer                 :: k                        !  Vertical index for local fields [ no ] 
+    integer                 :: k                        !  Vertical index for local fields [ no ]
     integer                 :: k_inv                    !  Vertical index for incoming fields [ no ]
     integer                 :: m                        !  Tracer index [ no ]
 
@@ -3466,12 +3466,12 @@ end subroutine uwshcu_readnl
 
     call compute_uwshcu( mix  , mkx    , iend      , ncnst , dt   , &
                          ps0  , zs0    , p0        , z0    , dp0  , &
-                         u0   , v0     , qv0       , ql0   , qi0  , & 
-                         t0   , s0     , tr0       ,                & 
-                         tke  , cldfrct, concldfrct, pblh  , cush , & 
-                         umf  , slflx  , qtflx     ,                &  
+                         u0   , v0     , qv0       , ql0   , qi0  , &
+                         t0   , s0     , tr0       ,                &
+                         tke  , cldfrct, concldfrct, pblh  , cush , &
+                         umf  , slflx  , qtflx     ,                &
                          flxprc1  , flxsnow1  ,		            &
-                         qvten, qlten  , qiten     ,                & 
+                         qvten, qlten  , qiten     ,                &
                          sten , uten   , vten      , trten ,        &
                          qrten, qsten  , precip    , snow  , evapc, &
                          cufrc, qcu    , qlu       , qiu   ,        &
@@ -3565,10 +3565,10 @@ end subroutine uwshcu_readnl
                              ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
                              u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
                              t0_in    , s0_in     , tr0_in       ,                        &
-                             tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, & 
+                             tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
                              umf_out  , slflx_out , qtflx_out    ,                        &
                              flxprc1_out  , flxsnow1_out  , 			 	  &
-                             qvten_out, qlten_out , qiten_out    ,                        & 
+                             qvten_out, qlten_out , qiten_out    ,                        &
                              sten_out , uten_out  , vten_out     , trten_out,             &
                              qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
                              cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
@@ -3576,271 +3576,8 @@ end subroutine uwshcu_readnl
                              cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
                              wtsnow_out, wtqc_out )
 
-    use iso_c_binding, only: c_double, c_int64_t, c_loc
-    use constituents, only: cnst_get_ind, qmin, cnst_type_is_wet
-    use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, iwspec, &
-                                  iwater_is_water, wtrc_qmin, wtrc_alpha_kinetic
-    use water_tracers, only : wtrc_get_rstd
-    use water_types, only : iwtvap, iwtliq, iwtice
-    use water_isotopes, only : pwtspec
-    use physconst, only : rair, rh2o, rhoh2o
-
-    implicit none
-
-    integer , intent(in)    :: lchnk
-    integer , intent(in)    :: mix
-    integer , intent(in)    :: mkx
-    integer , intent(in)    :: iend
-    integer , intent(in)    :: ncnst
-    real(r8), intent(in)    :: dt
-    real(r8), target, intent(in) :: ps0_in(mix,0:mkx)
-    real(r8), target, intent(in) :: zs0_in(mix,0:mkx)
-    real(r8), target, intent(in) :: p0_in(mix,mkx)
-    real(r8), target, intent(in) :: z0_in(mix,mkx)
-    real(r8), target, intent(in) :: dp0_in(mix,mkx)
-    real(r8), target, intent(in) :: dpdry0_in(mix,mkx)
-    real(r8), target, intent(in) :: u0_in(mix,mkx)
-    real(r8), target, intent(in) :: v0_in(mix,mkx)
-    real(r8), target, intent(in) :: qv0_in(mix,mkx)
-    real(r8), target, intent(in) :: ql0_in(mix,mkx)
-    real(r8), target, intent(in) :: qi0_in(mix,mkx)
-    real(r8), target, intent(in) :: t0_in(mix,mkx)
-    real(r8), target, intent(in) :: s0_in(mix,mkx)
-    real(r8), target, intent(in) :: tr0_in(mix,mkx,ncnst)
-    real(r8), target, intent(in) :: tke_in(mix,0:mkx)
-    real(r8), target, intent(in) :: cldfrct_in(mix,mkx)
-    real(r8), target, intent(in) :: concldfrct_in(mix,mkx)
-    real(r8), target, intent(in) :: pblh_in(mix)
-    real(r8), target, intent(inout) :: cush_inout(mix)
-
-    real(r8), target, intent(out)   :: umf_out(mix,0:mkx)
-    real(r8), target, intent(out)   :: qvten_out(mix,mkx)
-    real(r8), target, intent(out)   :: qlten_out(mix,mkx)
-    real(r8), target, intent(out)   :: qiten_out(mix,mkx)
-    real(r8), target, intent(out)   :: sten_out(mix,mkx)
-    real(r8), target, intent(out)   :: uten_out(mix,mkx)
-    real(r8), target, intent(out)   :: vten_out(mix,mkx)
-    real(r8), target, intent(out)   :: trten_out(mix,mkx,ncnst)
-    real(r8), target, intent(out)   :: qrten_out(mix,mkx)
-    real(r8), target, intent(out)   :: qsten_out(mix,mkx)
-    real(r8), target, intent(out)   :: precip_out(mix)
-    real(r8), target, intent(out)   :: snow_out(mix)
-    real(r8), target, intent(out)   :: evapc_out(mix,mkx)
-    real(r8), target, intent(out)   :: slflx_out(mix,0:mkx)
-    real(r8), target, intent(out)   :: qtflx_out(mix,0:mkx)
-    real(r8), target, intent(out)   :: flxprc1_out(mix,0:mkx)
-    real(r8), target, intent(out)   :: flxsnow1_out(mix,0:mkx)
-    real(r8), target, intent(out)   :: cufrc_out(mix,mkx)
-    real(r8), target, intent(out)   :: qcu_out(mix,mkx)
-    real(r8), target, intent(out)   :: qlu_out(mix,mkx)
-    real(r8), target, intent(out)   :: qiu_out(mix,mkx)
-    real(r8), target, intent(out)   :: cbmf_out(mix)
-    real(r8), target, intent(out)   :: qc_out(mix,mkx)
-    real(r8), target, intent(out)   :: rliq_out(mix)
-    real(r8), target, intent(out)   :: cnt_out(mix)
-    real(r8), target, intent(out)   :: cnb_out(mix)
-    real(r8), target, intent(out)   :: wtqc_out(mix,mkx,ncnst)
-    real(r8), target, intent(out)   :: wtprec_out(mix,ncnst)
-    real(r8), target, intent(out)   :: wtsnow_out(mix,ncnst)
-    real(r8), target                :: tw0_parent(mix,mkx)
-    real(r8), target                :: qw0_parent(mix,mkx)
-    integer(c_int64_t), target      :: constituent_indices_parent(4)
-    integer(c_int64_t), target      :: init_shell_flags_parent(1)
-    integer(c_int64_t), target      :: wtrc_metadata_flags_parent(4)
-    integer(c_int64_t), target      :: wtrc_iatype_parent(max(1,wtrc_nwset),3)
-    integer(c_int64_t), target      :: positive_moisture_iwspec_parent(ncnst)
-    real(c_double), target          :: positive_moisture_rstd_parent(pwtspec)
-    real(c_double), target          :: qmin_parent(ncnst)
-    integer(c_int64_t), target      :: constituent_state_flags_parent(ncnst,2)
-    real(c_double), target          :: wtrc_scalar_metadata_parent(1)
-    real(c_double), target          :: constant_metadata_parent(13)
-    real(r8), target                :: parent_real_workspace(iend * (4*(mkx+1) + 21*mkx + &
-                                            2*mkx*ncnst + 2*mkx*max(1,wtrc_nwset) + 4*mkx + 10))
-    integer(c_int64_t), target      :: parent_int_workspace(16 + 2*iend)
-    integer                         :: ixnumliq_parent, ixnumice_parent, ixcldliq_parent, ixcldice_parent
-    integer                         :: m, ispec_parent
-    integer(c_int64_t)              :: touch_c
-    logical                         :: public_outputs_preinitialized_parent
-
-    call uwshcu_select_compute_impl()
-
-    if (.not. use_native_compute_impl) then
-       touch_c = compute_uwshcu_codon(1_c_int64_t)
-       if (.not. use_parent_shell_compute_impl) then
-          if (touch_c == 1_c_int64_t) then
-             call uwshcu_log_compute_touch_entered()
-          end if
-          call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
-                                      ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
-                                      u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
-                                      t0_in    , s0_in     , tr0_in       ,                        &
-                                      tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
-                                      umf_out  , slflx_out , qtflx_out    ,                        &
-                                      flxprc1_out  , flxsnow1_out  ,                              &
-                                      qvten_out, qlten_out , qiten_out    ,                        &
-                                      sten_out , uten_out  , vten_out     , trten_out,             &
-                                      qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
-                                      cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
-                                      cbmf_out , qc_out    , rliq_out     ,                        &
-                                      cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                                      wtsnow_out, wtqc_out )
-          return
-       end if
-       if (touch_c == 1_c_int64_t) then
-          call uwshcu_log_compute_parent_shell_entered()
-       end if
-       call uwshcu_select_init_shell_impl()
-       init_shell_flags_parent(1) = merge(1_c_int64_t, 0_c_int64_t, use_native_init_shell_impl)
-       parent_int_workspace(:) = 0_c_int64_t
-       call uwshcu_log_compute_init_selector_parent_shell_entered()
-
-       constant_metadata_parent(1) = real(xlv, c_double)
-       constant_metadata_parent(2) = real(xlf, c_double)
-       constant_metadata_parent(3) = real(xls, c_double)
-       constant_metadata_parent(4) = real(cp, c_double)
-       constant_metadata_parent(5) = real(zvir, c_double)
-       constant_metadata_parent(6) = real(r, c_double)
-       constant_metadata_parent(7) = real(g, c_double)
-       constant_metadata_parent(8) = real(ep2, c_double)
-       constant_metadata_parent(9) = real(p00, c_double)
-       constant_metadata_parent(10) = real(rovcp, c_double)
-       constant_metadata_parent(11) = real(rair, c_double)
-       constant_metadata_parent(12) = real(rh2o, c_double)
-       constant_metadata_parent(13) = real(rhoh2o, c_double)
-
-       call cnst_get_ind('NUMLIQ', ixnumliq_parent)
-       call cnst_get_ind('NUMICE', ixnumice_parent)
-       call cnst_get_ind('CLDLIQ', ixcldliq_parent)
-       call cnst_get_ind('CLDICE', ixcldice_parent)
-       constituent_indices_parent(1) = int(ixnumliq_parent, c_int64_t)
-       constituent_indices_parent(2) = int(ixnumice_parent, c_int64_t)
-       constituent_indices_parent(3) = int(ixcldliq_parent, c_int64_t)
-       constituent_indices_parent(4) = int(ixcldice_parent, c_int64_t)
-       call uwshcu_log_compute_cnst_indices_parent_shell_entered()
-
-       wtrc_metadata_flags_parent(1) = merge(1_c_int64_t, 0_c_int64_t, trace_water)
-       wtrc_metadata_flags_parent(2) = int(wtrc_nwset, c_int64_t)
-       wtrc_metadata_flags_parent(3) = merge(1_c_int64_t, 0_c_int64_t, wisotope)
-       wtrc_metadata_flags_parent(4) = merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic)
-       wtrc_scalar_metadata_parent(1) = real(wtrc_qmin, c_double)
-       do m = 1, ncnst
-          qmin_parent(m) = real(qmin(m), c_double)
-          constituent_state_flags_parent(m,1) = iwater_is_water(m)
-          constituent_state_flags_parent(m,2) = cnst_type_is_wet(m)
-       end do
-       if (trace_water) then
-          do m = 1, ncnst
-             positive_moisture_iwspec_parent(m) = int(iwspec(m), c_int64_t)
-          end do
-          do ispec_parent = 1, pwtspec
-             positive_moisture_rstd_parent(ispec_parent) = real(wtrc_get_rstd(ispec_parent), c_double)
-          end do
-          do m = 1, wtrc_nwset
-             wtrc_iatype_parent(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
-             wtrc_iatype_parent(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
-             wtrc_iatype_parent(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
-          end do
-       end if
-       call uwshcu_log_compute_wtrc_metadata_parent_shell_entered()
-
-       public_outputs_preinitialized_parent = .not. use_native_init_shell_impl
-       call uwshcu_compute_parent_shell_codon( &
-            int(mix, c_int64_t), int(mkx, c_int64_t), int(iend, c_int64_t), int(ncnst, c_int64_t), &
-            real(dt, c_double), c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), c_loc(z0_in), &
-            c_loc(dp0_in), c_loc(u0_in), c_loc(v0_in), c_loc(qv0_in), c_loc(ql0_in), &
-            c_loc(qi0_in), c_loc(t0_in), c_loc(s0_in), c_loc(tr0_in), c_loc(tke_in), &
-            c_loc(cldfrct_in), c_loc(concldfrct_in), c_loc(pblh_in), c_loc(cush_inout), &
-            c_loc(umf_out), c_loc(slflx_out), c_loc(qtflx_out), c_loc(flxprc1_out), &
-            c_loc(flxsnow1_out), c_loc(qvten_out), c_loc(qlten_out), c_loc(qiten_out), &
-            c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), c_loc(trten_out), &
-            c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), &
-            c_loc(evapc_out), c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), &
-            c_loc(qiu_out), c_loc(cbmf_out), c_loc(qc_out), c_loc(rliq_out), &
-            c_loc(cnt_out), c_loc(cnb_out), int(lchnk, c_int64_t), c_loc(dpdry0_in), &
-            c_loc(wtprec_out), c_loc(wtsnow_out), c_loc(wtqc_out), &
-            c_loc(tw0_parent), c_loc(qw0_parent), c_loc(constituent_indices_parent), &
-            c_loc(init_shell_flags_parent), c_loc(wtrc_metadata_flags_parent), &
-            c_loc(wtrc_iatype_parent), c_loc(positive_moisture_iwspec_parent), &
-            c_loc(positive_moisture_rstd_parent), c_loc(qmin_parent), &
-            c_loc(constituent_state_flags_parent), c_loc(wtrc_scalar_metadata_parent), &
-            c_loc(constant_metadata_parent), c_loc(parent_real_workspace), c_loc(parent_int_workspace))
-
-       call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
-                                   ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
-                                   u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
-                                   t0_in    , s0_in     , tr0_in       ,                        &
-                                   tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
-                                   umf_out  , slflx_out , qtflx_out    ,                        &
-                                   flxprc1_out  , flxsnow1_out  ,                              &
-                                   qvten_out, qlten_out , qiten_out    ,                        &
-                                   sten_out , uten_out  , vten_out     , trten_out,             &
-                                   qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
-                                   cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
-                                   cbmf_out , qc_out    , rliq_out     ,                        &
-                                   cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                                   wtsnow_out, wtqc_out , .true., tw0_parent, qw0_parent,       &
-                                   .true., constituent_indices_parent,                           &
-                                   .true., init_shell_flags_parent,                              &
-                                   .true., wtrc_metadata_flags_parent, wtrc_iatype_parent,       &
-                                   .true., positive_moisture_iwspec_parent,                      &
-                                   positive_moisture_rstd_parent,                                &
-                                   .true., qmin_parent, constituent_state_flags_parent,           &
-                                   wtrc_scalar_metadata_parent, .true., constant_metadata_parent, &
-                                   public_outputs_preinitialized_parent,                          &
-                                   .true., parent_real_workspace, parent_int_workspace )
-       return
-    end if
-
-    call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
-                                ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
-                                u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
-                                t0_in    , s0_in     , tr0_in       ,                        &
-                                tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
-                                umf_out  , slflx_out , qtflx_out    ,                        &
-                                flxprc1_out  , flxsnow1_out  ,                              &
-                                qvten_out, qlten_out , qiten_out    ,                        &
-                                sten_out , uten_out  , vten_out     , trten_out,             &
-                                qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
-                                cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
-                                cbmf_out , qc_out    , rliq_out     ,                        &
-                                cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                                wtsnow_out, wtqc_out )
-
-  end subroutine compute_uwshcu
-
-  subroutine compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
-                                    ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
-                                    u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
-                                    t0_in    , s0_in     , tr0_in       ,                        &
-                                    tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
-                                    umf_out  , slflx_out , qtflx_out    ,                        &
-                                    flxprc1_out  , flxsnow1_out  ,                              &
-                                    qvten_out, qlten_out , qiten_out    ,                        &
-                                    sten_out , uten_out  , vten_out     , trten_out,             &
-                                    qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
-                                    cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
-                                    cbmf_out , qc_out    , rliq_out     ,                        &
-                                    cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                                    wtsnow_out, wtqc_out , wetbulb_precomputed,                  &
-                                    tw0_precomputed_in, qw0_precomputed_in,                      &
-                                    constituent_indices_precomputed,                              &
-                                    constituent_indices_precomputed_in,                           &
-                                    init_shell_preselected, init_shell_flags_in,                  &
-                                    wtrc_metadata_precomputed, wtrc_metadata_flags_in,            &
-                                    wtrc_iatype_precomputed_in,                                   &
-                                    positive_moisture_metadata_precomputed,                       &
-                                    positive_moisture_iwspec_precomputed_in,                      &
-                                    positive_moisture_rstd_precomputed_in,                        &
-                                    module_metadata_precomputed, qmin_precomputed_in,              &
-                                    constituent_state_flags_precomputed_in,                        &
-                                    wtrc_scalar_metadata_precomputed_in,                           &
-                                    constant_metadata_precomputed, constant_metadata_precomputed_in, &
-                                    public_outputs_preinitialized,                                  &
-                                    parent_prefix_precomputed, parent_real_workspace_in,            &
-                                    parent_int_workspace_in )
-
     ! ------------------------------------------------------------ !
-    !                                                              !  
+    !                                                              !
     !  University of Washington Shallow Convection Scheme          !
     !                                                              !
     !  Described in Park and Bretherton. 2008. J. Climate :        !
@@ -3849,26 +3586,23 @@ end subroutine uwshcu_readnl
     !  moist turbulent schemes and their impact on climate         !
     !  simulations with the Community Atmosphere Model'            !
     !                                                              !
-    !  Coded by Sungsu Park. Oct.2005.                             ! 
+    !  Coded by Sungsu Park. Oct.2005.                             !
     !                        May.2008.                             !
-    !  For questions, send an email to sungsup@ucar.edu or         ! 
+    !  For questions, send an email to sungsup@ucar.edu or         !
     !                                  sungsu@atmos.washington.edu !
     !                                                              !
     ! ------------------------------------------------------------ !
- 
-    use cam_history,     only : outfld, addfld, phys_decomp
-    use constituents,    only : qmin, cnst_get_ind, cnst_type_is_wet
-    use wv_saturation,   only : findsp_vc
-    use physconst,       only : rair, rh2o, rhoh2o
-    use iso_c_binding,   only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
-    !Water tracers:
+    use cam_history,     only : outfld, addfld, phys_decomp
+    use constituents,    only : qmin, cnst_get_type_byind, cnst_get_ind
+    use wv_saturation,   only : findsp_vc
+
+   !Water tracers:
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, &
-                                  iwspec, iwater_is_water, wtrc_qmin, wtrc_alpha_kinetic
+                                  iwspec
     use water_tracers,     only : wtrc_ratio, wtrc_get_alpha, wtrc_liqvap_equil, &
-                                  wtrc_get_rstd, wtrc_equil_time
+                                  wtrc_is_wtrc, wtrc_get_rstd, wtrc_equil_time
     use water_types,       only : iwtvap, iwtliq, iwtice
-    use water_isotopes,    only : pwtspec
 
 
     implicit none
@@ -3883,253 +3617,228 @@ end subroutine uwshcu_readnl
     integer , intent(in)    :: iend
     integer , intent(in)    :: ncnst
     real(r8), intent(in)    :: dt                             !  Time step : 2*delta_t [ s ]
-    real(r8), target, intent(in) :: ps0_in(mix,0:mkx)         !  Environmental pressure at the interfaces [ Pa ]
-    real(r8), target, intent(in) :: zs0_in(mix,0:mkx)         !  Environmental height at the interfaces [ m ]
-    real(r8), target, intent(in) :: p0_in(mix,mkx)            !  Environmental pressure at the layer mid-point [ Pa ]
-    real(r8), target, intent(in) :: z0_in(mix,mkx)            !  Environmental height at the layer mid-point [ m ]
-    real(r8), target, intent(in) :: dp0_in(mix,mkx)           !  Environmental layer pressure thickness [ Pa ] > 0.
-    real(r8), target, intent(in) :: dpdry0_in(mix,mkx)        !  Environmental dry layer pressure thickness [ Pa ]
-    real(r8), target, intent(in) :: u0_in(mix,mkx)            !  Environmental zonal wind [ m/s ]
-    real(r8), target, intent(in) :: v0_in(mix,mkx)            !  Environmental meridional wind [ m/s ]
-    real(r8), target, intent(in) :: qv0_in(mix,mkx)           !  Environmental water vapor specific humidity [ kg/kg ]
-    real(r8), target, intent(in) :: ql0_in(mix,mkx)           !  Environmental liquid water specific humidity [ kg/kg ]
-    real(r8), target, intent(in) :: qi0_in(mix,mkx)           !  Environmental ice specific humidity [ kg/kg ]
-    real(r8), target, intent(in) :: t0_in(mix,mkx)            !  Environmental temperature [ K ]
-    real(r8), target, intent(in) :: s0_in(mix,mkx)            !  Environmental dry static energy [ J/kg ]
-    real(r8), target, intent(in) :: tr0_in(mix,mkx,ncnst)     !  Environmental tracers [ #, kg/kg ]
-    real(r8), target, intent(in) :: tke_in(mix,0:mkx)         !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
-    real(r8), target, intent(in) :: cldfrct_in(mix,mkx)       !  Total cloud fraction at the previous time step [ fraction ]
-    real(r8), target, intent(in) :: concldfrct_in(mix,mkx)    !  Total convective cloud fraction
+    real(r8), intent(in)    :: ps0_in(mix,0:mkx)              !  Environmental pressure at the interfaces [ Pa ]
+    real(r8), intent(in)    :: zs0_in(mix,0:mkx)              !  Environmental height at the interfaces [ m ]
+    real(r8), intent(in)    :: p0_in(mix,mkx)                 !  Environmental pressure at the layer mid-point [ Pa ]
+    real(r8), intent(in)    :: z0_in(mix,mkx)                 !  Environmental height at the layer mid-point [ m ]
+    real(r8), intent(in)    :: dp0_in(mix,mkx)                !  Environmental layer pressure thickness [ Pa ] > 0.
+    real(r8), intent(in)    :: dpdry0_in(mix,mkx)             !  Environmental dry layer pressure thickness [ Pa ]
+    real(r8), intent(in)    :: u0_in(mix,mkx)                 !  Environmental zonal wind [ m/s ]
+    real(r8), intent(in)    :: v0_in(mix,mkx)                 !  Environmental meridional wind [ m/s ]
+    real(r8), intent(in)    :: qv0_in(mix,mkx)                !  Environmental water vapor specific humidity [ kg/kg ]
+    real(r8), intent(in)    :: ql0_in(mix,mkx)                !  Environmental liquid water specific humidity [ kg/kg ]
+    real(r8), intent(in)    :: qi0_in(mix,mkx)                !  Environmental ice specific humidity [ kg/kg ]
+    real(r8), intent(in)    :: t0_in(mix,mkx)                 !  Environmental temperature [ K ]
+    real(r8), intent(in)    :: s0_in(mix,mkx)                 !  Environmental dry static energy [ J/kg ]
+    real(r8), intent(in)    :: tr0_in(mix,mkx,ncnst)          !  Environmental tracers [ #, kg/kg ]
+    real(r8), intent(in)    :: tke_in(mix,0:mkx)              !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
+    real(r8), intent(in)    :: cldfrct_in(mix,mkx)            !  Total cloud fraction at the previous time step [ fraction ]
+    real(r8), intent(in)    :: concldfrct_in(mix,mkx)         !  Total convective cloud fraction
                                                               ! at the previous time step [ fraction ]
     real(r8), intent(in)    :: pblh_in(mix)                   !  Height of PBL [ m ]
-    real(r8), target, intent(inout) :: cush_inout(mix)        !  Convective scale height [ m ]
+    real(r8), intent(inout) :: cush_inout(mix)                !  Convective scale height [ m ]
 
-    logical , intent(in), optional :: wetbulb_precomputed
-    real(r8), target, intent(in), optional :: tw0_precomputed_in(mix,mkx)
-    real(r8), target, intent(in), optional :: qw0_precomputed_in(mix,mkx)
-    logical , intent(in), optional :: constituent_indices_precomputed
-    integer(c_int64_t), intent(in), optional :: constituent_indices_precomputed_in(4)
-    logical , intent(in), optional :: init_shell_preselected
-    integer(c_int64_t), intent(in), optional :: init_shell_flags_in(1)
-    logical , intent(in), optional :: wtrc_metadata_precomputed
-    integer(c_int64_t), intent(in), optional :: wtrc_metadata_flags_in(4)
-    integer(c_int64_t), intent(in), optional :: wtrc_iatype_precomputed_in(max(1,wtrc_nwset),3)
-    logical , intent(in), optional :: positive_moisture_metadata_precomputed
-    integer(c_int64_t), intent(in), optional :: positive_moisture_iwspec_precomputed_in(ncnst)
-    real(c_double), intent(in), optional :: positive_moisture_rstd_precomputed_in(pwtspec)
-    logical , intent(in), optional :: module_metadata_precomputed
-    real(c_double), intent(in), optional :: qmin_precomputed_in(ncnst)
-    integer(c_int64_t), intent(in), optional :: constituent_state_flags_precomputed_in(ncnst,2)
-    real(c_double), intent(in), optional :: wtrc_scalar_metadata_precomputed_in(1)
-    logical , intent(in), optional :: constant_metadata_precomputed
-    real(c_double), intent(in), optional :: constant_metadata_precomputed_in(13)
-    logical , intent(in), optional :: public_outputs_preinitialized
-    logical , intent(in), optional :: parent_prefix_precomputed
-    real(r8), target, intent(in), optional :: parent_real_workspace_in(:)
-    integer(c_int64_t), target, intent(in), optional :: parent_int_workspace_in(:)
+    real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
+    real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
 
-    real(r8), target          :: tw0_in(mix,mkx)              !  Wet bulb temperature [ K ]
-    real(r8), target          :: qw0_in(mix,mkx)              !  Wet-bulb specific humidity [ kg/kg ]
-    real(r8), pointer         :: qw0_active(:,:)              !  Active wet-bulb specific humidity workspace
-
-    real(r8), target, intent(out)   :: umf_out(mix,0:mkx)     !  Updraft mass flux at the interfaces [ kg/m2/s ]
-    real(r8), target, intent(out)   :: qvten_out(mix,mkx)     !  Tendency of water vapor specific humidity [ kg/kg/s ]
-    real(r8), target, intent(out)   :: qlten_out(mix,mkx)     !  Tendency of liquid water specific humidity [ kg/kg/s ]
-    real(r8), target, intent(out)   :: qiten_out(mix,mkx)     !  Tendency of ice specific humidity [ kg/kg/s ]
-    real(r8), target, intent(out)   :: sten_out(mix,mkx)      !  Tendency of dry static energy [ J/kg/s ]
-    real(r8), target, intent(out)   :: uten_out(mix,mkx)      !  Tendency of zonal wind [ m/s2 ]
-    real(r8), target, intent(out)   :: vten_out(mix,mkx)      !  Tendency of meridional wind [ m/s2 ]
-    real(r8), target, intent(out)   :: trten_out(mix,mkx,ncnst) !  Tendency of tracers [ #/s, kg/kg/s ]
-    real(r8), target, intent(out)   :: qrten_out(mix,mkx)     !  Tendency of rain water specific humidity [ kg/kg/s ]
-    real(r8), target, intent(out)   :: qsten_out(mix,mkx)     !  Tendency of snow specific humidity [ kg/kg/s ]
-    real(r8), target, intent(out)   :: precip_out(mix)        !  Precipitation ( rain + snow ) rate at surface [ m/s ]
-    real(r8), target, intent(out)   :: snow_out(mix)          !  Snow rate at surface [ m/s ]
-    real(r8), target, intent(out)   :: evapc_out(mix,mkx)     !  Tendency of evaporation of precipitation [ kg/kg/s ]
-    real(r8), target, intent(out)   :: slflx_out(mix,0:mkx)   !  Updraft/pen.entrainment liquid static energy flux
+    real(r8), intent(out)   :: umf_out(mix,0:mkx)             !  Updraft mass flux at the interfaces [ kg/m2/s ]
+    real(r8), intent(out)   :: qvten_out(mix,mkx)             !  Tendency of water vapor specific humidity [ kg/kg/s ]
+    real(r8), intent(out)   :: qlten_out(mix,mkx)             !  Tendency of liquid water specific humidity [ kg/kg/s ]
+    real(r8), intent(out)   :: qiten_out(mix,mkx)             !  Tendency of ice specific humidity [ kg/kg/s ]
+    real(r8), intent(out)   :: sten_out(mix,mkx)              !  Tendency of dry static energy [ J/kg/s ]
+    real(r8), intent(out)   :: uten_out(mix,mkx)              !  Tendency of zonal wind [ m/s2 ]
+    real(r8), intent(out)   :: vten_out(mix,mkx)              !  Tendency of meridional wind [ m/s2 ]
+    real(r8), intent(out)   :: trten_out(mix,mkx,ncnst)       !  Tendency of tracers [ #/s, kg/kg/s ]
+    real(r8), intent(out)   :: qrten_out(mix,mkx)             !  Tendency of rain water specific humidity [ kg/kg/s ]
+    real(r8), intent(out)   :: qsten_out(mix,mkx)             !  Tendency of snow specific humidity [ kg/kg/s ]
+    real(r8), intent(out)   :: precip_out(mix)                !  Precipitation ( rain + snow ) rate at surface [ m/s ]
+    real(r8), intent(out)   :: snow_out(mix)                  !  Snow rate at surface [ m/s ]
+    real(r8), intent(out)   :: evapc_out(mix,mkx)             !  Tendency of evaporation of precipitation [ kg/kg/s ]
+    real(r8), intent(out)   :: slflx_out(mix,0:mkx)           !  Updraft/pen.entrainment liquid static energy flux
                                                               ! [ J/kg * kg/m2/s ]
-    real(r8), target, intent(out)   :: qtflx_out(mix,0:mkx)   !  updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
-    real(r8), target, intent(out)   :: flxprc1_out(mix,0:mkx) ! precip (rain+snow) flux
-    real(r8), target, intent(out)   :: flxsnow1_out(mix,0:mkx)! snow flux
-    real(r8), target, intent(out)   :: cufrc_out(mix,mkx)     !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
-    real(r8), target, intent(out)   :: qcu_out(mix,mkx)       !  Condensate water specific humidity within cumulus updraft [ kg/kg ]
-    real(r8), target, intent(out)   :: qlu_out(mix,mkx)       !  Liquid water specific humidity within cumulus updraft [ kg/kg ]
-    real(r8), target, intent(out)   :: qiu_out(mix,mkx)       !  Ice specific humidity within cumulus updraft [ kg/kg ]
-    real(r8), target, intent(out)   :: cbmf_out(mix)          !  Cloud base mass flux [ kg/m2/s ]
-    real(r8), target, intent(out)   :: qc_out(mix,mkx)        !  Tendency of detrained cumulus condensate
+    real(r8), intent(out)   :: qtflx_out(mix,0:mkx)           !  updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
+    real(r8), intent(out)   :: flxprc1_out(mix,0:mkx)         ! precip (rain+snow) flux
+    real(r8), intent(out)   :: flxsnow1_out(mix,0:mkx)        ! snow flux
+    real(r8), intent(out)   :: cufrc_out(mix,mkx)             !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
+    real(r8), intent(out)   :: qcu_out(mix,mkx)               !  Condensate water specific humidity within cumulus updraft [ kg/kg ]
+    real(r8), intent(out)   :: qlu_out(mix,mkx)               !  Liquid water specific humidity within cumulus updraft [ kg/kg ]
+    real(r8), intent(out)   :: qiu_out(mix,mkx)               !  Ice specific humidity within cumulus updraft [ kg/kg ]
+    real(r8), intent(out)   :: cbmf_out(mix)                  !  Cloud base mass flux [ kg/m2/s ]
+    real(r8), intent(out)   :: qc_out(mix,mkx)                !  Tendency of detrained cumulus condensate
                                                               ! into the environment [ kg/kg/s ]
-    real(r8), target, intent(out)   :: rliq_out(mix)          !  Vertical integral of qc_out [ m/s ]
-    real(r8), target, intent(out)   :: cnt_out(mix)           !  Cumulus top  interface index, cnt = kpen [ no ]
-    real(r8), target, intent(out)   :: cnb_out(mix)           !  Cumulus base interface index, cnb = krel - 1 [ no ]
+    real(r8), intent(out)   :: rliq_out(mix)                  !  Vertical integral of qc_out [ m/s ]
+    real(r8), intent(out)   :: cnt_out(mix)                   !  Cumulus top  interface index, cnt = kpen [ no ]
+    real(r8), intent(out)   :: cnb_out(mix)                   !  Cumulus base interface index, cnb = krel - 1 [ no ]
 
     !Water tracers:
     !*************
-    real(r8), target, intent(out)  :: wtqc_out(mix,mkx,ncnst) ! Tendency of detrained condensate [ kg/kg/s ]
-    real(r8), target, intent(out)  :: wtprec_out(mix,ncnst)   ! Water tracer precipitation [ m/s ]
-    real(r8), target, intent(out)  :: wtsnow_out(mix,ncnst)   ! Water tracer snow [ m/s ]
+    real(r8), intent(out)  :: wtqc_out(mix,mkx,ncnst)         ! Tendency of detrained condensate [ kg/kg/s ]
+    real(r8), intent(out)  :: wtprec_out(mix,ncnst)           ! Water tracer precipitation [ m/s ]
+    real(r8), intent(out)  :: wtsnow_out(mix,ncnst)           ! Water tracer snow [ m/s ]
     !*************
 
     !
     ! Internal Output Variables
     !
 
-    real(r8), target           :: qtten_out(mix,mkx)          !  Tendency of qt [ kg/kg/s ]
-    real(r8), target           :: slten_out(mix,mkx)          !  Tendency of sl [ J/kg/s ]
-    real(r8), target           :: ufrc_out(mix,0:mkx)         !  Updraft fractional area at the interfaces [ fraction ]
-    real(r8), target           :: uflx_out(mix,0:mkx)         !  Updraft/pen.entrainment zonal momentum flux [ m/s/m2/s ]
-    real(r8), target           :: vflx_out(mix,0:mkx)         !  Updraft/pen.entrainment meridional momentum flux [ m/s/m2/s ]
-    real(r8), target           :: fer_out(mix,mkx)            !  Fractional lateral entrainment rate [ 1/Pa ]
-    real(r8), target           :: fdr_out(mix,mkx)            !  Fractional lateral detrainment rate [ 1/Pa ]
-    real(r8), target           :: cinh_out(mix)               !  Convective INhibition upto LFC (CIN) [ J/kg ]
-    real(r8), target           :: trflx_out(mix,0:mkx,ncnst)  !  Updraft/pen.entrainment tracer flux [ #/m2/s, kg/kg/m2/s ]
-   
+    real(r8)                   qtten_out(mix,mkx)             !  Tendency of qt [ kg/kg/s ]
+    real(r8)                   slten_out(mix,mkx)             !  Tendency of sl [ J/kg/s ]
+    real(r8)                   ufrc_out(mix,0:mkx)            !  Updraft fractional area at the interfaces [ fraction ]
+    real(r8)                   uflx_out(mix,0:mkx)            !  Updraft/pen.entrainment zonal momentum flux [ m/s/m2/s ]
+    real(r8)                   vflx_out(mix,0:mkx)            !  Updraft/pen.entrainment meridional momentum flux [ m/s/m2/s ]
+    real(r8)                   fer_out(mix,mkx)               !  Fractional lateral entrainment rate [ 1/Pa ]
+    real(r8)                   fdr_out(mix,mkx)               !  Fractional lateral detrainment rate [ 1/Pa ]
+    real(r8)                   cinh_out(mix)                  !  Convective INhibition upto LFC (CIN) [ J/kg ]
+    real(r8)                   trflx_out(mix,0:mkx,ncnst)     !  Updraft/pen.entrainment tracer flux [ #/m2/s, kg/kg/m2/s ]
+
     ! -------------------------------------------- !
     ! One-dimensional variables at each grid point !
     ! -------------------------------------------- !
 
     ! 1. Input variables
 
-    real(r8), target :: ps0(0:mkx)                            !  Environmental pressure at the interfaces [ Pa ]
-    real(r8), target :: zs0(0:mkx)                            !  Environmental height at the interfaces [ m ]
-    real(r8), target :: p0(mkx)                               !  Environmental pressure at the layer mid-point [ Pa ]
-    real(r8), target :: z0(mkx)                               !  Environmental height at the layer mid-point [ m ]
-    real(r8), target :: dp0(mkx)                              !  Environmental layer pressure thickness [ Pa ] > 0.
-    real(r8), target :: dpdry0(mkx)                           !  Environmental dry layer pressure thickness [ Pa ]
-    real(r8), target :: u0(mkx)                               !  Environmental zonal wind [ m/s ]
-    real(r8), target :: v0(mkx)                               !  Environmental meridional wind [ m/s ]
-    real(r8), target :: tke(0:mkx)                            !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
-    real(r8), target :: cldfrct(mkx)                          !  Total cloud fraction at the previous time step [ fraction ]
-    real(r8), target :: concldfrct(mkx)                       !  Total convective cloud fraction
+    real(r8)    ps0(0:mkx)                                    !  Environmental pressure at the interfaces [ Pa ]
+    real(r8)    zs0(0:mkx)                                    !  Environmental height at the interfaces [ m ]
+    real(r8)    p0(mkx)                                       !  Environmental pressure at the layer mid-point [ Pa ]
+    real(r8)    z0(mkx)                                       !  Environmental height at the layer mid-point [ m ]
+    real(r8)    dp0(mkx)                                      !  Environmental layer pressure thickness [ Pa ] > 0.
+    real(r8)    dpdry0(mkx)                                   !  Environmental dry layer pressure thickness [ Pa ]
+    real(r8)    u0(mkx)                                       !  Environmental zonal wind [ m/s ]
+    real(r8)    v0(mkx)                                       !  Environmental meridional wind [ m/s ]
+    real(r8)    tke(0:mkx)                                    !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
+    real(r8)    cldfrct(mkx)                                  !  Total cloud fraction at the previous time step [ fraction ]
+    real(r8)    concldfrct(mkx)                               !  Total convective cloud fraction
                                                               !  at the previous time step [ fraction ]
-    real(r8), target :: qv0(mkx)                              !  Environmental water vapor specific humidity [ kg/kg ]
-    real(r8), target :: ql0(mkx)                              !  Environmental liquid water specific humidity [ kg/kg ]
-    real(r8), target :: qi0(mkx)                              !  Environmental ice specific humidity [ kg/kg ]
-    real(r8), target :: t0(mkx)                               !  Environmental temperature [ K ]
-    real(r8), target :: s0(mkx)                               !  Environmental dry static energy [ J/kg ]
-    real(r8), target :: pblh                                  !  Height of PBL [ m ]
-    real(r8), target :: cush                                  !  Convective scale height [ m ]
-    real(r8), target :: tr0(mkx,ncnst)                        !  Environmental tracers [ #, kg/kg ]
+    real(r8)    qv0(mkx)                                      !  Environmental water vapor specific humidity [ kg/kg ]
+    real(r8)    ql0(mkx)                                      !  Environmental liquid water specific humidity [ kg/kg ]
+    real(r8)    qi0(mkx)                                      !  Environmental ice specific humidity [ kg/kg ]
+    real(r8)    t0(mkx)                                       !  Environmental temperature [ K ]
+    real(r8)    s0(mkx)                                       !  Environmental dry static energy [ J/kg ]
+    real(r8)    pblh                                          !  Height of PBL [ m ]
+    real(r8)    cush                                          !  Convective scale height [ m ]
+    real(r8)    tr0(mkx,ncnst)                                !  Environmental tracers [ #, kg/kg ]
 
     ! 2. Environmental variables directly derived from the input variables
 
-    real(r8), target :: qt0(mkx)                              !  Environmental total specific humidity [ kg/kg ]
-    real(r8), target :: thl0(mkx)                             !  Environmental liquid potential temperature [ K ]
-    real(r8), target :: thvl0(mkx)                            !  Environmental liquid virtual potential temperature [ K ]
-    real(r8), target :: ssqt0(mkx)                            !  Linear internal slope
+    real(r8)    qt0(mkx)                                      !  Environmental total specific humidity [ kg/kg ]
+    real(r8)    thl0(mkx)                                     !  Environmental liquid potential temperature [ K ]
+    real(r8)    thvl0(mkx)                                    !  Environmental liquid virtual potential temperature [ K ]
+    real(r8)    ssqt0(mkx)                                    !  Linear internal slope
                                                               !  of environmental total specific humidity [ kg/kg/Pa ]
-    real(r8), target :: ssthl0(mkx)                           !  Linear internal slope
+    real(r8)    ssthl0(mkx)                                   !  Linear internal slope
                                                               ! of environmental liquid potential temperature [ K/Pa ]
-    real(r8), target :: ssu0(mkx)                             !  Linear internal slope of environmental zonal wind [ m/s/Pa ]
-    real(r8), target :: ssv0(mkx)                             !  Linear internal slope of environmental meridional wind [ m/s/Pa ]
-    real(r8), target :: thv0bot(mkx)                          !  Environmental virtual potential temperature
+    real(r8)    ssu0(mkx)                                     !  Linear internal slope of environmental zonal wind [ m/s/Pa ]
+    real(r8)    ssv0(mkx)                                     !  Linear internal slope of environmental meridional wind [ m/s/Pa ]
+    real(r8)    thv0bot(mkx)                                  !  Environmental virtual potential temperature
                                                               ! at the bottom of each layer [ K ]
-    real(r8), target :: thv0top(mkx)                          !  Environmental virtual potential temperature
+    real(r8)    thv0top(mkx)                                  !  Environmental virtual potential temperature
                                                               ! at the top of each layer [ K ]
-    real(r8), target :: thvl0bot(mkx)                         !  Environmental liquid virtual potential temperature
+    real(r8)    thvl0bot(mkx)                                 !  Environmental liquid virtual potential temperature
                                                               ! at the bottom of each layer [ K ]
-    real(r8), target :: thvl0top(mkx)                         !  Environmental liquid virtual potential temperature
+    real(r8)    thvl0top(mkx)                                 !  Environmental liquid virtual potential temperature
                                                               ! at the top of each layer [ K ]
-    real(r8), target :: exn0(mkx)                             !  Exner function at the layer mid points [ no ]
-    real(r8), target :: exns0(0:mkx)                          !  Exner function at the interfaces [ no ]
-    real(r8), target :: sstr0(mkx,ncnst)                      !  Linear slope of environmental tracers [ #/Pa, kg/kg/Pa ]
+    real(r8)    exn0(mkx)                                     !  Exner function at the layer mid points [ no ]
+    real(r8)    exns0(0:mkx)                                  !  Exner function at the interfaces [ no ]
+    real(r8)    sstr0(mkx,ncnst)                              !  Linear slope of environmental tracers [ #/Pa, kg/kg/Pa ]
 
    ! 2-1. For preventing negative condensate at the provisional time step
 
-    real(r8), target :: qv0_star(mkx)                         !  Environmental water vapor specific humidity [ kg/kg ]
-    real(r8), target :: ql0_star(mkx)                         !  Environmental liquid water specific humidity [ kg/kg ]
-    real(r8), target :: qi0_star(mkx)                         !  Environmental ice specific humidity [ kg/kg ]
+    real(r8)    qv0_star(mkx)                                 !  Environmental water vapor specific humidity [ kg/kg ]
+    real(r8)    ql0_star(mkx)                                 !  Environmental liquid water specific humidity [ kg/kg ]
+    real(r8)    qi0_star(mkx)                                 !  Environmental ice specific humidity [ kg/kg ]
     real(r8)    t0_star(mkx)                                  !  Environmental temperature [ K ]
-    real(r8), target :: s0_star(mkx)                          !  Environmental dry static energy [ J/kg ]
+    real(r8)    s0_star(mkx)                                  !  Environmental dry static energy [ J/kg ]
 
    ! 3. Variables associated with cumulus convection
 
-    real(r8), target :: umf(0:mkx)                            !  Updraft mass flux at the interfaces [ kg/m2/s ]
-    real(r8), target :: emf(0:mkx)                            !  Penetrative entrainment mass flux at the interfaces [ kg/m2/s ]
-    real(r8), target :: qvten(mkx)                            !  Tendency of water vapor specific humidity [ kg/kg/s ]
-    real(r8), target :: qlten(mkx)                            !  Tendency of liquid water specific humidity [ kg/kg/s ]
-    real(r8), target :: qiten(mkx)                            !  Tendency of ice specific humidity [ kg/kg/s ]
-    real(r8), target :: sten(mkx)                             !  Tendency of dry static energy [ J/kg ]
-    real(r8), target :: uten(mkx)                             !  Tendency of zonal wind [ m/s2 ]
-    real(r8), target :: vten(mkx)                             !  Tendency of meridional wind [ m/s2 ]
-    real(r8), target :: qrten(mkx)                            !  Tendency of rain water specific humidity [ kg/kg/s ]
-    real(r8), target :: qsten(mkx)                            !  Tendency of snow specific humidity [ kg/kg/s ]
-    real(r8), target :: precip                                !  Precipitation rate ( rain + snow) at the surface [ m/s ]
-    real(r8), target :: snow                                  !  Snow rate at the surface [ m/s ]
-    real(r8), target :: evapc(mkx)                            !  Tendency of evaporation of precipitation [ kg/kg/s ]
-    real(r8), target :: slflx(0:mkx)                          !  Updraft/pen.entrainment liquid static energy flux
+    real(r8)    umf(0:mkx)                                    !  Updraft mass flux at the interfaces [ kg/m2/s ]
+    real(r8)    emf(0:mkx)                                    !  Penetrative entrainment mass flux at the interfaces [ kg/m2/s ]
+    real(r8)    qvten(mkx)                                    !  Tendency of water vapor specific humidity [ kg/kg/s ]
+    real(r8)    qlten(mkx)                                    !  Tendency of liquid water specific humidity [ kg/kg/s ]
+    real(r8)    qiten(mkx)                                    !  Tendency of ice specific humidity [ kg/kg/s ]
+    real(r8)    sten(mkx)                                     !  Tendency of dry static energy [ J/kg ]
+    real(r8)    uten(mkx)                                     !  Tendency of zonal wind [ m/s2 ]
+    real(r8)    vten(mkx)                                     !  Tendency of meridional wind [ m/s2 ]
+    real(r8)    qrten(mkx)                                    !  Tendency of rain water specific humidity [ kg/kg/s ]
+    real(r8)    qsten(mkx)                                    !  Tendency of snow specific humidity [ kg/kg/s ]
+    real(r8)    precip                                        !  Precipitation rate ( rain + snow) at the surface [ m/s ]
+    real(r8)    snow                                          !  Snow rate at the surface [ m/s ]
+    real(r8)    evapc(mkx)                                    !  Tendency of evaporation of precipitation [ kg/kg/s ]
+    real(r8)    slflx(0:mkx)                                  !  Updraft/pen.entrainment liquid static energy flux
                                                               ! [ J/kg * kg/m2/s ]
-    real(r8), target :: qtflx(0:mkx)                          !  Updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
-    real(r8), target :: uflx(0:mkx)                           !  Updraft/pen.entrainment flux of zonal momentum [ m/s/m2/s ]
-    real(r8), target :: vflx(0:mkx)                           !  Updraft/pen.entrainment flux of meridional momentum [ m/s/m2/s ]
-    real(r8), target :: cufrc(mkx)                            !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
-    real(r8), target :: qcu(mkx)                              !  Condensate water specific humidity
+    real(r8)    qtflx(0:mkx)                                  !  Updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
+    real(r8)    uflx(0:mkx)                                   !  Updraft/pen.entrainment flux of zonal momentum [ m/s/m2/s ]
+    real(r8)    vflx(0:mkx)                                   !  Updraft/pen.entrainment flux of meridional momentum [ m/s/m2/s ]
+    real(r8)    cufrc(mkx)                                    !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
+    real(r8)    qcu(mkx)                                      !  Condensate water specific humidity
                                                               ! within convective updraft [ kg/kg ]
-    real(r8), target :: qlu(mkx)                              !  Liquid water specific humidity within convective updraft [ kg/kg ]
-    real(r8), target :: qiu(mkx)                              !  Ice specific humidity within convective updraft [ kg/kg ]
-    real(r8), target :: dwten(mkx)                            !  Detrained water tendency from cumulus updraft [ kg/kg/s ]
-    real(r8), target :: diten(mkx)                            !  Detrained ice   tendency from cumulus updraft [ kg/kg/s ]
-    real(r8), target :: fer(mkx)                              !  Fractional lateral entrainment rate [ 1/Pa ]
-    real(r8), target :: fdr(mkx)                              !  Fractional lateral detrainment rate [ 1/Pa ]
-    real(r8), target :: uf(mkx)                               !  Zonal wind at the provisional time step [ m/s ]
-    real(r8), target :: vf(mkx)                               !  Meridional wind at the provisional time step [ m/s ]
-    real(r8), target :: qc(mkx)                               !  Tendency due to detrained 'cloud water + cloud ice'
+    real(r8)    qlu(mkx)                                      !  Liquid water specific humidity within convective updraft [ kg/kg ]
+    real(r8)    qiu(mkx)                                      !  Ice specific humidity within convective updraft [ kg/kg ]
+    real(r8)    dwten(mkx)                                    !  Detrained water tendency from cumulus updraft [ kg/kg/s ]
+    real(r8)    diten(mkx)                                    !  Detrained ice   tendency from cumulus updraft [ kg/kg/s ]
+    real(r8)    fer(mkx)                                      !  Fractional lateral entrainment rate [ 1/Pa ]
+    real(r8)    fdr(mkx)                                      !  Fractional lateral detrainment rate [ 1/Pa ]
+    real(r8)    uf(mkx)                                       !  Zonal wind at the provisional time step [ m/s ]
+    real(r8)    vf(mkx)                                       !  Meridional wind at the provisional time step [ m/s ]
+    real(r8)    qc(mkx)                                       !  Tendency due to detrained 'cloud water + cloud ice'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
-    real(r8), target :: qc_l(mkx)                             !  Tendency due to detrained 'cloud water'
+    real(r8)    qc_l(mkx)                                     !  Tendency due to detrained 'cloud water'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
-    real(r8), target :: qc_i(mkx)                             !  Tendency due to detrained 'cloud ice'
+    real(r8)    qc_i(mkx)                                     !  Tendency due to detrained 'cloud ice'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
-    real(r8), target :: qc_lm
-    real(r8), target :: qc_im
-    real(r8), target :: nc_lm
-    real(r8), target :: nc_im
-    real(r8), target :: ql_emf_kbup
-    real(r8), target :: qi_emf_kbup
-    real(r8), target :: nl_emf_kbup
-    real(r8), target :: ni_emf_kbup
+    real(r8)    qc_lm
+    real(r8)    qc_im
+    real(r8)    nc_lm
+    real(r8)    nc_im
+    real(r8)    ql_emf_kbup
+    real(r8)    qi_emf_kbup
+    real(r8)    nl_emf_kbup
+    real(r8)    ni_emf_kbup
     real(r8)    qlten_det
     real(r8)    qiten_det
-    real(r8), target :: rliq                                  !  Vertical integral of qc [ m/s ]
-    real(r8), target :: cnt                                   !  Cumulus top  interface index, cnt = kpen [ no ]
-    real(r8), target :: cnb                                   !  Cumulus base interface index, cnb = krel - 1 [ no ]
-    real(r8), target :: qtten(mkx)                            !  Tendency of qt [ kg/kg/s ]
-    real(r8), target :: slten(mkx)                            !  Tendency of sl [ J/kg/s ]
-    real(r8), target :: ufrc(0:mkx)                           !  Updraft fractional area [ fraction ]
-    real(r8), target :: trten(mkx,ncnst)                      !  Tendency of tracers [ #/s, kg/kg/s ]
-    real(r8), target :: trflx(0:mkx,ncnst)                    !  Flux of tracers due to convection [ # * kg/m2/s, kg/kg * kg/m2/s ]
-    real(r8), target :: trflx_d(0:mkx)                        !  Adjustive downward flux of tracers to prevent negative tracers
-    real(r8), target :: trflx_u(0:mkx)                        !  Adjustive upward   flux of tracers to prevent negative tracers
+    real(r8)    rliq                                          !  Vertical integral of qc [ m/s ]
+    real(r8)    cnt                                           !  Cumulus top  interface index, cnt = kpen [ no ]
+    real(r8)    cnb                                           !  Cumulus base interface index, cnb = krel - 1 [ no ]
+    real(r8)    qtten(mkx)                                    !  Tendency of qt [ kg/kg/s ]
+    real(r8)    slten(mkx)                                    !  Tendency of sl [ J/kg/s ]
+    real(r8)    ufrc(0:mkx)                                   !  Updraft fractional area [ fraction ]
+    real(r8)    trten(mkx,ncnst)                              !  Tendency of tracers [ #/s, kg/kg/s ]
+    real(r8)    trflx(0:mkx,ncnst)                            !  Flux of tracers due to convection [ # * kg/m2/s, kg/kg * kg/m2/s ]
+    real(r8)    trflx_d(0:mkx)                                !  Adjustive downward flux of tracers to prevent negative tracers
+    real(r8)    trflx_u(0:mkx)                                !  Adjustive upward   flux of tracers to prevent negative tracers
     real(r8)    trmin                                         !  Minimum concentration of tracers allowed
-    real(r8)    pdelx, dum 
-    
+    real(r8)    pdelx, dum
+
     !Water tracers:
     !*************
-    !NOTE:  These variables (and subroutine) demonstrate how one can 
+    !NOTE:  These variables (and subroutine) demonstrate how one can
     !       can create arrays that are dimensioned to the total number
     !       of water tracers/isotopes, instead of the total number
     !       of constituents, which can be a wasteful use of memory. - JN
     !NOTE:  Probably only need one detrainment variable. - JN
-    real(r8), target :: wtflx(0:mkx,wtrc_nwset)               !  Flux of total water tracer humidity due to convection [ kg/kg * kg/m2/s ]
-    real(r8), target :: wt0(mkx,wtrc_nwset)                   !  Total water tracer amount pre-convection [ kg/kg/s ]
-    real(r8), target :: sswt0(mkx,wtrc_nwset)                 !  Linear vertical slope of total water tracer amount [ kg/kg/Pa ]
-    real(r8), target :: wtdwten(mkx,wtrc_nwset)               !  Water tracer detraining liquid tendency [ kg/kg/s ]
-    real(r8), target :: wtditen(mkx,wtrc_nwset)               !  Water tracer detraining ice tendency    [ kg/kg/s ]
-    real(r8), target :: wtrpten(mkx,wtrc_nwset)               !  Water tracer rain tendency [ kg/kg/s ]
-    real(r8), target :: wtspten(mkx,wtrc_nwset)               !  Water tracer snow tendency [ kg/kg/s ]
-    real(r8), target :: wtlten_det(mkx,wtrc_nwset)            !  Water tracer non-precip liquid detrainment tendency [ kg/kg/s ]
-    real(r8), target :: wtiten_det(mkx,wtrc_nwset)            !  Water tracer non-precip frozen detrainment tendency [ kg/kg/s ]
-    real(r8), target :: wt0_star(mkx,wtrc_nwset,3)            !  Water tracer state post-tendency (used for corrections) [ kg/kg ]
-    real(r8), target :: wtqc_liq(mkx,wtrc_nwset)              !  Water tracer tendency due to liquid detrained 'cloud condensate' [ kg/kg/s ]
-    real(r8), target :: wtqc_ice(mkx,wtrc_nwset)              !  Water tracer tendency due to frozen detrained 'cloud condensate' [ kg/kg/s ]
-    real(r8), target :: wtqcm_liq(wtrc_nwset)                 !  Water tracer tendency due to liquid detrainment at midlevels [ kg/kg/s ]
-    real(r8), target :: wtqcm_ice(wtrc_nwset)                 !  Water tracer tendency due to frozen detrainment at midlevels [ kg/kg/s ]
-    real(r8), target :: wtprec(wtrc_nwset)                    !  Surface water tracer precipitation rate [ m/s ]
-    real(r8), target :: wtsnow(wtrc_nwset)                    !  Surface water tracer snow rate [ m/s ]
+    real(r8)    wtflx(0:mkx,wtrc_nwset)                       !  Flux of total water tracer humidity due to convection [ kg/kg * kg/m2/s ]
+    real(r8)    wt0(mkx,wtrc_nwset)                           !  Total water tracer amount pre-convection [ kg/kg/s ]
+    real(r8)    sswt0(mkx,wtrc_nwset)                         !  Linear vertical slope of total water tracer amount [ kg/kg/Pa ]
+    real(r8)    wtdwten(mkx,wtrc_nwset)                       !  Water tracer detraining liquid tendency [ kg/kg/s ]
+    real(r8)    wtditen(mkx,wtrc_nwset)                       !  Water tracer detraining ice tendency    [ kg/kg/s ]
+    real(r8)    wtrpten(mkx,wtrc_nwset)                       !  Water tracer rain tendency [ kg/kg/s ]
+    real(r8)    wtspten(mkx,wtrc_nwset)                       !  Water tracer snow tendency [ kg/kg/s ]
+    real(r8)    wtlten_det(mkx,wtrc_nwset)                    !  Water tracer non-precip liquid detrainment tendency [ kg/kg/s ]
+    real(r8)    wtiten_det(mkx,wtrc_nwset)                    !  Water tracer non-precip frozen detrainment tendency [ kg/kg/s ]
+    real(r8)    wt0_star(mkx,wtrc_nwset,3)                    !  Water tracer state post-tendency (used for corrections) [ kg/kg ]
+    real(r8)    wtqc_liq(mkx,wtrc_nwset)                      !  Water tracer tendency due to liquid detrained 'cloud condensate' [ kg/kg/s ]
+    real(r8)    wtqc_ice(mkx,wtrc_nwset)                      !  Water tracer tendency due to frozen detrained 'cloud condensate' [ kg/kg/s ]
+    real(r8)    wtqcm_liq(wtrc_nwset)                         !  Water tracer tendency due to liquid detrainment at midlevels [ kg/kg/s ]
+    real(r8)    wtqcm_ice(wtrc_nwset)                         !  Water tracer tendency due to frozen detrainment at midlevels [ kg/kg/s ]
+    real(r8)    wtprec(wtrc_nwset)                            !  Surface water tracer precipitation rate [ m/s ]
+    real(r8)    wtsnow(wtrc_nwset)                            !  Surface water tracer snow rate [ m/s ]
 
     !Water tracer precipitation evaporation:
     !NOTE:  wtevp and wtsub may not need to be a function of height. - JN
-    real(r8), target :: wtflxrn(0:mkx,wtrc_nwset)             !  water tracer rain flux [ kg/m2/s ]
-    real(r8), target :: wtflxsn(0:mkx,wtrc_nwset)             !  water tracer snow flux [ kg/m2/s ]
-    real(r8), target :: wtevp(mkx,wtrc_nwset)                 !  water tracer rain evaporation [ kg/kg/s ]
-    real(r8), target :: wtsub(mkx,wtrc_nwset)                 !  water tracer snow sublimation [ kg/kg/s ]
+    real(r8)    wtflxrn(0:mkx,wtrc_nwset)                     !  water tracer rain flux [ kg/m2/s ]
+    real(r8)    wtflxsn(0:mkx,wtrc_nwset)                     !  water tracer snow flux [ kg/m2/s ]
+    real(r8)    wtevp(mkx,wtrc_nwset)                         !  water tracer rain evaporation [ kg/kg/s ]
+    real(r8)    wtsub(mkx,wtrc_nwset)                         !  water tracer snow sublimation [ kg/kg/s ]
     real(r8)    difrm(4)                                      !  Isotopic diffusivity ratios [ unitless ]
     real(r8)    dkfac                                         !  kinetic fractionation exponent
     real(r8)    phi                                           !  phi value from Bony et. al., 2008
@@ -4151,24 +3860,24 @@ end subroutine uwshcu_readnl
     real(r8)    bet                                           !  Stewart, 1975 parameter [ unitless ]
     real(r8)    fr                                            !  Fraction of rain remaining [ unitless ].
     real(r8)    rain_radius                                   !  raindrop radius [m]
-    real(r8)    fequil                                        !  fraction of rain that has experience equilibration 
-    real(r8), target :: dz(0:mkx)                             !  layer thickness [m]
-    integer     ispec                                         !  water isotope species 
+    real(r8)    fequil                                        !  fraction of rain that has experience equilibration
+    real(r8)    dz(0:mkx)                                     !  layer thickness [m]
+    integer     ispec                                         !  water isotope species
     !************
 
     !----- Variables used for the calculation of condensation sink associated with compensating subsidence
     !      In the current code, this 'sink' tendency is simply set to be zero.
 
-    real(r8), target :: uemf(0:mkx)                           !  Net updraft mass flux at the interface ( emf + umf ) [ kg/m2/s ]
-    real(r8), target :: comsub(mkx)                           !  Compensating subsidence
+    real(r8)    uemf(0:mkx)                                   !  Net updraft mass flux at the interface ( emf + umf ) [ kg/m2/s ]
+    real(r8)    comsub(mkx)                                   !  Compensating subsidence
                                                               ! at the layer mid-point ( unit of mass flux, umf ) [ kg/m2/s ]
-    real(r8), target :: qlten_sink(mkx)                       !  Liquid condensate tendency
+    real(r8)    qlten_sink(mkx)                               !  Liquid condensate tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
-    real(r8), target :: qiten_sink(mkx)                       !  Ice    condensate tendency
+    real(r8)    qiten_sink(mkx)                               !  Ice    condensate tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
-    real(r8), target :: nlten_sink(mkx)                       !  Liquid droplets # tendency
+    real(r8)    nlten_sink(mkx)                               !  Liquid droplets # tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
-    real(r8), target :: niten_sink(mkx)                       !  Ice    droplets # tendency
+    real(r8)    niten_sink(mkx)                               !  Ice    droplets # tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
     real(r8)    thlten_sub, qtten_sub                         !  Tendency of conservative scalars
                                                               ! by compensating subsidence/upwelling
@@ -4176,75 +3885,70 @@ end subroutine uwshcu_readnl
                                                               ! by compensating subsidence/upwelling
     real(r8)    nlten_sub, niten_sub                          !  Tendency of nl0, ni0
                                                               ! by compensating subsidence/upwelling
-    real(r8), target :: thlten_sub_tmp(mkx), qtten_sub_tmp(mkx)
-    real(r8), target :: qlten_sub_tmp(mkx), qiten_sub_tmp(mkx)
-    real(r8), target :: nlten_sub_tmp(mkx), niten_sub_tmp(mkx)
     real(r8)    thl_prog, qt_prog                             !  Prognosed 'thl, qt'
-                                                              ! by compensating subsidence/upwelling 
+                                                              ! by compensating subsidence/upwelling
 
    !Water tracers:
    !*************
-    real(r8), target :: wttotten(mkx,wtrc_nwset)              ! Total water tracer tendency
-    real(r8), target :: wtten_sink_liq(mkx,wtrc_nwset)        ! Tendency of water tracer liquid due to subsidence or upwelling [ kg/kg/s ]
-    real(r8), target :: wtten_sink_ice(mkx,wtrc_nwset)        ! Tendency of water trace ice due to subsidenc or upwelling [ kg/kg/s ]
+    real(r8)    wttotten(mkx,wtrc_nwset)                      ! Total water tracer tendency
+    real(r8)    wtten_sink_liq(mkx,wtrc_nwset)                ! Tendency of water tracer liquid due to subsidence or upwelling [ kg/kg/s ]
+    real(r8)    wtten_sink_ice(mkx,wtrc_nwset)                ! Tendency of water trace ice due to subsidenc or upwelling [ kg/kg/s ]
     real(r8)    wtlten_sub(wtrc_nwset)                        ! Tendency of water tracer cloud liquid by sub/up.
     real(r8)    wtiten_sub(wtrc_nwset)                        ! Tendency of water tracer cloud ice by sub/up.
-    real(r8), target :: wtlten_sub_tmp(mkx,wtrc_nwset)
-    real(r8), target :: wtiten_sub_tmp(mkx,wtrc_nwset)
    !*************
 
     !----- Variables describing cumulus updraft
 
-    real(r8), target :: wu(0:mkx)                             !  Updraft vertical velocity at the interface [ m/s ]
-    real(r8), target :: thlu(0:mkx)                           !  Updraft liquid potential temperature at the interface [ K ]
-    real(r8), target :: qtu(0:mkx)                            !  Updraft total specific humidity at the interface [ kg/kg ]
-    real(r8), target :: uu(0:mkx)                             !  Updraft zonal wind at the interface [ m/s ]
-    real(r8), target :: vu(0:mkx)                             !  Updraft meridional wind at the interface [ m/s ]
-    real(r8), target :: thvu(0:mkx)                           !  Updraft virtual potential temperature at the interface [ m/s ]
-    real(r8), target :: rei(mkx)                              !  Updraft fractional mixing rate with the environment [ 1/Pa ]
-    real(r8), target :: tru(0:mkx,ncnst)                      !  Updraft tracers [ #, kg/kg ]
+    real(r8)    wu(0:mkx)                                     !  Updraft vertical velocity at the interface [ m/s ]
+    real(r8)    thlu(0:mkx)                                   !  Updraft liquid potential temperature at the interface [ K ]
+    real(r8)    qtu(0:mkx)                                    !  Updraft total specific humidity at the interface [ kg/kg ]
+    real(r8)    uu(0:mkx)                                     !  Updraft zonal wind at the interface [ m/s ]
+    real(r8)    vu(0:mkx)                                     !  Updraft meridional wind at the interface [ m/s ]
+    real(r8)    thvu(0:mkx)                                   !  Updraft virtual potential temperature at the interface [ m/s ]
+    real(r8)    rei(mkx)                                      !  Updraft fractional mixing rate with the environment [ 1/Pa ]
+    real(r8)    tru(0:mkx,ncnst)                              !  Updraft tracers [ #, kg/kg ]
 
-    !----- Variables describing conservative scalars of entraining downdrafts  at the 
+    !----- Variables describing conservative scalars of entraining downdrafts  at the
     !      entraining interfaces, i.e., 'kbup <= k < kpen-1'. At the other interfaces,
     !      belows are simply set to equal to those of updraft for simplicity - but it
     !      does not influence numerical calculation.
 
-    real(r8), target :: thlu_emf(0:mkx)                       !  Penetrative downdraft liquid potential temperature
+    real(r8)    thlu_emf(0:mkx)                               !  Penetrative downdraft liquid potential temperature
                                                               ! at entraining interfaces [ K ]
-    real(r8), target :: qtu_emf(0:mkx)                        !  Penetrative downdraft total water
+    real(r8)    qtu_emf(0:mkx)                                !  Penetrative downdraft total water
                                                               ! at entraining interfaces [ kg/kg ]
-    real(r8), target :: uu_emf(0:mkx)                         !  Penetrative downdraft zonal wind
+    real(r8)    uu_emf(0:mkx)                                 !  Penetrative downdraft zonal wind
                                                               ! at entraining interfaces [ m/s ]
-    real(r8), target :: vu_emf(0:mkx)                         !  Penetrative downdraft meridional wind
+    real(r8)    vu_emf(0:mkx)                                 !  Penetrative downdraft meridional wind
                                                               ! at entraining interfaces [ m/s ]
-    real(r8), target :: tru_emf(0:mkx,ncnst)                  !  Penetrative Downdraft tracers
-                                                              ! at entraining interfaces [ #, kg/kg ]    
+    real(r8)    tru_emf(0:mkx,ncnst)                          !  Penetrative Downdraft tracers
+                                                              ! at entraining interfaces [ #, kg/kg ]
 
    !water tracers:
    !*************
-    real(r8), target :: wtu(0:mkx,wtrc_nwset)                 ! Total water tracer humidity in updraft  [ kg/kg ]
-    real(r8), target :: wtu_emf(0:mkx,wtrc_nwset)             ! Total water tracer humidity at entrainment interfaces [ kg/kg ]
+    real(r8)   wtu(0:mkx,wtrc_nwset)                          ! Total water tracer humidity in updraft  [ kg/kg ]
+    real(r8)   wtu_emf(0:mkx,wtrc_nwset)                      ! Total water tracer humidity at entrainment interfaces [ kg/kg ]
    !************
 
     !----- Variables associated with evaporations of convective 'rain' and 'snow'
 
-    real(r8), target :: flxrain(0:mkx)                        !  Downward rain flux at each interface [ kg/m2/s ]
-    real(r8), target :: flxsnow(0:mkx)                        !  Downward snow flux at each interface [ kg/m2/s ]
-    real(r8), target :: ntraprd(mkx)                          !  Net production ( production - evaporation +  melting )
+    real(r8)    flxrain(0:mkx)                                !  Downward rain flux at each interface [ kg/m2/s ]
+    real(r8)    flxsnow(0:mkx)                                !  Downward snow flux at each interface [ kg/m2/s ]
+    real(r8)    ntraprd(mkx)                                  !  Net production ( production - evaporation +  melting )
                                                               ! rate of rain in each layer [ kg/kg/s ]
-    real(r8), target :: ntsnprd(mkx)                          !  Net production ( production - evaporation + freezing )
+    real(r8)    ntsnprd(mkx)                                  !  Net production ( production - evaporation + freezing )
                                                               ! rate of snow in each layer [ kg/kg/s ]
     real(r8)    flxsntm                                       !  Downward snow flux
                                                               ! at the top of each layer after melting [ kg/m2/s ]
-    real(r8), target :: snowmlt                               !  Snow melting tendency [ kg/kg/s ]
+    real(r8)    snowmlt                                       !  Snow melting tendency [ kg/kg/s ]
     real(r8)    subsat                                        !  Sub-saturation ratio (1-qv/qs) [ no unit ]
-    real(r8), target :: evprain                               !  Evaporation rate of rain [ kg/kg/s ]
-    real(r8), target :: evpsnow                               !  Evaporation rate of snow [ kg/kg/s ]
+    real(r8)    evprain                                       !  Evaporation rate of rain [ kg/kg/s ]
+    real(r8)    evpsnow                                       !  Evaporation rate of snow [ kg/kg/s ]
     real(r8)    evplimit                                      !  Limiter of 'evprain + evpsnow' [ kg/kg/s ]
     real(r8)    evplimit_rain                                 !  Limiter of 'evprain' [ kg/kg/s ]
     real(r8)    evplimit_snow                                 !  Limiter of 'evpsnow' [ kg/kg/s ]
-    real(r8), target :: evpint_rain                           !  Vertically-integrated evaporative flux of rain [ kg/m2/s ]
-    real(r8), target :: evpint_snow                           !  Vertically-integrated evaporative flux of snow [ kg/m2/s ]
+    real(r8)    evpint_rain                                   !  Vertically-integrated evaporative flux of rain [ kg/m2/s ]
+    real(r8)    evpint_snow                                   !  Vertically-integrated evaporative flux of snow [ kg/m2/s ]
     real(r8)    kevp                                          !  Evaporative efficiency [ complex unit ]
 
     !----- Other internal variables
@@ -4260,165 +3964,125 @@ end subroutine uwshcu_readnl
     integer     kbup                                          !  Top layer in which cloud buoyancy is positive at the top interface
     integer     kpen                                          !  Highest layer with positive updraft vertical velocity
                                                               ! - top layer cumulus can reach
-    logical     use_precomputed_constituent_indices
-    logical     use_preselected_init_shell
-    logical     use_precomputed_wtrc_metadata
-    logical     use_precomputed_positive_moisture_metadata
-    logical     use_precomputed_module_metadata
-    logical     use_precomputed_constant_metadata
-    logical     use_precomputed_wetbulb
-    logical     use_preinitialized_public_outputs
-    logical     use_precomputed_parent_prefix
-    logical     wisotope_active
-    logical     wtrc_alpha_kinetic_active
-    logical     id_exit   
+    logical     id_exit
     logical     forcedCu                                      !  If 'true', cumulus updraft cannot overcome the buoyancy barrier
                                                               ! just above the PBL top.
-    real(r8), target :: thlsrc, qtsrc, usrc, vsrc, thvlsrc    !  Updraft source air properties
+    real(r8)    thlsrc, qtsrc, usrc, vsrc, thvlsrc            !  Updraft source air properties
     real(r8)    PGFc, uplus, vplus
-    real(r8), target :: trsrc(ncnst)
-    real(r8), target :: tre(ncnst)
-    real(r8), target :: plcl, plfc, prel
-    real(r8), target :: wrel
+    real(r8)    trsrc(ncnst), tre(ncnst)
+    real(r8)    plcl, plfc, prel, wrel
     real(r8)    frc_rasn
-    real(r8), target :: wtw
-    real(r8)    ee2, ud2, wtwh
-    real(r8), target :: wtwb
+    real(r8)    ee2, ud2, wtw, wtwb, wtwh
     real(r8)    xc, xc_2
-    real(r8), target :: tscaleh
-    real(r8), target :: scaleh
-    real(r8)    cldhgt, cridis, rle, rkm
-    real(r8), target :: tkeavg, thvlmin
-    real(r8)    rkfre, epsvarw, dpsum, dpi
-    real(r8), target :: sigmaw
-    real(r8)    thlxsat, qtxsat, x_cu, x_en, thv_x0, thv_x1
-    real(r8), target :: thvxsat
-    real(r8), target :: rhos0j
-    real(r8), target :: thj, qvj, qlj, qij, qse
-    real(r8), target :: thvj, tj, thv0j, rho0j
-    real(r8), target :: cin, cinlcl
-    real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
-    real(r8), target :: exne
-    real(r8)    wue
-    real(r8), target :: thlue, qtue
-    real(r8), target :: mu, mumin0, mumin2, mulcl, mulclstar
-    real(r8)    mumin1
-    real(r8), target :: cbmf, wlcl, ufrclcl
-    real(r8), target :: winv, ufrcinv
-    real(r8)    wcrit, rmaxfrac
-    real(r8)    criqc, exql, exqi
-    real(r8), target :: ppen
-    real(r8)    thl0top, thl0bot, qt0bot, qt0top
-    real(r8), target :: thvubot, thvutop
-    real(r8), target :: thlu_top, qtu_top
-    real(r8), target :: qlu_top, qiu_top, qlu_mid, qiu_mid
-    real(r8), target :: exntop
-    real(r8), target :: thl0lcl, qt0lcl
-    real(r8), target :: thv0lcl
-    real(r8), target :: thv0rel
-    real(r8), target :: rho0inv
-    real(r8)    autodet, self_detrain_expfac
-    real(r8), target :: aquad, bquad, cquad, xc1, xc2, xsat, xs1, xs2
-    real(r8), target :: excessu, excess0
-    real(r8), target :: bogbot, bogtop, delbog
-    real(r8)    drage, expfac, top_expfac, rbuoy, rdrag
-    real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
-    real(r8), target :: cloud_diag_qlj0, cloud_diag_qij0
-    real(r8), target :: cloud_diag_qlj(mkx), cloud_diag_qij(mkx)
-    real(r8), target :: rainflx, snowflx
-    real(r8), target :: es
-    real(r8), target :: qs
-    real(r8), target :: qsat_arg
+    real(r8)    cldhgt, scaleh, tscaleh, cridis, rle, rkm
+    real(r8)    rkfre, sigmaw, epsvarw, tkeavg, dpsum, dpi, thvlmin
+    real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
+    real(r8)    thj, qvj, qlj, qij, thvj, tj, thv0j, rho0j, rhos0j, qse
+    real(r8)    cin, cinlcl
+    real(r8)    pe, dpe, exne, thvebot, thle, qte, ue, ve, thlue, qtue, wue
+    real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
+    real(r8)    cbmf, wcrit, winv, wlcl, ufrcinv, ufrclcl, rmaxfrac
+    real(r8)    criqc, exql, exqi, ppen
+    real(r8)    thl0top, thl0bot, qt0bot, qt0top, thvubot, thvutop
+    real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
+    real(r8)    thl0lcl, qt0lcl, thv0lcl, thv0rel, rho0inv, autodet
+    real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
+    real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
+    real(r8)    rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
+    real(r8)    rainflx, snowflx
+    real(r8)    es
+    real(r8)    qs
+    real(r8)    qsat_arg
     real(r8)    xsrc, xmean, xtop, xbot, xflx(0:mkx)
     real(r8)    tmp1, tmp2
 
    !Water tracers:
-    real(r8), target :: wte(wtrc_nwset)     ! Total water tracer humidity at release level [ kg/kg ]
-    real(r8), target :: wtsrc(wtrc_nwset)   ! Total water tracer humidity at surface [ kg/kg ]
-    real(r8), target :: wtout(wtrc_nwset,3) ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
-    real(r8), target :: wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
+    real(r8)   wte(wtrc_nwset)              ! Total water tracer humidity at release level [ kg/kg ]
+    real(r8)   wtsrc(wtrc_nwset)            ! Total water tracer humidity at surface [ kg/kg ]
+    real(r8)   wtout(wtrc_nwset,3)          ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
+    real(r8)   wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
     real(r8)   wtexql(wtrc_nwset)           ! Expelled (detrained) water tracer liquid (not completely necessary)
     real(r8)   wtexqi(wtrc_nwset)           ! Expelled (detrained) water tracer ice    (not completely necessary)
-    real(r8), target :: wtu_top(wtrc_nwset) ! Tracer updraft flux at top of cloud (not sure if needed at all).
-    real(r8), target :: wlu_top(wtrc_nwset) ! Tracer liquid flux in updraft at top of cloud (?)
-    real(r8), target :: wiu_top(wtrc_nwset) ! Tracer ice flux in updraft at top of cloud (?)
+    real(r8)   wtu_top(wtrc_nwset)          ! Tracer updraft flux at top of cloud (not sure if needed at all).
+    real(r8)   wlu_top(wtrc_nwset)          ! Tracer liquid flux in updraft at top of cloud (?)
+    real(r8)   wiu_top(wtrc_nwset)          ! Tracer ice flux in updraft at top of cloud (?)
     real(r8)   wtu_mid(wtrc_nwset)          ! midlevel condensate (?)
-    real(r8), target :: wlu_mid(wtrc_nwset) ! midlevel cloud liquid (?)
-    real(r8), target :: wiu_mid(wtrc_nwset) ! midlevel cloud ice (?)
+    real(r8)   wlu_mid(wtrc_nwset)          ! midlevel cloud liquid (?)
+    real(r8)   wiu_mid(wtrc_nwset)          ! midlevel cloud ice (?)
     real(r8)   wtubelow(wtrc_nwset)         ! condensate below cloud level (?)
-    real(r8), target :: wlubelow(wtrc_nwset) ! cloud liquid below updraft (?)
-    real(r8), target :: wiubelow(wtrc_nwset) ! cloud ice below updraft (?)
+    real(r8)   wlubelow(wtrc_nwset)         ! cloud liquid below updraft (?)
+    real(r8)   wiubelow(wtrc_nwset)         ! cloud ice below updraft (?)
     real(r8)   Rldt                         ! Ratio of water tracer cloud liquid for detrainment
     real(r8)   Ridt                         ! Ratio of water tracer cloud ice for detrainment
     real(r8)   wttot0                       ! Total water tracer initial values
 
     !----- Some diagnostic internal output variables
 
-    real(r8), target :: ufrcinvbase_out(mix)                  !  Cumulus updraft fraction at the PBL top [ fraction ]
-    real(r8), target :: ufrclcl_out(mix)                      !  Cumulus updraft fraction at the LCL
+    real(r8)  ufrcinvbase_out(mix)                            !  Cumulus updraft fraction at the PBL top [ fraction ]
+    real(r8)  ufrclcl_out(mix)                                !  Cumulus updraft fraction at the LCL
                                                               ! ( or PBL top when LCL is below PBL top ) [ fraction ]
-    real(r8), target :: winvbase_out(mix)                     !  Cumulus updraft velocity at the PBL top [ m/s ]
-    real(r8), target :: wlcl_out(mix)                         !  Cumulus updraft velocity at the LCL
+    real(r8)  winvbase_out(mix)                               !  Cumulus updraft velocity at the PBL top [ m/s ]
+    real(r8)  wlcl_out(mix)                                   !  Cumulus updraft velocity at the LCL
                                                               ! ( or PBL top when LCL is below PBL top ) [ m/s ]
-    real(r8), target :: plcl_out(mix)                         !  LCL of source air [ Pa ]
-    real(r8), target :: pinv_out(mix)                         !  PBL top pressure [ Pa ]
-    real(r8), target :: plfc_out(mix)                         !  LFC of source air [ Pa ]
-    real(r8), target :: pbup_out(mix)                         !  Highest interface level of positive buoyancy [ Pa ]
-    real(r8), target :: ppen_out(mix)                         !  Highest interface evel where Cu w = 0 [ Pa ]
-    real(r8), target :: qtsrc_out(mix)                        !  Sourse air qt [ kg/kg ]
-    real(r8), target :: thlsrc_out(mix)                       !  Sourse air thl [ K ]
-    real(r8), target :: thvlsrc_out(mix)                      !  Sourse air thvl [ K ]
-    real(r8), target :: emfkbup_out(mix)                      !  Penetrative downward mass flux at 'kbup' interface [ kg/m2/s ]
-    real(r8), target :: cinlclh_out(mix)                      !  Convective INhibition upto LCL (CIN) [ J/kg = m2/s2 ]
-    real(r8), target :: tkeavg_out(mix)                       !  Average tke over the PBL [ m2/s2 ]
-    real(r8), target :: cbmflimit_out(mix)                    !  Cloud base mass flux limiter [ kg/m2/s ]
-    real(r8), target :: zinv_out(mix)                         !  PBL top height [ m ]
-    real(r8), target :: rcwp_out(mix)                         !  Layer mean Cumulus LWP+IWP [ kg/m2 ]
-    real(r8), target :: rlwp_out(mix)                         !  Layer mean Cumulus LWP [ kg/m2 ]
-    real(r8), target :: riwp_out(mix)                         !  Layer mean Cumulus IWP [ kg/m2 ]
-    real(r8), target :: wu_out(mix,0:mkx)                     !  Updraft vertical velocity
+    real(r8)  plcl_out(mix)                                   !  LCL of source air [ Pa ]
+    real(r8)  pinv_out(mix)                                   !  PBL top pressure [ Pa ]
+    real(r8)  plfc_out(mix)                                   !  LFC of source air [ Pa ]
+    real(r8)  pbup_out(mix)                                   !  Highest interface level of positive buoyancy [ Pa ]
+    real(r8)  ppen_out(mix)                                   !  Highest interface evel where Cu w = 0 [ Pa ]
+    real(r8)  qtsrc_out(mix)                                  !  Sourse air qt [ kg/kg ]
+    real(r8)  thlsrc_out(mix)                                 !  Sourse air thl [ K ]
+    real(r8)  thvlsrc_out(mix)                                !  Sourse air thvl [ K ]
+    real(r8)  emfkbup_out(mix)                                !  Penetrative downward mass flux at 'kbup' interface [ kg/m2/s ]
+    real(r8)  cinlclh_out(mix)                                !  Convective INhibition upto LCL (CIN) [ J/kg = m2/s2 ]
+    real(r8)  tkeavg_out(mix)                                 !  Average tke over the PBL [ m2/s2 ]
+    real(r8)  cbmflimit_out(mix)                              !  Cloud base mass flux limiter [ kg/m2/s ]
+    real(r8)  zinv_out(mix)                                   !  PBL top height [ m ]
+    real(r8)  rcwp_out(mix)                                   !  Layer mean Cumulus LWP+IWP [ kg/m2 ]
+    real(r8)  rlwp_out(mix)                                   !  Layer mean Cumulus LWP [ kg/m2 ]
+    real(r8)  riwp_out(mix)                                   !  Layer mean Cumulus IWP [ kg/m2 ]
+    real(r8)  wu_out(mix,0:mkx)                               !  Updraft vertical velocity
                                                               ! ( defined from the release level to 'kpen-1' interface )
-    real(r8), target :: qtu_out(mix,0:mkx)                    !  Updraft qt [ kg/kg ]
-    real(r8), target :: thlu_out(mix,0:mkx)                   !  Updraft thl [ K ]
-    real(r8), target :: thvu_out(mix,0:mkx)                   !  Updraft thv [ K ]
-    real(r8), target :: uu_out(mix,0:mkx)                     !  Updraft zonal wind [ m/s ]
-    real(r8), target :: vu_out(mix,0:mkx)                     !  Updraft meridional wind [ m/s ]
-    real(r8), target :: qtu_emf_out(mix,0:mkx)                !  Penetratively entrained qt [ kg/kg ]
-    real(r8), target :: thlu_emf_out(mix,0:mkx)               !  Penetratively entrained thl [ K ]
-    real(r8), target :: uu_emf_out(mix,0:mkx)                 !  Penetratively entrained u [ m/s ]
-    real(r8), target :: vu_emf_out(mix,0:mkx)                 !  Penetratively entrained v [ m/s ]
-    real(r8), target :: uemf_out(mix,0:mkx)                   !  Net upward mass flux
+    real(r8)  qtu_out(mix,0:mkx)                              !  Updraft qt [ kg/kg ]
+    real(r8)  thlu_out(mix,0:mkx)                             !  Updraft thl [ K ]
+    real(r8)  thvu_out(mix,0:mkx)                             !  Updraft thv [ K ]
+    real(r8)  uu_out(mix,0:mkx)                               !  Updraft zonal wind [ m/s ]
+    real(r8)  vu_out(mix,0:mkx)                               !  Updraft meridional wind [ m/s ]
+    real(r8)  qtu_emf_out(mix,0:mkx)                          !  Penetratively entrained qt [ kg/kg ]
+    real(r8)  thlu_emf_out(mix,0:mkx)                         !  Penetratively entrained thl [ K ]
+    real(r8)  uu_emf_out(mix,0:mkx)                           !  Penetratively entrained u [ m/s ]
+    real(r8)  vu_emf_out(mix,0:mkx)                           !  Penetratively entrained v [ m/s ]
+    real(r8)  uemf_out(mix,0:mkx)                             !  Net upward mass flux
                                                               ! including penetrative entrainment (umf+emf) [ kg/m2/s ]
-    real(r8), target :: tru_out(mix,0:mkx,ncnst)              !  Updraft tracers [ #, kg/kg ]
-    real(r8), target :: tru_emf_out(mix,0:mkx,ncnst)          !  Penetratively entrained tracers [ #, kg/kg ]
+    real(r8)  tru_out(mix,0:mkx,ncnst)                        !  Updraft tracers [ #, kg/kg ]
+    real(r8)  tru_emf_out(mix,0:mkx,ncnst)                    !  Penetratively entrained tracers [ #, kg/kg ]
 
-    real(r8), target :: wu_s(0:mkx)                           !  Same as above but for implicit CIN
-    real(r8), target :: qtu_s(0:mkx)
-    real(r8), target :: thlu_s(0:mkx)
-    real(r8), target :: thvu_s(0:mkx)
-    real(r8), target :: uu_s(0:mkx)
-    real(r8), target :: vu_s(0:mkx)
-    real(r8), target :: qtu_emf_s(0:mkx)
-    real(r8), target :: thlu_emf_s(0:mkx)
-    real(r8), target :: uu_emf_s(0:mkx)
-    real(r8), target :: vu_emf_s(0:mkx)
-    real(r8), target :: uemf_s(0:mkx)
-    real(r8), target :: tru_s(0:mkx,ncnst)
-    real(r8), target :: tru_emf_s(0:mkx,ncnst)
+    real(r8)  wu_s(0:mkx)                                     !  Same as above but for implicit CIN
+    real(r8)  qtu_s(0:mkx)
+    real(r8)  thlu_s(0:mkx)
+    real(r8)  thvu_s(0:mkx)
+    real(r8)  uu_s(0:mkx)
+    real(r8)  vu_s(0:mkx)
+    real(r8)  qtu_emf_s(0:mkx)
+    real(r8)  thlu_emf_s(0:mkx)
+    real(r8)  uu_emf_s(0:mkx)
+    real(r8)  vu_emf_s(0:mkx)
+    real(r8)  uemf_s(0:mkx)
+    real(r8)  tru_s(0:mkx,ncnst)
+    real(r8)  tru_emf_s(0:mkx,ncnst)
 
-    real(r8), target :: dwten_out(mix,mkx)
-    real(r8), target :: diten_out(mix,mkx)
-    real(r8), target :: flxrain_out(mix,0:mkx)
-    real(r8), target :: flxsnow_out(mix,0:mkx)
-    real(r8), target :: ntraprd_out(mix,mkx)
-    real(r8), target :: ntsnprd_out(mix,mkx)
+    real(r8)  dwten_out(mix,mkx)
+    real(r8)  diten_out(mix,mkx)
+    real(r8)  flxrain_out(mix,0:mkx)
+    real(r8)  flxsnow_out(mix,0:mkx)
+    real(r8)  ntraprd_out(mix,mkx)
+    real(r8)  ntsnprd_out(mix,mkx)
 
-    real(r8), target :: dwten_s(mkx)
-    real(r8), target :: diten_s(mkx)
-    real(r8), target :: flxrain_s(0:mkx)
-    real(r8), target :: flxsnow_s(0:mkx)
-    real(r8), target :: ntraprd_s(mkx)
-    real(r8), target :: ntsnprd_s(mkx)
+    real(r8)  dwten_s(mkx)
+    real(r8)  diten_s(mkx)
+    real(r8)  flxrain_s(0:mkx)
+    real(r8)  flxsnow_s(0:mkx)
+    real(r8)  ntraprd_s(mkx)
+    real(r8)  ntsnprd_s(mkx)
 
     !Water tracers:
     !*************
@@ -4426,2517 +4090,101 @@ end subroutine uwshcu_readnl
     real(r8) wtflxsn_s(0:mkx,wtrc_nwset)
     !*************
 
-    real(r8), target :: excessu_arr_out(mix,mkx)
-    real(r8), target :: excessu_arr(mkx)
-    real(r8), target :: excessu_arr_s(mkx)
-    real(r8), target :: excess0_arr_out(mix,mkx)
-    real(r8), target :: excess0_arr(mkx)
-    real(r8), target :: excess0_arr_s(mkx)
-    real(r8), target :: xc_arr_out(mix,mkx)
-    real(r8), target :: xc_arr(mkx)
-    real(r8), target :: xc_arr_s(mkx)
-    real(r8), target :: aquad_arr_out(mix,mkx)
-    real(r8), target :: aquad_arr(mkx)
-    real(r8), target :: aquad_arr_s(mkx)
-    real(r8), target :: bquad_arr_out(mix,mkx)
-    real(r8), target :: bquad_arr(mkx)
-    real(r8), target :: bquad_arr_s(mkx)
-    real(r8), target :: cquad_arr_out(mix,mkx)
-    real(r8), target :: cquad_arr(mkx)
-    real(r8), target :: cquad_arr_s(mkx)
-    real(r8), target :: bogbot_arr_out(mix,mkx)
-    real(r8), target :: bogbot_arr(mkx)
-    real(r8), target :: bogbot_arr_s(mkx)
-    real(r8), target :: bogtop_arr_out(mix,mkx)
-    real(r8), target :: bogtop_arr(mkx)
-    real(r8), target :: bogtop_arr_s(mkx)
+    real(r8)  excessu_arr_out(mix,mkx)
+    real(r8)  excessu_arr(mkx)
+    real(r8)  excessu_arr_s(mkx)
+    real(r8)  excess0_arr_out(mix,mkx)
+    real(r8)  excess0_arr(mkx)
+    real(r8)  excess0_arr_s(mkx)
+    real(r8)  xc_arr_out(mix,mkx)
+    real(r8)  xc_arr(mkx)
+    real(r8)  xc_arr_s(mkx)
+    real(r8)  aquad_arr_out(mix,mkx)
+    real(r8)  aquad_arr(mkx)
+    real(r8)  aquad_arr_s(mkx)
+    real(r8)  bquad_arr_out(mix,mkx)
+    real(r8)  bquad_arr(mkx)
+    real(r8)  bquad_arr_s(mkx)
+    real(r8)  cquad_arr_out(mix,mkx)
+    real(r8)  cquad_arr(mkx)
+    real(r8)  cquad_arr_s(mkx)
+    real(r8)  bogbot_arr_out(mix,mkx)
+    real(r8)  bogbot_arr(mkx)
+    real(r8)  bogbot_arr_s(mkx)
+    real(r8)  bogtop_arr_out(mix,mkx)
+    real(r8)  bogtop_arr(mkx)
+    real(r8)  bogtop_arr_s(mkx)
 
-    real(r8), target :: exit_UWCu(mix)
-    real(r8), target :: exit_conden(mix)
-    real(r8), target :: exit_klclmkx(mix)
-    real(r8), target :: exit_klfcmkx(mix)
-    real(r8), target :: exit_ufrc(mix)
-    real(r8), target :: exit_wtw(mix)
-    real(r8), target :: exit_drycore(mix)
-    real(r8), target :: exit_wu(mix)
-    real(r8), target :: exit_cufilter(mix)
-    real(r8), target :: exit_kinv1(mix)
-    real(r8), target :: exit_rei(mix)
+    real(r8)  exit_UWCu(mix)
+    real(r8)  exit_conden(mix)
+    real(r8)  exit_klclmkx(mix)
+    real(r8)  exit_klfcmkx(mix)
+    real(r8)  exit_ufrc(mix)
+    real(r8)  exit_wtw(mix)
+    real(r8)  exit_drycore(mix)
+    real(r8)  exit_wu(mix)
+    real(r8)  exit_cufilter(mix)
+    real(r8)  exit_kinv1(mix)
+    real(r8)  exit_rei(mix)
 
-    real(r8), target :: limit_shcu(mix)
-    real(r8), target :: limit_negcon(mix)
-    real(r8), target :: limit_ufrc(mix)
-    real(r8), target :: limit_ppen(mix)
-    real(r8), target :: limit_emf(mix)
-    real(r8), target :: limit_cinlcl(mix)
-    real(r8), target :: limit_cin(mix)
-    real(r8), target :: limit_cbmf(mix)
-    real(r8), target :: limit_rei(mix)
-    real(r8), target :: ind_delcin(mix)
+    real(r8)  limit_shcu(mix)
+    real(r8)  limit_negcon(mix)
+    real(r8)  limit_ufrc(mix)
+    real(r8)  limit_ppen(mix)
+    real(r8)  limit_emf(mix)
+    real(r8)  limit_cinlcl(mix)
+    real(r8)  limit_cin(mix)
+    real(r8)  limit_cbmf(mix)
+    real(r8)  limit_rei(mix)
+    real(r8)  ind_delcin(mix)
 
-    real(r8), target :: ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, &
-                         qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, &
-                         cbmflimit_s, tkeavg_s, zinv_s, rcwp_s, rlwp_s, riwp_s
-    real(r8), target :: ufrcinvbase, winvbase
-    real(r8), target :: emfkbup, cbmflimit
-    real(r8) :: pinv, zinv, rho0rel
+    real(r8) :: ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, &
+                qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, cbmflimit_s, &
+                tkeavg_s, zinv_s, rcwp_s, rlwp_s, riwp_s
+    real(r8) :: ufrcinvbase, winvbase, pinv, zinv, emfkbup, cbmflimit, rho0rel
 
     !----- Variables for implicit CIN computation
 
-    real(r8), target, dimension(mkx) :: qv0_s  , ql0_s   , qi0_s   , s0_s    , u0_s    ,           &
+    real(r8), dimension(mkx)         :: qv0_s  , ql0_s   , qi0_s   , s0_s    , u0_s    ,           &
                                         v0_s   , t0_s    , qt0_s   , thl0_s  , thvl0_s , qvten_s , &
                                         qlten_s, qiten_s , qrten_s , qsten_s , sten_s  , evapc_s , &
                                         uten_s , vten_s  , cufrc_s , qcu_s   , qlu_s   , qiu_s   , &
-                                        fer_s  , fdr_s   , qc_s    , qtten_s , slten_s 
-    real(r8), target, dimension(0:mkx) :: umf_s, slflx_s, qtflx_s, ufrc_s, uflx_s, vflx_s
-    real(r8), target                 :: cush_s , precip_s, snow_s  , cin_s   , rliq_s, cbmf_s, cnt_s, cnb_s
-    real(r8), target                 :: cin_i,cin_f,del_CIN,ke,alpha,thlj
-    real(r8), target                 :: cinlcl_i,cinlcl_f,del_cinlcl
-    real(r8), target, dimension(mkx,wtrc_nwset) :: wtqc_liq_s, wtqc_ice_s  !Water tracers
-    real(r8), target, dimension(wtrc_nwset)     :: wtprec_s , wtsnow_s     !Water tracers
+                                        fer_s  , fdr_s   , qc_s    , qtten_s , slten_s
+    real(r8), dimension(0:mkx)       :: umf_s  , slflx_s , qtflx_s , ufrc_s  , uflx_s , vflx_s
+    real(r8)                         :: cush_s , precip_s, snow_s  , cin_s   , rliq_s, cbmf_s, cnt_s, cnb_s
+    real(r8)                         :: cin_i,cin_f,del_CIN,ke,alpha,thlj
+    real(r8)                         :: cinlcl_i,cinlcl_f,del_cinlcl
+    real(r8), dimension(mkx,wtrc_nwset) :: wtqc_liq_s, wtqc_ice_s  !Water tracers
+    real(r8), dimension(wtrc_nwset)     :: wtprec_s , wtsnow_s     !Water tracers
     integer                          :: iter
 
-    real(r8), target, dimension(mkx,ncnst)   :: tr0_s, trten_s
-    real(r8), target, dimension(0:mkx,ncnst) :: trflx_s
+    real(r8), dimension(mkx,ncnst)   :: tr0_s, trten_s
+    real(r8), dimension(0:mkx,ncnst) :: trflx_s
 
     !----- Variables for temporary storages
 
-    real(r8), target, dimension(mkx) :: qv0_o, ql0_o, qi0_o, t0_o, s0_o, u0_o, v0_o
-    real(r8), target, dimension(mkx) :: qt0_o    , thl0_o   , thvl0_o   ,                         &
+    real(r8), dimension(mkx)         :: qv0_o, ql0_o, qi0_o, t0_o, s0_o, u0_o, v0_o
+    real(r8), dimension(mkx)         :: qt0_o    , thl0_o   , thvl0_o   ,                         &
                                         qvten_o  , qlten_o  , qiten_o   , qrten_o   , qsten_o ,   &
-                                        sten_o   , uten_o   , vten_o    , qcu_o     , qlu_o   ,   & 
+                                        sten_o   , uten_o   , vten_o    , qcu_o     , qlu_o   ,   &
                                         qiu_o    , cufrc_o  , evapc_o   ,                         &
                                         thv0bot_o, thv0top_o, thvl0bot_o, thvl0top_o,             &
                                         ssthl0_o , ssqt0_o  , ssu0_o    , ssv0_o    , qc_o    ,   &
-                                        qtten_o  , slten_o  
-    real(r8), dimension(0:mkx)       :: umf_o    , slflx_o  , qtflx_o   , ufrc_o 
+                                        qtten_o  , slten_o
+    real(r8), dimension(0:mkx)       :: umf_o    , slflx_o  , qtflx_o   , ufrc_o
     real(r8), dimension(mix)         :: cush_o   , precip_o , snow_o    , rliq_o, cbmf_o, cnt_o, cnb_o
     real(r8), dimension(0:mkx)       :: uflx_o   , vflx_o
-    real(r8), target                 :: tkeavg_o , thvlmin_o, qtsrc_o  , thvlsrc_o, thlsrc_o ,    &
+    real(r8)                         :: tkeavg_o , thvlmin_o, qtsrc_o  , thvlsrc_o, thlsrc_o ,    &
                                         usrc_o   , vsrc_o   , plcl_o   , plfc_o   ,               &
-                                        thv0lcl_o, cinlcl_o 
-    integer                          :: kinv_o   , klcl_o   , klfc_o  
+                                        thv0lcl_o, cinlcl_o
+    integer                          :: kinv_o   , klcl_o   , klfc_o
 
-    real(r8), target, dimension(mkx,ncnst) :: tr0_o
-    real(r8), target, dimension(mkx,ncnst) :: trten_o, sstr0_o
+    real(r8), dimension(mkx,ncnst)   :: tr0_o
+    real(r8), dimension(mkx,ncnst)   :: trten_o, sstr0_o
     real(r8), dimension(0:mkx,ncnst) :: trflx_o
-    real(r8), target, dimension(ncnst) :: trsrc_o
-    real(r8), target, dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
+    real(r8), dimension(ncnst)       :: trsrc_o
+    real(r8), dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
-    integer(c_int64_t), target       :: wtrc_iatype_post(wtrc_nwset,3)
-    integer(c_int64_t), target       :: positive_moisture_iwspec(ncnst)
-    real(r8), target                 :: positive_moisture_rstd(pwtspec)
-    real(r8), target                 :: qmin_active(ncnst)
-    integer(c_int64_t), target       :: iwater_is_water_active(ncnst)
-    integer(c_int64_t), target       :: cnst_type_is_wet_active(ncnst)
-    real(r8), target                 :: wtrc_qmin_active
-    real(r8), target                 :: xlv_active, xlf_active, xls_active, cp_active
-    real(r8), target                 :: zvir_active, r_active, g_active, ep2_active
-    real(r8), target                 :: p00_active, rovcp_active
-    real(r8), target                 :: rair_active, rh2o_active, rhoh2o_active
-    integer(c_int64_t), target       :: positive_moisture_status_c
-    integer(c_int64_t), target       :: roots_status_c
-    integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
-    integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
-    integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
-    integer(c_int64_t), target       :: cin_post_exit_code_c
-    integer(c_int64_t), target       :: id_check_thv_loop_c, interface_conden_exit_code_c
-    integer(c_int64_t), target       :: cin_conden_exit_code_c
-    integer(c_int64_t), target       :: cin_loop_id_check_c, cin_loop_exit_code_c
-    integer(c_int64_t), target       :: lcl_id_check_c, lcl_conden_exit_code_c
-    integer(c_int64_t), target       :: scalar_conden_id_check_c
-    integer(c_int64_t), target       :: krel_release_c
-    integer(c_int64_t), target       :: release_mu_exit_code_c, release_mumin2_needed_c
-    integer(c_int64_t), target       :: release_base_full_exit_code_c
-    integer(c_int64_t), target       :: release_base_exit_code_c
-    integer(c_int64_t), target       :: release_conden_exit_code_c
-    integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
-    integer(c_int64_t), target       :: buoy_reach_exit_code_c
-    integer(c_int64_t), target       :: buoy_wu_exit_code_c
-    integer(c_int64_t), target       :: buoy_ufrc_limit_code_c
-    integer(c_int64_t), target       :: buoy_conden_exit_code_c
-    integer(c_int64_t), target       :: buoy_top_id_check_c, buoy_top_conden_exit_code_c
-    integer(c_int64_t), target       :: buoy_top_prep_warning_code_c
-    integer(c_int64_t), target       :: cloud_diag_id_check_c, cloud_diag_conden_exit_code_c
-    integer(c_int64_t), target       :: comp_sub_loop_id_check_c, comp_sub_conden_exit_code_c
-    integer(c_int64_t), target       :: thermo_conden_id_check_c, thermo_conden_exit_code_c
-    integer(c_int64_t), target       :: thermo_emf_conden_exit_code_c
-    integer(c_int64_t), target       :: post_scaleh_exit_code_c
-    integer(c_int64_t), target       :: scaleh_cufilter_exit_code_c
-    integer(c_int64_t)               :: wtrc_nwset_post_c
-    integer                          :: parent_prefix_stride, parent_prefix_wtrc_slots
-
-    interface
-       subroutine uwshcu_output_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
-            umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p, qiten_p, &
-            sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, &
-            fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trten_p, trflx_p, &
-            wtqc_p, wtprec_p, wtsnow_p, precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, &
-            cnt_p, cnb_p) bind(c, name="uwshcu_output_init_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
-          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p
-          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
-          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p
-          type(c_ptr), value :: fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
-          type(c_ptr), value :: trten_p, trflx_p, wtqc_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, cnt_p, cnb_p
-       end subroutine uwshcu_output_init_shell_codon
-
-       subroutine uwshcu_internal_output_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
-            fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trflx_p, &
-            cinh_p, cinlclh_p) bind(c, name="uwshcu_internal_output_init_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
-          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trflx_p
-          type(c_ptr), value :: cinh_p, cinlclh_p
-       end subroutine uwshcu_internal_output_init_shell_codon
-
-       subroutine uwshcu_diag_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
-            ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p, &
-            pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p, &
-            tkeavg_p, zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p, &
-            uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, tru_p, &
-            tru_emf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
-            excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, &
-            exit_uwcu_p, exit_conden_p, exit_klclmkx_p, exit_klfcmkx_p, exit_ufrc_p, &
-            exit_wtw_p, exit_drycore_p, exit_wu_p, exit_cufilter_p, exit_kinv1_p, exit_rei_p, &
-            limit_shcu_p, limit_negcon_p, limit_ufrc_p, limit_ppen_p, limit_emf_p, &
-            limit_cinlcl_p, limit_cin_p, limit_cbmf_p, limit_rei_p, ind_delcin_p) &
-            bind(c, name="uwshcu_diag_init_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
-          type(c_ptr), value :: ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p
-          type(c_ptr), value :: pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p
-          type(c_ptr), value :: tkeavg_p, zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p
-          type(c_ptr), value :: uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p
-          type(c_ptr), value :: tru_p, tru_emf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p
-          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
-          type(c_ptr), value :: exit_uwcu_p, exit_conden_p, exit_klclmkx_p, exit_klfcmkx_p, exit_ufrc_p
-          type(c_ptr), value :: exit_wtw_p, exit_drycore_p, exit_wu_p, exit_cufilter_p, exit_kinv1_p, exit_rei_p
-          type(c_ptr), value :: limit_shcu_p, limit_negcon_p, limit_ufrc_p, limit_ppen_p, limit_emf_p
-          type(c_ptr), value :: limit_cinlcl_p, limit_cin_p, limit_cbmf_p, limit_rei_p, ind_delcin_p
-       end subroutine uwshcu_diag_init_shell_codon
-
-       subroutine uwshcu_output_diag_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
-            umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p, qiten_p, &
-            sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, &
-            fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trten_p, trflx_p, &
-            wtqc_p, wtprec_p, wtsnow_p, precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, &
-            cnt_p, cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p, &
-            pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p, tkeavg_p, &
-            zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, &
-            qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, tru_p, tru_emf_p, dwten_p, &
-            diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p, &
-            xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, exit_uwcu_p, exit_conden_p, &
-            exit_klclmkx_p, exit_klfcmkx_p, exit_ufrc_p, exit_wtw_p, exit_drycore_p, exit_wu_p, &
-            exit_cufilter_p, exit_kinv1_p, exit_rei_p, limit_shcu_p, limit_negcon_p, &
-            limit_ufrc_p, limit_ppen_p, limit_emf_p, limit_cinlcl_p, limit_cin_p, limit_cbmf_p, &
-            limit_rei_p, ind_delcin_p) bind(c, name="uwshcu_output_diag_init_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
-          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p
-          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
-          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p
-          type(c_ptr), value :: fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
-          type(c_ptr), value :: trten_p, trflx_p, wtqc_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, cnt_p, cnb_p
-          type(c_ptr), value :: ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p
-          type(c_ptr), value :: pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p
-          type(c_ptr), value :: tkeavg_p, zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p
-          type(c_ptr), value :: uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p
-          type(c_ptr), value :: tru_p, tru_emf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p
-          type(c_ptr), value :: ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p
-          type(c_ptr), value :: bogbot_p, bogtop_p, exit_uwcu_p, exit_conden_p, exit_klclmkx_p
-          type(c_ptr), value :: exit_klfcmkx_p, exit_ufrc_p, exit_wtw_p, exit_drycore_p, exit_wu_p
-          type(c_ptr), value :: exit_cufilter_p, exit_kinv1_p, exit_rei_p, limit_shcu_p, limit_negcon_p
-          type(c_ptr), value :: limit_ufrc_p, limit_ppen_p, limit_emf_p, limit_cinlcl_p, limit_cin_p
-          type(c_ptr), value :: limit_cbmf_p, limit_rei_p, ind_delcin_p
-       end subroutine uwshcu_output_diag_init_shell_codon
-
-       subroutine uwshcu_diag_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
-            cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c, plcl_c, pinv_c, plfc_c, &
-            pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c, emfkbup_c, cbmflimit_c, tkeavg_c, &
-            zinv_c, rcwp_c, rlwp_c, riwp_c, fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, &
-            wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, &
-            uemf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, &
-            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, &
-            tru_emf_p, fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p, &
-            ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, winvbase_out_p, &
-            wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p, ppen_out_p, qtsrc_out_p, &
-            thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p, cbmflimit_out_p, tkeavg_out_p, zinv_out_p, &
-            rcwp_out_p, rlwp_out_p, riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, &
-            vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p, &
-            dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p, ntsnprd_out_p, &
-            excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, &
-            bogbot_out_p, bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p) &
-            bind(c, name="uwshcu_diag_post_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          real(c_double), value :: cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c
-          real(c_double), value :: plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c
-          real(c_double), value :: emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c
-          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
-          type(c_ptr), value :: wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p
-          type(c_ptr), value :: uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p, flxrain_p, flxsnow_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p
-          type(c_ptr), value :: cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p
-          type(c_ptr), value :: fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p
-          type(c_ptr), value :: ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p
-          type(c_ptr), value :: winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p
-          type(c_ptr), value :: ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p
-          type(c_ptr), value :: cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p
-          type(c_ptr), value :: wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, vu_out_p
-          type(c_ptr), value :: qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p
-          type(c_ptr), value :: dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p
-          type(c_ptr), value :: ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p
-          type(c_ptr), value :: bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
-          type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
-       end subroutine uwshcu_diag_post_shell_codon
-
-       subroutine uwshcu_main_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, precip_c, snow_c, cush_c, &
-            cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, &
-            qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, &
-            qlu_p, qiu_p, qc_p, trten_p, umf_out_p, slflx_out_p, qtflx_out_p, flxprc1_out_p, &
-            flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, uten_out_p, &
-            vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, evapc_out_p, &
-            cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, &
-            qc_out_p, cnt_out_p, cnb_out_p, trten_out_p) bind(c, name="uwshcu_main_post_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
-          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p
-          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p
-          type(c_ptr), value :: qlu_p, qiu_p, qc_p, trten_p, umf_out_p, slflx_out_p, qtflx_out_p
-          type(c_ptr), value :: flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p
-          type(c_ptr), value :: qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p
-          type(c_ptr), value :: cnt_out_p, cnb_out_p, trten_out_p
-       end subroutine uwshcu_main_post_shell_codon
-
-       subroutine uwshcu_wtrc_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
-            wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p, wtqc_out_p, wtprec_out_p, &
-            wtsnow_out_p) bind(c, name="uwshcu_wtrc_post_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p
-          type(c_ptr), value :: wtqc_out_p, wtprec_out_p, wtsnow_out_p
-       end subroutine uwshcu_wtrc_post_shell_codon
-
-       subroutine uwshcu_main_wtrc_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
-            precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, slflx_p, qtflx_p, &
-            flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, &
-            qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, &
-            wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p, umf_out_p, slflx_out_p, qtflx_out_p, &
-            flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, &
-            uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
-            evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, &
-            rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, &
-            wtsnow_out_p) bind(c, name="uwshcu_main_wtrc_post_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
-          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p
-          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p
-          type(c_ptr), value :: qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p
-          type(c_ptr), value :: wtsnow_p, wtrc_iatype_p, umf_out_p, slflx_out_p, qtflx_out_p
-          type(c_ptr), value :: flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p
-          type(c_ptr), value :: qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p
-          type(c_ptr), value :: cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, wtsnow_out_p
-       end subroutine uwshcu_main_wtrc_post_shell_codon
-
-       subroutine uwshcu_main_diag_post_all_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
-            precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, slflx_p, qtflx_p, &
-            flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, &
-            qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, &
-            wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p, umf_out_p, slflx_out_p, qtflx_out_p, &
-            flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, &
-            uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
-            evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, &
-            rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, &
-            wtsnow_out_p, cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c, &
-            plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c, emfkbup_c, &
-            cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c, fer_p, fdr_p, qtten_p, &
-            slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, &
-            qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p, flxrain_diag_p, &
-            flxsnow_diag_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p, &
-            cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p, fer_out_p, fdr_out_p, &
-            cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p, ufrc_out_p, uflx_out_p, &
-            vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, winvbase_out_p, wlcl_out_p, &
-            plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p, ppen_out_p, qtsrc_out_p, &
-            thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p, cbmflimit_out_p, tkeavg_out_p, &
-            zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, &
-            thvu_out_p, uu_out_p, vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, &
-            vu_emf_out_p, uemf_out_p, dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, &
-            ntraprd_out_p, ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p, &
-            bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p, trflx_out_p, tru_out_p, &
-            tru_emf_out_p) bind(c, name="uwshcu_main_diag_post_all_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
-          real(c_double), value :: cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c
-          real(c_double), value :: plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c
-          real(c_double), value :: emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c
-          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p
-          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p
-          type(c_ptr), value :: qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p
-          type(c_ptr), value :: wtsnow_p, wtrc_iatype_p, umf_out_p, slflx_out_p, qtflx_out_p
-          type(c_ptr), value :: flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p
-          type(c_ptr), value :: qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p
-          type(c_ptr), value :: cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, wtsnow_out_p
-          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
-          type(c_ptr), value :: wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p
-          type(c_ptr), value :: uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p, flxrain_diag_p, flxsnow_diag_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p
-          type(c_ptr), value :: cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p
-          type(c_ptr), value :: fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p
-          type(c_ptr), value :: ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p
-          type(c_ptr), value :: winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p
-          type(c_ptr), value :: ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p
-          type(c_ptr), value :: cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p
-          type(c_ptr), value :: wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, vu_out_p
-          type(c_ptr), value :: qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p
-          type(c_ptr), value :: dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p
-          type(c_ptr), value :: ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p
-          type(c_ptr), value :: bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
-          type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
-       end subroutine uwshcu_main_diag_post_all_shell_codon
-
-       subroutine uwshcu_exit_main_zero_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
-            umf_out_p, slflx_out_p, qtflx_out_p, qvten_out_p, qlten_out_p, qiten_out_p, &
-            sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
-            evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, &
-            rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, &
-            wtsnow_out_p) bind(c, name="uwshcu_exit_main_zero_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          type(c_ptr), value :: umf_out_p, slflx_out_p, qtflx_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p
-          type(c_ptr), value :: qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p
-          type(c_ptr), value :: trten_out_p, wtqc_out_p, wtprec_out_p, wtsnow_out_p
-       end subroutine uwshcu_exit_main_zero_shell_codon
-
-       subroutine uwshcu_exit_diag_zero_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
-            exit_uwcu_p, fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p, &
-            ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, winvbase_out_p, &
-            wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p, ppen_out_p, qtsrc_out_p, &
-            thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p, cbmflimit_out_p, tkeavg_out_p, zinv_out_p, &
-            rcwp_out_p, rlwp_out_p, riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, &
-            vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p, &
-            dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p, ntsnprd_out_p, &
-            excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, &
-            bogbot_out_p, bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p) &
-            bind(c, name="uwshcu_exit_diag_zero_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          type(c_ptr), value :: exit_uwcu_p, fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p
-          type(c_ptr), value :: slten_out_p, ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p
-          type(c_ptr), value :: ufrclcl_out_p, winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p
-          type(c_ptr), value :: plfc_out_p, pbup_out_p, ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p
-          type(c_ptr), value :: emfkbup_out_p, cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p
-          type(c_ptr), value :: rlwp_out_p, riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p
-          type(c_ptr), value :: vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p
-          type(c_ptr), value :: dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p
-          type(c_ptr), value :: ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p
-          type(c_ptr), value :: bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
-          type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
-       end subroutine uwshcu_exit_diag_zero_shell_codon
-
-       subroutine uwshcu_exit_zero_all_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
-            umf_out_p, slflx_out_p, qtflx_out_p, qvten_out_p, qlten_out_p, qiten_out_p, &
-            sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
-            evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, &
-            rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, &
-            wtsnow_out_p, exit_uwcu_p, fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, &
-            qtten_out_p, slten_out_p, ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, &
-            ufrclcl_out_p, winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, &
-            pbup_out_p, ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p, &
-            cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p, &
-            wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, vu_out_p, qtu_emf_out_p, &
-            thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p, dwten_out_p, diten_out_p, &
-            flxrain_out_p, flxsnow_out_p, ntraprd_out_p, ntsnprd_out_p, excessu_out_p, &
-            excess0_out_p, xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p, &
-            bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p) &
-            bind(c, name="uwshcu_exit_zero_all_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          type(c_ptr), value :: umf_out_p, slflx_out_p, qtflx_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p
-          type(c_ptr), value :: qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p
-          type(c_ptr), value :: trten_out_p, wtqc_out_p, wtprec_out_p, wtsnow_out_p, exit_uwcu_p
-          type(c_ptr), value :: fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p
-          type(c_ptr), value :: ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p
-          type(c_ptr), value :: winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p
-          type(c_ptr), value :: ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p
-          type(c_ptr), value :: cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p
-          type(c_ptr), value :: wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, vu_out_p
-          type(c_ptr), value :: qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p
-          type(c_ptr), value :: dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p
-          type(c_ptr), value :: ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p
-          type(c_ptr), value :: bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
-          type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
-       end subroutine uwshcu_exit_zero_all_shell_codon
-
-       subroutine uwshcu_iter_restore_main_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
-            precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, qvten_p, qlten_p, &
-            qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, &
-            qcu_p, qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, &
-            wtrc_iatype_p, umf_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, &
-            uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
-            evapc_out_p, cush_out_p, cufrc_out_p, slflx_out_p, qtflx_out_p, qcu_out_p, qlu_out_p, &
-            qiu_out_p, cbmf_out_p, qc_out_p, rliq_out_p, cnt_out_p, cnb_out_p, trten_out_p, &
-            wtqc_out_p, wtprec_out_p, wtsnow_out_p) bind(c, name="uwshcu_iter_restore_main_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
-          type(c_ptr), value :: umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
-          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p
-          type(c_ptr), value :: qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: wtrc_iatype_p, umf_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cush_out_p, cufrc_out_p
-          type(c_ptr), value :: slflx_out_p, qtflx_out_p, qcu_out_p, qlu_out_p, qiu_out_p
-          type(c_ptr), value :: cbmf_out_p, qc_out_p, rliq_out_p, cnt_out_p, cnb_out_p, trten_out_p
-          type(c_ptr), value :: wtqc_out_p, wtprec_out_p, wtsnow_out_p
-       end subroutine uwshcu_iter_restore_main_shell_codon
-
-       subroutine uwshcu_iter_restore_diag_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
-            cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c, plcl_c, pinv_c, &
-            plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c, emfkbup_c, cbmflimit_c, &
-            tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c, fer_p, fdr_p, qtten_p, slten_p, &
-            ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, &
-            thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, &
-            ntraprd_p, ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, &
-            bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p, fer_out_p, fdr_out_p, cinh_out_p, &
-            cinlclh_out_p, qtten_out_p, slten_out_p, ufrc_out_p, uflx_out_p, vflx_out_p, &
-            ufrcinvbase_out_p, ufrclcl_out_p, winvbase_out_p, wlcl_out_p, plcl_out_p, &
-            pinv_out_p, plfc_out_p, pbup_out_p, ppen_out_p, qtsrc_out_p, thlsrc_out_p, &
-            thvlsrc_out_p, emfkbup_out_p, cbmflimit_out_p, tkeavg_out_p, zinv_out_p, &
-            rcwp_out_p, rlwp_out_p, riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, &
-            uu_out_p, vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, &
-            uemf_out_p, dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p, ntraprd_out_p, &
-            ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p, aquad_out_p, bquad_out_p, &
-            cquad_out_p, bogbot_out_p, bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p) &
-            bind(c, name="uwshcu_iter_restore_diag_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          real(c_double), value :: cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c
-          real(c_double), value :: plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c
-          real(c_double), value :: emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c
-          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
-          type(c_ptr), value :: wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p
-          type(c_ptr), value :: uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p, flxrain_p, flxsnow_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p
-          type(c_ptr), value :: cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p, fer_out_p
-          type(c_ptr), value :: fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, slten_out_p
-          type(c_ptr), value :: ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p
-          type(c_ptr), value :: winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p
-          type(c_ptr), value :: pbup_out_p, ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p
-          type(c_ptr), value :: emfkbup_out_p, cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p
-          type(c_ptr), value :: rlwp_out_p, riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p
-          type(c_ptr), value :: uu_out_p, vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p
-          type(c_ptr), value :: vu_emf_out_p, uemf_out_p, dwten_out_p, diten_out_p, flxrain_out_p
-          type(c_ptr), value :: flxsnow_out_p, ntraprd_out_p, ntsnprd_out_p, excessu_out_p, excess0_out_p
-          type(c_ptr), value :: xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p
-          type(c_ptr), value :: bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p
-       end subroutine uwshcu_iter_restore_diag_shell_codon
-
-       subroutine uwshcu_iter_restore_all_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
-            precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, qvten_p, qlten_p, &
-            qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, &
-            qcu_p, qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, &
-            wtrc_iatype_p, umf_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, &
-            uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
-            evapc_out_p, cush_out_p, cufrc_out_p, slflx_out_p, qtflx_out_p, qcu_out_p, qlu_out_p, &
-            qiu_out_p, cbmf_out_p, qc_out_p, rliq_out_p, cnt_out_p, cnb_out_p, trten_out_p, &
-            wtqc_out_p, wtprec_out_p, wtsnow_out_p, cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, &
-            winvbase_c, wlcl_c, plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, &
-            thvlsrc_c, emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c, &
-            fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, &
-            thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, &
-            dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, &
-            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, &
-            tru_p, tru_emf_p, fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, &
-            slten_out_p, ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, &
-            winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p, &
-            ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p, &
-            cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p, &
-            wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, vu_out_p, qtu_emf_out_p, &
-            thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p, dwten_out_p, diten_out_p, &
-            flxrain_out_p, flxsnow_out_p, ntraprd_out_p, ntsnprd_out_p, excessu_out_p, &
-            excess0_out_p, xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p, &
-            bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p) &
-            bind(c, name="uwshcu_iter_restore_all_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
-          real(c_double), value :: cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c
-          real(c_double), value :: plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c
-          real(c_double), value :: emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c
-          type(c_ptr), value :: umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
-          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p
-          type(c_ptr), value :: qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: wtrc_iatype_p, umf_out_p, qvten_out_p, qlten_out_p, qiten_out_p
-          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
-          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cush_out_p, cufrc_out_p
-          type(c_ptr), value :: slflx_out_p, qtflx_out_p, qcu_out_p, qlu_out_p, qiu_out_p
-          type(c_ptr), value :: cbmf_out_p, qc_out_p, rliq_out_p, cnt_out_p, cnb_out_p, trten_out_p
-          type(c_ptr), value :: wtqc_out_p, wtprec_out_p, wtsnow_out_p, fer_p, fdr_p, qtten_p
-          type(c_ptr), value :: slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p
-          type(c_ptr), value :: vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, dwten_p
-          type(c_ptr), value :: diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p
-          type(c_ptr), value :: excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
-          type(c_ptr), value :: trflx_p, tru_p, tru_emf_p, fer_out_p, fdr_out_p, cinh_out_p
-          type(c_ptr), value :: cinlclh_out_p, qtten_out_p, slten_out_p, ufrc_out_p, uflx_out_p
-          type(c_ptr), value :: vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, winvbase_out_p
-          type(c_ptr), value :: wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p
-          type(c_ptr), value :: ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p
-          type(c_ptr), value :: cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p
-          type(c_ptr), value :: riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p
-          type(c_ptr), value :: vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p
-          type(c_ptr), value :: uemf_out_p, dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p
-          type(c_ptr), value :: ntraprd_out_p, ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p
-          type(c_ptr), value :: aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
-          type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
-       end subroutine uwshcu_iter_restore_all_shell_codon
-
-       subroutine uwshcu_column_input_load_shell_codon(mix_c, mkx_c, i_c, ncnst_c, pblh_c, cush_c, &
-            ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p, u0_in_p, v0_in_p, &
-            qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p, tke_in_p, cldfrct_in_p, &
-            concldfrct_in_p, tr0_in_p, ps0_p, zs0_p, p0_p, z0_p, dp0_p, dpdry0_p, u0_p, &
-            v0_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p, &
-            pblh_p, cush_p) &
-            bind(c, name="uwshcu_column_input_load_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
-          real(c_double), value :: pblh_c, cush_c
-          type(c_ptr), value :: ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p
-          type(c_ptr), value :: u0_in_p, v0_in_p, qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p
-          type(c_ptr), value :: tke_in_p, cldfrct_in_p, concldfrct_in_p, tr0_in_p, ps0_p, zs0_p
-          type(c_ptr), value :: p0_p, z0_p, dp0_p, dpdry0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
-          type(c_ptr), value :: t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p, pblh_p, cush_p
-       end subroutine uwshcu_column_input_load_shell_codon
-
-       subroutine uwshcu_parent_prefix_load_shell_codon(i_c, mkx_c, ncnst_c, wtrc_nwset_c, &
-            parent_prefix_stride_c, parent_prefix_wtrc_slots_c, trace_water_c, &
-            parent_real_workspace_p, parent_int_workspace_p, ps0_p, zs0_p, tke_p, exns0_p, &
-            p0_p, z0_p, dp0_p, dpdry0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p, &
-            cldfrct_p, concldfrct_p, exn0_p, qt0_p, thl0_p, thvl0_p, ssthl0_p, ssqt0_p, &
-            ssu0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, pblh_p, cush_p, thv0bot_p, &
-            thvl0bot_p, thv0top_p, thvl0top_p, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_parent_prefix_load_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: i_c, mkx_c, ncnst_c, wtrc_nwset_c
-          integer(c_int64_t), value :: parent_prefix_stride_c, parent_prefix_wtrc_slots_c
-          integer(c_int64_t), value :: trace_water_c
-          type(c_ptr), value :: parent_real_workspace_p, parent_int_workspace_p
-          type(c_ptr), value :: ps0_p, zs0_p, tke_p, exns0_p, p0_p, z0_p, dp0_p, dpdry0_p
-          type(c_ptr), value :: u0_p, v0_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p
-          type(c_ptr), value :: cldfrct_p, concldfrct_p, exn0_p, qt0_p, thl0_p, thvl0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, tr0_p, sstr0_p
-          type(c_ptr), value :: wt0_p, sswt0_p, pblh_p, cush_p, thv0bot_p, thvl0bot_p
-          type(c_ptr), value :: thv0top_p, thvl0top_p, exit_conden_p, exit_code_p
-       end subroutine uwshcu_parent_prefix_load_shell_codon
-
-       subroutine uwshcu_exner_profile_shell_codon(mkx_c, p00_c, rovcp_c, p0_p, ps0_p, &
-            exn0_p, exns0_p) bind(c, name="uwshcu_exner_profile_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c
-          real(c_double), value :: p00_c, rovcp_c
-          type(c_ptr), value :: p0_p, ps0_p, exn0_p, exns0_p
-       end subroutine uwshcu_exner_profile_shell_codon
-
-       subroutine uwshcu_column_thermo_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            xlv_c, xls_c, cp_c, zvir_c, qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, &
-            wtrc_iatype_p, qt0_p, thl0_p, thvl0_p, wt0_p) &
-            bind(c, name="uwshcu_column_thermo_state_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: xlv_c, xls_c, cp_c, zvir_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
-          type(c_ptr), value :: qt0_p, thl0_p, thvl0_p, wt0_p
-       end subroutine uwshcu_column_thermo_state_shell_codon
-
-       subroutine uwshcu_column_thermo_slope_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            xlv_c, xls_c, cp_c, zvir_c, qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, &
-            wtrc_iatype_p, p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p, &
-            ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p) &
-            bind(c, name="uwshcu_column_thermo_slope_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: xlv_c, xls_c, cp_c, zvir_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
-          type(c_ptr), value :: p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
-       end subroutine uwshcu_column_thermo_slope_shell_codon
-
-       subroutine uwshcu_pbl_precheck_shell_codon(mkx_c, pblh_c, zs0_p, cush_p, tscaleh_p, &
-            kinv_out_p, exit_code_p) bind(c, name="uwshcu_pbl_precheck_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c
-          real(c_double), value :: pblh_c
-          type(c_ptr), value :: zs0_p, cush_p, tscaleh_p, kinv_out_p, exit_code_p
-       end subroutine uwshcu_pbl_precheck_shell_codon
-
-       subroutine uwshcu_pbl_source_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, zvir_c, &
-            ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p, u0_p, v0_p, ssu0_p, ssv0_p, &
-            tr0_p, wt0_p, tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p, &
-            trsrc_p, wtsrc_p) bind(c, name="uwshcu_pbl_source_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c
-          real(c_double), value :: zvir_c
-          type(c_ptr), value :: ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p
-          type(c_ptr), value :: u0_p, v0_p, ssu0_p, ssv0_p, tr0_p, wt0_p
-          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
-          type(c_ptr), value :: trsrc_p, wtsrc_p
-       end subroutine uwshcu_pbl_source_shell_codon
-
-       subroutine uwshcu_pbl_precheck_source_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            pblh_c, zvir_c, zs0_p, cush_p, tscaleh_p, kinv_out_p, exit_code_p, &
-            ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p, u0_p, v0_p, ssu0_p, &
-            ssv0_p, tr0_p, wt0_p, tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, &
-            usrc_p, vsrc_p, trsrc_p, wtsrc_p) bind(c, name="uwshcu_pbl_precheck_source_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: pblh_c, zvir_c
-          type(c_ptr), value :: zs0_p, cush_p, tscaleh_p, kinv_out_p, exit_code_p
-          type(c_ptr), value :: ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p
-          type(c_ptr), value :: u0_p, v0_p, ssu0_p, ssv0_p, tr0_p, wt0_p
-          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
-          type(c_ptr), value :: trsrc_p, wtsrc_p
-       end subroutine uwshcu_pbl_precheck_source_shell_codon
-
-       subroutine uwshcu_lcl_prep_shell_codon(mkx_c, plcl_c, ps0_p, p0_p, thl0_p, ssthl0_p, &
-            qt0_p, ssqt0_p, klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p) &
-            bind(c, name="uwshcu_lcl_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c
-          real(c_double), value :: plcl_c
-          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
-          type(c_ptr), value :: klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
-       end subroutine uwshcu_lcl_prep_shell_codon
-
-       subroutine uwshcu_lcl_conden_init_shell_codon(mkx_c, ncnst_c, zvir_c, plcl_c, &
-            thl0lcl_c, qt0lcl_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
-            exit_conden_p, exit_code_p, thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) &
-            bind(c, name="uwshcu_lcl_conden_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c
-          real(c_double), value :: zvir_c, plcl_c, thl0lcl_c, qt0lcl_c
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
-          type(c_ptr), value :: exit_conden_p, exit_code_p, thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p
-       end subroutine uwshcu_lcl_conden_init_shell_codon
-
-       subroutine uwshcu_cin_main_loop_shell_codon(mkx_c, ncnst_c, kinv_c, klcl_c, zvir_c, &
-            qtsrc_c, thlsrc_c, thvlsrc_c, plcl_c, thv0lcl_c, r_c, p00_c, rovcp_c, &
-            ps0_p, thv0bot_p, thv0top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
-            exit_conden_p, exit_code_p, limit_cinlcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) &
-            bind(c, name="uwshcu_cin_main_loop_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, kinv_c, klcl_c
-          real(c_double), value :: zvir_c, qtsrc_c, thlsrc_c, thvlsrc_c, plcl_c, thv0lcl_c
-          real(c_double), value :: r_c, p00_c, rovcp_c
-          type(c_ptr), value :: ps0_p, thv0bot_p, thv0top_p, th_p, qv_p, ql_p, qi_p, qse_p
-          type(c_ptr), value :: id_check_p, exit_conden_p, exit_code_p, limit_cinlcl_p
-          type(c_ptr), value :: cin_p, cinlcl_p, plfc_p, klfc_p
-       end subroutine uwshcu_cin_main_loop_shell_codon
-
-       subroutine uwshcu_interface_thv_shell_codon(k_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
-            thl0edge_c, qt0edge_c, thv0_p, thvl0_p) bind(c, name="uwshcu_interface_thv_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c
-          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c
-          type(c_ptr), value :: thv0_p, thvl0_p
-       end subroutine uwshcu_interface_thv_shell_codon
-
-       subroutine uwshcu_interface_thv_loop_shell_codon(mkx_c, ncnst_c, zvir_c, ps0_p, p0_p, &
-            thl0_p, ssthl0_p, qt0_p, ssqt0_p, exit_conden_p, thv0bot_p, thvl0bot_p, &
-            thv0top_p, thvl0top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p) &
-            bind(c, name="uwshcu_interface_thv_loop_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c
-          real(c_double), value :: zvir_c
-          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
-          type(c_ptr), value :: exit_conden_p, thv0bot_p, thvl0bot_p, thv0top_p, thvl0top_p
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p
-       end subroutine uwshcu_interface_thv_loop_shell_codon
-
-       subroutine uwshcu_interface_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_interface_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_interface_conden_exit_shell_codon
-
-       subroutine uwshcu_cin_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_cin_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_cin_conden_exit_shell_codon
-
-       subroutine uwshcu_thv_scalar_shell_codon(zvir_c, thj_c, qvj_c, qlj_c, qij_c, thv_p) &
-            bind(c, name="uwshcu_thv_scalar_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c
-          type(c_ptr), value :: thv_p
-       end subroutine uwshcu_thv_scalar_shell_codon
-
-       subroutine uwshcu_conden_exit_thv_batch_shell_codon(kind_c, k_c, id_check_c, zvir_c, &
-            thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c, exit_conden_p, exit_code_p, &
-            thv_p, thvl_p) bind(c, name="uwshcu_conden_exit_thv_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, id_check_c
-          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p, thv_p, thvl_p
-       end subroutine uwshcu_conden_exit_thv_batch_shell_codon
-
-       subroutine uwshcu_buoy_env_pre_qsat_shell_codon(zvir_c, r_c, pe_c, thj_c, qvj_c, qlj_c, &
-            qij_c, exne_c, thle_c, thv0j_p, rho0j_p, qsat_arg_p) &
-            bind(c, name="uwshcu_buoy_env_pre_qsat_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: zvir_c, r_c, pe_c, thj_c, qvj_c, qlj_c, qij_c, exne_c, thle_c
-          type(c_ptr), value :: thv0j_p, rho0j_p, qsat_arg_p
-       end subroutine uwshcu_buoy_env_pre_qsat_shell_codon
-
-       subroutine uwshcu_buoy_excess_shell_codon(qt_c, qs_c, excess_p) &
-            bind(c, name="uwshcu_buoy_excess_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: qt_c, qs_c
-          type(c_ptr), value :: excess_p
-       end subroutine uwshcu_buoy_excess_shell_codon
-
-       subroutine uwshcu_buoy_detrain_excess_shell_codon(criqc_c, xlv_c, xls_c, cp_c, exne_c, &
-            qlj_c, qij_c, thlue_p, qtue_p) bind(c, name="uwshcu_buoy_detrain_excess_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exne_c, qlj_c, qij_c
-          type(c_ptr), value :: thlue_p, qtue_p
-       end subroutine uwshcu_buoy_detrain_excess_shell_codon
-
-       subroutine uwshcu_buoy_up_pre_qsat_shell_codon(zvir_c, exne_c, thj_c, qvj_c, qlj_c, &
-            qij_c, thlue_c, thvj_p, tj_p, qsat_arg_p) &
-            bind(c, name="uwshcu_buoy_up_pre_qsat_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: zvir_c, exne_c, thj_c, qvj_c, qlj_c, qij_c, thlue_c
-          type(c_ptr), value :: thvj_p, tj_p, qsat_arg_p
-       end subroutine uwshcu_buoy_up_pre_qsat_shell_codon
-
-       subroutine uwshcu_buoy_conden_scalar_batch_shell_codon(kind_c, id_check_c, zvir_c, &
-            r_c, pe_c, thj_c, qvj_c, qlj_c, qij_c, exne_c, thle_c, criqc_c, xlv_c, xls_c, &
-            cp_c, v1_c, v2_c, exit_conden_p, exit_code_p, thlue_p, qtue_p, thv0j_p, &
-            rho0j_p, thvj_p, tj_p, thvxsat_p, qsat_arg_p, excess_p) &
-            bind(c, name="uwshcu_buoy_conden_scalar_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, id_check_c
-          real(c_double), value :: zvir_c, r_c, pe_c, thj_c, qvj_c, qlj_c, qij_c, exne_c
-          real(c_double), value :: thle_c, criqc_c, xlv_c, xls_c, cp_c, v1_c, v2_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p, thlue_p, qtue_p, thv0j_p, rho0j_p
-          type(c_ptr), value :: thvj_p, tj_p, thvxsat_p, qsat_arg_p, excess_p
-       end subroutine uwshcu_buoy_conden_scalar_batch_shell_codon
-
-       subroutine uwshcu_conden_scalar_codon(p_c, thl_c, qt_c, th_p, qv_p, ql_p, qi_p, &
-            qse_p, id_check_p, ncnst_c) bind(c, name="uwshcu_conden_scalar_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          real(c_double), value :: p_c, thl_c, qt_c
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
-          integer(c_int64_t), value :: ncnst_c
-       end subroutine uwshcu_conden_scalar_codon
-
-       subroutine uwshcu_conden_wtout_codon(p_c, thl_c, qt_c, th_p, qv_p, ql_p, qi_p, &
-            qse_p, id_check_p, ncnst_c, qv0_c, tr0_p, tr0_stride_c, tr0_offset_c, &
-            wtout_p, wtrc_nwset_c, wisotope_c, wtrc_alpha_kinetic_c, wtrc_iatype_p, &
-            wtrc_qmin_c, iwspec_p, rstd_p) bind(c, name="uwshcu_conden_wtout_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          real(c_double), value :: p_c, thl_c, qt_c, qv0_c, wtrc_qmin_c
-          integer(c_int64_t), value :: ncnst_c, tr0_stride_c, tr0_offset_c, wtrc_nwset_c
-          integer(c_int64_t), value :: wisotope_c, wtrc_alpha_kinetic_c
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
-          type(c_ptr), value :: tr0_p, wtout_p, wtrc_iatype_p, iwspec_p, rstd_p
-       end subroutine uwshcu_conden_wtout_codon
-
-       subroutine uwshcu_qsat_codon(t_c, p_c, es_p, qs_p) bind(c, name="uwshcu_qsat_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: t_c, p_c
-          type(c_ptr), value :: es_p, qs_p
-       end subroutine uwshcu_qsat_codon
-
-       subroutine uwshcu_buoy_state_batch_shell_codon(kind_c, k_c, mkx_c, wtrc_nwset_c, &
-            i1_c, i2_c, flag1_c, flag2_c, v1_c, v2_c, v3_c, v4_c, v5_c, v6_c, &
-            v7_c, v8_c, v9_c, v10_c, v11_c, v12_c, p1_p, p2_p, p3_p, p4_p, &
-            p5_p, p6_p, p7_p, p8_p) bind(c, name="uwshcu_buoy_state_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, mkx_c, wtrc_nwset_c
-          integer(c_int64_t), value :: i1_c, i2_c, flag1_c, flag2_c
-          real(c_double), value :: v1_c, v2_c, v3_c, v4_c, v5_c, v6_c
-          real(c_double), value :: v7_c, v8_c, v9_c, v10_c, v11_c, v12_c
-          type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
-       end subroutine uwshcu_buoy_state_batch_shell_codon
-
-       subroutine uwshcu_buoy_top_expel_shell_codon(k_c, criqc_c, xlv_c, xls_c, cp_c, exn_c, &
-            qlj_c, qij_c, qtu_p, thlu_p, dwten_p, diten_p) &
-            bind(c, name="uwshcu_buoy_top_expel_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c
-          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exn_c, qlj_c, qij_c
-          type(c_ptr), value :: qtu_p, thlu_p, dwten_p, diten_p
-       end subroutine uwshcu_buoy_top_expel_shell_codon
-
-       subroutine uwshcu_buoy_wtrc_expel_shell_codon(k_c, mkx_c, wtrc_nwset_c, criqc_c, &
-            qlj_c, qij_c, wtrc_qmin_c, wtout_p, wtrc_iatype_p, iwspec_p, rstd_p, &
-            dwten_p, diten_p, tru_p, wtu_p, wtdwten_p, wtditen_p) &
-            bind(c, name="uwshcu_buoy_wtrc_expel_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c, mkx_c, wtrc_nwset_c
-          real(c_double), value :: criqc_c, qlj_c, qij_c, wtrc_qmin_c
-          type(c_ptr), value :: wtout_p, wtrc_iatype_p, iwspec_p, rstd_p
-          type(c_ptr), value :: dwten_p, diten_p, tru_p, wtu_p, wtdwten_p, wtditen_p
-       end subroutine uwshcu_buoy_wtrc_expel_shell_codon
-
-       subroutine uwshcu_buoy_top_state_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, trace_water_c, &
-            linear_branch_c, ppen_c, top_expfac_c, fer_kpen_c, thl0_kpen_c, ssthl0_kpen_c, &
-            qt0_kpen_c, ssqt0_kpen_c, thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, thlu_top_p, &
-            qtu_top_p, wtu_top_p) bind(c, name="uwshcu_buoy_top_state_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c, trace_water_c, linear_branch_c
-          real(c_double), value :: ppen_c, top_expfac_c, fer_kpen_c, thl0_kpen_c, ssthl0_kpen_c
-          real(c_double), value :: qt0_kpen_c, ssqt0_kpen_c
-          type(c_ptr), value :: thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, thlu_top_p, qtu_top_p, wtu_top_p
-       end subroutine uwshcu_buoy_top_state_shell_codon
-
-       subroutine uwshcu_buoy_top_prep_full_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
-            kpen_c, drage_c, bogbot_c, bogtop_c, wtwb_c, wu_kpenm1_c, rho0j_c, ps0_p, &
-            dp0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, fer_p, thlu_p, qtu_p, wt0_p, &
-            sswt0_p, wtu_p, limit_ppen_p, ppen_p, thlu_top_p, qtu_top_p, wtu_top_p, &
-            warning_code_p) bind(c, name="uwshcu_buoy_top_prep_full_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, kpen_c
-          real(c_double), value :: drage_c, bogbot_c, bogtop_c, wtwb_c, wu_kpenm1_c, rho0j_c
-          type(c_ptr), value :: ps0_p, dp0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, fer_p
-          type(c_ptr), value :: thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, limit_ppen_p, ppen_p
-          type(c_ptr), value :: thlu_top_p, qtu_top_p, wtu_top_p, warning_code_p
-       end subroutine uwshcu_buoy_top_prep_full_shell_codon
-
-       subroutine uwshcu_buoy_updraft_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
-            trace_water_c, linear_branch_c, dpe_c, expfac_c, fer_k_c, PGFc_c, thle_c, qte_c, &
-            ue_c, ve_c, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, ssthl0_p, ssqt0_p, ssu0_p, &
-            ssv0_p, tre_p, sstr0_p, wte_p, sswt0_p) bind(c, name="uwshcu_buoy_updraft_state_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, k_c, trace_water_c, linear_branch_c
-          real(c_double), value :: dpe_c, expfac_c, fer_k_c, PGFc_c, thle_c, qte_c, ue_c, ve_c
-          type(c_ptr), value :: thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, ssthl0_p, ssqt0_p
-          type(c_ptr), value :: ssu0_p, ssv0_p, tre_p, sstr0_p, wte_p, sswt0_p
-       end subroutine uwshcu_buoy_updraft_state_shell_codon
-
-       subroutine uwshcu_buoy_velocity_shell_codon(rbuoy_c, thvu_km1_c, thvebot_c, thvu_k_c, &
-            thv0top_k_c, drage_c, dpe_c, expfac_c, rho0j_c, bogbot_p, bogtop_p, delbog_p, &
-            wtwb_p, wtw_p) bind(c, name="uwshcu_buoy_velocity_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: rbuoy_c, thvu_km1_c, thvebot_c, thvu_k_c, thv0top_k_c
-          real(c_double), value :: drage_c, dpe_c, expfac_c, rho0j_c
-          type(c_ptr), value :: bogbot_p, bogtop_p, delbog_p, wtwb_p, wtw_p
-       end subroutine uwshcu_buoy_velocity_shell_codon
-
-       subroutine uwshcu_buoy_midstate_shell_codon(k_c, thlu_p, qtu_p, thlue_p, qtue_p) &
-            bind(c, name="uwshcu_buoy_midstate_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c
-          type(c_ptr), value :: thlu_p, qtu_p, thlue_p, qtue_p
-       end subroutine uwshcu_buoy_midstate_shell_codon
-
-       subroutine uwshcu_buoy_self_detrain_shell_codon(k_c, use_self_detrain_c, expfac_c, &
-            umf_p, wtw_p) bind(c, name="uwshcu_buoy_self_detrain_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c, use_self_detrain_c
-          real(c_double), value :: expfac_c
-          type(c_ptr), value :: umf_p, wtw_p
-       end subroutine uwshcu_buoy_self_detrain_shell_codon
-
-       subroutine uwshcu_buoy_ufrc_init_shell_codon(k_c, r_c, ps0_p, thv0bot_p, thv0top_p, &
-            exns0_p, umf_p, wu_p, ufrc_p, rhos0j_p) &
-            bind(c, name="uwshcu_buoy_ufrc_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c
-          real(c_double), value :: r_c
-          type(c_ptr), value :: ps0_p, thv0bot_p, thv0top_p, exns0_p, umf_p, wu_p, ufrc_p, rhos0j_p
-       end subroutine uwshcu_buoy_ufrc_init_shell_codon
-
-       subroutine uwshcu_buoy_ufrc_limit_shell_codon(k_c, rmaxfrac_c, rhos0j_c, &
-            ufrc_p, umf_p, wu_p, limit_ufrc_p, limit_code_p) &
-            bind(c, name="uwshcu_buoy_ufrc_limit_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c
-          real(c_double), value :: rmaxfrac_c, rhos0j_c
-          type(c_ptr), value :: ufrc_p, umf_p, wu_p, limit_ufrc_p, limit_code_p
-       end subroutine uwshcu_buoy_ufrc_limit_shell_codon
-
-       subroutine uwshcu_buoy_ppen_limit_shell_codon(ppen_c, dp0_kpen_c, limit_ppen_p) &
-            bind(c, name="uwshcu_buoy_ppen_limit_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: ppen_c, dp0_kpen_c
-          type(c_ptr), value :: limit_ppen_p
-       end subroutine uwshcu_buoy_ppen_limit_shell_codon
-
-       subroutine uwshcu_buoy_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_buoy_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_buoy_conden_exit_shell_codon
-
-       subroutine uwshcu_buoy_top_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_buoy_top_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_buoy_top_conden_exit_shell_codon
-
-       subroutine uwshcu_cloud_diag_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_cloud_diag_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_cloud_diag_conden_exit_shell_codon
-
-       subroutine uwshcu_cloud_diag_batch_shell_codon(kind_c, mkx_c, k_c, krel_c, kpen_c, id_check_c, &
-            qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, exit_conden_p, exit_code_p, &
-            cloud_qlj0_p, cloud_qij0_p, cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, &
-            qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
-            rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) bind(c, name="uwshcu_cloud_diag_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, mkx_c, k_c, krel_c, kpen_c, id_check_c
-          real(c_double), value :: qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p, cloud_qlj0_p, cloud_qij0_p
-          type(c_ptr), value :: cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p
-          type(c_ptr), value :: cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p
-          type(c_ptr), value :: rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p
-       end subroutine uwshcu_cloud_diag_batch_shell_codon
-
-       subroutine uwshcu_cloud_diag_conden_batch_shell_codon(kind_c, mkx_c, k_c, krel_c, kpen_c, &
-            ncnst_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, thlu_top_c, qtu_top_c, thj_p, qvj_p, &
-            qlj_p, qij_p, qse_p, id_check_p, exit_conden_p, exit_code_p, cloud_qlj0_p, cloud_qij0_p, &
-            cloud_qlj_p, cloud_qij_p, ps0_p, thlu_p, qtu_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p, &
-            qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) &
-            bind(c, name="uwshcu_cloud_diag_conden_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, mkx_c, k_c, krel_c, kpen_c, ncnst_c
-          real(c_double), value :: criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, thlu_top_c, qtu_top_c
-          type(c_ptr), value :: thj_p, qvj_p, qlj_p, qij_p, qse_p, id_check_p
-          type(c_ptr), value :: exit_conden_p, exit_code_p, cloud_qlj0_p, cloud_qij0_p
-          type(c_ptr), value :: cloud_qlj_p, cloud_qij_p, ps0_p, thlu_p, qtu_p, ufrc_p
-          type(c_ptr), value :: qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p
-          type(c_ptr), value :: rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p
-       end subroutine uwshcu_cloud_diag_conden_batch_shell_codon
-
-       subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
-            exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
-            bind(c, name="uwshcu_buoy_top_expel_final_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kpen_c
-          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c
-          type(c_ptr), value :: thlu_top_p, qtu_top_p, dwten_p, diten_p
-       end subroutine uwshcu_buoy_top_expel_final_shell_codon
-
-       subroutine uwshcu_buoy_scaleh_shell_codon(kpen_c, r_c, g_c, ppen_c, ps0_p, zs0_p, &
-            thv0bot_p, thv0top_p, exns0_p, cush_p, scaleh_p) &
-            bind(c, name="uwshcu_buoy_scaleh_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kpen_c
-          real(c_double), value :: r_c, g_c, ppen_c
-          type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, cush_p, scaleh_p
-       end subroutine uwshcu_buoy_scaleh_shell_codon
-
-       subroutine uwshcu_buoy_top_finalize_full_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
-            kpen_c, id_check_c, criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c, &
-            r_c, g_c, ppen_c, ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, thlu_top_p, &
-            qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtrc_qmin_c, &
-            iwspec_p, rstd_p, wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, &
-            exit_code_p, cush_p, scaleh_p) &
-            bind(c, name="uwshcu_buoy_top_finalize_full_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, kpen_c, id_check_c
-          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c
-          real(c_double), value :: r_c, g_c, ppen_c, wtrc_qmin_c
-          type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, thlu_top_p
-          type(c_ptr), value :: qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p
-          type(c_ptr), value :: iwspec_p, rstd_p, wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, exit_code_p
-          type(c_ptr), value :: cush_p, scaleh_p
-       end subroutine uwshcu_buoy_top_finalize_full_shell_codon
-
-       subroutine uwshcu_buoy_top_conden_finalize_full_shell_codon(mkx_c, wtrc_nwset_c, &
-            trace_water_c, wisotope_c, wtrc_alpha_kinetic_c, ncnst_c, kpen_c, criqc_c, xlv_c, xls_c, cp_c, r_c, g_c, &
-            p00_c, rovcp_c, ppen_c, ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, &
-            thlu_top_p, qtu_top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
-            exntop_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtrc_qmin_c, &
-            iwspec_p, rstd_p, wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, &
-            exit_code_p, cush_p, scaleh_p) &
-            bind(c, name="uwshcu_buoy_top_conden_finalize_full_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, wisotope_c, wtrc_alpha_kinetic_c, ncnst_c, kpen_c
-          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, r_c, g_c, p00_c, rovcp_c
-          real(c_double), value :: ppen_c, wtrc_qmin_c
-          type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p
-          type(c_ptr), value :: thlu_top_p, qtu_top_p, th_p, qv_p, ql_p, qi_p, qse_p
-          type(c_ptr), value :: id_check_p, exntop_p, dwten_p, diten_p, wtout_p
-          type(c_ptr), value :: wtrc_iatype_p, wtdwten_p, wtditen_p, wtu_top_p
-          type(c_ptr), value :: iwspec_p, rstd_p, exit_conden_p, exit_code_p, cush_p, scaleh_p
-       end subroutine uwshcu_buoy_top_conden_finalize_full_shell_codon
-
-       subroutine uwshcu_buoy_diag_update_shell_codon(k_c, excessu_c, excess0_c, xc_c, &
-            aquad_c, bquad_c, cquad_c, bogbot_c, bogtop_c, excessu_arr_p, excess0_arr_p, &
-            xc_arr_p, aquad_arr_p, bquad_arr_p, cquad_arr_p, bogbot_arr_p, bogtop_arr_p) &
-            bind(c, name="uwshcu_buoy_diag_update_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c
-          real(c_double), value :: excessu_c, excess0_c, xc_c, aquad_c, bquad_c, cquad_c
-          real(c_double), value :: bogbot_c, bogtop_c
-          type(c_ptr), value :: excessu_arr_p, excess0_arr_p, xc_arr_p, aquad_arr_p, bquad_arr_p
-          type(c_ptr), value :: cquad_arr_p, bogbot_arr_p, bogtop_arr_p
-       end subroutine uwshcu_buoy_diag_update_shell_codon
-
-       subroutine uwshcu_buoy_reach_update_shell_codon(k_c, bogtop_c, wtw_c, kbup_c, kpen_c, &
-            kbup_p, kpen_p, exit_code_p) bind(c, name="uwshcu_buoy_reach_update_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c, kbup_c, kpen_c
-          real(c_double), value :: bogtop_c, wtw_c
-          type(c_ptr), value :: kbup_p, kpen_p, exit_code_p
-       end subroutine uwshcu_buoy_reach_update_shell_codon
-
-       subroutine uwshcu_scalar_exit_limit_batch_shell_codon(kind_c, idx_c, code_in_c, &
-            v1_c, v2_c, v3_c, field1_p, field2_p, field3_p, flag1_p, flag2_p, code_out_p) &
-            bind(c, name="uwshcu_scalar_exit_limit_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, idx_c, code_in_c
-          real(c_double), value :: v1_c, v2_c, v3_c
-          type(c_ptr), value :: field1_p, field2_p, field3_p, flag1_p, flag2_p, code_out_p
-       end subroutine uwshcu_scalar_exit_limit_batch_shell_codon
-
-       subroutine uwshcu_buoy_wu_exit_shell_codon(wu_c, exit_wu_p, exit_code_p) &
-            bind(c, name="uwshcu_buoy_wu_exit_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: wu_c
-          type(c_ptr), value :: exit_wu_p, exit_code_p
-       end subroutine uwshcu_buoy_wu_exit_shell_codon
-
-       subroutine uwshcu_release_mu_pre_solve_shell_codon(use_cincin_c, kinv_c, cin_c, cinlcl_c, &
-            rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c, r_c, g_c, dt_c, mumin1_c, rmaxfrac_c, &
-            ps0_p, thv0top_p, exns0_p, dp0_p, sigmaw_p, mu_p, rho0inv_p, cbmflimit_p, &
-            mumin0_p, mulcl_p, need_mumin2_p, exit_code_p) &
-            bind(c, name="uwshcu_release_mu_pre_solve_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: use_cincin_c, kinv_c
-          real(c_double), value :: cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c
-          real(c_double), value :: r_c, g_c, dt_c, mumin1_c, rmaxfrac_c
-          type(c_ptr), value :: ps0_p, thv0top_p, exns0_p, dp0_p, sigmaw_p, mu_p
-          type(c_ptr), value :: rho0inv_p, cbmflimit_p, mumin0_p, mulcl_p
-          type(c_ptr), value :: need_mumin2_p, exit_code_p
-       end subroutine uwshcu_release_mu_pre_solve_shell_codon
-
-       subroutine uwshcu_release_base_solve_shell_codon(mu_c, rho0inv_c, sigmaw_c, cinlcl_c, &
-            rbuoy_c, cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p, &
-            exit_wtw_p, exit_ufrc_p, exit_code_p) &
-            bind(c, name="uwshcu_release_base_solve_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: mu_c, rho0inv_c, sigmaw_c, cinlcl_c, rbuoy_c
-          type(c_ptr), value :: cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p
-          type(c_ptr), value :: exit_wtw_p, exit_ufrc_p, exit_code_p
-       end subroutine uwshcu_release_base_solve_shell_codon
-
-       subroutine uwshcu_release_base_full_shell_codon(mkx_c, ncnst_c, use_cincin_c, kinv_c, &
-            klcl_c, zvir_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c, r_c, &
-            g_c, dt_c, mumin1_c, rmaxfrac_c, plcl_c, thv0lcl_c, thlsrc_c, qtsrc_c, &
-            ps0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p, krel_p, prel_p, thv0rel_p, &
-            sigmaw_p, mu_p, rho0inv_p, cbmflimit_p, mumin0_p, mumin2_p, mulcl_p, &
-            cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p, ufrc_p, &
-            umf_p, wu_p, emf_p, thlu_p, qtu_p, ufrcinvbase_p, winvbase_p, pe_p, &
-            dpe_p, exit_wtw_p, exit_ufrc_p, limit_ufrc_p, limit_cbmf_p, th_p, qv_p, &
-            ql_p, qi_p, qse_p, id_check_p, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_release_base_full_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, use_cincin_c, kinv_c, klcl_c
-          real(c_double), value :: zvir_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c
-          real(c_double), value :: epsvarw_c, r_c, g_c, dt_c, mumin1_c, rmaxfrac_c
-          real(c_double), value :: plcl_c, thv0lcl_c, thlsrc_c, qtsrc_c
-          type(c_ptr), value :: ps0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
-          type(c_ptr), value :: krel_p, prel_p, thv0rel_p, sigmaw_p, mu_p, rho0inv_p
-          type(c_ptr), value :: cbmflimit_p, mumin0_p, mumin2_p, mulcl_p, cbmf_p, winv_p
-          type(c_ptr), value :: ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p, ufrc_p
-          type(c_ptr), value :: umf_p, wu_p, emf_p, thlu_p, qtu_p, ufrcinvbase_p
-          type(c_ptr), value :: winvbase_p, pe_p, dpe_p, exit_wtw_p, exit_ufrc_p
-          type(c_ptr), value :: limit_ufrc_p, limit_cbmf_p, th_p, qv_p, ql_p, qi_p
-          type(c_ptr), value :: qse_p, id_check_p, exit_conden_p, exit_code_p
-       end subroutine uwshcu_release_base_full_shell_codon
-
-       subroutine uwshcu_release_mu_exit_shell_codon(mu_c, exit_code_p) &
-            bind(c, name="uwshcu_release_mu_exit_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: mu_c
-          type(c_ptr), value :: exit_code_p
-       end subroutine uwshcu_release_mu_exit_shell_codon
-
-       subroutine uwshcu_release_mumin2_limit_shell_codon(mu_c, mumin2_c, limit_ufrc_p) &
-            bind(c, name="uwshcu_release_mumin2_limit_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: mu_c, mumin2_c
-          type(c_ptr), value :: limit_ufrc_p
-       end subroutine uwshcu_release_mumin2_limit_shell_codon
-
-       subroutine uwshcu_release_mu_limit_flags_shell_codon(mu_c, mumin0_c, mumin1_c, &
-            limit_cbmf_p, limit_ufrc_p) bind(c, name="uwshcu_release_mu_limit_flags_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: mu_c, mumin0_c, mumin1_c
-          type(c_ptr), value :: limit_cbmf_p, limit_ufrc_p
-       end subroutine uwshcu_release_mu_limit_flags_shell_codon
-
-       subroutine uwshcu_release_wtw_exit_shell_codon(wtw_c, exit_wtw_p, exit_code_p) &
-            bind(c, name="uwshcu_release_wtw_exit_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: wtw_c
-          type(c_ptr), value :: exit_wtw_p, exit_code_p
-       end subroutine uwshcu_release_wtw_exit_shell_codon
-
-       subroutine uwshcu_release_ufrc_exit_shell_codon(ufrclcl_c, exit_ufrc_p, exit_code_p) &
-            bind(c, name="uwshcu_release_ufrc_exit_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: ufrclcl_c
-          type(c_ptr), value :: exit_ufrc_p, exit_code_p
-       end subroutine uwshcu_release_ufrc_exit_shell_codon
-
-       subroutine uwshcu_buoy_next_env_load_shell_codon(k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
-            p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, &
-            pe_p, dpe_p, exne_p, thvebot_p, thle_p, qte_p, ue_p, ve_p, tre_p, wte_p) &
-            bind(c, name="uwshcu_buoy_next_env_load_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c, mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p
-          type(c_ptr), value :: tr0_p, wt0_p, pe_p, dpe_p, exne_p, thvebot_p, thle_p, qte_p
-          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
-       end subroutine uwshcu_buoy_next_env_load_shell_codon
-
-       subroutine uwshcu_buoy_loop_batch_shell_codon(kind_c, k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
-            flag1_c, flag2_c, id_check_c, v1_c, v2_c, v3_c, v4_c, v5_c, v6_c, v7_c, v8_c, &
-            v9_c, v10_c, p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, &
-            p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p) &
-            bind(c, name="uwshcu_buoy_loop_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, mkx_c, ncnst_c, wtrc_nwset_c
-          integer(c_int64_t), value :: flag1_c, flag2_c, id_check_c
-          real(c_double), value :: v1_c, v2_c, v3_c, v4_c, v5_c, v6_c, v7_c, v8_c
-          real(c_double), value :: v9_c, v10_c
-          type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
-          type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p
-       end subroutine uwshcu_buoy_loop_batch_shell_codon
-
-       subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
-            thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c
-          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c
-          type(c_ptr), value :: thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p
-       end subroutine uwshcu_cin_lcl_init_shell_codon
-
-       subroutine uwshcu_cin_prep_batch_shell_codon(kind_c, k_c, mkx_c, id_check_c, &
-            plcl_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c, &
-            ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, klcl_out_p, &
-            lcl_exit_code_p, thl0lcl_p, qt0lcl_p, exit_conden_p, exit_code_p, &
-            thv_p, thvl_p, cin_p, cinlcl_p, plfc_p, klfc_p) &
-            bind(c, name="uwshcu_cin_prep_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, mkx_c, id_check_c
-          real(c_double), value :: plcl_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c
-          real(c_double), value :: thl0edge_c, qt0edge_c
-          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
-          type(c_ptr), value :: klcl_out_p, lcl_exit_code_p, thl0lcl_p, qt0lcl_p
-          type(c_ptr), value :: exit_conden_p, exit_code_p, thv_p, thvl_p
-          type(c_ptr), value :: cin_p, cinlcl_p, plfc_p, klfc_p
-       end subroutine uwshcu_cin_prep_batch_shell_codon
-
-       subroutine uwshcu_cin_state_save_shell_codon(ncnst_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, &
-            tkeavg_c, epsvarw_c, kinv_c, klcl_c, klfc_c, plcl_c, plfc_c, thvlmin_c, qtsrc_c, &
-            thvlsrc_c, thlsrc_c, usrc_c, vsrc_c, thv0lcl_c, trsrc_p, cin_i_p, cinlcl_i_p, &
-            ke_p, kinv_o_p, klcl_o_p, klfc_o_p, plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, &
-            qtsrc_o_p, thvlsrc_o_p, thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p) &
-            bind(c, name="uwshcu_cin_state_save_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: ncnst_c, kinv_c, klcl_c, klfc_c
-          real(c_double), value :: cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c
-          real(c_double), value :: plcl_c, plfc_c, thvlmin_c, qtsrc_c, thvlsrc_c, thlsrc_c
-          real(c_double), value :: usrc_c, vsrc_c, thv0lcl_c
-          type(c_ptr), value :: trsrc_p, cin_i_p, cinlcl_i_p, ke_p, kinv_o_p, klcl_o_p, klfc_o_p
-          type(c_ptr), value :: plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p
-          type(c_ptr), value :: thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p
-       end subroutine uwshcu_cin_state_save_shell_codon
-
-       subroutine uwshcu_cin_postcheck_save_shell_codon(iter_c, ncnst_c, mkx_c, cinlcl_c, rbuoy_c, &
-            rkfre_c, tkeavg_c, epsvarw_c, kinv_c, klcl_c, klfc_c, plcl_c, plfc_c, thvlmin_c, &
-            qtsrc_c, thvlsrc_c, thlsrc_c, usrc_c, vsrc_c, thv0lcl_c, trsrc_p, limit_cin_p, &
-            cin_p, klfc_p, exit_code_p, cin_i_p, cinlcl_i_p, ke_p, kinv_o_p, klcl_o_p, klfc_o_p, &
-            plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p, thlsrc_o_p, &
-            usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p) &
-            bind(c, name="uwshcu_cin_postcheck_save_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: iter_c, ncnst_c, mkx_c, kinv_c, klcl_c, klfc_c
-          real(c_double), value :: cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c
-          real(c_double), value :: plcl_c, plfc_c, thvlmin_c, qtsrc_c, thvlsrc_c, thlsrc_c
-          real(c_double), value :: usrc_c, vsrc_c, thv0lcl_c
-          type(c_ptr), value :: trsrc_p, limit_cin_p, cin_p, klfc_p, exit_code_p
-          type(c_ptr), value :: cin_i_p, cinlcl_i_p, ke_p, kinv_o_p, klcl_o_p, klfc_o_p
-          type(c_ptr), value :: plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p
-          type(c_ptr), value :: thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p
-       end subroutine uwshcu_cin_postcheck_save_shell_codon
-
-       subroutine uwshcu_cin_state_restore_shell_codon(ncnst_c, use_cincin_c, cin_i_c, cinlcl_i_c, &
-            alpha_c, del_cin_c, del_cinlcl_c, kinv_o_c, klcl_o_c, klfc_o_c, plcl_o_c, plfc_o_c, &
-            tkeavg_o_c, thvlmin_o_c, qtsrc_o_c, thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, &
-            thv0lcl_o_c, trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p, &
-            tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p, thv0lcl_p, trsrc_p) &
-            bind(c, name="uwshcu_cin_state_restore_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: ncnst_c, use_cincin_c, kinv_o_c, klcl_o_c, klfc_o_c
-          real(c_double), value :: cin_i_c, cinlcl_i_c, alpha_c, del_cin_c, del_cinlcl_c
-          real(c_double), value :: plcl_o_c, plfc_o_c, tkeavg_o_c, thvlmin_o_c, qtsrc_o_c
-          real(c_double), value :: thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, thv0lcl_o_c
-          type(c_ptr), value :: trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p
-          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
-          type(c_ptr), value :: thv0lcl_p, trsrc_p
-       end subroutine uwshcu_cin_state_restore_shell_codon
-
-       subroutine uwshcu_release_level_shell_codon(kinv_c, klcl_c, plcl_c, thv0lcl_c, ps0_p, &
-            thv0bot_p, krel_p, prel_p, thv0rel_p) bind(c, name="uwshcu_release_level_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kinv_c, klcl_c
-          real(c_double), value :: plcl_c, thv0lcl_c
-          type(c_ptr), value :: ps0_p, thv0bot_p, krel_p, prel_p, thv0rel_p
-       end subroutine uwshcu_release_level_shell_codon
-
-       subroutine uwshcu_release_base_shell_codon(mkx_c, kinv_c, krel_c, cbmf_c, wrel_c, winv_c, &
-            ufrcinv_c, ufrclcl_c, thlsrc_c, qtsrc_c, prel_c, ps0_p, ufrc_p, umf_p, wu_p, &
-            emf_p, thlu_p, qtu_p, ufrcinvbase_p, winvbase_p, pe_p, dpe_p) &
-            bind(c, name="uwshcu_release_base_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, kinv_c, krel_c
-          real(c_double), value :: cbmf_c, wrel_c, winv_c, ufrcinv_c, ufrclcl_c, thlsrc_c, qtsrc_c, prel_c
-          type(c_ptr), value :: ps0_p, ufrc_p, umf_p, wu_p, emf_p, thlu_p, qtu_p
-          type(c_ptr), value :: ufrcinvbase_p, winvbase_p, pe_p, dpe_p
-       end subroutine uwshcu_release_base_shell_codon
-
-       subroutine uwshcu_release_scaleh_batch_shell_codon(kind_c, mkx_c, kinv_c, klcl_c, &
-            krel_c, code_in_c, plcl_c, thv0lcl_c, mu_c, mumin2_c, mumin0_c, mumin1_c, &
-            wtw_c, ufrclcl_c, cbmf_c, wrel_c, winv_c, ufrcinv_c, thlsrc_c, qtsrc_c, &
-            prel_c, ppen_c, dp0_kpen_c, ps0_p, thv0bot_p, krel_p, prel_p, thv0rel_p, &
-            limit_ufrc_p, limit_cbmf_p, limit_ppen_p, exit_wtw_p, exit_ufrc_p, &
-            exit_conden_p, exit_cufilter_p, exit_code_p, ufrc_p, umf_p, wu_p, emf_p, &
-            thlu_p, qtu_p, ufrcinvbase_p, winvbase_p, pe_p, dpe_p) &
-            bind(c, name="uwshcu_release_scaleh_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, mkx_c, kinv_c, klcl_c, krel_c, code_in_c
-          real(c_double), value :: plcl_c, thv0lcl_c, mu_c, mumin2_c, mumin0_c, mumin1_c
-          real(c_double), value :: wtw_c, ufrclcl_c, cbmf_c, wrel_c, winv_c, ufrcinv_c
-          real(c_double), value :: thlsrc_c, qtsrc_c, prel_c, ppen_c, dp0_kpen_c
-          type(c_ptr), value :: ps0_p, thv0bot_p, krel_p, prel_p, thv0rel_p
-          type(c_ptr), value :: limit_ufrc_p, limit_cbmf_p, limit_ppen_p
-          type(c_ptr), value :: exit_wtw_p, exit_ufrc_p, exit_conden_p, exit_cufilter_p, exit_code_p
-          type(c_ptr), value :: ufrc_p, umf_p, wu_p, emf_p, thlu_p, qtu_p
-          type(c_ptr), value :: ufrcinvbase_p, winvbase_p, pe_p, dpe_p
-       end subroutine uwshcu_release_scaleh_batch_shell_codon
-
-       subroutine uwshcu_release_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_release_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_release_conden_exit_shell_codon
-
-       subroutine uwshcu_release_env_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, zvir_c, &
-            pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c, thj_c, qvj_c, qlj_c, qij_c, &
-            ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, &
-            tr0_p, sstr0_p, wt0_p, sswt0_p, trsrc_p, wtsrc_p, thvu_p, uu_p, vu_p, &
-            tru_p, wtu_p, thvebot_p, thle_p, qte_p, ue_p, ve_p, tre_p, wte_p) &
-            bind(c, name="uwshcu_release_env_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
-          real(c_double), value :: zvir_c, pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c
-          real(c_double), value :: thj_c, qvj_c, qlj_c, qij_c
-          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
-          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, trsrc_p, wtsrc_p
-          type(c_ptr), value :: thvu_p, uu_p, vu_p, tru_p, wtu_p, thvebot_p, thle_p, qte_p
-          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
-       end subroutine uwshcu_release_env_shell_codon
-
-       subroutine uwshcu_scaleh_set_codon(tscaleh_c, scaleh_p) bind(c, name="uwshcu_scaleh_set_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: tscaleh_c
-          type(c_ptr), value :: scaleh_p
-       end subroutine uwshcu_scaleh_set_codon
-
-       subroutine uwshcu_scaleh_iter_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, iter_scaleh_c, &
-            krel_c, tscaleh_c, wlcl_c, prel_c, thv0rel_c, scaleh_p, ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, &
-            ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, &
-            kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p, &
-            ue_p, ve_p, tre_p, wte_p) bind(c, name="uwshcu_scaleh_iter_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, iter_scaleh_c, krel_c
-          real(c_double), value :: tscaleh_c, wlcl_c, prel_c, thv0rel_c
-          type(c_ptr), value :: scaleh_p, ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
-          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
-          type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
-          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
-       end subroutine uwshcu_scaleh_iter_init_shell_codon
-
-       subroutine uwshcu_release_env_scaleh_iter_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            iter_scaleh_c, kinv_c, krel_c, zvir_c, pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, &
-            thv0rel_c, thj_c, qvj_c, qlj_c, qij_c, tscaleh_c, wlcl_c, ps0_p, p0_p, thl0_p, &
-            ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, &
-            sswt0_p, trsrc_p, wtsrc_p, scaleh_p, thvu_p, uu_p, vu_p, tru_p, wtu_p, &
-            kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p, ue_p, ve_p, &
-            tre_p, wte_p) bind(c, name="uwshcu_release_env_scaleh_iter_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, iter_scaleh_c, kinv_c, krel_c
-          real(c_double), value :: zvir_c, pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c
-          real(c_double), value :: thj_c, qvj_c, qlj_c, qij_c, tscaleh_c, wlcl_c
-          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
-          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, trsrc_p, wtsrc_p
-          type(c_ptr), value :: scaleh_p, thvu_p, uu_p, vu_p, tru_p, wtu_p
-          type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
-          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
-       end subroutine uwshcu_release_env_scaleh_iter_init_shell_codon
-
-       subroutine uwshcu_penent_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kbup_c, kpen_c, &
-            r_c, g_c, dt_c, rpen_c, ppen_c, ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, &
-            exns0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, &
-            tr0_p, sstr0_p, wt0_p, sswt0_p, umf_p, emf_p, ufrc_p, dwten_p, diten_p, &
-            fer_p, fdr_p, rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, thlu_emf_p, &
-            qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, wtdwten_p, wtditen_p, &
-            limit_emf_p) bind(c, name="uwshcu_penent_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kbup_c, kpen_c
-          real(c_double), value :: r_c, g_c, dt_c, rpen_c, ppen_c
-          type(c_ptr), value :: ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
-          type(c_ptr), value :: thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
-          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
-          type(c_ptr), value :: umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p
-          type(c_ptr), value :: rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p
-          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p
-          type(c_ptr), value :: wtu_emf_p, wtdwten_p, wtditen_p, limit_emf_p
-       end subroutine uwshcu_penent_prep_shell_codon
-
-       subroutine uwshcu_turbulent_flux_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, &
-            kbup_c, kpen_c, use_momenflx_c, cbmf_c, g_c, dt_c, cp_c, pgfc_c, qtsrc_c, &
-            thlsrc_c, usrc_c, vsrc_c, ps0_p, p0_p, exns0_p, qt0_p, ssqt0_p, thl0_p, &
-            ssthl0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, &
-            trsrc_p, wtsrc_p, umf_p, emf_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, &
-            thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, slflx_p, &
-            qtflx_p, uflx_p, vflx_p, trflx_p, wtflx_p) bind(c, name="uwshcu_turbulent_flux_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
-          integer(c_int64_t), value :: kbup_c, kpen_c, use_momenflx_c
-          real(c_double), value :: cbmf_c, g_c, dt_c, cp_c, pgfc_c, qtsrc_c, thlsrc_c
-          real(c_double), value :: usrc_c, vsrc_c
-          type(c_ptr), value :: ps0_p, p0_p, exns0_p, qt0_p, ssqt0_p, thl0_p, ssthl0_p
-          type(c_ptr), value :: u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
-          type(c_ptr), value :: trsrc_p, wtsrc_p, umf_p, emf_p, thlu_p, qtu_p, uu_p, vu_p
-          type(c_ptr), value :: tru_p, wtu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p
-          type(c_ptr), value :: tru_emf_p, wtu_emf_p, slflx_p, qtflx_p, uflx_p, vflx_p
-          type(c_ptr), value :: trflx_p, wtflx_p
-       end subroutine uwshcu_turbulent_flux_shell_codon
-
-       subroutine uwshcu_massflux_comsub_shell_codon(mkx_c, kinv_c, krel_c, kbup_c, kpen_c, &
-            cbmf_c, ps0_p, umf_p, emf_p, uemf_p, comsub_p) &
-            bind(c, name="uwshcu_massflux_comsub_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, kinv_c, krel_c, kbup_c, kpen_c
-          real(c_double), value :: cbmf_c
-          type(c_ptr), value :: ps0_p, umf_p, emf_p, uemf_p, comsub_p
-       end subroutine uwshcu_massflux_comsub_shell_codon
-
-       subroutine uwshcu_momentum_detrainment_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
-            g_c, dt_c, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, uten_p, vten_p, &
-            uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p) &
-            bind(c, name="uwshcu_momentum_detrainment_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
-          real(c_double), value :: g_c, dt_c
-          type(c_ptr), value :: dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, uten_p, vten_p
-          type(c_ptr), value :: uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
-       end subroutine uwshcu_momentum_detrainment_shell_codon
-
-       subroutine uwshcu_comp_sub_tendency_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
-            ixnumliq_c, ixnumice_c, g_c, p0_p, thl0_p, qt0_p, ql0_p, qi0_p, tr0_p, &
-            wtrc_iatype_p, comsub_p, thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p, &
-            nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p) &
-            bind(c, name="uwshcu_comp_sub_tendency_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: g_c
-          type(c_ptr), value :: p0_p, thl0_p, qt0_p, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, comsub_p
-          type(c_ptr), value :: thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p
-          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
-       end subroutine uwshcu_comp_sub_tendency_shell_codon
-
-       subroutine uwshcu_comp_sub_prepare_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, &
-            krel_c, kbup_c, kpen_c, ixnumliq_c, ixnumice_c, cbmf_c, g_c, ps0_p, umf_p, &
-            emf_p, uemf_p, comsub_p, p0_p, thl0_p, qt0_p, ql0_p, qi0_p, tr0_p, &
-            wtrc_iatype_p, thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p, &
-            nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p) &
-            bind(c, name="uwshcu_comp_sub_prepare_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, kbup_c
-          integer(c_int64_t), value :: kpen_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: cbmf_c, g_c
-          type(c_ptr), value :: ps0_p, umf_p, emf_p, uemf_p, comsub_p, p0_p, thl0_p, qt0_p
-          type(c_ptr), value :: ql0_p, qi0_p, tr0_p, wtrc_iatype_p, thlten_sub_p, qtten_sub_p
-          type(c_ptr), value :: qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p
-          type(c_ptr), value :: wtlten_sub_p, wtiten_sub_p
-       end subroutine uwshcu_comp_sub_prepare_shell_codon
-
-       subroutine uwshcu_penent_flux_comp_sub_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            kinv_c, krel_c, kbup_c, kpen_c, ixnumliq_c, ixnumice_c, use_momenflx_c, r_c, &
-            g_c, dt_c, rpen_c, ppen_c, cbmf_c, cp_c, pgfc_c, qtsrc_c, thlsrc_c, usrc_c, &
-            vsrc_c, ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p, thl0_p, &
-            ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, &
-            wt0_p, sswt0_p, umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p, &
-            rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, thlu_emf_p, qtu_emf_p, &
-            uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, wtdwten_p, wtditen_p, &
-            limit_emf_p, trsrc_p, wtsrc_p, slflx_p, qtflx_p, uflx_p, vflx_p, trflx_p, &
-            wtflx_p, uemf_p, comsub_p, ql0_p, qi0_p, wtrc_iatype_p, thlten_sub_p, &
-            qtten_sub_p, qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p, &
-            wtlten_sub_p, wtiten_sub_p) bind(c, name="uwshcu_penent_flux_comp_sub_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
-          integer(c_int64_t), value :: kbup_c, kpen_c, ixnumliq_c, ixnumice_c, use_momenflx_c
-          real(c_double), value :: r_c, g_c, dt_c, rpen_c, ppen_c, cbmf_c, cp_c, pgfc_c
-          real(c_double), value :: qtsrc_c, thlsrc_c, usrc_c, vsrc_c
-          type(c_ptr), value :: ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
-          type(c_ptr), value :: thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
-          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
-          type(c_ptr), value :: umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p
-          type(c_ptr), value :: rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p
-          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p
-          type(c_ptr), value :: wtu_emf_p, wtdwten_p, wtditen_p, limit_emf_p, trsrc_p
-          type(c_ptr), value :: wtsrc_p, slflx_p, qtflx_p, uflx_p, vflx_p, trflx_p
-          type(c_ptr), value :: wtflx_p, uemf_p, comsub_p, ql0_p, qi0_p, wtrc_iatype_p
-          type(c_ptr), value :: thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p
-          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
-       end subroutine uwshcu_penent_flux_comp_sub_prep_shell_codon
-
-       subroutine uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            kinv_c, krel_c, kbup_c, kpen_c, ixnumliq_c, ixnumice_c, use_momenflx_c, r_c, &
-            g_c, dt_c, rpen_c, ppen_c, cbmf_c, cp_c, pgfc_c, qtsrc_c, thlsrc_c, usrc_c, &
-            vsrc_c, ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p, thl0_p, &
-            ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, &
-            wt0_p, sswt0_p, umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p, &
-            rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, thlu_emf_p, qtu_emf_p, &
-            uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, wtdwten_p, wtditen_p, &
-            limit_emf_p, limit_shcu_p, exit_code_p, exit_cufilter_p, cufilter_exit_code_p, &
-            trsrc_p, wtsrc_p, slflx_p, qtflx_p, uflx_p, vflx_p, trflx_p, wtflx_p, &
-            uemf_p, comsub_p, ql0_p, qi0_p, wtrc_iatype_p, thlten_sub_p, qtten_sub_p, &
-            qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, &
-            th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, comp_sub_conden_exit_code_p) &
-            bind(c, name="uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
-          integer(c_int64_t), value :: kbup_c, kpen_c, ixnumliq_c, ixnumice_c, use_momenflx_c
-          real(c_double), value :: r_c, g_c, dt_c, rpen_c, ppen_c, cbmf_c, cp_c, pgfc_c
-          real(c_double), value :: qtsrc_c, thlsrc_c, usrc_c, vsrc_c
-          type(c_ptr), value :: ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
-          type(c_ptr), value :: thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
-          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
-          type(c_ptr), value :: umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p
-          type(c_ptr), value :: rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p
-          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p
-          type(c_ptr), value :: wtu_emf_p, wtdwten_p, wtditen_p, limit_emf_p
-          type(c_ptr), value :: limit_shcu_p, exit_code_p, exit_cufilter_p, cufilter_exit_code_p
-          type(c_ptr), value :: trsrc_p, wtsrc_p, slflx_p, qtflx_p, uflx_p, vflx_p
-          type(c_ptr), value :: trflx_p, wtflx_p, uemf_p, comsub_p, ql0_p, qi0_p
-          type(c_ptr), value :: wtrc_iatype_p, thlten_sub_p, qtten_sub_p, qlten_sub_p
-          type(c_ptr), value :: qiten_sub_p, nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, comp_sub_conden_exit_code_p
-       end subroutine uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon
-
-       subroutine uwshcu_scaleh_cufilter_exit_shell_codon(post_exit_code_c, exit_cufilter_p, exit_code_p) &
-            bind(c, name="uwshcu_scaleh_cufilter_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: post_exit_code_c
-          type(c_ptr), value :: exit_cufilter_p, exit_code_p
-       end subroutine uwshcu_scaleh_cufilter_exit_shell_codon
-
-       subroutine uwshcu_comp_sub_sink_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
-            ixnumliq_c, ixnumice_c, dt_c, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, &
-            qiten_sub_p, nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p, &
-            qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p) &
-            bind(c, name="uwshcu_comp_sub_sink_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: dt_c
-          type(c_ptr), value :: ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, qiten_sub_p
-          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p
-          type(c_ptr), value :: qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p
-       end subroutine uwshcu_comp_sub_sink_shell_codon
-
-       subroutine uwshcu_comp_sub_conden_exit_shell_codon(id_check_c, exit_code_p) &
-            bind(c, name="uwshcu_comp_sub_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_code_p
-       end subroutine uwshcu_comp_sub_conden_exit_shell_codon
-
-       subroutine uwshcu_comp_sub_conden_loop_shell_codon(mkx_c, ncnst_c, kpen_c, dt_c, &
-            p0_p, thl0_p, qt0_p, thlten_sub_p, qtten_sub_p, th_p, qv_p, ql_p, qi_p, &
-            qse_p, id_check_p, exit_code_p) bind(c, name="uwshcu_comp_sub_conden_loop_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, kpen_c
-          real(c_double), value :: dt_c
-          type(c_ptr), value :: p0_p, thl0_p, qt0_p, thlten_sub_p, qtten_sub_p
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p
-       end subroutine uwshcu_comp_sub_conden_loop_shell_codon
-
-       subroutine uwshcu_thermo_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
-            bind(c, name="uwshcu_thermo_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_conden_p, exit_code_p
-       end subroutine uwshcu_thermo_conden_exit_shell_codon
-
-       subroutine uwshcu_thermo_emf_conden_exit_shell_codon(id_check_c, exit_code_p) &
-            bind(c, name="uwshcu_thermo_emf_conden_exit_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: id_check_c
-          type(c_ptr), value :: exit_code_p
-       end subroutine uwshcu_thermo_emf_conden_exit_shell_codon
-
-       subroutine uwshcu_thermo_emf_kbup_state_shell_codon(k_c, mkx_c, ixnumliq_c, ixnumice_c, &
-            ql_emf_kbup_c, qi_emf_kbup_c, tru_emf_p, nl_emf_kbup_p, ni_emf_kbup_p) &
-            bind(c, name="uwshcu_thermo_emf_kbup_state_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_double, c_ptr
-          integer(c_int64_t), value :: k_c, mkx_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: ql_emf_kbup_c, qi_emf_kbup_c
-          type(c_ptr), value :: tru_emf_p, nl_emf_kbup_p, ni_emf_kbup_p
-       end subroutine uwshcu_thermo_emf_kbup_state_shell_codon
-
-       subroutine uwshcu_thermo_emf_kbup_tendency_shell_codon(g_c, emf_k_c, ql_emf_kbup_c, &
-            qi_emf_kbup_c, nl_emf_kbup_c, ni_emf_kbup_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, &
-            tr0_ice_k_c, ps0_km1_c, ps0_k_c, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p) &
-            bind(c, name="uwshcu_thermo_emf_kbup_tendency_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: g_c, emf_k_c, ql_emf_kbup_c, qi_emf_kbup_c
-          real(c_double), value :: nl_emf_kbup_c, ni_emf_kbup_c, ql0_k_c, qi0_k_c
-          real(c_double), value :: tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
-          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
-       end subroutine uwshcu_thermo_emf_kbup_tendency_shell_codon
-
-       subroutine uwshcu_thermo_sustain_shell_codon(frc_rasn_c, dwten_k_c, diten_k_c, qc_l_k_p, qc_i_k_p) &
-            bind(c, name="uwshcu_thermo_sustain_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: frc_rasn_c, dwten_k_c, diten_k_c
-          type(c_ptr), value :: qc_l_k_p, qc_i_k_p
-       end subroutine uwshcu_thermo_sustain_shell_codon
-
-       subroutine uwshcu_thermo_detrain_shell_codon(k_le_kbup_c, g_c, umf_km1_c, umf_k_c, fdr_k_c, &
-            qlu_mid_c, qiu_mid_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, &
-            qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p) &
-            bind(c, name="uwshcu_thermo_detrain_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_le_kbup_c
-          real(c_double), value :: g_c, umf_km1_c, umf_k_c, fdr_k_c
-          real(c_double), value :: qlu_mid_c, qiu_mid_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c
-          type(c_ptr), value :: qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
-       end subroutine uwshcu_thermo_detrain_shell_codon
-
-       subroutine uwshcu_thermo_detached_shell_codon(g_c, umf_k_c, qlj_c, qij_c, ql0_k_c, &
-            qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c, qc_l_k_p, qc_i_k_p, &
-            qc_lm_p, qc_im_p, nc_lm_p, nc_im_p) bind(c, name="uwshcu_thermo_detached_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: g_c, umf_k_c, qlj_c, qij_c, ql0_k_c, qi0_k_c
-          real(c_double), value :: tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
-          type(c_ptr), value :: qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
-       end subroutine uwshcu_thermo_detached_shell_codon
-
-       subroutine uwshcu_thermo_condensate_batch_shell_codon(kind_c, k_c, mkx_c, ixnumliq_c, &
-            ixnumice_c, flag1_c, flag2_c, frc_rasn_c, g_c, dwten_k_c, diten_k_c, &
-            umf_km1_c, umf_k_c, fdr_k_c, qlu_mid_c, qiu_mid_c, qlj_c, qij_c, ql0_k_c, &
-            qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c, emf_k_c, &
-            ql_emf_kbup_c, qi_emf_kbup_c, tru_emf_p, qc_l_k_p, qc_i_k_p, qc_lm_p, &
-            qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p) &
-            bind(c, name="uwshcu_thermo_condensate_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, mkx_c, ixnumliq_c, ixnumice_c
-          integer(c_int64_t), value :: flag1_c, flag2_c
-          real(c_double), value :: frc_rasn_c, g_c, dwten_k_c, diten_k_c, umf_km1_c, umf_k_c
-          real(c_double), value :: fdr_k_c, qlu_mid_c, qiu_mid_c, qlj_c, qij_c, ql0_k_c
-          real(c_double), value :: qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
-          real(c_double), value :: emf_k_c, ql_emf_kbup_c, qi_emf_kbup_c
-          type(c_ptr), value :: tru_emf_p, qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p
-          type(c_ptr), value :: nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
-	       end subroutine uwshcu_thermo_condensate_batch_shell_codon
-
-       subroutine uwshcu_thermo_conden_condensate_conden_shell_codon(kind_c, k_c, mkx_c, &
-            ixnumliq_c, ixnumice_c, trace_water_c, wtrc_nwset_c, wisotope_c, wtrc_alpha_kinetic_c, &
-            ncnst_c, krel_c, kpen_c, &
-            flag1_c, flag2_c, frc_rasn_c, g_c, dwten_k_c, diten_k_c, umf_km1_c, umf_k_c, &
-            fdr_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, prel_c, ppen_c, &
-            thlu_top_c, qtu_top_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
-            qlubelow_p, qiubelow_p, qlu_mid_p, qiu_mid_p, qlu_top_p, qiu_top_p, &
-            exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, &
-            nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p, ps0_p, thlu_p, qtu_p, &
-            wtu_p, wtu_top_p, wtout_p, wtrc_iatype_p, wtrc_qmin_c, iwspec_p, rstd_p) &
-            bind(c, name="uwshcu_thermo_conden_condensate_conden_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, mkx_c, ixnumliq_c, ixnumice_c
-          integer(c_int64_t), value :: trace_water_c, wtrc_nwset_c, wisotope_c, wtrc_alpha_kinetic_c
-          integer(c_int64_t), value :: ncnst_c, krel_c, kpen_c
-          integer(c_int64_t), value :: flag1_c, flag2_c
-          real(c_double), value :: frc_rasn_c, g_c, dwten_k_c, diten_k_c, umf_km1_c, umf_k_c
-          real(c_double), value :: fdr_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c
-          real(c_double), value :: prel_c, ppen_c, thlu_top_c, qtu_top_c, wtrc_qmin_c
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
-          type(c_ptr), value :: qlubelow_p, qiubelow_p, qlu_mid_p, qiu_mid_p, qlu_top_p, qiu_top_p
-          type(c_ptr), value :: exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p
-          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
-          type(c_ptr), value :: ps0_p, thlu_p, qtu_p, wtu_p, wtu_top_p, wtout_p
-          type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p
-       end subroutine uwshcu_thermo_conden_condensate_conden_shell_codon
-
-       subroutine uwshcu_thermo_conden_condensate_batch_shell_codon(kind_c, k_c, mkx_c, &
-            ixnumliq_c, ixnumice_c, id_check_c, flag1_c, flag2_c, frc_rasn_c, g_c, &
-            dwten_k_c, diten_k_c, umf_km1_c, umf_k_c, fdr_k_c, qlj_c, qij_c, ql0_k_c, &
-            qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c, prel_c, ppen_c, &
-            emf_k_c, ql_emf_kbup_c, qi_emf_kbup_c, qlubelow_p, qiubelow_p, qlu_mid_p, &
-            qiu_mid_p, qlu_top_p, qiu_top_p, exit_conden_p, exit_code_p, tru_emf_p, &
-            qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, &
-            ni_emf_kbup_p) bind(c, name="uwshcu_thermo_conden_condensate_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, k_c, mkx_c, ixnumliq_c, ixnumice_c
-          integer(c_int64_t), value :: id_check_c, flag1_c, flag2_c
-          real(c_double), value :: frc_rasn_c, g_c, dwten_k_c, diten_k_c, umf_km1_c, umf_k_c
-          real(c_double), value :: fdr_k_c, qlj_c, qij_c, ql0_k_c, qi0_k_c
-          real(c_double), value :: tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
-          real(c_double), value :: prel_c, ppen_c, emf_k_c, ql_emf_kbup_c, qi_emf_kbup_c
-          type(c_ptr), value :: qlubelow_p, qiubelow_p, qlu_mid_p, qiu_mid_p, qlu_top_p, qiu_top_p
-          type(c_ptr), value :: exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p
-          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
-       end subroutine uwshcu_thermo_conden_condensate_batch_shell_codon
-
-       subroutine uwshcu_thermo_emf_kbup_conden_shell_codon(k_c, mkx_c, ixnumliq_c, &
-            ixnumice_c, trace_water_c, wtrc_nwset_c, wisotope_c, wtrc_alpha_kinetic_c, &
-            ncnst_c, g_c, emf_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c, p0_k_c, &
-            thlu_emf_k_c, qtu_emf_k_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
-            exit_code_p, wtu_emf_p, wtout_emf_kbup_p, tru_emf_p, qc_l_k_p, qc_i_k_p, &
-            qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p, &
-            wtrc_iatype_p, wtrc_qmin_c, iwspec_p, rstd_p) &
-            bind(c, name="uwshcu_thermo_emf_kbup_conden_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c, mkx_c, ixnumliq_c, ixnumice_c
-          integer(c_int64_t), value :: trace_water_c, wtrc_nwset_c, wisotope_c, wtrc_alpha_kinetic_c, ncnst_c
-          real(c_double), value :: g_c, emf_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c
-          real(c_double), value :: ps0_km1_c, ps0_k_c, p0_k_c, thlu_emf_k_c, qtu_emf_k_c, wtrc_qmin_c
-          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p
-          type(c_ptr), value :: wtu_emf_p, wtout_emf_kbup_p, tru_emf_p, qc_l_k_p, qc_i_k_p
-          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
-          type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p
-       end subroutine uwshcu_thermo_emf_kbup_conden_shell_codon
-
-       subroutine uwshcu_thermo_wtrc_midpoint_shell_codon(kind_c, wtrc_nwset_c, trace_water_c, &
-            prel_c, ppen_c, ps0_km1_c, ps0_k_c, wtout_p, wlubelow_p, wiubelow_p, &
-            wlu_mid_p, wiu_mid_p, wlu_top_p, wiu_top_p) &
-            bind(c, name="uwshcu_thermo_wtrc_midpoint_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, wtrc_nwset_c, trace_water_c
-          real(c_double), value :: prel_c, ppen_c, ps0_km1_c, ps0_k_c
-          type(c_ptr), value :: wtout_p, wlubelow_p, wiubelow_p, wlu_mid_p, wiu_mid_p
-          type(c_ptr), value :: wlu_top_p, wiu_top_p
-       end subroutine uwshcu_thermo_wtrc_midpoint_shell_codon
-
-       subroutine uwshcu_thermo_wtrc_state_sustain_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
-            trace_water_c, frc_rasn_c, qlj_c, qij_c, qlubelow_p, qiubelow_p, wtout_p, &
-            wlubelow_p, wiubelow_p, wtdwten_p, wtditen_p, wtqc_liq_p, wtqc_ice_p) &
-            bind(c, name="uwshcu_thermo_wtrc_state_sustain_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, k_c, trace_water_c
-          real(c_double), value :: frc_rasn_c, qlj_c, qij_c
-          type(c_ptr), value :: qlubelow_p, qiubelow_p, wtout_p, wlubelow_p, wiubelow_p
-          type(c_ptr), value :: wtdwten_p, wtditen_p, wtqc_liq_p, wtqc_ice_p
-       end subroutine uwshcu_thermo_wtrc_state_sustain_shell_codon
-
-       subroutine uwshcu_thermo_wtrc_detrain_detached_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
-            trace_water_c, k_le_kbup_c, k_eq_kbup_c, g_c, umf_km1_c, umf_k_c, fdr_k_c, &
-            ps0_km1_c, ps0_k_c, wlu_mid_p, wiu_mid_p, wtout_p, tr0_p, wtrc_iatype_p, &
-            wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p) &
-            bind(c, name="uwshcu_thermo_wtrc_detrain_detached_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, k_c, trace_water_c
-          integer(c_int64_t), value :: k_le_kbup_c, k_eq_kbup_c
-          real(c_double), value :: g_c, umf_km1_c, umf_k_c, fdr_k_c, ps0_km1_c, ps0_k_c
-          type(c_ptr), value :: wlu_mid_p, wiu_mid_p, wtout_p, tr0_p, wtrc_iatype_p
-          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p
-       end subroutine uwshcu_thermo_wtrc_detrain_detached_shell_codon
-
-       subroutine uwshcu_thermo_wtrc_emf_kbup_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
-            trace_water_c, g_c, emf_k_c, ps0_km1_c, ps0_k_c, wtout_emf_kbup_p, tr0_p, &
-            wtrc_iatype_p, wtqcm_liq_p, wtqcm_ice_p) bind(c, name="uwshcu_thermo_wtrc_emf_kbup_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, k_c, trace_water_c
-          real(c_double), value :: g_c, emf_k_c, ps0_km1_c, ps0_k_c
-          type(c_ptr), value :: wtout_emf_kbup_p, tr0_p, wtrc_iatype_p, wtqcm_liq_p, wtqcm_ice_p
-       end subroutine uwshcu_thermo_wtrc_emf_kbup_shell_codon
-
-       subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
-            frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
-            qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, uflx_p, vflx_p, &
-            uf_p, vf_p, u0_p, v0_p, wtflx_p, slten_p, qtten_p, wttotten_p, &
-            rainflx_p, snowflx_p) bind(c, name="uwshcu_thermo_prelim_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
-          real(c_double), value :: frc_rasn_c, g_c
-          type(c_ptr), value :: dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
-          type(c_ptr), value :: qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p
-          type(c_ptr), value :: uflx_p, vflx_p, uf_p, vf_p, u0_p, v0_p, wtflx_p
-          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
-       end subroutine uwshcu_thermo_prelim_shell_codon
-
-       subroutine uwshcu_tendency_prep_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
-            frc_rasn_c, g_c, dt_c, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, &
-            uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
-            qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p, &
-            slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p) &
-            bind(c, name="uwshcu_tendency_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
-          real(c_double), value :: frc_rasn_c, g_c, dt_c
-          type(c_ptr), value :: dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p
-          type(c_ptr), value :: uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
-          type(c_ptr), value :: qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p
-          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
-       end subroutine uwshcu_tendency_prep_shell_codon
-
-       subroutine uwshcu_comp_sub_sink_thermo_prelim_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            kpen_c, ixnumliq_c, ixnumice_c, frc_rasn_c, g_c, dt_c, ql0_p, qi0_p, tr0_p, &
-            wtrc_iatype_p, qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p, wtlten_sub_p, &
-            wtiten_sub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, &
-            wtten_sink_liq_p, wtten_sink_ice_p, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, &
-            uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
-            qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p, &
-            slten_p, qtten_p, wttotten_p, rliq_p, rainflx_p, snowflx_p) &
-            bind(c, name="uwshcu_comp_sub_sink_thermo_prelim_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c
-          integer(c_int64_t), value :: ixnumliq_c, ixnumice_c
-          real(c_double), value :: frc_rasn_c, g_c, dt_c
-          type(c_ptr), value :: ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, qiten_sub_p
-          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p
-          type(c_ptr), value :: qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p
-          type(c_ptr), value :: wtten_sink_ice_p, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p
-          type(c_ptr), value :: uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
-          type(c_ptr), value :: qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p
-          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rliq_p, rainflx_p, snowflx_p
-       end subroutine uwshcu_comp_sub_sink_thermo_prelim_shell_codon
-
-       subroutine uwshcu_thermo_final_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
-            use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c, frc_rasn_c, &
-            dt_c, xlv_c, xls_c, g_c, qc_lm_c, qc_im_c, nc_lm_c, nc_im_c, dp0_p, qt0_p, &
-            ql0_p, qi0_p, dwten_p, diten_p, qtten_p, slten_p, qlten_sink_p, qiten_sink_p, &
-            nlten_sink_p, niten_sink_p, qc_l_p, qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, &
-            tr0_p, trten_p, wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p, wttotten_p, &
-            wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, &
-            wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p) &
-            bind(c, name="uwshcu_thermo_final_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, k_c
-          integer(c_int64_t), value :: use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: frc_rasn_c, dt_c, xlv_c, xls_c, g_c, qc_lm_c, qc_im_c, nc_lm_c, nc_im_c
-          type(c_ptr), value :: dp0_p, qt0_p, ql0_p, qi0_p, dwten_p, diten_p, qtten_p, slten_p
-          type(c_ptr), value :: qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
-          type(c_ptr), value :: qc_l_p, qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p
-          type(c_ptr), value :: wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p, wttotten_p
-          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p
-       end subroutine uwshcu_thermo_final_shell_codon
-
-       subroutine uwshcu_thermo_final_precip_bulk_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            k_c, kpen_c, use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c, trace_water_c, &
-            frc_rasn_c, dt_c, xlv_c, xls_c, g_c, qc_lm_c, qc_im_c, nc_lm_c, nc_im_c, &
-            rainflx_c, snowflx_c, dp0_p, qt0_p, ql0_p, qi0_p, dwten_p, diten_p, qtten_p, &
-            slten_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, qc_l_p, qc_i_p, &
-            qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p, wtrc_iatype_p, wt0_p, &
-            wtdwten_p, wtditen_p, wttotten_p, wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, &
-            wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p, &
-            precip_p, snow_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, &
-            ntsnprd_p, wtflxrn_p, wtflxsn_p) bind(c, name="uwshcu_thermo_final_precip_bulk_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, k_c, kpen_c
-          integer(c_int64_t), value :: use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c
-          integer(c_int64_t), value :: trace_water_c
-          real(c_double), value :: frc_rasn_c, dt_c, xlv_c, xls_c, g_c, qc_lm_c, qc_im_c, nc_lm_c
-          real(c_double), value :: nc_im_c, rainflx_c, snowflx_c
-          type(c_ptr), value :: dp0_p, qt0_p, ql0_p, qi0_p, dwten_p, diten_p, qtten_p, slten_p
-          type(c_ptr), value :: qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
-          type(c_ptr), value :: qc_l_p, qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p
-          type(c_ptr), value :: wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p, wttotten_p
-          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p
-          type(c_ptr), value :: precip_p, snow_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, wtflxrn_p, wtflxsn_p
-       end subroutine uwshcu_thermo_final_precip_bulk_init_shell_codon
-
-       subroutine uwshcu_thermo_post_batch_shell_codon(kind_c, mkx_c, ncnst_c, wtrc_nwset_c, &
-            k_c, kpen_c, mix_c, i_c, use_expconten_c, use_unicondet_c, ixnumliq_c, &
-            ixnumice_c, trace_water_c, frc_rasn_c, dt_c, xlv_c, xls_c, g_c, qc_lm_c, &
-            qc_im_c, nc_lm_c, nc_im_c, rainflx_c, snowflx_c, t0_c, snowmlt_c, &
-            evprain_c, evpsnow_c, qmin_vap_c, qmin_liq_c, qmin_ice_c, dp0_p, qv0_p, &
-            qt0_p, ql0_p, qi0_p, s0_p, qrten_p, qsten_p, dwten_p, diten_p, qtten_p, &
-            slten_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, qc_l_p, &
-            qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p, wtrc_iatype_p, &
-            wt0_p, wtdwten_p, wtditen_p, wttotten_p, wtten_sink_liq_p, wtten_sink_ice_p, &
-            wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p, &
-            qc_p, rliq_p, precip_p, snow_p, evapc_p, evpint_rain_p, evpint_snow_p, &
-            flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, limit_negcon_p, wtrpten_p, &
-            wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, wtprec_p, wtsnow_p, &
-            qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p, dpdry0_p, &
-            trflx_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p) &
-            bind(c, name="uwshcu_thermo_post_batch_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: kind_c, mkx_c, ncnst_c, wtrc_nwset_c, k_c, kpen_c
-          integer(c_int64_t), value :: mix_c, i_c, use_expconten_c, use_unicondet_c
-          integer(c_int64_t), value :: ixnumliq_c, ixnumice_c, trace_water_c
-          real(c_double), value :: frc_rasn_c, dt_c, xlv_c, xls_c, g_c
-          real(c_double), value :: qc_lm_c, qc_im_c, nc_lm_c, nc_im_c
-          real(c_double), value :: rainflx_c, snowflx_c, t0_c, snowmlt_c, evprain_c, evpsnow_c
-          real(c_double), value :: qmin_vap_c, qmin_liq_c, qmin_ice_c
-          type(c_ptr), value :: dp0_p, qv0_p, qt0_p, ql0_p, qi0_p, s0_p, qrten_p, qsten_p
-          type(c_ptr), value :: dwten_p, diten_p, qtten_p, slten_p, qlten_sink_p, qiten_sink_p
-          type(c_ptr), value :: nlten_sink_p, niten_sink_p, qc_l_p, qc_i_p, qlten_p, qiten_p
-          type(c_ptr), value :: qvten_p, sten_p, tr0_p, trten_p, wtrc_iatype_p, wt0_p
-          type(c_ptr), value :: wtdwten_p, wtditen_p, wttotten_p, wtten_sink_liq_p, wtten_sink_ice_p
-          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p
-          type(c_ptr), value :: wtlten_det_p, wtiten_det_p, qc_p, rliq_p, precip_p, snow_p
-          type(c_ptr), value :: evapc_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, limit_negcon_p, wtrpten_p, wtspten_p
-          type(c_ptr), value :: wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p
-          type(c_ptr), value :: dpdry0_p, trflx_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p
-       end subroutine uwshcu_thermo_post_batch_shell_codon
-
-       subroutine uwshcu_reserved_condensate_adjust_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
-            xlv_c, xls_c, qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p, &
-            trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p) &
-            bind(c, name="uwshcu_reserved_condensate_adjust_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
-          real(c_double), value :: xlv_c, xls_c
-          type(c_ptr), value :: qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p
-          type(c_ptr), value :: trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p
-       end subroutine uwshcu_reserved_condensate_adjust_shell_codon
-
-       subroutine uwshcu_post_positive_thermo_shell_codon(mkx_c, xlv_c, xls_c, &
-            qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p) &
-            bind(c, name="uwshcu_post_positive_thermo_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c
-          real(c_double), value :: xlv_c, xls_c
-          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p
-       end subroutine uwshcu_post_positive_thermo_shell_codon
-
-       subroutine uwshcu_tracer_limiter_shell_codon(mkx_c, ncnst_c, g_c, dt_c, ixnumliq_c, ixnumice_c, &
-            dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p) &
-            bind(c, name="uwshcu_tracer_limiter_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: g_c, dt_c
-          type(c_ptr), value :: dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p
-          type(c_ptr), value :: qmin_p, is_water_p, wet_p
-       end subroutine uwshcu_tracer_limiter_shell_codon
-
-       subroutine uwshcu_cloud_diag_init_shell_codon(qlj_c, qij_c, qcubelow_p, qlubelow_p, qiubelow_p, &
-            rcwp_p, rlwp_p, riwp_p) bind(c, name="uwshcu_cloud_diag_init_shell_codon")
-          use iso_c_binding, only: c_double, c_ptr
-          real(c_double), value :: qlj_c, qij_c
-          type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
-       end subroutine uwshcu_cloud_diag_init_shell_codon
-
-       subroutine uwshcu_cloud_diag_layer_shell_codon(mkx_c, k_c, krel_c, kpen_c, &
-            qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, ps0_p, ufrc_p, &
-            qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
-            rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) bind(c, name="uwshcu_cloud_diag_layer_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, k_c, krel_c, kpen_c
-          real(c_double), value :: qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
-          type(c_ptr), value :: ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p
-          type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
-          type(c_ptr), value :: cnt_p, cnb_p
-       end subroutine uwshcu_cloud_diag_layer_shell_codon
-
-       subroutine uwshcu_cloud_diag_all_shell_codon(mkx_c, krel_c, kpen_c, qlj0_c, qij0_c, &
-            criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, &
-            qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
-            rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) bind(c, name="uwshcu_cloud_diag_all_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, krel_c, kpen_c
-          real(c_double), value :: qlj0_c, qij0_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
-          type(c_ptr), value :: cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p
-          type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
-          type(c_ptr), value :: cnt_p, cnb_p
-       end subroutine uwshcu_cloud_diag_all_shell_codon
-
-       subroutine uwshcu_cloud_diag_index_shell_codon(kpen_c, krel_c, cnt_p, cnb_p) &
-            bind(c, name="uwshcu_cloud_diag_index_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: kpen_c, krel_c
-          type(c_ptr), value :: cnt_p, cnb_p
-       end subroutine uwshcu_cloud_diag_index_shell_codon
-
-       subroutine uwshcu_positive_moisture_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            dt_c, qv0_p, ql0_p, qi0_p, s0_p, qvten_p, qlten_p, qiten_p, sten_p, &
-            tr0_p, trten_p, wtrc_iatype_p, qv0_star_p, ql0_star_p, qi0_star_p, &
-            s0_star_p, wt0_star_p) bind(c, name="uwshcu_positive_moisture_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: dt_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, qvten_p, qlten_p, qiten_p, sten_p
-          type(c_ptr), value :: tr0_p, trten_p, wtrc_iatype_p, qv0_star_p, ql0_star_p, qi0_star_p
-          type(c_ptr), value :: s0_star_p, wt0_star_p
-       end subroutine uwshcu_positive_moisture_prep_shell_codon
-
-       subroutine uwshcu_positive_moisture_single_shell_codon(mkx_c, ncnst_c, trace_water_c, &
-            wtrc_nwset_c, xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, wtrc_qmin_c, &
-            dp_p, qv_p, ql_p, qi_p, s_p, qvten_p, qlten_p, qiten_p, sten_p, &
-            wtrc_iatype_p, iwspec_p, rstd_p, wtr_p, wtten_p, status_p) &
-            bind(c, name="uwshcu_positive_moisture_single_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, trace_water_c, wtrc_nwset_c
-          real(c_double), value :: xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, wtrc_qmin_c
-          type(c_ptr), value :: dp_p, qv_p, ql_p, qi_p, s_p
-          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p
-          type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p, wtr_p, wtten_p, status_p
-       end subroutine uwshcu_positive_moisture_single_shell_codon
-
-       subroutine uwshcu_post_precip_positive_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            kpen_c, xlv_c, xls_c, dt_c, qtten_p, qlten_p, qiten_p, slten_p, sten_p, &
-            qc_p, qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p, &
-            qv0_p, ql0_p, qi0_p, s0_p, qvten_p, tr0_p, qv0_star_p, ql0_star_p, &
-            qi0_star_p, s0_star_p, wt0_star_p) &
-            bind(c, name="uwshcu_post_precip_positive_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c
-          real(c_double), value :: xlv_c, xls_c, dt_c
-          type(c_ptr), value :: qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p
-          type(c_ptr), value :: trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, qvten_p, tr0_p
-          type(c_ptr), value :: qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p
-       end subroutine uwshcu_post_precip_positive_prep_shell_codon
-
-       subroutine uwshcu_post_positive_tracer_limiter_shell_codon(mkx_c, ncnst_c, g_c, dt_c, &
-            ixnumliq_c, ixnumice_c, xlv_c, xls_c, qvten_p, qlten_p, qiten_p, sten_p, &
-            qtten_p, slten_p, dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, &
-            trflx_u_p, qmin_p, is_water_p, wet_p) &
-            bind(c, name="uwshcu_post_positive_tracer_limiter_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, ixnumliq_c, ixnumice_c
-          real(c_double), value :: g_c, dt_c, xlv_c, xls_c
-          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p
-          type(c_ptr), value :: dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p
-          type(c_ptr), value :: qmin_p, is_water_p, wet_p
-       end subroutine uwshcu_post_positive_tracer_limiter_shell_codon
-
-       subroutine uwshcu_precip_surface_finalize_shell_codon(mkx_c, wtrc_nwset_c, &
-            flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, snow_p, wtprec_p, wtsnow_p) &
-            bind(c, name="uwshcu_precip_surface_finalize_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c
-          type(c_ptr), value :: flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p
-          type(c_ptr), value :: precip_p, snow_p, wtprec_p, wtsnow_p
-       end subroutine uwshcu_precip_surface_finalize_shell_codon
-
-       subroutine uwshcu_precip_surface_positive_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            kpen_c, xlv_c, xls_c, dt_c, flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, &
-            snow_p, wtprec_p, wtsnow_p, qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, &
-            qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p, qv0_p, ql0_p, &
-            qi0_p, s0_p, qvten_p, tr0_p, qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, &
-            wt0_star_p) bind(c, name="uwshcu_precip_surface_positive_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c
-          real(c_double), value :: xlv_c, xls_c, dt_c
-          type(c_ptr), value :: flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, snow_p
-          type(c_ptr), value :: wtprec_p, wtsnow_p, qtten_p, qlten_p, qiten_p, slten_p, sten_p
-          type(c_ptr), value :: qc_p, qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, qvten_p, tr0_p
-          type(c_ptr), value :: qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p
-       end subroutine uwshcu_precip_surface_positive_prep_shell_codon
-
-       subroutine uwshcu_precip_bulk_init_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
-            rainflx_c, snowflx_c, precip_p, snow_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
-            wtflxrn_p, wtflxsn_p) bind(c, name="uwshcu_precip_bulk_init_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c
-          real(c_double), value :: rainflx_c, snowflx_c
-          type(c_ptr), value :: precip_p, snow_p
-          type(c_ptr), value :: evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, wtflxrn_p, wtflxsn_p
-       end subroutine uwshcu_precip_bulk_init_shell_codon
-
-       subroutine uwshcu_precip_evap_prep_shell_codon(k_c, krel_c, noevap_krelkpen_c, &
-            t0_c, p0_c, qv0_c, qw0_c, kevp_c, rainflx_c, snowflx_c, g_c, dt_c, dp0_c, &
-            flxrain_c, flxsnow_c, evpint_rain_c, evpint_snow_c, es_p, qs_p, snowmlt_p, evprain_p, evpsnow_p) &
-            bind(c, name="uwshcu_precip_evap_prep_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: k_c, krel_c, noevap_krelkpen_c
-          real(c_double), value :: t0_c, p0_c, qv0_c, qw0_c, kevp_c, rainflx_c, snowflx_c
-          real(c_double), value :: g_c, dt_c, dp0_c, flxrain_c, flxsnow_c
-          real(c_double), value :: evpint_rain_c, evpint_snow_c
-          type(c_ptr), value :: es_p, qs_p, snowmlt_p, evprain_p, evpsnow_p
-       end subroutine uwshcu_precip_evap_prep_shell_codon
-
-       subroutine uwshcu_precip_wtrc_evap_tendency_shell_codon(mkx_c, k_c, wtrc_nwset_c, wisotope_c, &
-            g_c, rair_c, rh2o_c, rhoh2o_c, dt_c, es_c, qs_c, evprain_c, evpsnow_c, &
-            t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c, &
-            wtrc_iatype_p, wtrc_qmin_c, iwspec_p, rstd_p, tr0_p, wtrpten_p, wtspten_p, &
-            wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p) &
-            bind(c, name="uwshcu_precip_wtrc_evap_tendency_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, k_c, wtrc_nwset_c, wisotope_c
-          real(c_double), value :: g_c, rair_c, rh2o_c, rhoh2o_c, dt_c, es_c, qs_c, evprain_c, evpsnow_c
-          real(c_double), value :: t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c, wtrc_qmin_c
-          type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p, tr0_p, wtrpten_p, wtspten_p
-          type(c_ptr), value :: wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p
-       end subroutine uwshcu_precip_wtrc_evap_tendency_shell_codon
-
-       subroutine uwshcu_precip_layer_full_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
-            kpen_c, mix_c, i_c, ixnumliq_c, ixnumice_c, trace_water_c, wisotope_c, &
-            noevap_krelkpen_c, krel_c, t0_c, p0_c, qv0_c, qw0_c, zs0_k_c, zs0_km1_c, &
-            dp0_c, flxrain_c, flxsnow_c, kevp_c, rainflx_c, snowflx_c, g_c, dt_c, &
-            xlv_c, xls_c, rair_c, rh2o_c, rhoh2o_c, wtrc_qmin_c, qmin_vap_c, &
-            qmin_liq_c, qmin_ice_c, dp0_p, qv0_p, qt0_p, ql0_p, qi0_p, s0_p, &
-            qrten_p, qsten_p, dwten_p, diten_p, qtten_p, slten_p, qlten_sink_p, &
-            qiten_sink_p, nlten_sink_p, niten_sink_p, qc_l_p, qc_i_p, qlten_p, &
-            qiten_p, qvten_p, sten_p, tr0_p, trten_p, wtrc_iatype_p, wt0_p, &
-            wtdwten_p, wtditen_p, wttotten_p, wtten_sink_liq_p, wtten_sink_ice_p, &
-            wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, &
-            wtiten_det_p, qc_p, rliq_p, precip_p, snow_p, evapc_p, evpint_rain_p, &
-            evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, limit_negcon_p, &
-            wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, wtprec_p, &
-            wtsnow_p, qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p, &
-            dpdry0_p, trflx_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p, &
-            iwspec_p, rstd_p, dz_p) bind(c, name="uwshcu_precip_layer_full_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, k_c, kpen_c, mix_c, i_c
-          integer(c_int64_t), value :: ixnumliq_c, ixnumice_c, trace_water_c, wisotope_c
-          integer(c_int64_t), value :: noevap_krelkpen_c, krel_c
-          real(c_double), value :: t0_c, p0_c, qv0_c, qw0_c, zs0_k_c, zs0_km1_c
-          real(c_double), value :: dp0_c, flxrain_c, flxsnow_c, kevp_c, rainflx_c, snowflx_c
-          real(c_double), value :: g_c, dt_c, xlv_c, xls_c, rair_c, rh2o_c, rhoh2o_c
-          real(c_double), value :: wtrc_qmin_c, qmin_vap_c, qmin_liq_c, qmin_ice_c
-          type(c_ptr), value :: dp0_p, qv0_p, qt0_p, ql0_p, qi0_p, s0_p
-          type(c_ptr), value :: qrten_p, qsten_p, dwten_p, diten_p, qtten_p, slten_p
-          type(c_ptr), value :: qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
-          type(c_ptr), value :: qc_l_p, qc_i_p, qlten_p, qiten_p, qvten_p, sten_p
-          type(c_ptr), value :: tr0_p, trten_p, wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p
-          type(c_ptr), value :: wttotten_p, wtten_sink_liq_p, wtten_sink_ice_p
-          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p
-          type(c_ptr), value :: wtlten_det_p, wtiten_det_p, qc_p, rliq_p, precip_p, snow_p
-          type(c_ptr), value :: evapc_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
-          type(c_ptr), value :: ntraprd_p, ntsnprd_p, limit_negcon_p, wtrpten_p, wtspten_p
-          type(c_ptr), value :: wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p
-          type(c_ptr), value :: dpdry0_p, trflx_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p
-          type(c_ptr), value :: iwspec_p, rstd_p, dz_p
-       end subroutine uwshcu_precip_layer_full_shell_codon
-
-       subroutine uwshcu_precip_all_layers_full_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            kpen_c, mix_c, i_c, ixnumliq_c, ixnumice_c, trace_water_c, wisotope_c, &
-            noevap_krelkpen_c, krel_c, kevp_c, rainflx_c, snowflx_c, g_c, dt_c, &
-            xlv_c, xls_c, rair_c, rh2o_c, rhoh2o_c, wtrc_qmin_c, qmin_vap_c, &
-            qmin_liq_c, qmin_ice_c, t0_p, p0_p, qv0_p, qw0_p, zs0_p, dp0_p, &
-            qt0_p, ql0_p, qi0_p, s0_p, qrten_p, qsten_p, dwten_p, diten_p, qtten_p, &
-            slten_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, qc_l_p, &
-            qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p, wtrc_iatype_p, &
-            wt0_p, wtdwten_p, wtditen_p, wttotten_p, wtten_sink_liq_p, wtten_sink_ice_p, &
-            wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, &
-            wtiten_det_p, qc_p, rliq_p, precip_p, snow_p, evapc_p, evpint_rain_p, &
-            evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, limit_negcon_p, &
-            wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, wtprec_p, &
-            wtsnow_p, qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p, &
-            dpdry0_p, trflx_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p, &
-            iwspec_p, rstd_p, dz_p) bind(c, name="uwshcu_precip_all_layers_full_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, mix_c, i_c
-          integer(c_int64_t), value :: ixnumliq_c, ixnumice_c, trace_water_c, wisotope_c
-          integer(c_int64_t), value :: noevap_krelkpen_c, krel_c
-          real(c_double), value :: kevp_c, rainflx_c, snowflx_c, g_c, dt_c
-          real(c_double), value :: xlv_c, xls_c, rair_c, rh2o_c, rhoh2o_c
-          real(c_double), value :: wtrc_qmin_c, qmin_vap_c, qmin_liq_c, qmin_ice_c
-          type(c_ptr), value :: t0_p, p0_p, qv0_p, qw0_p, zs0_p, dp0_p
-          type(c_ptr), value :: qt0_p, ql0_p, qi0_p, s0_p, qrten_p, qsten_p
-          type(c_ptr), value :: dwten_p, diten_p, qtten_p, slten_p, qlten_sink_p
-          type(c_ptr), value :: qiten_sink_p, nlten_sink_p, niten_sink_p, qc_l_p, qc_i_p
-          type(c_ptr), value :: qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p
-          type(c_ptr), value :: wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p, wttotten_p
-          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p
-          type(c_ptr), value :: qc_p, rliq_p, precip_p, snow_p, evapc_p, evpint_rain_p
-          type(c_ptr), value :: evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p
-          type(c_ptr), value :: limit_negcon_p, wtrpten_p, wtspten_p, wtevp_p, wtsub_p
-          type(c_ptr), value :: wtflxrn_p, wtflxsn_p, wtprec_p, wtsnow_p, qv0_star_p
-          type(c_ptr), value :: ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p, dpdry0_p
-          type(c_ptr), value :: trflx_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p
-          type(c_ptr), value :: iwspec_p, rstd_p, dz_p
-       end subroutine uwshcu_precip_all_layers_full_shell_codon
-
-       subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c, t0_c, &
-            rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c, g_c, dt_c, xlv_c, xls_c, &
-            qmin_vap_c, qmin_liq_c, qmin_ice_c, dp0_p, qv0_p, ql0_p, qi0_p, qrten_p, qsten_p, &
-            evapc_p, evpint_rain_p, evpint_snow_p, ntraprd_p, ntsnprd_p, flxrain_p, flxsnow_p, &
-            qvten_p, qlten_p, qiten_p, qtten_p, sten_p, slten_p, limit_negcon_p, wtrc_iatype_p, &
-            wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, trten_p) &
-            bind(c, name="uwshcu_precip_bulk_layer_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c
-          real(c_double), value :: t0_c
-          real(c_double), value :: rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c
-          real(c_double), value :: g_c, dt_c, xlv_c, xls_c, qmin_vap_c, qmin_liq_c, qmin_ice_c
-          type(c_ptr), value :: dp0_p, qv0_p, ql0_p, qi0_p, qrten_p, qsten_p
-          type(c_ptr), value :: evapc_p, evpint_rain_p, evpint_snow_p, ntraprd_p, ntsnprd_p
-          type(c_ptr), value :: flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p, qtten_p
-          type(c_ptr), value :: sten_p, slten_p, limit_negcon_p, wtrc_iatype_p
-          type(c_ptr), value :: wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, trten_p
-       end subroutine uwshcu_precip_bulk_layer_shell_codon
-
-       subroutine uwshcu_slope_reconstruction_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            p0_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, ssthl0_p, ssqt0_p, &
-            ssu0_p, ssv0_p, sstr0_p, sswt0_p) bind(c, name="uwshcu_slope_reconstruction_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: p0_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
-       end subroutine uwshcu_slope_reconstruction_shell_codon
-
-       subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
-            ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, &
-            ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p, qv0_o_p, ql0_o_p, qi0_o_p, &
-            t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p, &
-            ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, &
-            thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p) &
-            bind(c, name="uwshcu_column_env_save_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p
-          type(c_ptr), value :: ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p, qv0_o_p, ql0_o_p, qi0_o_p
-          type(c_ptr), value :: t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p
-          type(c_ptr), value :: ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p
-          type(c_ptr), value :: thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p
-       end subroutine uwshcu_column_env_save_shell_codon
-
-       subroutine uwshcu_column_init_all_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
-            ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, &
-            ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p, qv0_o_p, ql0_o_p, qi0_o_p, &
-            t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p, &
-            ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, &
-            thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p, &
-            umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p, &
-            sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p, &
-            cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p, &
-            qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p, &
-            thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p, &
-            wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p, &
-            wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p, excessu_p, &
-            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, comsub_p, &
-            qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, &
-            wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p, precip_p, snow_p, cin_p, &
-            cbmf_p, rliq_p, cnt_p, cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, &
-            emfkbup_p, cbmflimit_p) bind(c, name="uwshcu_column_init_all_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p
-          type(c_ptr), value :: ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p, qv0_o_p, ql0_o_p, qi0_o_p
-          type(c_ptr), value :: t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p
-          type(c_ptr), value :: ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p
-          type(c_ptr), value :: thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p
-          type(c_ptr), value :: umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p
-          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p
-          type(c_ptr), value :: cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p
-          type(c_ptr), value :: qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p
-          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p
-          type(c_ptr), value :: wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
-          type(c_ptr), value :: comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
-          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p
-          type(c_ptr), value :: precip_p, snow_p, cin_p, cbmf_p, rliq_p, cnt_p, cnb_p, ufrcinvbase_p
-          type(c_ptr), value :: ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p
-       end subroutine uwshcu_column_init_all_shell_codon
-
-       subroutine uwshcu_column_extra_workspace_reset_shell_codon(mkx_c, wtrc_nwset_c, &
-            comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, &
-            wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p) &
-            bind(c, name="uwshcu_column_extra_workspace_reset_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c
-          type(c_ptr), value :: comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
-          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p
-       end subroutine uwshcu_column_extra_workspace_reset_shell_codon
-
-       subroutine uwshcu_initial_workspace_reset_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p, sten_p, &
-            uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p, cufrc_p, qcu_p, qlu_p, &
-            qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p, qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, &
-            uu_p, vu_p, wu_p, thvu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, &
-            trten_p, tru_p, tru_emf_p, wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, &
-            wtqc_ice_p, wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p, excessu_p, &
-            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, comsub_p, qlten_sink_p, &
-            qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, &
-            wtsub_p, dz_p, uemf_p, precip_p, snow_p, cin_p, cbmf_p, rliq_p, cnt_p, cnb_p, &
-            ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p) &
-            bind(c, name="uwshcu_initial_workspace_reset_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p
-          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p
-          type(c_ptr), value :: cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p
-          type(c_ptr), value :: qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p
-          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p
-          type(c_ptr), value :: wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
-          type(c_ptr), value :: comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
-          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p
-          type(c_ptr), value :: precip_p, snow_p, cin_p, cbmf_p, rliq_p, cnt_p, cnb_p, ufrcinvbase_p
-          type(c_ptr), value :: ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p
-       end subroutine uwshcu_initial_workspace_reset_shell_codon
-
-       subroutine uwshcu_iter_save_env_shell_codon(mkx_c, ncnst_c, dt_c, cp_c, &
-            qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p, qiten_p, &
-            sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, &
-            u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p) bind(c, name="uwshcu_iter_save_env_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c
-          real(c_double), value :: dt_c, cp_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p
-          type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p
-          type(c_ptr), value :: qi0_s_p, s0_s_p, u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p
-       end subroutine uwshcu_iter_save_env_shell_codon
-
-       subroutine uwshcu_iter_env_restore_state_shell_codon(mkx_c, qv0_s_p, ql0_s_p, qi0_s_p, &
-            s0_s_p, t0_s_p, qv0_p, ql0_p, qi0_p, s0_p, t0_p) &
-            bind(c, name="uwshcu_iter_env_restore_state_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c
-          type(c_ptr), value :: qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, t0_p
-       end subroutine uwshcu_iter_env_restore_state_shell_codon
-
-       subroutine uwshcu_iter_env_restore_thermo_slope_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            xlv_c, xls_c, cp_c, zvir_c, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p, &
-            qv0_p, ql0_p, qi0_p, s0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p, p0_p, &
-            u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p, ssthl0_p, ssqt0_p, ssu0_p, &
-            ssv0_p, sstr0_p, sswt0_p) bind(c, name="uwshcu_iter_env_restore_thermo_slope_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          real(c_double), value :: xlv_c, xls_c, cp_c, zvir_c
-          type(c_ptr), value :: qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
-          type(c_ptr), value :: p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
-       end subroutine uwshcu_iter_env_restore_thermo_slope_shell_codon
-
-       subroutine uwshcu_iter_save_main_arrays_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, &
-            evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p, &
-            wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, umf_s_p, qvten_s_p, qlten_s_p, &
-            qiten_s_p, sten_s_p, uten_s_p, vten_s_p, qrten_s_p, qsten_s_p, evapc_s_p, &
-            cufrc_s_p, slflx_s_p, qtflx_s_p, qcu_s_p, qlu_s_p, qiu_s_p, qc_s_p, trten_s_p, &
-            wtqc_liq_s_p, wtqc_ice_s_p, wtprec_s_p, wtsnow_s_p) &
-            bind(c, name="uwshcu_iter_save_main_arrays_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p
-          type(c_ptr), value :: evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p
-          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, umf_s_p, qvten_s_p, qlten_s_p
-          type(c_ptr), value :: qiten_s_p, sten_s_p, uten_s_p, vten_s_p, qrten_s_p, qsten_s_p, evapc_s_p
-          type(c_ptr), value :: cufrc_s_p, slflx_s_p, qtflx_s_p, qcu_s_p, qlu_s_p, qiu_s_p, qc_s_p
-          type(c_ptr), value :: trten_s_p, wtqc_liq_s_p, wtqc_ice_s_p, wtprec_s_p, wtsnow_s_p
-       end subroutine uwshcu_iter_save_main_arrays_shell_codon
-
-       subroutine uwshcu_iter_save_diag_arrays_shell_codon(mkx_c, ncnst_c, &
-            fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, &
-            thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, &
-            dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, &
-            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, &
-            tru_p, tru_emf_p, fer_s_p, fdr_s_p, qtten_s_p, slten_s_p, ufrc_s_p, &
-            uflx_s_p, vflx_s_p, wu_s_p, qtu_s_p, thlu_s_p, thvu_s_p, uu_s_p, vu_s_p, &
-            qtu_emf_s_p, thlu_emf_s_p, uu_emf_s_p, vu_emf_s_p, uemf_s_p, dwten_s_p, &
-            diten_s_p, flxrain_s_p, flxsnow_s_p, ntraprd_s_p, ntsnprd_s_p, excessu_s_p, &
-            excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, cquad_s_p, bogbot_s_p, bogtop_s_p, &
-            trflx_s_p, tru_s_p, tru_emf_s_p) bind(c, name="uwshcu_iter_save_diag_arrays_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c
-          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p
-          type(c_ptr), value :: thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p
-          type(c_ptr), value :: uemf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p
-          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p
-          type(c_ptr), value :: bogtop_p, trflx_p, tru_p, tru_emf_p, fer_s_p, fdr_s_p, qtten_s_p
-          type(c_ptr), value :: slten_s_p, ufrc_s_p, uflx_s_p, vflx_s_p, wu_s_p, qtu_s_p, thlu_s_p
-          type(c_ptr), value :: thvu_s_p, uu_s_p, vu_s_p, qtu_emf_s_p, thlu_emf_s_p, uu_emf_s_p
-          type(c_ptr), value :: vu_emf_s_p, uemf_s_p, dwten_s_p, diten_s_p, flxrain_s_p, flxsnow_s_p
-          type(c_ptr), value :: ntraprd_s_p, ntsnprd_s_p, excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p
-          type(c_ptr), value :: bquad_s_p, cquad_s_p, bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p
-          type(c_ptr), value :: tru_emf_s_p
-       end subroutine uwshcu_iter_save_diag_arrays_shell_codon
-
-       subroutine uwshcu_iter_save_all_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, kbup_c, kpen_c, &
-            dt_c, cp_c, ppen_c, precip_c, snow_c, cush_c, cin_c, cinlcl_c, cbmf_c, rliq_c, cnt_c, cnb_c, &
-            ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c, plcl_c, plfc_c, qtsrc_c, thlsrc_c, &
-            thvlsrc_c, cbmflimit_c, tkeavg_c, rcwp_c, rlwp_c, riwp_c, &
-            qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p, qiten_p, sten_p, &
-            uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, u0_s_p, &
-            v0_s_p, qt0_s_p, t0_s_p, tr0_s_p, umf_p, qrten_p, qsten_p, evapc_p, cufrc_p, &
-            slflx_p, qtflx_p, qcu_p, qlu_p, qiu_p, qc_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, &
-            wtsnow_p, umf_s_p, qvten_s_p, qlten_s_p, qiten_s_p, sten_s_p, uten_s_p, vten_s_p, &
-            qrten_s_p, qsten_s_p, evapc_s_p, cufrc_s_p, slflx_s_p, qtflx_s_p, qcu_s_p, &
-            qlu_s_p, qiu_s_p, qc_s_p, trten_s_p, wtqc_liq_s_p, wtqc_ice_s_p, wtprec_s_p, &
-            wtsnow_s_p, fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, &
-            thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, &
-            dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p, &
-            xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p, &
-            fer_s_p, fdr_s_p, qtten_s_p, slten_s_p, ufrc_s_p, uflx_s_p, vflx_s_p, wu_s_p, &
-            qtu_s_p, thlu_s_p, thvu_s_p, uu_s_p, vu_s_p, qtu_emf_s_p, thlu_emf_s_p, &
-            uu_emf_s_p, vu_emf_s_p, uemf_s_p, dwten_s_p, diten_s_p, flxrain_s_p, flxsnow_s_p, &
-            ntraprd_s_p, ntsnprd_s_p, excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, &
-            cquad_s_p, bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p, tru_emf_s_p, ps0_p, zs0_p, &
-            emf_p, precip_s_p, snow_s_p, cush_s_p, cin_s_p, cinlcl_s_p, cbmf_s_p, rliq_s_p, &
-            cnt_s_p, cnb_s_p, ufrcinvbase_s_p, ufrclcl_s_p, winvbase_s_p, wlcl_s_p, plcl_s_p, &
-            pinv_s_p, plfc_s_p, pbup_s_p, ppen_s_p, qtsrc_s_p, thlsrc_s_p, thvlsrc_s_p, &
-            emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p, zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p, &
-            xlv_c, xls_c, zvir_c, exn0_p, wtrc_iatype_p, p0_p, qt0_p, thl0_p, thvl0_p, wt0_p, &
-            ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p) &
-            bind(c, name="uwshcu_iter_save_all_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, kbup_c, kpen_c
-          real(c_double), value :: dt_c, cp_c, ppen_c, precip_c, snow_c, cush_c, cin_c, cinlcl_c
-          real(c_double), value :: cbmf_c, rliq_c, cnt_c, cnb_c, ufrcinvbase_c, ufrclcl_c, winvbase_c
-          real(c_double), value :: wlcl_c, plcl_c, plfc_c, qtsrc_c, thlsrc_c, thvlsrc_c, cbmflimit_c
-          real(c_double), value :: tkeavg_c, rcwp_c, rlwp_c, riwp_c, xlv_c, xls_c, zvir_c
-          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p
-          type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p
-          type(c_ptr), value :: qi0_s_p, s0_s_p, u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p
-          type(c_ptr), value :: umf_p, qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p
-          type(c_ptr), value :: qlu_p, qiu_p, qc_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: umf_s_p, qvten_s_p, qlten_s_p, qiten_s_p, sten_s_p, uten_s_p, vten_s_p
-          type(c_ptr), value :: qrten_s_p, qsten_s_p, evapc_s_p, cufrc_s_p, slflx_s_p, qtflx_s_p
-          type(c_ptr), value :: qcu_s_p, qlu_s_p, qiu_s_p, qc_s_p, trten_s_p, wtqc_liq_s_p
-          type(c_ptr), value :: wtqc_ice_s_p, wtprec_s_p, wtsnow_s_p, fer_p, fdr_p, qtten_p, slten_p
-          type(c_ptr), value :: ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p
-          type(c_ptr), value :: qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p
-          type(c_ptr), value :: flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p
-          type(c_ptr), value :: xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p
-          type(c_ptr), value :: tru_emf_p, fer_s_p, fdr_s_p, qtten_s_p, slten_s_p, ufrc_s_p, uflx_s_p
-          type(c_ptr), value :: vflx_s_p, wu_s_p, qtu_s_p, thlu_s_p, thvu_s_p, uu_s_p, vu_s_p
-          type(c_ptr), value :: qtu_emf_s_p, thlu_emf_s_p, uu_emf_s_p, vu_emf_s_p, uemf_s_p
-          type(c_ptr), value :: dwten_s_p, diten_s_p, flxrain_s_p, flxsnow_s_p, ntraprd_s_p, ntsnprd_s_p
-          type(c_ptr), value :: excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, cquad_s_p
-          type(c_ptr), value :: bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p, tru_emf_s_p, ps0_p, zs0_p
-          type(c_ptr), value :: emf_p, precip_s_p, snow_s_p, cush_s_p, cin_s_p, cinlcl_s_p, cbmf_s_p
-          type(c_ptr), value :: rliq_s_p, cnt_s_p, cnb_s_p, ufrcinvbase_s_p, ufrclcl_s_p, winvbase_s_p
-          type(c_ptr), value :: wlcl_s_p, plcl_s_p, pinv_s_p, plfc_s_p, pbup_s_p, ppen_s_p, qtsrc_s_p
-          type(c_ptr), value :: thlsrc_s_p, thvlsrc_s_p, emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p
-          type(c_ptr), value :: zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p
-          type(c_ptr), value :: exn0_p, wtrc_iatype_p, p0_p, qt0_p, thl0_p, thvl0_p, wt0_p
-          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
-       end subroutine uwshcu_iter_save_all_shell_codon
-
-       subroutine uwshcu_delcin_env_restore_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, &
-            thvl0_o_p, ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, &
-            thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p, qv0_p, ql0_p, &
-            qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, ssthl0_p, ssqt0_p, &
-            thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, ssu0_p, ssv0_p, tr0_p, sstr0_p, &
-            sswt0_p) bind(c, name="uwshcu_delcin_env_restore_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p, u0_o_p, v0_o_p
-          type(c_ptr), value :: qt0_o_p, thl0_o_p, thvl0_o_p, ssthl0_o_p, ssqt0_o_p
-          type(c_ptr), value :: thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, thvl0top_o_p, ssu0_o_p, ssv0_o_p
-          type(c_ptr), value :: tr0_o_p, sstr0_o_p, sswt0_o_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p
-          type(c_ptr), value :: qt0_p, thl0_p, thvl0_p, ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p
-          type(c_ptr), value :: thvl0bot_p, thvl0top_p, ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p
-       end subroutine uwshcu_delcin_env_restore_shell_codon
-
-       subroutine uwshcu_delcin_workspace_reset_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p, sten_p, &
-            uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p, cufrc_p, qcu_p, qlu_p, &
-            qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p, qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, &
-            uu_p, vu_p, wu_p, thvu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, &
-            trten_p, tru_p, tru_emf_p, wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, &
-            wtqc_ice_p, wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p, excessu_p, &
-            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p) &
-            bind(c, name="uwshcu_delcin_workspace_reset_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
-          type(c_ptr), value :: umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p
-          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p
-          type(c_ptr), value :: cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p
-          type(c_ptr), value :: qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p
-          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p
-          type(c_ptr), value :: wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p
-          type(c_ptr), value :: wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p
-          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
-       end subroutine uwshcu_delcin_workspace_reset_shell_codon
-
-       subroutine uwshcu_delcin_restore_reset_all_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
-            use_cincin_c, cin_i_c, cinlcl_i_c, alpha_c, del_cin_c, del_cinlcl_c, kinv_o_c, &
-            klcl_o_c, klfc_o_c, plcl_o_c, plfc_o_c, tkeavg_o_c, thvlmin_o_c, qtsrc_o_c, &
-            thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, thv0lcl_o_c, cnt_reset_c, &
-            trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p, tkeavg_p, &
-            thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p, thv0lcl_p, trsrc_p, &
-            qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, &
-            thvl0_o_p, ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, &
-            thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p, qv0_p, &
-            ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, ssthl0_p, &
-            ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, ssu0_p, ssv0_p, tr0_p, &
-            sstr0_p, sswt0_p, umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, &
-            qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, &
-            evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p, &
-            qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p, thlu_emf_p, &
-            qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p, wtdwten_p, &
-            wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p, wtu_p, wtu_emf_p, &
-            wtflx_p, wttotten_p, wtprec_p, wtsnow_p, excessu_p, excess0_p, xc_p, aquad_p, &
-            bquad_p, cquad_p, bogbot_p, bogtop_p, precip_p, snow_p, rliq_p, cbmf_p, cnt_p, &
-            cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p) &
-            bind(c, name="uwshcu_delcin_restore_reset_all_shell_codon")
-          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, use_cincin_c
-          integer(c_int64_t), value :: kinv_o_c, klcl_o_c, klfc_o_c
-          real(c_double), value :: cin_i_c, cinlcl_i_c, alpha_c, del_cin_c, del_cinlcl_c
-          real(c_double), value :: plcl_o_c, plfc_o_c, tkeavg_o_c, thvlmin_o_c, qtsrc_o_c
-          real(c_double), value :: thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, thv0lcl_o_c
-          real(c_double), value :: cnt_reset_c
-          type(c_ptr), value :: trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p
-          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
-          type(c_ptr), value :: thv0lcl_p, trsrc_p, qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p
-          type(c_ptr), value :: u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p, ssthl0_o_p, ssqt0_o_p
-          type(c_ptr), value :: thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, thvl0top_o_p, ssu0_o_p
-          type(c_ptr), value :: ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p, qv0_p, ql0_p, qi0_p
-          type(c_ptr), value :: t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, ssthl0_p, ssqt0_p
-          type(c_ptr), value :: thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, ssu0_p, ssv0_p, tr0_p
-          type(c_ptr), value :: sstr0_p, sswt0_p, umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p
-          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p
-          type(c_ptr), value :: dwten_p, diten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p
-          type(c_ptr), value :: qc_p, qc_l_p, qc_i_p, qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p
-          type(c_ptr), value :: vu_p, wu_p, thvu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p
-          type(c_ptr), value :: trflx_p, trten_p, tru_p, tru_emf_p, wtdwten_p, wtditen_p, wtrpten_p
-          type(c_ptr), value :: wtspten_p, wtqc_liq_p, wtqc_ice_p, wtu_p, wtu_emf_p, wtflx_p
-          type(c_ptr), value :: wttotten_p, wtprec_p, wtsnow_p, excessu_p, excess0_p, xc_p, aquad_p
-          type(c_ptr), value :: bquad_p, cquad_p, bogbot_p, bogtop_p, precip_p, snow_p, rliq_p
-          type(c_ptr), value :: cbmf_p, cnt_p, cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p
-          type(c_ptr), value :: emfkbup_p, cbmflimit_p
-       end subroutine uwshcu_delcin_restore_reset_all_shell_codon
-    end interface
 
     ! ------------------ !
     !                    !
@@ -6966,7 +4214,7 @@ end subroutine uwshcu_readnl
     ! --------------------------------------------------------------- !
     ! Choice of 'explicit' ( 1 ) or 'implicit' ( 2 )  CIN.            !
     !                                                                 !
-    ! When choose 'CIN = cinlcl' above,  it is recommended not to use ! 
+    ! When choose 'CIN = cinlcl' above,  it is recommended not to use !
     ! implicit CIN, i.e., do 'NOT' choose simultaneously :            !
     !            [ 'use_CINcin=.false. & 'iter_cin=2' ]               !
     ! since 'cinlcl' will be always set to zero whenever LCL is below !
@@ -6983,7 +4231,7 @@ end subroutine uwshcu_readnl
     ! ---------------------------------------------------------------- !
 
     logical , parameter              :: use_self_detrain = .false.
-    
+
     ! --------------------------------------------------------- !
     ! Cumulus momentum flux : turn-on (.true.) or off (.false.) !
     ! --------------------------------------------------------- !
@@ -7018,10 +4266,10 @@ end subroutine uwshcu_readnl
     ! ----------------------- !
 
     parameter (rle = 0.1_r8)         !  For critical stopping distance for lateral entrainment [no unit]
-!   parameter (rkm = 16.0_r8)        !  Determine the amount of air that is involved in buoyancy-sorting [no unit] 
+!   parameter (rkm = 16.0_r8)        !  Determine the amount of air that is involved in buoyancy-sorting [no unit]
     parameter (rkm = 14.0_r8)        !  Determine the amount of air that is involved in buoyancy-sorting [no unit]
 
-    parameter (rkfre = 1.0_r8)       !  Vertical velocity variance as fraction of  tke. 
+    parameter (rkfre = 1.0_r8)       !  Vertical velocity variance as fraction of  tke.
     parameter (rmaxfrac = 0.10_r8)   !  Maximum allowable 'core' updraft fraction
     parameter (mumin1 = 0.906_r8)    !  Normalized CIN ('mu') corresponding to 'rmaxfrac' at the PBL top
                                      !  obtaind by inverting 'rmaxfrac = 0.5*erfc(mumin1)'.
@@ -7029,24 +4277,24 @@ end subroutine uwshcu_readnl
     parameter (rbuoy = 1.0_r8)       !  For nonhydrostatic pressure effects on updraft [no unit]
     parameter (rdrag = 1.0_r8)       !  Drag coefficient [no unit]
 
-    parameter (epsvarw = 5.e-4_r8)   !  Variance of w at PBL top by meso-scale component [m2/s2]          
-    parameter (PGFc = 0.7_r8)        !  This is used for calculating vertical variations cumulus  
+    parameter (epsvarw = 5.e-4_r8)   !  Variance of w at PBL top by meso-scale component [m2/s2]
+    parameter (PGFc = 0.7_r8)        !  This is used for calculating vertical variations cumulus
                                      !  'u' & 'v' by horizontal PGF during upward motion [no unit]
 
     ! ---------------------------------------- !
     ! Bulk microphysics controlling parameters !
-    ! --------------------------------------------------------------------------- ! 
+    ! --------------------------------------------------------------------------- !
     ! criqc    : Maximum condensate that can be hold by cumulus updraft [kg/kg]   !
     ! frc_rasn : Fraction of precipitable condensate in the expelled cloud water  !
     !            from cumulus updraft. The remaining fraction ('1-frc_rasn')  is  !
     !            'suspended condensate'.                                          !
-    !                0 : all expelled condensate is 'suspended condensate'        ! 
+    !                0 : all expelled condensate is 'suspended condensate'        !
     !                1 : all expelled condensate is 'precipitable condensate'     !
     ! kevp     : Evaporative efficiency                                           !
-    ! noevap_krelkpen : No evaporation from 'krel' to 'kpen' layers               ! 
-    ! --------------------------------------------------------------------------- !    
+    ! noevap_krelkpen : No evaporation from 'krel' to 'kpen' layers               !
+    ! --------------------------------------------------------------------------- !
 
-    parameter ( criqc    = 0.7e-3_r8 ) 
+    parameter ( criqc    = 0.7e-3_r8 )
     parameter ( frc_rasn = 1.0_r8    )
     parameter ( kevp     = 2.e-6_r8  )
     logical, parameter :: noevap_krelkpen = .false.
@@ -7057,359 +4305,137 @@ end subroutine uwshcu_readnl
     !                        !
     !------------------------!
 
-    use_precomputed_constituent_indices = .false.
-    if (present(constituent_indices_precomputed)) &
-         use_precomputed_constituent_indices = constituent_indices_precomputed
+    call cnst_get_ind( 'NUMLIQ', ixnumliq )
+    call cnst_get_ind( 'NUMICE', ixnumice )
 
-    if (use_precomputed_constituent_indices) then
-       if (.not. present(constituent_indices_precomputed_in)) then
-          call endrun('compute_uwshcu_native: missing precomputed constituent indices')
-       end if
-       ixnumliq = int(constituent_indices_precomputed_in(1))
-       ixnumice = int(constituent_indices_precomputed_in(2))
-       ixcldliq = int(constituent_indices_precomputed_in(3))
-       ixcldice = int(constituent_indices_precomputed_in(4))
-    else
-       call cnst_get_ind( 'NUMLIQ', ixnumliq )
-       call cnst_get_ind( 'NUMICE', ixnumice )
-
-       call cnst_get_ind( 'CLDLIQ', ixcldliq )
-       call cnst_get_ind( 'CLDICE', ixcldice )
-    end if
+    call cnst_get_ind( 'CLDLIQ', ixcldliq )
+    call cnst_get_ind( 'CLDICE', ixcldice )
 
 
 
-
-    use_precomputed_module_metadata = .false.
-    if (present(module_metadata_precomputed)) use_precomputed_module_metadata = module_metadata_precomputed
-
-    if (use_precomputed_module_metadata) then
-       if (.not. present(qmin_precomputed_in) .or. &
-           .not. present(constituent_state_flags_precomputed_in) .or. &
-           .not. present(wtrc_scalar_metadata_precomputed_in)) then
-          call endrun('compute_uwshcu_native: missing precomputed module metadata')
-       end if
-       qmin_active(:ncnst) = real(qmin_precomputed_in(:ncnst), r8)
-       iwater_is_water_active(:ncnst) = constituent_state_flags_precomputed_in(:ncnst,1)
-       cnst_type_is_wet_active(:ncnst) = constituent_state_flags_precomputed_in(:ncnst,2)
-       wtrc_qmin_active = real(wtrc_scalar_metadata_precomputed_in(1), r8)
-    else
-       qmin_active(:ncnst) = qmin(:ncnst)
-       iwater_is_water_active(:ncnst) = iwater_is_water(:ncnst)
-       cnst_type_is_wet_active(:ncnst) = cnst_type_is_wet(:ncnst)
-       wtrc_qmin_active = wtrc_qmin
-    end if
 
     ! ------------------------------------------------------- !
     ! Initialize output variables defined for all grid points !
     ! ------------------------------------------------------- !
 
-    use_preselected_init_shell = .false.
-    if (present(init_shell_preselected)) use_preselected_init_shell = init_shell_preselected
+    umf_out(:iend,0:mkx)         = 0.0_r8
+    slflx_out(:iend,0:mkx)       = 0.0_r8
+    qtflx_out(:iend,0:mkx)       = 0.0_r8
+    flxprc1_out(:iend,0:mkx)     = 0.0_r8
+    flxsnow1_out(:iend,0:mkx)    = 0.0_r8
+    qvten_out(:iend,:mkx)        = 0.0_r8
+    qlten_out(:iend,:mkx)        = 0.0_r8
+    qiten_out(:iend,:mkx)        = 0.0_r8
+    sten_out(:iend,:mkx)         = 0.0_r8
+    uten_out(:iend,:mkx)         = 0.0_r8
+    vten_out(:iend,:mkx)         = 0.0_r8
+    qrten_out(:iend,:mkx)        = 0.0_r8
+    qsten_out(:iend,:mkx)        = 0.0_r8
+    precip_out(:iend)            = 0.0_r8
+    snow_out(:iend)              = 0.0_r8
+    evapc_out(:iend,:mkx)        = 0.0_r8
+    cufrc_out(:iend,:mkx)        = 0.0_r8
+    qcu_out(:iend,:mkx)          = 0.0_r8
+    qlu_out(:iend,:mkx)          = 0.0_r8
+    qiu_out(:iend,:mkx)          = 0.0_r8
+    fer_out(:iend,:mkx)          = 0.0_r8
+    fdr_out(:iend,:mkx)          = 0.0_r8
+    cinh_out(:iend)              = -1.0_r8
+    cinlclh_out(:iend)           = -1.0_r8
+    cbmf_out(:iend)              = 0.0_r8
+    qc_out(:iend,:mkx)           = 0.0_r8
+    rliq_out(:iend)              = 0.0_r8
+    cnt_out(:iend)               = real(mkx, r8)
+    cnb_out(:iend)               = 0.0_r8
+    qtten_out(:iend,:mkx)        = 0.0_r8
+    slten_out(:iend,:mkx)        = 0.0_r8
+    ufrc_out(:iend,0:mkx)        = 0.0_r8
 
-    if (use_preselected_init_shell) then
-       if (.not. present(init_shell_flags_in)) then
-          call endrun('compute_uwshcu_native: missing preselected init-shell flag')
-       end if
-       use_native_init_shell_impl = init_shell_flags_in(1) /= 0_c_int64_t
-       init_shell_impl_selected = .true.
-    else
-       call uwshcu_select_init_shell_impl()
-    end if
+    uflx_out(:iend,0:mkx)        = 0.0_r8
+    vflx_out(:iend,0:mkx)        = 0.0_r8
 
-    use_precomputed_wtrc_metadata = .false.
-    if (present(wtrc_metadata_precomputed)) use_precomputed_wtrc_metadata = wtrc_metadata_precomputed
+    trten_out(:iend,:mkx,:ncnst) = 0.0_r8
+    trflx_out(:iend,0:mkx,:ncnst)= 0.0_r8
 
-    if (use_precomputed_wtrc_metadata) then
-       if (.not. present(wtrc_metadata_flags_in) .or. .not. present(wtrc_iatype_precomputed_in)) then
-          call endrun('compute_uwshcu_native: missing precomputed water tracer metadata')
-       end if
-       if ((wtrc_metadata_flags_in(1) /= 0_c_int64_t) .neqv. trace_water) then
-          call endrun('compute_uwshcu_native: inconsistent precomputed water tracer trace flag')
-       end if
-       if (wtrc_metadata_flags_in(2) /= int(wtrc_nwset, c_int64_t)) then
-          call endrun('compute_uwshcu_native: inconsistent precomputed water tracer count')
-       end if
-       if ((wtrc_metadata_flags_in(3) /= 0_c_int64_t) .neqv. wisotope) then
-          call endrun('compute_uwshcu_native: inconsistent precomputed water tracer isotope flag')
-       end if
-       if ((wtrc_metadata_flags_in(4) /= 0_c_int64_t) .neqv. wtrc_alpha_kinetic) then
-          call endrun('compute_uwshcu_native: inconsistent precomputed water tracer kinetic flag')
-       end if
-       wisotope_active = wtrc_metadata_flags_in(3) /= 0_c_int64_t
-       wtrc_alpha_kinetic_active = wtrc_metadata_flags_in(4) /= 0_c_int64_t
-       if (trace_water) then
-          wtrc_iatype_post(1:wtrc_nwset,1:3) = wtrc_iatype_precomputed_in(1:wtrc_nwset,1:3)
-       end if
-    else
-       wisotope_active = wisotope
-       wtrc_alpha_kinetic_active = wtrc_alpha_kinetic
-       if (trace_water) then
-          do m = 1, wtrc_nwset
-             wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
-             wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
-             wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
-          end do
-       end if
-    end if
+   !Water tracers:
+    wtqc_out(:iend,:mkx,:ncnst)  = 0.0_r8
+    wtprec_out(:iend,:ncnst)     = 0.0_r8
+    wtsnow_out(:iend,:ncnst)     = 0.0_r8
 
-    use_precomputed_positive_moisture_metadata = .false.
-    if (present(positive_moisture_metadata_precomputed)) &
-         use_precomputed_positive_moisture_metadata = positive_moisture_metadata_precomputed
+    ufrcinvbase_out(:iend)       = 0.0_r8
+    ufrclcl_out(:iend)           = 0.0_r8
+    winvbase_out(:iend)          = 0.0_r8
+    wlcl_out(:iend)              = 0.0_r8
+    plcl_out(:iend)              = 0.0_r8
+    pinv_out(:iend)              = 0.0_r8
+    plfc_out(:iend)              = 0.0_r8
+    pbup_out(:iend)              = 0.0_r8
+    ppen_out(:iend)              = 0.0_r8
+    qtsrc_out(:iend)             = 0.0_r8
+    thlsrc_out(:iend)            = 0.0_r8
+    thvlsrc_out(:iend)           = 0.0_r8
+    emfkbup_out(:iend)           = 0.0_r8
+    cbmflimit_out(:iend)         = 0.0_r8
+    tkeavg_out(:iend)            = 0.0_r8
+    zinv_out(:iend)              = 0.0_r8
+    rcwp_out(:iend)              = 0.0_r8
+    rlwp_out(:iend)              = 0.0_r8
+    riwp_out(:iend)              = 0.0_r8
 
-    if (trace_water) then
-       if (use_precomputed_positive_moisture_metadata) then
-          if (.not. present(positive_moisture_iwspec_precomputed_in) .or. &
-              .not. present(positive_moisture_rstd_precomputed_in)) then
-             call endrun('compute_uwshcu_native: missing precomputed positive moisture metadata')
-          end if
-          positive_moisture_iwspec(:ncnst) = positive_moisture_iwspec_precomputed_in(:ncnst)
-          positive_moisture_rstd(:pwtspec) = positive_moisture_rstd_precomputed_in(:pwtspec)
-       else
-          do m = 1, ncnst
-             positive_moisture_iwspec(m) = int(iwspec(m), c_int64_t)
-          end do
-          do ispec = 1, pwtspec
-             positive_moisture_rstd(ispec) = wtrc_get_rstd(ispec)
-          end do
-       end if
-    end if
+    wu_out(:iend,0:mkx)          = 0.0_r8
+    qtu_out(:iend,0:mkx)         = 0.0_r8
+    thlu_out(:iend,0:mkx)        = 0.0_r8
+    thvu_out(:iend,0:mkx)        = 0.0_r8
+    uu_out(:iend,0:mkx)          = 0.0_r8
+    vu_out(:iend,0:mkx)          = 0.0_r8
+    qtu_emf_out(:iend,0:mkx)     = 0.0_r8
+    thlu_emf_out(:iend,0:mkx)    = 0.0_r8
+    uu_emf_out(:iend,0:mkx)      = 0.0_r8
+    vu_emf_out(:iend,0:mkx)      = 0.0_r8
+    uemf_out(:iend,0:mkx)        = 0.0_r8
 
-    use_precomputed_constant_metadata = .false.
-    if (present(constant_metadata_precomputed)) use_precomputed_constant_metadata = constant_metadata_precomputed
+    tru_out(:iend,0:mkx,:ncnst)     = 0.0_r8
+    tru_emf_out(:iend,0:mkx,:ncnst) = 0.0_r8
 
-    if (use_precomputed_constant_metadata) then
-       if (.not. present(constant_metadata_precomputed_in)) then
-          call endrun('compute_uwshcu_native: missing precomputed constants')
-       end if
-       xlv_active = real(constant_metadata_precomputed_in(1), r8)
-       xlf_active = real(constant_metadata_precomputed_in(2), r8)
-       xls_active = real(constant_metadata_precomputed_in(3), r8)
-       cp_active = real(constant_metadata_precomputed_in(4), r8)
-       zvir_active = real(constant_metadata_precomputed_in(5), r8)
-       r_active = real(constant_metadata_precomputed_in(6), r8)
-       g_active = real(constant_metadata_precomputed_in(7), r8)
-       ep2_active = real(constant_metadata_precomputed_in(8), r8)
-       p00_active = real(constant_metadata_precomputed_in(9), r8)
-       rovcp_active = real(constant_metadata_precomputed_in(10), r8)
-       rair_active = real(constant_metadata_precomputed_in(11), r8)
-       rh2o_active = real(constant_metadata_precomputed_in(12), r8)
-       rhoh2o_active = real(constant_metadata_precomputed_in(13), r8)
-    else
-       xlv_active = xlv
-       xlf_active = xlf
-       xls_active = xls
-       cp_active = cp
-       zvir_active = zvir
-       r_active = r
-       g_active = g
-       ep2_active = ep2
-       p00_active = p00
-       rovcp_active = rovcp
-       rair_active = rair
-       rh2o_active = rh2o
-       rhoh2o_active = rhoh2o
-    end if
+    dwten_out(:iend,:mkx)        = 0.0_r8
+    diten_out(:iend,:mkx)        = 0.0_r8
+    flxrain_out(:iend,0:mkx)     = 0.0_r8
+    flxsnow_out(:iend,0:mkx)     = 0.0_r8
+    ntraprd_out(:iend,mkx)       = 0.0_r8
+    ntsnprd_out(:iend,mkx)       = 0.0_r8
 
-    positive_moisture_status_c = 0_c_int64_t
+    excessu_arr_out(:iend,:mkx)  = 0.0_r8
+    excess0_arr_out(:iend,:mkx)  = 0.0_r8
+    xc_arr_out(:iend,:mkx)       = 0.0_r8
+    aquad_arr_out(:iend,:mkx)    = 0.0_r8
+    bquad_arr_out(:iend,:mkx)    = 0.0_r8
+    cquad_arr_out(:iend,:mkx)    = 0.0_r8
+    bogbot_arr_out(:iend,:mkx)   = 0.0_r8
+    bogtop_arr_out(:iend,:mkx)   = 0.0_r8
 
-    use_preinitialized_public_outputs = .false.
-    if (present(public_outputs_preinitialized)) &
-         use_preinitialized_public_outputs = public_outputs_preinitialized
+    exit_UWCu(:iend)             = 0.0_r8
+    exit_conden(:iend)           = 0.0_r8
+    exit_klclmkx(:iend)          = 0.0_r8
+    exit_klfcmkx(:iend)          = 0.0_r8
+    exit_ufrc(:iend)             = 0.0_r8
+    exit_wtw(:iend)              = 0.0_r8
+    exit_drycore(:iend)          = 0.0_r8
+    exit_wu(:iend)               = 0.0_r8
+    exit_cufilter(:iend)         = 0.0_r8
+    exit_kinv1(:iend)            = 0.0_r8
+    exit_rei(:iend)              = 0.0_r8
 
-    if (use_native_init_shell_impl) then
-       umf_out(:iend,0:mkx)         = 0.0_r8
-       slflx_out(:iend,0:mkx)       = 0.0_r8
-       qtflx_out(:iend,0:mkx)       = 0.0_r8
-       flxprc1_out(:iend,0:mkx)     = 0.0_r8
-       flxsnow1_out(:iend,0:mkx)    = 0.0_r8
-       qvten_out(:iend,:mkx)        = 0.0_r8
-       qlten_out(:iend,:mkx)        = 0.0_r8
-       qiten_out(:iend,:mkx)        = 0.0_r8
-       sten_out(:iend,:mkx)         = 0.0_r8
-       uten_out(:iend,:mkx)         = 0.0_r8
-       vten_out(:iend,:mkx)         = 0.0_r8
-       qrten_out(:iend,:mkx)        = 0.0_r8
-       qsten_out(:iend,:mkx)        = 0.0_r8
-       precip_out(:iend)            = 0.0_r8
-       snow_out(:iend)              = 0.0_r8
-       evapc_out(:iend,:mkx)        = 0.0_r8
-       cufrc_out(:iend,:mkx)        = 0.0_r8
-       qcu_out(:iend,:mkx)          = 0.0_r8
-       qlu_out(:iend,:mkx)          = 0.0_r8
-       qiu_out(:iend,:mkx)          = 0.0_r8
-       fer_out(:iend,:mkx)          = 0.0_r8
-       fdr_out(:iend,:mkx)          = 0.0_r8
-       cinh_out(:iend)              = -1.0_r8
-       cinlclh_out(:iend)           = -1.0_r8
-       cbmf_out(:iend)              = 0.0_r8
-       qc_out(:iend,:mkx)           = 0.0_r8
-       rliq_out(:iend)              = 0.0_r8
-       cnt_out(:iend)               = real(mkx, r8)
-       cnb_out(:iend)               = 0.0_r8
-       qtten_out(:iend,:mkx)        = 0.0_r8
-       slten_out(:iend,:mkx)        = 0.0_r8
-       ufrc_out(:iend,0:mkx)        = 0.0_r8
-       uflx_out(:iend,0:mkx)        = 0.0_r8
-       vflx_out(:iend,0:mkx)        = 0.0_r8
-       trten_out(:iend,:mkx,:ncnst) = 0.0_r8
-       trflx_out(:iend,0:mkx,:ncnst)= 0.0_r8
-       wtqc_out(:iend,:mkx,:ncnst)  = 0.0_r8
-       wtprec_out(:iend,:ncnst)     = 0.0_r8
-       wtsnow_out(:iend,:ncnst)     = 0.0_r8
-    else if (use_preinitialized_public_outputs) then
-       call uwshcu_log_compute_public_output_parent_shell_entered()
-       call uwshcu_internal_output_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-            int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(fer_out), c_loc(fdr_out), &
-            c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), c_loc(uflx_out), &
-            c_loc(vflx_out), c_loc(trflx_out), c_loc(cinh_out), c_loc(cinlclh_out))
-       call uwshcu_log_diag_init_shell_entered()
-       call uwshcu_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-            int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(ufrcinvbase_out), &
-            c_loc(ufrclcl_out), c_loc(winvbase_out), c_loc(wlcl_out), c_loc(plcl_out), &
-            c_loc(pinv_out), c_loc(plfc_out), c_loc(pbup_out), c_loc(ppen_out), &
-            c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), &
-            c_loc(cbmflimit_out), c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), &
-            c_loc(rlwp_out), c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), c_loc(thlu_out), &
-            c_loc(thvu_out), c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), &
-            c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), &
-            c_loc(tru_out), c_loc(tru_emf_out), c_loc(dwten_out), c_loc(diten_out), &
-            c_loc(flxrain_out), c_loc(flxsnow_out), c_loc(ntraprd_out), c_loc(ntsnprd_out), &
-            c_loc(excessu_arr_out), c_loc(excess0_arr_out), c_loc(xc_arr_out), &
-            c_loc(aquad_arr_out), c_loc(bquad_arr_out), c_loc(cquad_arr_out), &
-            c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(exit_UWCu), &
-            c_loc(exit_conden), c_loc(exit_klclmkx), c_loc(exit_klfcmkx), c_loc(exit_ufrc), &
-            c_loc(exit_wtw), c_loc(exit_drycore), c_loc(exit_wu), c_loc(exit_cufilter), &
-            c_loc(exit_kinv1), c_loc(exit_rei), c_loc(limit_shcu), c_loc(limit_negcon), &
-            c_loc(limit_ufrc), c_loc(limit_ppen), c_loc(limit_emf), c_loc(limit_cinlcl), &
-            c_loc(limit_cin), c_loc(limit_cbmf), c_loc(limit_rei), c_loc(ind_delcin))
-    else
-       call uwshcu_log_output_diag_init_shell_entered()
-       call uwshcu_output_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-            int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(umf_out), c_loc(slflx_out), &
-            c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
-            c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
-            c_loc(qrten_out), c_loc(qsten_out), c_loc(evapc_out), c_loc(cufrc_out), c_loc(qcu_out), &
-            c_loc(qlu_out), c_loc(qiu_out), c_loc(fer_out), c_loc(fdr_out), c_loc(qc_out), &
-            c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), c_loc(uflx_out), c_loc(vflx_out), &
-            c_loc(trten_out), c_loc(trflx_out), c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), &
-            c_loc(precip_out), c_loc(snow_out), c_loc(cinh_out), c_loc(cinlclh_out), c_loc(cbmf_out), &
-            c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), &
-            c_loc(winvbase_out), c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), c_loc(plfc_out), &
-            c_loc(pbup_out), c_loc(ppen_out), c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), &
-            c_loc(emfkbup_out), c_loc(cbmflimit_out), c_loc(tkeavg_out), c_loc(zinv_out), &
-            c_loc(rcwp_out), c_loc(rlwp_out), c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), &
-            c_loc(thlu_out), c_loc(thvu_out), c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), &
-            c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), &
-            c_loc(tru_out), c_loc(tru_emf_out), c_loc(dwten_out), c_loc(diten_out), c_loc(flxrain_out), &
-            c_loc(flxsnow_out), c_loc(ntraprd_out), c_loc(ntsnprd_out), c_loc(excessu_arr_out), &
-            c_loc(excess0_arr_out), c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), &
-            c_loc(cquad_arr_out), c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(exit_UWCu), &
-            c_loc(exit_conden), c_loc(exit_klclmkx), c_loc(exit_klfcmkx), c_loc(exit_ufrc), &
-            c_loc(exit_wtw), c_loc(exit_drycore), c_loc(exit_wu), c_loc(exit_cufilter), &
-            c_loc(exit_kinv1), c_loc(exit_rei), c_loc(limit_shcu), c_loc(limit_negcon), &
-            c_loc(limit_ufrc), c_loc(limit_ppen), c_loc(limit_emf), c_loc(limit_cinlcl), &
-            c_loc(limit_cin), c_loc(limit_cbmf), c_loc(limit_rei), c_loc(ind_delcin))
-    end if
+    limit_shcu(:iend)            = 0.0_r8
+    limit_negcon(:iend)          = 0.0_r8
+    limit_ufrc(:iend)            = 0.0_r8
+    limit_ppen(:iend)            = 0.0_r8
+    limit_emf(:iend)             = 0.0_r8
+    limit_cinlcl(:iend)          = 0.0_r8
+    limit_cin(:iend)             = 0.0_r8
+    limit_cbmf(:iend)            = 0.0_r8
+    limit_rei(:iend)             = 0.0_r8
 
-    if (use_native_init_shell_impl) then
-       ufrcinvbase_out(:iend)       = 0.0_r8
-       ufrclcl_out(:iend)           = 0.0_r8
-       winvbase_out(:iend)          = 0.0_r8
-       wlcl_out(:iend)              = 0.0_r8
-       plcl_out(:iend)              = 0.0_r8
-       pinv_out(:iend)              = 0.0_r8
-       plfc_out(:iend)              = 0.0_r8
-       pbup_out(:iend)              = 0.0_r8
-       ppen_out(:iend)              = 0.0_r8
-       qtsrc_out(:iend)             = 0.0_r8
-       thlsrc_out(:iend)            = 0.0_r8
-       thvlsrc_out(:iend)           = 0.0_r8
-       emfkbup_out(:iend)           = 0.0_r8
-       cbmflimit_out(:iend)         = 0.0_r8
-       tkeavg_out(:iend)            = 0.0_r8
-       zinv_out(:iend)              = 0.0_r8
-       rcwp_out(:iend)              = 0.0_r8
-       rlwp_out(:iend)              = 0.0_r8
-       riwp_out(:iend)              = 0.0_r8
-
-       wu_out(:iend,0:mkx)          = 0.0_r8
-       qtu_out(:iend,0:mkx)         = 0.0_r8
-       thlu_out(:iend,0:mkx)        = 0.0_r8
-       thvu_out(:iend,0:mkx)        = 0.0_r8
-       uu_out(:iend,0:mkx)          = 0.0_r8
-       vu_out(:iend,0:mkx)          = 0.0_r8
-       qtu_emf_out(:iend,0:mkx)     = 0.0_r8
-       thlu_emf_out(:iend,0:mkx)    = 0.0_r8
-       uu_emf_out(:iend,0:mkx)      = 0.0_r8
-       vu_emf_out(:iend,0:mkx)      = 0.0_r8
-       uemf_out(:iend,0:mkx)        = 0.0_r8
-
-       tru_out(:iend,0:mkx,:ncnst)     = 0.0_r8
-       tru_emf_out(:iend,0:mkx,:ncnst) = 0.0_r8
-
-       dwten_out(:iend,:mkx)        = 0.0_r8
-       diten_out(:iend,:mkx)        = 0.0_r8
-       flxrain_out(:iend,0:mkx)     = 0.0_r8
-       flxsnow_out(:iend,0:mkx)     = 0.0_r8
-       ntraprd_out(:iend,mkx)       = 0.0_r8
-       ntsnprd_out(:iend,mkx)       = 0.0_r8
-
-       excessu_arr_out(:iend,:mkx)  = 0.0_r8
-       excess0_arr_out(:iend,:mkx)  = 0.0_r8
-       xc_arr_out(:iend,:mkx)       = 0.0_r8
-       aquad_arr_out(:iend,:mkx)    = 0.0_r8
-       bquad_arr_out(:iend,:mkx)    = 0.0_r8
-       cquad_arr_out(:iend,:mkx)    = 0.0_r8
-       bogbot_arr_out(:iend,:mkx)   = 0.0_r8
-       bogtop_arr_out(:iend,:mkx)   = 0.0_r8
-
-       exit_UWCu(:iend)             = 0.0_r8
-       exit_conden(:iend)           = 0.0_r8
-       exit_klclmkx(:iend)          = 0.0_r8
-       exit_klfcmkx(:iend)          = 0.0_r8
-       exit_ufrc(:iend)             = 0.0_r8
-       exit_wtw(:iend)              = 0.0_r8
-       exit_drycore(:iend)          = 0.0_r8
-       exit_wu(:iend)               = 0.0_r8
-       exit_cufilter(:iend)         = 0.0_r8
-       exit_kinv1(:iend)            = 0.0_r8
-       exit_rei(:iend)              = 0.0_r8
-
-       limit_shcu(:iend)            = 0.0_r8
-       limit_negcon(:iend)          = 0.0_r8
-       limit_ufrc(:iend)            = 0.0_r8
-       limit_ppen(:iend)            = 0.0_r8
-       limit_emf(:iend)             = 0.0_r8
-       limit_cinlcl(:iend)          = 0.0_r8
-       limit_cin(:iend)             = 0.0_r8
-       limit_cbmf(:iend)            = 0.0_r8
-       limit_rei(:iend)             = 0.0_r8
-
-       ind_delcin(:iend)            = 0.0_r8
-    end if
-
-    use_precomputed_parent_prefix = .false.
-    if (present(parent_prefix_precomputed)) use_precomputed_parent_prefix = parent_prefix_precomputed
-    if (use_precomputed_parent_prefix .and. use_native_init_shell_impl) use_precomputed_parent_prefix = .false.
-    if (use_precomputed_parent_prefix) then
-       if (.not. present(parent_real_workspace_in) .or. .not. present(parent_int_workspace_in)) then
-          call endrun('compute_uwshcu_native: missing precomputed parent prefix workspace')
-       end if
-       if (parent_int_workspace_in(1) /= 1_c_int64_t) then
-          call endrun('compute_uwshcu_native: invalid precomputed parent prefix workspace')
-       end if
-       if (parent_int_workspace_in(3) /= int(iend, c_int64_t) .or. &
-           parent_int_workspace_in(4) /= int(mkx, c_int64_t) .or. &
-           parent_int_workspace_in(5) /= int(ncnst, c_int64_t)) then
-          call endrun('compute_uwshcu_native: inconsistent precomputed parent prefix dimensions')
-       end if
-       parent_prefix_stride = int(parent_int_workspace_in(2))
-       parent_prefix_wtrc_slots = max(1, int(parent_int_workspace_in(6)))
-    else
-       parent_prefix_stride = 0
-       parent_prefix_wtrc_slots = max(1, wtrc_nwset)
-    end if
+    ind_delcin(:iend)            = 0.0_r8
 
     !--------------------------------------------------------------!
     !                                                              !
@@ -7420,24 +4446,13 @@ end subroutine uwshcu_readnl
     ! Compute wet-bulb temperature and specific humidity
     ! for treating evaporation of precipitation.
 
-    use_precomputed_wetbulb = .false.
-    if (present(wetbulb_precomputed)) use_precomputed_wetbulb = wetbulb_precomputed
+    ! "True" means ice will be taken into account
+    do k = 1, mkx
+       call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
+            tw0_in(:iend,k), qw0_in(:iend,k))
+    end do
 
-    if (use_precomputed_wetbulb) then
-       if (.not. present(tw0_precomputed_in) .or. .not. present(qw0_precomputed_in)) then
-          call endrun('compute_uwshcu_native: missing precomputed wet-bulb arrays')
-       end if
-       qw0_active => qw0_precomputed_in
-    else
-       ! "True" means ice will be taken into account
-       do k = 1, mkx
-          call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
-               tw0_in(:iend,k), qw0_in(:iend,k))
-       end do
-       qw0_active => qw0_in
-    end if
-
-    do i = 1, iend                                      
+    do i = 1, iend
 
       id_exit = .false.
 
@@ -7445,182 +4460,105 @@ end subroutine uwshcu_readnl
       ! Define 1D input variables at each grid point !
       ! -------------------------------------------- !
 
-      if (use_precomputed_parent_prefix) then
-         interface_conden_exit_code_c = 0_c_int64_t
-         call uwshcu_parent_prefix_load_shell_codon(int(i, c_int64_t), int(mkx, c_int64_t), &
-              int(ncnst, c_int64_t), int(wtrc_nwset, c_int64_t), int(parent_prefix_stride, c_int64_t), &
-              int(parent_prefix_wtrc_slots, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-              c_loc(parent_real_workspace_in(1)), c_loc(parent_int_workspace_in(1)), c_loc(ps0), &
-              c_loc(zs0), c_loc(tke), c_loc(exns0), c_loc(p0), c_loc(z0), c_loc(dp0), &
-              c_loc(dpdry0), c_loc(u0), c_loc(v0), c_loc(qv0), c_loc(ql0), c_loc(qi0), &
-              c_loc(t0), c_loc(s0), c_loc(cldfrct), c_loc(concldfrct), c_loc(exn0), c_loc(qt0), &
-              c_loc(thl0), c_loc(thvl0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
-              c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), c_loc(pblh), c_loc(cush), &
-              c_loc(thv0bot), c_loc(thvl0bot), c_loc(thv0top), c_loc(thvl0top), &
-              c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c))
-         if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
-            id_exit = .true.
-            go to 333
-         end if
-      else if (use_native_init_shell_impl) then
-         ps0(0:mkx)       = ps0_in(i,0:mkx)
-         zs0(0:mkx)       = zs0_in(i,0:mkx)
-         p0(:mkx)         = p0_in(i,:mkx)
-         z0(:mkx)         = z0_in(i,:mkx)
-         dp0(:mkx)        = dp0_in(i,:mkx)
-         dpdry0(:mkx)     = dpdry0_in(i,:mkx)
-         u0(:mkx)         = u0_in(i,:mkx)
-         v0(:mkx)         = v0_in(i,:mkx)
-         qv0(:mkx)        = qv0_in(i,:mkx)
-         ql0(:mkx)        = ql0_in(i,:mkx)
-         qi0(:mkx)        = qi0_in(i,:mkx)
-         t0(:mkx)         = t0_in(i,:mkx)
-         s0(:mkx)         = s0_in(i,:mkx)
-         tke(0:mkx)       = tke_in(i,0:mkx)
-         cldfrct(:mkx)    = cldfrct_in(i,:mkx)
-         concldfrct(:mkx) = concldfrct_in(i,:mkx)
-         pblh             = pblh_in(i)
-         cush             = cush_inout(i)
-         do m = 1, ncnst
-            tr0(:mkx,m)   = tr0_in(i,:mkx,m)
-         enddo
-      else
-         call uwshcu_log_column_input_shell_entered()
-         call uwshcu_column_input_load_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-              int(i, c_int64_t), int(ncnst, c_int64_t), pblh_in(i), cush_inout(i), &
-              c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), c_loc(z0_in), c_loc(dp0_in), &
-              c_loc(dpdry0_in), c_loc(u0_in), c_loc(v0_in), c_loc(qv0_in), c_loc(ql0_in), &
-              c_loc(qi0_in), c_loc(t0_in), c_loc(s0_in), c_loc(tke_in), c_loc(cldfrct_in), &
-              c_loc(concldfrct_in), c_loc(tr0_in), c_loc(ps0), c_loc(zs0), c_loc(p0), c_loc(z0), &
-              c_loc(dp0), c_loc(dpdry0), c_loc(u0), c_loc(v0), c_loc(qv0), c_loc(ql0), c_loc(qi0), &
-              c_loc(t0), c_loc(s0), c_loc(tke), c_loc(cldfrct), c_loc(concldfrct), c_loc(tr0), &
-              c_loc(pblh), c_loc(cush))
-      end if
+      ps0(0:mkx)       = ps0_in(i,0:mkx)
+      zs0(0:mkx)       = zs0_in(i,0:mkx)
+      p0(:mkx)         = p0_in(i,:mkx)
+      z0(:mkx)         = z0_in(i,:mkx)
+      dp0(:mkx)        = dp0_in(i,:mkx)
+      dpdry0(:mkx)     = dpdry0_in(i,:mkx)
+      u0(:mkx)         = u0_in(i,:mkx)
+      v0(:mkx)         = v0_in(i,:mkx)
+      qv0(:mkx)        = qv0_in(i,:mkx)
+      ql0(:mkx)        = ql0_in(i,:mkx)
+      qi0(:mkx)        = qi0_in(i,:mkx)
+      t0(:mkx)         = t0_in(i,:mkx)
+      s0(:mkx)         = s0_in(i,:mkx)
+      tke(0:mkx)       = tke_in(i,0:mkx)
+      cldfrct(:mkx)    = cldfrct_in(i,:mkx)
+      concldfrct(:mkx) = concldfrct_in(i,:mkx)
+      pblh             = pblh_in(i)
+      cush             = cush_inout(i)
+      do m = 1, ncnst
+         tr0(:mkx,m)   = tr0_in(i,:mkx,m)
+      enddo
 
       ! --------------------------------------------------------- !
-      ! Compute other basic thermodynamic variables directly from ! 
+      ! Compute other basic thermodynamic variables directly from !
       ! the input variables at each grid point                    !
       ! --------------------------------------------------------- !
 
       !----- 1. Compute internal environmental variables
-      
-      if (use_precomputed_parent_prefix) then
-         ! Column input, exner, thermodynamic state, and slopes were loaded from Codon workspace.
-      else if (use_native_init_shell_impl) then
-         exn0(:mkx)   = (p0(:mkx)/p00_active)**rovcp_active
-         exns0(0:mkx) = (ps0(0:mkx)/p00_active)**rovcp_active
-      else
-         call uwshcu_log_exner_profile_shell_entered()
-         call uwshcu_exner_profile_shell_codon(int(mkx, c_int64_t), p00_active, rovcp_active, &
-              c_loc(p0), c_loc(ps0), c_loc(exn0), c_loc(exns0))
-      end if
-      if (use_precomputed_parent_prefix) then
-         ! Already computed in uwshcu_compute_parent_prefix_workspace_codon.
-      else if (use_native_init_shell_impl) then
-         qt0(:mkx)    = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
-         thl0(:mkx)   = (t0(:mkx) - xlv_active*ql0(:mkx)/cp_active - xls_active*qi0(:mkx)/cp_active)/exn0(:mkx)
-         thvl0(:mkx)  = (1._r8 + zvir_active*qt0(:mkx))*thl0(:mkx)
-      else
-         wtrc_nwset_post_c = 0_c_int64_t
-         if (trace_water) then
-            wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-         end if
-         call uwshcu_log_column_thermo_slope_shell_entered()
-         call uwshcu_column_thermo_slope_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-              wtrc_nwset_post_c, xlv_active, xls_active, cp_active, zvir_active, c_loc(qv0), c_loc(ql0), c_loc(qi0), &
-              c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(p0), &
-              c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(wt0), &
-              c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(sstr0), c_loc(sswt0))
-      end if
+
+      exn0(:mkx)   = (p0(:mkx)/p00)**rovcp
+      exns0(0:mkx) = (ps0(0:mkx)/p00)**rovcp
+      qt0(:mkx)    = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
+      thl0(:mkx)   = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
+      thvl0(:mkx)  = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
 
       !----- 2. Compute slopes of environmental variables in each layer
       !         Dimension of ssthl0(:mkx) is implicit.
 
-      if (use_precomputed_parent_prefix) then
-         ! Already computed in uwshcu_compute_parent_prefix_workspace_codon.
-      else if (use_native_init_shell_impl) then
-         ssthl0       = slope(mkx,thl0,p0)
-         ssqt0        = slope(mkx,qt0 ,p0)
-         ssu0         = slope(mkx,u0  ,p0)
-         ssv0         = slope(mkx,v0  ,p0)
-         do m = 1, ncnst
-            sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
-         enddo
+      ssthl0       = slope(mkx,thl0,p0)
+      ssqt0        = slope(mkx,qt0 ,p0)
+      ssu0         = slope(mkx,u0  ,p0)
+      ssv0         = slope(mkx,v0  ,p0)
+      do m = 1, ncnst
+         sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
+      enddo
 
-         !*************
-         !Water tracers
-         !*************
-         !NOTE:  This variables is needed since slope(sum) /= sum(slope) - JN
-         !NOTE:  The actual slope function they use has min/max calls which don't make
-         !any sense to me, since you should be able to calculate the slope directly
-         !without too many problems.  I should probably talk to someone about that
-         ! - JN.
-         if(trace_water) then
-           do m=1,wtrc_nwset
-             wt0(:mkx,m) = tr0(:mkx,int(wtrc_iatype_post(m,1))) + &
-                            tr0(:mkx,int(wtrc_iatype_post(m,2))) + &
-                            tr0(:mkx,int(wtrc_iatype_post(m,3)))
-             sswt0(:,m) = slope(mkx,wt0(:mkx,m) ,p0)
-           end do
-         end if
-         !*************
-      endif
- 
+      !*************
+      !Water tracers
+      !*************
+      !NOTE:  This variables is needed since slope(sum) /= sum(slope) - JN
+      !NOTE:  The actual slope function they use has min/max calls which don't make
+      !any sense to me, since you should be able to calculate the slope directly
+      !without too many problems.  I should probably talk to someone about that
+      ! - JN.
+      if(trace_water) then
+        do m=1,wtrc_nwset
+          wt0(:mkx,m) = tr0(:mkx,wtrc_iatype(m,iwtvap)) + tr0(:mkx,wtrc_iatype(m,iwtliq)) + tr0(:mkx,wtrc_iatype(m,iwtice))
+          sswt0(:,m) = slope(mkx,wt0(:mkx,m) ,p0)
+        end do
+      end if
+      !*************
+
       !----- 3. Compute "thv0" and "thvl0" at the top/bottom interfaces in each layer
       !         There are computed from the reconstructed thl, qt at the top/bottom.
 
       !NOTE:  Given that this section is used purely to calculate thermodynamic variables, and not
       !moisture tendencies, there is not need to call water tracer subroutines here. - JN
 
-      if (use_precomputed_parent_prefix) then
-         ! Already computed in uwshcu_compute_parent_prefix_workspace_codon.
-      else if (use_native_init_shell_impl) then
-         do k = 1, mkx
+      do k = 1, mkx
 
-            thl0bot = thl0(k) + ssthl0(k)*(ps0(k-1) - p0(k))
-            qt0bot  = qt0(k)  + ssqt0(k) *(ps0(k-1) - p0(k))
-            call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
-            if( id_check .eq. 1 ) then
-                exit_conden(i) = 1._r8
-                id_exit = .true.
-                go to 333
-            end if
-            thv0bot(k)  = thj*(1._r8 + zvir_active*qvj - qlj - qij)
-            thvl0bot(k) = thl0bot*(1._r8 + zvir_active*qt0bot)
-
-            thl0top = thl0(k) + ssthl0(k)*(ps0(k) - p0(k))
-            qt0top  =  qt0(k) + ssqt0(k) *(ps0(k) - p0(k))
-            call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-            if( id_check .eq. 1 ) then
-                exit_conden(i) = 1._r8
-                id_exit = .true.
-                go to 333
-            end if
-            thv0top(k)  = thj*(1._r8 + zvir_active*qvj - qlj - qij)
-            thvl0top(k) = thl0top*(1._r8 + zvir_active*qt0top)
-
-         end do
-      else
-         id_check_thv_loop_c = 0_c_int64_t
-         interface_conden_exit_code_c = 0_c_int64_t
-         call uwshcu_log_interface_thv_loop_shell_entered()
-         call uwshcu_interface_thv_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), zvir_active, &
-              c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
-              c_loc(exit_conden(i)), c_loc(thv0bot), c_loc(thvl0bot), c_loc(thv0top), &
-              c_loc(thvl0top), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-              c_loc(id_check_thv_loop_c), c_loc(interface_conden_exit_code_c))
-         if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
+         thl0bot = thl0(k) + ssthl0(k)*(ps0(k-1) - p0(k))
+         qt0bot  = qt0(k)  + ssqt0(k) *(ps0(k-1) - p0(k))
+         call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
+         if( id_check .eq. 1 ) then
+             exit_conden(i) = 1._r8
              id_exit = .true.
              go to 333
          end if
-      endif
+         thv0bot(k)  = thj*(1._r8 + zvir*qvj - qlj - qij)
+         thvl0bot(k) = thl0bot*(1._r8 + zvir*qt0bot)
+
+         thl0top = thl0(k) + ssthl0(k)*(ps0(k) - p0(k))
+         qt0top  =  qt0(k) + ssqt0(k) *(ps0(k) - p0(k))
+         call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+         if( id_check .eq. 1 ) then
+             exit_conden(i) = 1._r8
+             id_exit = .true.
+             go to 333
+         end if
+         thv0top(k)  = thj*(1._r8 + zvir*qvj - qlj - qij)
+         thvl0top(k) = thl0top*(1._r8 + zvir*qt0top)
+
+      end do
 
       ! ------------------------------------------------------------ !
       ! Save input and related environmental thermodynamic variables !
       ! for use at "iter_cin=2" when "del_CIN >= 0"                  !
       ! ------------------------------------------------------------ !
 
-      if (use_native_init_shell_impl) then
       qv0_o(:mkx)          = qv0(:mkx)
       ql0_o(:mkx)          = ql0(:mkx)
       qi0_o(:mkx)          = qi0(:mkx)
@@ -7637,53 +4575,22 @@ end subroutine uwshcu_readnl
       thv0top_o(:mkx)      = thv0top(:mkx)
       thvl0bot_o(:mkx)     = thvl0bot(:mkx)
       thvl0top_o(:mkx)     = thvl0top(:mkx)
-      ssu0_o(:mkx)         = ssu0(:mkx) 
-      ssv0_o(:mkx)         = ssv0(:mkx) 
+      ssu0_o(:mkx)         = ssu0(:mkx)
+      ssv0_o(:mkx)         = ssv0(:mkx)
       do m = 1, ncnst
          tr0_o(:mkx,m)     = tr0(:mkx,m)
          sstr0_o(:mkx,m)   = sstr0(:mkx,m)
-      enddo 
+      enddo
 
      !Water tracers:
       if(trace_water) then
         sswt0_o(:mkx,:)      =  sswt0(:mkx,:)
-      end if
-      else
-        wtrc_nwset_post_c = 0_c_int64_t
-        if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-        call uwshcu_log_column_init_shell_entered()
-        call uwshcu_column_init_all_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-             wtrc_nwset_post_c, c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), &
-             c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(ssthl0), &
-             c_loc(ssqt0), c_loc(thv0bot), c_loc(thv0top), c_loc(thvl0bot), c_loc(thvl0top), &
-             c_loc(ssu0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(sswt0), c_loc(qv0_o), &
-             c_loc(ql0_o), c_loc(qi0_o), c_loc(t0_o), c_loc(s0_o), c_loc(u0_o), c_loc(v0_o), &
-             c_loc(qt0_o), c_loc(thl0_o), c_loc(thvl0_o), c_loc(ssthl0_o), c_loc(ssqt0_o), &
-             c_loc(thv0bot_o), c_loc(thv0top_o), c_loc(thvl0bot_o), c_loc(thvl0top_o), &
-             c_loc(ssu0_o), c_loc(ssv0_o), c_loc(tr0_o), c_loc(sstr0_o), c_loc(sswt0_o), &
-             c_loc(umf), c_loc(emf), c_loc(slflx), c_loc(qtflx), c_loc(uflx), c_loc(vflx), &
-             c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), c_loc(vten), &
-             c_loc(qrten), c_loc(qsten), c_loc(dwten), c_loc(diten), c_loc(evapc), c_loc(cufrc), &
-             c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(fer), c_loc(fdr), c_loc(qc), c_loc(qc_l), &
-             c_loc(qc_i), c_loc(qtten), c_loc(slten), c_loc(ufrc), c_loc(thlu), c_loc(qtu), &
-             c_loc(uu), c_loc(vu), c_loc(wu), c_loc(thvu), c_loc(thlu_emf), c_loc(qtu_emf), &
-             c_loc(uu_emf), c_loc(vu_emf), c_loc(trflx), c_loc(trten), c_loc(tru), c_loc(tru_emf), &
-             c_loc(wtdwten), c_loc(wtditen), c_loc(wtrpten), c_loc(wtspten), c_loc(wtqc_liq), &
-             c_loc(wtqc_ice), c_loc(wtu), c_loc(wtu_emf), c_loc(wtflx), c_loc(wttotten), &
-             c_loc(wtprec), c_loc(wtsnow), c_loc(excessu_arr), c_loc(excess0_arr), c_loc(xc_arr), &
-             c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), &
-             c_loc(bogtop_arr), c_loc(comsub), c_loc(qlten_sink), c_loc(qiten_sink), &
-             c_loc(nlten_sink), c_loc(niten_sink), c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), &
-             c_loc(wtevp), c_loc(wtsub), c_loc(dz), c_loc(uemf), c_loc(precip), c_loc(snow), &
-             c_loc(cin), c_loc(cbmf), c_loc(rliq), c_loc(cnt), c_loc(cnb), c_loc(ufrcinvbase), &
-             c_loc(ufrclcl), c_loc(winvbase), c_loc(wlcl), c_loc(emfkbup), c_loc(cbmflimit))
       end if
 
       ! ---------------------------------------------- !
       ! Initialize output variables at each grid point !
       ! ---------------------------------------------- !
 
-      if (use_native_init_shell_impl) then
       umf(0:mkx)          = 0.0_r8
       emf(0:mkx)          = 0.0_r8
       slflx(0:mkx)        = 0.0_r8
@@ -7718,8 +4625,8 @@ end subroutine uwshcu_readnl
       cnt                 = real(mkx, r8)
       cnb                 = 0.0_r8
       qtten(:mkx)         = 0.0_r8
-      slten(:mkx)         = 0.0_r8   
-      ufrc(0:mkx)         = 0.0_r8  
+      slten(:mkx)         = 0.0_r8
+      ufrc(0:mkx)         = 0.0_r8
 
       thlu(0:mkx)         = 0.0_r8
       qtu(0:mkx)          = 0.0_r8
@@ -7731,12 +4638,12 @@ end subroutine uwshcu_readnl
       qtu_emf(0:mkx)      = 0.0_r8
       uu_emf(0:mkx)       = 0.0_r8
       vu_emf(0:mkx)       = 0.0_r8
-      
+
       ufrcinvbase         = 0.0_r8
       ufrclcl             = 0.0_r8
       winvbase            = 0.0_r8
       wlcl                = 0.0_r8
-      emfkbup             = 0.0_r8 
+      emfkbup             = 0.0_r8
       cbmflimit           = 0.0_r8
       excessu_arr(:mkx)   = 0.0_r8
       excess0_arr(:mkx)   = 0.0_r8
@@ -7750,9 +4657,9 @@ end subroutine uwshcu_readnl
       uemf(0:mkx)         = 0.0_r8
       comsub(:mkx)        = 0.0_r8
       qlten_sink(:mkx)    = 0.0_r8
-      qiten_sink(:mkx)    = 0.0_r8 
+      qiten_sink(:mkx)    = 0.0_r8
       nlten_sink(:mkx)    = 0.0_r8
-      niten_sink(:mkx)    = 0.0_r8 
+      niten_sink(:mkx)    = 0.0_r8
 
       do m = 1, ncnst
          trflx(0:mkx,m)   = 0.0_r8
@@ -7779,13 +4686,12 @@ end subroutine uwshcu_readnl
       dz(:mkx)               = 0.0_r8
       wtprec                 = 0.0_r8 !<-may not be needed
       wtsnow                 = 0.0_r8 !<-may not be needed
-      end if
 
-    !-----------------------------------------------! 
+    !-----------------------------------------------!
     ! Below 'iter' loop is for implicit CIN closure !
     !-----------------------------------------------!
 
-    ! ----------------------------------------------------------------------------- ! 
+    ! ----------------------------------------------------------------------------- !
     ! It is important to note that this iterative cin loop is located at the outest !
     ! shell of the code. Thus, source air properties can also be changed during the !
     ! iterative cin calculation, because cumulus convection induces non-zero fluxes !
@@ -7794,13 +4700,16 @@ end subroutine uwshcu_readnl
 
     do iter = 1, iter_cin
 
-       ! ---------------------------------------------------------------------- ! 
-       ! Cumulus scale height                                                   ! 
+       ! ---------------------------------------------------------------------- !
+       ! Cumulus scale height                                                   !
        ! In contrast to the premitive code, cumulus scale height is iteratively !
        ! calculated at each time step, and at each iterative cin step.          !
        ! It is not clear whether I should locate below two lines within or  out !
        ! of the iterative cin loop.                                             !
        ! ---------------------------------------------------------------------- !
+
+       tscaleh = cush
+       cush    = -1._r8
 
        ! ----------------------------------------------------------------------- !
        ! Find PBL top height interface index, 'kinv-1' where 'kinv' is the layer !
@@ -7823,35 +4732,16 @@ end subroutine uwshcu_readnl
        ! of 5 [m] in the below 'kinv' finding block.                             !
        ! ----------------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          tscaleh = cush
-          cush    = -1._r8
+       do k = mkx - 1, 1, -1
+          if( (pblh + 5._r8 - zs0(k))*(pblh + 5._r8 - zs0(k+1)) .lt. 0._r8 ) then
+               kinv = k + 1
+               go to 15
+          endif
+       end do
+       kinv = 1
+15     continue
 
-          do k = mkx - 1, 1, -1
-             if( (pblh + 5._r8 - zs0(k))*(pblh + 5._r8 - zs0(k+1)) .lt. 0._r8 ) then
-                  kinv = k + 1
-                  go to 15
-             endif
-          end do
-          kinv = 1
-15        continue
-          pbl_exit_code_c = 0_c_int64_t
-          if (kinv .le. 1) pbl_exit_code_c = 1_c_int64_t
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_pbl_precheck_source_shell_entered()
-          call uwshcu_pbl_precheck_source_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, pblh, zvir_active, c_loc(zs0), c_loc(cush), c_loc(tscaleh), &
-               c_loc(kinv_precheck_c), c_loc(pbl_exit_code_c), c_loc(ps0), c_loc(p0), &
-               c_loc(tke), c_loc(thvl0bot), c_loc(thvl0top), c_loc(qt0), c_loc(u0), c_loc(v0), &
-               c_loc(ssu0), c_loc(ssv0), c_loc(tr0), c_loc(wt0), c_loc(tkeavg), c_loc(thvlmin), &
-               c_loc(qtsrc), c_loc(thvlsrc), c_loc(thlsrc), c_loc(usrc), c_loc(vsrc), &
-               c_loc(trsrc), c_loc(wtsrc))
-          kinv = int(kinv_precheck_c)
-       end if
-
-       if( pbl_exit_code_c .ne. 0_c_int64_t ) then
+       if( kinv .le. 1 ) then
            exit_kinv1(i) = 1._r8
            id_exit = .true.
            go to 333
@@ -7870,56 +4760,54 @@ end subroutine uwshcu_readnl
        ! 'thvlmin' is a minimum 'thvl' within PBL obtained by comparing top &  base !
        ! interface values of 'thvl' in each layers within the PBL.                  !
        ! -------------------------------------------------------------------------- !
-       
-       if (use_native_init_shell_impl) then
-          dpsum    = 0._r8
-          tkeavg   = 0._r8
-          thvlmin  = 1000._r8
-          do k = 0, kinv - 1   ! Here, 'k' is an interfacial layer index.
-             if( k .eq. 0 ) then
-                 dpi = ps0(0) - p0(1)
-             elseif( k .eq. (kinv-1) ) then
-                 dpi = p0(kinv-1) - ps0(kinv-1)
-             else
-                 dpi = p0(k) - p0(k+1)
-             endif
-             dpsum  = dpsum  + dpi
-             tkeavg = tkeavg + dpi*tke(k)
-             if( k .ne. 0 ) thvlmin = min(thvlmin,min(thvl0bot(k),thvl0top(k)))
+
+       dpsum    = 0._r8
+       tkeavg   = 0._r8
+       thvlmin  = 1000._r8
+       do k = 0, kinv - 1   ! Here, 'k' is an interfacial layer index.
+          if( k .eq. 0 ) then
+              dpi = ps0(0) - p0(1)
+          elseif( k .eq. (kinv-1) ) then
+              dpi = p0(kinv-1) - ps0(kinv-1)
+          else
+              dpi = p0(k) - p0(k+1)
+          endif
+          dpsum  = dpsum  + dpi
+          tkeavg = tkeavg + dpi*tke(k)
+          if( k .ne. 0 ) thvlmin = min(thvlmin,min(thvl0bot(k),thvl0top(k)))
+       end do
+       tkeavg  = tkeavg/dpsum
+
+       ! ------------------------------------------------------------------ !
+       ! Find characteristics of cumulus source air: qtsrc,thlsrc,usrc,vsrc !
+       ! Note that 'thlsrc' was con-cocked using 'thvlsrc' and 'qtsrc'.     !
+       ! 'qtsrc' is defined as the lowest layer mid-point value;   'thlsrc' !
+       ! is from 'qtsrc' and 'thvlmin=thvlsrc'; 'usrc' & 'vsrc' are defined !
+       ! as the values just below the PBL top interface.                    !
+       ! ------------------------------------------------------------------ !
+
+       qtsrc   = qt0(1)
+       thvlsrc = thvlmin
+       thlsrc  = thvlsrc / ( 1._r8 + zvir * qtsrc )
+       usrc    = u0(kinv-1) + ssu0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
+       vsrc    = v0(kinv-1) + ssv0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
+       do m = 1, ncnst
+          trsrc(m) = tr0(1,m)
+       enddo
+
+       !*************
+       !Water tracers
+       !*************
+        if(trace_water) then
+          do m=1,wtrc_nwset
+           wtsrc(m) = wt0(1,m)
           end do
-          tkeavg  = tkeavg/dpsum
-
-          ! ------------------------------------------------------------------ !
-          ! Find characteristics of cumulus source air: qtsrc,thlsrc,usrc,vsrc !
-          ! Note that 'thlsrc' was con-cocked using 'thvlsrc' and 'qtsrc'.     !
-          ! 'qtsrc' is defined as the lowest layer mid-point value;   'thlsrc' !
-          ! is from 'qtsrc' and 'thvlmin=thvlsrc'; 'usrc' & 'vsrc' are defined !
-          ! as the values just below the PBL top interface.                    !
-          ! ------------------------------------------------------------------ !
-
-          qtsrc   = qt0(1)
-          thvlsrc = thvlmin
-          thlsrc  = thvlsrc / ( 1._r8 + zvir_active * qtsrc )
-          usrc    = u0(kinv-1) + ssu0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
-          vsrc    = v0(kinv-1) + ssv0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
-          do m = 1, ncnst
-             trsrc(m) = tr0(1,m)
-          enddo
-
-          !*************
-          !Water tracers
-          !*************
-           if(trace_water) then
-             do m=1,wtrc_nwset
-              wtsrc(m) = wt0(1,m)
-             end do
-           end if
-          !*************
-       end if
+        end if
+       !*************
 
        ! ------------------------------------------------------------------ !
        ! Find LCL of the source air and a layer index containing LCL (klcl) !
-       ! When the LCL is exactly at the interface, 'klcl' is a layer index  ! 
+       ! When the LCL is exactly at the interface, 'klcl' is a layer index  !
        ! having 'plcl' as the lower interface similar to the 'kinv' case.   !
        ! In the previous code, I assumed that if LCL is located within the  !
        ! lowest model layer ( 1 ) or the top model layer ( mkx ), then  no  !
@@ -7932,32 +4820,19 @@ end subroutine uwshcu_readnl
        ! set to 1.                                                          !
        ! ------------------------------------------------------------------ !
 
-       if (use_native_init_shell_impl) then
-          plcl = qsinvert(qtsrc,thlsrc,ps0(0))
-          do k = 0, mkx
-             if( ps0(k) .lt. plcl ) then
-                 klcl = k
-                 go to 25
-             endif
-          end do
-          klcl = mkx
-25        continue
-          klcl = max(1,klcl)
-          lcl_exit_code_c = 0_c_int64_t
-          if( plcl .lt. 30000._r8 ) lcl_exit_code_c = 1_c_int64_t
-       else
-          call uwshcu_log_source_lcl_solve_prep_shell_entered()
-          call uwshcu_source_lcl_solve_prep_shell_codon(int(mkx, c_int64_t), qtsrc, thlsrc, ps0(0), &
-               p00_active, rovcp_active, xlv_active, xls_active, cp_active, ep2_active, &
-               c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
-               c_loc(es), c_loc(qs), c_loc(qsat_arg), &
-               c_loc(plcl), c_loc(klcl_prep_c), c_loc(lcl_exit_code_c), c_loc(thl0lcl), &
-               c_loc(qt0lcl))
-          klcl = int(klcl_prep_c)
-       end if
+       plcl = qsinvert(qtsrc,thlsrc,ps0(0))
+       do k = 0, mkx
+          if( ps0(k) .lt. plcl ) then
+              klcl = k
+              go to 25
+          endif
+       end do
+       klcl = mkx
+25     continue
+       klcl = max(1,klcl)
 
-       if( lcl_exit_code_c .ne. 0_c_int64_t ) then
-     ! if( klcl .eq. mkx ) then          
+       if( plcl .lt. 30000._r8 ) then
+     ! if( klcl .eq. mkx ) then
            exit_klclmkx(i) = 1._r8
            id_exit = .true.
            go to 333
@@ -7974,36 +4849,20 @@ end subroutine uwshcu_readnl
        !NOTE:  This section of code appears to be purely for calculating thermodynamic
        !variables, and thus does not need any water tracer code - JN.
 
-       if (use_native_init_shell_impl) then
-          thl0lcl = thl0(klcl) + ssthl0(klcl) * ( plcl - p0(klcl) )
-          qt0lcl  = qt0(klcl)  + ssqt0(klcl)  * ( plcl - p0(klcl) )
-          call conden(plcl,thl0lcl,qt0lcl,thj,qvj,qlj,qij,qse,id_check,ncnst)
-          if( id_check .eq. 1 ) then
-              exit_conden(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          end if
-          thv0lcl = thj * ( 1._r8 + zvir_active * qvj - qlj - qij )
-       else
-          call uwshcu_log_lcl_conden_init_shell_entered()
-          lcl_id_check_c = 0_c_int64_t
-          call uwshcu_lcl_conden_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               zvir_active, plcl, thl0lcl, qt0lcl, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-               c_loc(qse), c_loc(lcl_id_check_c), c_loc(exit_conden(i)), &
-               c_loc(lcl_conden_exit_code_c), c_loc(thv0lcl), c_loc(cin), c_loc(cinlcl), &
-               c_loc(plfc), c_loc(klfc_cin_state_c))
-          id_check = int(lcl_id_check_c)
-          if( lcl_conden_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          end if
-          klfc = int(klfc_cin_state_c)
-       endif
+       thl0lcl = thl0(klcl) + ssthl0(klcl) * ( plcl - p0(klcl) )
+       qt0lcl  = qt0(klcl)  + ssqt0(klcl)  * ( plcl - p0(klcl) )
+       call conden(plcl,thl0lcl,qt0lcl,thj,qvj,qlj,qij,qse,id_check,ncnst)
+       if( id_check .eq. 1 ) then
+           exit_conden(i) = 1._r8
+           id_exit = .true.
+           go to 333
+       end if
+       thv0lcl = thj * ( 1._r8 + zvir * qvj - qlj - qij )
 
        ! ------------------------------------------------------------------------ !
        ! Compute Convective Inhibition, 'cin' & 'cinlcl' [J/kg]=[m2/s2] TKE unit. !
        !                                                                          !
-       ! 'cin' (cinlcl) is computed from the PBL top interface to LFC (LCL) using ! 
+       ! 'cin' (cinlcl) is computed from the PBL top interface to LFC (LCL) using !
        ! piecewisely reconstructed environmental profiles, assuming environmental !
        ! buoyancy profile within each layer ( or from LCL to upper interface in   !
        ! each layer ) is simply a linear profile. For the purpose of cin (cinlcl) !
@@ -8023,24 +4882,21 @@ end subroutine uwshcu_readnl
        ! 'kinv' and 'klcl'.                                                       !
        ! ------------------------------------------------------------------------ !
 
-        if (use_native_init_shell_impl) then
-           cin    = 0._r8
-           cinlcl = 0._r8
-           plfc   = 0._r8
-           klfc   = mkx
-        end if
+        cin    = 0._r8
+        cinlcl = 0._r8
+        plfc   = 0._r8
+        klfc   = mkx
 
         ! ------------------------------------------------------------------------- !
         ! Case 1. LCL height is higher than PBL interface ( 'pLCL <= ps0(kinv-1)' ) !
         ! ------------------------------------------------------------------------- !
 
-        if (use_native_init_shell_impl) then
         if( klcl .ge. kinv ) then
 
             do k = kinv, mkx - 1
                if( k .lt. klcl ) then
                    thvubot = thvlsrc
-                   thvutop = thvlsrc  
+                   thvutop = thvlsrc
                    cin     = cin + single_cin(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop)
                elseif( k .eq. klcl ) then
                    !----- Bottom to LCL
@@ -8053,172 +4909,68 @@ end subroutine uwshcu_readnl
                    !----- LCL to Top
                    thvubot = thvlsrc
                    call conden(ps0(k),thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
-                   if (use_native_init_shell_impl) then
-                      if( id_check .eq. 1 ) then
-                          exit_conden(i) = 1._r8
-                          id_exit = .true.
-                          go to 333
-                      end if
-                   else
-                      call uwshcu_log_cin_prep_batch_shell_entered()
-                      call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                            int(id_check, c_int64_t), 0._r8, zvir_active, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                            c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr, &
-                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-                      if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
-                          id_exit = .true.
-                          go to 333
-                      end if
-                   endif
-                   if (use_native_init_shell_impl) then
-                      thvutop = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-                   endif
+                   if( id_check .eq. 1 ) then
+                       exit_conden(i) = 1._r8
+                       id_exit = .true.
+                       go to 333
+                   end if
+                   thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
                    call getbuoy(plcl,thv0lcl,ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
-                   if( plfc .gt. 0._r8 ) then 
-                       klfc = k 
+                   if( plfc .gt. 0._r8 ) then
+                       klfc = k
                        go to 35
                    end if
                else
                    thvubot = thvutop
                    call conden(ps0(k),thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
-                   if (use_native_init_shell_impl) then
-                      if( id_check .eq. 1 ) then
-                          exit_conden(i) = 1._r8
-                          id_exit = .true.
-                          go to 333
-                      end if
-                   else
-                      call uwshcu_log_cin_prep_batch_shell_entered()
-                      call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                            int(id_check, c_int64_t), 0._r8, zvir_active, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                            c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr, &
-                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-                      if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
-                          id_exit = .true.
-                          go to 333
-                      end if
-                   endif
-                   if (use_native_init_shell_impl) then
-                      thvutop = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-                   endif
+                   if( id_check .eq. 1 ) then
+                       exit_conden(i) = 1._r8
+                       id_exit = .true.
+                       go to 333
+                   end if
+                   thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
                    call getbuoy(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
-                   if( plfc .gt. 0._r8 ) then 
+                   if( plfc .gt. 0._r8 ) then
                        klfc = k
                        go to 35
-                   end if 
+                   end if
                endif
-            end do        
+            end do
 
        ! ----------------------------------------------------------------------- !
        ! Case 2. LCL height is lower than PBL interface ( 'pLCL > ps0(kinv-1)' ) !
        ! ----------------------------------------------------------------------- !
 
        else
-          cinlcl = 0._r8 
+          cinlcl = 0._r8
           do k = kinv, mkx - 1
              call conden(ps0(k-1),thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if (use_native_init_shell_impl) then
-                if( id_check .eq. 1 ) then
-                    exit_conden(i) = 1._r8
-                    id_exit = .true.
-                    go to 333
-                end if
-             else
-                call uwshcu_log_cin_prep_batch_shell_entered()
-                call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                      int(id_check, c_int64_t), 0._r8, zvir_active, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                      c_loc(cin_conden_exit_code_c), c_loc(thvubot), c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-                if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
-                    id_exit = .true.
-                    go to 333
-                end if
-             endif
-             if (use_native_init_shell_impl) then
-                thvubot = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-             endif
+             if( id_check .eq. 1 ) then
+                 exit_conden(i) = 1._r8
+                 id_exit = .true.
+                 go to 333
+             end if
+             thvubot = thj * ( 1._r8 + zvir*qvj - qlj - qij )
              call conden(ps0(k),thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if (use_native_init_shell_impl) then
-                if( id_check .eq. 1 ) then
-                    exit_conden(i) = 1._r8
-                    id_exit = .true.
-                    go to 333
-                end if
-             else
-                call uwshcu_log_cin_prep_batch_shell_entered()
-                call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                      int(id_check, c_int64_t), 0._r8, zvir_active, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                      c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-                if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
-                    id_exit = .true.
-                    go to 333
-                end if
-             endif
-             if (use_native_init_shell_impl) then
-                thvutop = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-             endif
+             if( id_check .eq. 1 ) then
+                 exit_conden(i) = 1._r8
+                 id_exit = .true.
+                 go to 333
+             end if
+             thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
              call getbuoy(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
-             if( plfc .gt. 0._r8 ) then 
+             if( plfc .gt. 0._r8 ) then
                  klfc = k
                  go to 35
-             end if 
+             end if
           end do
        endif  ! End of CIN case selection
-       else
-          call uwshcu_log_cin_main_loop_shell_entered()
-          cin_loop_id_check_c = 0_c_int64_t
-          cin_loop_exit_code_c = 0_c_int64_t
-          klfc_cin_state_c = int(klfc, c_int64_t)
-          call uwshcu_cin_main_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               int(kinv, c_int64_t), int(klcl, c_int64_t), zvir_active, qtsrc, thlsrc, thvlsrc, &
-               plcl, thv0lcl, r_active, p00_active, rovcp_active, c_loc(ps0), c_loc(thv0bot), c_loc(thv0top), &
-               c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-               c_loc(cin_loop_id_check_c), c_loc(exit_conden(i)), c_loc(cin_loop_exit_code_c), &
-               c_loc(limit_cinlcl(i)), c_loc(cin), c_loc(cinlcl), c_loc(plfc), c_loc(klfc_cin_state_c))
-          id_check = int(cin_loop_id_check_c)
-          klfc = int(klfc_cin_state_c)
-          if( cin_loop_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          end if
-       end if
 
  35    continue
-       cin_post_exit_code_c = 0_c_int64_t
-       if (use_native_init_shell_impl) then
-          if( cin .lt. 0._r8 ) limit_cin(i) = 1._r8
-          cin = max(0._r8,cin)
-          if( klfc .ge. mkx ) then
-              klfc = mkx
-              cin_post_exit_code_c = 1_c_int64_t
-          endif
-       else
-          call uwshcu_cin_postcheck_save_shell_codon(int(iter, c_int64_t), int(ncnst, c_int64_t), &
-               int(mkx, c_int64_t), cinlcl, rbuoy, rkfre, tkeavg, epsvarw, int(kinv, c_int64_t), &
-               int(klcl, c_int64_t), int(klfc, c_int64_t), plcl, plfc, thvlmin, qtsrc, thvlsrc, &
-               thlsrc, usrc, vsrc, thv0lcl, c_loc(trsrc), c_loc(limit_cin(i)), c_loc(cin), &
-               c_loc(klfc_cin_state_c), c_loc(cin_post_exit_code_c), c_loc(cin_i), c_loc(cinlcl_i), &
-               c_loc(ke), c_loc(kinv_cin_state_c), c_loc(klcl_cin_state_c), c_loc(klfc_cin_state_c), &
-               c_loc(plcl_o), c_loc(plfc_o), c_loc(tkeavg_o), c_loc(thvlmin_o), c_loc(qtsrc_o), &
-               c_loc(thvlsrc_o), c_loc(thlsrc_o), c_loc(usrc_o), c_loc(vsrc_o), c_loc(thv0lcl_o), &
-               c_loc(trsrc_o))
-          klfc = int(klfc_cin_state_c)
-          if( iter .eq. 1 .and. cin_post_exit_code_c .eq. 0_c_int64_t ) then
-             kinv_o = int(kinv_cin_state_c)
-             klcl_o = int(klcl_cin_state_c)
-             klfc_o = int(klfc_cin_state_c)
-          endif
-       endif
-       if( cin_post_exit_code_c .ne. 0_c_int64_t ) then
+       if( cin .lt. 0._r8 ) limit_cin(i) = 1._r8
+       cin = max(0._r8,cin)
+       if( klfc .ge. mkx ) then
+           klfc = mkx
          ! write(iulog,*) 'klfc >= mkx'
            exit_klfcmkx(i) = 1._r8
            id_exit = .true.
@@ -8232,27 +4984,25 @@ end subroutine uwshcu_readnl
        ! ---------------------------------------------------------------------- !
 
        if( iter .eq. 1 ) then
-           if (use_native_init_shell_impl) then
-              cin_i       = cin
-              cinlcl_i    = cinlcl
-              ke          = rbuoy / ( rkfre * tkeavg + epsvarw )
-              kinv_o      = kinv
-              klcl_o      = klcl
-              klfc_o      = klfc
-              plcl_o      = plcl
-              plfc_o      = plfc
-              tkeavg_o    = tkeavg
-              thvlmin_o   = thvlmin
-              qtsrc_o     = qtsrc
-              thvlsrc_o   = thvlsrc
-              thlsrc_o    = thlsrc
-              usrc_o      = usrc
-              vsrc_o      = vsrc
-              thv0lcl_o   = thv0lcl
-              do m = 1, ncnst
-                 trsrc_o(m) = trsrc(m)
-              enddo
-           endif
+           cin_i       = cin
+           cinlcl_i    = cinlcl
+           ke          = rbuoy / ( rkfre * tkeavg + epsvarw )
+           kinv_o      = kinv
+           klcl_o      = klcl
+           klfc_o      = klfc
+           plcl_o      = plcl
+           plfc_o      = plfc
+           tkeavg_o    = tkeavg
+           thvlmin_o   = thvlmin
+           qtsrc_o     = qtsrc
+           thvlsrc_o   = thvlsrc
+           thlsrc_o    = thlsrc
+           usrc_o      = usrc
+           vsrc_o      = vsrc
+           thv0lcl_o   = thv0lcl
+           do m = 1, ncnst
+              trsrc_o(m) = trsrc(m)
+           enddo
        endif
 
      ! Modification : If I impose w = max(0.1_r8, w) up to the top interface of
@@ -8288,7 +5038,7 @@ end subroutine uwshcu_readnl
 
            if( del_CIN .gt. 0._r8 ) then
 
-               ! -------------------------------------------------------------- ! 
+               ! -------------------------------------------------------------- !
                ! Calculate implicit 'cin' and 'cinlcl'. Note that when we chose !
                ! to use 'implicit CIN = cin', choose 'cinlcl = cinlcl_i' below: !
                ! because iterative CIN only aims to obtain implicit CIN,  once  !
@@ -8298,13 +5048,13 @@ end subroutine uwshcu_readnl
                ! 'ufrclcl' after calculating 'winv' & 'ufrcinv'  at the PBL top !
                ! interface later, after calculating 'cbmf'.                     !
                ! -------------------------------------------------------------- !
-         
-               alpha = compute_alpha( del_CIN, ke ) 
+
+               alpha = compute_alpha( del_CIN, ke )
                cin   = cin_i + alpha * del_CIN
                if( use_CINcin ) then
-                   cinlcl = cinlcl_i                 
+                   cinlcl = cinlcl_i
                else
-                   cinlcl = cinlcl_i + alpha * del_cinlcl   
+                   cinlcl = cinlcl_i + alpha * del_cinlcl
                endif
 
                ! ----------------------------------------------------------------- !
@@ -8312,28 +5062,23 @@ end subroutine uwshcu_readnl
                ! to compute correct tendencies for (n+1) time step by implicit CIN !
                ! ----------------------------------------------------------------- !
 
-               if (use_native_init_shell_impl) then
-                  kinv      = kinv_o
-                  klcl      = klcl_o
-                  klfc      = klfc_o
-                  plcl      = plcl_o
-                  plfc      = plfc_o
-                  tkeavg    = tkeavg_o
-                  thvlmin   = thvlmin_o
-                  qtsrc     = qtsrc_o
-                  thvlsrc   = thvlsrc_o
-                  thlsrc    = thlsrc_o
-                  usrc      = usrc_o
-                  vsrc      = vsrc_o
-                  thv0lcl   = thv0lcl_o
-                  do m = 1, ncnst
-                     trsrc(m) = trsrc_o(m)
-                  enddo
-               else
-                  ! Restored together with the delcin env/workspace reset below.
-               endif
+               kinv      = kinv_o
+               klcl      = klcl_o
+               klfc      = klfc_o
+               plcl      = plcl_o
+               plfc      = plfc_o
+               tkeavg    = tkeavg_o
+               thvlmin   = thvlmin_o
+               qtsrc     = qtsrc_o
+               thvlsrc   = thvlsrc_o
+               thlsrc    = thlsrc_o
+               usrc      = usrc_o
+               vsrc      = vsrc_o
+               thv0lcl   = thv0lcl_o
+               do m = 1, ncnst
+                  trsrc(m) = trsrc_o(m)
+               enddo
 
-               if (use_native_init_shell_impl) then
                qv0(:mkx)            = qv0_o(:mkx)
                ql0(:mkx)            = ql0_o(:mkx)
                qi0(:mkx)            = qi0_o(:mkx)
@@ -8350,8 +5095,8 @@ end subroutine uwshcu_readnl
                thv0top(:mkx)        = thv0top_o(:mkx)
                thvl0bot(:mkx)       = thvl0bot_o(:mkx)
                thvl0top(:mkx)       = thvl0top_o(:mkx)
-               ssu0(:mkx)           = ssu0_o(:mkx) 
-               ssv0(:mkx)           = ssv0_o(:mkx) 
+               ssu0(:mkx)           = ssu0_o(:mkx)
+               ssv0(:mkx)           = ssv0_o(:mkx)
                do m = 1, ncnst
                   tr0(:mkx,m)   = tr0_o(:mkx,m)   !<-includes water tracers
                   sstr0(:mkx,m) = sstr0_o(:mkx,m)
@@ -8363,9 +5108,9 @@ end subroutine uwshcu_readnl
                end if
 
                ! ------------------------------------------------------ !
-               ! Initialize all fluxes, tendencies, and other variables ! 
+               ! Initialize all fluxes, tendencies, and other variables !
                ! in association with cumulus convection.                !
-               ! ------------------------------------------------------ ! 
+               ! ------------------------------------------------------ !
 
                umf(0:mkx)          = 0.0_r8
                emf(0:mkx)          = 0.0_r8
@@ -8413,7 +5158,7 @@ end subroutine uwshcu_readnl
                qtu_emf(0:mkx)      = 0.0_r8
                uu_emf(0:mkx)       = 0.0_r8
                vu_emf(0:mkx)       = 0.0_r8
-             
+
                do m = 1, ncnst
                   trflx(0:mkx,m)   = 0.0_r8
                   trten(:mkx,m)    = 0.0_r8
@@ -8434,17 +5179,17 @@ end subroutine uwshcu_readnl
                wttotten(:mkx,:) = 0.0_r8
                wtprec           = 0.0_r8 !<-May not be needed
                wtsnow           = 0.0_r8 !<-May not be needed
-   
+
                ! -------------------------------------------------- !
                ! Below are diagnostic output variables for detailed !
                ! analysis of cumulus scheme.                        !
-               ! -------------------------------------------------- ! 
+               ! -------------------------------------------------- !
 
                ufrcinvbase         = 0.0_r8
                ufrclcl             = 0.0_r8
                winvbase            = 0.0_r8
                wlcl                = 0.0_r8
-               emfkbup             = 0.0_r8 
+               emfkbup             = 0.0_r8
                cbmflimit           = 0.0_r8
                excessu_arr(:mkx)   = 0.0_r8
                excess0_arr(:mkx)   = 0.0_r8
@@ -8455,122 +5200,81 @@ end subroutine uwshcu_readnl
                bogbot_arr(:mkx)    = 0.0_r8
                bogtop_arr(:mkx)    = 0.0_r8
 
-               else
-                  wtrc_nwset_post_c = 0_c_int64_t
-                  if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                  call uwshcu_log_delcin_reset_shell_entered()
-                  call uwshcu_delcin_restore_reset_all_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                       wtrc_nwset_post_c, merge(1_c_int64_t, 0_c_int64_t, use_CINcin), cin_i, cinlcl_i, &
-                       alpha, del_CIN, del_cinlcl, int(kinv_o, c_int64_t), int(klcl_o, c_int64_t), &
-                       int(klfc_o, c_int64_t), plcl_o, plfc_o, tkeavg_o, thvlmin_o, qtsrc_o, thvlsrc_o, &
-                       thlsrc_o, usrc_o, vsrc_o, thv0lcl_o, real(mkx, r8), c_loc(trsrc_o), c_loc(cin), &
-                       c_loc(cinlcl), c_loc(kinv_cin_state_c), c_loc(klcl_cin_state_c), &
-                       c_loc(klfc_cin_state_c), c_loc(plcl), c_loc(plfc), c_loc(tkeavg), c_loc(thvlmin), &
-                       c_loc(qtsrc), c_loc(thvlsrc), c_loc(thlsrc), c_loc(usrc), c_loc(vsrc), &
-                       c_loc(thv0lcl), c_loc(trsrc), c_loc(qv0_o), c_loc(ql0_o), c_loc(qi0_o), &
-                       c_loc(t0_o), c_loc(s0_o), c_loc(u0_o), c_loc(v0_o), c_loc(qt0_o), c_loc(thl0_o), &
-                       c_loc(thvl0_o), c_loc(ssthl0_o), c_loc(ssqt0_o), c_loc(thv0bot_o), &
-                       c_loc(thv0top_o), c_loc(thvl0bot_o), c_loc(thvl0top_o), c_loc(ssu0_o), &
-                       c_loc(ssv0_o), c_loc(tr0_o), c_loc(sstr0_o), c_loc(sswt0_o), c_loc(qv0), &
-                       c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), c_loc(u0), c_loc(v0), c_loc(qt0), &
-                       c_loc(thl0), c_loc(thvl0), c_loc(ssthl0), c_loc(ssqt0), c_loc(thv0bot), &
-                       c_loc(thv0top), c_loc(thvl0bot), c_loc(thvl0top), c_loc(ssu0), c_loc(ssv0), &
-                       c_loc(tr0), c_loc(sstr0), c_loc(sswt0), c_loc(umf), c_loc(emf), c_loc(slflx), &
-                       c_loc(qtflx), c_loc(uflx), c_loc(vflx), c_loc(qvten), c_loc(qlten), c_loc(qiten), &
-                       c_loc(sten), c_loc(uten), c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(dwten), &
-                       c_loc(diten), c_loc(evapc), c_loc(cufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
-                       c_loc(fer), c_loc(fdr), c_loc(qc), c_loc(qc_l), c_loc(qc_i), c_loc(qtten), &
-                       c_loc(slten), c_loc(ufrc), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), &
-                       c_loc(wu), c_loc(thvu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), &
-                       c_loc(vu_emf), c_loc(trflx), c_loc(trten), c_loc(tru), c_loc(tru_emf), &
-                       c_loc(wtdwten), c_loc(wtditen), c_loc(wtrpten), c_loc(wtspten), c_loc(wtqc_liq), &
-                       c_loc(wtqc_ice), c_loc(wtu), c_loc(wtu_emf), c_loc(wtflx), c_loc(wttotten), &
-                       c_loc(wtprec), c_loc(wtsnow), c_loc(excessu_arr), c_loc(excess0_arr), &
-                       c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), &
-                       c_loc(bogbot_arr), c_loc(bogtop_arr), c_loc(precip), c_loc(snow), c_loc(rliq), &
-                       c_loc(cbmf), c_loc(cnt), c_loc(cnb), c_loc(ufrcinvbase), c_loc(ufrclcl), &
-                       c_loc(winvbase), c_loc(wlcl), c_loc(emfkbup), c_loc(cbmflimit))
-                  kinv = int(kinv_cin_state_c)
-                  klcl = int(klcl_cin_state_c)
-                  klfc = int(klfc_cin_state_c)
-               end if
-
           else ! When 'del_CIN < 0', use explicit CIN instead of implicit CIN.
-           
-               ! ----------------------------------------------------------- ! 
-               ! Identifier showing whether explicit or implicit CIN is used !
-               ! ----------------------------------------------------------- ! 
 
-               ind_delcin(i) = 1._r8             
-   
+               ! ----------------------------------------------------------- !
+               ! Identifier showing whether explicit or implicit CIN is used !
+               ! ----------------------------------------------------------- !
+
+               ind_delcin(i) = 1._r8
+
                ! --------------------------------------------------------- !
                ! Restore original output values of "iter_cin = 1" and exit !
                ! --------------------------------------------------------- !
 
-               if (use_native_init_shell_impl) then
                umf_out(i,0:mkx)         = umf_s(0:mkx)
                qvten_out(i,:mkx)        = qvten_s(:mkx)
-               qlten_out(i,:mkx)        = qlten_s(:mkx)  
+               qlten_out(i,:mkx)        = qlten_s(:mkx)
                qiten_out(i,:mkx)        = qiten_s(:mkx)
                sten_out(i,:mkx)         = sten_s(:mkx)
-               uten_out(i,:mkx)         = uten_s(:mkx)  
+               uten_out(i,:mkx)         = uten_s(:mkx)
                vten_out(i,:mkx)         = vten_s(:mkx)
                qrten_out(i,:mkx)        = qrten_s(:mkx)
-               qsten_out(i,:mkx)        = qsten_s(:mkx)  
+               qsten_out(i,:mkx)        = qsten_s(:mkx)
                precip_out(i)            = precip_s
                snow_out(i)              = snow_s
                evapc_out(i,:mkx)        = evapc_s(:mkx)
                cush_inout(i)            = cush_s
-               cufrc_out(i,:mkx)        = cufrc_s(:mkx)  
-               slflx_out(i,0:mkx)       = slflx_s(0:mkx)  
+               cufrc_out(i,:mkx)        = cufrc_s(:mkx)
+               slflx_out(i,0:mkx)       = slflx_s(0:mkx)
                qtflx_out(i,0:mkx)       = qtflx_s(0:mkx)
-               qcu_out(i,:mkx)          = qcu_s(:mkx)    
-               qlu_out(i,:mkx)          = qlu_s(:mkx)  
-               qiu_out(i,:mkx)          = qiu_s(:mkx)  
+               qcu_out(i,:mkx)          = qcu_s(:mkx)
+               qlu_out(i,:mkx)          = qlu_s(:mkx)
+               qiu_out(i,:mkx)          = qiu_s(:mkx)
                cbmf_out(i)              = cbmf_s
-               qc_out(i,:mkx)           = qc_s(:mkx)  
+               qc_out(i,:mkx)           = qc_s(:mkx)
                rliq_out(i)              = rliq_s
                cnt_out(i)               = cnt_s
                cnb_out(i)               = cnb_s
                do m = 1, ncnst
                   trten_out(i,:mkx,m)   = trten_s(:mkx,m)
-               enddo  
+               enddo
                !*************
                !Water tracers
                !*************
                if(trace_water) then
                  do m=1,wtrc_nwset
-                   wtqc_out(i,:mkx,int(wtrc_iatype_post(m,2))) = wtqc_liq_s(:mkx,m)
-                   wtqc_out(i,:mkx,int(wtrc_iatype_post(m,3))) = wtqc_ice_s(:mkx,m)
-                   wtprec_out(i,int(wtrc_iatype_post(m,1)))    = wtprec_s(m)
-                   wtsnow_out(i,int(wtrc_iatype_post(m,1)))    = wtsnow_s(m)
+                   wtqc_out(i,:mkx,wtrc_iatype(m,iwtliq)) = wtqc_liq_s(:mkx,m)
+                   wtqc_out(i,:mkx,wtrc_iatype(m,iwtice)) = wtqc_ice_s(:mkx,m)
+                   wtprec_out(i,wtrc_iatype(m,iwtvap))    = wtprec_s(m)
+                   wtsnow_out(i,wtrc_iatype(m,iwtvap))    = wtsnow_s(m)
                  end do
                end if
-             
-               ! ------------------------------------------------------------------------------ ! 
+
+               ! ------------------------------------------------------------------------------ !
                ! Below are diagnostic output variables for detailed analysis of cumulus scheme. !
                ! The order of vertical index is reversed for this internal diagnostic output.   !
-               ! ------------------------------------------------------------------------------ !   
+               ! ------------------------------------------------------------------------------ !
 
-               fer_out(i,mkx:1:-1)      = fer_s(:mkx)  
-               fdr_out(i,mkx:1:-1)      = fdr_s(:mkx)  
+               fer_out(i,mkx:1:-1)      = fer_s(:mkx)
+               fdr_out(i,mkx:1:-1)      = fdr_s(:mkx)
                cinh_out(i)              = cin_s
                cinlclh_out(i)           = cinlcl_s
                qtten_out(i,mkx:1:-1)    = qtten_s(:mkx)
                slten_out(i,mkx:1:-1)    = slten_s(:mkx)
                ufrc_out(i,mkx:0:-1)     = ufrc_s(0:mkx)
-               uflx_out(i,mkx:0:-1)     = uflx_s(0:mkx)  
-               vflx_out(i,mkx:0:-1)     = vflx_s(0:mkx)  
+               uflx_out(i,mkx:0:-1)     = uflx_s(0:mkx)
+               vflx_out(i,mkx:0:-1)     = vflx_s(0:mkx)
 
                ufrcinvbase_out(i)       = ufrcinvbase_s
-               ufrclcl_out(i)           = ufrclcl_s 
+               ufrclcl_out(i)           = ufrclcl_s
                winvbase_out(i)          = winvbase_s
                wlcl_out(i)              = wlcl_s
                plcl_out(i)              = plcl_s
-               pinv_out(i)              = pinv_s    
-               plfc_out(i)              = plfc_s    
+               pinv_out(i)              = pinv_s
+               plfc_out(i)              = plfc_s
                pbup_out(i)              = pbup_s
-               ppen_out(i)              = ppen_s    
+               ppen_out(i)              = ppen_s
                qtsrc_out(i)             = qtsrc_s
                thlsrc_out(i)            = thlsrc_s
                thvlsrc_out(i)           = thvlsrc_s
@@ -8611,65 +5315,17 @@ end subroutine uwshcu_readnl
                bogtop_arr_out(i,mkx:1:-1)   = bogtop_arr_s(:mkx)
 
                do m = 1, ncnst
-                  trflx_out(i,mkx:0:-1,m)   = trflx_s(0:mkx,m)  
+                  trflx_out(i,mkx:0:-1,m)   = trflx_s(0:mkx,m)
                   tru_out(i,mkx:0:-1,m)     = tru_s(0:mkx,m)
                   tru_emf_out(i,mkx:0:-1,m) = tru_emf_s(0:mkx,m)
                enddo
-
-               else
-                  wtrc_nwset_post_c = 0_c_int64_t
-                  if (trace_water) then
-                    wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                  end if
-                  call uwshcu_log_iter_restore_shell_entered()
-                  call uwshcu_iter_restore_all_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-                       int(i, c_int64_t), int(ncnst, c_int64_t), wtrc_nwset_post_c, precip_s, snow_s, &
-                       cush_s, cbmf_s, rliq_s, cnt_s, cnb_s, c_loc(umf_s), c_loc(qvten_s), c_loc(qlten_s), &
-                       c_loc(qiten_s), c_loc(sten_s), c_loc(uten_s), c_loc(vten_s), c_loc(qrten_s), &
-                       c_loc(qsten_s), c_loc(evapc_s), c_loc(cufrc_s), c_loc(slflx_s), c_loc(qtflx_s), &
-                       c_loc(qcu_s), c_loc(qlu_s), c_loc(qiu_s), c_loc(qc_s), c_loc(trten_s), &
-                       c_loc(wtqc_liq_s), c_loc(wtqc_ice_s), c_loc(wtprec_s), c_loc(wtsnow_s), &
-                       c_loc(wtrc_iatype_post), c_loc(umf_out), c_loc(qvten_out), c_loc(qlten_out), &
-                       c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
-                       c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), &
-                       c_loc(evapc_out), c_loc(cush_inout), c_loc(cufrc_out), c_loc(slflx_out), &
-                       c_loc(qtflx_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cbmf_out), &
-                       c_loc(qc_out), c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out), c_loc(trten_out), &
-                       c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), cin_s, cinlcl_s, &
-                       ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, pbup_s, &
-                       ppen_s, qtsrc_s, &
-                       thlsrc_s, thvlsrc_s, emfkbup_s, cbmflimit_s, tkeavg_s, zinv_s, rcwp_s, rlwp_s, &
-                       riwp_s, c_loc(fer_s), c_loc(fdr_s), c_loc(qtten_s), c_loc(slten_s), &
-                       c_loc(ufrc_s), c_loc(uflx_s), c_loc(vflx_s), c_loc(wu_s), c_loc(qtu_s), &
-                       c_loc(thlu_s), c_loc(thvu_s), c_loc(uu_s), c_loc(vu_s), c_loc(qtu_emf_s), &
-                       c_loc(thlu_emf_s), c_loc(uu_emf_s), c_loc(vu_emf_s), c_loc(uemf_s), &
-                       c_loc(dwten_s), c_loc(diten_s), c_loc(flxrain_s), c_loc(flxsnow_s), &
-                       c_loc(ntraprd_s), c_loc(ntsnprd_s), c_loc(excessu_arr_s), c_loc(excess0_arr_s), &
-                       c_loc(xc_arr_s), c_loc(aquad_arr_s), c_loc(bquad_arr_s), c_loc(cquad_arr_s), &
-                       c_loc(bogbot_arr_s), c_loc(bogtop_arr_s), c_loc(trflx_s), c_loc(tru_s), &
-                       c_loc(tru_emf_s), c_loc(fer_out), c_loc(fdr_out), c_loc(cinh_out), &
-                       c_loc(cinlclh_out), c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), &
-                       c_loc(uflx_out), c_loc(vflx_out), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), &
-                       c_loc(winvbase_out), c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), &
-                       c_loc(plfc_out), c_loc(pbup_out), c_loc(ppen_out), c_loc(qtsrc_out), &
-                       c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), c_loc(cbmflimit_out), &
-                       c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), c_loc(rlwp_out), &
-                       c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), c_loc(thlu_out), c_loc(thvu_out), &
-                       c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), c_loc(thlu_emf_out), &
-                       c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), c_loc(dwten_out), &
-                       c_loc(diten_out), c_loc(flxrain_out), c_loc(flxsnow_out), c_loc(ntraprd_out), &
-                       c_loc(ntsnprd_out), c_loc(excessu_arr_out), c_loc(excess0_arr_out), &
-                       c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), &
-                       c_loc(cquad_arr_out), c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), &
-                       c_loc(trflx_out), c_loc(tru_out), c_loc(tru_emf_out))
-               end if
 
                id_exit = .false.
                go to 333
 
           endif
 
-       endif    
+       endif
 
        ! ------------------------------------------------------------------ !
        ! Define a release level, 'prel' and release layer, 'krel'.          !
@@ -8690,58 +5346,14 @@ end subroutine uwshcu_readnl
        ! we simply assume that no lateral mixing occurs in this range.      !
        ! ------------------------------------------------------------------ !
 
-       if (.not. use_native_init_shell_impl) then
-          call uwshcu_log_release_base_full_shell_entered()
-          release_base_full_exit_code_c = 0_c_int64_t
-          krel_release_c = int(krel, c_int64_t)
-          call uwshcu_release_base_full_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               merge(1_c_int64_t, 0_c_int64_t, use_CINcin), int(kinv, c_int64_t), int(klcl, c_int64_t), &
-               zvir_active, cin, cinlcl, rbuoy, rkfre, tkeavg, epsvarw, r_active, g_active, dt, mumin1, rmaxfrac, &
-               plcl, thv0lcl, thlsrc, qtsrc, c_loc(ps0), c_loc(dp0), c_loc(thv0bot), &
-               c_loc(thv0top), c_loc(exns0), c_loc(krel_release_c), c_loc(prel), c_loc(thv0rel), &
-               c_loc(sigmaw), c_loc(mu), c_loc(rho0inv), c_loc(cbmflimit), c_loc(mumin0), &
-               c_loc(mumin2), c_loc(mulcl), c_loc(cbmf), c_loc(winv), c_loc(ufrcinv), &
-               c_loc(wtw), c_loc(wlcl), c_loc(ufrclcl), c_loc(wrel), c_loc(ufrc), c_loc(umf), &
-               c_loc(wu), c_loc(emf), c_loc(thlu), c_loc(qtu), c_loc(ufrcinvbase), &
-               c_loc(winvbase), c_loc(pe), c_loc(dpe), c_loc(exit_wtw(i)), c_loc(exit_ufrc(i)), &
-               c_loc(limit_ufrc(i)), c_loc(limit_cbmf(i)), c_loc(thj), c_loc(qvj), c_loc(qlj), &
-               c_loc(qij), c_loc(qse), c_loc(id_check_thv_loop_c), c_loc(exit_conden(i)), &
-               c_loc(release_base_full_exit_code_c))
-          krel = int(krel_release_c)
-          id_check = int(id_check_thv_loop_c)
-          if( release_base_full_exit_code_c .eq. 2_c_int64_t ) then
-              write(iulog,*) 'Critical error in mu calculation in UW_ShCu'
-              call endrun
-          endif
-          if( release_base_full_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          endif
-          go to 36
-       endif
-
-       if (use_native_init_shell_impl) then
-          if( klcl .lt. kinv ) then
-              krel    = kinv
-              prel    = ps0(krel-1)
-              thv0rel = thv0bot(krel)
-          else
-              krel    = klcl
-              prel    = plcl
-              thv0rel = thv0lcl
-          endif
+       if( klcl .lt. kinv ) then
+           krel    = kinv
+           prel    = ps0(krel-1)
+           thv0rel = thv0bot(krel)
        else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(0_c_int64_t, int(mkx, c_int64_t), &
-               int(kinv, c_int64_t), int(klcl, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-               plcl, thv0lcl, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               c_loc(ps0), c_loc(thv0bot), c_loc(krel_release_c), c_loc(prel), &
-               c_loc(thv0rel), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr)
-          krel = int(krel_release_c)
+           krel    = klcl
+           prel    = plcl
+           thv0rel = thv0lcl
        endif
 
        ! --------------------------------------------------------------------------- !
@@ -8750,7 +5362,7 @@ end subroutine uwshcu_readnl
        ! Also, calculate updraft fractional area (ufrclcl) and vertical velocity  at !
        ! the LCL (wlcl). When LCL is below PBLH, cinlcl = 0 and 'ufrclcl = ufrcinv', !
        ! and 'wlcl = winv.                                                           !
-       ! Only updrafts strong enough to overcome CIN can rise over PBL top interface.! 
+       ! Only updrafts strong enough to overcome CIN can rise over PBL top interface.!
        ! Thus,  in order to calculate cumulus mass flux at PBL top interface, 'cbmf',!
        ! we need to know 'CIN' ( the strength of potential energy barrier ) and      !
        ! 'sigmaw' ( a standard deviation of updraft vertical velocity at the PBL top !
@@ -8763,7 +5375,7 @@ end subroutine uwshcu_readnl
        ! top - both 'cbmf' and 'ufrc' becomes large, but 'winv' becomes small. Thus, !
        ! all of the key variables associated with cumulus convection  at the PBL top !
        ! - 'cbmf', 'ufrc', 'winv' where 'cbmf = rho*ufrc*winv' - are a unique functi !
-       ! ons of 'mu', normalized CIN. Although these are uniquely determined by 'mu',! 
+       ! ons of 'mu', normalized CIN. Although these are uniquely determined by 'mu',!
        ! we usually impose two comstraints on 'cbmf' and 'ufrc': (1) because we will !
        ! simply assume that subsidence warming and drying of 'kinv-1' layer in assoc !
        ! iation with 'cbmf' at PBL top interface is confined only in 'kinv-1' layer, !
@@ -8782,7 +5394,7 @@ end subroutine uwshcu_readnl
        ! constraint is made by imposing another lower 'lower' limit on mu, 'mumin1'. !
        ! After that, also limit 'ufrclcl' to be smaller than 'rmaxfrac' by 'mumin2'. !
        ! --------------------------------------------------------------------------- !
-       
+
        ! --------------------------------------------------------------------------- !
        ! Calculate normalized CIN, 'mu' satisfying all the three constraints imposed !
        ! on 'cbmf'('mumin0'), 'ufrc' at the PBL top - 'ufrcinv' - ( by 'mumin1' from !
@@ -8790,101 +5402,51 @@ end subroutine uwshcu_readnl
        ! Note that 'cbmf' does not change between PBL top and LCL  because we assume !
        ! that buoyancy sorting does not occur when cumulus updraft is unsaturated.   !
        ! --------------------------------------------------------------------------- !
-   
-       if (use_native_init_shell_impl) then
-          if( use_CINcin ) then
-              wcrit = sqrt( 2._r8 * cin * rbuoy )
-          else
-              wcrit = sqrt( 2._r8 * cinlcl * rbuoy )
-          endif
-          sigmaw = sqrt( rkfre * tkeavg + epsvarw )
-          mu = wcrit/sigmaw/1.4142_r8
-          if( mu .ge. 3._r8 ) then
-            ! write(iulog,*) 'mu >= 3'
-              id_exit = .true.
-              go to 333
-          endif
-          rho0inv = ps0(kinv-1)/(r_active*thv0top(kinv-1)*exns0(kinv-1))
-          cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
-          ! 1. 'cbmf' constraint
-          cbmflimit = 0.9_r8*dp0(kinv-1)/g_active/dt
-          mumin0 = 0._r8
-          if( cbmf .gt. cbmflimit ) mumin0 = sqrt(-log(2.5066_r8*cbmflimit/rho0inv/sigmaw))
-          ! 2. 'ufrcinv' constraint
-          mu = max(max(mu,mumin0),mumin1)
-          ! 3. 'ufrclcl' constraint
-          mulcl = sqrt(2._r8*cinlcl*rbuoy)/1.4142_r8/sigmaw
-          mulclstar = sqrt(max(0._r8,2._r8*(exp(-mu**2)/2.5066_r8)**2*(1._r8/erfc(mu)**2-0.25_r8/rmaxfrac**2)))
+
+       if( use_CINcin ) then
+           wcrit = sqrt( 2._r8 * cin * rbuoy )
        else
-          release_mumin2_needed_c = 0_c_int64_t
-          call uwshcu_log_release_mu_solve_shell_entered()
-          call uwshcu_release_mu_pre_solve_shell_codon(merge(1_c_int64_t, 0_c_int64_t, use_CINcin), &
-               int(kinv, c_int64_t), cin, cinlcl, rbuoy, rkfre, tkeavg, epsvarw, r_active, g_active, dt, &
-               mumin1, rmaxfrac, c_loc(ps0), c_loc(thv0top), c_loc(exns0), c_loc(dp0), &
-               c_loc(sigmaw), c_loc(mu), c_loc(rho0inv), c_loc(cbmflimit), c_loc(mumin0), &
-               c_loc(mulcl), c_loc(release_mumin2_needed_c), c_loc(release_mu_exit_code_c))
-          if( release_mu_exit_code_c .ne. 0_c_int64_t ) then
-             id_exit = .true.
-             go to 333
-          endif
+           wcrit = sqrt( 2._r8 * cinlcl * rbuoy )
        endif
-       if( (use_native_init_shell_impl .and. mulcl .gt. 1.e-8_r8 .and. mulcl .gt. mulclstar) .or. &
-           (.not. use_native_init_shell_impl .and. release_mumin2_needed_c .ne. 0_c_int64_t) ) then
+       sigmaw = sqrt( rkfre * tkeavg + epsvarw )
+       mu = wcrit/sigmaw/1.4142_r8
+       if( mu .ge. 3._r8 ) then
+         ! write(iulog,*) 'mu >= 3'
+           id_exit = .true.
+           go to 333
+       endif
+       rho0inv = ps0(kinv-1)/(r*thv0top(kinv-1)*exns0(kinv-1))
+       cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
+       ! 1. 'cbmf' constraint
+       cbmflimit = 0.9_r8*dp0(kinv-1)/g/dt
+       mumin0 = 0._r8
+       if( cbmf .gt. cbmflimit ) mumin0 = sqrt(-log(2.5066_r8*cbmflimit/rho0inv/sigmaw))
+       ! 2. 'ufrcinv' constraint
+       mu = max(max(mu,mumin0),mumin1)
+       ! 3. 'ufrclcl' constraint
+       mulcl = sqrt(2._r8*cinlcl*rbuoy)/1.4142_r8/sigmaw
+       mulclstar = sqrt(max(0._r8,2._r8*(exp(-mu**2)/2.5066_r8)**2*(1._r8/erfc(mu)**2-0.25_r8/rmaxfrac**2)))
+       if( mulcl .gt. 1.e-8_r8 .and. mulcl .gt. mulclstar ) then
            mumin2 = compute_mumin2(mulcl,rmaxfrac,mu)
            if( mu .gt. mumin2 ) then
                write(iulog,*) 'Critical error in mu calculation in UW_ShCu'
                call endrun
            endif
            mu = max(mu,mumin2)
-           if (use_native_init_shell_impl) then
-              if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
-           else
-              call uwshcu_log_release_scaleh_batch_shell_entered()
-              call uwshcu_release_scaleh_batch_shell_codon(2_c_int64_t, int(mkx, c_int64_t), &
-                   0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, &
-                   mu, mumin2, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                   0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_loc(limit_ufrc(i)), c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-           endif
+           if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
        endif
-       if (use_native_init_shell_impl) then
-          if( mu .eq. mumin0 ) limit_cbmf(i) = 1._r8
-          if( mu .eq. mumin1 ) limit_ufrc(i) = 1._r8
-       else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(3_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, &
-               mu, 0._r8, mumin0, mumin1, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_loc(limit_ufrc(i)), c_loc(limit_cbmf(i)), &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-       endif
+       if( mu .eq. mumin0 ) limit_cbmf(i) = 1._r8
+       if( mu .eq. mumin1 ) limit_ufrc(i) = 1._r8
 
-       ! ------------------------------------------------------------------- !    
+       ! ------------------------------------------------------------------- !
        ! Calculate final ['cbmf','ufrcinv','winv'] at the PBL top interface. !
        ! Note that final 'cbmf' here is obtained in such that 'ufrcinv' and  !
        ! 'ufrclcl' are smaller than ufrcmax with no instability.             !
        ! ------------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
-          winv = sigmaw*(2._r8/2.5066_r8)*exp(-mu**2)/erfc(mu)
-          ufrcinv = cbmf/winv/rho0inv
-       else
-          call uwshcu_release_base_solve_shell_codon(mu, rho0inv, sigmaw, cinlcl, rbuoy, &
-               c_loc(cbmf), c_loc(winv), c_loc(ufrcinv), c_loc(wtw), c_loc(wlcl), &
-               c_loc(ufrclcl), c_loc(wrel), c_loc(exit_wtw(i)), c_loc(exit_ufrc(i)), &
-               c_loc(release_base_exit_code_c))
-          if( release_base_exit_code_c .ne. 0_c_int64_t ) then
-             id_exit = .true.
-             go to 333
-          endif
-       endif
+       cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
+       winv = sigmaw*(2._r8/2.5066_r8)*exp(-mu**2)/erfc(mu)
+       ufrcinv = cbmf/winv/rho0inv
 
        ! ------------------------------------------------------------------- !
        ! Calculate ['ufrclcl','wlcl'] at the LCL. When LCL is below PBL top, !
@@ -8897,56 +5459,39 @@ end subroutine uwshcu_readnl
        ! this again in the below block. If 'ufrclcl < 0.1%', just exit.      !
        ! ------------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          wtw = winv * winv - 2._r8 * cinlcl * rbuoy
-          if( wtw .le. 0._r8 ) then
-            ! write(iulog,*) 'wlcl < 0 at the LCL'
-              exit_wtw(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          endif
+       wtw = winv * winv - 2._r8 * cinlcl * rbuoy
+       if( wtw .le. 0._r8 ) then
+         ! write(iulog,*) 'wlcl < 0 at the LCL'
+           exit_wtw(i) = 1._r8
+           id_exit = .true.
+           go to 333
        endif
-       if (use_native_init_shell_impl) then
-          wlcl = sqrt(wtw)
-          ufrclcl = cbmf/wlcl/rho0inv
-          wrel = wlcl
-          if( ufrclcl .le. 0.0001_r8 ) then
-            ! write(iulog,*) 'ufrclcl <= 0.0001'
-              exit_ufrc(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          endif
+       wlcl = sqrt(wtw)
+       ufrclcl = cbmf/wlcl/rho0inv
+       wrel = wlcl
+       if( ufrclcl .le. 0.0001_r8 ) then
+         ! write(iulog,*) 'ufrclcl <= 0.0001'
+           exit_ufrc(i) = 1._r8
+           id_exit = .true.
+           go to 333
        endif
-       if (use_native_init_shell_impl) then
-          ufrc(krel-1) = ufrclcl
+       ufrc(krel-1) = ufrclcl
 
-          ! ----------------------------------------------------------------------- !
-          ! Below is just diagnostic output for detailed analysis of cumulus scheme !
-          ! ----------------------------------------------------------------------- !
+       ! ----------------------------------------------------------------------- !
+       ! Below is just diagnostic output for detailed analysis of cumulus scheme !
+       ! ----------------------------------------------------------------------- !
 
-          ufrcinvbase        = ufrcinv
-          winvbase           = winv
-          umf(kinv-1:krel-1) = cbmf
-          wu(kinv-1:krel-1)  = winv
-       else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(6_c_int64_t, int(mkx, c_int64_t), &
-               int(kinv, c_int64_t), 0_c_int64_t, int(krel, c_int64_t), 0_c_int64_t, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, ufrclcl, cbmf, &
-               wrel, winv, ufrcinv, thlsrc, qtsrc, prel, 0._r8, 0._r8, c_loc(ps0), &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(emf), c_loc(thlu), &
-               c_loc(qtu), c_loc(ufrcinvbase), c_loc(winvbase), c_loc(pe), c_loc(dpe))
-          exne = exnf(pe)
-       endif
+       ufrcinvbase        = ufrcinv
+       winvbase           = winv
+       umf(kinv-1:krel-1) = cbmf
+       wu(kinv-1:krel-1)  = winv
 
-       ! -------------------------------------------------------------------------- ! 
+       ! -------------------------------------------------------------------------- !
        ! Define updraft properties at the level where buoyancy sorting starts to be !
        ! happening, i.e., by definition, at 'prel' level within the release layer.  !
-       ! Because no lateral entrainment occurs upto 'prel', conservative scalars of ! 
-       ! cumulus updraft at release level is same as those of source air.  However, ! 
-       ! horizontal momentums of source air are modified by horizontal PGF forcings ! 
+       ! Because no lateral entrainment occurs upto 'prel', conservative scalars of !
+       ! cumulus updraft at release level is same as those of source air.  However, !
+       ! horizontal momentums of source air are modified by horizontal PGF forcings !
        ! from PBL top interface to 'prel'.  For this case, we should add additional !
        ! horizontal momentum from PBL top interface to 'prel' as will be done below !
        ! to 'usrc' and 'vsrc'. Note that below cumulus updraft properties - umf, wu,!
@@ -8963,72 +5508,48 @@ end subroutine uwshcu_readnl
        !NOTE:  The condensation call below appears to only impact the thermodynamics, and
        !thus does not probably need to be replicated. - JN.
 
-       if (use_native_init_shell_impl) then
-          emf(krel-1)  = 0._r8
-          umf(krel-1)  = cbmf
-          wu(krel-1)   = wrel
-          thlu(krel-1) = thlsrc
-          qtu(krel-1)  = qtsrc
-          call conden(prel,thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
-          if( id_check .eq. 1 ) then
-              exit_conden(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          end if
+       emf(krel-1)  = 0._r8
+       umf(krel-1)  = cbmf
+       wu(krel-1)   = wrel
+       thlu(krel-1) = thlsrc
+       qtu(krel-1)  = qtsrc
+       call conden(prel,thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
+       if( id_check .eq. 1 ) then
+           exit_conden(i) = 1._r8
+           id_exit = .true.
+           go to 333
+       end if
+       thvu(krel-1) = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+
+       uplus = 0._r8
+       vplus = 0._r8
+       if( krel .eq. kinv ) then
+           uplus = PGFc * ssu0(kinv) * ( prel - ps0(kinv-1) )
+           vplus = PGFc * ssv0(kinv) * ( prel - ps0(kinv-1) )
        else
-          scalar_conden_id_check_c = 0_c_int64_t
-          call uwshcu_conden_scalar_codon(real(prel, c_double), real(thlsrc, c_double), &
-               real(qtsrc, c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-               c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-          id_check = int(scalar_conden_id_check_c)
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(7_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-               c_null_ptr, c_loc(release_conden_exit_code_c), c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr)
-          if( release_conden_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          end if
-       endif
-       if (use_native_init_shell_impl) then
-          thvu(krel-1) = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
+           do k = kinv, max(krel-1,kinv)
+              uplus = uplus + PGFc * ssu0(k) * ( ps0(k) - ps0(k-1) )
+              vplus = vplus + PGFc * ssv0(k) * ( ps0(k) - ps0(k-1) )
+           end do
+           uplus = uplus + PGFc * ssu0(krel) * ( prel - ps0(krel-1) )
+           vplus = vplus + PGFc * ssv0(krel) * ( prel - ps0(krel-1) )
+       end if
+       uu(krel-1) = usrc + uplus
+       vu(krel-1) = vsrc + vplus
 
-          uplus = 0._r8
-          vplus = 0._r8
-          if( krel .eq. kinv ) then
-              uplus = PGFc * ssu0(kinv) * ( prel - ps0(kinv-1) )
-              vplus = PGFc * ssv0(kinv) * ( prel - ps0(kinv-1) )
-          else
-              do k = kinv, max(krel-1,kinv)
-                 uplus = uplus + PGFc * ssu0(k) * ( ps0(k) - ps0(k-1) )
-                 vplus = vplus + PGFc * ssv0(k) * ( ps0(k) - ps0(k-1) )
-              end do
-              uplus = uplus + PGFc * ssu0(krel) * ( prel - ps0(krel-1) )
-              vplus = vplus + PGFc * ssv0(krel) * ( prel - ps0(krel-1) )
-          end if
-          uu(krel-1) = usrc + uplus
-          vu(krel-1) = vsrc + vplus
+       do m = 1, ncnst
+          tru(krel-1,m)  = trsrc(m)  !<-Includes water tracers
+       enddo
 
-          do m = 1, ncnst
-             tru(krel-1,m)  = trsrc(m)  !<-Includes water tracers
-          enddo
-
-          !*************
-          !Water tracers
-          !*************
-          if(trace_water) then
-            do m=1,wtrc_nwset
-               wtu(krel-1,m) = wtsrc(m)
-            end do
-          end if
-          !*************
-       endif
+       !*************
+       !Water tracers
+       !*************
+       if(trace_water) then
+         do m=1,wtrc_nwset
+            wtu(krel-1,m) = wtsrc(m)
+         end do
+       end if
+       !*************
 
        ! -------------------------------------------------------------------------- !
        ! Define environmental properties at the level where buoyancy sorting occurs !
@@ -9037,43 +5558,39 @@ end subroutine uwshcu_readnl
        ! differently because LCL is regarded as lower interface for mixing purpose. !
        ! -------------------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          pe      = 0.5_r8 * ( prel + ps0(krel) )
-          dpe     = prel - ps0(krel)
-          exne    = exnf(pe)
-          thvebot = thv0rel
-          thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
-          qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
-          ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
-          ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
-          do m = 1, ncnst
-             tre(m) = tr0(krel,m)  + sstr0(krel,m) * ( pe - p0(krel) )
-          enddo
+       pe      = 0.5_r8 * ( prel + ps0(krel) )
+       dpe     = prel - ps0(krel)
+       exne    = exnf(pe)
+       thvebot = thv0rel
+       thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
+       qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
+       ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
+       ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
+       do m = 1, ncnst
+          tre(m) = tr0(krel,m)  + sstr0(krel,m) * ( pe - p0(krel) )
+       enddo
 
-          !*************
-          !Water tracers
-          !*************
-          if(trace_water) then
-            do m=1,wtrc_nwset
-               wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
-            end do
-          end if
-          !*************
-       endif
+       !*************
+       !Water tracers
+       !*************
+       if(trace_water) then
+         do m=1,wtrc_nwset
+            wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
+         end do
+       end if
+       !*************
 
- 36    continue
-
-       !-------------------------! 
+       !-------------------------!
        ! Buoyancy-Sorting Mixing !
        !-------------------------!------------------------------------------------ !
        !                                                                           !
-       !  In order to complete buoyancy-sorting mixing at layer mid-point, and so  ! 
+       !  In order to complete buoyancy-sorting mixing at layer mid-point, and so  !
        !  calculate 'updraft mass flux, updraft w velocity, conservative scalars'  !
-       !  at the upper interface of each layer, we need following 3 information.   ! 
+       !  at the upper interface of each layer, we need following 3 information.   !
        !                                                                           !
        !  1. Pressure where mixing occurs ('pe'), and temperature at 'pe' which is !
        !     necessary to calculate various thermodynamic coefficients at pe. This !
-       !     temperature is obtained by undiluted cumulus properties lifted to pe. ! 
+       !     temperature is obtained by undiluted cumulus properties lifted to pe. !
        !  2. Undiluted updraft properties at pe - conservative scalar and vertical !
        !     velocity -which are assumed to be the same as the properties at lower !
        !     interface only for calculation of fractional lateral entrainment  and !
@@ -9083,7 +5600,7 @@ end subroutine uwshcu_readnl
        !  3. Environmental properties at pe.                                       !
        ! ------------------------------------------------------------------------- !
 
-       ! ------------------------------------------------------------------------ ! 
+       ! ------------------------------------------------------------------------ !
        ! Define cumulus scale height.                                             !
        ! Cumulus scale height is defined as the maximum height cumulus can reach. !
        ! In case of premitive code, cumulus scale height ('cush')  at the current !
@@ -9093,26 +5610,22 @@ end subroutine uwshcu_readnl
        ! only at two places during buoyancy-sorting process:                      !
        ! (1) Even negatively buoyancy mixtures with strong vertical velocity      !
        !     enough to rise up to 'rle*scaleh' (rle = 0.1) from pe are entrained  !
-       !     into cumulus updraft,                                                !  
+       !     into cumulus updraft,                                                !
        ! (2) The amount of mass that is involved in buoyancy-sorting mixing       !
-       !      process at pe is rei(k) = rkm/scaleh/rho*g_active [Pa-1]                   !
+       !      process at pe is rei(k) = rkm/scaleh/rho*g [Pa-1]                   !
        ! In terms of (1), I think critical stopping distance might be replaced by !
-       ! layer thickness. In future, we will use rei(k) = (0.5*rkm/z0(k)/rho/g_active).  !
+       ! layer thickness. In future, we will use rei(k) = (0.5*rkm/z0(k)/rho/g).  !
        ! In the premitive code,  'scaleh' was largely responsible for the jumping !
        ! variation of precipitation amount.                                       !
-       ! ------------------------------------------------------------------------ !   
+       ! ------------------------------------------------------------------------ !
 
-       if (use_native_init_shell_impl) then
-          scaleh = tscaleh
-          if( tscaleh .lt. 0.0_r8 ) scaleh = 1000._r8
-       else
-          call uwshcu_log_scaleh_iter_init_shell_entered()
-       endif
+       scaleh = tscaleh
+       if( tscaleh .lt. 0.0_r8 ) scaleh = 1000._r8
 
      ! Save time : Set iter_scaleh = 1. This will automatically use 'cush' from the previous time step
      !             at the first implicit iteration. At the second implicit iteration, it will use
      !             the updated 'cush' by the first implicit cin. So, this updating has an effect of
-     !             doing one iteration for cush calculation, which is good. 
+     !             doing one iteration for cush calculation, which is good.
      !             So, only this setting of 'iter_scaleh = 1' is sufficient-enough to save computation time.
      ! OK
 
@@ -9125,7 +5638,7 @@ end subroutine uwshcu_readnl
        ! both at the top and bottom interface of the layer. 'kpen' is the !
        ! layer upto which cumulus panetrates ,i.e., cumulus w at the base !
        ! interface is positive, but becomes negative at the top interface.!
-       ! Here, we initialize 'kbup' and 'kpen'. These initializations are !  
+       ! Here, we initialize 'kbup' and 'kpen'. These initializations are !
        ! not trivial but important, expecially   in calculating turbulent !
        ! fluxes without confliction among several physics as explained in !
        ! detail in the part of turbulent fluxes calculation later.   Note !
@@ -9135,13 +5648,13 @@ end subroutine uwshcu_readnl
        ! penetrative entrainment heat and moisture fluxes are  calculated !
        ! from the top interface of 'kbup' layer  to the base interface of !
        ! 'kpen' layer. Because of this, initialization of 'kbup' & 'kpen' !
-       ! influence the convection system when there are not updated.  The !  
+       ! influence the convection system when there are not updated.  The !
        ! below initialization of 'kbup = krel' assures  that  penetrative !
        ! entrainment fluxes always occur at interfaces above the PBL  top !
        ! interfaces (i.e., only at interfaces k >=kinv ), which seems  to !
        ! be attractable considering that the most correct fluxes  at  the !
        ! PBL top interface can be ontained from the 'fluxbelowinv'  using !
-       ! reconstructed PBL height.                                        ! 
+       ! reconstructed PBL height.                                        !
        ! The 'kbup = krel'(after going through the whole buoyancy sorting !
        ! proces during updraft motion) implies that cumulus updraft  from !
        ! the PBL top interface can not reach to the LFC,so that 'kbup' is !
@@ -9152,7 +5665,7 @@ end subroutine uwshcu_readnl
        ! not happen at any interfaces.  If cumulus updraft can rise above !
        ! the release layer but cannot fully overcome the buoyancy barrier !
        ! just above PBL top interface, penetratve entrainment   occurs at !
-       ! several above interfaces, including the top interface of release ! 
+       ! several above interfaces, including the top interface of release !
        ! layer. In the latter case, warming and drying tendencies will be !
        ! be initiated in 'krel' layer. Note current choice of 'kbup=krel' !
        ! is completely compatible with other flux physics without  double !
@@ -9165,57 +5678,40 @@ end subroutine uwshcu_readnl
        ! 'kbup = krel' choice since it is more compatible  with the other !
        ! parts of the code, expecially, when we chose ' use_emf=.false. ' !
        ! as explained in detail in turbulent flux calculation part.       !
-       ! ---------------------------------------------------------------- ! 
+       ! ---------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          kbup    = krel
-          kpen    = krel
+       kbup    = krel
+       kpen    = krel
 
-          ! ------------------------------------------------------------ !
-          ! Since 'wtw' is continuously updated during vertical motion,  !
-          ! I need below initialization command within this 'iter_scaleh'!
-          ! do loop. Similarily, I need initializations of environmental !
-          ! properties at 'krel' layer as below.                         !
-          ! ------------------------------------------------------------ !
+       ! ------------------------------------------------------------ !
+       ! Since 'wtw' is continuously updated during vertical motion,  !
+       ! I need below initialization command within this 'iter_scaleh'!
+       ! do loop. Similarily, I need initializations of environmental !
+       ! properties at 'krel' layer as below.                         !
+       ! ------------------------------------------------------------ !
 
-          wtw     = wlcl * wlcl
-          pe      = 0.5_r8 * ( prel + ps0(krel) )
-          dpe     = prel - ps0(krel)
-          exne    = exnf(pe)
-          thvebot = thv0rel
-          thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
-          qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
-          ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
-          ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
-          do m = 1, ncnst
-             tre(m) = tr0(krel,m)  + sstr0(krel,m)  * ( pe - p0(krel) )
-          enddo
+       wtw     = wlcl * wlcl
+       pe      = 0.5_r8 * ( prel + ps0(krel) )
+       dpe     = prel - ps0(krel)
+       exne    = exnf(pe)
+       thvebot = thv0rel
+       thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
+       qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
+       ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
+       ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
+       do m = 1, ncnst
+          tre(m) = tr0(krel,m)  + sstr0(krel,m)  * ( pe - p0(krel) )
+       enddo
 
-         !*************
-         !Water tracers
-         !*************
-          if(trace_water) then
-            do m=1,wtrc_nwset
-              wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
-            end do
-          end if
-         !*************
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_release_env_scaleh_iter_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(iter_scaleh, c_int64_t), int(kinv, c_int64_t), int(krel, c_int64_t), &
-               zvir_active, PGFc, usrc, vsrc, prel, pe, thv0rel, thj, qvj, qlj, qij, tscaleh, wlcl, &
-               c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
-               c_loc(u0), c_loc(ssu0), c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), &
-               c_loc(wt0), c_loc(sswt0), c_loc(trsrc), c_loc(wtsrc), c_loc(scaleh), &
-               c_loc(thvu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
-               c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(wtw), c_loc(pe), c_loc(dpe), &
-               c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), c_loc(tre), c_loc(wte))
-          kbup = int(kbup_iter_c)
-          kpen = int(kpen_iter_c)
-          exne = exnf(pe)
-       endif
+      !*************
+      !Water tracers
+      !*************
+      if(trace_water) then
+        do m=1,wtrc_nwset
+          wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
+        end do
+      end if
+      !*************
 
        ! ----------------------------------------------------------------------- !
        ! Cumulus rises upward from 'prel' ( or base interface of  'krel' layer ) !
@@ -9252,7 +5748,7 @@ end subroutine uwshcu_readnl
 
           ! ---------------------------------------------------------------- !
           ! Calculate environmental and cumulus saturation 'excess' at 'pe'. !
-          ! Note that in order to calculate saturation excess, we should use ! 
+          ! Note that in order to calculate saturation excess, we should use !
           ! liquid water temperature instead of temperature  as the argument !
           ! of "qsat". But note normal argument of "qsat" is temperature.    !
           ! ---------------------------------------------------------------- !
@@ -9260,135 +5756,55 @@ end subroutine uwshcu_readnl
           !NOTE:  This section is used purely for buoyancy sorting, and thus
           !does not need to be replicated for water tracers - JN.
 
-          if (use_native_init_shell_impl) then
-             call conden(pe,thle,qte,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if( id_check .eq. 1 ) then
-                 exit_conden(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             end if
-          else
-             scalar_conden_id_check_c = 0_c_int64_t
-             call uwshcu_conden_scalar_codon(real(pe, c_double), real(thle, c_double), &
-                  real(qte, c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                  c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-             id_check = int(scalar_conden_id_check_c)
-             call uwshcu_log_buoy_conden_scalar_batch_shell_entered()
-             call uwshcu_buoy_conden_scalar_batch_shell_codon(1_c_int64_t, int(id_check, c_int64_t), &
-                  zvir_active, r_active, pe, thj, qvj, qlj, qij, exne, thle, criqc, xlv_active, xls_active, cp_active, &
-                  0._r8, 0._r8, c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), &
-                  c_loc(thlue), c_loc(qtue), c_loc(thv0j), c_loc(rho0j), c_loc(thvj), &
-                  c_loc(tj), c_loc(thvxsat), c_loc(qsat_arg), c_loc(excess0))
-             if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             end if
-          endif
-          if (use_native_init_shell_impl) then
-             thv0j    = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-             rho0j    = pe / ( r_active * thv0j * exne )
-             qsat_arg = thle*exne
-          endif
-          if (use_native_init_shell_impl) then
-             call qsat(qsat_arg, pe, es, qs)
-             excess0  = qte - qs
-          else
-             call uwshcu_qsat_codon(real(qsat_arg, c_double), real(pe, c_double), &
-                  c_loc(es), c_loc(qs))
-             call uwshcu_buoy_conden_scalar_batch_shell_codon(5_c_int64_t, 0_c_int64_t, &
-                  zvir_active, r_active, pe, thj, qvj, qlj, qij, exne, thle, criqc, xlv_active, xls_active, cp_active, &
-                  qte, qs, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_loc(excess0))
-          endif
+          call conden(pe,thle,qte,thj,qvj,qlj,qij,qse,id_check,ncnst)
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+          thv0j    = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+          rho0j    = pe / ( r * thv0j * exne )
+          qsat_arg = thle*exne
+          call qsat(qsat_arg, pe, es, qs)
+          excess0  = qte - qs
 
-          if (use_native_init_shell_impl) then
-             call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if( id_check .eq. 1 ) then
-                 exit_conden(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             end if
-          else
-             scalar_conden_id_check_c = 0_c_int64_t
-             call uwshcu_conden_scalar_codon(real(pe, c_double), real(thlue, c_double), &
-                  real(qtue, c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                  c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-             id_check = int(scalar_conden_id_check_c)
-             call uwshcu_log_buoy_conden_scalar_batch_shell_entered()
-             call uwshcu_buoy_conden_scalar_batch_shell_codon(2_c_int64_t, int(id_check, c_int64_t), &
-                  zvir_active, r_active, pe, thj, qvj, qlj, qij, exne, thle, criqc, xlv_active, xls_active, cp_active, &
-                  0._r8, 0._r8, c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), &
-                  c_loc(thlue), c_loc(qtue), c_loc(thv0j), c_loc(rho0j), c_loc(thvj), &
-                  c_loc(tj), c_loc(thvxsat), c_loc(qsat_arg), c_loc(excess0))
-             if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             end if
-          endif
+          call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
           ! ----------------------------------------------------------------- !
-          ! Detrain excessive condensate larger than 'criqc' from the cumulus ! 
+          ! Detrain excessive condensate larger than 'criqc' from the cumulus !
           ! updraft before performing buoyancy sorting. All I should to do is !
           ! to update 'thlue' &  'que' here. Below modification is completely !
           ! compatible with the other part of the code since 'thule' & 'qtue' !
           ! are used only for buoyancy sorting. I found that as long as I use !
           ! 'niter_xc >= 2',  detraining excessive condensate before buoyancy !
-          ! sorting has negligible influence on the buoyancy sorting results. !   
+          ! sorting has negligible influence on the buoyancy sorting results. !
           ! ----------------------------------------------------------------- !
-          if (use_native_init_shell_impl) then
-             if( (qlj + qij) .gt. criqc ) then
-                  exql  = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-                  exqi  = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-                  qtue  = qtue - exql - exqi
-                  thlue = thlue + (xlv_active/cp_active/exne)*exql + (xls_active/cp_active/exne)*exqi
-             endif
+          if( (qlj + qij) .gt. criqc ) then
+               exql  = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+               exqi  = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+               qtue  = qtue - exql - exqi
+               thlue = thlue + (xlv/cp/exne)*exql + (xls/cp/exne)*exqi
           endif
-          if (use_native_init_shell_impl) then
-             call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if( id_check .eq. 1 ) then
-                 exit_conden(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             end if
-          else
-             scalar_conden_id_check_c = 0_c_int64_t
-             call uwshcu_conden_scalar_codon(real(pe, c_double), real(thlue, c_double), &
-                  real(qtue, c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                  c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-             id_check = int(scalar_conden_id_check_c)
-             call uwshcu_log_buoy_conden_scalar_batch_shell_entered()
-             call uwshcu_buoy_conden_scalar_batch_shell_codon(3_c_int64_t, int(id_check, c_int64_t), &
-                  zvir_active, r_active, pe, thj, qvj, qlj, qij, exne, thle, criqc, xlv_active, xls_active, cp_active, &
-                  thlue, 0._r8, c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), &
-                  c_loc(thlue), c_loc(qtue), c_loc(thv0j), c_loc(rho0j), c_loc(thvj), &
-                  c_loc(tj), c_loc(thvxsat), c_loc(qsat_arg), c_loc(excessu))
-             if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             end if
-          endif
-          if (use_native_init_shell_impl) then
-             thvj     = thj * ( 1._r8 + zvir_active * qvj - qlj - qij )
-             tj       = thj * exne ! This 'tj' is used for computing thermo. coeffs. below
-             qsat_arg = thlue*exne
-          endif
-          if (use_native_init_shell_impl) then
-             call qsat(qsat_arg, pe, es, qs)
-             excessu  = qtue - qs
-          else
-             call uwshcu_qsat_codon(real(qsat_arg, c_double), real(pe, c_double), &
-                  c_loc(es), c_loc(qs))
-             call uwshcu_buoy_conden_scalar_batch_shell_codon(5_c_int64_t, 0_c_int64_t, &
-                  zvir_active, r_active, pe, thj, qvj, qlj, qij, exne, thle, criqc, xlv_active, xls_active, cp_active, &
-                  qtue, qs, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_loc(excessu))
-          endif
+          call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+          thvj     = thj * ( 1._r8 + zvir * qvj - qlj - qij )
+          tj       = thj * exne ! This 'tj' is used for computing thermo. coeffs. below
+          qsat_arg = thlue*exne
+          call qsat(qsat_arg, pe, es, qs)
+          excessu  = qtue - qs
 
           ! ------------------------------------------------------------------- !
           ! Calculate critical mixing fraction, 'xc'. Mixture with mixing ratio !
           ! smaller than 'xc' will be entrained into cumulus updraft.  Both the !
-          ! saturated updrafts with 'positive buoyancy' or 'negative buoyancy + ! 
+          ! saturated updrafts with 'positive buoyancy' or 'negative buoyancy + !
           ! strong vertical velocity enough to rise certain threshold distance' !
           ! are kept into the updraft in the below program. If the core updraft !
           ! is unsaturated, we can set 'xc = 0' and let the cumulus  convection !
@@ -9404,17 +5820,17 @@ end subroutine uwshcu_readnl
 
             cridis = rle*scaleh                 ! Original code
           ! cridis = 1._r8*(zs0(k) - zs0(k-1))  ! New code
- 
+
           ! ---------------- !
           ! Buoyancy Sorting !
-          ! ---------------- !                   
+          ! ---------------- !
 
           ! ----------------------------------------------------------------- !
           ! Case 1 : When both cumulus and env. are unsaturated or saturated. !
           ! ----------------------------------------------------------------- !
 
           if( ( excessu .le. 0._r8 .and. excess0 .le. 0._r8 ) .or. ( excessu .ge. 0._r8 .and. excess0 .ge. 0._r8 ) ) then
-                xc = min(1._r8,max(0._r8,1._r8-2._r8*rbuoy*g_active*cridis/wue**2._r8*(1._r8-thvj/thv0j)))
+                xc = min(1._r8,max(0._r8,1._r8-2._r8*rbuoy*g*cridis/wue**2._r8*(1._r8-thvj/thv0j)))
               ! Below 3 lines are diagnostic output not influencing
               ! numerical calculations.
                 aquad = 0._r8
@@ -9427,35 +5843,17 @@ end subroutine uwshcu_readnl
               xsat    = excessu / ( excessu - excess0 );
               thlxsat = thlue + xsat * ( thle - thlue );
               qtxsat  = qtue  + xsat * ( qte - qtue );
-              if (use_native_init_shell_impl) then
-                 call conden(pe,thlxsat,qtxsat,thj,qvj,qlj,qij,qse,id_check,ncnst)
-                 if( id_check .eq. 1 ) then
-                     exit_conden(i) = 1._r8
-                     id_exit = .true.
-                     go to 333
-                 end if
-              else
-                 scalar_conden_id_check_c = 0_c_int64_t
-                 call uwshcu_conden_scalar_codon(real(pe, c_double), real(thlxsat, c_double), &
-                      real(qtxsat, c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                      c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-                 id_check = int(scalar_conden_id_check_c)
-                 call uwshcu_log_buoy_conden_scalar_batch_shell_entered()
-                 call uwshcu_buoy_conden_scalar_batch_shell_codon(4_c_int64_t, int(id_check, c_int64_t), &
-                      zvir_active, r_active, pe, thj, qvj, qlj, qij, exne, thle, criqc, xlv_active, xls_active, cp_active, &
-                      0._r8, 0._r8, c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), &
-                      c_loc(thlue), c_loc(qtue), c_loc(thv0j), c_loc(rho0j), c_loc(thvj), &
-                      c_loc(tj), c_loc(thvxsat), c_loc(qsat_arg), c_loc(excessu))
-                 if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
-                     id_exit = .true.
-                     go to 333
-                 end if
-              endif
-              if (use_native_init_shell_impl) thvxsat = thj * ( 1._r8 + zvir_active * qvj - qlj - qij )
+              call conden(pe,thlxsat,qtxsat,thj,qvj,qlj,qij,qse,id_check,ncnst)
+              if( id_check .eq. 1 ) then
+                  exit_conden(i) = 1._r8
+                  id_exit = .true.
+                  go to 333
+              end if
+              thvxsat = thj * ( 1._r8 + zvir * qvj - qlj - qij )
               ! -------------------------------------------------- !
               ! kk=1 : Cumulus Segment, kk=2 : Environment Segment !
-              ! -------------------------------------------------- ! 
-              do kk = 1, 2 
+              ! -------------------------------------------------- !
+              do kk = 1, 2
                    if( kk .eq. 1 ) then
                        thv_x0 = thvj;
                        thv_x1 = ( 1._r8 - 1._r8/xsat ) * thvj + ( 1._r8/xsat ) * thvxsat;
@@ -9464,37 +5862,21 @@ end subroutine uwshcu_readnl
                        thv_x0 = ( xsat / ( xsat - 1._r8 ) ) * thv0j + ( 1._r8/( 1._r8 - xsat ) ) * thvxsat;
                    endif
                    aquad =  wue**2;
-                   bquad =  2._r8*rbuoy*g_active*cridis*(thv_x1 - thv_x0)/thv0j - 2._r8*wue**2;
-                   cquad =  2._r8*rbuoy*g_active*cridis*(thv_x0 -  thv0j)/thv0j +       wue**2;
-	                   if( kk .eq. 1 ) then
-	                       if( ( bquad**2-4._r8*aquad*cquad ) .ge. 0._r8 ) then
-	                             call uwshcu_select_small_kernels_impl()
-	                             if (use_native_small_kernels_impl) then
-	                                call roots(aquad,bquad,cquad,xs1,xs2,status)
-	                             else
-	                                roots_status_c = 0_c_int64_t
-	                                call uwshcu_log_small_kernels_entered()
-	                                call uwshcu_roots_codon(aquad,bquad,cquad,c_loc(xs1),c_loc(xs2),c_loc(roots_status_c))
-	                                status = int(roots_status_c)
-	                             end if
-	                             x_cu = min(1._r8,max(0._r8,min(xsat,min(xs1,xs2))))
-	                       else
-	                             x_cu = xsat;
-	                       endif
-	                   else
-	                       if( ( bquad**2-4._r8*aquad*cquad) .ge. 0._r8 ) then
-	                             call uwshcu_select_small_kernels_impl()
-	                             if (use_native_small_kernels_impl) then
-	                                call roots(aquad,bquad,cquad,xs1,xs2,status)
-	                             else
-	                                roots_status_c = 0_c_int64_t
-	                                call uwshcu_log_small_kernels_entered()
-	                                call uwshcu_roots_codon(aquad,bquad,cquad,c_loc(xs1),c_loc(xs2),c_loc(roots_status_c))
-	                                status = int(roots_status_c)
-	                             end if
-	                             x_en = min(1._r8,max(0._r8,max(xsat,min(xs1,xs2))))
-	                       else
-	                             x_en = 1._r8;
+                   bquad =  2._r8*rbuoy*g*cridis*(thv_x1 - thv_x0)/thv0j - 2._r8*wue**2;
+                   cquad =  2._r8*rbuoy*g*cridis*(thv_x0 -  thv0j)/thv0j +       wue**2;
+                   if( kk .eq. 1 ) then
+                       if( ( bquad**2-4._r8*aquad*cquad ) .ge. 0._r8 ) then
+                             call roots(aquad,bquad,cquad,xs1,xs2,status)
+                             x_cu = min(1._r8,max(0._r8,min(xsat,min(xs1,xs2))))
+                       else
+                             x_cu = xsat;
+                       endif
+                   else
+                       if( ( bquad**2-4._r8*aquad*cquad) .ge. 0._r8 ) then
+                             call roots(aquad,bquad,cquad,xs1,xs2,status)
+                             x_en = min(1._r8,max(0._r8,max(xsat,min(xs1,xs2))))
+                       else
+                             x_en = 1._r8;
                        endif
                    endif
               enddo
@@ -9513,21 +5895,21 @@ end subroutine uwshcu_readnl
           ! In order to prevent the onset of instability in association with cumulus !
           ! induced subsidence advection, cumulus mass flux at the top interface  in !
           ! any layer should be smaller than ( 90% of ) total mass within that layer.!
-          ! I imposed limits on 'rei(k)' as below,  in such that stability condition ! 
+          ! I imposed limits on 'rei(k)' as below,  in such that stability condition !
           ! is always satisfied.                                                     !
           ! Below limiter of 'rei(k)' becomes negative for some cases, causing error.!
           ! So, for the time being, I came back to the original limiter.             !
           ! ------------------------------------------------------------------------ !
           ee2    = xc**2
           ud2    = 1._r8 - 2._r8*xc + xc**2
-        ! rei(k) = ( rkm / scaleh / g_active / rho0j )        ! Default.
-          rei(k) = ( 0.5_r8 * rkm / z0(k) / g_active /rho0j ) ! Alternative.
-          if( xc .gt. 0.5_r8 ) rei(k) = min(rei(k),0.9_r8*log(dp0(k)/g_active/dt/umf(km1) + 1._r8)/dpe/(2._r8*xc-1._r8))
+        ! rei(k) = ( rkm / scaleh / g / rho0j )        ! Default.
+          rei(k) = ( 0.5_r8 * rkm / z0(k) / g /rho0j ) ! Alternative.
+          if( xc .gt. 0.5_r8 ) rei(k) = min(rei(k),0.9_r8*log(dp0(k)/g/dt/umf(km1) + 1._r8)/dpe/(2._r8*xc-1._r8))
           fer(k) = rei(k) * ee2
           fdr(k) = rei(k) * ud2
 
           ! ------------------------------------------------------------------------------ !
-          ! Iteration Start due to 'maxufrc' constraint [ ****************************** ] ! 
+          ! Iteration Start due to 'maxufrc' constraint [ ****************************** ] !
           ! ------------------------------------------------------------------------------ !
 
           ! -------------------------------------------------------------------------- !
@@ -9538,68 +5920,53 @@ end subroutine uwshcu_readnl
           ! -------------------------------------------------------------------------- !
 
           umf(k) = umf(km1) * exp( dpe * ( fer(k) - fdr(k) ) )
-          emf(k) = 0._r8    
+          emf(k) = 0._r8
 
           ! --------------------------------------------------------- !
           ! Compute cumulus updraft properties at the top interface.  !
           ! Also use Tayler expansion in order to treat limiting case !
           ! --------------------------------------------------------- !
 
-          if (use_native_init_shell_impl) then
-             if( fer(k)*dpe .lt. 1.e-4_r8 ) then
-                 thlu(k) = thlu(km1) + ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) ) * fer(k) * dpe
-                 qtu(k)  =  qtu(km1) + ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) ) * fer(k) * dpe
-                 uu(k)   =   uu(km1) + ( ue   +   ssu0(k) * dpe / 2._r8 -   uu(km1) ) * fer(k) * dpe - PGFc * ssu0(k) * dpe
-                 vu(k)   =   vu(km1) + ( ve   +   ssv0(k) * dpe / 2._r8 -   vu(km1) ) * fer(k) * dpe - PGFc * ssv0(k) * dpe
-                 do m = 1, ncnst !<-Handles water tracers
-                    tru(k,m)  =  tru(km1,m) + ( tre(m)  + sstr0(k,m) * dpe / 2._r8  -  tru(km1,m) ) * fer(k) * dpe
-                 enddo
-                !*************
-                !Water tracers
-                !*************
-                 if(trace_water) then
-                   do m=1,wtrc_nwset
-                     wtu(k,m) = wtu(km1,m) + ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) ) * fer(k) * dpe
-                   end do
-                 end if
-                !*************
-             else
-                 thlu(k) = ( thle + ssthl0(k) / fer(k) - ssthl0(k) * dpe / 2._r8 ) -          &
-                           ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) + ssthl0(k) / fer(k) ) * exp(-fer(k) * dpe)
-                 qtu(k)  = ( qte  +  ssqt0(k) / fer(k) -  ssqt0(k) * dpe / 2._r8 ) -          &
-                           ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) +  ssqt0(k) / fer(k) ) * exp(-fer(k) * dpe)
-                 uu(k) =   ( ue + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) - ssu0(k) * dpe / 2._r8 ) - &
-                           ( ue +     ssu0(k) * dpe / 2._r8 -   uu(km1) + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) ) * exp(-fer(k) * dpe)
-                 vu(k) =   ( ve + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) - ssv0(k) * dpe / 2._r8 ) - &
-                           ( ve +     ssv0(k) * dpe / 2._r8 -   vu(km1) + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) ) * exp(-fer(k) * dpe)
-                 do m = 1, ncnst !<-Handles water tracers
-                    tru(k,m)  = ( tre(m)  + sstr0(k,m) / fer(k) - sstr0(k,m) * dpe / 2._r8 ) - &
-                                ( tre(m)  + sstr0(k,m) * dpe / 2._r8 - tru(km1,m) + sstr0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
-                 enddo
-                !*************
-                !Water tracers
-                !*************
-                 if(trace_water) then
-                   do m=1,wtrc_nwset
-                     wtu(k,m) = ( wte(m)  +  sswt0(k,m) / fer(k) -  sswt0(k,m) * dpe / 2._r8 ) -          &
-                             ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) +  sswt0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
-                   end do
-                 end if
-                !*************
-             end if
+          if( fer(k)*dpe .lt. 1.e-4_r8 ) then
+              thlu(k) = thlu(km1) + ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) ) * fer(k) * dpe
+              qtu(k)  =  qtu(km1) + ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) ) * fer(k) * dpe
+              uu(k)   =   uu(km1) + ( ue   +   ssu0(k) * dpe / 2._r8 -   uu(km1) ) * fer(k) * dpe - PGFc * ssu0(k) * dpe
+              vu(k)   =   vu(km1) + ( ve   +   ssv0(k) * dpe / 2._r8 -   vu(km1) ) * fer(k) * dpe - PGFc * ssv0(k) * dpe
+              do m = 1, ncnst !<-Handles water tracers
+                 tru(k,m)  =  tru(km1,m) + ( tre(m)  + sstr0(k,m) * dpe / 2._r8  -  tru(km1,m) ) * fer(k) * dpe
+              enddo
+             !*************
+             !Water tracers
+             !*************
+              if(trace_water) then
+                do m=1,wtrc_nwset
+                  wtu(k,m) = wtu(km1,m) + ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) ) * fer(k) * dpe
+                end do
+              end if
+             !*************
           else
-             expfac = 0._r8
-             if( fer(k)*dpe .ge. 1.e-4_r8 ) expfac = exp(-fer(k) * dpe)
-             call uwshcu_log_buoy_loop_batch_shell_entered()
-             call uwshcu_buoy_loop_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
-                  int(ncnst, c_int64_t), int(wtrc_nwset, c_int64_t), &
-                  merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-                  merge(1_c_int64_t, 0_c_int64_t, fer(k)*dpe .lt. 1.e-4_r8), 0_c_int64_t, &
-                  dpe, expfac, fer(k), PGFc, thle, qte, ue, ve, 0._r8, 0._r8, &
-                  c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
-                  c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(tre), &
-                  c_loc(sstr0), c_loc(wte), c_loc(sswt0), c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
+              thlu(k) = ( thle + ssthl0(k) / fer(k) - ssthl0(k) * dpe / 2._r8 ) -          &
+                        ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) + ssthl0(k) / fer(k) ) * exp(-fer(k) * dpe)
+              qtu(k)  = ( qte  +  ssqt0(k) / fer(k) -  ssqt0(k) * dpe / 2._r8 ) -          &
+                        ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) +  ssqt0(k) / fer(k) ) * exp(-fer(k) * dpe)
+              uu(k) =   ( ue + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) - ssu0(k) * dpe / 2._r8 ) - &
+                        ( ue +     ssu0(k) * dpe / 2._r8 -   uu(km1) + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) ) * exp(-fer(k) * dpe)
+              vu(k) =   ( ve + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) - ssv0(k) * dpe / 2._r8 ) - &
+                        ( ve +     ssv0(k) * dpe / 2._r8 -   vu(km1) + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) ) * exp(-fer(k) * dpe)
+              do m = 1, ncnst !<-Handles water tracers
+                 tru(k,m)  = ( tre(m)  + sstr0(k,m) / fer(k) - sstr0(k,m) * dpe / 2._r8 ) - &
+                             ( tre(m)  + sstr0(k,m) * dpe / 2._r8 - tru(km1,m) + sstr0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
+              enddo
+             !*************
+             !Water tracers
+             !*************
+              if(trace_water) then
+                do m=1,wtrc_nwset
+                  wtu(k,m) = ( wte(m)  +  sswt0(k,m) / fer(k) -  sswt0(k,m) * dpe / 2._r8 ) -          &
+                          ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) +  sswt0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
+                end do
+              end if
+             !*************
           end if
 
           !------------------------------------------------------------------- !
@@ -9609,10 +5976,10 @@ end subroutine uwshcu_readnl
           ! environmental qt ). At this stage, as the most simplest choice, if !
           ! condensate amount within cumulus updraft is larger than a critical !
           ! value, 'criqc', expels the surplus condensate from cumulus updraft !
-          ! to the environment. A certain fraction ( e.g_active., 'frc_sus' ) of this !
+          ! to the environment. A certain fraction ( e.g., 'frc_sus' ) of this !
           ! expelled condesnate will be in a form that can be suspended in the !
-          ! layer k where it was formed, while the other fraction, '1-frc_sus' ! 
-          ! will be in a form of precipitatble (e.g_active.,can potentially fall down !
+          ! layer k where it was formed, while the other fraction, '1-frc_sus' !
+          ! will be in a form of precipitatble (e.g.,can potentially fall down !
           ! across the base interface of layer k ). In turn we should describe !
           ! subsequent falling of precipitable condensate ('1-frc_sus') across !
           ! the base interface of the layer k, &  evaporation of precipitating !
@@ -9626,196 +5993,113 @@ end subroutine uwshcu_readnl
           ! also.                                                              !
           ! ------------------------------------------------------------------ !
 
-          if (use_native_init_shell_impl) then
-             if(trace_water) then
-               wtout(:,:) = 0.0_r8
-               call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
-             else
-               call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-             end if
+          if(trace_water) then
+            wtout(:,:) = 0.0_r8
+            call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
           else
-             scalar_conden_id_check_c = 0_c_int64_t
-             if(trace_water) then
-                wtout(:,:) = 0.0_r8
-                call uwshcu_conden_wtout_codon(real(ps0(k), c_double), real(thlu(k), c_double), &
-                     real(qtu(k), c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                     c_loc(qse), c_loc(scalar_conden_id_check_c), int(wtrc_nwset, c_int64_t), &
-                     real(qtu(k), c_double), c_loc(wtu), int(mkx + 1, c_int64_t), int(k, c_int64_t), &
-                     c_loc(wtout), int(wtrc_nwset, c_int64_t), &
-                     merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-                     merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), &
-                     c_loc(wtrc_iatype_post), real(wtrc_qmin_active, c_double), &
-                     c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd))
-             else
-                call uwshcu_conden_scalar_codon(real(ps0(k), c_double), real(thlu(k), c_double), &
-                     real(qtu(k), c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                     c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-             end if
-             id_check = int(scalar_conden_id_check_c)
+            call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
           end if
 
-          if (use_native_init_shell_impl) then
-             if( id_check .eq. 1 ) then
-                 exit_conden(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             end if
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+          if( (qlj + qij) .gt. criqc ) then
+               exql    = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+               exqi    = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+               ! ---------------------------------------------------------------- !
+               ! It is very important to re-update 'qtu' and 'thlu'  at the upper !
+               ! interface after expelling condensate from cumulus updraft at the !
+               ! top interface of the layer. As mentioned above, this is a 'sink' !
+               ! of cumulus qt (or equivalently, a 'source' of environmentasl qt),!
+               ! not a regular convective'detrainment'.                           !
+               ! ---------------------------------------------------------------- !
+               qtu(k)  = qtu(k) - exql - exqi
+               thlu(k) = thlu(k) + (xlv/cp/exns0(k))*exql + (xls/cp/exns0(k))*exqi
+               ! ---------------------------------------------------------------- !
+               ! Expelled cloud condensate into the environment from the updraft. !
+               ! After all the calculation later, 'dwten' and 'diten' will have a !
+               ! unit of [ kg/kg/s ], because it is a tendency of qt. Restoration !
+               ! of 'dwten' and 'diten' to this correct unit through  multiplying !
+               ! 'umf(k)*g/dp0(k)' will be performed later after finally updating !
+               ! 'umf' using a 'rmaxfrac' constraint near the end of this updraft !
+               ! buoyancy sorting loop.                                           !
+               ! ---------------------------------------------------------------- !
+               dwten(k) = exql
+               diten(k) = exqi
+
+               if(trace_water) then
+               !**********************************************************
+               !Generate condensate detrainment for water tracers/isotopes
+               !**********************************************************
+               !Method one:  Calculate condensate ratio, and adjust detrainment
+               !values accordingly. - JN
+                 do m=1,wtrc_nwset !Loop over water species
+
+                   Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
+                                     wtout(1,2))  !Calculate liquid ratio
+                   Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
+                                     wtout(1,3))  !Calculate ice ratio
+
+                   wtexql(m) = Rldt*exql  !Modify detrainment by tracer ratio
+                   wtexqi(m) = Ridt*exqi
+
+                  !Remove detrained condensate from updraft values:
+                   tru(k,wtrc_iatype(m,iwtliq)) = tru(k,wtrc_iatype(m,iwtliq)) - wtexql(m)
+                   tru(k,wtrc_iatype(m,iwtice)) = tru(k,wtrc_iatype(m,iwtice)) - wtexqi(m)
+
+                   wtu(k,m) = wtu(k,m) - wtexql(m) - wtexqi(m)
+
+                  !Add detrained condensate to detrainment tendency:
+                   wtdwten(k,m) = wtexql(m)
+                   wtditen(k,m) = wtexqi(m)
+                 end do
+               !**********************************************************
+               end if
+
           else
-             call uwshcu_log_buoy_loop_batch_shell_entered()
-             call uwshcu_buoy_loop_batch_shell_codon(1_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                   0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                   0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                   c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-             if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             end if
+               dwten(k) = 0._r8
+               diten(k) = 0._r8
+
+              !Water tracers:
+               wtdwten(k,:) = 0._r8
+               wtditen(k,:) = 0._r8
           endif
-          if (use_native_init_shell_impl) then
-             if( (qlj + qij) .gt. criqc ) then
-                  exql    = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-                  exqi    = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-                  ! ---------------------------------------------------------------- !
-                  ! It is very important to re-update 'qtu' and 'thlu'  at the upper !
-                  ! interface after expelling condensate from cumulus updraft at the !
-                  ! top interface of the layer. As mentioned above, this is a 'sink' !
-                  ! of cumulus qt (or equivalently, a 'source' of environmentasl qt),!
-                  ! not a regular convective'detrainment'.                           !
-                  ! ---------------------------------------------------------------- !
-                  qtu(k)  = qtu(k) - exql - exqi
-                  thlu(k) = thlu(k) + (xlv_active/cp_active/exns0(k))*exql + (xls_active/cp_active/exns0(k))*exqi
-                  ! ---------------------------------------------------------------- !
-                  ! Expelled cloud condensate into the environment from the updraft. !
-                  ! After all the calculation later, 'dwten' and 'diten' will have a !
-                  ! unit of [ kg/kg/s ], because it is a tendency of qt. Restoration !
-                  ! of 'dwten' and 'diten' to this correct unit through  multiplying !
-                  ! 'umf(k)*g_active/dp0(k)' will be performed later after finally updating !
-                  ! 'umf' using a 'rmaxfrac' constraint near the end of this updraft !
-                  ! buoyancy sorting loop.                                           !
-                  ! ---------------------------------------------------------------- !
-                  dwten(k) = exql
-                  diten(k) = exqi
-
-                  if(trace_water) then
-                  !**********************************************************
-                  !Generate condensate detrainment for water tracers/isotopes
-                  !**********************************************************
-                  !Method one:  Calculate condensate ratio, and adjust detrainment
-                  !values accordingly. - JN
-                    do m=1,wtrc_nwset !Loop over water species
-
-                      Rldt = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,2)))),wtout(m,2),&
-                                        wtout(1,2))  !Calculate liquid ratio
-                      Ridt = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,3)))),wtout(m,3),&
-                                        wtout(1,3))  !Calculate ice ratio
-
-                      wtexql(m) = Rldt*exql  !Modify detrainment by tracer ratio
-                      wtexqi(m) = Ridt*exqi
-
-                     !Remove detrained condensate from updraft values:
-                      tru(k,int(wtrc_iatype_post(m,2))) = tru(k,int(wtrc_iatype_post(m,2))) - wtexql(m)
-                      tru(k,int(wtrc_iatype_post(m,3))) = tru(k,int(wtrc_iatype_post(m,3))) - wtexqi(m)
-
-                      wtu(k,m) = wtu(k,m) - wtexql(m) - wtexqi(m)
-
-                     !Add detrained condensate to detrainment tendency:
-                      wtdwten(k,m) = wtexql(m)
-                      wtditen(k,m) = wtexqi(m)
-                    end do
-                  !**********************************************************
-                  end if
-
-             else
-                  dwten(k) = 0._r8
-                  diten(k) = 0._r8
-
-                 !Water tracers:
-                  wtdwten(k,:) = 0._r8
-                  wtditen(k,:) = 0._r8
-             endif
-          else
-             call uwshcu_log_buoy_state_batch_shell_entered()
-             call uwshcu_buoy_state_batch_shell_codon(1_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, criqc, xlv_active, xls_active, cp_active, &
-                  exns0(k), qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(qtu), &
-                  c_loc(thlu), c_loc(dwten), c_loc(diten), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-	             if(trace_water) then
-	                call uwshcu_buoy_wtrc_expel_shell_codon(int(k, c_int64_t), int(mkx, c_int64_t), &
-	                     int(wtrc_nwset, c_int64_t), criqc, qlj, qij, real(wtrc_qmin_active, c_double), &
-	                     c_loc(wtout), c_loc(wtrc_iatype_post), c_loc(positive_moisture_iwspec), &
-	                     c_loc(positive_moisture_rstd), c_loc(dwten), c_loc(diten), c_loc(tru), &
-	                     c_loc(wtu), c_loc(wtdwten), c_loc(wtditen))
-	             endif
-	          endif
-          ! ----------------------------------------------------------------- ! 
+          ! ----------------------------------------------------------------- !
           ! Update 'thvu(k)' after detraining condensate from cumulus updraft.!
-          ! ----------------------------------------------------------------- ! 
+          ! ----------------------------------------------------------------- !
 
           !NOTE:  This condensation appears to be used solely for thermodynamics, and thus
           !does not need to be replicated. - JN.
 
-          if (use_native_init_shell_impl) then
-             call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if( id_check .eq. 1 ) then
-                 exit_conden(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             end if
-          else
-             scalar_conden_id_check_c = 0_c_int64_t
-             call uwshcu_conden_scalar_codon(real(ps0(k), c_double), real(thlu(k), c_double), &
-                  real(qtu(k), c_double), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                  c_loc(qse), c_loc(scalar_conden_id_check_c), int(ncnst, c_int64_t))
-             id_check = int(scalar_conden_id_check_c)
-             call uwshcu_log_buoy_loop_batch_shell_entered()
-             call uwshcu_buoy_loop_batch_shell_codon(2_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                   0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                   zvir_active, thj, qvj, qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                   c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), c_loc(thvu(k)), c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-             if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             end if
-          endif
-          if (use_native_init_shell_impl) then
-             thvu(k) = thj * ( 1._r8 + zvir_active * qvj - qlj - qij )
-          endif
+          call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+          thvu(k) = thj * ( 1._r8 + zvir * qvj - qlj - qij )
 
-          ! ----------------------------------------------------------- ! 
+          ! ----------------------------------------------------------- !
           ! Calculate updraft vertical velocity at the upper interface. !
           ! In order to calculate 'wtw' at the upper interface, we use  !
-          ! 'wtw' at the lower interface. Note  'wtw'  is continuously  ! 
+          ! 'wtw' at the lower interface. Note  'wtw'  is continuously  !
           ! updated as cumulus updraft rises.                           !
           ! ----------------------------------------------------------- !
 
-          if (use_native_init_shell_impl) then
-             bogbot = rbuoy * ( thvu(km1) / thvebot  - 1._r8 ) ! Cloud buoyancy at base interface
-             bogtop = rbuoy * ( thvu(k) / thv0top(k) - 1._r8 ) ! Cloud buoyancy at top  interface
+          bogbot = rbuoy * ( thvu(km1) / thvebot  - 1._r8 ) ! Cloud buoyancy at base interface
+          bogtop = rbuoy * ( thvu(k) / thv0top(k) - 1._r8 ) ! Cloud buoyancy at top  interface
 
-             delbog = bogtop - bogbot
-             drage  = fer(k) * ( 1._r8 + rdrag )
-             expfac = exp(-2._r8*drage*dpe)
+          delbog = bogtop - bogbot
+          drage  = fer(k) * ( 1._r8 + rdrag )
+          expfac = exp(-2._r8*drage*dpe)
 
-             wtwb = wtw
-             if( drage*dpe .gt. 1.e-3_r8 ) then
-                 wtw = wtw*expfac + (delbog + (1._r8-expfac)*(bogbot + delbog/(-2._r8*drage*dpe)))/(rho0j*drage)
-             else
-                 wtw = wtw + dpe * ( bogbot + bogtop ) / rho0j
-             endif
+          wtwb = wtw
+          if( drage*dpe .gt. 1.e-3_r8 ) then
+              wtw = wtw*expfac + (delbog + (1._r8-expfac)*(bogbot + delbog/(-2._r8*drage*dpe)))/(rho0j*drage)
           else
-             drage  = fer(k) * ( 1._r8 + rdrag )
-             expfac = exp(-2._r8*drage*dpe)
-             call uwshcu_log_buoy_state_batch_shell_entered()
-             call uwshcu_buoy_state_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, rbuoy, thvu(km1), thvebot, thvu(k), &
-                  thv0top(k), drage, dpe, expfac, rho0j, 0._r8, 0._r8, 0._r8, c_loc(bogbot), &
-                  c_loc(bogtop), c_loc(delbog), c_loc(wtwb), c_loc(wtw), c_null_ptr, c_null_ptr, c_null_ptr)
+              wtw = wtw + dpe * ( bogbot + bogtop ) / rho0j
           endif
 
         ! Force the plume rise at least to klfc of the undiluted plume.
@@ -9823,34 +6107,26 @@ end subroutine uwshcu_readnl
 
         ! if( k .le. klfc ) then
         !     wtw = max( 1.e-2_r8, wtw )
-        ! endif 
-         
+        ! endif
+
           ! -------------------------------------------------------------- !
           ! Repeat 'iter_xc' iteration loop until 'iter_xc = niter_xc'.    !
           ! Also treat the case even when wtw < 0 at the 'kpen' interface. !
-          ! -------------------------------------------------------------- !  
-          
+          ! -------------------------------------------------------------- !
+
           if( wtw .gt. 0._r8 ) then
-              if (use_native_init_shell_impl) then
-                 thlue = 0.5_r8 * ( thlu(km1) + thlu(k) )
-                 qtue  = 0.5_r8 * ( qtu(km1)  +  qtu(k) )
-              else
-                 call uwshcu_log_buoy_state_batch_shell_entered()
-                 call uwshcu_buoy_state_batch_shell_codon(3_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                      0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, 0._r8, &
-                      0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(thlu), &
-                      c_loc(qtu), c_loc(thlue), c_loc(qtue), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-              endif
+              thlue = 0.5_r8 * ( thlu(km1) + thlu(k) )
+              qtue  = 0.5_r8 * ( qtu(km1)  +  qtu(k) )
               wue   = 0.5_r8 *   sqrt( max( wtwb + wtw, 0._r8 ) )
           else
               go to 111
-          endif 
+          endif
 
-       enddo ! End of 'iter_xc' loop  
+       enddo ! End of 'iter_xc' loop
 
    111 continue
 
-          ! --------------------------------------------------------------------------- ! 
+          ! --------------------------------------------------------------------------- !
           ! Add the contribution of self-detrainment  to vertical variations of cumulus !
           ! updraft mass flux. The reason why we are trying to include self-detrainment !
           ! is as follows.  In current scheme,  vertical variation of updraft mass flux !
@@ -9859,121 +6135,70 @@ end subroutine uwshcu_readnl
           ! at the base interface, while negative at the top interface. This means that !
           ! cumulus updraft cannot reach to the top interface of the layer. However,    !
           ! cumulus updraft mass flux at the top interface is not zero according to the !
-          ! vertical tendency equation of cumulus mass flux.   Ideally, cumulus updraft ! 
+          ! vertical tendency equation of cumulus mass flux.   Ideally, cumulus updraft !
           ! mass flux at the top interface should be zero for this case. In order to    !
-          ! assures that cumulus updraft mass flux goes to zero when cumulus updraft    ! 
+          ! assures that cumulus updraft mass flux goes to zero when cumulus updraft    !
           ! vertical velocity goes to zero, we are imposing self-detrainment term as    !
           ! below by considering layer-mean cloud buoyancy and cumulus updraft vertical !
           ! velocity square at the top interface. Use of auto-detrainment term will  be !
           ! determined by setting 'use_self_detrain=.true.' in the parameter sentence.  !
           ! --------------------------------------------------------------------------- !
-     
-          if (use_native_init_shell_impl) then
-             if( use_self_detrain ) then
-                 autodet = min( 0.5_r8*g_active*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 )
-                 umf(k)  = umf(k) * exp( 0.637_r8*(dpe/rho0j/g_active) * autodet )
-             end if
-             if( umf(k) .eq. 0._r8 ) wtw = -1._r8
-          else
-             self_detrain_expfac = 1._r8
-             if( use_self_detrain ) then
-                 autodet = min( 0.5_r8*g_active*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 )
-                 self_detrain_expfac = exp( 0.637_r8*(dpe/rho0j/g_active) * autodet )
-             end if
-             call uwshcu_log_buoy_state_batch_shell_entered()
-             call uwshcu_buoy_state_batch_shell_codon(4_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, use_self_detrain), 0_c_int64_t, &
-                  self_detrain_expfac, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                  0._r8, 0._r8, 0._r8, 0._r8, c_loc(umf), c_loc(wtw), c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-          endif
+
+          if( use_self_detrain ) then
+              autodet = min( 0.5_r8*g*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 )
+              umf(k)  = umf(k) * exp( 0.637_r8*(dpe/rho0j/g) * autodet )
+          end if
+          if( umf(k) .eq. 0._r8 ) wtw = -1._r8
 
           ! -------------------------------------- !
           ! Below block is just a dignostic output !
-          ! -------------------------------------- ! 
+          ! -------------------------------------- !
 
-          if (use_native_init_shell_impl) then
-             excessu_arr(k) = excessu
-             excess0_arr(k) = excess0
-             xc_arr(k)      = xc
-             aquad_arr(k)   = aquad
-             bquad_arr(k)   = bquad
-             cquad_arr(K)   = cquad
-             bogbot_arr(k)  = bogbot
-             bogtop_arr(k)  = bogtop
-          else
-             call uwshcu_log_buoy_state_batch_shell_entered()
-             call uwshcu_buoy_state_batch_shell_codon(5_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, excessu, excess0, xc, &
-                  aquad, bquad, cquad, bogbot, bogtop, 0._r8, 0._r8, 0._r8, 0._r8, &
-                  c_loc(excessu_arr), c_loc(excess0_arr), c_loc(xc_arr), c_loc(aquad_arr), &
-                  c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr))
-          endif
+          excessu_arr(k) = excessu
+          excess0_arr(k) = excess0
+          xc_arr(k)      = xc
+          aquad_arr(k)   = aquad
+          bquad_arr(k)   = bquad
+          cquad_arr(K)   = cquad
+          bogbot_arr(k)  = bogbot
+          bogtop_arr(k)  = bogtop
 
           ! ------------------------------------------------------------------- !
-          ! 'kbup' is the upper most layer in which cloud buoyancy  is positive ! 
+          ! 'kbup' is the upper most layer in which cloud buoyancy  is positive !
           ! both at the base and top interface.  'kpen' is the upper most layer !
           ! up to cumulus can reach. Usually, 'kpen' is located higher than the !
           ! 'kbup'. Note we initialized these by 'kbup = krel' & 'kpen = krel'. !
           ! As explained before, it is possible that only 'kpen' is updated,    !
           ! while 'kbup' keeps its initialization value. For this case, current !
-          ! scheme will simply turns-off penetrative entrainment fluxes and use ! 
+          ! scheme will simply turns-off penetrative entrainment fluxes and use !
           ! normal buoyancy-sorting fluxes for 'kbup <= k <= kpen-1' interfaces,!
           ! in order to describe shallow continental cumulus convection.        !
           ! ------------------------------------------------------------------- !
-          
-	        ! if( bogbot .gt. 0._r8 .and. bogtop .gt. 0._r8 ) then
-	        ! if( bogtop .gt. 0._r8 ) then
-	          if (use_native_init_shell_impl) then
-	             if( bogtop .gt. 0._r8 .and. wtw .gt. 0._r8 ) then
-	                 kbup = k
-	             end if
 
-	             if( wtw .le. 0._r8 ) then
-	                 kpen = k
-	                 go to 45
-	             end if
-          else
-             buoy_reach_exit_code_c = 0_c_int64_t
-             call uwshcu_log_buoy_state_batch_shell_entered()
-             call uwshcu_buoy_state_batch_shell_codon(6_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  int(kbup, c_int64_t), int(kpen, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  bogtop, wtw, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                  0._r8, 0._r8, c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(buoy_reach_exit_code_c), &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-             kbup = int(kbup_iter_c)
-	             kpen = int(kpen_iter_c)
-	             if( buoy_reach_exit_code_c .ne. 0_c_int64_t ) go to 45
-	          endif
+        ! if( bogbot .gt. 0._r8 .and. bogtop .gt. 0._r8 ) then
+        ! if( bogtop .gt. 0._r8 ) then
+          if( bogtop .gt. 0._r8 .and. wtw .gt. 0._r8 ) then
+              kbup = k
+          end if
 
-	          wu(k) = sqrt(wtw)
-          if (use_native_init_shell_impl) then
-             if( wu(k) .gt. 100._r8 ) then
-                 exit_wu(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             endif
-          else
-             call uwshcu_log_buoy_loop_batch_shell_entered()
-             call uwshcu_buoy_loop_batch_shell_codon(3_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, wu(k), 0._r8, &
-                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                  c_loc(exit_wu(i)), c_loc(buoy_wu_exit_code_c), c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-             if( buoy_wu_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             endif
+          if( wtw .le. 0._r8 ) then
+              kpen = k
+              go to 45
+          end if
+
+          wu(k) = sqrt(wtw)
+          if( wu(k) .gt. 100._r8 ) then
+              exit_wu(i) = 1._r8
+              id_exit = .true.
+              go to 333
           endif
 
           ! ---------------------------------------------------------------------------- !
-          ! Iteration end due to 'rmaxfrac' constraint [ ***************************** ] ! 
+          ! Iteration end due to 'rmaxfrac' constraint [ ***************************** ] !
           ! ---------------------------------------------------------------------------- !
 
           ! ---------------------------------------------------------------------- !
-          ! Calculate updraft fractional area at the upper interface and set upper ! 
+          ! Calculate updraft fractional area at the upper interface and set upper !
           ! limit to 'ufrc' by 'rmaxfrac'. In order to keep the consistency  among !
           ! ['ufrc','umf','wu (or wtw)'], if ufrc is limited by 'rmaxfrac', either !
           ! 'umf' or 'wu' should be changed. Although both 'umf' and 'wu (wtw)' at !
@@ -9987,80 +6212,45 @@ end subroutine uwshcu_readnl
           ! 'rmaxfrac'. Thus, we don't need to go through interation loop again.If !
           ! If we update 'fer' however, we should go through above iteration loop. !
           ! ---------------------------------------------------------------------- !
-            
-          if (use_native_init_shell_impl) then
-             rhos0j  = ps0(k) / ( r_active * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
-             ufrc(k) = umf(k) / ( rhos0j * wu(k) )
-          else
-             call uwshcu_log_buoy_state_batch_shell_entered()
-             call uwshcu_buoy_state_batch_shell_codon(7_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, r_active, 0._r8, 0._r8, 0._r8, &
-                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(ps0), &
-                  c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(umf), c_loc(wu), c_loc(ufrc), c_loc(rhos0j))
-          endif
-          if (use_native_init_shell_impl) then
-             if( ufrc(k) .gt. rmaxfrac ) then
-                 limit_ufrc(i) = 1._r8
-                 ufrc(k) = rmaxfrac
-                 umf(k)  = rmaxfrac * rhos0j * wu(k)
-                 fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
-             endif
-          else
-             call uwshcu_log_buoy_loop_batch_shell_entered()
-             call uwshcu_buoy_loop_batch_shell_codon(4_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, rmaxfrac, rhos0j, &
-                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                  c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(limit_ufrc(i)), c_loc(buoy_ufrc_limit_code_c), &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr)
-             if( buoy_ufrc_limit_code_c .ne. 0_c_int64_t ) then
-                fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
-             endif
+
+          rhos0j  = ps0(k) / ( r * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
+          ufrc(k) = umf(k) / ( rhos0j * wu(k) )
+          if( ufrc(k) .gt. rmaxfrac ) then
+              limit_ufrc(i) = 1._r8
+              ufrc(k) = rmaxfrac
+              umf(k)  = rmaxfrac * rhos0j * wu(k)
+              fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
           endif
 
           ! ------------------------------------------------------------ !
           ! Update environmental properties for at the mid-point of next !
           ! upper layer for use in buoyancy sorting.                     !
-          ! ------------------------------------------------------------ ! 
+          ! ------------------------------------------------------------ !
 
-          if (use_native_init_shell_impl) then
-             pe      = p0(k+1)
-             dpe     = dp0(k+1)
-             exne    = exn0(k+1)
-             thvebot = thv0bot(k+1)
-             thle    = thl0(k+1)
-             qte     = qt0(k+1)
-             ue      = u0(k+1)
-             ve      = v0(k+1)
-             do m = 1, ncnst
-                tre(m)  = tr0(k+1,m) !<-Water tracers handled here (may need to modify).
-             enddo
+          pe      = p0(k+1)
+          dpe     = dp0(k+1)
+          exne    = exn0(k+1)
+          thvebot = thv0bot(k+1)
+          thle    = thl0(k+1)
+          qte     = qt0(k+1)
+          ue      = u0(k+1)
+          ve      = v0(k+1)
+          do m = 1, ncnst
+             tre(m)  = tr0(k+1,m) !<-Water tracers handled here (may need to modify).
+          enddo
 
-             !*************
-             !Water tracers
-             !*************
-             if(trace_water) then
-               do m=1,wtrc_nwset
-                 wte(m) = wt0(k+1,m)
-               end do
-             end if
-             !*************
-          else
-             wtrc_nwset_post_c = 0_c_int64_t
-             if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-             call uwshcu_log_buoy_loop_batch_shell_entered()
-             call uwshcu_buoy_loop_batch_shell_codon(5_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
-                  int(ncnst, c_int64_t), wtrc_nwset_post_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                  c_loc(p0), c_loc(dp0), c_loc(exn0), c_loc(thv0bot), c_loc(thl0), c_loc(qt0), &
-                  c_loc(u0), c_loc(v0), c_loc(tr0), c_loc(wt0), c_loc(pe), c_loc(dpe), &
-                  c_loc(exne), c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), &
-                  c_loc(tre), c_loc(wte))
-          endif
+          !*************
+          !Water tracers
+          !*************
+          if(trace_water) then
+            do m=1,wtrc_nwset
+              wte(m) = wt0(k+1,m)
+            end do
+          end if
+          !*************
 
        end do   ! End of cumulus updraft loop from the 'krel' layer to 'kpen' layer.
-       
+
        ! ------------------------------------------------------------------------------- !
        ! Up to this point, we finished all of buoyancy sorting processes from the 'krel' !
        ! layer to 'kpen' layer: at the top interface of individual layers, we calculated !
@@ -10076,7 +6266,7 @@ end subroutine uwshcu_readnl
        ! and 'wu(k)'). As mentioned before, special treatment is required when 'kbup' is !
        ! not updated and so 'kbup = krel'.                                               !
        ! ------------------------------------------------------------------------------- !
-       
+
        ! ------------------------------------------------------------------------------ !
        ! During the 'iter_scaleh' iteration loop, non-physical ( with non-zero values ) !
        ! values can remain in the variable arrays above (also 'including' in case of wu !
@@ -10084,14 +6274,14 @@ end subroutine uwshcu_readnl
        ! layer index identified from the 'iter_scaleh = 1' iteration loop is located at !
        ! above the kpen layer index identified from   'iter_scaleh = 3' iteration loop. !
        ! Thus, in the following calculations, we should only use the values in each     !
-       ! variables only up to finally identified 'kpen' layer & 'kpen' interface except ! 
+       ! variables only up to finally identified 'kpen' layer & 'kpen' interface except !
        ! 'wu' and 'ufrc' at the top interface of 'kpen' layer.    Note that in order to !
        ! prevent any problems due to these non-physical values, I re-initialized    the !
-       ! values of [ umf(kpen:mkx), emf(kpen:mkx), dwten(kpen+1:mkx), diten(kpen+1:mkx),! 
+       ! values of [ umf(kpen:mkx), emf(kpen:mkx), dwten(kpen+1:mkx), diten(kpen+1:mkx),!
        ! fer(kpen:mkx), fdr(kpen+1:mkx), ufrc(kpen:mkx) ] to be zero after 'iter_scaleh'!
        ! do loop.                                                                       !
        ! ------------------------------------------------------------------------------ !
-       
+
  45    continue
 
        ! ------------------------------------------------------------------------------ !
@@ -10100,156 +6290,144 @@ end subroutine uwshcu_readnl
        ! is zero or non-zero was already calculated above.                              !
        ! It seems that below qudarature solving formula is valid only when bogbot < 0.  !
        ! Below solving equation is clearly wrong ! I should revise this !               !
-       ! ------------------------------------------------------------------------------ ! 
-            
-       if (use_native_init_shell_impl) then
-          if( drage .eq. 0._r8 ) then
-              aquad =  ( bogtop - bogbot ) / ( ps0(kpen) - ps0(kpen-1) )
-              bquad =  2._r8 * bogbot
-              cquad = -wu(kpen-1)**2 * rho0j
-              call roots(aquad,bquad,cquad,xc1,xc2,status)
-              if( status .eq. 0 ) then
-                  if( xc1 .le. 0._r8 .and. xc2 .le. 0._r8 ) then
-                      ppen = max( xc1, xc2 )
-                      ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
-                  elseif( xc1 .gt. 0._r8 .and. xc2 .gt. 0._r8 ) then
-                      ppen = -dp0(kpen)
-                      write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
-                  else
-                      ppen = min( xc1, xc2 )
-                      ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
-                  endif
-              else
-                  ppen = -dp0(kpen)
-                  write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
-              endif
-          else
-              ppen = compute_ppen(wtwb,drage,bogbot,bogtop,rho0j,dp0(kpen))
-          endif
-          if( ppen .eq. -dp0(kpen) .or. ppen .eq. 0._r8 ) limit_ppen(i) = 1._r8
+       ! ------------------------------------------------------------------------------ !
+
+       if( drage .eq. 0._r8 ) then
+           aquad =  ( bogtop - bogbot ) / ( ps0(kpen) - ps0(kpen-1) )
+           bquad =  2._r8 * bogbot
+           cquad = -wu(kpen-1)**2 * rho0j
+           call roots(aquad,bquad,cquad,xc1,xc2,status)
+           if( status .eq. 0 ) then
+               if( xc1 .le. 0._r8 .and. xc2 .le. 0._r8 ) then
+                   ppen = max( xc1, xc2 )
+                   ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
+               elseif( xc1 .gt. 0._r8 .and. xc2 .gt. 0._r8 ) then
+                   ppen = -dp0(kpen)
+                   write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
+               else
+                   ppen = min( xc1, xc2 )
+                   ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
+               endif
+           else
+               ppen = -dp0(kpen)
+               write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
+           endif
+       else
+           ppen = compute_ppen(wtwb,drage,bogbot,bogtop,rho0j,dp0(kpen))
        endif
+       if( ppen .eq. -dp0(kpen) .or. ppen .eq. 0._r8 ) limit_ppen(i) = 1._r8
 
        ! -------------------------------------------------------------------- !
        ! Re-calculate the amount of expelled condensate from cloud updraft    !
        ! at the cumulus top. This is necessary for refined calculations of    !
        ! bulk cloud microphysics at the cumulus top. Note that ppen < 0._r8   !
        ! In the below, I explicitly calculate 'thlu_top' & 'qtu_top' by       !
-       ! using non-zero 'fer(kpen)'.                                          !    
+       ! using non-zero 'fer(kpen)'.                                          !
        ! -------------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          if( fer(kpen)*(-ppen) .lt. 1.e-4_r8 ) then
-              thlu_top = thlu(kpen-1) + ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) ) * fer(kpen) * (-ppen)
-              qtu_top  =  qtu(kpen-1) + (  qt0(kpen) +  ssqt0(kpen) * (-ppen) / 2._r8  - qtu(kpen-1) ) * fer(kpen) * (-ppen)
-             !Water tracers:
-             !*************
-              if(trace_water) then
-                do m=1,wtrc_nwset
-                  wtu_top(m) = wtu(kpen-1,m) + ( wt0(kpen,m) +  sswt0(kpen,m) * &
-                               (-ppen) / 2._r8  - wtu(kpen-1,m) ) * fer(kpen) * (-ppen)
-                end do
-              end if
-             !*************
-          else
-              thlu_top = ( thl0(kpen) + ssthl0(kpen) / fer(kpen) - ssthl0(kpen) * (-ppen) / 2._r8 ) - &
-                         ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) + ssthl0(kpen) / fer(kpen) ) &
-                         * exp(-fer(kpen) * (-ppen))
-              qtu_top  = ( qt0(kpen)  +  ssqt0(kpen) / fer(kpen) -  ssqt0(kpen) * (-ppen) / 2._r8 ) - &
-                         ( qt0(kpen)  +  ssqt0(kpen) * (-ppen) / 2._r8 -  qtu(kpen-1) +  ssqt0(kpen) / fer(kpen) ) &
-                         * exp(-fer(kpen) * (-ppen))
-             !Water tracers:
-             !*************
-              if(trace_water) then
-                do m=1,wtrc_nwset
-                  wtu_top(m) = ( wt0(kpen,m)  +  sswt0(kpen,m) / fer(kpen) -  sswt0(kpen,m) * (-ppen) / 2._r8 ) - &
-                  ( wt0(kpen,m)  +  sswt0(kpen,m) * (-ppen) / 2._r8 -  wtu(kpen-1,m) +  sswt0(kpen,m) / fer(kpen) ) &
-                  * exp(-fer(kpen) * (-ppen))
-                end do
-              end if
-             !*************
-          end if
+       if( fer(kpen)*(-ppen) .lt. 1.e-4_r8 ) then
+           thlu_top = thlu(kpen-1) + ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) ) * fer(kpen) * (-ppen)
+           qtu_top  =  qtu(kpen-1) + (  qt0(kpen) +  ssqt0(kpen) * (-ppen) / 2._r8  - qtu(kpen-1) ) * fer(kpen) * (-ppen)
+          !Water tracers:
+          !*************
+           if(trace_water) then
+             do m=1,wtrc_nwset
+               wtu_top(m) = wtu(kpen-1,m) + ( wt0(kpen,m) +  sswt0(kpen,m) * &
+                            (-ppen) / 2._r8  - wtu(kpen-1,m) ) * fer(kpen) * (-ppen)
+             end do
+           end if
+          !*************
        else
-          call uwshcu_log_buoy_top_prep_full_shell_entered()
-          buoy_top_prep_warning_code_c = 0_c_int64_t
-          call uwshcu_buoy_top_prep_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
-               merge(1_c_int64_t, 0_c_int64_t, trace_water), int(kpen, c_int64_t), drage, &
-               bogbot, bogtop, wtwb, wu(kpen-1), rho0j, c_loc(ps0), c_loc(dp0), &
-               c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(fer), &
-               c_loc(thlu), c_loc(qtu), c_loc(wt0), c_loc(sswt0), c_loc(wtu), &
-               c_loc(limit_ppen(i)), c_loc(ppen), c_loc(thlu_top), c_loc(qtu_top), &
-               c_loc(wtu_top), c_loc(buoy_top_prep_warning_code_c))
-          if( buoy_top_prep_warning_code_c .ne. 0_c_int64_t ) then
-              write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
-          endif
-       endif
+           thlu_top = ( thl0(kpen) + ssthl0(kpen) / fer(kpen) - ssthl0(kpen) * (-ppen) / 2._r8 ) - &
+                      ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) + ssthl0(kpen) / fer(kpen) ) &
+                      * exp(-fer(kpen) * (-ppen))
+           qtu_top  = ( qt0(kpen)  +  ssqt0(kpen) / fer(kpen) -  ssqt0(kpen) * (-ppen) / 2._r8 ) - &
+                      ( qt0(kpen)  +  ssqt0(kpen) * (-ppen) / 2._r8 -  qtu(kpen-1) +  ssqt0(kpen) / fer(kpen) ) &
+                      * exp(-fer(kpen) * (-ppen))
+          !Water tracers:
+          !*************
+           if(trace_water) then
+             do m=1,wtrc_nwset
+               wtu_top(m) = ( wt0(kpen,m)  +  sswt0(kpen,m) / fer(kpen) -  sswt0(kpen,m) * (-ppen) / 2._r8 ) - &
+               ( wt0(kpen,m)  +  sswt0(kpen,m) * (-ppen) / 2._r8 -  wtu(kpen-1,m) +  sswt0(kpen,m) / fer(kpen) ) &
+               * exp(-fer(kpen) * (-ppen))
+             end do
+           end if
+          !*************
+       end if
 
        !NOTE:  Not 100% sure if using qv0/tr0 to calculate R is appropriate here
-       !(versus some sort of updraft quantity) - JN 
+       !(versus some sort of updraft quantity) - JN
 
-       if (use_native_init_shell_impl) then
-          if(trace_water) then
-            wtout(:,:) = 0._r8
-            call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse, &
-                        id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
-          else
-            call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-          end if
-          if( id_check .ne. 1 ) exntop = ((ps0(kpen-1)+ppen)/p00_active)**rovcp_active
-          if( id_check .eq. 1 ) then
-              exit_conden(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          end if
-          if( (qlj + qij) .gt. criqc ) then
-               dwten(kpen) = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-               diten(kpen) = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-               qtu_top  = qtu_top - dwten(kpen) - diten(kpen)
-               thlu_top = thlu_top + (xlv_active/cp_active/exntop)*dwten(kpen) + (xls_active/cp_active/exntop)*diten(kpen)
-
-               if(trace_water) then
-                 do m=1,wtrc_nwset
-                    Rldt = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,2)))),wtout(m,2),wtout(1,2))
-                    Ridt = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,3)))),wtout(m,3),wtout(1,3))
-                    wtdwten(kpen,m) = Rldt*dwten(kpen)
-                    wtditen(kpen,m) = Ridt*diten(kpen)
-                    wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
-                 end do
-               end if
-          else
-               dwten(kpen) = 0._r8
-               diten(kpen) = 0._r8
-               if(trace_water) then
-                 wtdwten(kpen,:) = 0._r8
-                 wtditen(kpen,:) = 0._r8
-               end if
-          endif
-          rhos0j = ps0(kpen-1)/(r_active*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))
-          cush   = zs0(kpen-1) - ppen/rhos0j/g_active
-          scaleh = cush
+       if(trace_water) then
+         wtout(:,:) = 0._r8
+         call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse, &
+                     id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
        else
-          call uwshcu_log_buoy_top_shell_entered()
-          buoy_top_id_check_c = 0_c_int64_t
-          buoy_top_conden_exit_code_c = 0_c_int64_t
-          call uwshcu_buoy_top_conden_finalize_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
-               merge(1_c_int64_t, 0_c_int64_t, trace_water), merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-               merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), int(ncnst, c_int64_t), int(kpen, c_int64_t), &
-               criqc, xlv_active, xls_active, cp_active, r_active, g_active, p00_active, rovcp_active, ppen, c_loc(ps0), c_loc(zs0), c_loc(thv0bot), &
-	               c_loc(thv0top), c_loc(exns0), c_loc(thlu_top), c_loc(qtu_top), c_loc(thj), c_loc(qvj), &
-	               c_loc(qlj), c_loc(qij), c_loc(qse), c_loc(buoy_top_id_check_c), c_loc(exntop), &
-	               c_loc(dwten), c_loc(diten), c_loc(wtout), c_loc(wtrc_iatype_post), &
-	               real(wtrc_qmin_active, c_double), c_loc(positive_moisture_iwspec), &
-	               c_loc(positive_moisture_rstd), c_loc(wtdwten), c_loc(wtditen), c_loc(wtu_top), &
-	               c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), c_loc(cush), c_loc(scaleh))
-          id_check = int(buoy_top_id_check_c)
-          if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          end if
+         call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+       end if
+       if( id_check .eq. 1 ) then
+           exit_conden(i) = 1._r8
+           id_exit = .true.
+           go to 333
+       end if
+       exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
+       if( (qlj + qij) .gt. criqc ) then
+            dwten(kpen) = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+            diten(kpen) = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+            qtu_top  = qtu_top - dwten(kpen) - diten(kpen)
+            thlu_top = thlu_top + (xlv/cp/exntop)*dwten(kpen) + (xls/cp/exntop)*diten(kpen)
+
+            if(trace_water) then
+            !*********************************************
+            !Re-calculate water tracer expelled condensate
+            !*********************************************
+
+            !Method one:  Calculate condensate ratio, and adjust detrainment
+            !values accordingly. - JN
+
+              do m=1,wtrc_nwset !Loop over water species
+
+                 Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
+                                   wtout(1,2))  !Calculate liquid ratio
+                 Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
+                                   wtout(1,3))  !Calculate ice ratio
+
+                !Add detrained condensate to detrainment tendency:
+                wtdwten(kpen,m) = Rldt*dwten(kpen)
+                wtditen(kpen,m) = Ridt*diten(kpen)
+
+                !Remove detrained condensate from updraft values:
+                 wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
+
+              end do
+            !*********************************************
+            end if
+
+       else
+            dwten(kpen) = 0._r8
+            diten(kpen) = 0._r8
+           !Water tracers:
+           !*************
+            if(trace_water) then
+              wtdwten(kpen,:) = 0._r8
+              wtditen(kpen,:) = 0._r8
+            end if
+           !************
        endif
 
-    end do   ! End of 'iter_scaleh' loop.   
 
-       ! -------------------------------------------------------------------- !   
+       ! ----------------------------------------------------------------------- !
+       ! Calculate cumulus scale height as the top height that cumulus can reach.!
+       ! ----------------------------------------------------------------------- !
+
+       rhos0j = ps0(kpen-1)/(r*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))
+       cush   = zs0(kpen-1) - ppen/rhos0j/g
+       scaleh = cush
+
+    end do   ! End of 'iter_scaleh' loop.
+
+       ! -------------------------------------------------------------------- !
        ! The 'forcedCu' is logical identifier saying whether cumulus updraft  !
        ! overcome the buoyancy barrier just above the PBL top. If it is true, !
        ! cumulus did not overcome the barrier -  this is a shallow convection !
@@ -10258,48 +6436,15 @@ end subroutine uwshcu_readnl
        ! moisture fluxes at the entraining interfaces, 'kbup <= k < kpen - 1' !
        ! will be set up in a different ways, as will be shown later.          !
        ! -------------------------------------------------------------------- !
- 
-       post_scaleh_exit_code_c = 0_c_int64_t
-       if (use_native_init_shell_impl) then
-          if( kbup .eq. krel ) then
-              forcedCu = .true.
-              limit_shcu(i) = 1._r8
-              post_scaleh_exit_code_c = 1_c_int64_t
-          else
-              forcedCu = .false.
-              limit_shcu(i) = 0._r8
-          endif
+
+       if( kbup .eq. krel ) then
+           forcedCu = .true.
+           limit_shcu(i) = 1._r8
        else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          scaleh_cufilter_exit_code_c = 0_c_int64_t
-          comp_sub_loop_id_check_c = 0_c_int64_t
-          comp_sub_conden_exit_code_c = 0_c_int64_t
-          call uwshcu_log_scaleh_filter_prep_shell_entered()
-          call uwshcu_log_comp_sub_conden_loop_shell_entered()
-          call uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(int(mkx, c_int64_t), &
-               int(ncnst, c_int64_t), wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), &
-               int(kbup, c_int64_t), int(kpen, c_int64_t), int(ixnumliq, c_int64_t), &
-               int(ixnumice, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, use_momenflx), r_active, g_active, dt, &
-               rpen, ppen, cbmf, cp_active, PGFc, qtsrc, thlsrc, usrc, vsrc, c_loc(ps0), c_loc(p0), &
-               c_loc(dp0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(thl0), &
-               c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), c_loc(ssu0), c_loc(v0), &
-               c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), c_loc(umf), &
-               c_loc(emf), c_loc(ufrc), c_loc(dwten), c_loc(diten), c_loc(fer), c_loc(fdr), &
-               c_loc(rei), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
-               c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), c_loc(vu_emf), c_loc(tru_emf), &
-               c_loc(wtu_emf), c_loc(wtdwten), c_loc(wtditen), c_loc(limit_emf(i)), &
-               c_loc(limit_shcu(i)), c_loc(post_scaleh_exit_code_c), c_loc(exit_cufilter(i)), &
-               c_loc(scaleh_cufilter_exit_code_c), c_loc(trsrc), c_loc(wtsrc), c_loc(slflx), &
-               c_loc(qtflx), c_loc(uflx), c_loc(vflx), c_loc(trflx), c_loc(wtflx), &
-               c_loc(uemf), c_loc(comsub), c_loc(ql0), c_loc(qi0), c_loc(wtrc_iatype_post), &
-               c_loc(thlten_sub_tmp), c_loc(qtten_sub_tmp), c_loc(qlten_sub_tmp), &
-               c_loc(qiten_sub_tmp), c_loc(nlten_sub_tmp), c_loc(niten_sub_tmp), &
-               c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp), c_loc(thj), c_loc(qvj), &
-               c_loc(qlj), c_loc(qij), c_loc(qse), c_loc(comp_sub_loop_id_check_c), &
-               c_loc(comp_sub_conden_exit_code_c))
+           forcedCu = .false.
+           limit_shcu(i) = 0._r8
        endif
-       
+
        ! ------------------------------------------------------------------ !
        ! Filtering of unerasonable cumulus adjustment here.  This is a very !
        ! important process which should be done cautiously. Various ways of !
@@ -10308,32 +6453,25 @@ end subroutine uwshcu_readnl
        ! stage, the followings are all possible : 'kinv >= 2', 'klcl >= 1', !
        ! 'krel >= kinv', 'kbup >= krel', 'kpen >= krel'. I must design this !
        ! filtering very cautiously, in such that none of  realistic cumulus !
-       ! convection is arbitrarily turned-off. Potentially, I might turn-off! 
+       ! convection is arbitrarily turned-off. Potentially, I might turn-off!
        ! cumulus convection if layer-mean 'ql > 0' in the 'kinv-1' layer,in !
-       ! order to suppress cumulus convection growing, based at the Sc top. ! 
+       ! order to suppress cumulus convection growing, based at the Sc top. !
        ! This is one of potential future modifications. Note that ppen < 0. !
        ! ------------------------------------------------------------------ !
 
-       if (use_native_init_shell_impl) cldhgt = ps0(kpen-1) + ppen
-       if (use_native_init_shell_impl) then
-          if( post_scaleh_exit_code_c .ne. 0_c_int64_t ) then
-              ! write(iulog,*) 'forcedCu - did not overcome initial buoyancy barrier'
-              exit_cufilter(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          end if
-       else
-          if( scaleh_cufilter_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          end if
-       endif
+       cldhgt = ps0(kpen-1) + ppen
+       if( forcedCu ) then
+           ! write(iulog,*) 'forcedCu - did not overcome initial buoyancy barrier'
+           exit_cufilter(i) = 1._r8
+           id_exit = .true.
+           go to 333
+       end if
        ! Limit 'additional shallow cumulus' for DYCOMS simulation.
        ! if( cldhgt.ge.88000._r8 ) then
        !     id_exit = .true.
        !     go to 333
        ! end if
-       
+
        ! ------------------------------------------------------------------------------ !
        ! Re-initializing some key variables above the 'kpen' layer in order to suppress !
        ! the influence of non-physical values above 'kpen', in association with the use !
@@ -10345,7 +6483,6 @@ end subroutine uwshcu_readnl
        ! expelled cloud condensate in the 'kpen' layer.                                 !
        ! ------------------------------------------------------------------------------ !
 
-       if (use_native_init_shell_impl) then
        umf(kpen:mkx)     = 0._r8
        emf(kpen:mkx)     = 0._r8
        ufrc(kpen:mkx)    = 0._r8
@@ -10353,7 +6490,7 @@ end subroutine uwshcu_readnl
        diten(kpen+1:mkx) = 0._r8
        fer(kpen+1:mkx)   = 0._r8
        fdr(kpen+1:mkx)   = 0._r8
-       
+
       !Water tracers:
       !*************
        if(trace_water) then
@@ -10372,7 +6509,7 @@ end subroutine uwshcu_readnl
        ! of penetrative entrainment flux can be performed without  any conceptual !
        ! or logical problems, because we have already computed all  the variables !
        ! necessary for performing below penetrative entrainment block.            !
-       ! In the below 'do' loop, 'k' is an interface index at which non-zero 'emf'! 
+       ! In the below 'do' loop, 'k' is an interface index at which non-zero 'emf'!
        ! (penetrative entrainment mass flux) is calculated. Since cumulus updraft !
        ! is negatively buoyant in the layers between the top interface of 'kbup'  !
        ! layer (interface index, kbup) and the top interface of 'kpen' layer, the !
@@ -10393,12 +6530,12 @@ end subroutine uwshcu_readnl
        ! and we can simply use normal buoyancy-sorting involved turbulent  fluxes !
        ! by modifying 'penetrative entrainment fluxes' part below.                !
        ! ------------------------------------------------------------------------ !
-       
+
        ! -----------------------------------------------------------------------!
        ! Calculate entrainment mass flux and conservative scalars of entraining !
        ! free air at interfaces of 'kbup <= k < kpen - 1'                       !
        ! ---------------------------------------------------------------------- !
- 
+
        do k = 0, mkx
           thlu_emf(k) = thlu(k)
           qtu_emf(k)  = qtu(k)
@@ -10419,21 +6556,21 @@ end subroutine uwshcu_readnl
        end do
 
        do k = kpen - 1, kbup, -1  ! Here, 'k' is an interface index at which
-                                  ! penetrative entrainment fluxes are calculated. 
-                                  
-          rhos0j = ps0(k) / ( r_active * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
+                                  ! penetrative entrainment fluxes are calculated.
+
+          rhos0j = ps0(k) / ( r * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
 
           if( k .eq. kpen - 1 ) then
 
-             ! ------------------------------------------------------------------------ ! 
+             ! ------------------------------------------------------------------------ !
              ! Note that 'ppen' has already been calculated in the above 'iter_scaleh'  !
              ! loop assuming zero lateral entrainmentin the layer 'kpen'.               !
-             ! ------------------------------------------------------------------------ !       
-             
+             ! ------------------------------------------------------------------------ !
+
              ! -------------------------------------------------------------------- !
              ! Calculate returning mass flux, emf ( < 0 )                           !
              ! Current penetrative entrainment rate with 'rpen~10' is too large and !
-             ! future refinement is necessary including the definition of 'thl','qt'! 
+             ! future refinement is necessary including the definition of 'thl','qt'!
              ! of penetratively entrained air.  Penetratively entrained airs across !
              ! the 'kpen-1' interface is assumed to have the properties of the base !
              ! interface of 'kpen' layer. Note that 'emf ~ - umf/ufrc = - w * rho'. !
@@ -10442,47 +6579,47 @@ end subroutine uwshcu_readnl
              ! the limit of emf, assuming 'emf' cannot exceed a net mass within the !
              ! layer above the interface. Similar to the case of warming and drying !
              ! due to cumulus updraft induced compensating subsidence,  penetrative !
-             ! entrainment induces compensating upwelling -     in order to prevent !  
+             ! entrainment induces compensating upwelling -     in order to prevent !
              ! numerical instability in association with compensating upwelling, we !
              ! should similarily limit the amount of penetrative entrainment at the !
              ! interface by the amount of masses within the layer just above the    !
              ! penetratively entraining interface.                                  !
              ! -------------------------------------------------------------------- !
-             
-             if( ( umf(k)*ppen*rei(kpen)*rpen ) .lt. -0.1_r8*rhos0j )         limit_emf(i) = 1._r8
-             if( ( umf(k)*ppen*rei(kpen)*rpen ) .lt. -0.9_r8*dp0(kpen)/g_active/dt ) limit_emf(i) = 1._r8
 
-             emf(k) = max( max( umf(k)*ppen*rei(kpen)*rpen, -0.1_r8*rhos0j), -0.9_r8*dp0(kpen)/g_active/dt)
+             if( ( umf(k)*ppen*rei(kpen)*rpen ) .lt. -0.1_r8*rhos0j )         limit_emf(i) = 1._r8
+             if( ( umf(k)*ppen*rei(kpen)*rpen ) .lt. -0.9_r8*dp0(kpen)/g/dt ) limit_emf(i) = 1._r8
+
+             emf(k) = max( max( umf(k)*ppen*rei(kpen)*rpen, -0.1_r8*rhos0j), -0.9_r8*dp0(kpen)/g/dt)
              thlu_emf(k) = thl0(kpen) + ssthl0(kpen) * ( ps0(k) - p0(kpen) )
              qtu_emf(k)  = qt0(kpen)  + ssqt0(kpen)  * ( ps0(k) - p0(kpen) )
-             uu_emf(k)   = u0(kpen)   + ssu0(kpen)   * ( ps0(k) - p0(kpen) )     
-             vu_emf(k)   = v0(kpen)   + ssv0(kpen)   * ( ps0(k) - p0(kpen) )   
+             uu_emf(k)   = u0(kpen)   + ssu0(kpen)   * ( ps0(k) - p0(kpen) )
+             vu_emf(k)   = v0(kpen)   + ssv0(kpen)   * ( ps0(k) - p0(kpen) )
              do m = 1, ncnst
                 tru_emf(k,m)  = tr0(kpen,m)  + sstr0(kpen,m)  * ( ps0(k) - p0(kpen) )  !<-Water tracers handled here.
              enddo
              !*************
              !water tracers
              !*************
-             if(trace_water) then   
+             if(trace_water) then
                do m=1,wtrc_nwset
                  wtu_emf(k,m) = wt0(kpen,m) + sswt0(kpen,m) * ( ps0(k) - p0(kpen) ) !Set initial values
                end do
              end if
              !*************
-          else ! if(k.lt.kpen-1). 
-              
+          else ! if(k.lt.kpen-1).
+
              ! --------------------------------------------------------------------------- !
              ! Note we are coming down from the higher interfaces to the lower interfaces. !
              ! Also note that 'emf < 0'. So, below operation is a summing not subtracting. !
-             ! In order to ensure numerical stability, I imposed a modified correct limit  ! 
-             ! of '-0.9*dp0(k+1)/g_active/dt' on emf(k).                                          !
+             ! In order to ensure numerical stability, I imposed a modified correct limit  !
+             ! of '-0.9*dp0(k+1)/g/dt' on emf(k).                                          !
              ! --------------------------------------------------------------------------- !
 
              if( use_cumpenent ) then  ! Original Cumulative Penetrative Entrainment
 
                  if( ( emf(k+1)-umf(k)*dp0(k+1)*rei(k+1)*rpen ) .lt. -0.1_r8*rhos0j )        limit_emf(i) = 1
-                 if( ( emf(k+1)-umf(k)*dp0(k+1)*rei(k+1)*rpen ) .lt. -0.9_r8*dp0(k+1)/g_active/dt ) limit_emf(i) = 1
-                 emf(k) = max(max(emf(k+1)-umf(k)*dp0(k+1)*rei(k+1)*rpen, -0.1_r8*rhos0j), -0.9_r8*dp0(k+1)/g_active/dt )
+                 if( ( emf(k+1)-umf(k)*dp0(k+1)*rei(k+1)*rpen ) .lt. -0.9_r8*dp0(k+1)/g/dt ) limit_emf(i) = 1
+                 emf(k) = max(max(emf(k+1)-umf(k)*dp0(k+1)*rei(k+1)*rpen, -0.1_r8*rhos0j), -0.9_r8*dp0(k+1)/g/dt )
                  if( abs(emf(k)) .gt. abs(emf(k+1)) ) then
                      thlu_emf(k) = ( thlu_emf(k+1) * emf(k+1) + thl0(k+1) * ( emf(k) - emf(k+1) ) ) / emf(k)
                      qtu_emf(k)  = ( qtu_emf(k+1)  * emf(k+1) + qt0(k+1)  * ( emf(k) - emf(k+1) ) ) / emf(k)
@@ -10500,7 +6637,7 @@ end subroutine uwshcu_readnl
                        end do
                      end if
                      !*************
-                 else   
+                 else
                      thlu_emf(k) = thl0(k+1)
                      qtu_emf(k)  =  qt0(k+1)
                      uu_emf(k)   =   u0(k+1)
@@ -10517,13 +6654,13 @@ end subroutine uwshcu_readnl
                        end do
                      end if
                      !*************
-                 endif   
-                     
+                 endif
+
              else ! Alternative Non-Cumulative Penetrative Entrainment
 
                  if( ( -umf(k)*dp0(k+1)*rei(k+1)*rpen ) .lt. -0.1_r8*rhos0j )        limit_emf(i) = 1
-                 if( ( -umf(k)*dp0(k+1)*rei(k+1)*rpen ) .lt. -0.9_r8*dp0(k+1)/g_active/dt ) limit_emf(i) = 1
-                 emf(k) = max(max(-umf(k)*dp0(k+1)*rei(k+1)*rpen, -0.1_r8*rhos0j), -0.9_r8*dp0(k+1)/g_active/dt )
+                 if( ( -umf(k)*dp0(k+1)*rei(k+1)*rpen ) .lt. -0.9_r8*dp0(k+1)/g/dt ) limit_emf(i) = 1
+                 emf(k) = max(max(-umf(k)*dp0(k+1)*rei(k+1)*rpen, -0.1_r8*rhos0j), -0.9_r8*dp0(k+1)/g/dt )
                  thlu_emf(k) = thl0(k+1)
                  qtu_emf(k)  =  qt0(k+1)
                  uu_emf(k)   =   u0(k+1)
@@ -10553,7 +6690,7 @@ end subroutine uwshcu_readnl
           ! at the geometrically fixed height handle everything - a movement of material !
           ! surface is implicitly treated automatically. Note that in terms of turbulent !
           ! heat and moisture fluxes at model interfaces, both the cumulus updraft  mass !
-          ! flux and penetratively entraining mass flux play the same role -both of them ! 
+          ! flux and penetratively entraining mass flux play the same role -both of them !
           ! warms and dries the 'kbup' layer, cools and moistens the 'kpen' layer,   and !
           ! cools and moistens any intervening layers between 'kbup' and 'kpen' layers.  !
           ! It is important to note these identical roles on turbulent heat and moisture !
@@ -10563,18 +6700,17 @@ end subroutine uwshcu_readnl
           ! reduction of cloud fraction. In this sense, the 'kbup' interface has a  very !
           ! important meaning and role : across the 'kbup' interface, strong penetrative !
           ! entrainment occurs, thus any sharp gradient properties across that interface !
-          ! are easily diffused through strong mass exchange. Thus, an initialization of ! 
-          ! 'kbup' (and also 'kpen') should be done very cautiously as mentioned before. ! 
+          ! are easily diffused through strong mass exchange. Thus, an initialization of !
+          ! 'kbup' (and also 'kpen') should be done very cautiously as mentioned before. !
           ! In order to prevent this stron diffusion for the shallow cumulus convection  !
           ! based at the Sc top, it seems to be good to initialize 'kbup = krel', rather !
           ! that 'kbup = krel-1'.                                                        !
           ! ---------------------------------------------------------------------------- !
-          
+
        end do
-       endif
 
        !------------------------------------------------------------------ !
-       !                                                                   ! 
+       !                                                                   !
        ! Compute turbulent heat, moisture, momentum flux at all interfaces !
        !                                                                   !
        !------------------------------------------------------------------ !
@@ -10594,11 +6730,11 @@ end subroutine uwshcu_readnl
        !     properties (except u, v which are modified by the PGFc during !
        !     upward motion) are conserved during a updraft motion from the !
        !     PBL top interface to the release level. If these layers don't !
-       !     exist (e,g_active, when 'krel = kinv'), then  current routine do not !
+       !     exist (e,g, when 'krel = kinv'), then  current routine do not !
        !     perform this routine automatically. So I don't need to modify !
-       !     anything.                                                     ! 
+       !     anything.                                                     !
        ! (3) " krel <= k <= kbup - 1 " : Buoyancy sorting fluxes           !
-       !     From laterally entraining-detraining buoyancy sorting plumes. ! 
+       !     From laterally entraining-detraining buoyancy sorting plumes. !
        ! (4) " kbup <= k < kpen-1 " : Penetrative entrainment fluxes       !
        !     From penetratively entraining plumes,                         !
        !                                                                   !
@@ -10612,12 +6748,12 @@ end subroutine uwshcu_readnl
        ! krel' if cumulus updraft just penetrated over the top of  release !
        ! layer ). If this happens, we should be very careful in organizing !
        ! the sequence of the 4 calculation routines above -  note that the !
-       ! routine located at the later has the higher priority.  Additional ! 
+       ! routine located at the later has the higher priority.  Additional !
        ! feature I must consider is that when 'kbup = kinv - 1' (this is a !
        ! combined situation of 'kbup=krel-1' & 'krel = kinv' when I  chose !
        ! 'kbup=krel-1' instead of current choice of 'kbup=krel'), a strong !
        ! penetrative entrainment fluxes exists at the PBL top interface, & !
-       ! all of these fluxes are concentrated (deposited) within the layer ! 
+       ! all of these fluxes are concentrated (deposited) within the layer !
        ! just below PBL top interface (i.e., 'kinv-1' layer). On the other !
        ! hand, in case of 'fluxbelowinv', only the compensating subsidence !
        ! effect is concentrated in the 'kinv-1' layer and 'pure' turbulent !
@@ -10633,30 +6769,29 @@ end subroutine uwshcu_readnl
        ! of unreasonable cumulus adjustment' just after 'iter_scaleh'. But !
        ! this seems not to be a good choice (although this choice was used !
        ! previous code ), since it might arbitrary damped-out  the shallow !
-       ! cumulus convection over the continent land, where shallow cumulus ! 
+       ! cumulus convection over the continent land, where shallow cumulus !
        ! convection tends to be negatively buoyant.                        !
-       ! ----------------------------------------------------------------- !  
+       ! ----------------------------------------------------------------- !
 
        ! --------------------------------------------------- !
        ! 1. PBL fluxes :  0 <= k <= kinv - 1                 !
-       !    All the information necessary to reconstruct PBL ! 
+       !    All the information necessary to reconstruct PBL !
        !    height are passed to 'fluxbelowinv'.             !
        ! --------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
        xsrc  = qtsrc
        xmean = qt0(kinv)
        xtop  = qt0(kinv+1) + ssqt0(kinv+1) * ( ps0(kinv)   - p0(kinv+1) )
-       xbot  = qt0(kinv-1) + ssqt0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )        
+       xbot  = qt0(kinv-1) + ssqt0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
        call fluxbelowinv( cbmf, ps0(0:mkx), mkx, kinv, dt, xsrc, xmean, xtop, xbot, xflx )
        qtflx(0:kinv-1) = xflx(0:kinv-1)
 
        xsrc  = thlsrc
        xmean = thl0(kinv)
        xtop  = thl0(kinv+1) + ssthl0(kinv+1) * ( ps0(kinv)   - p0(kinv+1) )
-       xbot  = thl0(kinv-1) + ssthl0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )        
+       xbot  = thl0(kinv-1) + ssthl0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
        call fluxbelowinv( cbmf, ps0(0:mkx), mkx, kinv, dt, xsrc, xmean, xtop, xbot, xflx )
-       slflx(0:kinv-1) = cp_active * exns0(0:kinv-1) * xflx(0:kinv-1)
+       slflx(0:kinv-1) = cp * exns0(0:kinv-1) * xflx(0:kinv-1)
 
        xsrc  = usrc
        xmean = u0(kinv)
@@ -10676,7 +6811,7 @@ end subroutine uwshcu_readnl
           xsrc  = trsrc(m)
           xmean = tr0(kinv,m)
           xtop  = tr0(kinv+1,m) + sstr0(kinv+1,m) * ( ps0(kinv)   - p0(kinv+1) )
-          xbot  = tr0(kinv-1,m) + sstr0(kinv-1,m) * ( ps0(kinv-1) - p0(kinv-1) )        
+          xbot  = tr0(kinv-1,m) + sstr0(kinv-1,m) * ( ps0(kinv-1) - p0(kinv-1) )
           call fluxbelowinv( cbmf, ps0(0:mkx), mkx, kinv, dt, xsrc, xmean, xtop, xbot, xflx )
           trflx(0:kinv-1,m) = xflx(0:kinv-1)
        enddo
@@ -10702,21 +6837,21 @@ end subroutine uwshcu_readnl
        !    as in a desirable, expected way ( but I must check  if this !
        !    is the case ). The non-buoyancy sorting fluxes are computed !
        !    only when 'krel > kinv'.                                    !
-       ! -------------------------------------------------------------- !          
+       ! -------------------------------------------------------------- !
 
        uplus = 0._r8
        vplus = 0._r8
        do k = kinv, krel - 1
           kp1 = k + 1
-          qtflx(k) = cbmf * ( qtsrc  - (  qt0(kp1) +  ssqt0(kp1) * ( ps0(k) - p0(kp1) ) ) )          
-          slflx(k) = cbmf * ( thlsrc - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) ) * cp_active * exns0(k)
+          qtflx(k) = cbmf * ( qtsrc  - (  qt0(kp1) +  ssqt0(kp1) * ( ps0(k) - p0(kp1) ) ) )
+          slflx(k) = cbmf * ( thlsrc - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) ) * cp * exns0(k)
           uplus    = uplus + PGFc * ssu0(k) * ( ps0(k) - ps0(k-1) )
           vplus    = vplus + PGFc * ssv0(k) * ( ps0(k) - ps0(k-1) )
-          uflx(k)  = cbmf * ( usrc + uplus -  (  u0(kp1)  +   ssu0(kp1) * ( ps0(k) - p0(kp1) ) ) ) 
+          uflx(k)  = cbmf * ( usrc + uplus -  (  u0(kp1)  +   ssu0(kp1) * ( ps0(k) - p0(kp1) ) ) )
           vflx(k)  = cbmf * ( vsrc + vplus -  (  v0(kp1)  +   ssv0(kp1) * ( ps0(k) - p0(kp1) ) ) )
           do m = 1, ncnst
              trflx(k,m) = cbmf * ( trsrc(m)  - (  tr0(kp1,m) +  sstr0(kp1,m) * ( ps0(k) - p0(kp1) ) ) )
-          enddo          
+          enddo
          !*************
          !water tracers
          !*************
@@ -10730,14 +6865,14 @@ end subroutine uwshcu_readnl
 
        ! ------------------------------------------------------------------------ !
        ! 3. Buoyancy sorting fluxes : krel <= k <= kbup - 1                       !
-       !    In case that 'kbup = krel - 1 ' ( or even in case 'kbup = krel' ),    ! 
+       !    In case that 'kbup = krel - 1 ' ( or even in case 'kbup = krel' ),    !
        !    buoyancy sorting fluxes are not calculated, which is consistent,      !
-       !    desirable feature.                                                    !  
+       !    desirable feature.                                                    !
        ! ------------------------------------------------------------------------ !
 
-       do k = krel, kbup - 1      
+       do k = krel, kbup - 1
           kp1 = k + 1
-          slflx(k) = cp_active * exns0(k) * umf(k) * ( thlu(k) - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) )
+          slflx(k) = cp * exns0(k) * umf(k) * ( thlu(k) - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) )
           qtflx(k) = umf(k) * ( qtu(k) - ( qt0(kp1) + ssqt0(kp1) * ( ps0(k) - p0(kp1) ) ) )
           uflx(k)  = umf(k) * ( uu(k) - ( u0(kp1) + ssu0(kp1) * ( ps0(k) - p0(kp1) ) ) )
           vflx(k)  = umf(k) * ( vu(k) - ( v0(kp1) + ssv0(kp1) * ( ps0(k) - p0(kp1) ) ) )
@@ -10763,7 +6898,7 @@ end subroutine uwshcu_readnl
        !    calculated later, flux at 'kinv - 1 ' will be that of penetrative flux.!
        !    However, turbulent flux calculated at 'kinv - 1' from penetrative entr.!
        !    is less attractable,  since more reasonable turbulent flux at 'kinv-1' !
-       !    should be obtained from 'fluxbelowinv', by considering  re-constructed ! 
+       !    should be obtained from 'fluxbelowinv', by considering  re-constructed !
        !    inversion base height. This conflicting problem can be solved if we can!
        !    initialize 'kbup = krel', instead of kbup = krel - 1. This choice seems!
        !    to be more reasonable since it is not conflicted with 'fluxbelowinv' in!
@@ -10782,7 +6917,7 @@ end subroutine uwshcu_readnl
        !    selelct different choice.                                              !
        ! ------------------------------------------------------------------------------------------------------------------ !
        !   if( forcedCu ) then                                                                                              !
-       !       slflx(k) = cp_active * exns0(k) * umf(k) * ( thlu(k) - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) )         !
+       !       slflx(k) = cp * exns0(k) * umf(k) * ( thlu(k) - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) )         !
        !       qtflx(k) =                 umf(k) * (  qtu(k) - (  qt0(kp1) +  ssqt0(kp1) * ( ps0(k) - p0(kp1) ) ) )         !
        !       uflx(k)  =                 umf(k) * (   uu(k) - (   u0(kp1) +   ssu0(kp1) * ( ps0(k) - p0(kp1) ) ) )         !
        !       vflx(k)  =                 umf(k) * (   vu(k) - (   v0(kp1) +   ssv0(kp1) * ( ps0(k) - p0(kp1) ) ) )         !
@@ -10790,7 +6925,7 @@ end subroutine uwshcu_readnl
        !          trflx(k,m) = umf(k) * ( tru(k,m) - ( tr0(kp1,m) + sstr0(kp1,m) * ( ps0(k) - p0(kp1) ) ) )                 !
        !       enddo                                                                                                        !
        !   else                                                                                                             !
-       !       slflx(k) = cp_active * exns0(k) * emf(k) * ( thlu_emf(k) - ( thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) ) ) )           !
+       !       slflx(k) = cp * exns0(k) * emf(k) * ( thlu_emf(k) - ( thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) ) ) )           !
        !       qtflx(k) =                 emf(k) * (  qtu_emf(k) - (  qt0(k) +  ssqt0(k) * ( ps0(k) - p0(k) ) ) )           !
        !       uflx(k)  =                 emf(k) * (   uu_emf(k) - (   u0(k) +   ssu0(k) * ( ps0(k) - p0(k) ) ) )           !
        !       vflx(k)  =                 emf(k) * (   vu_emf(k) - (   v0(k) +   ssv0(k) * ( ps0(k) - p0(k) ) ) )           !
@@ -10800,8 +6935,8 @@ end subroutine uwshcu_readnl
        !   endif                                                                                                            !
        !                                                                                                                    !
        !   if( use_uppenent ) then ! Combined Updraft + Penetrative Entrainment Flux                                        !
-       !       slflx(k) = cp_active * exns0(k) * umf(k) * ( thlu(k)     - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) ) + & !
-       !                  cp_active * exns0(k) * emf(k) * ( thlu_emf(k) - (   thl0(k) +   ssthl0(k) * ( ps0(k) - p0(k) ) ) )       !
+       !       slflx(k) = cp * exns0(k) * umf(k) * ( thlu(k)     - ( thl0(kp1) + ssthl0(kp1) * ( ps0(k) - p0(kp1) ) ) ) + & !
+       !                  cp * exns0(k) * emf(k) * ( thlu_emf(k) - (   thl0(k) +   ssthl0(k) * ( ps0(k) - p0(k) ) ) )       !
        !       qtflx(k) =                 umf(k) * (  qtu(k)     - (  qt0(kp1) +  ssqt0(kp1) * ( ps0(k) - p0(kp1) ) ) ) + & !
        !                                  emf(k) * (  qtu_emf(k) - (    qt0(k) +    ssqt0(k) * ( ps0(k) - p0(k) ) ) )       !
        !       uflx(k)  =                 umf(k) * (   uu(k)     - (   u0(kp1) +   ssu0(kp1) * ( ps0(k) - p0(kp1) ) ) ) + & !
@@ -10809,19 +6944,19 @@ end subroutine uwshcu_readnl
        !       vflx(k)  =                 umf(k) * (   vu(k)     - (   v0(kp1) +   ssv0(kp1) * ( ps0(k) - p0(kp1) ) ) ) + & !
        !                                  emf(k) * (   vu_emf(k) - (     v0(k) +     ssv0(k) * ( ps0(k) - p0(k) ) ) )       !
        !       do m = 1, ncnst                                                                                              !
-       !          trflx(k,m) = umf(k) * ( tru(k,m) - ( tr0(kp1,m) + sstr0(kp1,m) * ( ps0(k) - p0(kp1) ) ) ) + &             ! 
-       !                       emf(k) * ( tru_emf(k,m) - ( tr0(k,m) + sstr0(k,m) * ( ps0(k) - p0(k) ) ) )                   ! 
+       !          trflx(k,m) = umf(k) * ( tru(k,m) - ( tr0(kp1,m) + sstr0(kp1,m) * ( ps0(k) - p0(kp1) ) ) ) + &             !
+       !                       emf(k) * ( tru_emf(k,m) - ( tr0(k,m) + sstr0(k,m) * ( ps0(k) - p0(k) ) ) )                   !
        !       enddo                                                                                                        !
        ! ------------------------------------------------------------------------------------------------------------------ !
 
-       do k = kbup, kpen - 1      
+       do k = kbup, kpen - 1
           kp1 = k + 1
-          slflx(k) = cp_active * exns0(k) * emf(k) * ( thlu_emf(k) - ( thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) ) ) )
-          qtflx(k) =                 emf(k) * (  qtu_emf(k) - (  qt0(k) +  ssqt0(k) * ( ps0(k) - p0(k) ) ) ) 
-          uflx(k)  =                 emf(k) * (   uu_emf(k) - (   u0(k) +   ssu0(k) * ( ps0(k) - p0(k) ) ) ) 
+          slflx(k) = cp * exns0(k) * emf(k) * ( thlu_emf(k) - ( thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) ) ) )
+          qtflx(k) =                 emf(k) * (  qtu_emf(k) - (  qt0(k) +  ssqt0(k) * ( ps0(k) - p0(k) ) ) )
+          uflx(k)  =                 emf(k) * (   uu_emf(k) - (   u0(k) +   ssu0(k) * ( ps0(k) - p0(k) ) ) )
           vflx(k)  =                 emf(k) * (   vu_emf(k) - (   v0(k) +   ssv0(k) * ( ps0(k) - p0(k) ) ) )
           do m = 1, ncnst
-             trflx(k,m) = emf(k) * ( tru_emf(k,m) - ( tr0(k,m) + sstr0(k,m) * ( ps0(k) - p0(k) ) ) ) 
+             trflx(k,m) = emf(k) * ( tru_emf(k,m) - ( tr0(k,m) + sstr0(k,m) * ( ps0(k) - p0(k) ) ) )
           enddo
           !*************
           !water tracers
@@ -10841,17 +6976,15 @@ end subroutine uwshcu_readnl
        if( .not. use_momenflx ) then
            uflx(0:mkx) = 0._r8
            vflx(0:mkx) = 0._r8
-       endif       
        endif
 
        ! -------------------------------------------------------- !
        ! Condensate tendency by compensating subsidence/upwelling !
        ! -------------------------------------------------------- !
-       
-       if (use_native_init_shell_impl) then
+
        uemf(0:mkx)         = 0._r8
        do k = 0, kinv - 2  ! Assume linear updraft mass flux within the PBL.
-          uemf(k) = cbmf * ( ps0(0) - ps0(k) ) / ( ps0(0) - ps0(kinv-1) ) 
+          uemf(k) = cbmf * ( ps0(0) - ps0(k) ) / ( ps0(0) - ps0(kinv-1) )
        end do
        uemf(kinv-1:krel-1) = cbmf
        uemf(krel:kbup-1)   = umf(krel:kbup-1)
@@ -10859,11 +6992,9 @@ end subroutine uwshcu_readnl
 
        comsub(1:mkx) = 0._r8
        do k = 1, kpen
-          comsub(k)  = 0.5_r8 * ( uemf(k) + uemf(k-1) ) 
-       end do    
-       endif
+          comsub(k)  = 0.5_r8 * ( uemf(k) + uemf(k-1) )
+       end do
 
-       if (use_native_init_shell_impl) then
        do k = 1, kpen
           if( comsub(k) .ge. 0._r8 ) then
               if( k .eq. mkx ) then
@@ -10879,25 +7010,25 @@ end subroutine uwshcu_readnl
                     wtiten_sub(:) = 0._r8
                   end if
               else
-                  thlten_sub = g_active * comsub(k) * ( thl0(k+1) - thl0(k) ) / ( p0(k) - p0(k+1) )
-                  qtten_sub  = g_active * comsub(k) * (  qt0(k+1) -  qt0(k) ) / ( p0(k) - p0(k+1) )
-                  qlten_sub  = g_active * comsub(k) * (  ql0(k+1) -  ql0(k) ) / ( p0(k) - p0(k+1) )
-                  qiten_sub  = g_active * comsub(k) * (  qi0(k+1) -  qi0(k) ) / ( p0(k) - p0(k+1) )
-                  nlten_sub  = g_active * comsub(k) * (  tr0(k+1,ixnumliq) -  tr0(k,ixnumliq) ) / ( p0(k) - p0(k+1) )
-                  niten_sub  = g_active * comsub(k) * (  tr0(k+1,ixnumice) -  tr0(k,ixnumice) ) / ( p0(k) - p0(k+1) )
+                  thlten_sub = g * comsub(k) * ( thl0(k+1) - thl0(k) ) / ( p0(k) - p0(k+1) )
+                  qtten_sub  = g * comsub(k) * (  qt0(k+1) -  qt0(k) ) / ( p0(k) - p0(k+1) )
+                  qlten_sub  = g * comsub(k) * (  ql0(k+1) -  ql0(k) ) / ( p0(k) - p0(k+1) )
+                  qiten_sub  = g * comsub(k) * (  qi0(k+1) -  qi0(k) ) / ( p0(k) - p0(k+1) )
+                  nlten_sub  = g * comsub(k) * (  tr0(k+1,ixnumliq) -  tr0(k,ixnumliq) ) / ( p0(k) - p0(k+1) )
+                  niten_sub  = g * comsub(k) * (  tr0(k+1,ixnumice) -  tr0(k,ixnumice) ) / ( p0(k) - p0(k+1) )
                  !*********************************************************************
                  !Calculate water tracer condensate tendency due to vertical air motion
                  !*********************************************************************
                   if(trace_water) then
                    !NOTE:  May only need one subsidence variable. - JN
                     do m=1,wtrc_nwset !Loop over water species
-                      wtlten_sub(m) = g_active*comsub(k)*(tr0(k+1,int(wtrc_iatype_post(m,2))) - &
-                                                         tr0(k,int(wtrc_iatype_post(m,2))))/( p0(k) - p0(k+1))
-                      wtiten_sub(m) = g_active*comsub(k)*(tr0(k+1,int(wtrc_iatype_post(m,3))) - &
-                                                         tr0(k,int(wtrc_iatype_post(m,3))))/( p0(k) - p0(k+1))
+                      wtlten_sub(m) = g*comsub(k)*(tr0(k+1,wtrc_iatype(m,iwtliq)) - &
+                                                         tr0(k,wtrc_iatype(m,iwtliq)))/( p0(k) - p0(k+1))
+                      wtiten_sub(m) = g*comsub(k)*(tr0(k+1,wtrc_iatype(m,iwtice)) - &
+                                                         tr0(k,wtrc_iatype(m,iwtice)))/( p0(k) - p0(k+1))
                     end do
                   end if
-                 !*********************************************************************** 
+                 !***********************************************************************
              endif
           else
               if( k .eq. 1 ) then
@@ -10913,21 +7044,21 @@ end subroutine uwshcu_readnl
                     wtiten_sub(:) = 0._r8
                   end if
               else
-                  thlten_sub = g_active * comsub(k) * ( thl0(k) - thl0(k-1) ) / ( p0(k-1) - p0(k) )
-                  qtten_sub  = g_active * comsub(k) * (  qt0(k) -  qt0(k-1) ) / ( p0(k-1) - p0(k) )
-                  qlten_sub  = g_active * comsub(k) * (  ql0(k) -  ql0(k-1) ) / ( p0(k-1) - p0(k) )
-                  qiten_sub  = g_active * comsub(k) * (  qi0(k) -  qi0(k-1) ) / ( p0(k-1) - p0(k) )
-                  nlten_sub  = g_active * comsub(k) * (  tr0(k,ixnumliq) -  tr0(k-1,ixnumliq) ) / ( p0(k-1) - p0(k) )
-                  niten_sub  = g_active * comsub(k) * (  tr0(k,ixnumice) -  tr0(k-1,ixnumice) ) / ( p0(k-1) - p0(k) )
+                  thlten_sub = g * comsub(k) * ( thl0(k) - thl0(k-1) ) / ( p0(k-1) - p0(k) )
+                  qtten_sub  = g * comsub(k) * (  qt0(k) -  qt0(k-1) ) / ( p0(k-1) - p0(k) )
+                  qlten_sub  = g * comsub(k) * (  ql0(k) -  ql0(k-1) ) / ( p0(k-1) - p0(k) )
+                  qiten_sub  = g * comsub(k) * (  qi0(k) -  qi0(k-1) ) / ( p0(k-1) - p0(k) )
+                  nlten_sub  = g * comsub(k) * (  tr0(k,ixnumliq) -  tr0(k-1,ixnumliq) ) / ( p0(k-1) - p0(k) )
+                  niten_sub  = g * comsub(k) * (  tr0(k,ixnumice) -  tr0(k-1,ixnumice) ) / ( p0(k-1) - p0(k) )
                  !*********************************************************************
                  !Calculate water tracer condensate tendency due to vertical air motion
                  !*********************************************************************
                   if(trace_water) then
                     do m=1,wtrc_nwset !Loop over water species
-                      wtlten_sub(m) = g_active * comsub(k) * (  tr0(k,int(wtrc_iatype_post(m,2))) - &
-                                                         tr0(k-1,int(wtrc_iatype_post(m,2))) ) / ( p0(k-1) - p0(k) )
-                      wtiten_sub(m) = g_active * comsub(k) * (  tr0(k,int(wtrc_iatype_post(m,3))) - &
-                                                         tr0(k-1,int(wtrc_iatype_post(m,3))) ) / ( p0(k-1) - p0(k) )
+                      wtlten_sub(m) = g * comsub(k) * (  tr0(k,wtrc_iatype(m,iwtliq)) - &
+                                                         tr0(k-1,wtrc_iatype(m,iwtliq)) ) / ( p0(k-1) - p0(k) )
+                      wtiten_sub(m) = g * comsub(k) * (  tr0(k,wtrc_iatype(m,iwtice)) - &
+                                                         tr0(k-1,wtrc_iatype(m,iwtice)) ) / ( p0(k-1) - p0(k) )
                     end do
                   end if
                  !*********************************************************************
@@ -10944,84 +7075,56 @@ end subroutine uwshcu_readnl
         ! qiten_sink(k) = ( qij - qi0(k) ) / dt
           qlten_sink(k) = max( qlten_sub, - ql0(k) / dt ) ! For consistency with prognostic macrophysics scheme
           qiten_sink(k) = max( qiten_sub, - qi0(k) / dt ) ! For consistency with prognostic macrophysics scheme
-          nlten_sink(k) = max( nlten_sub, - tr0(k,ixnumliq) / dt ) 
+          nlten_sink(k) = max( nlten_sub, - tr0(k,ixnumliq) / dt )
           niten_sink(k) = max( niten_sub, - tr0(k,ixnumice) / dt )
           !*************
           !Water tracers:
           !*************
           if(trace_water) then
             do m=1,wtrc_nwset !Loop over water species
-              wtten_sink_liq(k,m) = max( wtlten_sub(m), - tr0(k,int(wtrc_iatype_post(m,2))) / dt )
-              wtten_sink_ice(k,m) = max( wtiten_sub(m), - tr0(k,int(wtrc_iatype_post(m,3))) / dt )
+              wtten_sink_liq(k,m) = max( wtlten_sub(m), - tr0(k,wtrc_iatype(m,iwtliq)) / dt )
+              wtten_sink_ice(k,m) = max( wtiten_sub(m), - tr0(k,wtrc_iatype(m,iwtice)) / dt )
             end do
           end if
          !**************
        end do
-       else
-          id_check = int(comp_sub_loop_id_check_c)
-          if( comp_sub_conden_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          endif
-       endif
 
        ! --------------------------------------------- !
        !                                               !
-       ! Calculate convective tendencies at each layer ! 
+       ! Calculate convective tendencies at each layer !
        !                                               !
        ! --------------------------------------------- !
-       
+
        ! ----------------- !
        ! Momentum tendency !
        ! ----------------- !
-       
-       if (use_native_init_shell_impl) then
+
        do k = 1, kpen
-          km1 = k - 1 
-          uten(k) = ( uflx(km1) - uflx(k) ) * g_active / dp0(k)
-          vten(k) = ( vflx(km1) - vflx(k) ) * g_active / dp0(k)
+          km1 = k - 1
+          uten(k) = ( uflx(km1) - uflx(k) ) * g / dp0(k)
+          vten(k) = ( vflx(km1) - vflx(k) ) * g / dp0(k)
           uf(k)   = u0(k) + uten(k) * dt
           vf(k)   = v0(k) + vten(k) * dt
         ! do m = 1, ncnst
-        !    trten(k,m) = ( trflx(km1,m) - trflx(k,m) ) * g_active / dp0(k)
+        !    trten(k,m) = ( trflx(km1,m) - trflx(k,m) ) * g / dp0(k)
         !  ! Limit trten(k,m) such that negative value is not developed.
         !  ! This limitation does not conserve grid-mean tracers and future
         !  ! refinement is required for tracer-conserving treatment.
-        !    trten(k,m) = max(trten(k,m),-tr0(k,m)/dt)              
+        !    trten(k,m) = max(trten(k,m),-tr0(k,m)/dt)
         ! enddo
-       end do        
-       endif
+       end do
 
        ! ----------------------------------------------------------------- !
-       ! Tendencies of thermodynamic variables.                            ! 
+       ! Tendencies of thermodynamic variables.                            !
        ! This part requires a careful treatment of bulk cloud microphysics.!
-       ! Relocations of 'precipitable condensates' either into the surface ! 
+       ! Relocations of 'precipitable condensates' either into the surface !
        ! or into the tendency of 'krel' layer will be performed just after !
-       ! finishing the below 'do-loop'.                                    !        
+       ! finishing the below 'do-loop'.                                    !
        ! ----------------------------------------------------------------- !
-       
-       if (use_native_init_shell_impl) then
-          rliq    = 0._r8
-          rainflx = 0._r8
-          snowflx = 0._r8
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_thermo_prelim_shell_entered()
-          call uwshcu_comp_sub_sink_thermo_prelim_shell_codon(int(mkx, c_int64_t), &
-               int(ncnst, c_int64_t), wtrc_nwset_post_c, int(kpen, c_int64_t), &
-               int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), frc_rasn, g_active, dt, &
-               c_loc(ql0), c_loc(qi0), c_loc(tr0), c_loc(wtrc_iatype_post), &
-               c_loc(qlten_sub_tmp), c_loc(qiten_sub_tmp), c_loc(nlten_sub_tmp), &
-               c_loc(niten_sub_tmp), c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp), &
-               c_loc(qlten_sink), c_loc(qiten_sink), c_loc(nlten_sink), c_loc(niten_sink), &
-               c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), c_loc(dp0), c_loc(u0), c_loc(v0), &
-               c_loc(uflx), c_loc(vflx), c_loc(umf), c_loc(uten), c_loc(vten), c_loc(uf), &
-               c_loc(vf), c_loc(dwten), c_loc(diten), c_loc(wtdwten), c_loc(wtditen), &
-               c_loc(qrten), c_loc(qsten), c_loc(wtrpten), c_loc(wtspten), c_loc(slflx), &
-               c_loc(qtflx), c_loc(wtflx), c_loc(slten), c_loc(qtten), c_loc(wttotten), &
-               c_loc(rliq), c_loc(rainflx), c_loc(snowflx))
-       endif
+
+       rliq    = 0._r8
+       rainflx = 0._r8
+       snowflx = 0._r8
 
        do k = 1, kpen
 
@@ -11044,61 +7147,60 @@ end subroutine uwshcu_readnl
           !    process down to the desinated layer ( either release layer of surface ).    !
           ! ------------------------------------------------------------------------------ !
 
-          ! ------------------------------------------------------------------------- !     
+          ! ------------------------------------------------------------------------- !
           ! 'dwten(k)','diten(k)' : Production rate of condensate  within the layer k !
           !      [ kg/kg/s ]        by the expels of condensate from cumulus updraft. !
           ! It is important to note that in terms of moisture tendency equation, this !
           ! is a 'source' term of enviromental 'qt'.  More importantly,  these source !
           ! are already counted in the turbulent heat and moisture fluxes we computed !
-          ! until now, assuming all the expelled condensate remain in the layer where ! 
+          ! until now, assuming all the expelled condensate remain in the layer where !
           ! it was formed. Thus, in calculation of 'qtten' and 'slten' below, we MUST !
           ! NOT add or subtract these terms explicitly in order not to double or miss !
           ! count, unless some expelled condensates fall down out of the layer.  Note !
           ! this falling-down process ( i.e., precipitation process ) and  associated !
           ! 'qtten' and 'slten' and production of surface precipitation flux  will be !
-          ! treated later in 'zm_conv_evap' in 'convect_shallow_tend' subroutine.     ! 
+          ! treated later in 'zm_conv_evap' in 'convect_shallow_tend' subroutine.     !
           ! In below, we are converting expelled cloud condensate into correct unit.  !
           ! I found that below use of '0.5 * (umf(k-1) + umf(k))' causes conservation !
           ! errors at some columns in global simulation. So, I returned to originals. !
           ! This will cause no precipitation flux at 'kpen' layer since umf(kpen)=0.  !
           ! ------------------------------------------------------------------------- !
 
-          if (use_native_init_shell_impl) then
-          dwten(k) = dwten(k) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g_active / dp0(k) ! [ kg/kg/s ]
-          diten(k) = diten(k) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g_active / dp0(k) ! [ kg/kg/s ]
+          dwten(k) = dwten(k) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g / dp0(k) ! [ kg/kg/s ]
+          diten(k) = diten(k) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g / dp0(k) ! [ kg/kg/s ]
 
-          ! dwten(k) = dwten(k) * umf(k) * g_active / dp0(k) ! [ kg/kg/s ]
-          ! diten(k) = diten(k) * umf(k) * g_active / dp0(k) ! [ kg/kg/s ]
+          ! dwten(k) = dwten(k) * umf(k) * g / dp0(k) ! [ kg/kg/s ]
+          ! diten(k) = diten(k) * umf(k) * g / dp0(k) ! [ kg/kg/s ]
 
           !*************
           !Water tracers:
           !*************
-           if(trace_water) then 
+           if(trace_water) then
              do m=1,wtrc_nwset !Loop over water species
-               wtdwten(k,m) = wtdwten(k,m) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g_active / dp0(k) ! [ kg/kg/s ]
-               wtditen(k,m) = wtditen(k,m) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g_active / dp0(k) ! [ kg/kg/s ]
+               wtdwten(k,m) = wtdwten(k,m) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g / dp0(k) ! [ kg/kg/s ]
+               wtditen(k,m) = wtditen(k,m) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g / dp0(k) ! [ kg/kg/s ]
              end do
            end if
           !*************
 
           ! --------------------------------------------------------------------------- !
           ! 'qrten(k)','qsten(k)' : Production rate of rain and snow within the layer k !
-          !     [ kg/kg/s ]         by cumulus expels of condensates to the environment.!         
+          !     [ kg/kg/s ]         by cumulus expels of condensates to the environment.!
           ! This will be falled-out of the layer where it was formed and will be dumped !
           ! dumped into the release layer assuming that there is no evaporative cooling !
-          ! while precipitable condensate moves to the relaes level. This is reasonable ! 
+          ! while precipitable condensate moves to the relaes level. This is reasonable !
           ! assumtion if cumulus is purely vertical and so the path along which precita !
           ! ble condensate falls is fully saturared. This 're-allocation' process of    !
           ! precipitable condensate into the release layer is fully described in this   !
           ! convection scheme. After that, the dumped water into the release layer will !
-          ! falling down across the base of release layer ( or LCL, if  exact treatment ! 
+          ! falling down across the base of release layer ( or LCL, if  exact treatment !
           ! is required ) and will be allowed to be evaporated in layers below  release !
           ! layer, and finally non-zero surface precipitation flux will be calculated.  !
           ! This latter process will be separately treated 'zm_conv_evap' routine.      !
           ! --------------------------------------------------------------------------- !
 
           qrten(k) = frc_rasn * dwten(k)
-          qsten(k) = frc_rasn * diten(k) 
+          qsten(k) = frc_rasn * diten(k)
 
          !*************
          !Water tracers:
@@ -11110,9 +7212,9 @@ end subroutine uwshcu_readnl
             end do
           end if
          !*************
- 
-          ! ----------------------------------------------------------------------- !         
-          ! 'rainflx','snowflx' : Cumulative rain and snow flux integrated from the ! 
+
+          ! ----------------------------------------------------------------------- !
+          ! 'rainflx','snowflx' : Cumulative rain and snow flux integrated from the !
           !     [ kg/m2/s ]       release leyer to the 'kpen' layer. Note that even !
           ! though wtw(kpen) < 0 (and umf(kpen) = 0) at the top interface of 'kpen' !
           ! layer, 'dwten(kpen)' and diten(kpen)  were calculated after calculating !
@@ -11121,15 +7223,15 @@ end subroutine uwshcu_readnl
           ! layers from 'krel' to 'kpen', including the two layers.                 !
           ! ----------------------------------------------------------------------- !
 
-          rainflx = rainflx + qrten(k) * dp0(k) / g_active
-          snowflx = snowflx + qsten(k) * dp0(k) / g_active
+          rainflx = rainflx + qrten(k) * dp0(k) / g
+          snowflx = snowflx + qsten(k) * dp0(k) / g
 
           ! ------------------------------------------------------------------------ !
           ! 'slten(k)','qtten(k)'                                                    !
           !  Note that 'slflx(k)' and 'qtflx(k)' we have calculated already included !
           !  all the contributions of (1) expels of condensate (dwten(k), diten(k)), !
           !  (2) mass detrainment ( delta * umf * ( qtu - qt ) ), & (3) compensating !
-          !  subsidence ( M * dqt / dz ). Thus 'slflx(k)' and 'qtflx(k)' we computed ! 
+          !  subsidence ( M * dqt / dz ). Thus 'slflx(k)' and 'qtflx(k)' we computed !
           !  is a hybrid turbulent flux containing one part of 'source' term - expel !
           !  of condensate. In order to calculate 'slten' and 'qtten', we should add !
           !  additional 'source' term, if any. If the expelled condensate falls down !
@@ -11137,35 +7239,34 @@ end subroutine uwshcu_readnl
           !  term.  Note also that we included frictional heating terms in the below !
           !  calculation of 'slten'.                                                 !
           ! ------------------------------------------------------------------------ !
-                   
-          slten(k) = ( slflx(km1) - slflx(k) ) * g_active / dp0(k)
+
+          slten(k) = ( slflx(km1) - slflx(k) ) * g / dp0(k)
           if( k .eq. 1 ) then
-              slten(k) = slten(k) - g_active / 4._r8 / dp0(k) * (                            &
-                                    uflx(k)*(uf(k+1) - uf(k) + u0(k+1) - u0(k)) +     & 
+              slten(k) = slten(k) - g / 4._r8 / dp0(k) * (                            &
+                                    uflx(k)*(uf(k+1) - uf(k) + u0(k+1) - u0(k)) +     &
                                     vflx(k)*(vf(k+1) - vf(k) + v0(k+1) - v0(k)))
           elseif( k .ge. 2 .and. k .le. kpen-1 ) then
-              slten(k) = slten(k) - g_active / 4._r8 / dp0(k) * (                            &
+              slten(k) = slten(k) - g / 4._r8 / dp0(k) * (                            &
                                     uflx(k)*(uf(k+1) - uf(k) + u0(k+1) - u0(k)) +     &
                                     uflx(k-1)*(uf(k) - uf(k-1) + u0(k) - u0(k-1)) +   &
                                     vflx(k)*(vf(k+1) - vf(k) + v0(k+1) - v0(k)) +     &
                                     vflx(k-1)*(vf(k) - vf(k-1) + v0(k) - v0(k-1)))
           elseif( k .eq. kpen ) then
-              slten(k) = slten(k) - g_active / 4._r8 / dp0(k) * (                            &
+              slten(k) = slten(k) - g / 4._r8 / dp0(k) * (                            &
                                     uflx(k-1)*(uf(k) - uf(k-1) + u0(k) - u0(k-1)) +   &
                                     vflx(k-1)*(vf(k) - vf(k-1) + v0(k) - v0(k-1)))
           endif
-          qtten(k) = ( qtflx(km1) - qtflx(k) ) * g_active / dp0(k)
+          qtten(k) = ( qtflx(km1) - qtflx(k) ) * g / dp0(k)
 
           !****************************************************************
           !Calculate water tracer tendencies from moisture flux convergence:
           !****************************************************************
           if(trace_water) then
             do m=1,wtrc_nwset !Loop over water species
-              wttotten(k,m) = ( wtflx(km1,m)-wtflx(k,m) ) * g_active /dp0(k)
+              wttotten(k,m) = ( wtflx(km1,m)-wtflx(k,m) ) * g /dp0(k)
             end do
           end if
           !****************************************************************
-          endif
 
           ! ---------------------------------------------------------------------------- !
           ! Compute condensate tendency, including reserved condensate                   !
@@ -11174,7 +7275,7 @@ end subroutine uwshcu_readnl
           ! entrainment exists. Penetrative entrained air is assumed not to contain any  !
           ! condensate.                                                                  !
           ! ---------------------------------------------------------------------------- !
-  
+
           ! Compute in-cumulus condensate at the layer mid-point.
 
           if( k .lt. krel .or. k .gt. kpen ) then
@@ -11184,313 +7285,124 @@ end subroutine uwshcu_readnl
               qij     = 0._r8
              !*************
              !Water tracers:
-             !************* 
+             !*************
              if(trace_water) then
-               if (use_native_init_shell_impl) then
-                  wlu_mid(:) = 0._r8
-                  wiu_mid(:) = 0._r8
-                  wtout(:,:) = 0._r8
-               endif
+               wlu_mid(:) = 0._r8
+               wiu_mid(:) = 0._r8
+               wtout(:,:) = 0._r8
              end if
             !*************
-              if (.not. use_native_init_shell_impl) then
-                 call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 call uwshcu_thermo_conden_condensate_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), &
-                      int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      0_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g_active, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), qlj, qij, ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), prel, ppen, &
-                      0._r8, 0._r8, 0._r8, c_loc(qlubelow), c_loc(qiubelow), c_loc(qlu_mid), &
-                      c_loc(qiu_mid), c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                      c_loc(thermo_conden_exit_code_c), c_null_ptr, c_loc(qc_l(k)), &
-                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
-                      c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
-                 if(trace_water) then
-                    call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
-                    call uwshcu_thermo_wtrc_midpoint_shell_codon(0_c_int64_t, int(wtrc_nwset, c_int64_t), &
-                         merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
-                         c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
-                         c_loc(wlu_top), c_loc(wiu_top))
-                 endif
-              endif
-          elseif( k .eq. krel ) then 
-              if (use_native_init_shell_impl) then
-                 if(trace_water) then
-                   wtout(:,:) = 0.0_r8
-                   call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,&
-                                   qv0=qtu(krel-1),tr0=wtu(krel-1,:),wtout=wtout)
-                 else
-                   call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
-                 end if
-                 if( id_check .eq. 1 ) then
-                     exit_conden(i) = 1._r8
-                     id_exit = .true.
-                     go to 333
-                 endif
+          elseif( k .eq. krel ) then
+              if(trace_water) then
+                wtout(:,:) = 0.0_r8
+                call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,&
+                                qv0=qtu(krel-1),tr0=wtu(krel-1,:),wtout=wtout)
               else
-                 call uwshcu_log_thermo_conden_callback_shell_entered()
-                 call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 thermo_conden_id_check_c = 0_c_int64_t
-                 wtrc_nwset_post_c = 0_c_int64_t
-                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                 call uwshcu_thermo_conden_condensate_conden_shell_codon(1_c_int64_t, int(k, c_int64_t), &
-                      int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
-                      merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-                      merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), &
-                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
-                      0_c_int64_t, 0_c_int64_t, 0._r8, g_active, 0._r8, 0._r8, 0._r8, 0._r8, &
-                      0._r8, ql0(k), qi0(k), tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, &
-                      thlu_top, qtu_top, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
-                      c_loc(qse), c_loc(thermo_conden_id_check_c), c_loc(qlubelow), &
-                      c_loc(qiubelow), c_loc(qlu_mid), c_loc(qiu_mid), c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), &
-                      c_loc(wtu_top), c_loc(wtout), c_loc(wtrc_iatype_post), real(wtrc_qmin_active, c_double), &
-                      c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd))
-                 id_check = int(thermo_conden_id_check_c)
-                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
-                     id_exit = .true.
-                     go to 333
-                 endif
+                call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
+              end if
+              if( id_check .eq. 1 ) then
+                  exit_conden(i) = 1._r8
+                  id_exit = .true.
+                  go to 333
               endif
-              if (use_native_init_shell_impl) then
-                 qlubelow = qlj
-                 qiubelow = qij
-              endif
+              qlubelow = qlj
+              qiubelow = qij
               !*************
               !Water tracers:
               !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
-                  wlubelow(:) = 0._r8
-                  wiubelow(:) = 0._r8
-                  do m=1,wtrc_nwset !Loop over water species
-                    wlubelow(m) = wtout(m,2)
-                    wiubelow(m) = wtout(m,3)
-                  end do
-                else
-                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
-                  call uwshcu_thermo_wtrc_midpoint_shell_codon(1_c_int64_t, int(wtrc_nwset, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
-                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
-                       c_loc(wlu_top), c_loc(wiu_top))
-                endif
+                wlubelow(:) = 0._r8
+                wiubelow(:) = 0._r8
+                do m=1,wtrc_nwset !Loop over water species
+                  wlubelow(m) = wtout(m,2)
+                  wiubelow(m) = wtout(m,3)
+                end do
               end if
               !*************
-              if (use_native_init_shell_impl) then
-                 if(trace_water) then
-                   wtout(:,:) = 0.0_r8
-                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
-                 else
-                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-                 end if
-                 if( id_check .eq. 1 ) then
-                     exit_conden(i) = 1._r8
-                     id_exit = .true.
-                     go to 333
-                 end if
+              if(trace_water) then
+                wtout(:,:) = 0.0_r8
+                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
               else
-                 call uwshcu_log_thermo_conden_callback_shell_entered()
-                 call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 thermo_conden_id_check_c = 0_c_int64_t
-                 wtrc_nwset_post_c = 0_c_int64_t
-                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                 call uwshcu_thermo_conden_condensate_conden_shell_codon(2_c_int64_t, int(k, c_int64_t), &
-                      int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
-                      merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-                      merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), &
-                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g_active, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, thlu_top, qtu_top, &
-                      c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-                      c_loc(thermo_conden_id_check_c), c_loc(qlubelow), c_loc(qiubelow), &
-                      c_loc(qlu_mid), c_loc(qiu_mid), c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
-                      c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
-                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), &
-                      c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), c_loc(wtu_top), c_loc(wtout), &
-                      c_loc(wtrc_iatype_post), real(wtrc_qmin_active, c_double), &
-                      c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd))
-                 id_check = int(thermo_conden_id_check_c)
-                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
-                     id_exit = .true.
-                     go to 333
-                 endif
-              endif
-              if (use_native_init_shell_impl) then
-                 qlu_mid = 0.5_r8 * ( qlubelow + qlj ) * ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-                 qiu_mid = 0.5_r8 * ( qiubelow + qij ) * ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-              endif
+                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+              end if
+              if( id_check .eq. 1 ) then
+                  exit_conden(i) = 1._r8
+                  id_exit = .true.
+                  go to 333
+              end if
+              qlu_mid = 0.5_r8 * ( qlubelow + qlj ) * ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+              qiu_mid = 0.5_r8 * ( qiubelow + qij ) * ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
              !*************
              !Water tracers:
              !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
-                  do m=1,wtrc_nwset !Loop over water species
-                    wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) ) * &
-                                                     ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-                    wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) ) * &
-                                                     ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-                  end do
-                else
-                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
-                  call uwshcu_thermo_wtrc_midpoint_shell_codon(2_c_int64_t, int(wtrc_nwset, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
-                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
-                       c_loc(wlu_top), c_loc(wiu_top))
-                endif
+                do m=1,wtrc_nwset !Loop over water species
+                  wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) ) * &
+                                                   ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+                  wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) ) * &
+                                                   ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+                end do
               end if
              !*************
-          elseif( k .eq. kpen ) then 
-              if (use_native_init_shell_impl) then
-                 if(trace_water) then
-                   wtout(:,:) = 0.0_r8
-                   call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij, &
-                               qse,id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
-                 else
-                   call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-                 end if
-                 if( id_check .eq. 1 ) then
-                     exit_conden(i) = 1._r8
-                     id_exit = .true.
-                     go to 333
-                 end if
+          elseif( k .eq. kpen ) then
+              if(trace_water) then
+                wtout(:,:) = 0.0_r8
+                call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij, &
+                            qse,id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
               else
-                 call uwshcu_log_thermo_conden_callback_shell_entered()
-                 call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 thermo_conden_id_check_c = 0_c_int64_t
-                 wtrc_nwset_post_c = 0_c_int64_t
-                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                 call uwshcu_thermo_conden_condensate_conden_shell_codon(3_c_int64_t, int(k, c_int64_t), &
-                      int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
-                      merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-                      merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), &
-                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g_active, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, thlu_top, qtu_top, &
-                      c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-                      c_loc(thermo_conden_id_check_c), c_loc(qlubelow), c_loc(qiubelow), &
-                      c_loc(qlu_mid), c_loc(qiu_mid), c_loc(qlu_top), c_loc(qiu_top), &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
-                      c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
-                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), &
-                      c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), c_loc(wtu_top), c_loc(wtout), &
-                      c_loc(wtrc_iatype_post), real(wtrc_qmin_active, c_double), &
-                      c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd))
-                 id_check = int(thermo_conden_id_check_c)
-                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
-                     id_exit = .true.
-                     go to 333
-                 endif
-              endif
-              if (use_native_init_shell_impl) then
-                 qlu_mid = 0.5_r8 * ( qlubelow + qlj ) * ( -ppen )        /( ps0(k-1) - ps0(k) )
-                 qiu_mid = 0.5_r8 * ( qiubelow + qij ) * ( -ppen )        /( ps0(k-1) - ps0(k) )
-                 qlu_top = qlj
-                 qiu_top = qij
-              endif
+                call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+              end if
+              if( id_check .eq. 1 ) then
+                  exit_conden(i) = 1._r8
+                  id_exit = .true.
+                  go to 333
+              end if
+              qlu_mid = 0.5_r8 * ( qlubelow + qlj ) * ( -ppen )        /( ps0(k-1) - ps0(k) )
+              qiu_mid = 0.5_r8 * ( qiubelow + qij ) * ( -ppen )        /( ps0(k-1) - ps0(k) )
+              qlu_top = qlj
+              qiu_top = qij
              !*************
              !Water tracers:
              !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
-                  do m=1,wtrc_nwset !Loop over water species
-                    wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )* &
-                                                     ( -ppen )/( ps0(k-1) - ps0(k) )
-                    wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )* &
-                                                     ( -ppen )/( ps0(k-1) - ps0(k) )
-                    wlu_top(m) = wtout(m,2)
-                    wiu_top(m) = wtout(m,3)
-                  end do
-                else
-                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
-                  call uwshcu_thermo_wtrc_midpoint_shell_codon(3_c_int64_t, int(wtrc_nwset, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
-                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
-                       c_loc(wlu_top), c_loc(wiu_top))
-                endif
+                do m=1,wtrc_nwset !Loop over water species
+                  wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )* &
+                                                   ( -ppen )/( ps0(k-1) - ps0(k) )
+                  wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )* &
+                                                   ( -ppen )/( ps0(k-1) - ps0(k) )
+                  wlu_top(m) = wtout(m,2)
+                  wiu_top(m) = wtout(m,3)
+                end do
               end if
              !*************
           else
-              if (use_native_init_shell_impl) then
-                 if(trace_water) then
-                   wtout(:,:) = 0.0_r8
-                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
-                 else
-                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-                 end if
-                 if( id_check .eq. 1 ) then
-                     exit_conden(i) = 1._r8
-                     id_exit = .true.
-                     go to 333
-                 end if
+              if(trace_water) then
+                wtout(:,:) = 0.0_r8
+                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
               else
-                 call uwshcu_log_thermo_conden_callback_shell_entered()
-                 call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 thermo_conden_id_check_c = 0_c_int64_t
-                 wtrc_nwset_post_c = 0_c_int64_t
-                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                 call uwshcu_thermo_conden_condensate_conden_shell_codon(4_c_int64_t, int(k, c_int64_t), &
-                      int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
-                      merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-                      merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), &
-                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
-                      merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g_active, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, thlu_top, qtu_top, &
-                      c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-                      c_loc(thermo_conden_id_check_c), c_loc(qlubelow), c_loc(qiubelow), &
-                      c_loc(qlu_mid), c_loc(qiu_mid), c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
-                      c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
-                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), &
-                      c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), c_loc(wtu_top), c_loc(wtout), &
-                      c_loc(wtrc_iatype_post), real(wtrc_qmin_active, c_double), &
-                      c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd))
-                 id_check = int(thermo_conden_id_check_c)
-                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
-                     id_exit = .true.
-                     go to 333
-                 endif
-              endif
-              if (use_native_init_shell_impl) then
-                 qlu_mid = 0.5_r8 * ( qlubelow + qlj )
-                 qiu_mid = 0.5_r8 * ( qiubelow + qij )
-              endif
+                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+              end if
+              if( id_check .eq. 1 ) then
+                  exit_conden(i) = 1._r8
+                  id_exit = .true.
+                  go to 333
+              end if
+              qlu_mid = 0.5_r8 * ( qlubelow + qlj )
+              qiu_mid = 0.5_r8 * ( qiubelow + qij )
              !*************
              !Water tracers:
              !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
-                  do m=1,wtrc_nwset
-                    wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )
-                    wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )
-                  end do
-                else
-                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
-                  call uwshcu_thermo_wtrc_midpoint_shell_codon(4_c_int64_t, int(wtrc_nwset, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
-                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
-                       c_loc(wlu_top), c_loc(wiu_top))
-                endif
+                do m=1,wtrc_nwset
+                  wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )
+                  wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )
+                end do
               end if
              !*************
           endif
-          if (use_native_init_shell_impl) then
-          qlubelow = qlj       
-          qiubelow = qij       
- 
+          qlubelow = qlj
+          qiubelow = qij
+
          !*************
          !Water tracers:
          !*************
@@ -11503,207 +7415,129 @@ end subroutine uwshcu_readnl
             end do
           end if
          !*************
-          endif
 
           ! 1. Sustained Precipitation
 
-          if (use_native_init_shell_impl) then
-             qc_l(k) = ( 1._r8 - frc_rasn ) * dwten(k) ! [ kg/kg/s ]
-             qc_i(k) = ( 1._r8 - frc_rasn ) * diten(k) ! [ kg/kg/s ]
-          endif
+          qc_l(k) = ( 1._r8 - frc_rasn ) * dwten(k) ! [ kg/kg/s ]
+          qc_i(k) = ( 1._r8 - frc_rasn ) * diten(k) ! [ kg/kg/s ]
 
-         !*************
-         !Water tracers:
-         !*************
-          if (use_native_init_shell_impl) then
+          !*************
+          !Water tracers:
+          !*************
           do m=1,wtrc_nwset
             wtqc_liq(k,m) = ( 1._r8 - frc_rasn ) * wtdwten(k,m) ! [ kg/kg/s ]
             wtqc_ice(k,m) = ( 1._r8 - frc_rasn ) * wtditen(k,m)
           end do
-          else
-             call uwshcu_log_thermo_wtrc_state_sustain_shell_entered()
-             call uwshcu_thermo_wtrc_state_sustain_shell_codon(int(mkx, c_int64_t), &
-                  int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
-                  merge(1_c_int64_t, 0_c_int64_t, trace_water), frc_rasn, qlj, qij, &
-                  c_loc(qlubelow), c_loc(qiubelow), c_loc(wtout), c_loc(wlubelow), &
-                  c_loc(wiubelow), c_loc(wtdwten), c_loc(wtditen), c_loc(wtqc_liq), &
-                  c_loc(wtqc_ice))
-          endif
           !*************
 
           ! 2. Detrained Condensate
 
-          if( k .le. kbup ) then 
-              if (use_native_init_shell_impl) then
-              qc_l(k) = qc_l(k) + g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * qlu_mid ! [ kg/kg/s ]
-              qc_i(k) = qc_i(k) + g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * qiu_mid ! [ kg/kg/s ]
-              qc_lm   =         - g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * ql0(k)
-              qc_im   =         - g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * qi0(k)
+          if( k .le. kbup ) then
+              qc_l(k) = qc_l(k) + g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * qlu_mid ! [ kg/kg/s ]
+              qc_i(k) = qc_i(k) + g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * qiu_mid ! [ kg/kg/s ]
+              qc_lm   =         - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * ql0(k)
+              qc_im   =         - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * qi0(k)
             ! Below 'nc_lm', 'nc_im' should be used only when frc_rasn = 1.
-              nc_lm   =         - g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,ixnumliq)
-              nc_im   =         - g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,ixnumice)
-              endif
+              nc_lm   =         - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,ixnumliq)
+              nc_im   =         - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,ixnumice)
              !*************
              !Water tracers:
              !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
                 do m=1,wtrc_nwset
-                  wtqc_liq(k,m) = wtqc_liq(k,m)+ g_active * 0.5_r8 * &
+                  wtqc_liq(k,m) = wtqc_liq(k,m)+ g * 0.5_r8 * &
                                               ( umf(k-1) + umf(k) ) * fdr(k) * wlu_mid(m)         ! [ kg/kg/s ]
-                  wtqc_ice(k,m) = wtqc_ice(k,m)+ g_active * 0.5_r8 * &
+                  wtqc_ice(k,m) = wtqc_ice(k,m)+ g * 0.5_r8 * &
                                               ( umf(k-1) + umf(k) ) * fdr(k) * wiu_mid(m)         ! [ kg/kg/s ]
-                  wtqcm_liq(m)= - g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,int(wtrc_iatype_post(m,2)))
-                  wtqcm_ice(m)= - g_active * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,int(wtrc_iatype_post(m,3)))
+                  wtqcm_liq(m)= - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,wtrc_iatype(m,iwtliq))
+                  wtqcm_ice(m)= - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,wtrc_iatype(m,iwtice))
                 end do
-                endif
               end if
              !*************
           else
-              if (use_native_init_shell_impl) then
               qc_lm   = 0._r8
               qc_im   = 0._r8
               nc_lm   = 0._r8
               nc_im   = 0._r8
-              endif
              !*************
              !Water tracers:
              !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
                 wtqcm_liq(:)= 0._r8
                 wtqcm_ice(:)= 0._r8
-                endif
               end if
              !*************
           endif
 
-          ! 3. Detached Updraft 
+          ! 3. Detached Updraft
 
           if( k .eq. kbup ) then
-              if (use_native_init_shell_impl) then
-              qc_l(k) = qc_l(k) + g_active * umf(k) * qlj     / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              qc_i(k) = qc_i(k) + g_active * umf(k) * qij     / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              qc_lm   = qc_lm   - g_active * umf(k) * ql0(k)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              qc_im   = qc_im   - g_active * umf(k) * qi0(k)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              nc_lm   = nc_lm   - g_active * umf(k) * tr0(k,ixnumliq)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              nc_im   = nc_im   - g_active * umf(k) * tr0(k,ixnumice)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              endif
+              qc_l(k) = qc_l(k) + g * umf(k) * qlj     / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              qc_i(k) = qc_i(k) + g * umf(k) * qij     / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              qc_lm   = qc_lm   - g * umf(k) * ql0(k)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              qc_im   = qc_im   - g * umf(k) * qi0(k)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              nc_lm   = nc_lm   - g * umf(k) * tr0(k,ixnumliq)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              nc_im   = nc_im   - g * umf(k) * tr0(k,ixnumice)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
              !*************
              !Water tracers:
              !*************
              if(trace_water) then
-               if (use_native_init_shell_impl) then
                do m=1,wtrc_nwset
-                 wtqc_liq(k,m) = wtqc_liq(k,m) + g_active * umf(k) * wtout(m,2) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                 wtqc_ice(k,m) = wtqc_ice(k,m) + g_active * umf(k) * wtout(m,3) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                 wtqcm_liq(m)  = wtqcm_liq(m) - g_active * umf(k) * &
-                                  tr0(k,int(wtrc_iatype_post(m,2)))  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                 wtqcm_ice(m)  = wtqcm_ice(m) - g_active * umf(k) * &
-                                  tr0(k,int(wtrc_iatype_post(m,3)))  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 wtqc_liq(k,m) = wtqc_liq(k,m) + g * umf(k) * wtout(m,2) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 wtqc_ice(k,m) = wtqc_ice(k,m) + g * umf(k) * wtout(m,3) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 wtqcm_liq(m)  = wtqcm_liq(m) - g * umf(k) * tr0(k,wtrc_iatype(m,iwtliq))  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 wtqcm_ice(m)  = wtqcm_ice(m) - g * umf(k) * tr0(k,wtrc_iatype(m,iwtice))  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                end do
-               endif
              end if
              !*************
-          endif 
-
-          if (.not. use_native_init_shell_impl) then
-             call uwshcu_log_thermo_wtrc_detrain_detached_shell_entered()
-             call uwshcu_thermo_wtrc_detrain_detached_shell_codon(int(mkx, c_int64_t), &
-                  int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
-                  merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-                  merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
-                  merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), g_active, umf(k-1), umf(k), &
-                  fdr(k), ps0(k-1), ps0(k), c_loc(wlu_mid), c_loc(wiu_mid), c_loc(wtout), &
-                  c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice), &
-                  c_loc(wtqcm_liq), c_loc(wtqcm_ice))
           endif
 
           ! 4. Cumulative Penetrative entrainment detrained in the 'kbup' layer
           !    Explicitly compute the properties detrained penetrative entrained airs in k = kbup layer.
 
           if( k .eq. kbup ) then
-              if (use_native_init_shell_impl) then
-                 if(trace_water) then
-                   wtout_emf_kbup(:,:) = 0.0_r8 !initalize variable (needed to prevent random tracer ice error) - JN
-                   call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,wtrc_nwset,&
-                               qv0=qtu_emf(k),tr0=wtu_emf(k,:),wtout=wtout_emf_kbup)
-                 else
-                   call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,ncnst)
-                 end if
-                 if( id_check .eq. 1 ) then
-                     id_exit = .true.
-                     go to 333
-                 endif
+              if(trace_water) then
+                wtout_emf_kbup(:,:) = 0.0_r8 !initalize variable (needed to prevent random tracer ice error) - JN
+                call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,wtrc_nwset,&
+                            qv0=qtu_emf(k),tr0=wtu_emf(k,:),wtout=wtout_emf_kbup)
               else
-                 call uwshcu_log_thermo_emf_kbup_conden_shell_entered()
-                 thermo_emf_conden_exit_code_c = 0_c_int64_t
-                 wtrc_nwset_post_c = 0_c_int64_t
-                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                 call uwshcu_thermo_emf_kbup_conden_shell_codon(int(k, c_int64_t), int(mkx, c_int64_t), &
-                      int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
-                      merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-                      merge(1_c_int64_t, 0_c_int64_t, wtrc_alpha_kinetic_active), &
-                      int(ncnst, c_int64_t), g_active, emf(k), ql0(k), qi0(k), tr0(k,ixnumliq), &
-                      tr0(k,ixnumice), ps0(k-1), ps0(k), p0(k), thlu_emf(k), qtu_emf(k), &
-                      c_loc(thj), c_loc(qvj), c_loc(ql_emf_kbup), c_loc(qi_emf_kbup), &
-                      c_loc(qse), c_loc(thermo_conden_id_check_c), c_loc(thermo_emf_conden_exit_code_c), &
-                      c_loc(wtu_emf), c_loc(wtout_emf_kbup), c_loc(tru_emf), c_loc(qc_l(k)), &
-                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
-                      c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), c_loc(wtrc_iatype_post), &
-                      real(wtrc_qmin_active, c_double), c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd))
-                 id_check = int(thermo_conden_id_check_c)
-                 if( thermo_emf_conden_exit_code_c .ne. 0_c_int64_t ) then
-                     id_exit = .true.
-                     go to 333
-                 endif
+                call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,ncnst)
+              end if
+              if( id_check .eq. 1 ) then
+                  id_exit = .true.
+                  go to 333
               endif
-              if (use_native_init_shell_impl) then
-                 if( ql_emf_kbup .gt. 0._r8 ) then
-                     nl_emf_kbup = tru_emf(k,ixnumliq)
-                 else
-                     nl_emf_kbup = 0._r8
-                 endif
-                 if( qi_emf_kbup .gt. 0._r8 ) then
-                     ni_emf_kbup = tru_emf(k,ixnumice)
-                 else
-                     ni_emf_kbup = 0._r8
-                 endif
+              if( ql_emf_kbup .gt. 0._r8 ) then
+                  nl_emf_kbup = tru_emf(k,ixnumliq)
+              else
+                  nl_emf_kbup = 0._r8
               endif
-              if (use_native_init_shell_impl) then
-                 qc_lm   = qc_lm   - g_active * emf(k) * ( ql_emf_kbup - ql0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                 qc_im   = qc_im   - g_active * emf(k) * ( qi_emf_kbup - qi0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                 nc_lm   = nc_lm   - g_active * emf(k) * ( nl_emf_kbup - tr0(k,ixnumliq) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                 nc_im   = nc_im   - g_active * emf(k) * ( ni_emf_kbup - tr0(k,ixnumice) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              if( qi_emf_kbup .gt. 0._r8 ) then
+                  ni_emf_kbup = tru_emf(k,ixnumice)
+              else
+                  ni_emf_kbup = 0._r8
               endif
+              qc_lm   = qc_lm   - g * emf(k) * ( ql_emf_kbup - ql0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              qc_im   = qc_im   - g * emf(k) * ( qi_emf_kbup - qi0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              nc_lm   = nc_lm   - g * emf(k) * ( nl_emf_kbup - tr0(k,ixnumliq) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              nc_im   = nc_im   - g * emf(k) * ( ni_emf_kbup - tr0(k,ixnumice) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
              !*************
              !Water tracers:
              !*************
               if(trace_water) then
-                if (use_native_init_shell_impl) then
                 do m=1,wtrc_nwset
-                  wtqcm_liq(m) = wtqcm_liq(m)  - g_active * emf(k) * ( wtout_emf_kbup(m,2) - tr0(k,int(wtrc_iatype_post(m,2))) ) / &
+                  wtqcm_liq(m) = wtqcm_liq(m)  - g * emf(k) * ( wtout_emf_kbup(m,2) - tr0(k,wtrc_iatype(m,iwtliq)) ) / &
                                              ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-                  wtqcm_ice(m) = wtqcm_ice(m)  - g_active * emf(k) * ( wtout_emf_kbup(m,3) - tr0(k,int(wtrc_iatype_post(m,3))) ) / &
+                  wtqcm_ice(m) = wtqcm_ice(m)  - g * emf(k) * ( wtout_emf_kbup(m,3) - tr0(k,wtrc_iatype(m,iwtice)) ) / &
                                              ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                 end do
-                else
-                  call uwshcu_log_thermo_wtrc_emf_kbup_shell_entered()
-                  call uwshcu_thermo_wtrc_emf_kbup_shell_codon(int(mkx, c_int64_t), &
-                       int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, trace_water), g_active, emf(k), &
-                       ps0(k-1), ps0(k), c_loc(wtout_emf_kbup), c_loc(tr0), &
-                       c_loc(wtrc_iatype_post), c_loc(wtqcm_liq), c_loc(wtqcm_ice))
-                endif
               end if
              !*************
-          endif 
+          endif
 
-          if (use_native_init_shell_impl) then
           qlten_det   = qc_l(k) + qc_lm
           qiten_det   = qc_i(k) + qc_im
- 
+
           !*************
           !Water tracers:
           !*************
@@ -11713,35 +7547,35 @@ end subroutine uwshcu_readnl
                wtiten_det(k,m) = wtqc_ice(k,m) + wtqcm_ice(m)
              end do
            end if
-          !************* 
+          !*************
 
           ! --------------------------------------------------------------------------------- !
           ! 'qlten(k)','qiten(k)','qvten(k)','sten(k)'                                        !
           ! Note that falling of precipitation will be treated later.                         !
           ! The prevension of negative 'qv,ql,qi' will be treated later in positive_moisture. !
-          ! --------------------------------------------------------------------------------- ! 
+          ! --------------------------------------------------------------------------------- !
 
           if( use_expconten ) then
               if( use_unicondet ) then
                   qc_l(k) = 0._r8
-                  qc_i(k) = 0._r8 
+                  qc_i(k) = 0._r8
                   qlten(k) = frc_rasn * dwten(k) + qlten_sink(k) + qlten_det
                   qiten(k) = frc_rasn * diten(k) + qiten_sink(k) + qiten_det
                   !*************
                   !Water tracers:
                   !*************
-                  if(trace_water) then   
+                  if(trace_water) then
                     wtqc_liq(k,:) = 0._r8 !Set "reserved" liquid to zero?
                     wtqc_ice(k,:) = 0._r8
                     do m=1,wtrc_nwset
-                      trten(k,int(wtrc_iatype_post(m,2))) = frc_rasn * wtdwten(k,m) + &
+                      trten(k,wtrc_iatype(m,iwtliq)) = frc_rasn * wtdwten(k,m) + &
                                                        wtten_sink_liq(k,m) + wtlten_det(k,m)
-                      trten(k,int(wtrc_iatype_post(m,3))) = frc_rasn * wtditen(k,m) + &
+                      trten(k,wtrc_iatype(m,iwtice)) = frc_rasn * wtditen(k,m) + &
                                                        wtten_sink_ice(k,m) + wtiten_det(k,m)
                     end do
                   end if
                   !*************
-              else 
+              else
                   qlten(k) = qc_l(k) + frc_rasn * dwten(k) + ( max( 0._r8, ql0(k) + &
                              ( qc_lm + qlten_sink(k) ) * dt ) - ql0(k) ) / dt
                   qiten(k) = qc_i(k) + frc_rasn * diten(k) + ( max( 0._r8, qi0(k) + &
@@ -11753,14 +7587,14 @@ end subroutine uwshcu_readnl
                   !*************
                   if(trace_water) then
                     do m=1,wtrc_nwset
-                      trten(k,int(wtrc_iatype_post(m,2))) = wtqc_liq(k,m) + frc_rasn * wtdwten(k,m) + &
-                                                       ( max( 0._r8, tr0(k,int(wtrc_iatype_post(m,2))) + ( wtqcm_liq(m) + &
+                      trten(k,wtrc_iatype(m,iwtliq)) = wtqc_liq(k,m) + frc_rasn * wtdwten(k,m) + &
+                                                       ( max( 0._r8, tr0(k,wtrc_iatype(m,iwtliq)) + ( wtqcm_liq(m) + &
                                                        wtten_sink_liq(k,m) ) * dt ) - &
-                                                       tr0(k,int(wtrc_iatype_post(m,2))) ) / dt
-                      trten(k,int(wtrc_iatype_post(m,3))) = wtqc_ice(k,m) + frc_rasn * wtditen(k,m) + &
-                                                       ( max( 0._r8, tr0(k,int(wtrc_iatype_post(m,3))) + ( wtqcm_ice(m) + &
+                                                       tr0(k,wtrc_iatype(m,iwtliq)) ) / dt
+                      trten(k,wtrc_iatype(m,iwtice)) = wtqc_ice(k,m) + frc_rasn * wtditen(k,m) + &
+                                                       ( max( 0._r8, tr0(k,wtrc_iatype(m,iwtice)) + ( wtqcm_ice(m) + &
                                                        wtten_sink_ice(k,m) ) * dt ) - &
-                                                       tr0(k,int(wtrc_iatype_post(m,3))) ) / dt
+                                                       tr0(k,wtrc_iatype(m,iwtice)) ) / dt
                     end do
                   end if
                   !*************
@@ -11768,7 +7602,7 @@ end subroutine uwshcu_readnl
           else
               if( use_unicondet ) then
                   qc_l(k) = 0._r8
-                  qc_i(k) = 0._r8 
+                  qc_i(k) = 0._r8
                  !water tracers:
                  !*************
                   if(trace_water) then
@@ -11776,134 +7610,101 @@ end subroutine uwshcu_readnl
                     wtqc_ice(k,:) = 0._r8
                   end if
                  !*************
-              endif                      
+              endif
               qlten(k) = dwten(k) + ( qtten(k) - dwten(k) - diten(k) ) * ( ql0(k) / qt0(k) )
               qiten(k) = diten(k) + ( qtten(k) - dwten(k) - diten(k) ) * ( qi0(k) / qt0(k) )
               !*************
               !water tracers:
               !*************
-              
+
               !NOTE:  Not sure if summing up the tendencies is the same as calculating qtten for
               !water tracers.  If this section of code is found to be producing bad values, then
               !this summation is the most-likely cause.
               if(trace_water) then
                 do m=1,wtrc_nwset
-                  trten(k,int(wtrc_iatype_post(m,2))) = wtdwten(k,m) + ( wttotten(k,m) - wtdwten(k,m) - &
-                                                   wtditen(k,m) ) * (tr0(k,int(wtrc_iatype_post(m,2))) / wt0(k,m))
-                  trten(k,int(wtrc_iatype_post(m,3))) = wtditen(k,m) + ( wttotten(k,m) - wtdwten(k,m) - &
-                                                   wtditen(k,m) ) * (tr0(k,int(wtrc_iatype_post(m,3))) / wt0(k,m))
+                  trten(k,wtrc_iatype(m,iwtliq)) = wtdwten(k,m) + ( wttotten(k,m) - wtdwten(k,m) - &
+                                                   wtditen(k,m) ) * (tr0(k,wtrc_iatype(m,iwtliq)) / wt0(k,m))
+                  trten(k,wtrc_iatype(m,iwtice)) = wtditen(k,m) + ( wttotten(k,m) - wtdwten(k,m) - &
+                                                   wtditen(k,m) ) * (tr0(k,wtrc_iatype(m,iwtice)) / wt0(k,m))
                 end do
               end if
               !*************
           endif
 
           qvten(k) = qtten(k) - qlten(k) - qiten(k)
-          sten(k)  = slten(k) + xlv_active * qlten(k) + xls_active * qiten(k)
+          sten(k)  = slten(k) + xlv * qlten(k) + xls * qiten(k)
 
           !*************************************
           !Calculate water tracer vapor tendency:
           !*************************************
           if(trace_water) then
             do m=1,wtrc_nwset
-              trten(k,int(wtrc_iatype_post(m,1))) = wttotten(k,m) - &
-                                                     trten(k,int(wtrc_iatype_post(m,2))) - &
-                                                     trten(k,int(wtrc_iatype_post(m,3)))
+              trten(k,wtrc_iatype(m,iwtvap)) = wttotten(k,m) - trten(k,wtrc_iatype(m,iwtliq)) - trten(k,wtrc_iatype(m,iwtice))
             end do
           end if
           !**************************************
 
           ! -------------------------------------------------------------------------- !
           ! 'rliq' : Verticall-integrated 'suspended cloud condensate'                 !
-          !  [m/s]   This is so called 'reserved liquid water'  in other subroutines   ! 
+          !  [m/s]   This is so called 'reserved liquid water'  in other subroutines   !
           ! of CAM3, since the contribution of this term should not be included into   !
           ! the tendency of each layer or surface flux (precip)  within this cumulus   !
           ! scheme. The adding of this term to the layer tendency will be done inthe   !
           ! 'stratiform_tend', just after performing sediment process there.           !
-          ! The main problem of these rather going-back-and-forth and stupid-seeming   ! 
+          ! The main problem of these rather going-back-and-forth and stupid-seeming   !
           ! approach is that the sediment process of suspendened condensate will not   !
           ! be treated at all in the 'stratiform_tend'.                                !
           ! Note that 'precip' [m/s] is vertically-integrated total 'rain+snow' formed !
-          ! from the cumulus updraft. Important : in the below, 1000 is rhoh2o_active ( water !
+          ! from the cumulus updraft. Important : in the below, 1000 is rhoh2o ( water !
           ! density ) [ kg/m^3 ] used for unit conversion from [ kg/m^2/s ] to [ m/s ] !
           ! for use in stratiform.F90.                                                 !
-          ! -------------------------------------------------------------------------- ! 
+          ! -------------------------------------------------------------------------- !
 
-          qc(k)  =  qc_l(k) +  qc_i(k)   
-          rliq   =  rliq    + qc(k) * dp0(k) / g_active / 1000._r8    ! [ m/s ]
-	          else
-	             call uwshcu_log_thermo_final_shell_entered()
-	             call uwshcu_log_thermo_post_batch_shell_entered()
-	             call uwshcu_thermo_post_batch_shell_codon(0_c_int64_t, int(mkx, c_int64_t), &
-	                  int(ncnst, c_int64_t), wtrc_nwset_post_c, int(k, c_int64_t), int(kpen, c_int64_t), &
-	                  0_c_int64_t, 0_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, use_expconten), &
-	                  merge(1_c_int64_t, 0_c_int64_t, use_unicondet), int(ixnumliq, c_int64_t), &
-	                  int(ixnumice, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, trace_water), frc_rasn, &
-	                  dt, xlv_active, xls_active, g_active, qc_lm, qc_im, nc_lm, nc_im, rainflx, snowflx, 0._r8, &
-	                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(dp0), c_loc(qv0), &
-	                  c_loc(qt0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(qrten), c_loc(qsten), &
-	                  c_loc(dwten), c_loc(diten), c_loc(qtten), c_loc(slten), c_loc(qlten_sink), &
-	                  c_loc(qiten_sink), c_loc(nlten_sink), c_loc(niten_sink), c_loc(qc_l), &
-	                  c_loc(qc_i), c_loc(qlten), c_loc(qiten), c_loc(qvten), c_loc(sten), &
-	                  c_loc(tr0), c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wt0), c_loc(wtdwten), &
-	                  c_loc(wtditen), c_loc(wttotten), c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), &
-	                  c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtqcm_liq), c_loc(wtqcm_ice), &
-	                  c_loc(wtlten_det), c_loc(wtiten_det), c_loc(qc), c_loc(rliq), c_loc(precip), &
-	                  c_loc(snow), c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
-	                  c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(limit_negcon), c_loc(wtrpten), &
-	                  c_loc(wtspten), c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), &
-	                  c_loc(wtprec), c_loc(wtsnow), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
-	                  c_loc(s0_star), c_loc(wt0_star), c_loc(dpdry0), c_loc(trflx), c_loc(trflx_d), &
-	                  c_loc(trflx_u), c_loc(qmin_active), c_loc(iwater_is_water_active), &
-	                  c_loc(cnst_type_is_wet_active))
-	          endif
+          qc(k)  =  qc_l(k) +  qc_i(k)
+          rliq   =  rliq    + qc(k) * dp0(k) / g / 1000._r8    ! [ m/s ]
 
        end do
 
+          precip  =  rainflx + snowflx                       ! [ kg/m2/s ]
+          snow    =  snowflx                                 ! [ kg/m2/s ]
+
        ! ---------------------------------------------------------------- !
-       ! Now treats the 'evaporation' and 'melting' of rain ( qrten ) and ! 
+       ! Now treats the 'evaporation' and 'melting' of rain ( qrten ) and !
        ! snow ( qsten ) during falling process. Below algorithms are from !
        ! 'zm_conv_evap' but with some modification, which allows separate !
        ! treatment of 'rain' and 'snow' condensates. Note that I included !
        ! the evaporation dynamics into the convection scheme for complete !
-       ! development of cumulus scheme especially in association with the ! 
+       ! development of cumulus scheme especially in association with the !
        ! implicit CIN closure. In compatible with this internal treatment !
        ! of evaporation, I should modify 'convect_shallow',  in such that !
-       ! 'zm_conv_evap' is not performed when I choose UW PBL-Cu schemes. !                                          
+       ! 'zm_conv_evap' is not performed when I choose UW PBL-Cu schemes. !
        ! ---------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-          precip  =  rainflx + snowflx                       ! [ kg/m2/s ]
-          snow    =  snowflx                                 ! [ kg/m2/s ]
-          evpint_rain    = 0._r8
-          evpint_snow    = 0._r8
-          flxrain(0:mkx) = 0._r8
-          flxsnow(0:mkx) = 0._r8
-          ntraprd(:mkx)  = 0._r8
-          ntsnprd(:mkx)  = 0._r8
-         !Water tracers:
-         !*************
-          if(trace_water) then
-            wtflxrn(0:mkx,:) = 0._r8
-            wtflxsn(0:mkx,:) = 0._r8
-          end if
-       endif
-
-       if (use_native_init_shell_impl) then
+       evpint_rain    = 0._r8
+       evpint_snow    = 0._r8
+       flxrain(0:mkx) = 0._r8
+       flxsnow(0:mkx) = 0._r8
+       ntraprd(:mkx)  = 0._r8
+       ntsnprd(:mkx)  = 0._r8
+      !Water tracers:
+      !*************
+       if(trace_water) then
+         wtflxrn(0:mkx,:) = 0._r8
+         wtflxsn(0:mkx,:) = 0._r8
+       end if
 
        do k = mkx, 1, -1  ! 'k' is a layer index : 'mkx'('1') is the top ('bottom') layer
-          
+
           ! ----------------------------------------------------------------------------- !
-          ! flxsntm [kg/m2/s] : Downward snow flux at the top of each layer after melting.! 
+          ! flxsntm [kg/m2/s] : Downward snow flux at the top of each layer after melting.!
           ! snowmlt [kg/kg/s] : Snow melting tendency.                                    !
           ! Below allows melting of snow when it goes down into the warm layer below.     !
           ! ----------------------------------------------------------------------------- !
 
-          if (use_native_init_shell_impl) then
-             if( t0(k) .gt. 273.16_r8 ) then
-                 snowmlt = max( 0._r8, flxsnow(k) * g_active / dp0(k) )
-             else
-                 snowmlt = 0._r8
-             endif
+          if( t0(k) .gt. 273.16_r8 ) then
+              snowmlt = max( 0._r8, flxsnow(k) * g / dp0(k) )
+          else
+              snowmlt = 0._r8
           endif
 
           ! ----------------------------------------------------------------- !
@@ -11919,99 +7720,94 @@ end subroutine uwshcu_readnl
           !   3. Total evaporation cannot exceed the input total surface flux !
           ! ----------------------------------------------------------------- !
 
-          if (use_native_init_shell_impl) then
-             call qsat(t0(k), p0(k), es, qs)
-             subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
-             if( noevap_krelkpen ) then
-                 if( k .ge. krel ) subsat = 0._r8
-             endif
-
-             evprain  = kevp * subsat * sqrt(flxrain(k)+snowmlt*dp0(k)/g_active)
-             evpsnow  = kevp * subsat * sqrt(max(flxsnow(k)-snowmlt*dp0(k)/g_active,0._r8))
-
-             evplimit = max( 0._r8, ( qw0_active(i,k) - qv0(k) ) / dt )
-
-             evplimit_rain = min( evplimit,      ( flxrain(k) + snowmlt * dp0(k) / g_active ) * g_active / dp0(k) )
-             evplimit_rain = min( evplimit_rain, ( rainflx - evpint_rain ) * g_active / dp0(k) )
-             evprain = max(0._r8,min( evplimit_rain, evprain ))
-
-             evplimit_snow = min( evplimit,   max( flxsnow(k) - snowmlt * dp0(k) / g_active , 0._r8 ) * g_active / dp0(k) )
-             evplimit_snow = min( evplimit_snow, ( snowflx - evpint_snow ) * g_active / dp0(k) )
-             evpsnow = max(0._r8,min( evplimit_snow, evpsnow ))
-
-             if( ( evprain + evpsnow ) .gt. evplimit ) then
-                   tmp1 = evprain * evplimit / ( evprain + evpsnow )
-                   tmp2 = evpsnow * evplimit / ( evprain + evpsnow )
-                   evprain = tmp1
-                   evpsnow = tmp2
-             endif
+          call qsat(t0(k), p0(k), es, qs)
+          subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
+          if( noevap_krelkpen ) then
+              if( k .ge. krel ) subsat = 0._r8
           endif
 
-          if (use_native_init_shell_impl) then
-             evapc(k) = evprain + evpsnow
+          evprain  = kevp * subsat * sqrt(flxrain(k)+snowmlt*dp0(k)/g)
+          evpsnow  = kevp * subsat * sqrt(max(flxsnow(k)-snowmlt*dp0(k)/g,0._r8))
 
-             ! ------------------------------------------------------------- !
-             ! Vertically-integrated evaporative fluxes of 'rain' and 'snow' !
-             ! ------------------------------------------------------------- !
+          evplimit = max( 0._r8, ( qw0_in(i,k) - qv0(k) ) / dt )
 
-             evpint_rain = evpint_rain + evprain * dp0(k) / g_active
-             evpint_snow = evpint_snow + evpsnow * dp0(k) / g_active
+          evplimit_rain = min( evplimit,      ( flxrain(k) + snowmlt * dp0(k) / g ) * g / dp0(k) )
+          evplimit_rain = min( evplimit_rain, ( rainflx - evpint_rain ) * g / dp0(k) )
+          evprain = max(0._r8,min( evplimit_rain, evprain ))
 
-             ! -------------------------------------------------------------- !
-             ! Net 'rain' and 'snow' production rate in the layer [ kg/kg/s ] !
-             ! -------------------------------------------------------------- !
+          evplimit_snow = min( evplimit,   max( flxsnow(k) - snowmlt * dp0(k) / g , 0._r8 ) * g / dp0(k) )
+          evplimit_snow = min( evplimit_snow, ( snowflx - evpint_snow ) * g / dp0(k) )
+          evpsnow = max(0._r8,min( evplimit_snow, evpsnow ))
 
-             ntraprd(k) = qrten(k) - evprain + snowmlt
-             ntsnprd(k) = qsten(k) - evpsnow - snowmlt
-
-             ! -------------------------------------------------------------------------------- !
-             ! Downward fluxes of 'rain' and 'snow' fluxes at the base of the layer [ kg/m2/s ] !
-             ! Note that layer index increases with height.                                     !
-             ! -------------------------------------------------------------------------------- !
-
-             flxrain(k-1) = flxrain(k) + ntraprd(k) * dp0(k) / g_active
-             flxsnow(k-1) = flxsnow(k) + ntsnprd(k) * dp0(k) / g_active
-             flxrain(k-1) = max( flxrain(k-1), 0._r8 )
-             if( flxrain(k-1) .eq. 0._r8 ) ntraprd(k) = -flxrain(k) * g_active / dp0(k)
-             flxsnow(k-1) = max( flxsnow(k-1), 0._r8 )
-             if( flxsnow(k-1) .eq. 0._r8 ) ntsnprd(k) = -flxsnow(k) * g_active / dp0(k)
-
-             ! ---------------------------------- !
-             ! Calculate thermodynamic tendencies !
-             ! --------------------------------------------------------------------------- !
-             ! Note that equivalently, we can write tendency formula of 'sten' and 'slten' !
-             ! by 'sten(k)  = sten(k) - xlv_active*evprain  - xls_active*evpsnow - (xls_active-xlv_active)*snowmlt' &  !
-             !    'slten(k) = sten(k) - xlv_active*qlten(k) - xls_active*qiten(k)'.                      !
-             ! The above formula is equivalent to the below formula. However below formula !
-             ! is preferred since we have already imposed explicit constraint on 'ntraprd' !
-             ! and 'ntsnprd' in case that flxrain(k-1) < 0 & flxsnow(k-1) < 0._r8          !
-             ! Note : In future, I can elborate the limiting of 'qlten','qvten','qiten'    !
-             !        such that that energy and moisture conservation error is completely  !
-             !        suppressed.                                                          !
-             ! Re-storation to the positive condensate will be performed later below       !
-             ! --------------------------------------------------------------------------- !
-
-             qlten(k) = qlten(k) - qrten(k)
-             qiten(k) = qiten(k) - qsten(k)
-             qvten(k) = qvten(k) + evprain  + evpsnow
-             qtten(k) = qlten(k) + qiten(k) + qvten(k)
-             if( ( qv0(k) + qvten(k)*dt ) .lt. qmin_active(1) .or. &
-                 ( ql0(k) + qlten(k)*dt ) .lt. qmin_active(ixcldliq) .or. &
-                 ( qi0(k) + qiten(k)*dt ) .lt. qmin_active(ixcldice) ) then
-                  limit_negcon(i) = 1._r8
-             end if
-             sten(k)  = sten(k) - xlv_active*evprain  - xls_active*evpsnow - (xls_active-xlv_active)*snowmlt
-             slten(k) = sten(k) - xlv_active*qlten(k) - xls_active*qiten(k)
+          if( ( evprain + evpsnow ) .gt. evplimit ) then
+                tmp1 = evprain * evplimit / ( evprain + evpsnow )
+                tmp2 = evpsnow * evplimit / ( evprain + evpsnow )
+                evprain = tmp1
+                evpsnow = tmp2
           endif
 
-        !  slten(k) = slten(k) + xlv_active * ntraprd(k) + xls_active * ntsnprd(k)
-        !  sten(k)  = slten(k) + xlv_active * qlten(k)   + xls_active * qiten(k)
+          evapc(k) = evprain + evpsnow
+
+          ! ------------------------------------------------------------- !
+          ! Vertically-integrated evaporative fluxes of 'rain' and 'snow' !
+          ! ------------------------------------------------------------- !
+
+          evpint_rain = evpint_rain + evprain * dp0(k) / g
+          evpint_snow = evpint_snow + evpsnow * dp0(k) / g
+
+          ! -------------------------------------------------------------- !
+          ! Net 'rain' and 'snow' production rate in the layer [ kg/kg/s ] !
+          ! -------------------------------------------------------------- !
+
+          ntraprd(k) = qrten(k) - evprain + snowmlt
+          ntsnprd(k) = qsten(k) - evpsnow - snowmlt
+
+          ! -------------------------------------------------------------------------------- !
+          ! Downward fluxes of 'rain' and 'snow' fluxes at the base of the layer [ kg/m2/s ] !
+          ! Note that layer index increases with height.                                     !
+          ! -------------------------------------------------------------------------------- !
+
+          flxrain(k-1) = flxrain(k) + ntraprd(k) * dp0(k) / g
+          flxsnow(k-1) = flxsnow(k) + ntsnprd(k) * dp0(k) / g
+          flxrain(k-1) = max( flxrain(k-1), 0._r8 )
+          if( flxrain(k-1) .eq. 0._r8 ) ntraprd(k) = -flxrain(k) * g / dp0(k)
+          flxsnow(k-1) = max( flxsnow(k-1), 0._r8 )
+          if( flxsnow(k-1) .eq. 0._r8 ) ntsnprd(k) = -flxsnow(k) * g / dp0(k)
+
+          ! ---------------------------------- !
+          ! Calculate thermodynamic tendencies !
+          ! --------------------------------------------------------------------------- !
+          ! Note that equivalently, we can write tendency formula of 'sten' and 'slten' !
+          ! by 'sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt' &  !
+          !    'slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)'.                      !
+          ! The above formula is equivalent to the below formula. However below formula !
+          ! is preferred since we have already imposed explicit constraint on 'ntraprd' !
+          ! and 'ntsnprd' in case that flxrain(k-1) < 0 & flxsnow(k-1) < 0._r8          !
+          ! Note : In future, I can elborate the limiting of 'qlten','qvten','qiten'    !
+          !        such that that energy and moisture conservation error is completely  !
+          !        suppressed.                                                          !
+          ! Re-storation to the positive condensate will be performed later below       !
+          ! --------------------------------------------------------------------------- !
+
+          qlten(k) = qlten(k) - qrten(k)
+          qiten(k) = qiten(k) - qsten(k)
+          qvten(k) = qvten(k) + evprain  + evpsnow
+          qtten(k) = qlten(k) + qiten(k) + qvten(k)
+          if( ( qv0(k) + qvten(k)*dt ) .lt. qmin(1) .or. &
+              ( ql0(k) + qlten(k)*dt ) .lt. qmin(ixcldliq) .or. &
+              ( qi0(k) + qiten(k)*dt ) .lt. qmin(ixcldice) ) then
+               limit_negcon(i) = 1._r8
+          end if
+          sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt
+          slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)
+
+        !  slten(k) = slten(k) + xlv * ntraprd(k) + xls * ntsnprd(k)
+        !  sten(k)  = slten(k) + xlv * qlten(k)   + xls * qiten(k)
 
        !***************************************************
        !Water tracers precipitation re-evaporation
        !***************************************************
         if(trace_water) then
-          if (use_native_init_shell_impl) then
 
          !NOTE:  The precipitation evaporation code was taken almost directly
          !from the wtrc_precip_evap subroutine.  So, if there is a way to call
@@ -12034,33 +7830,29 @@ end subroutine uwshcu_readnl
 
            !Calculate precipitation and water vapor ratios:
             if(k .eq. mkx) then !At top of layer?
-              Rr = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,2)))), &
-                              wtrpten(k,m),wtrpten(k,1)) !Use rain production
-              Rs = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,3)))), &
-                              wtspten(k,m),wtspten(k,1)) !Use snow production
+              Rr = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtrpten(k,m),wtrpten(k,1)) !Use rain production
+              Rs = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtspten(k,m),wtspten(k,1)) !Use snow production
             else
               if(wtflxrn(k,1) .ne. 0._r8) then !is there actual rain here?
-                Rr = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,2)))),wtflxrn(k,m),wtflxrn(k,1))
+                Rr = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtflxrn(k,m),wtflxrn(k,1))
               else !If not, just use local production.
-                Rr = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,2)))), &
-                                wtrpten(k,m),wtrpten(k,1)) !Use rain production
+                Rr = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtrpten(k,m),wtrpten(k,1)) !Use rain production
               end if
               if(wtflxsn(k,1) .ne. 0._r8) then !is there actual snow here?
-                Rs = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,3)))),wtflxsn(k,m),wtflxsn(k,1))
+                Rs = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtflxsn(k,m),wtflxsn(k,1))
               else
-                Rs = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,3)))), &
-                                wtspten(k,m),wtspten(k,1)) !Use snow production
+                Rs = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtspten(k,m),wtspten(k,1)) !Use snow production
               end if
             end if
 
            !Water tracer vapor ratio:
-            Rv = wtrc_ratio(int(positive_moisture_iwspec(int(wtrc_iatype_post(m,1)))),tr0(k,int(wtrc_iatype_post(m,1))),&
-                            tr0(k,int(wtrc_iatype_post(1,1))))
+            Rv = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),tr0(k,wtrc_iatype(m,iwtvap)),&
+                            tr0(k,wtrc_iatype(1,iwtvap)))
 
-            if(wisotope_active .and. (m .gt. 1) .and. (wtflxrn(k,1) .gt. 0._r8)) then
+            if(wisotope .and. (m .gt. 1) .and. (wtflxrn(k,1) .gt. 0._r8)) then !Are water isotopes being used and not H2O or H216O, and is precip present?
 
               !calculate equilibrium alpha:
-              ispec = int(positive_moisture_iwspec(int(wtrc_iatype_post(m,1)))) !water isotope species
+              ispec = iwspec(wtrc_iatype(m,iwtvap)) !water isotope species
 
              !fractionation factor:
               alpliq = wtrc_get_alpha(qv0(k),t0(k),ispec,iwtvap,iwtliq,.false.,1._r8,.false.)
@@ -12072,7 +7864,7 @@ end subroutine uwshcu_readnl
               heff = phi+((1._r8-phi)*(qv0(k)/qs)) !From Bony et. al., 2008
 
              !calculate fraction of rain that evaporated:
-              fr = (wtflxrn(k,1)-(evprain*dp0(k)/g_active))/wtflxrn(k,1)
+              fr = (wtflxrn(k,1)-(evprain*dp0(k)/g))/wtflxrn(k,1)
 
               !constrain ratio fraction:
               fr = min(1._r8,max(0._r8,fr))
@@ -12109,7 +7901,7 @@ end subroutine uwshcu_readnl
                 else !If evaporation does occur, then
                    !Set evaporation to equal mass loss:
                   if(dp0(k) .gt. 0._r8) then !prevent NaNs
-                    wtevp(k,m) = (wtflxrn(k,m) - Re*(wtflxrn(k,1)-(wtevp(k,1)*dp0(k)/g_active)))*g_active/dp0(k)
+                    wtevp(k,m) = (wtflxrn(k,m) - Re*(wtflxrn(k,1)-(wtevp(k,1)*dp0(k)/g)))*g/dp0(k)
                   else
                     wtevp(k,m) = evprain*Rr !Just conserve ratio if there is a NaN risk
                   end if
@@ -12118,13 +7910,13 @@ end subroutine uwshcu_readnl
                !NOTE:  This evp below should always be zero.  If not, then at least it will match the bulk water
                !(even if its physically incorrect) - JN
                 wtevp(k,m) = evprain*Rr
- 
+
                !calculate liquid-vapor equilibrium:
-                ivtmp = tr0(k,int(wtrc_iatype_post(m,1)))+wtevp(k,m)*dt     !set temporary storage variables
-                iltmp = ((wtflxrn(k,m)*g_active/dp0(k))-wtevp(k,m))*dt        !convert to kg/kg
-                vtmp = tr0(k,int(wtrc_iatype_post(1,1)))+wtevp(k,1)*dt
-                ltmp = ((wtflxrn(k,1)*g_active/dp0(k))-wtevp(k,1))*dt         !convert to kg/kg
-                call wtrc_liqvap_equil(alpliq, fequil, vtmp, ltmp, ivtmp, iltmp, dliqiso) 
+                ivtmp = tr0(k,wtrc_iatype(m,iwtvap))+wtevp(k,m)*dt     !set temporary storage variables
+                iltmp = ((wtflxrn(k,m)*g/dp0(k))-wtevp(k,m))*dt        !convert to kg/kg
+                vtmp = tr0(k,wtrc_iatype(1,iwtvap))+wtevp(k,1)*dt
+                ltmp = ((wtflxrn(k,1)*g/dp0(k))-wtevp(k,1))*dt         !convert to kg/kg
+                call wtrc_liqvap_equil(alpliq, fequil, vtmp, ltmp, ivtmp, iltmp, dliqiso)
                 wtevp(k,m) = wtevp(k,m) - dliqiso/dt                   !add tendency to evaporation
               end if
             else
@@ -12134,77 +7926,39 @@ end subroutine uwshcu_readnl
            !Calculate snow sublimation (No fractionation occurs during sublimation):
             wtsub(k,m) = evpsnow*Rs
 
-            if (use_native_init_shell_impl) then
-
            !Calculate snow melt
             if( t0(k) .gt. 273.16_r8 ) then
-              wtsnwmlt = max( 0._r8, wtflxsn(k,m) * g_active / dp0(k) )
+              wtsnwmlt = max( 0._r8, wtflxsn(k,m) * g / dp0(k) )
             else
               wtsnwmlt = 0._r8
             endif
 
            !Modify precipitation:
-            wtflxrn(k-1,m) = wtflxrn(k,m) + (wtrpten(k,m) - wtevp(k,m) + wtsnwmlt) * dp0(k) / g_active
-            wtflxsn(k-1,m) = wtflxsn(k,m) + (wtspten(k,m) - wtsub(k,m) - wtsnwmlt) * dp0(k) / g_active
+            wtflxrn(k-1,m) = wtflxrn(k,m) + (wtrpten(k,m) - wtevp(k,m) + wtsnwmlt) * dp0(k) / g
+            wtflxsn(k-1,m) = wtflxsn(k,m) + (wtspten(k,m) - wtsub(k,m) - wtsnwmlt) * dp0(k) / g
 
            !Prevent negative precipitation:
             wtflxrn(k-1,m) = max(wtflxrn(k-1,m), 0._r8)
             wtflxsn(k-1,m) = max(wtflxsn(k-1,m), 0._r8)
- 
+
            !Modify tendencies:
-            trten(k,int(wtrc_iatype_post(m,2))) = trten(k,int(wtrc_iatype_post(m,2))) - wtrpten(k,m)
-            trten(k,int(wtrc_iatype_post(m,3))) = trten(k,int(wtrc_iatype_post(m,3))) - wtspten(k,m)
-            trten(k,int(wtrc_iatype_post(m,1))) = trten(k,int(wtrc_iatype_post(m,1))) + wtevp(k,m) + wtsub(k,m)
-            endif
+            trten(k,wtrc_iatype(m,iwtliq)) = trten(k,wtrc_iatype(m,iwtliq)) - wtrpten(k,m)
+            trten(k,wtrc_iatype(m,iwtice)) = trten(k,wtrc_iatype(m,iwtice)) - wtspten(k,m)
+            trten(k,wtrc_iatype(m,iwtvap)) = trten(k,wtrc_iatype(m,iwtvap)) + wtevp(k,m) + wtsub(k,m)
 
           end do !Water species
-          endif
         end if   !water tracers?
         !*****************************************************************
 
-	       end do !vertical levels (k)
-       else
-          call uwshcu_log_precip_bulk_shell_entered()
-          call uwshcu_log_precip_evap_prep_shell_entered()
-          if (trace_water) call uwshcu_log_precip_wtrc_evap_shell_entered()
-          call uwshcu_log_thermo_post_batch_shell_entered()
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_precip_all_layers_full_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kpen, c_int64_t), int(mix, c_int64_t), int(i, c_int64_t), &
-               int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-               merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-               merge(1_c_int64_t, 0_c_int64_t, wisotope_active), &
-               merge(1_c_int64_t, 0_c_int64_t, noevap_krelkpen), int(krel, c_int64_t), &
-               kevp, rainflx, snowflx, g_active, dt, xlv_active, xls_active, rair_active, &
-               rh2o_active, rhoh2o_active, real(wtrc_qmin_active, c_double), &
-               qmin_active(1), qmin_active(ixcldliq), qmin_active(ixcldice), c_loc(t0), c_loc(p0), &
-               c_loc(qv0), c_loc(qw0_active), c_loc(zs0), c_loc(dp0), c_loc(qt0), c_loc(ql0), &
-               c_loc(qi0), c_loc(s0), c_loc(qrten), c_loc(qsten), c_loc(dwten), c_loc(diten), &
-               c_loc(qtten), c_loc(slten), c_loc(qlten_sink), c_loc(qiten_sink), c_loc(nlten_sink), &
-               c_loc(niten_sink), c_loc(qc_l), c_loc(qc_i), c_loc(qlten), c_loc(qiten), &
-               c_loc(qvten), c_loc(sten), c_loc(tr0), c_loc(trten), c_loc(wtrc_iatype_post), &
-               c_loc(wt0), c_loc(wtdwten), c_loc(wtditen), c_loc(wttotten), c_loc(wtten_sink_liq), &
-               c_loc(wtten_sink_ice), c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtqcm_liq), &
-               c_loc(wtqcm_ice), c_loc(wtlten_det), c_loc(wtiten_det), c_loc(qc), c_loc(rliq), &
-               c_loc(precip), c_loc(snow), c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), &
-               c_loc(flxrain), c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(limit_negcon), &
-               c_loc(wtrpten), c_loc(wtspten), c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), &
-               c_loc(wtflxsn), c_loc(wtprec), c_loc(wtsnow), c_loc(qv0_star), c_loc(ql0_star), &
-               c_loc(qi0_star), c_loc(s0_star), c_loc(wt0_star), c_loc(dpdry0), c_loc(trflx), &
-               c_loc(trflx_d), c_loc(trflx_u), c_loc(qmin_active), c_loc(iwater_is_water_active), &
-               c_loc(cnst_type_is_wet_active), c_loc(positive_moisture_iwspec), &
-               c_loc(positive_moisture_rstd), c_loc(dz))
-       endif
+       end do !vertical levels (k)
 
        ! ------------------------------------------------------------- !
        ! Calculate final surface flux of precipitation, rain, and snow !
-       ! Convert unit to [m/s] for use in 'check_energy_chng'.         !  
+       ! Convert unit to [m/s] for use in 'check_energy_chng'.         !
        ! ------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
        precip  = ( flxrain(0) + flxsnow(0) ) / 1000._r8
-       snow    =   flxsnow(0) / 1000._r8       
+       snow    =   flxsnow(0) / 1000._r8
 
        !*************
        !Water tracers
@@ -12226,32 +7980,6 @@ end subroutine uwshcu_readnl
          end do
        end if
        !*************
-	       else
-          if (trace_water) call uwshcu_log_precip_wtrc_mass_check_shell_entered()
-	          call uwshcu_log_precip_surface_finalize_shell_entered()
-	          call uwshcu_log_thermo_post_batch_shell_entered()
-	          call uwshcu_thermo_post_batch_shell_codon(2_c_int64_t, int(mkx, c_int64_t), &
-	               int(ncnst, c_int64_t), wtrc_nwset_post_c, 0_c_int64_t, int(kpen, c_int64_t), &
-	               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(ixnumliq, c_int64_t), &
-	               int(ixnumice, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, trace_water), 0._r8, &
-	               dt, xlv_active, xls_active, g_active, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-	               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(dp0), c_loc(qv0), &
-	               c_loc(qt0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(qrten), c_loc(qsten), &
-	               c_loc(dwten), c_loc(diten), c_loc(qtten), c_loc(slten), c_loc(qlten_sink), &
-	               c_loc(qiten_sink), c_loc(nlten_sink), c_loc(niten_sink), c_loc(qc_l), &
-	               c_loc(qc_i), c_loc(qlten), c_loc(qiten), c_loc(qvten), c_loc(sten), &
-	               c_loc(tr0), c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wt0), c_loc(wtdwten), &
-	               c_loc(wtditen), c_loc(wttotten), c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), &
-	               c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtqcm_liq), c_loc(wtqcm_ice), &
-	               c_loc(wtlten_det), c_loc(wtiten_det), c_loc(qc), c_loc(rliq), c_loc(precip), &
-	               c_loc(snow), c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
-	               c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(limit_negcon), c_loc(wtrpten), &
-	               c_loc(wtspten), c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), &
-		               c_loc(wtprec), c_loc(wtsnow), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
-		               c_loc(s0_star), c_loc(wt0_star), c_loc(dpdry0), c_loc(trflx), c_loc(trflx_d), &
-		               c_loc(trflx_u), c_loc(qmin_active), c_loc(iwater_is_water_active), &
-		               c_loc(cnst_type_is_wet_active))
-	       endif
 
        ! --------------------------------------------------------------------------- !
        ! Until now, all the calculations are done completely in this shallow cumulus !
@@ -12270,54 +7998,52 @@ end subroutine uwshcu_readnl
        ! after performing sediment process there. Simply speaking, in 'tphysbc' just !
        ! after 'convect_shallow_tend', we will dump 'rliq' into surface as a  'rain' !
        ! in order to satisfy energy and moisture conservation, and  in the following !
-       ! 'stratiform_tend', we will restore it back to 'qlten(k)' ( 'ice' will go to !  
+       ! 'stratiform_tend', we will restore it back to 'qlten(k)' ( 'ice' will go to !
        ! 'water' there) from surface precipitation. This is a funny but conceptually !
        ! entertaining procedure. One concern I have for this complex process is that !
        ! output-writed stratiform precipitation amount will be underestimated due to !
        ! arbitrary subtracting of 'rliq' in stratiform_tend, where                   !
-       ! ' prec_str = prec_sed + prec_pcw - rliq' and 'rliq' is not real but fake.   ! 
+       ! ' prec_str = prec_sed + prec_pcw - rliq' and 'rliq' is not real but fake.   !
        ! However, as shown in 'srfxfer.F90', large scale precipitation amount (PRECL)!
        ! that is writed-output is corrected written since in 'srfxfer.F90',  PRECL = !
        ! 'prec_sed + prec_pcw', without including 'rliq'. So current code is correct.!
-       ! Note also in 'srfxfer.F90', convective precipitation amount is 'PRECC =     ! 
+       ! Note also in 'srfxfer.F90', convective precipitation amount is 'PRECC =     !
        ! prec_zmc(i) + prec_cmf(i)' which is also correct.                           !
        ! --------------------------------------------------------------------------- !
 
-       if (use_native_init_shell_impl) then
-       do k = 1, kpen       
+       do k = 1, kpen
           qtten(k) = qtten(k) - qc(k)
           qlten(k) = qlten(k) - qc_l(k)
           qiten(k) = qiten(k) - qc_i(k)
-          slten(k) = slten(k) + ( xlv_active * qc_l(k) + xls_active * qc_i(k) )
+          slten(k) = slten(k) + ( xlv * qc_l(k) + xls * qc_i(k) )
           ! ---------------------------------------------------------------------- !
           ! Since all reserved condensates will be treated  as liquid water in the !
           ! 'check_energy_chng' & 'stratiform_tend' without an explicit conversion !
           ! algorithm, I should consider explicitly the energy conversions between !
           ! 'ice' and 'liquid' - i.e., I should convert 'ice' to 'liquid'  and the !
-          ! necessary energy for this conversion should be subtracted from 'sten'. ! 
+          ! necessary energy for this conversion should be subtracted from 'sten'. !
           ! Without this conversion here, energy conservation error come out. Note !
           ! that there should be no change of 'qvten(k)'.                          !
           ! ---------------------------------------------------------------------- !
-          sten(k)  = sten(k)  - ( xls_active - xlv_active ) * qc_i(k)
+          sten(k)  = sten(k)  - ( xls - xlv ) * qc_i(k)
 
          !***************
          !Water tracers:
          !***************
           if(trace_water) then
             do m=1,wtrc_nwset  !Loop over water species
-              trten(k,int(wtrc_iatype_post(m,2))) = trten(k,int(wtrc_iatype_post(m,2)))-wtqc_liq(k,m)
-              trten(k,int(wtrc_iatype_post(m,3))) = trten(k,int(wtrc_iatype_post(m,3)))-wtqc_ice(k,m)
+              trten(k,wtrc_iatype(m,iwtliq)) = trten(k,wtrc_iatype(m,iwtliq))-wtqc_liq(k,m)
+              trten(k,wtrc_iatype(m,iwtice)) = trten(k,wtrc_iatype(m,iwtice))-wtqc_ice(k,m)
             end do
           end if
          !***************
 
        end do
-       endif
 
        ! --------------------------------------------------------------- !
        ! Prevent the onset-of negative condensate at the next time step  !
        ! Potentially, this block can be moved just in front of the above !
-       ! block.                                                          ! 
+       ! block.                                                          !
        ! --------------------------------------------------------------- !
 
        ! Modification : I should check whether this 'positive_moisture_single' routine is
@@ -12326,7 +8052,6 @@ end subroutine uwshcu_readnl
        !                in combination with the original computation of qlten, qiten. However,
        !                if we use new 'qlten,qiten', there is no problem.
 
-        if (use_native_init_shell_impl) then
         qv0_star(:mkx) = qv0(:mkx) + qvten(:mkx) * dt
         ql0_star(:mkx) = ql0(:mkx) + qlten(:mkx) * dt
         qi0_star(:mkx) = qi0(:mkx) + qiten(:mkx) * dt
@@ -12337,198 +8062,115 @@ end subroutine uwshcu_readnl
         if(trace_water) then
           wt0_star(:,:,:) = 0._r8 !initalize variable
           do m=1, wtrc_nwset !Loop over water species
-            wt0_star(:mkx,m,1) = tr0(:mkx,int(wtrc_iatype_post(m,1))) + trten(:mkx,int(wtrc_iatype_post(m,1))) * dt
-            wt0_star(:mkx,m,2) = tr0(:mkx,int(wtrc_iatype_post(m,2))) + trten(:mkx,int(wtrc_iatype_post(m,2))) * dt
-            wt0_star(:mkx,m,3) = tr0(:mkx,int(wtrc_iatype_post(m,3))) + trten(:mkx,int(wtrc_iatype_post(m,3))) * dt
+            wt0_star(:mkx,m,1) = tr0(:mkx,wtrc_iatype(m,iwtvap)) + trten(:mkx,wtrc_iatype(m,iwtvap)) * dt
+            wt0_star(:mkx,m,2) = tr0(:mkx,wtrc_iatype(m,iwtliq)) + trten(:mkx,wtrc_iatype(m,iwtliq)) * dt
+            wt0_star(:mkx,m,3) = tr0(:mkx,wtrc_iatype(m,iwtice)) + trten(:mkx,wtrc_iatype(m,iwtice)) * dt
           end do
-        end if
-        endif
-        call uwshcu_select_positive_moisture_single_impl()
-        if(use_native_init_shell_impl .or. use_native_positive_moisture_single_impl) then
-          if(trace_water) then
-            call positive_moisture_single( xlv_active, xls_active, mkx, dt, qmin_active(1), qmin_active(ixcldliq), &
-                                           qmin_active(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
-                                           qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
-          else
-            call positive_moisture_single( xlv_active, xls_active, mkx, dt, qmin_active(1), qmin_active(ixcldliq), qmin_active(ixcldice), &
-                 dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
-          end if !water tracers
+          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
+                                         qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
+                                         qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
         else
-          positive_moisture_status_c = 0_c_int64_t
-          call uwshcu_log_positive_moisture_single_entered()
-          call uwshcu_positive_moisture_single_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               merge(1_c_int64_t, 0_c_int64_t, trace_water), int(wtrc_nwset, c_int64_t), &
-               xlv_active, xls_active, dt, qmin_active(1), qmin_active(ixcldliq), qmin_active(ixcldice), wtrc_qmin_active, &
-               c_loc(dp0), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), c_loc(s0_star), &
-               c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(wtrc_iatype_post), &
-               c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd), c_loc(wt0_star), &
-               c_loc(trten), c_loc(positive_moisture_status_c))
-          if (positive_moisture_status_c .ne. 0_c_int64_t) then
-             write(iulog,*) 'Full positive_moisture is impossible in uwshcu'
-          end if
-        end if
+          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
+               dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
+        end if !water tracers
         !************
-        if (use_native_init_shell_impl) then
         qtten(:mkx)    = qvten(:mkx) + qlten(:mkx) + qiten(:mkx)
-        slten(:mkx)    = sten(:mkx)  - xlv_active * qlten(:mkx) - xls_active * qiten(:mkx)
-        endif
+        slten(:mkx)    = sten(:mkx)  - xlv * qlten(:mkx) - xls * qiten(:mkx)
 
        ! --------------------- !
        ! Tendencies of tracers !
        ! --------------------- !
 
-       if (use_native_init_shell_impl) then
        do m = 4, ncnst
 
        !Do not modify water tracers here.
 
-       if( m .ne. ixnumliq .and. m .ne. ixnumice .and. iwater_is_water_active(m) == 0_c_int64_t) then
-         
-          trmin = qmin_active(m)
+       if( m .ne. ixnumliq .and. m .ne. ixnumice .and. (.not. wtrc_is_wtrc(m))) then
+
+          trmin = qmin(m)
           trflx_d(0:mkx) = 0._r8
-          trflx_u(0:mkx) = 0._r8           
+          trflx_u(0:mkx) = 0._r8
           do k = 1, mkx-1
-             if( cnst_type_is_wet_active(m) /= 0_c_int64_t ) then
+             if( cnst_get_type_byind(m) .eq. 'wet' ) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
              endif
              km1 = k - 1
-             dum = ( tr0(k,m) - trmin ) *  pdelx / g_active / dt + trflx(km1,m) - trflx(k,m) + trflx_d(km1)
+             dum = ( tr0(k,m) - trmin ) *  pdelx / g / dt + trflx(km1,m) - trflx(k,m) + trflx_d(km1)
              trflx_d(k) = min( 0._r8, dum )
           enddo
           do k = mkx, 2, -1
-             if( cnst_type_is_wet_active(m) /= 0_c_int64_t ) then
+             if( cnst_get_type_byind(m) .eq. 'wet' ) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
              endif
              km1 = k - 1
-             dum = ( tr0(k,m) - trmin ) * pdelx / g_active / dt + trflx(km1,m) - trflx(k,m) + &
-                                                           trflx_d(km1) - trflx_d(k) - trflx_u(k) 
-             trflx_u(km1) = max( 0._r8, -dum ) 
+             dum = ( tr0(k,m) - trmin ) * pdelx / g / dt + trflx(km1,m) - trflx(k,m) + &
+                                                           trflx_d(km1) - trflx_d(k) - trflx_u(k)
+             trflx_u(km1) = max( 0._r8, -dum )
           enddo
           do k = 1, mkx
-             if( cnst_type_is_wet_active(m) /= 0_c_int64_t ) then
+             if( cnst_get_type_byind(m) .eq. 'wet' ) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
              endif
              km1 = k - 1
-           ! Check : I should re-check whether '_u', '_d' are correctly ordered in 
+           ! Check : I should re-check whether '_u', '_d' are correctly ordered in
            !         the below tendency computation.
-             trten(k,m) = ( trflx(km1,m) - trflx(k,m) + & 
+             trten(k,m) = ( trflx(km1,m) - trflx(k,m) + &
                             trflx_d(km1) - trflx_d(k) + &
-                            trflx_u(km1) - trflx_u(k) ) * g_active / pdelx
+                            trflx_u(km1) - trflx_u(k) ) * g / pdelx
           enddo
 
        endif
 
        enddo
-	       else
-	          call uwshcu_log_post_positive_tracer_limiter_shell_entered()
-	          call uwshcu_log_thermo_post_batch_shell_entered()
-	          call uwshcu_thermo_post_batch_shell_codon(3_c_int64_t, int(mkx, c_int64_t), &
-	               int(ncnst, c_int64_t), wtrc_nwset_post_c, 0_c_int64_t, int(kpen, c_int64_t), &
-	               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(ixnumliq, c_int64_t), &
-	               int(ixnumice, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, trace_water), 0._r8, &
-	               dt, xlv_active, xls_active, g_active, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-	               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(dp0), c_loc(qv0), &
-	               c_loc(qt0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(qrten), c_loc(qsten), &
-	               c_loc(dwten), c_loc(diten), c_loc(qtten), c_loc(slten), c_loc(qlten_sink), &
-	               c_loc(qiten_sink), c_loc(nlten_sink), c_loc(niten_sink), c_loc(qc_l), &
-	               c_loc(qc_i), c_loc(qlten), c_loc(qiten), c_loc(qvten), c_loc(sten), &
-	               c_loc(tr0), c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wt0), c_loc(wtdwten), &
-	               c_loc(wtditen), c_loc(wttotten), c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), &
-	               c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtqcm_liq), c_loc(wtqcm_ice), &
-	               c_loc(wtlten_det), c_loc(wtiten_det), c_loc(qc), c_loc(rliq), c_loc(precip), &
-	               c_loc(snow), c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
-	               c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(limit_negcon), c_loc(wtrpten), &
-	               c_loc(wtspten), c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), &
-	               c_loc(wtprec), c_loc(wtsnow), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
-	               c_loc(s0_star), c_loc(wt0_star), c_loc(dpdry0), c_loc(trflx), c_loc(trflx_d), &
-	               c_loc(trflx_u), c_loc(qmin_active), c_loc(iwater_is_water_active), &
-	               c_loc(cnst_type_is_wet_active))
-	       endif
 
        ! ---------------------------------------------------------------- !
        ! Cumpute default diagnostic outputs                               !
        ! Note that since 'qtu(krel-1:kpen-1)' & 'thlu(krel-1:kpen-1)' has !
-       ! been adjusted after detraining cloud condensate into environment ! 
+       ! been adjusted after detraining cloud condensate into environment !
        ! during cumulus updraft motion,  below calculations will  exactly !
        ! reproduce in-cloud properties as shown in the output analysis.   !
-       ! ---------------------------------------------------------------- ! 
- 
+       ! ---------------------------------------------------------------- !
+
        !NOTE:  This section of code is solely for diagnostic output, which doesn't impact water tracers. - JN
 
-       if (use_native_init_shell_impl) then
-          call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
-          if( id_check .eq. 1 ) then
-              exit_conden(i) = 1._r8
-              id_exit = .true.
-              go to 333
-          end if
-       else
-          call uwshcu_log_cloud_diag_batch_shell_entered()
-          cloud_diag_id_check_c = 0_c_int64_t
-          call uwshcu_cloud_diag_conden_batch_shell_codon(0_c_int64_t, int(mkx, c_int64_t), 0_c_int64_t, &
-                int(krel, c_int64_t), int(kpen, c_int64_t), int(ncnst, c_int64_t), criqc, prel, ppen, &
-                ufrclcl, g_active, 0._r8, 0._r8, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-                c_loc(cloud_diag_id_check_c), c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
-                c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
-                c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
-                c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), &
-                c_loc(riwp), c_loc(cnt), c_loc(cnb))
-          if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
-              id_exit = .true.
-              go to 333
-          end if
+       call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
+       if( id_check .eq. 1 ) then
+           exit_conden(i) = 1._r8
+           id_exit = .true.
+           go to 333
        end if
-       if (use_native_init_shell_impl) then
        qcubelow = qlj + qij
-       qlubelow = qlj       
-       qiubelow = qij       
+       qlubelow = qlj
+       qiubelow = qij
        rcwp     = 0._r8
        rlwp     = 0._r8
        riwp     = 0._r8
-       endif
 
        ! --------------------------------------------------------------------- !
        ! In the below calculations, I explicitly considered cloud base ( LCL ) !
        ! and cloud top height ( ps0(kpen-1) + ppen )                           !
-       ! ----------------------------------------------------------------------! 
+       ! ----------------------------------------------------------------------!
        do k = krel, kpen ! This is a layer index
-          ! ------------------------------------------------------------------ ! 
+          ! ------------------------------------------------------------------ !
           ! Calculate cumulus condensate at the upper interface of each layer. !
           ! Note 'ppen < 0' and at 'k=kpen' layer, I used 'thlu_top'&'qtu_top' !
           ! which explicitly considered zero or non-zero 'fer(kpen)'.          !
-          ! ------------------------------------------------------------------ ! 
-          if (use_native_init_shell_impl) then
-             if( k .eq. kpen ) then
-                 call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             else
-                 call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-             endif
-             if( id_check .eq. 1 ) then
-                 exit_conden(i) = 1._r8
-                 id_exit = .true.
-                 go to 333
-             end if
+          ! ------------------------------------------------------------------ !
+          if( k .eq. kpen ) then
+              call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
           else
-             call uwshcu_log_cloud_diag_batch_shell_entered()
-             cloud_diag_id_check_c = 0_c_int64_t
-             call uwshcu_cloud_diag_conden_batch_shell_codon(1_c_int64_t, int(mkx, c_int64_t), int(k, c_int64_t), &
-                   int(krel, c_int64_t), int(kpen, c_int64_t), int(ncnst, c_int64_t), criqc, prel, ppen, &
-                   ufrclcl, g_active, thlu_top, qtu_top, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-                   c_loc(cloud_diag_id_check_c), c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
-                   c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
-                   c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
-                   c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), &
-                   c_loc(riwp), c_loc(cnt), c_loc(cnb))
-             if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             end if
+              call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+          endif
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
           end if
           ! ---------------------------------------------------------------- !
           ! Calculate in-cloud mean LWC ( qlu(k) ), IWC ( qiu(k) ),  & layer !
@@ -12538,56 +8180,43 @@ end subroutine uwshcu_readnl
           ! is assumed to be twice of core updraft fractional area. Thus LWP !
           ! and IWP will be twice of actual value coming from our scheme.    !
           ! ---------------------------------------------------------------- !
-          if (use_native_init_shell_impl) then
-             qcu(k)   = 0.5_r8 * ( qcubelow + qlj + qij )
-             qlu(k)   = 0.5_r8 * ( qlubelow + qlj )
-             qiu(k)   = 0.5_r8 * ( qiubelow + qij )
-             cufrc(k) = ( ufrc(k-1) + ufrc(k) )
-             if( k .eq. krel ) then
-                 cufrc(k) = ( ufrclcl + ufrc(k) )*( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-             else if( k .eq. kpen ) then
-                 cufrc(k) = ( ufrc(k-1) + 0._r8 )*( -ppen )        /( ps0(k-1) - ps0(k) )
-                 if( (qlj + qij) .gt. criqc ) then
-                      qcu(k) = 0.5_r8 * ( qcubelow + criqc )
-                      qlu(k) = 0.5_r8 * ( qlubelow + criqc * qlj / ( qlj + qij ) )
-                      qiu(k) = 0.5_r8 * ( qiubelow + criqc * qij / ( qlj + qij ) )
-                 endif
-             endif
-             rcwp = rcwp + ( qlu(k) + qiu(k) ) * ( ps0(k-1) - ps0(k) ) / g_active * cufrc(k)
-             rlwp = rlwp +   qlu(k)            * ( ps0(k-1) - ps0(k) ) / g_active * cufrc(k)
-             riwp = riwp +   qiu(k)            * ( ps0(k-1) - ps0(k) ) / g_active * cufrc(k)
-             qcubelow = qlj + qij
-             qlubelow = qlj
-             qiubelow = qij
+          qcu(k)   = 0.5_r8 * ( qcubelow + qlj + qij )
+          qlu(k)   = 0.5_r8 * ( qlubelow + qlj )
+          qiu(k)   = 0.5_r8 * ( qiubelow + qij )
+          cufrc(k) = ( ufrc(k-1) + ufrc(k) )
+          if( k .eq. krel ) then
+              cufrc(k) = ( ufrclcl + ufrc(k) )*( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+          else if( k .eq. kpen ) then
+              cufrc(k) = ( ufrc(k-1) + 0._r8 )*( -ppen )        /( ps0(k-1) - ps0(k) )
+              if( (qlj + qij) .gt. criqc ) then
+                   qcu(k) = 0.5_r8 * ( qcubelow + criqc )
+                   qlu(k) = 0.5_r8 * ( qlubelow + criqc * qlj / ( qlj + qij ) )
+                   qiu(k) = 0.5_r8 * ( qiubelow + criqc * qij / ( qlj + qij ) )
+              endif
           endif
+          rcwp = rcwp + ( qlu(k) + qiu(k) ) * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
+          rlwp = rlwp +   qlu(k)            * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
+          riwp = riwp +   qiu(k)            * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
+          qcubelow = qlj + qij
+          qlubelow = qlj
+          qiubelow = qij
        end do
-       ! ------------------------------------ !      
+       ! ------------------------------------ !
        ! Cloud top and base interface indices !
        ! ------------------------------------ !
-       if (use_native_init_shell_impl) then
        cnt = real( kpen, r8 )
        cnb = real( krel - 1, r8 )
-       else
-          call uwshcu_log_cloud_diag_batch_shell_entered()
-          call uwshcu_cloud_diag_batch_shell_codon(2_c_int64_t, int(mkx, c_int64_t), 0_c_int64_t, &
-               int(krel, c_int64_t), int(kpen, c_int64_t), 0_c_int64_t, 0._r8, 0._r8, &
-               criqc, prel, ppen, ufrclcl, g_active, c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
-               c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
-               c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), &
-               c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
-               c_loc(cnt), c_loc(cnb))
-       endif
 
        ! ------------------------------------------------------------------------- !
-       ! End of formal calculation. Below blocks are for implicit CIN calculations ! 
+       ! End of formal calculation. Below blocks are for implicit CIN calculations !
        ! with re-initialization and save variables at iter_cin = 1._r8             !
        ! ------------------------------------------------------------------------- !
-       
+
        ! --------------------------------------------------------------- !
        ! Adjust the original input profiles for implicit CIN calculation !
        ! --------------------------------------------------------------- !
 
-       if( iter .ne. iter_cin ) then 
+       if( iter .ne. iter_cin ) then
 
           ! ------------------------------------------------------------------- !
           ! Save the output from "iter_cin = 1"                                 !
@@ -12595,40 +8224,39 @@ end subroutine uwshcu_readnl
           ! for some reasons.                                                   !
           ! ------------------------------------------------------------------- !
 
-          if (use_native_init_shell_impl) then
           qv0_s(:mkx)           = qv0(:mkx) + qvten(:mkx) * dt
           ql0_s(:mkx)           = ql0(:mkx) + qlten(:mkx) * dt
           qi0_s(:mkx)           = qi0(:mkx) + qiten(:mkx) * dt
-          s0_s(:mkx)            = s0(:mkx)  +  sten(:mkx) * dt 
+          s0_s(:mkx)            = s0(:mkx)  +  sten(:mkx) * dt
           u0_s(:mkx)            = u0(:mkx)  +  uten(:mkx) * dt
-          v0_s(:mkx)            = v0(:mkx)  +  vten(:mkx) * dt 
+          v0_s(:mkx)            = v0(:mkx)  +  vten(:mkx) * dt
           qt0_s(:mkx)           = qv0_s(:mkx) + ql0_s(:mkx) + qi0_s(:mkx)
-          t0_s(:mkx)            = t0(:mkx)  +  sten(:mkx) * dt / cp_active
+          t0_s(:mkx)            = t0(:mkx)  +  sten(:mkx) * dt / cp
           do m = 1, ncnst
              tr0_s(:mkx,m)      = tr0(:mkx,m) + trten(:mkx,m) * dt !<-water tracers handled here.
           enddo
 
           umf_s(0:mkx)          = umf(0:mkx)
           qvten_s(:mkx)         = qvten(:mkx)
-          qlten_s(:mkx)         = qlten(:mkx)  
+          qlten_s(:mkx)         = qlten(:mkx)
           qiten_s(:mkx)         = qiten(:mkx)
           sten_s(:mkx)          = sten(:mkx)
-          uten_s(:mkx)          = uten(:mkx)  
+          uten_s(:mkx)          = uten(:mkx)
           vten_s(:mkx)          = vten(:mkx)
           qrten_s(:mkx)         = qrten(:mkx)
-          qsten_s(:mkx)         = qsten(:mkx)  
+          qsten_s(:mkx)         = qsten(:mkx)
           precip_s              = precip
           snow_s                = snow
           evapc_s(:mkx)         = evapc(:mkx)
           cush_s                = cush
-          cufrc_s(:mkx)         = cufrc(:mkx)  
-          slflx_s(0:mkx)        = slflx(0:mkx)  
-          qtflx_s(0:mkx)        = qtflx(0:mkx)  
-          qcu_s(:mkx)           = qcu(:mkx)  
-          qlu_s(:mkx)           = qlu(:mkx)  
-          qiu_s(:mkx)           = qiu(:mkx)  
-          fer_s(:mkx)           = fer(:mkx)  
-          fdr_s(:mkx)           = fdr(:mkx)  
+          cufrc_s(:mkx)         = cufrc(:mkx)
+          slflx_s(0:mkx)        = slflx(0:mkx)
+          qtflx_s(0:mkx)        = qtflx(0:mkx)
+          qcu_s(:mkx)           = qcu(:mkx)
+          qlu_s(:mkx)           = qlu(:mkx)
+          qiu_s(:mkx)           = qiu(:mkx)
+          fer_s(:mkx)           = fer(:mkx)
+          fdr_s(:mkx)           = fdr(:mkx)
           cin_s                 = cin
           cinlcl_s              = cinlcl
           cbmf_s                = cbmf
@@ -12638,20 +8266,20 @@ end subroutine uwshcu_readnl
           cnb_s                 = cnb
           qtten_s(:mkx)         = qtten(:mkx)
           slten_s(:mkx)         = slten(:mkx)
-          ufrc_s(0:mkx)         = ufrc(0:mkx) 
+          ufrc_s(0:mkx)         = ufrc(0:mkx)
 
-          uflx_s(0:mkx)         = uflx(0:mkx)  
-          vflx_s(0:mkx)         = vflx(0:mkx)  
-           
+          uflx_s(0:mkx)         = uflx(0:mkx)
+          vflx_s(0:mkx)         = vflx(0:mkx)
+
           ufrcinvbase_s         = ufrcinvbase
-          ufrclcl_s             = ufrclcl 
+          ufrclcl_s             = ufrclcl
           winvbase_s            = winvbase
           wlcl_s                = wlcl
           plcl_s                = plcl
           pinv_s                = ps0(kinv-1)
-          plfc_s                = plfc        
+          plfc_s                = plfc
           pbup_s                = ps0(kbup)
-          ppen_s                = ps0(kpen-1) + ppen        
+          ppen_s                = ps0(kpen-1) + ppen
           qtsrc_s               = qtsrc
           thlsrc_s              = thlsrc
           thvlsrc_s             = thvlsrc
@@ -12708,290 +8336,179 @@ end subroutine uwshcu_readnl
              wtsnow_s(:)        = wtsnow(:)
            end if
 
-          else
-             wtrc_nwset_post_c = 0_c_int64_t
-             if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-             call uwshcu_log_iter_save_shell_entered()
-             call uwshcu_iter_save_all_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                  wtrc_nwset_post_c, int(kinv, c_int64_t), int(kbup, c_int64_t), int(kpen, c_int64_t), &
-                  dt, cp_active, ppen, precip, snow, cush, cin, cinlcl, cbmf, rliq, cnt, cnb, &
-                  ufrcinvbase, ufrclcl, winvbase, wlcl, plcl, plfc, qtsrc, thlsrc, thvlsrc, &
-                  cbmflimit, tkeavg, rcwp, rlwp, riwp, &
-                  c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(u0), c_loc(v0), c_loc(t0), &
-                  c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), c_loc(vten), &
-                  c_loc(tr0), c_loc(trten), c_loc(qv0_s), c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), &
-                  c_loc(u0_s), c_loc(v0_s), c_loc(qt0_s), c_loc(t0_s), c_loc(tr0_s), &
-                  c_loc(umf), c_loc(qrten), c_loc(qsten), c_loc(evapc), c_loc(cufrc), &
-                  c_loc(slflx), c_loc(qtflx), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(qc), &
-                  c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtprec), c_loc(wtsnow), c_loc(umf_s), &
-                  c_loc(qvten_s), c_loc(qlten_s), c_loc(qiten_s), c_loc(sten_s), &
-                  c_loc(uten_s), c_loc(vten_s), c_loc(qrten_s), c_loc(qsten_s), c_loc(evapc_s), &
-                  c_loc(cufrc_s), c_loc(slflx_s), c_loc(qtflx_s), c_loc(qcu_s), c_loc(qlu_s), &
-                  c_loc(qiu_s), c_loc(qc_s), c_loc(trten_s), c_loc(wtqc_liq_s), c_loc(wtqc_ice_s), &
-                  c_loc(wtprec_s), c_loc(wtsnow_s), &
-                  c_loc(fer), c_loc(fdr), c_loc(qtten), c_loc(slten), c_loc(ufrc), c_loc(uflx), &
-                  c_loc(vflx), c_loc(wu), c_loc(qtu), c_loc(thlu), c_loc(thvu), c_loc(uu), &
-                  c_loc(vu), c_loc(qtu_emf), c_loc(thlu_emf), c_loc(uu_emf), c_loc(vu_emf), &
-                  c_loc(uemf), c_loc(dwten), c_loc(diten), c_loc(flxrain), c_loc(flxsnow), &
-                  c_loc(ntraprd), c_loc(ntsnprd), c_loc(excessu_arr), c_loc(excess0_arr), &
-                  c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), &
-                  c_loc(bogbot_arr), c_loc(bogtop_arr), c_loc(trflx), c_loc(tru), c_loc(tru_emf), &
-                  c_loc(fer_s), c_loc(fdr_s), c_loc(qtten_s), c_loc(slten_s), c_loc(ufrc_s), &
-                  c_loc(uflx_s), c_loc(vflx_s), c_loc(wu_s), c_loc(qtu_s), c_loc(thlu_s), &
-                  c_loc(thvu_s), c_loc(uu_s), c_loc(vu_s), c_loc(qtu_emf_s), c_loc(thlu_emf_s), &
-                  c_loc(uu_emf_s), c_loc(vu_emf_s), c_loc(uemf_s), c_loc(dwten_s), c_loc(diten_s), &
-                  c_loc(flxrain_s), c_loc(flxsnow_s), c_loc(ntraprd_s), c_loc(ntsnprd_s), &
-                  c_loc(excessu_arr_s), c_loc(excess0_arr_s), c_loc(xc_arr_s), c_loc(aquad_arr_s), &
-                  c_loc(bquad_arr_s), c_loc(cquad_arr_s), c_loc(bogbot_arr_s), c_loc(bogtop_arr_s), &
-                  c_loc(trflx_s), c_loc(tru_s), c_loc(tru_emf_s), c_loc(ps0), c_loc(zs0), c_loc(emf), &
-                  c_loc(precip_s), c_loc(snow_s), c_loc(cush_s), c_loc(cin_s), c_loc(cinlcl_s), &
-                  c_loc(cbmf_s), c_loc(rliq_s), c_loc(cnt_s), c_loc(cnb_s), c_loc(ufrcinvbase_s), &
-                  c_loc(ufrclcl_s), c_loc(winvbase_s), c_loc(wlcl_s), c_loc(plcl_s), c_loc(pinv_s), &
-                  c_loc(plfc_s), c_loc(pbup_s), c_loc(ppen_s), c_loc(qtsrc_s), c_loc(thlsrc_s), &
-                  c_loc(thvlsrc_s), c_loc(emfkbup_s), c_loc(cbmflimit_s), c_loc(tkeavg_s), &
-                  c_loc(zinv_s), c_loc(rcwp_s), c_loc(rlwp_s), c_loc(riwp_s), &
-                  xlv_active, xls_active, zvir_active, c_loc(exn0), c_loc(wtrc_iatype_post), c_loc(p0), &
-                  c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(wt0), c_loc(ssthl0), &
-                  c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(sstr0), c_loc(sswt0))
-          end if
-
-          ! ----------------------------------------------------------------------------- ! 
-          ! Recalculate environmental variables for new cin calculation at "iter_cin = 2" ! 
+          ! ----------------------------------------------------------------------------- !
+          ! Recalculate environmental variables for new cin calculation at "iter_cin = 2" !
           ! using the updated state variables. Perform only for variables necessary  for  !
           ! the new cin calculation.                                                      !
           ! ----------------------------------------------------------------------------- !
-          
+
           !NOTE:  Water tracers not needed for CIN calculation. -JN
 
-          if (use_native_init_shell_impl) then
-             qv0(:mkx)   = qv0_s(:mkx)
-             ql0(:mkx)   = ql0_s(:mkx)
-             qi0(:mkx)   = qi0_s(:mkx)
-             s0(:mkx)    = s0_s(:mkx)
-             t0(:mkx)    = t0_s(:mkx)
-             qt0(:mkx)   = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
-             thl0(:mkx)  = (t0(:mkx) - xlv_active*ql0(:mkx)/cp_active - xls_active*qi0(:mkx)/cp_active)/exn0(:mkx)
-             thvl0(:mkx) = (1._r8 + zvir_active*qt0(:mkx))*thl0(:mkx)
-             ssthl0      = slope(mkx,thl0,p0) ! Dimension of ssthl0(:mkx) is implicit
-             ssqt0       = slope(mkx,qt0 ,p0)
-             ssu0        = slope(mkx,u0  ,p0)
-             ssv0        = slope(mkx,v0  ,p0)
-             do m = 1, ncnst
-                sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
-             enddo
-          end if
+          qv0(:mkx)   = qv0_s(:mkx)
+          ql0(:mkx)   = ql0_s(:mkx)
+          qi0(:mkx)   = qi0_s(:mkx)
+          s0(:mkx)    = s0_s(:mkx)
+          t0(:mkx)    = t0_s(:mkx)
 
-	          if (use_native_init_shell_impl) then
-	             do k = 1, mkx
+          qt0(:mkx)   = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
+          thl0(:mkx)  = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
+          thvl0(:mkx) = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
 
-	                thl0bot = thl0(k) + ssthl0(k) * ( ps0(k-1) - p0(k) )
-	                qt0bot  = qt0(k)  + ssqt0(k)  * ( ps0(k-1) - p0(k) )
-	                call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
-	                if( id_check .eq. 1 ) then
-	                    exit_conden(i) = 1._r8
-	                    id_exit = .true.
-	                    go to 333
-	                end if
-	                thv0bot(k)  = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-	                thvl0bot(k) = thl0bot * ( 1._r8 + zvir_active*qt0bot )
+          ssthl0      = slope(mkx,thl0,p0) ! Dimension of ssthl0(:mkx) is implicit
+          ssqt0       = slope(mkx,qt0 ,p0)
+          ssu0        = slope(mkx,u0  ,p0)
+          ssv0        = slope(mkx,v0  ,p0)
+          do m = 1, ncnst
+             sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
+          enddo
 
-	                thl0top = thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) )
-	                qt0top  =  qt0(k) + ssqt0(k)  * ( ps0(k) - p0(k) )
-	                call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-	                if( id_check .eq. 1 ) then
-	                    exit_conden(i) = 1._r8
-	                    id_exit = .true.
-	                    go to 333
-	                end if
-	                thv0top(k)  = thj * ( 1._r8 + zvir_active*qvj - qlj - qij )
-	                thvl0top(k) = thl0top * ( 1._r8 + zvir_active*qt0top )
+          do k = 1, mkx
 
-	             end do
-	          else
-	             id_check_thv_loop_c = 0_c_int64_t
-	             interface_conden_exit_code_c = 0_c_int64_t
-	             call uwshcu_log_iter_interface_thv_loop_shell_entered()
-	             call uwshcu_interface_thv_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), zvir_active, &
-	                  c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
-	                  c_loc(exit_conden(i)), c_loc(thv0bot), c_loc(thvl0bot), c_loc(thv0top), &
-	                  c_loc(thvl0top), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
-	                  c_loc(id_check_thv_loop_c), c_loc(interface_conden_exit_code_c))
-	             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
-	                 id_exit = .true.
-	                 go to 333
-	             end if
-	          endif
+             thl0bot = thl0(k) + ssthl0(k) * ( ps0(k-1) - p0(k) )
+             qt0bot  = qt0(k)  + ssqt0(k)  * ( ps0(k-1) - p0(k) )
+             call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
+             if( id_check .eq. 1 ) then
+                 exit_conden(i) = 1._r8
+                 id_exit = .true.
+                 go to 333
+             end if
+             thv0bot(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             thvl0bot(k) = thl0bot * ( 1._r8 + zvir*qt0bot )
 
-	       endif               ! End of 'if(iter .ne. iter_cin)' if sentence.
+             thl0top = thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) )
+             qt0top  =  qt0(k) + ssqt0(k)  * ( ps0(k) - p0(k) )
+             call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+             if( id_check .eq. 1 ) then
+                 exit_conden(i) = 1._r8
+                 id_exit = .true.
+                 go to 333
+             end if
+             thv0top(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             thvl0top(k) = thl0top * ( 1._r8 + zvir*qt0top )
 
-     end do                ! End of implicit CIN loop (cin_iter)      
+          end do
+
+       endif               ! End of 'if(iter .ne. iter_cin)' if sentence.
+
+     end do                ! End of implicit CIN loop (cin_iter)
 
      ! ----------------------- !
      ! Update Output Variables !
      ! ----------------------- !
 
-     if (use_native_init_shell_impl) then
-        umf_out(i,0:mkx)             = umf(0:mkx)
-        slflx_out(i,0:mkx)           = slflx(0:mkx)
-        qtflx_out(i,0:mkx)           = qtflx(0:mkx)
+     umf_out(i,0:mkx)             = umf(0:mkx)
+     slflx_out(i,0:mkx)           = slflx(0:mkx)
+     qtflx_out(i,0:mkx)           = qtflx(0:mkx)
 !the indices are not reversed, these variables go into compute_mcshallow_inv, this is why they are called "flxprc1" and "flxsnow1".
-        flxprc1_out(i,0:mkx)         = flxrain(0:mkx) + flxsnow(0:mkx)
-        flxsnow1_out(i,0:mkx)        = flxsnow(0:mkx)
-        qvten_out(i,:mkx)            = qvten(:mkx)
-        qlten_out(i,:mkx)            = qlten(:mkx)
-        qiten_out(i,:mkx)            = qiten(:mkx)
-        sten_out(i,:mkx)             = sten(:mkx)
-        uten_out(i,:mkx)             = uten(:mkx)
-        vten_out(i,:mkx)             = vten(:mkx)
-        qrten_out(i,:mkx)            = qrten(:mkx)
-        qsten_out(i,:mkx)            = qsten(:mkx)
-        precip_out(i)                = precip
-        snow_out(i)                  = snow
-        evapc_out(i,:mkx)            = evapc(:mkx)
-        cufrc_out(i,:mkx)            = cufrc(:mkx)
-        qcu_out(i,:mkx)              = qcu(:mkx)
-        qlu_out(i,:mkx)              = qlu(:mkx)
-        qiu_out(i,:mkx)              = qiu(:mkx)
-        cush_inout(i)                = cush
-        cbmf_out(i)                  = cbmf
-        rliq_out(i)                  = rliq
-        qc_out(i,:mkx)               = qc(:mkx)
-        cnt_out(i)                   = cnt
-        cnb_out(i)                   = cnb
+     flxprc1_out(i,0:mkx)         = flxrain(0:mkx) + flxsnow(0:mkx)
+     flxsnow1_out(i,0:mkx)        = flxsnow(0:mkx)
+     qvten_out(i,:mkx)            = qvten(:mkx)
+     qlten_out(i,:mkx)            = qlten(:mkx)
+     qiten_out(i,:mkx)            = qiten(:mkx)
+     sten_out(i,:mkx)             = sten(:mkx)
+     uten_out(i,:mkx)             = uten(:mkx)
+     vten_out(i,:mkx)             = vten(:mkx)
+     qrten_out(i,:mkx)            = qrten(:mkx)
+     qsten_out(i,:mkx)            = qsten(:mkx)
+     precip_out(i)                = precip
+     snow_out(i)                  = snow
+     evapc_out(i,:mkx)            = evapc(:mkx)
+     cufrc_out(i,:mkx)            = cufrc(:mkx)
+     qcu_out(i,:mkx)              = qcu(:mkx)
+     qlu_out(i,:mkx)              = qlu(:mkx)
+     qiu_out(i,:mkx)              = qiu(:mkx)
+     cush_inout(i)                = cush
+     cbmf_out(i)                  = cbmf
+     rliq_out(i)                  = rliq
+     qc_out(i,:mkx)               = qc(:mkx)
+     cnt_out(i)                   = cnt
+     cnb_out(i)                   = cnb
 
-        do m = 1, ncnst !<- Water tracers handled here. -JN
-           trten_out(i,:mkx,m)       = trten(:mkx,m)
-        enddo
-     end if
-  
+     do m = 1, ncnst !<- Water tracers handled here. -JN
+        trten_out(i,:mkx,m)       = trten(:mkx,m)
+     enddo
+
     !*************
     !Water tracers:
     !*************
      if(trace_water) then
-       if (use_native_init_shell_impl) then
-         do m=1, wtrc_nwset
-           wtqc_out(i,:mkx,int(wtrc_iatype_post(m,2))) = wtqc_liq(:mkx,m)
-           wtqc_out(i,:mkx,int(wtrc_iatype_post(m,3))) = wtqc_ice(:mkx,m)
-           wtprec_out(i,int(wtrc_iatype_post(m,1)))    = wtprec(m)
-           wtsnow_out(i,int(wtrc_iatype_post(m,1)))    = wtsnow(m)
-         end do
-       end if
+       do m=1, wtrc_nwset
+         wtqc_out(i,:mkx,wtrc_iatype(m,iwtliq)) = wtqc_liq(:mkx,m)
+         wtqc_out(i,:mkx,wtrc_iatype(m,iwtice)) = wtqc_ice(:mkx,m)
+         wtprec_out(i,wtrc_iatype(m,iwtvap))    = wtprec(m)
+         wtsnow_out(i,wtrc_iatype(m,iwtvap))    = wtsnow(m)
+       end do
      end if
     !*************
-
-     if (.not. use_native_init_shell_impl) then
-        wtrc_nwset_post_c = 0_c_int64_t
-        if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-        call uwshcu_log_main_diag_post_shell_entered()
-        call uwshcu_main_diag_post_all_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-             int(i, c_int64_t), int(ncnst, c_int64_t), wtrc_nwset_post_c, precip, snow, cush, &
-             cbmf, rliq, cnt, cnb, c_loc(umf), c_loc(slflx), c_loc(qtflx), c_loc(flxrain), &
-             c_loc(flxsnow), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), &
-             c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(evapc), c_loc(cufrc), c_loc(qcu), &
-             c_loc(qlu), c_loc(qiu), c_loc(qc), c_loc(trten), c_loc(wtqc_liq), c_loc(wtqc_ice), &
-             c_loc(wtprec), c_loc(wtsnow), c_loc(wtrc_iatype_post), c_loc(umf_out), c_loc(slflx_out), &
-             c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
-             c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
-             c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), c_loc(evapc_out), &
-             c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cush_inout), &
-             c_loc(cbmf_out), c_loc(rliq_out), c_loc(qc_out), c_loc(cnt_out), c_loc(cnb_out), &
-             c_loc(trten_out), c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), &
-             cin, cinlcl, ufrcinvbase, ufrclcl, winvbase, wlcl, plcl, ps0(kinv-1), plfc, &
-             ps0(kbup), ps0(kpen-1) + ppen, qtsrc, thlsrc, thvlsrc, emf(kbup), cbmflimit, &
-             tkeavg, zs0(kinv-1), rcwp, rlwp, riwp, c_loc(fer), c_loc(fdr), c_loc(qtten), &
-             c_loc(slten), c_loc(ufrc), c_loc(uflx), c_loc(vflx), c_loc(wu), c_loc(qtu), &
-             c_loc(thlu), c_loc(thvu), c_loc(uu), c_loc(vu), c_loc(qtu_emf), c_loc(thlu_emf), &
-             c_loc(uu_emf), c_loc(vu_emf), c_loc(uemf), c_loc(dwten), c_loc(diten), &
-             c_loc(flxrain), c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(excessu_arr), &
-             c_loc(excess0_arr), c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), &
-             c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr), c_loc(trflx), &
-             c_loc(tru), c_loc(tru_emf), c_loc(fer_out), c_loc(fdr_out), c_loc(cinh_out), &
-             c_loc(cinlclh_out), c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), &
-             c_loc(uflx_out), c_loc(vflx_out), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), &
-             c_loc(winvbase_out), c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), &
-             c_loc(plfc_out), c_loc(pbup_out), c_loc(ppen_out), c_loc(qtsrc_out), &
-             c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), c_loc(cbmflimit_out), &
-             c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), c_loc(rlwp_out), &
-             c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), c_loc(thlu_out), c_loc(thvu_out), &
-             c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), c_loc(thlu_emf_out), &
-             c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), c_loc(dwten_out), &
-             c_loc(diten_out), c_loc(flxrain_out), c_loc(flxsnow_out), c_loc(ntraprd_out), &
-             c_loc(ntsnprd_out), c_loc(excessu_arr_out), c_loc(excess0_arr_out), &
-             c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), &
-             c_loc(cquad_arr_out), c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), &
-             c_loc(trflx_out), c_loc(tru_out), c_loc(tru_emf_out))
-     end if
 
      ! ------------------------------------------------- !
      ! Below are specific diagnostic output for detailed !
      ! analysis of cumulus scheme                        !
      ! ------------------------------------------------- !
 
-     if (use_native_init_shell_impl) then
-        fer_out(i,mkx:1:-1)          = fer(:mkx)
-        fdr_out(i,mkx:1:-1)          = fdr(:mkx)
-        cinh_out(i)                  = cin
-        cinlclh_out(i)               = cinlcl
-        qtten_out(i,mkx:1:-1)        = qtten(:mkx)
-        slten_out(i,mkx:1:-1)        = slten(:mkx)
-        ufrc_out(i,mkx:0:-1)         = ufrc(0:mkx)
-        uflx_out(i,mkx:0:-1)         = uflx(0:mkx)
-        vflx_out(i,mkx:0:-1)         = vflx(0:mkx)
+     fer_out(i,mkx:1:-1)          = fer(:mkx)
+     fdr_out(i,mkx:1:-1)          = fdr(:mkx)
+     cinh_out(i)                  = cin
+     cinlclh_out(i)               = cinlcl
+     qtten_out(i,mkx:1:-1)        = qtten(:mkx)
+     slten_out(i,mkx:1:-1)        = slten(:mkx)
+     ufrc_out(i,mkx:0:-1)         = ufrc(0:mkx)
+     uflx_out(i,mkx:0:-1)         = uflx(0:mkx)
+     vflx_out(i,mkx:0:-1)         = vflx(0:mkx)
 
-        ufrcinvbase_out(i)           = ufrcinvbase
-        ufrclcl_out(i)               = ufrclcl
-        winvbase_out(i)              = winvbase
-        wlcl_out(i)                  = wlcl
-        plcl_out(i)                  = plcl
-        pinv_out(i)                  = ps0(kinv-1)
-        plfc_out(i)                  = plfc
-        pbup_out(i)                  = ps0(kbup)
-        ppen_out(i)                  = ps0(kpen-1) + ppen
-        qtsrc_out(i)                 = qtsrc
-        thlsrc_out(i)                = thlsrc
-        thvlsrc_out(i)               = thvlsrc
-        emfkbup_out(i)               = emf(kbup)
-        cbmflimit_out(i)             = cbmflimit
-        tkeavg_out(i)                = tkeavg
-        zinv_out(i)                  = zs0(kinv-1)
-        rcwp_out(i)                  = rcwp
-        rlwp_out(i)                  = rlwp
-        riwp_out(i)                  = riwp
+     ufrcinvbase_out(i)           = ufrcinvbase
+     ufrclcl_out(i)               = ufrclcl
+     winvbase_out(i)              = winvbase
+     wlcl_out(i)                  = wlcl
+     plcl_out(i)                  = plcl
+     pinv_out(i)                  = ps0(kinv-1)
+     plfc_out(i)                  = plfc
+     pbup_out(i)                  = ps0(kbup)
+     ppen_out(i)                  = ps0(kpen-1) + ppen
+     qtsrc_out(i)                 = qtsrc
+     thlsrc_out(i)                = thlsrc
+     thvlsrc_out(i)               = thvlsrc
+     emfkbup_out(i)               = emf(kbup)
+     cbmflimit_out(i)             = cbmflimit
+     tkeavg_out(i)                = tkeavg
+     zinv_out(i)                  = zs0(kinv-1)
+     rcwp_out(i)                  = rcwp
+     rlwp_out(i)                  = rlwp
+     riwp_out(i)                  = riwp
 
-        wu_out(i,mkx:0:-1)           = wu(0:mkx)
-        qtu_out(i,mkx:0:-1)          = qtu(0:mkx)
-        thlu_out(i,mkx:0:-1)         = thlu(0:mkx)
-        thvu_out(i,mkx:0:-1)         = thvu(0:mkx)
-        uu_out(i,mkx:0:-1)           = uu(0:mkx)
-        vu_out(i,mkx:0:-1)           = vu(0:mkx)
-        qtu_emf_out(i,mkx:0:-1)      = qtu_emf(0:mkx)
-        thlu_emf_out(i,mkx:0:-1)     = thlu_emf(0:mkx)
-        uu_emf_out(i,mkx:0:-1)       = uu_emf(0:mkx)
-        vu_emf_out(i,mkx:0:-1)       = vu_emf(0:mkx)
-        uemf_out(i,mkx:0:-1)         = uemf(0:mkx)
+     wu_out(i,mkx:0:-1)           = wu(0:mkx)
+     qtu_out(i,mkx:0:-1)          = qtu(0:mkx)
+     thlu_out(i,mkx:0:-1)         = thlu(0:mkx)
+     thvu_out(i,mkx:0:-1)         = thvu(0:mkx)
+     uu_out(i,mkx:0:-1)           = uu(0:mkx)
+     vu_out(i,mkx:0:-1)           = vu(0:mkx)
+     qtu_emf_out(i,mkx:0:-1)      = qtu_emf(0:mkx)
+     thlu_emf_out(i,mkx:0:-1)     = thlu_emf(0:mkx)
+     uu_emf_out(i,mkx:0:-1)       = uu_emf(0:mkx)
+     vu_emf_out(i,mkx:0:-1)       = vu_emf(0:mkx)
+     uemf_out(i,mkx:0:-1)         = uemf(0:mkx)
 
-        dwten_out(i,mkx:1:-1)        = dwten(:mkx)
-        diten_out(i,mkx:1:-1)        = diten(:mkx)
-        flxrain_out(i,mkx:0:-1)      = flxrain(0:mkx)
-        flxsnow_out(i,mkx:0:-1)      = flxsnow(0:mkx)
-        ntraprd_out(i,mkx:1:-1)      = ntraprd(:mkx)
-        ntsnprd_out(i,mkx:1:-1)      = ntsnprd(:mkx)
+     dwten_out(i,mkx:1:-1)        = dwten(:mkx)
+     diten_out(i,mkx:1:-1)        = diten(:mkx)
+     flxrain_out(i,mkx:0:-1)      = flxrain(0:mkx)
+     flxsnow_out(i,mkx:0:-1)      = flxsnow(0:mkx)
+     ntraprd_out(i,mkx:1:-1)      = ntraprd(:mkx)
+     ntsnprd_out(i,mkx:1:-1)      = ntsnprd(:mkx)
 
-        excessu_arr_out(i,mkx:1:-1)  = excessu_arr(:mkx)
-        excess0_arr_out(i,mkx:1:-1)  = excess0_arr(:mkx)
-        xc_arr_out(i,mkx:1:-1)       = xc_arr(:mkx)
-        aquad_arr_out(i,mkx:1:-1)    = aquad_arr(:mkx)
-        bquad_arr_out(i,mkx:1:-1)    = bquad_arr(:mkx)
-        cquad_arr_out(i,mkx:1:-1)    = cquad_arr(:mkx)
-        bogbot_arr_out(i,mkx:1:-1)   = bogbot_arr(:mkx)
-        bogtop_arr_out(i,mkx:1:-1)   = bogtop_arr(:mkx)
+     excessu_arr_out(i,mkx:1:-1)  = excessu_arr(:mkx)
+     excess0_arr_out(i,mkx:1:-1)  = excess0_arr(:mkx)
+     xc_arr_out(i,mkx:1:-1)       = xc_arr(:mkx)
+     aquad_arr_out(i,mkx:1:-1)    = aquad_arr(:mkx)
+     bquad_arr_out(i,mkx:1:-1)    = bquad_arr(:mkx)
+     cquad_arr_out(i,mkx:1:-1)    = cquad_arr(:mkx)
+     bogbot_arr_out(i,mkx:1:-1)   = bogbot_arr(:mkx)
+     bogtop_arr_out(i,mkx:1:-1)   = bogtop_arr(:mkx)
 
-        do m = 1, ncnst !<-water tracers handled here?
-           trflx_out(i,mkx:0:-1,m)   = trflx(0:mkx,m)
-           tru_out(i,mkx:0:-1,m)     = tru(0:mkx,m)
-           tru_emf_out(i,mkx:0:-1,m) = tru_emf(0:mkx,m)
-        enddo
-     end if
+     do m = 1, ncnst !<-water tracers handled here?
+        trflx_out(i,mkx:0:-1,m)   = trflx(0:mkx,m)
+        tru_out(i,mkx:0:-1,m)     = tru(0:mkx,m)
+        tru_emf_out(i,mkx:0:-1,m) = tru_emf(0:mkx,m)
+     enddo
 
  333 if(id_exit) then ! Exit without cumulus convection
 
@@ -13001,9 +8518,7 @@ end subroutine uwshcu_readnl
      ! Initialize output variables when cumulus convection was not performed.!
      ! --------------------------------------------------------------------- !
 
-     if (use_native_init_shell_impl) then
-     
-     umf_out(i,0:mkx)             = 0._r8   
+     umf_out(i,0:mkx)             = 0._r8
      slflx_out(i,0:mkx)           = 0._r8
      qtflx_out(i,0:mkx)           = 0._r8
      qvten_out(i,:mkx)            = 0._r8
@@ -13022,73 +8537,73 @@ end subroutine uwshcu_readnl
      qlu_out(i,:mkx)              = 0._r8
      qiu_out(i,:mkx)              = 0._r8
      cush_inout(i)                = -1._r8
-     cbmf_out(i)                  = 0._r8   
+     cbmf_out(i)                  = 0._r8
      rliq_out(i)                  = 0._r8
      qc_out(i,:mkx)               = 0._r8
      cnt_out(i)                   = 1._r8
      cnb_out(i)                   = real(mkx, r8)
 
-     fer_out(i,mkx:1:-1)          = 0._r8  
-     fdr_out(i,mkx:1:-1)          = 0._r8  
-     cinh_out(i)                  = -1._r8 
-     cinlclh_out(i)               = -1._r8 
+     fer_out(i,mkx:1:-1)          = 0._r8
+     fdr_out(i,mkx:1:-1)          = 0._r8
+     cinh_out(i)                  = -1._r8
+     cinlclh_out(i)               = -1._r8
      qtten_out(i,mkx:1:-1)        = 0._r8
      slten_out(i,mkx:1:-1)        = 0._r8
      ufrc_out(i,mkx:0:-1)         = 0._r8
-     uflx_out(i,mkx:0:-1)         = 0._r8  
-     vflx_out(i,mkx:0:-1)         = 0._r8  
+     uflx_out(i,mkx:0:-1)         = 0._r8
+     vflx_out(i,mkx:0:-1)         = 0._r8
 
-     ufrcinvbase_out(i)           = 0._r8 
-     ufrclcl_out(i)               = 0._r8 
-     winvbase_out(i)              = 0._r8    
-     wlcl_out(i)                  = 0._r8    
-     plcl_out(i)                  = 0._r8    
-     pinv_out(i)                  = 0._r8     
-     plfc_out(i)                  = 0._r8     
-     pbup_out(i)                  = 0._r8    
-     ppen_out(i)                  = 0._r8    
-     qtsrc_out(i)                 = 0._r8    
-     thlsrc_out(i)                = 0._r8    
-     thvlsrc_out(i)               = 0._r8    
+     ufrcinvbase_out(i)           = 0._r8
+     ufrclcl_out(i)               = 0._r8
+     winvbase_out(i)              = 0._r8
+     wlcl_out(i)                  = 0._r8
+     plcl_out(i)                  = 0._r8
+     pinv_out(i)                  = 0._r8
+     plfc_out(i)                  = 0._r8
+     pbup_out(i)                  = 0._r8
+     ppen_out(i)                  = 0._r8
+     qtsrc_out(i)                 = 0._r8
+     thlsrc_out(i)                = 0._r8
+     thvlsrc_out(i)               = 0._r8
      emfkbup_out(i)               = 0._r8
-     cbmflimit_out(i)             = 0._r8    
-     tkeavg_out(i)                = 0._r8    
-     zinv_out(i)                  = 0._r8    
-     rcwp_out(i)                  = 0._r8    
-     rlwp_out(i)                  = 0._r8    
-     riwp_out(i)                  = 0._r8    
+     cbmflimit_out(i)             = 0._r8
+     tkeavg_out(i)                = 0._r8
+     zinv_out(i)                  = 0._r8
+     rcwp_out(i)                  = 0._r8
+     rlwp_out(i)                  = 0._r8
+     riwp_out(i)                  = 0._r8
 
-     wu_out(i,mkx:0:-1)           = 0._r8    
-     qtu_out(i,mkx:0:-1)          = 0._r8        
-     thlu_out(i,mkx:0:-1)         = 0._r8         
-     thvu_out(i,mkx:0:-1)         = 0._r8         
-     uu_out(i,mkx:0:-1)           = 0._r8        
-     vu_out(i,mkx:0:-1)           = 0._r8        
-     qtu_emf_out(i,mkx:0:-1)      = 0._r8         
-     thlu_emf_out(i,mkx:0:-1)     = 0._r8         
-     uu_emf_out(i,mkx:0:-1)       = 0._r8          
-     vu_emf_out(i,mkx:0:-1)       = 0._r8    
-     uemf_out(i,mkx:0:-1)         = 0._r8    
-   
-     dwten_out(i,mkx:1:-1)        = 0._r8    
-     diten_out(i,mkx:1:-1)        = 0._r8    
-     flxrain_out(i,mkx:0:-1)      = 0._r8     
-     flxsnow_out(i,mkx:0:-1)      = 0._r8    
-     ntraprd_out(i,mkx:1:-1)      = 0._r8    
-     ntsnprd_out(i,mkx:1:-1)      = 0._r8    
+     wu_out(i,mkx:0:-1)           = 0._r8
+     qtu_out(i,mkx:0:-1)          = 0._r8
+     thlu_out(i,mkx:0:-1)         = 0._r8
+     thvu_out(i,mkx:0:-1)         = 0._r8
+     uu_out(i,mkx:0:-1)           = 0._r8
+     vu_out(i,mkx:0:-1)           = 0._r8
+     qtu_emf_out(i,mkx:0:-1)      = 0._r8
+     thlu_emf_out(i,mkx:0:-1)     = 0._r8
+     uu_emf_out(i,mkx:0:-1)       = 0._r8
+     vu_emf_out(i,mkx:0:-1)       = 0._r8
+     uemf_out(i,mkx:0:-1)         = 0._r8
 
-     excessu_arr_out(i,mkx:1:-1)  = 0._r8    
-     excess0_arr_out(i,mkx:1:-1)  = 0._r8    
-     xc_arr_out(i,mkx:1:-1)       = 0._r8    
-     aquad_arr_out(i,mkx:1:-1)    = 0._r8    
-     bquad_arr_out(i,mkx:1:-1)    = 0._r8    
-     cquad_arr_out(i,mkx:1:-1)    = 0._r8    
-     bogbot_arr_out(i,mkx:1:-1)   = 0._r8    
-     bogtop_arr_out(i,mkx:1:-1)   = 0._r8    
+     dwten_out(i,mkx:1:-1)        = 0._r8
+     diten_out(i,mkx:1:-1)        = 0._r8
+     flxrain_out(i,mkx:0:-1)      = 0._r8
+     flxsnow_out(i,mkx:0:-1)      = 0._r8
+     ntraprd_out(i,mkx:1:-1)      = 0._r8
+     ntsnprd_out(i,mkx:1:-1)      = 0._r8
+
+     excessu_arr_out(i,mkx:1:-1)  = 0._r8
+     excess0_arr_out(i,mkx:1:-1)  = 0._r8
+     xc_arr_out(i,mkx:1:-1)       = 0._r8
+     aquad_arr_out(i,mkx:1:-1)    = 0._r8
+     bquad_arr_out(i,mkx:1:-1)    = 0._r8
+     cquad_arr_out(i,mkx:1:-1)    = 0._r8
+     bogbot_arr_out(i,mkx:1:-1)   = 0._r8
+     bogtop_arr_out(i,mkx:1:-1)   = 0._r8
 
      do m = 1, ncnst
         trten_out(i,:mkx,m)       = 0._r8 !<- water tracers handled here - JN
-        trflx_out(i,mkx:0:-1,m)   = 0._r8  
+        trflx_out(i,mkx:0:-1,m)   = 0._r8
         tru_out(i,mkx:0:-1,m)     = 0._r8
         tru_emf_out(i,mkx:0:-1,m) = 0._r8
        !Water tracers:
@@ -13097,149 +8612,118 @@ end subroutine uwshcu_readnl
         wtsnow_out(i,m)     = 0._r8
      enddo
 
-     else
-        call uwshcu_log_exit_zero_shell_entered()
-        call uwshcu_exit_zero_all_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(i, c_int64_t), &
-             int(ncnst, c_int64_t), c_loc(umf_out), c_loc(slflx_out), c_loc(qtflx_out), c_loc(qvten_out), &
-             c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
-             c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), c_loc(evapc_out), &
-             c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cush_inout), &
-             c_loc(cbmf_out), c_loc(rliq_out), c_loc(qc_out), c_loc(cnt_out), c_loc(cnb_out), &
-             c_loc(trten_out), c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), &
-             c_loc(exit_UWCu), c_loc(fer_out), c_loc(fdr_out), c_loc(cinh_out), &
-             c_loc(cinlclh_out), c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), c_loc(uflx_out), &
-             c_loc(vflx_out), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), c_loc(winvbase_out), &
-             c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), c_loc(plfc_out), c_loc(pbup_out), &
-             c_loc(ppen_out), c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), &
-             c_loc(cbmflimit_out), c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), c_loc(rlwp_out), &
-             c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), c_loc(thlu_out), c_loc(thvu_out), c_loc(uu_out), &
-             c_loc(vu_out), c_loc(qtu_emf_out), c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), &
-             c_loc(uemf_out), c_loc(dwten_out), c_loc(diten_out), c_loc(flxrain_out), c_loc(flxsnow_out), &
-             c_loc(ntraprd_out), c_loc(ntsnprd_out), c_loc(excessu_arr_out), c_loc(excess0_arr_out), &
-             c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), c_loc(cquad_arr_out), &
-             c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(trflx_out), c_loc(tru_out), c_loc(tru_emf_out))
-     end if
-
      end if
 
      end do                  ! end of big i loop for each column.
 
-     call write_history()
+     ! ---------------------------------------- !
+     ! Writing main diagnostic output variables !
+     ! ---------------------------------------- !
+
+     call outfld( 'qtflx_Cu'        , qtflx_out(:,mkx:0:-1),    mix,    lchnk )
+     call outfld( 'slflx_Cu'        , slflx_out(:,mkx:0:-1),    mix,    lchnk )
+     call outfld( 'uflx_Cu'         , uflx_out,                 mix,    lchnk )
+     call outfld( 'vflx_Cu'         , vflx_out,                 mix,    lchnk )
+
+     call outfld( 'qtten_Cu'        , qtten_out,                mix,    lchnk )
+     call outfld( 'slten_Cu'        , slten_out,                mix,    lchnk )
+     call outfld( 'uten_Cu'         , uten_out(:,mkx:1:-1),     mix,    lchnk )
+     call outfld( 'vten_Cu'         , vten_out(:,mkx:1:-1),     mix,    lchnk )
+     call outfld( 'qvten_Cu'        , qvten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'qlten_Cu'        , qlten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'qiten_Cu'        , qiten_out(:,mkx:1:-1),    mix,    lchnk )
+
+     call outfld( 'cbmf_Cu'         , cbmf_out,                 mix,    lchnk )
+     call outfld( 'ufrcinvbase_Cu'  , ufrcinvbase_out,          mix,    lchnk )
+     call outfld( 'ufrclcl_Cu'      , ufrclcl_out,              mix,    lchnk )
+     call outfld( 'winvbase_Cu'     , winvbase_out,             mix,    lchnk )
+     call outfld( 'wlcl_Cu'         , wlcl_out,                 mix,    lchnk )
+     call outfld( 'plcl_Cu'         , plcl_out,                 mix,    lchnk )
+     call outfld( 'pinv_Cu'         , pinv_out,                 mix,    lchnk )
+     call outfld( 'plfc_Cu'         , plfc_out,                 mix,    lchnk )
+     call outfld( 'pbup_Cu'         , pbup_out,                 mix,    lchnk )
+     call outfld( 'ppen_Cu'         , ppen_out,                 mix,    lchnk )
+     call outfld( 'qtsrc_Cu'        , qtsrc_out,                mix,    lchnk )
+     call outfld( 'thlsrc_Cu'       , thlsrc_out,               mix,    lchnk )
+     call outfld( 'thvlsrc_Cu'      , thvlsrc_out,              mix,    lchnk )
+     call outfld( 'emfkbup_Cu'      , emfkbup_out,              mix,    lchnk )
+     call outfld( 'cin_Cu'          , cinh_out,                 mix,    lchnk )
+     call outfld( 'cinlcl_Cu'       , cinlclh_out,              mix,    lchnk )
+     call outfld( 'cbmflimit_Cu'    , cbmflimit_out,            mix,    lchnk )
+     call outfld( 'tkeavg_Cu'       , tkeavg_out,               mix,    lchnk )
+     call outfld( 'zinv_Cu'         , zinv_out,                 mix,    lchnk )
+     call outfld( 'rcwp_Cu'         , rcwp_out,                 mix,    lchnk )
+     call outfld( 'rlwp_Cu'         , rlwp_out,                 mix,    lchnk )
+     call outfld( 'riwp_Cu'         , riwp_out,                 mix,    lchnk )
+     call outfld( 'tophgt_Cu'       , cush_inout,               mix,    lchnk )
+
+     call outfld( 'wu_Cu'           , wu_out,                   mix,    lchnk )
+     call outfld( 'ufrc_Cu'         , ufrc_out,                 mix,    lchnk )
+     call outfld( 'qtu_Cu'          , qtu_out,                  mix,    lchnk )
+     call outfld( 'thlu_Cu'         , thlu_out,                 mix,    lchnk )
+     call outfld( 'thvu_Cu'         , thvu_out,                 mix,    lchnk )
+     call outfld( 'uu_Cu'           , uu_out,                   mix,    lchnk )
+     call outfld( 'vu_Cu'           , vu_out,                   mix,    lchnk )
+     call outfld( 'qtu_emf_Cu'      , qtu_emf_out,              mix,    lchnk )
+     call outfld( 'thlu_emf_Cu'     , thlu_emf_out,             mix,    lchnk )
+     call outfld( 'uu_emf_Cu'       , uu_emf_out,               mix,    lchnk )
+     call outfld( 'vu_emf_Cu'       , vu_emf_out,               mix,    lchnk )
+     call outfld( 'umf_Cu'          , umf_out(:,mkx:0:-1),      mix,    lchnk )
+     call outfld( 'uemf_Cu'         , uemf_out,                 mix,    lchnk )
+     call outfld( 'qcu_Cu'          , qcu_out(:,mkx:1:-1),      mix,    lchnk )
+     call outfld( 'qlu_Cu'          , qlu_out(:,mkx:1:-1),      mix,    lchnk )
+     call outfld( 'qiu_Cu'          , qiu_out(:,mkx:1:-1),      mix,    lchnk )
+     call outfld( 'cufrc_Cu'        , cufrc_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'fer_Cu'          , fer_out,                  mix,    lchnk )
+     call outfld( 'fdr_Cu'          , fdr_out,                  mix,    lchnk )
+
+     call outfld( 'dwten_Cu'        , dwten_out,                mix,    lchnk )
+     call outfld( 'diten_Cu'        , diten_out,                mix,    lchnk )
+     call outfld( 'qrten_Cu'        , qrten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'qsten_Cu'        , qsten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'flxrain_Cu'      , flxrain_out,              mix,    lchnk )
+     call outfld( 'flxsnow_Cu'      , flxsnow_out,              mix,    lchnk )
+     call outfld( 'ntraprd_Cu'      , ntraprd_out,              mix,    lchnk )
+     call outfld( 'ntsnprd_Cu'      , ntsnprd_out,              mix,    lchnk )
+
+     call outfld( 'excessu_Cu'      , excessu_arr_out,          mix,    lchnk )
+     call outfld( 'excess0_Cu'      , excess0_arr_out,          mix,    lchnk )
+     call outfld( 'xc_Cu'           , xc_arr_out,               mix,    lchnk )
+     call outfld( 'aquad_Cu'        , aquad_arr_out,            mix,    lchnk )
+     call outfld( 'bquad_Cu'        , bquad_arr_out,            mix,    lchnk )
+     call outfld( 'cquad_Cu'        , cquad_arr_out,            mix,    lchnk )
+     call outfld( 'bogbot_Cu'       , bogbot_arr_out,           mix,    lchnk )
+     call outfld( 'bogtop_Cu'       , bogtop_arr_out,           mix,    lchnk )
+
+     call outfld( 'exit_UWCu_Cu'    , exit_UWCu,                mix,    lchnk )
+     call outfld( 'exit_conden_Cu'  , exit_conden,              mix,    lchnk )
+     call outfld( 'exit_klclmkx_Cu' , exit_klclmkx,             mix,    lchnk )
+     call outfld( 'exit_klfcmkx_Cu' , exit_klfcmkx,             mix,    lchnk )
+     call outfld( 'exit_ufrc_Cu'    , exit_ufrc,                mix,    lchnk )
+     call outfld( 'exit_wtw_Cu'     , exit_wtw,                 mix,    lchnk )
+     call outfld( 'exit_drycore_Cu' , exit_drycore,             mix,    lchnk )
+     call outfld( 'exit_wu_Cu'      , exit_wu,                  mix,    lchnk )
+     call outfld( 'exit_cufilter_Cu', exit_cufilter,            mix,    lchnk )
+     call outfld( 'exit_kinv1_Cu'   , exit_kinv1,               mix,    lchnk )
+     call outfld( 'exit_rei_Cu'     , exit_rei,                 mix,    lchnk )
+
+     call outfld( 'limit_shcu_Cu'   , limit_shcu,               mix,    lchnk )
+     call outfld( 'limit_negcon_Cu' , limit_negcon,             mix,    lchnk )
+     call outfld( 'limit_ufrc_Cu'   , limit_ufrc,               mix,    lchnk )
+     call outfld( 'limit_ppen_Cu'   , limit_ppen,               mix,    lchnk )
+     call outfld( 'limit_emf_Cu'    , limit_emf,                mix,    lchnk )
+     call outfld( 'limit_cinlcl_Cu' , limit_cinlcl,             mix,    lchnk )
+     call outfld( 'limit_cin_Cu'    , limit_cin,                mix,    lchnk )
+     call outfld( 'limit_cbmf_Cu'   , limit_cbmf,               mix,    lchnk )
+     call outfld( 'limit_rei_Cu'    , limit_rei,                mix,    lchnk )
+     call outfld( 'ind_delcin_Cu'   , ind_delcin,               mix,    lchnk )
 
     return
 
-  contains
-
-    subroutine write_history()
-
-      ! ---------------------------------------- !
-      ! Writing main diagnostic output variables !
-      ! ---------------------------------------- !
-
-      call outfld( 'qtflx_Cu'        , qtflx_out(:,mkx:0:-1),    mix,    lchnk )
-      call outfld( 'slflx_Cu'        , slflx_out(:,mkx:0:-1),    mix,    lchnk )
-      call outfld( 'uflx_Cu'         , uflx_out,                 mix,    lchnk )
-      call outfld( 'vflx_Cu'         , vflx_out,                 mix,    lchnk )
-
-      call outfld( 'qtten_Cu'        , qtten_out,                mix,    lchnk )
-      call outfld( 'slten_Cu'        , slten_out,                mix,    lchnk )
-      call outfld( 'uten_Cu'         , uten_out(:,mkx:1:-1),     mix,    lchnk )
-      call outfld( 'vten_Cu'         , vten_out(:,mkx:1:-1),     mix,    lchnk )
-      call outfld( 'qvten_Cu'        , qvten_out(:,mkx:1:-1),    mix,    lchnk )
-      call outfld( 'qlten_Cu'        , qlten_out(:,mkx:1:-1),    mix,    lchnk )
-      call outfld( 'qiten_Cu'        , qiten_out(:,mkx:1:-1),    mix,    lchnk )
-
-      call outfld( 'cbmf_Cu'         , cbmf_out,                 mix,    lchnk )
-      call outfld( 'ufrcinvbase_Cu'  , ufrcinvbase_out,          mix,    lchnk )
-      call outfld( 'ufrclcl_Cu'      , ufrclcl_out,              mix,    lchnk )
-      call outfld( 'winvbase_Cu'     , winvbase_out,             mix,    lchnk )
-      call outfld( 'wlcl_Cu'         , wlcl_out,                 mix,    lchnk )
-      call outfld( 'plcl_Cu'         , plcl_out,                 mix,    lchnk )
-      call outfld( 'pinv_Cu'         , pinv_out,                 mix,    lchnk )
-      call outfld( 'plfc_Cu'         , plfc_out,                 mix,    lchnk )
-      call outfld( 'pbup_Cu'         , pbup_out,                 mix,    lchnk )
-      call outfld( 'ppen_Cu'         , ppen_out,                 mix,    lchnk )
-      call outfld( 'qtsrc_Cu'        , qtsrc_out,                mix,    lchnk )
-      call outfld( 'thlsrc_Cu'       , thlsrc_out,               mix,    lchnk )
-      call outfld( 'thvlsrc_Cu'      , thvlsrc_out,              mix,    lchnk )
-      call outfld( 'emfkbup_Cu'      , emfkbup_out,              mix,    lchnk )
-      call outfld( 'cin_Cu'          , cinh_out,                 mix,    lchnk )
-      call outfld( 'cinlcl_Cu'       , cinlclh_out,              mix,    lchnk )
-      call outfld( 'cbmflimit_Cu'    , cbmflimit_out,            mix,    lchnk )
-      call outfld( 'tkeavg_Cu'       , tkeavg_out,               mix,    lchnk )
-      call outfld( 'zinv_Cu'         , zinv_out,                 mix,    lchnk )
-      call outfld( 'rcwp_Cu'         , rcwp_out,                 mix,    lchnk )
-      call outfld( 'rlwp_Cu'         , rlwp_out,                 mix,    lchnk )
-      call outfld( 'riwp_Cu'         , riwp_out,                 mix,    lchnk )
-      call outfld( 'tophgt_Cu'       , cush_inout,               mix,    lchnk )
-
-      call outfld( 'wu_Cu'           , wu_out,                   mix,    lchnk )
-      call outfld( 'ufrc_Cu'         , ufrc_out,                 mix,    lchnk )
-      call outfld( 'qtu_Cu'          , qtu_out,                  mix,    lchnk )
-      call outfld( 'thlu_Cu'         , thlu_out,                 mix,    lchnk )
-      call outfld( 'thvu_Cu'         , thvu_out,                 mix,    lchnk )
-      call outfld( 'uu_Cu'           , uu_out,                   mix,    lchnk )
-      call outfld( 'vu_Cu'           , vu_out,                   mix,    lchnk )
-      call outfld( 'qtu_emf_Cu'      , qtu_emf_out,              mix,    lchnk )
-      call outfld( 'thlu_emf_Cu'     , thlu_emf_out,             mix,    lchnk )
-      call outfld( 'uu_emf_Cu'       , uu_emf_out,               mix,    lchnk )
-      call outfld( 'vu_emf_Cu'       , vu_emf_out,               mix,    lchnk )
-      call outfld( 'umf_Cu'          , umf_out(:,mkx:0:-1),      mix,    lchnk )
-      call outfld( 'uemf_Cu'         , uemf_out,                 mix,    lchnk )
-      call outfld( 'qcu_Cu'          , qcu_out(:,mkx:1:-1),      mix,    lchnk )
-      call outfld( 'qlu_Cu'          , qlu_out(:,mkx:1:-1),      mix,    lchnk )
-      call outfld( 'qiu_Cu'          , qiu_out(:,mkx:1:-1),      mix,    lchnk )
-      call outfld( 'cufrc_Cu'        , cufrc_out(:,mkx:1:-1),    mix,    lchnk )
-      call outfld( 'fer_Cu'          , fer_out,                  mix,    lchnk )
-      call outfld( 'fdr_Cu'          , fdr_out,                  mix,    lchnk )
-
-      call outfld( 'dwten_Cu'        , dwten_out,                mix,    lchnk )
-      call outfld( 'diten_Cu'        , diten_out,                mix,    lchnk )
-      call outfld( 'qrten_Cu'        , qrten_out(:,mkx:1:-1),    mix,    lchnk )
-      call outfld( 'qsten_Cu'        , qsten_out(:,mkx:1:-1),    mix,    lchnk )
-      call outfld( 'flxrain_Cu'      , flxrain_out,              mix,    lchnk )
-      call outfld( 'flxsnow_Cu'      , flxsnow_out,              mix,    lchnk )
-      call outfld( 'ntraprd_Cu'      , ntraprd_out,              mix,    lchnk )
-      call outfld( 'ntsnprd_Cu'      , ntsnprd_out,              mix,    lchnk )
-
-      call outfld( 'excessu_Cu'      , excessu_arr_out,          mix,    lchnk )
-      call outfld( 'excess0_Cu'      , excess0_arr_out,          mix,    lchnk )
-      call outfld( 'xc_Cu'           , xc_arr_out,               mix,    lchnk )
-      call outfld( 'aquad_Cu'        , aquad_arr_out,            mix,    lchnk )
-      call outfld( 'bquad_Cu'        , bquad_arr_out,            mix,    lchnk )
-      call outfld( 'cquad_Cu'        , cquad_arr_out,            mix,    lchnk )
-      call outfld( 'bogbot_Cu'       , bogbot_arr_out,           mix,    lchnk )
-      call outfld( 'bogtop_Cu'       , bogtop_arr_out,           mix,    lchnk )
-
-      call outfld( 'exit_UWCu_Cu'    , exit_UWCu,                mix,    lchnk )
-      call outfld( 'exit_conden_Cu'  , exit_conden,              mix,    lchnk )
-      call outfld( 'exit_klclmkx_Cu' , exit_klclmkx,             mix,    lchnk )
-      call outfld( 'exit_klfcmkx_Cu' , exit_klfcmkx,             mix,    lchnk )
-      call outfld( 'exit_ufrc_Cu'    , exit_ufrc,                mix,    lchnk )
-      call outfld( 'exit_wtw_Cu'     , exit_wtw,                 mix,    lchnk )
-      call outfld( 'exit_drycore_Cu' , exit_drycore,             mix,    lchnk )
-      call outfld( 'exit_wu_Cu'      , exit_wu,                  mix,    lchnk )
-      call outfld( 'exit_cufilter_Cu', exit_cufilter,            mix,    lchnk )
-      call outfld( 'exit_kinv1_Cu'   , exit_kinv1,               mix,    lchnk )
-      call outfld( 'exit_rei_Cu'     , exit_rei,                 mix,    lchnk )
-
-      call outfld( 'limit_shcu_Cu'   , limit_shcu,               mix,    lchnk )
-      call outfld( 'limit_negcon_Cu' , limit_negcon,             mix,    lchnk )
-      call outfld( 'limit_ufrc_Cu'   , limit_ufrc,               mix,    lchnk )
-      call outfld( 'limit_ppen_Cu'   , limit_ppen,               mix,    lchnk )
-      call outfld( 'limit_emf_Cu'    , limit_emf,                mix,    lchnk )
-      call outfld( 'limit_cinlcl_Cu' , limit_cinlcl,             mix,    lchnk )
-      call outfld( 'limit_cin_Cu'    , limit_cin,                mix,    lchnk )
-      call outfld( 'limit_cbmf_Cu'   , limit_cbmf,               mix,    lchnk )
-      call outfld( 'limit_rei_Cu'    , limit_rei,                mix,    lchnk )
-      call outfld( 'ind_delcin_Cu'   , ind_delcin,               mix,    lchnk )
-
-    end subroutine write_history
-
-  end subroutine compute_uwshcu_native
+  end subroutine compute_uwshcu
 
   ! ------------------------------ !
-  !                                ! 
+  !                                !
   ! Beginning of subroutine blocks !
   !                                !
   ! ------------------------------ !
@@ -13276,17 +8760,17 @@ end subroutine uwshcu_readnl
     if( thvubot .gt. thv0bot .and. thvutop .gt. thv0top ) then
         plfc = pbot
         return
-    elseif( thvubot .le. thv0bot .and. thvutop .le. thv0top ) then 
+    elseif( thvubot .le. thv0bot .and. thvutop .le. thv0top ) then
         cin  = cin - ( (thvubot/thv0bot - 1._r8) + (thvutop/thv0top - 1._r8)) * (pbot - ptop) /        &
                      ( pbot/(r*thv0bot*exnf(pbot)) + ptop/(r*thv0top*exnf(ptop)) )
-    elseif( thvubot .gt. thv0bot .and. thvutop .le. thv0top ) then 
+    elseif( thvubot .gt. thv0bot .and. thvutop .le. thv0top ) then
         frc  = ( thvutop/thv0top - 1._r8 ) / ( (thvutop/thv0top - 1._r8) - (thvubot/thv0bot - 1._r8) )
         cin  = cin - ( thvutop/thv0top - 1._r8 ) * ( (ptop + frc*(pbot - ptop)) - ptop ) /             &
                      ( pbot/(r*thv0bot*exnf(pbot)) + ptop/(r*thv0top*exnf(ptop)) )
-    else            
+    else
         frc  = ( thvubot/thv0bot - 1._r8 ) / ( (thvubot/thv0bot - 1._r8) - (thvutop/thv0top - 1._r8) )
         plfc = pbot - frc * ( pbot - ptop )
-        cin  = cin - ( thvubot/thv0bot - 1._r8)*(pbot - plfc)/                                         & 
+        cin  = cin - ( thvubot/thv0bot - 1._r8)*(pbot - plfc)/                                         &
                      ( pbot/(r*thv0bot*exnf(pbot)) + ptop/(r*thv0top * exnf(ptop)))
     endif
 
@@ -13310,11 +8794,11 @@ end subroutine uwshcu_readnl
 
   function single_cin_native(pbot,thv0bot,ptop,thv0top,thvubot,thvutop)
   ! ------------------------------------------------------- !
-  ! Function to calculate a single layer CIN by summing all ! 
+  ! Function to calculate a single layer CIN by summing all !
   ! positive and negative CIN.                              !
-  ! ------------------------------------------------------- ! 
+  ! ------------------------------------------------------- !
     real(r8) :: single_cin_native
-    real(r8)    pbot,thv0bot,ptop,thv0top,thvubot,thvutop 
+    real(r8)    pbot,thv0bot,ptop,thv0top,thvubot,thvutop
 
     single_cin_native = ( (1._r8 - thvubot/thv0bot) + (1._r8 - thvutop/thv0top)) * ( pbot - ptop ) / &
                  ( pbot/(r*thv0bot*exnf(pbot)) + ptop/(r*thv0top*exnf(ptop)) )
@@ -13371,8 +8855,8 @@ end subroutine uwshcu_readnl
     else
         if( b .eq. 0._r8 ) then                        ! Form a*x**2 + c = 0
             if( a*c .gt. 0._r8 ) then                  ! Failure: x**2 = -c/a < 0
-                status = 2  
-            else                                       ! x**2 = -c/a 
+                status = 2
+            else                                       ! x**2 = -c/a
                 r1 = sqrt(-c/a)
             endif
             r2 = -r1
@@ -13650,7 +9134,7 @@ end subroutine uwshcu_readnl
 
          end do !water species
        end if   !water tracers
-      !*****************************************   
+      !*****************************************
 
     end if !(super-)saturation
 
@@ -13687,7 +9171,7 @@ end subroutine uwshcu_readnl
     real(r8)             :: slope_native(mkx)
     real(r8), intent(in) :: field(mkx)
     real(r8), intent(in) :: p0(mkx)
-    
+
     real(r8)             :: below
     real(r8)             :: above
     integer              :: k
@@ -13697,7 +9181,7 @@ end subroutine uwshcu_readnl
        above = ( field(k) - field(k-1) ) / ( p0(k) - p0(k-1) )
        if( above .gt. 0._r8 ) then
            slope_native(k-1) = max(0._r8,min(above,below))
-       else 
+       else
            slope_native(k-1) = min(0._r8,max(above,below))
        end if
        below = above
@@ -13711,14 +9195,14 @@ end subroutine uwshcu_readnl
     use iso_c_binding, only: c_double, c_int64_t, c_loc
   ! ----------------------------------------------------------------- !
   ! Function calculating saturation pressure ps (or pLCL) from qt and !
-  ! thl ( liquid potential temperature,  NOT liquid virtual potential ! 
+  ! thl ( liquid potential temperature,  NOT liquid virtual potential !
   ! temperature) by inverting Bolton formula. I should check later if !
   ! current use of 'leff' instead of 'xlv' here is reasonable or not. !
   ! ----------------------------------------------------------------- !
-    real(r8)          :: qsinvert    
+    real(r8)          :: qsinvert
     real(r8)             qt, thl, psfc
     real(r8)             ps, Pis, Ts, err, dlnqsdT, dTdPis
-    real(r8)             dPisdps, dlnqsdps, derrdps, dps 
+    real(r8)             dPisdps, dlnqsdps, derrdps, dps
     real(r8)             Ti, rhi, TLCL, PiLCL, psmin, dpsmax
     integer              i
     real(r8), target  :: es                     ! saturation vapor pressure
@@ -13756,7 +9240,7 @@ end subroutine uwshcu_readnl
         dry_guard_c = uwshcu_qsinvert_rh_guard_codon(real(rhi, c_double))
     end if
     if( dry_guard_c /= 0_c_int64_t ) then
-        write(iulog,*) 'Source air is too dry and pLCL is set to psmin in uwshcu.F90' 
+        write(iulog,*) 'Source air is too dry and pLCL is set to psmin in uwshcu.F90'
         qsinvert = psmin
         return
     end if
@@ -13769,63 +9253,49 @@ end subroutine uwshcu_readnl
        Ts       =  thl*Pis
        call qsat(Ts, ps, es, qs, gam=gam)
        err      =  qt - qs
-       nu       =  max(min((268._r8 - Ts)/20._r8,1.0_r8),0.0_r8)        
-       leff     =  (1._r8 - nu)*xlv + nu*xls                   
+       nu       =  max(min((268._r8 - Ts)/20._r8,1.0_r8),0.0_r8)
+       leff     =  (1._r8 - nu)*xlv + nu*xls
        dlnqsdT  =  gam*(cp/leff)/qs
        dTdPis   =  thl
-       dPisdps  =  rovcp*Pis/ps 
+       dPisdps  =  rovcp*Pis/ps
        dlnqsdps = -1._r8/(ps - (1._r8 - ep2)*es)
        derrdps  = -qs*(dlnqsdT * dTdPis * dPisdps + dlnqsdps)
        dps      = -err/derrdps
        ps       =  ps + dps
        if( ps .lt. 0._r8 ) then
-           write(iulog,*) 'pLCL iteration is negative and set to psmin in uwshcu.F90', qt, thl, psfc 
+           write(iulog,*) 'pLCL iteration is negative and set to psmin in uwshcu.F90', qt, thl, psfc
            qsinvert = psmin
-           return    
+           return
        end if
        if( abs(dps) .le. dpsmax ) then
            qsinvert = ps
            return
        end if
     end do
-    write(iulog,*) 'pLCL does not converge and is set to psmin in uwshcu.F90', qt, thl, psfc 
+    write(iulog,*) 'pLCL does not converge and is set to psmin in uwshcu.F90', qt, thl, psfc
     qsinvert = psmin
     return
   end function qsinvert
 
   real(r8) function compute_alpha(del_CIN,ke)
     real(r8) :: del_CIN, ke
+    real(r8) :: x0, x1
+    integer  :: iteration
 
     call uwshcu_select_small_kernels_impl()
     if (use_native_small_kernels_impl) then
-       compute_alpha = compute_alpha_native(del_CIN, ke)
+       x0 = 0._r8
+       do iteration = 1, 10
+          x1 = x0 - (exp(-x0*ke*del_CIN) - x0)/(-ke*del_CIN*exp(-x0*ke*del_CIN) - 1._r8)
+          x0 = x1
+       end do
+       compute_alpha = x0
     else
        call uwshcu_log_small_kernels_entered()
        compute_alpha = uwshcu_compute_alpha_codon(del_CIN, ke)
     end if
 
   end function compute_alpha
-
-  real(r8) function compute_alpha_native(del_CIN,ke)
-  ! ------------------------------------------------ !
-  ! Subroutine to compute proportionality factor for !
-  ! implicit CIN calculation.                        !   
-  ! ------------------------------------------------ !
-    real(r8) :: del_CIN, ke
-    real(r8) :: x0, x1
-
-    integer  :: iteration
-
-    x0 = 0._r8
-    do iteration = 1, 10
-       x1 = x0 - (exp(-x0*ke*del_CIN) - x0)/(-ke*del_CIN*exp(-x0*ke*del_CIN) - 1._r8)
-       x0 = x1
-    end do
-    compute_alpha_native = x0
-
-    return
-
-  end function compute_alpha_native
 
   real(r8) function compute_mumin2(mulcl,rmaxfrac,mulow)
     use iso_c_binding, only: c_double
@@ -13845,9 +9315,9 @@ end subroutine uwshcu_readnl
 
   real(r8) function compute_mumin2_native(mulcl,rmaxfrac,mulow)
   ! --------------------------------------------------------- !
-  ! Subroutine to compute critical 'mu' (normalized CIN) such ! 
+  ! Subroutine to compute critical 'mu' (normalized CIN) such !
   ! that updraft fraction at the LCL is equal to 'rmaxfrac'.  !
-  ! --------------------------------------------------------- !  
+  ! --------------------------------------------------------- !
     real(r8) :: mulcl, rmaxfrac, mulow
     real(r8) :: x0, x1, ex, ef, exf, f, fs
     integer  :: iteration
@@ -13857,13 +9327,13 @@ end subroutine uwshcu_readnl
        ex = exp(-x0**2)
        ef = erfc(x0)
        ! if(x0.ge.3._r8) then
-       !    compute_mumin2 = 3._r8 
+       !    compute_mumin2 = 3._r8
        !    goto 20
-       ! endif 
+       ! endif
        exf = ex/ef
        f  = 0.5_r8*exf**2 - 0.5_r8*(ex/2._r8/rmaxfrac)**2 - (mulcl*2.5066_r8/2._r8)**2
        fs = (2._r8*exf**2)*(exf/sqrt(3.141592_r8)-x0) + (0.5_r8*x0*ex**2)/(rmaxfrac**2)
-       x1 = x0 - f/fs     
+       x1 = x0 - f/fs
        x0 = x1
     end do
     compute_mumin2_native = x0
@@ -13890,8 +9360,8 @@ end subroutine uwshcu_readnl
   ! Subroutine to compute critical 'ppen[Pa]<0' ( pressure dis. !
   ! from 'ps0(kpen-1)' to the cumulus top where cumulus updraft !
   ! vertical velocity is exactly zero ) by considering exact    !
-  ! non-zero fer(kpen).                                         !  
-  ! ----------------------------------------------------------- !  
+  ! non-zero fer(kpen).                                         !
+  ! ----------------------------------------------------------- !
     real(r8) :: wtwb, D, bogbot, bogtop, rho0j, dpen
     real(r8) :: x0, x1, f, fs, SB, s00
     integer  :: iteration
@@ -13904,14 +9374,14 @@ end subroutine uwshcu_readnl
 
     if( D*dpen .lt. 1.e-8_r8 ) then
         if( s00 .ge. 0._r8 ) then
-            x0 = dpen       
+            x0 = dpen
         else
             x0 = max(0._r8,min(dpen,-0.5_r8*wtwb/s00))
         endif
     else
         if( s00 .ge. 0._r8 ) then
             x0 = dpen
-        else 
+        else
             x0 = 0._r8
         endif
         do iteration = 1, 5
@@ -13924,17 +9394,17 @@ end subroutine uwshcu_readnl
            else
            	fs = min(fs,-1.e-10_r8)
            endif
-           x1 = x0 - f/fs     
+           x1 = x0 - f/fs
            x0 = x1
       end do
 
-    endif    
+    endif
 
     compute_ppen_native = -max(0._r8,min(dpen,x0))
 
   end function compute_ppen_native
 
-  subroutine fluxbelowinv(cbmf,ps0,mkx,kinv,dt,xsrc,xmean,xtopin,xbotin,xflx)   
+  subroutine fluxbelowinv(cbmf,ps0,mkx,kinv,dt,xsrc,xmean,xtopin,xbotin,xflx)
     use iso_c_binding, only: c_int64_t, c_loc
 
     integer,  intent(in)                     :: mkx, kinv
@@ -13956,7 +9426,7 @@ end subroutine uwshcu_readnl
   subroutine fluxbelowinv_native(cbmf,ps0,mkx,kinv,dt,xsrc,xmean,xtopin,xbotin,xflx)
   ! ------------------------------------------------------------------------- !
   ! Subroutine to calculate turbulent fluxes at and below 'kinv-1' interfaces.!
-  ! Check in the main program such that input 'cbmf' should not be zero.      !  
+  ! Check in the main program such that input 'cbmf' should not be zero.      !
   ! If the reconstructed inversion height does not go down below the 'kinv-1' !
   ! interface, then turbulent flux at 'kinv-1' interface  is simply a product !
   ! of 'cmbf' and 'qtsrc-xbot' where 'xbot' is the value at the top interface !
@@ -13969,7 +9439,7 @@ end subroutine uwshcu_readnl
   ! and next provisional time step. Also impose a limiter to enforce outliers !
   ! of thermodynamic variables in 'kinv' layer  to come back to normal values !
   ! at the next step.                                                         !
-  ! ------------------------------------------------------------------------- !            
+  ! ------------------------------------------------------------------------- !
     integer,  intent(in)                     :: mkx, kinv
     real(r8), intent(in)                     :: cbmf, dt, xsrc, xmean, xtopin, xbotin
     real(r8), intent(in),  dimension(0:mkx)  :: ps0
@@ -13978,31 +9448,31 @@ end subroutine uwshcu_readnl
     real(r8) rcbmf, rpeff, dp, rr, pinv_eff, xtop, xbot, pinv, xtop_ori, xbot_ori
 
     xflx(0:mkx) = 0._r8
-    dp = ps0(kinv-1) - ps0(kinv)    
+    dp = ps0(kinv-1) - ps0(kinv)
     xbot = xbotin
     xtop = xtopin
-   
+
     ! -------------------------------------- !
     ! Compute reconstructed inversion height !
     ! -------------------------------------- !
     xtop_ori = xtop
     xbot_ori = xbot
-    rcbmf = ( cbmf * g * dt ) / dp                  ! Can be larger than 1 : 'OK'      
+    rcbmf = ( cbmf * g * dt ) / dp                  ! Can be larger than 1 : 'OK'
 
     if( xbot .ge. xtop ) then
-        rpeff = ( xmean - xtop ) / max(  1.e-20_r8, xbot - xtop ) 
+        rpeff = ( xmean - xtop ) / max(  1.e-20_r8, xbot - xtop )
     else
-        rpeff = ( xmean - xtop ) / min( -1.e-20_r8, xbot - xtop ) 
-    endif 
+        rpeff = ( xmean - xtop ) / min( -1.e-20_r8, xbot - xtop )
+    endif
 
-    rpeff = min( max(0._r8,rpeff), 1._r8 )          ! As of this, 0<= rpeff <= 1   
+    rpeff = min( max(0._r8,rpeff), 1._r8 )          ! As of this, 0<= rpeff <= 1
     if( rpeff .eq. 0._r8 .or. rpeff .eq. 1._r8 ) then
         xbot = xmean
         xtop = xmean
     endif
-    ! Below two commented-out lines are the old code replacing the above 'if' block.   
+    ! Below two commented-out lines are the old code replacing the above 'if' block.
     ! if(rpeff.eq.1) xbot = xmean
-    ! if(rpeff.eq.0) xtop = xmean    
+    ! if(rpeff.eq.0) xtop = xmean
     rr       = rpeff / rcbmf
     pinv     = ps0(kinv-1) - rpeff * dp             ! "pinv" before detraining mass
     pinv_eff = ps0(kinv-1) + ( rcbmf - rpeff ) * dp ! Effective "pinv" after detraining mass
@@ -14123,7 +9593,7 @@ end subroutine uwshcu_readnl
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, iwspec, wtrc_nwset
     use water_tracers,     only : wtrc_ratio, wtrc_get_rstd
     use water_types,       only : iwtvap, iwtliq, iwtice
-  ! --------------------------- ! 
+  ! --------------------------- !
 
     implicit none
     integer,  intent(in)     :: mkx
@@ -14257,7 +9727,7 @@ end subroutine uwshcu_readnl
   end subroutine positive_moisture_single_native
 
   ! ------------------------ !
-  !                          ! 
+  !                          !
   ! End of subroutine blocks !
   !                          !
   ! ------------------------ !

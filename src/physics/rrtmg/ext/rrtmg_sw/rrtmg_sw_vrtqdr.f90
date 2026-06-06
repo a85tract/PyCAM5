@@ -33,72 +33,18 @@
 
       contains
 
-! --------------------------------------------------------------------------
       subroutine vrtqdr_sw(klev, kw, &
                            pref, prefd, ptra, ptrad, &
                            pdbt, prdnd, prup, prupd, ptdbt, &
                            pfd, pfu)
 ! --------------------------------------------------------------------------
-      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
-      integer, intent (in) :: klev
-      integer, intent (in) :: kw
-
-      real(kind=r8), target, intent(in) :: pref(:)
-      real(kind=r8), target, intent(in) :: prefd(:)
-      real(kind=r8), target, intent(in) :: ptra(:)
-      real(kind=r8), target, intent(in) :: ptrad(:)
-
-      real(kind=r8), target, intent(in) :: pdbt(:)
-      real(kind=r8), target, intent(in) :: ptdbt(:)
-
-      real(kind=r8), target, intent(inout) :: prdnd(:)
-      real(kind=r8), target, intent(inout) :: prup(:)
-      real(kind=r8), target, intent(inout) :: prupd(:)
-
-      real(kind=r8), target, intent(out) :: pfd(:,:)
-      real(kind=r8), target, intent(out) :: pfu(:,:)
-
-      real(kind=r8), target :: ztdn(klev+1)
-
-      interface
-         subroutine rrtmg_sw_vrtqdr_codon(klev_c, kw_c, pref_p, prefd_p, ptra_p, ptrad_p, pdbt_p, &
-              prdnd_p, prup_p, prupd_p, ptdbt_p, pfd_p, pfu_p, ztdn_p) bind(c, name="rrtmg_sw_vrtqdr_codon")
-            use iso_c_binding, only: c_int64_t, c_ptr
-            integer(c_int64_t), value :: klev_c, kw_c
-            type(c_ptr), value :: pref_p, prefd_p, ptra_p, ptrad_p, pdbt_p
-            type(c_ptr), value :: prdnd_p, prup_p, prupd_p, ptdbt_p, pfd_p, pfu_p, ztdn_p
-         end subroutine rrtmg_sw_vrtqdr_codon
-      end interface
-
-      call vrtqdr_sw_select_impl()
-      if (use_native_vrtqdr_sw_impl) then
-         call vrtqdr_sw_native(klev, kw, pref, prefd, ptra, ptrad, pdbt, prdnd, prup, prupd, ptdbt, pfd, pfu)
-      else
-         call vrtqdr_sw_log_entered()
-         call rrtmg_sw_vrtqdr_codon( &
-              int(klev, c_int64_t), int(kw, c_int64_t), &
-              c_loc(pref(1)), c_loc(prefd(1)), c_loc(ptra(1)), c_loc(ptrad(1)), c_loc(pdbt(1)), &
-              c_loc(prdnd(1)), c_loc(prup(1)), c_loc(prupd(1)), c_loc(ptdbt(1)), &
-              c_loc(pfd(1,1)), c_loc(pfu(1,1)), c_loc(ztdn(1)) &
-         )
-      end if
-
-      end subroutine vrtqdr_sw
-
-! --------------------------------------------------------------------------
-      subroutine vrtqdr_sw_native(klev, kw, &
-                           pref, prefd, ptra, ptrad, &
-                           pdbt, prdnd, prup, prupd, ptdbt, &
-                           pfd, pfu)
-! --------------------------------------------------------------------------
- 
 ! Purpose: This routine performs the vertical quadrature integration
 !
 ! Interface:  *vrtqdr_sw* is called from *spcvrt_sw* and *spcvmc_sw*
 !
 ! Modifications.
-! 
+!
 ! Original: H. Barker
 ! Revision: Integrated with rrtmg_sw, J.-J. Morcrette, ECMWF, Oct 2002
 ! Revision: Reformatted for consistency with rrtmg_lw: MJIacono, AER, Jul 2006
@@ -146,7 +92,7 @@
       integer :: ikp, ikx, jk
 
       real(kind=r8) :: zreflect
-      real(kind=r8) :: ztdn(klev+1)  
+      real(kind=r8) :: ztdn(klev+1)
 
 ! Definitions
 !
@@ -159,9 +105,9 @@
 ! ptdbt(jk)  total direct beam transmittance at levels
 !
 !-----------------------------------------------------------------------------
-                   
+
 ! Link lowest layer with surface
-             
+
       zreflect = 1._r8 / (1._r8 - prefd(klev+1) * prefd(klev))
       prup(klev) = pref(klev) + (ptrad(klev) * &
                  ((ptra(klev) - pdbt(klev)) * prefd(klev+1) + &
@@ -169,10 +115,10 @@
       prupd(klev) = prefd(klev) + ptrad(klev) * ptrad(klev) * &
                     prefd(klev+1) * zreflect
 
-! Pass from bottom to top 
+! Pass from bottom to top
 
       do jk = 1,klev-1
-         ikp = klev+1-jk                       
+         ikp = klev+1-jk
          ikx = ikp-1
          zreflect = 1._r8 / (1._r8 -prupd(ikp) * prefd(ikx))
          prup(ikx) = pref(ikx) + (ptrad(ikx) * &
@@ -181,7 +127,7 @@
          prupd(ikx) = prefd(ikx) + ptrad(ikx) * ptrad(ikx) * &
                       prupd(ikp) * zreflect
       enddo
-    
+
 ! Upper boundary conditions
 
       ztdn(1) = 1._r8
@@ -200,7 +146,7 @@
          prdnd(ikp) = prefd(jk) + ptrad(jk) * ptrad(jk) * &
                       prdnd(jk) * zreflect
       enddo
-    
+
 ! Up and down-welling fluxes at levels
 
       do jk = 1,klev+1
@@ -211,7 +157,7 @@
                       ptdbt(jk) * prup(jk) * prdnd(jk)) * zreflect
       enddo
 
-      end subroutine vrtqdr_sw_native
+      end subroutine vrtqdr_sw
 
 ! --------------------------------------------------------------------------
       subroutine vrtqdr_sw_select_impl()
