@@ -15015,9 +15015,11 @@ def uwshcu_positive_moisture_single_codon(
                 wtten[idx + (vap - 1) * mkx] = wtten[idx + (vap - 1) * mkx] + rv * dqv / dt_v
                 wtr[idx + (m - 1) * mkx] = wtr[idx + (m - 1) * mkx] + rv * dqv
                 if k != 1:
-                    transfer = rv * (dqv * dp[idx] / dp[idx - 1])
+                    transfer_mass = dqv * dp[idx] / dp[idx - 1]
+                    transfer = rv * transfer_mass
+                    transfer_tend = rv * (transfer_mass / dt_v)
                     wtr[idx - 1 + (m - 1) * mkx] = wtr[idx - 1 + (m - 1) * mkx] - transfer
-                    wtten[idx - 1 + (vap - 1) * mkx] = wtten[idx - 1 + (vap - 1) * mkx] - transfer / dt_v
+                    wtten[idx - 1 + (vap - 1) * mkx] = wtten[idx - 1 + (vap - 1) * mkx] - transfer_tend
                 rv = rstd[ispec - 1]
                 wtr[idx + (m - 1) * mkx] = max(wtr[idx + (m - 1) * mkx], rv * qvmin)
                 wtr[idx + (m - 1) * mkx + mkx * wtrc_nwset] = max(
