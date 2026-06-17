@@ -313,7 +313,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('HANDLE_PIO_ERROR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('HANDLE_PIO_ERROR_IMPL', impl_name, n, status)
     if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
       if (handle_pio_error_ok_codon(int(ierr, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t) then
         if (masterproc .and. .not. logged) then

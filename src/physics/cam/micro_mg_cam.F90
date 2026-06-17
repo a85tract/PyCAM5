@@ -377,7 +377,7 @@ subroutine micro_mg_cam_readnl_select_impl()
   if (micro_mg_cam_readnl_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_READNL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_READNL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -414,7 +414,7 @@ subroutine micro_mg_cam_register_select_impl()
   if (micro_mg_cam_register_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_REGISTER_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_REGISTER_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -451,7 +451,7 @@ subroutine micro_mg_cam_init_select_impl()
   if (micro_mg_cam_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -488,7 +488,7 @@ subroutine micro_mg_cam_tend_select_impl()
   if (micro_mg_cam_tend_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_TEND_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_TEND_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3810,7 +3810,7 @@ subroutine micro_mg_cam_select_pack_inputs_impl()
   if (pack_inputs_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_PACK_INPUTS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_PACK_INPUTS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4021,7 +4021,7 @@ subroutine micro_mg_cam_select_ptend_unpack_impl()
   if (ptend_unpack_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_PTEND_UNPACK_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_PTEND_UNPACK_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4107,7 +4107,7 @@ subroutine micro_mg_cam_select_tail_grid_copy_impl()
   if (tail_grid_copy_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_TAIL_GRID_COPY_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_TAIL_GRID_COPY_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4144,7 +4144,7 @@ subroutine micro_mg_cam_select_tail_shell_impl()
   if (tail_shell_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_TAIL_SHELL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_TAIL_SHELL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4181,7 +4181,7 @@ subroutine micro_mg_cam_select_diag_shell_impl()
   if (diag_shell_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_DIAG_SHELL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_DIAG_SHELL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4540,7 +4540,7 @@ subroutine micro_mg_cam_select_pbuf_copy_impl()
   if (pbuf_copy_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_PBUF_COPY_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_PBUF_COPY_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4689,7 +4689,7 @@ subroutine micro_mg_cam_select_wtrc_shell_impl()
   if (wtrc_shell_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_WTRC_SHELL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_WTRC_SHELL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4793,7 +4793,7 @@ subroutine micro_mg_cam_select_wtrc_prep_impl()
   if (wtrc_prep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_WTRC_PREP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_WTRC_PREP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4924,7 +4924,7 @@ subroutine micro_mg_cam_select_budget_diag_impl()
   if (budget_diag_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_BUDGET_DIAG_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_BUDGET_DIAG_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5099,7 +5099,7 @@ subroutine micro_mg_cam_select_p_ptr_impl()
   if (p_ptr_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_P_PTR_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_P_PTR_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5275,7 +5275,7 @@ subroutine micro_mg_cam_select_premg_diag_impl()
   if (premg_diag_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_PREMG_DIAG_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_PREMG_DIAG_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5388,7 +5388,7 @@ subroutine micro_mg_cam_select_reff_calc_impl()
   if (reff_calc_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_REFF_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_REFF_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5928,7 +5928,7 @@ subroutine micro_mg_cam_select_postmg_diag_impl()
   if (postmg_diag_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_POSTMG_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_POSTMG_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6224,7 +6224,7 @@ subroutine micro_mg_cam_select_grid_diag_impl()
   if (grid_diag_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MICRO_MG_CAM_GRID_DIAG_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_CAM_GRID_DIAG_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

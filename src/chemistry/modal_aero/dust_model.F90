@@ -166,7 +166,7 @@ module dust_model
     real(r8),parameter :: soil_erod_threshold = 0.1_r8
 
     impl_name = 'codon'
-    call get_environment_variable('DUST_EMIS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DUST_EMIS_IMPL', impl_name, n, status)
     use_native_impl = .false.
     if (status == 0 .and. n > 0) then
        do i = 1, n

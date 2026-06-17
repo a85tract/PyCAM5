@@ -75,7 +75,7 @@ subroutine cld_sediment_select_impl()
    if (cld_sediment_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLD_SEDIMENT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLD_SEDIMENT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

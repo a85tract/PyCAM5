@@ -106,8 +106,7 @@ subroutine neu_wetdep_init
   call phys_getopts(history_chemistry_out=history_chemistry)
 
   init_native = .false.
-  call get_environment_variable('NEU_WETDEP_INIT_IMPL', value=impl_name, &
-       length=env_len, status=env_status)
+  call cam_codon_get_impl('NEU_WETDEP_INIT_IMPL', impl_name, env_len, env_status)
   if (env_status == 0 .and. env_len > 0) then
      init_native = trim(adjustl(impl_name(:env_len))) == 'native'
   end if
@@ -294,7 +293,7 @@ subroutine neu_wetdep_aux_select_impl()
   if (neu_wetdep_aux_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('NEU_WETDEP_AUX_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('NEU_WETDEP_AUX_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -352,7 +351,7 @@ subroutine neu_wetdep_henry_select_impl()
   if (neu_wetdep_henry_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('NEU_WETDEP_HENRY_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('NEU_WETDEP_HENRY_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -412,7 +411,7 @@ subroutine neu_wetdep_gas_micro_select_impl()
   if (neu_wetdep_gas_micro_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('NEU_WETDEP_GAS_MICRO_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('NEU_WETDEP_GAS_MICRO_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -582,7 +581,7 @@ subroutine neu_wetdep_washo_select_impl()
   if (neu_wetdep_washo_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WASHO_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WASHO_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -626,7 +625,7 @@ subroutine neu_wetdep_washo_dempirical_select_impl()
   if (neu_wetdep_washo_dempirical_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WASHO_DEMPIRICAL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WASHO_DEMPIRICAL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

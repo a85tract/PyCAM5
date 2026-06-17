@@ -391,7 +391,7 @@ subroutine micro_mg_data_select_packer_impl()
 
   if (micro_mg_data_packer_impl_selected) return
 
-  call get_environment_variable('MICRO_MG_DATA_PACKER_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG_DATA_PACKER_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg_data_packer_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else

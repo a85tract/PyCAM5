@@ -187,7 +187,7 @@ contains
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+    call cam_codon_get_impl(env_name, impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -213,8 +213,7 @@ contains
     if (modal_aero_rename_no_acc_crs_dryvols_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_DRYVOLS_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_NO_ACC_CRS_DRYVOLS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -250,8 +249,7 @@ contains
     if (modal_aero_rename_no_acc_crs_xferfracs_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_XFERFRACS_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_NO_ACC_CRS_XFERFRACS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -287,8 +285,7 @@ contains
     if (modal_aero_rename_no_acc_crs_tendencies_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_TENDENCIES_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_NO_ACC_CRS_TENDENCIES_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -324,8 +321,7 @@ contains
     if (modal_aero_rename_no_acc_crs_sub_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_SUB_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_NO_ACC_CRS_SUB_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -361,8 +357,7 @@ contains
     if (modal_aero_rename_acc_crs_dryvols_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_DRYVOLS_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_ACC_CRS_DRYVOLS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -398,8 +393,7 @@ contains
     if (modal_aero_rename_acc_crs_xferfracs_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_XFERFRACS_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_ACC_CRS_XFERFRACS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -435,8 +429,7 @@ contains
     if (modal_aero_rename_acc_crs_tendencies_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_TENDENCIES_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_ACC_CRS_TENDENCIES_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -472,8 +465,7 @@ contains
     if (modal_aero_rename_set_dotend_flags_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_SET_DOTEND_FLAGS_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_SET_DOTEND_FLAGS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -509,8 +501,7 @@ contains
     if (modal_aero_rename_acc_crs_pair_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_PAIR_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_ACC_CRS_PAIR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -546,8 +537,7 @@ contains
     if (modal_aero_rename_acc_crs_sub_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_SUB_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_ACC_CRS_SUB_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -583,8 +573,7 @@ contains
     if (modal_aero_rename_sub_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MODAL_AERO_RENAME_SUB_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MODAL_AERO_RENAME_SUB_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

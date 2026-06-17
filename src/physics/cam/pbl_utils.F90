@@ -122,7 +122,7 @@ subroutine pbl_utils_select_impl()
   if (pbl_utils_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PBL_UTILS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PBL_UTILS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -181,7 +181,7 @@ subroutine pbl_utils_compute_radf_select_impl()
   if (compute_radf_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PBL_UTILS_COMPUTE_RADF_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PBL_UTILS_COMPUTE_RADF_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

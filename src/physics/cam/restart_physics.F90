@@ -841,7 +841,7 @@ module restart_physics
 
      if (restart_pack_impl_selected) return
 
-     call get_environment_variable('RESTART_PHYSICS_PACK_IMPL', value=impl_name, length=n, status=status)
+     call cam_codon_get_impl('RESTART_PHYSICS_PACK_IMPL', impl_name, n, status)
      if (status == 0 .and. n > 0) then
         use_native_restart_pack_impl = trim(adjustl(impl_name(:n))) == 'native'
      else

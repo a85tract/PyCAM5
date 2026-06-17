@@ -194,7 +194,7 @@ subroutine gw_ediff_prep_select_impl()
   if (gw_ediff_prep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_EDIFF_PREP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_EDIFF_PREP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -403,7 +403,7 @@ subroutine gw_diff_tend_prepost_select_impl()
   if (gw_diff_tend_prepost_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_DIFF_TEND_PREPOST_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_DIFF_TEND_PREPOST_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

@@ -12,8 +12,7 @@
     logical, save :: se_misc_proof_seen = .false.
 
     se_misc_impl_name = 'codon'
-    call get_environment_variable('SE_MISC_HELPERS_IMPL', value=se_misc_impl_name, &
-         length=se_misc_n, status=se_misc_status)
+    call cam_codon_get_impl('SE_MISC_HELPERS_IMPL', se_misc_impl_name, se_misc_n, se_misc_status)
     if (.not. se_misc_proof_seen .and. &
          .not. (se_misc_status == 0 .and. se_misc_n > 0 .and. &
          trim(adjustl(se_misc_impl_name(:se_misc_n))) == 'native')) then

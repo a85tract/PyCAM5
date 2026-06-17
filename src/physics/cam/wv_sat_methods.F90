@@ -232,8 +232,7 @@ subroutine wv_sat_methods_select_impl()
   if (wv_sat_methods_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WV_SAT_METHODS_IMPL', value=impl_name, length=n, &
-       status=status)
+  call cam_codon_get_impl('WV_SAT_METHODS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -419,8 +418,7 @@ function wv_sat_set_default(name) result(status)
   character(len=16) :: impl_name
   integer :: impl_len, impl_status
 
-  call get_environment_variable('WV_SAT_SET_DEFAULT_IMPL', value=impl_name, &
-       length=impl_len, status=impl_status)
+  call cam_codon_get_impl('WV_SAT_SET_DEFAULT_IMPL', impl_name, impl_len, impl_status)
   if (impl_status == 0 .and. impl_len > 0 .and. &
        trim(adjustl(impl_name(:impl_len))) == 'native') then
      select case (name)

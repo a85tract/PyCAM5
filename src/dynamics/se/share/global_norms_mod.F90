@@ -85,8 +85,8 @@ contains
     J_tmp = 0.0D0
 
     global_integral_impl_name = 'codon'
-    call get_environment_variable('GLOBAL_INTEGRAL_IMPL', value=global_integral_impl_name, &
-         length=global_integral_impl_len, status=global_integral_impl_status)
+   call cam_codon_get_impl('GLOBAL_INTEGRAL_IMPL', global_integral_impl_name, &
+        global_integral_impl_len, global_integral_impl_status)
     if (global_integral_impl_status == 0 .and. global_integral_impl_len > 0 .and. &
          trim(adjustl(global_integral_impl_name(:global_integral_impl_len))) == 'native') then
        do ie=nets,nete

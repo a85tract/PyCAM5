@@ -29,8 +29,7 @@ contains
     integer :: impl_len, impl_status
 
     impl_name = 'codon'
-    call get_environment_variable('CAM_HISTORY_BUFFERS_IMPL', value=impl_name, &
-         length=impl_len, status=impl_status)
+    call cam_codon_get_impl('CAM_HISTORY_BUFFERS_IMPL', impl_name, impl_len, impl_status)
     cam_history_buffers_use_codon = .not. (impl_status == 0 .and. impl_len > 0 .and. &
          trim(adjustl(impl_name(:impl_len))) == 'native')
   end function cam_history_buffers_use_codon

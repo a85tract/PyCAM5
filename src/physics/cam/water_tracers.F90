@@ -501,7 +501,7 @@ subroutine wtrc_control_select_impl()
   if (wtrc_control_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_CONTROL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_CONTROL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -614,7 +614,7 @@ subroutine wtrc_batch_select_impl()
   if (wtrc_batch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_BATCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_BATCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -700,7 +700,7 @@ subroutine wtrc_precip_evap_shell_select_impl()
   if (wtrc_precip_evap_shell_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_PRECIP_EVAP_SHELL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_PRECIP_EVAP_SHELL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -741,7 +741,7 @@ subroutine wtrc_mass_fixer_select_impl()
   if (wtrc_mass_fixer_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_MASS_FIXER_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_MASS_FIXER_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -780,7 +780,7 @@ subroutine wtrc_check_h2o_select_impl()
   if (wtrc_check_h2o_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_CHECK_H2O_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_CHECK_H2O_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -819,7 +819,7 @@ subroutine wtrc_clear_precip_select_impl()
   if (wtrc_clear_precip_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_CLEAR_PRECIP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_CLEAR_PRECIP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -858,7 +858,7 @@ subroutine wtrc_diagnose_bulk_precip_select_impl()
   if (wtrc_diagnose_bulk_precip_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_DIAGNOSE_BULK_PRECIP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_DIAGNOSE_BULK_PRECIP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -897,7 +897,7 @@ subroutine wtrc_add_rates_select_impl()
   if (wtrc_add_rates_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_ADD_RATES_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_ADD_RATES_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -936,7 +936,7 @@ subroutine wtrc_scalar_helpers_select_impl()
   if (wtrc_scalar_helpers_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_SCALAR_HELPERS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_SCALAR_HELPERS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -1022,7 +1022,7 @@ subroutine wtrc_apply_rates_select_impl()
   if (wtrc_apply_rates_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_APPLY_RATES_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_APPLY_RATES_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -1088,7 +1088,7 @@ subroutine wtrc_apply_rates_helpers_select_impl()
   if (wtrc_apply_rates_helpers_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_APPLY_RATES_HELPERS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_APPLY_RATES_HELPERS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -1185,7 +1185,7 @@ subroutine wtrc_sediment_select_impl()
   if (wtrc_sediment_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('WTRC_SEDIMENT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('WTRC_SEDIMENT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n

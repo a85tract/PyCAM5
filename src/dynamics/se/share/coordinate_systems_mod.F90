@@ -544,7 +544,7 @@ contains
     !ASC  This is X and Y and not xhi eta ...
 
     impl_name = 'codon'
-    call get_environment_variable('PROJECTPOINT_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('PROJECTPOINT_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        cart%x = TAN(cartin%x)
        cart%y = TAN(cartin%y)
@@ -594,7 +594,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('PROJECTPOINT_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('PROJECTPOINT_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        sphere = cart2spherical(TAN(cartin%x), TAN(cartin%y), face_no)
        cart = spherical_to_cart(sphere)

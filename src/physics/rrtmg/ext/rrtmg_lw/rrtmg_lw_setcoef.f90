@@ -1502,12 +1502,12 @@
       impl_name = 'codon'
       n = 0
       status = 1
-      call get_environment_variable('RRTMG_LW_AVPLANK_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LW_AVPLANK_IMPL', impl_name, n, status)
       if (status /= 0 .or. n <= 0) then
          impl_name = 'codon'
          n = 0
          status = 1
-         call get_environment_variable('RRTMG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+         call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
       end if
 
       if (status == 0 .and. n > 0) then
@@ -1557,7 +1557,7 @@
       if (setcoef_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_LW_SETCOEF_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LW_SETCOEF_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1605,7 +1605,7 @@
       integer :: status, n, i, code
 
       impl_name = 'codon'
-      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+      call cam_codon_get_impl(selector, impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

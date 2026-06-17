@@ -154,7 +154,7 @@
       if (jlong_prep_batch_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_PREP_BATCH_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_PREP_BATCH_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -289,7 +289,7 @@
       if (jlong_init_solar_batch_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_INIT_SOLAR_BATCH_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_INIT_SOLAR_BATCH_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -359,7 +359,7 @@
       if (jlong_init_set_we_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_INIT_SET_WE_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_INIT_SET_WE_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -599,7 +599,7 @@
       if (jlong_get_xsqy_meta_batch_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_XSQY_META_BATCH_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_XSQY_META_BATCH_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -678,7 +678,7 @@
       if (jlong_get_xsqy_numj_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_XSQY_NUMJ_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_XSQY_NUMJ_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -764,7 +764,7 @@
       if (jlong_get_xsqy_read_order_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_XSQY_READ_ORDER_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_XSQY_READ_ORDER_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -845,7 +845,7 @@
       if (jlong_get_xsqy_index_map_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_XSQY_INDEX_MAP_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_XSQY_INDEX_MAP_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -919,7 +919,7 @@
       if (jlong_get_xsqy_dprs_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_XSQY_DPRS_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_XSQY_DPRS_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1182,7 +1182,7 @@
       if (jlong_get_rsf_postread_batch_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_RSF_POSTREAD_BATCH_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_RSF_POSTREAD_BATCH_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1264,7 +1264,7 @@
       if (jlong_get_rsf_scale_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_RSF_SCALE_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_RSF_SCALE_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1351,7 +1351,7 @@
       if (jlong_get_rsf_bde_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_RSF_BDE_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_RSF_BDE_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1428,7 +1428,7 @@
       if (jlong_get_rsf_deltas_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_GET_RSF_DELTAS_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_GET_RSF_DELTAS_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1523,7 +1523,7 @@
       if (jlong_timestep_init_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_TIMESTEP_INIT_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1887,7 +1887,7 @@ level_loop_1 : &
       if (jlong_photo_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_PHOTO_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_PHOTO_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1924,7 +1924,7 @@ level_loop_1 : &
       if (jlong_photo_loop_impl_selected) return
 
       impl_name = 'native'
-      call get_environment_variable('JLONG_PHOTO_LOOP_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_PHOTO_LOOP_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1961,7 +1961,7 @@ level_loop_1 : &
       if (jlong_photo_accum_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_PHOTO_ACCUM_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_PHOTO_ACCUM_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -1998,7 +1998,7 @@ level_loop_1 : &
       if (jlong_photo_xswk_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_PHOTO_XSWK_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_PHOTO_XSWK_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -2259,7 +2259,7 @@ Level_loop : &
       if (jlong_interpolate_rsf_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('JLONG_INTERPOLATE_RSF_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('JLONG_INTERPOLATE_RSF_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

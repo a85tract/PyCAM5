@@ -223,7 +223,7 @@ subroutine new_gwband_select_impl()
   if (new_gwband_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_COMMON_NEW_GWBAND_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_COMMON_NEW_GWBAND_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -316,7 +316,7 @@ subroutine gw_common_init_select_impl()
   if (gw_common_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_COMMON_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_COMMON_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -426,7 +426,7 @@ subroutine gw_prof_select_impl()
   if (gw_prof_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_PROF_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_PROF_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1002,7 +1002,7 @@ subroutine gw_drag_prof_select_impl()
   if (gw_drag_prof_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_DRAG_PROF_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_DRAG_PROF_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1081,7 +1081,7 @@ subroutine gw_drag_prof_core_select_impl()
   if (gw_drag_prof_core_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_DRAG_PROF_CORE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_DRAG_PROF_CORE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1245,7 +1245,7 @@ subroutine gw_diff_solver_select_impl()
   if (gw_diff_solver_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_DIFF_SOLVER_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_DIFF_SOLVER_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1584,7 +1584,7 @@ subroutine energy_change_select_impl()
   if (energy_change_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_ENERGY_CHANGE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_ENERGY_CHANGE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

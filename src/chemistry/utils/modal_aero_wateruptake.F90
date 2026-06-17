@@ -213,7 +213,7 @@ logical function modal_aero_wateruptake_env_native_enabled(env_name)
   integer :: status, n, i, code
 
   impl_name = 'codon'
-  call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+  call cam_codon_get_impl(env_name, impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -263,7 +263,7 @@ subroutine modal_aero_wateruptake_dr_select_impl()
   if (modal_aero_wateruptake_dr_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MODAL_AERO_WATERUPTAKE_DR_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MODAL_AERO_WATERUPTAKE_DR_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1902,7 +1902,7 @@ end subroutine modal_aero_wateruptake_sub
 
       impl_name = 'codon'
       env_name = ''
-      call get_environment_variable('MODAL_AERO_KOHLER_IMPL', value=env_name, length=n, status=status)
+      call cam_codon_get_impl('MODAL_AERO_KOHLER_IMPL', env_name, n, status)
       if (status == 0 .and. n > 0) then
          do i = 1, n
             code = iachar(env_name(i:i))

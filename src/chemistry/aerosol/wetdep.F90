@@ -129,7 +129,7 @@ logical function wetdep_env_native_enabled(selector)
   integer :: status, n, i, code
 
   impl_name = 'codon'
-  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+  call cam_codon_get_impl(selector, impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -501,7 +501,7 @@ subroutine clddiag_select_impl()
    if (clddiag_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDDIAG_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDDIAG_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -993,7 +993,7 @@ subroutine wetdepa_v2_select_impl()
    if (wetdepa_v2_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('WETDEPA_V2_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('WETDEPA_V2_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

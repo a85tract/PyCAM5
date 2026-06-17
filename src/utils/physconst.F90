@@ -138,7 +138,7 @@ contains
 !  Initialize constituent dependent properties 
 !-------------------------------------------------------------------------------    
     impl_name = 'codon'
-    call get_environment_variable('PHYSCONST_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHYSCONST_INIT_IMPL', impl_name, n, status)
     if (status == 0 .and. n > 0) then
        do i = 1, n
           code = iachar(impl_name(i:i))

@@ -734,7 +734,7 @@ end function radiation_nextsw_cday
     if (radiation_options_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('RRTMG_RADIATION_OPTIONS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('RRTMG_RADIATION_OPTIONS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -813,7 +813,7 @@ end function radiation_nextsw_cday
     if (radiation_nextsw_cday_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('RRTMG_RADIATION_NEXTSW_CDAY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('RRTMG_RADIATION_NEXTSW_CDAY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -867,7 +867,7 @@ end function radiation_nextsw_cday
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('RADINP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('RADINP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -907,7 +907,7 @@ end function radiation_nextsw_cday
     if (radiation_diag_prep_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('RADIATION_DIAG_PREP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('RADIATION_DIAG_PREP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -964,7 +964,7 @@ end function radiation_nextsw_cday
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('RADIATION_DIAG_PREP_CLOUD_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('RADIATION_DIAG_PREP_CLOUD_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1001,7 +1001,7 @@ end function radiation_nextsw_cday
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('RADIATION_DIAG_PREP_QDP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('RADIATION_DIAG_PREP_QDP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1041,7 +1041,7 @@ end function radiation_nextsw_cday
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable(var_name, value=impl_name, length=n, status=status)
+    call cam_codon_get_impl(var_name, impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

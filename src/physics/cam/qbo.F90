@@ -79,7 +79,7 @@ subroutine qbo_batch_select_impl()
   if (qbo_batch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('QBO_BATCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('QBO_BATCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -145,7 +145,7 @@ subroutine qbo_relax_select_impl()
   if (impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('QBO_RELAX_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('QBO_RELAX_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -179,7 +179,7 @@ subroutine qbo_timestep_init_select_impl()
   if (tstep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('QBO_TSTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('QBO_TSTEP_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

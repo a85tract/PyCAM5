@@ -831,7 +831,7 @@ contains
     if (chm_diags_impl_selected) return
 
     impl_name = 'native'
-    call get_environment_variable('CHM_DIAGS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CHM_DIAGS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

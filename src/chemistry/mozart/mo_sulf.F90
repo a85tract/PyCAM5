@@ -258,7 +258,7 @@ end subroutine sulf_readnl
 	      if (set_sulf_time_impl_selected) return
 
 	      impl_name = 'codon'
-	      call get_environment_variable('SET_SULF_TIME_IMPL', value=impl_name, length=n, status=status)
+	      call cam_codon_get_impl('SET_SULF_TIME_IMPL', impl_name, n, status)
 
 	      if (status == 0 .and. n > 0) then
 	         do i = 1, n
@@ -370,7 +370,7 @@ end subroutine sulf_readnl
       if (sulf_interp_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('SULF_INTERP_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('SULF_INTERP_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

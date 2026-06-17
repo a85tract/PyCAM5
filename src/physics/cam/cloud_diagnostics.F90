@@ -76,7 +76,7 @@ subroutine cloud_diagnostics_select_calc_impl()
   if (cloud_diagnostics_calc_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('CLOUD_DIAGNOSTICS_CALC_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('CLOUD_DIAGNOSTICS_CALC_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      do i = 1, n
         code = iachar(impl_name(i:i))
@@ -625,7 +625,7 @@ subroutine cloud_diagnostics_select_mg_impl(force_native)
   if (force_native) then
      use_native_mg_diag_impl = .true.
   else
-     call get_environment_variable('CLOUD_DIAGNOSTICS_MG_IMPL', value=impl_name, length=n, status=status)
+     call cam_codon_get_impl('CLOUD_DIAGNOSTICS_MG_IMPL', impl_name, n, status)
      if (status == 0 .and. n > 0) then
         use_native_mg_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
      else

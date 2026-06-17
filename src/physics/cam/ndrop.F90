@@ -560,7 +560,7 @@ subroutine ndrop_init_select_impl()
    if (ndrop_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -609,7 +609,7 @@ subroutine ndrop_init_props_select_impl()
    if (ndrop_init_props_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_INIT_PROPS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_INIT_PROPS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -658,7 +658,7 @@ subroutine ndrop_dropmixnuc_helpers_select_impl()
    if (ndrop_dropmixnuc_helpers_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_DROPMIXNUC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_DROPMIXNUC_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -708,7 +708,7 @@ subroutine ndrop_loadaer_helpers_select_impl()
    if (ndrop_loadaer_helpers_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_LOADAER_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_LOADAER_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -757,7 +757,7 @@ subroutine ndrop_ccncalc_helpers_select_impl()
    if (ndrop_ccncalc_helpers_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_CCNCALC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_CCNCALC_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -806,7 +806,7 @@ subroutine ndrop_explmix_select_impl()
    if (ndrop_explmix_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_EXPLMIX_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_EXPLMIX_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -855,7 +855,7 @@ subroutine ndrop_activate_modal_select_impl()
    if (ndrop_activate_modal_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_ACTIVATE_MODAL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_ACTIVATE_MODAL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -904,7 +904,7 @@ subroutine ndrop_maxsat_select_impl()
    if (ndrop_maxsat_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NDROP_MAXSAT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NDROP_MAXSAT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

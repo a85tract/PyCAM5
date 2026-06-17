@@ -81,8 +81,7 @@ contains
     call initEdgeBuffer(par,edge,elem,1,nthreads=1)
 
     impl_name = 'codon'
-    call get_environment_variable('MASS_MATRIX_IMPL', value=impl_name, &
-         length=impl_n, status=impl_status)
+    call cam_codon_get_impl('MASS_MATRIX_IMPL', impl_name, impl_n, impl_status)
     use_codon_impl = .not. (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native')
 

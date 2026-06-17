@@ -178,7 +178,7 @@ subroutine cldfrc_select_impl()
    if (cldfrc_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_IMPL', impl_name, n, status)
 
    impl_explicit = status == 0 .and. n > 0
 
@@ -252,7 +252,7 @@ subroutine cldfrc_readnl_select_impl()
    if (cldfrc_readnl_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_READNL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_READNL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -289,7 +289,7 @@ subroutine cldfrc_fice_select_impl()
    if (cldfrc_fice_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_FICE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_FICE_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -326,7 +326,7 @@ subroutine cldfrc_convective_cover_select_impl()
    if (cldfrc_convective_cover_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_CONVECTIVE_COVER_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_CONVECTIVE_COVER_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -363,7 +363,7 @@ subroutine cldfrc_state_init_select_impl()
    if (cldfrc_state_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_STATE_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_STATE_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -400,7 +400,7 @@ subroutine cldfrc_layer_rh_select_impl()
    if (cldfrc_layer_rh_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_LAYER_RH_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_LAYER_RH_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -437,7 +437,7 @@ subroutine cldfrc_ice_wilson_select_impl()
    if (cldfrc_ice_wilson_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_ICE_WILSON_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_ICE_WILSON_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -474,7 +474,7 @@ subroutine cldfrc_total_cloud_select_impl()
    if (cldfrc_total_cloud_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_TOTAL_CLOUD_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_TOTAL_CLOUD_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -530,7 +530,7 @@ subroutine cldfrc_batch_select_impl()
    if (cldfrc_batch_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_BATCH_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_BATCH_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -585,7 +585,7 @@ subroutine cldfrc_getparams_select_impl()
    if (cldfrc_getparams_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDFRC_GETPARAMS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDFRC_GETPARAMS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

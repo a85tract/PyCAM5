@@ -431,7 +431,7 @@ subroutine modal_aer_opt_readnl_select_impl()
    if (modal_aer_opt_readnl_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AER_OPT_READNL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AER_OPT_READNL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -468,7 +468,7 @@ subroutine modal_aer_opt_init_select_impl()
    if (modal_aer_opt_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AER_OPT_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AER_OPT_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -521,7 +521,7 @@ subroutine modal_aer_opt_helpers_select_impl()
    if (modal_aer_opt_helpers_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AER_OPT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AER_OPT_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -557,7 +557,7 @@ subroutine read_water_refindex_select_impl()
    if (read_water_refindex_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AER_OPT_READ_WATER_REFINDEX_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AER_OPT_READ_WATER_REFINDEX_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

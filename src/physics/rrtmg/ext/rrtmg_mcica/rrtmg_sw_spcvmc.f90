@@ -814,7 +814,7 @@
       if (spcvmc_optics_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_SPCVMC_OPTICS_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_SPCVMC_OPTICS_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -863,7 +863,7 @@
       if (spcvmc_flux_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_SPCVMC_FLUX_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_SPCVMC_FLUX_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

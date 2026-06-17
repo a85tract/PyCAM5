@@ -3884,7 +3884,7 @@ subroutine micro_mg1_0_select_tend_impl()
 
   if (micro_mg1_0_tend_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_TEND_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_TEND_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_tend_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
@@ -3931,7 +3931,7 @@ subroutine micro_mg1_0_select_tail_diag_impl()
 
   if (micro_mg1_0_tail_diag_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_TAIL_DIAG_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_TAIL_DIAG_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_tail_diag_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
@@ -3970,7 +3970,7 @@ subroutine micro_mg1_0_select_init_impl()
 
   if (micro_mg1_0_init_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_INIT_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
@@ -4146,7 +4146,7 @@ subroutine micro_mg1_0_select_colzero_impl()
 
   if (micro_mg1_0_colzero_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_COLZERO_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_COLZERO_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_colzero_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
@@ -4243,7 +4243,7 @@ subroutine micro_mg1_0_select_post_iter_avg_impl()
 
   if (micro_mg1_0_post_iter_avg_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_POST_ITER_AVG_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_POST_ITER_AVG_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_post_iter_avg_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
@@ -5162,7 +5162,7 @@ subroutine micro_mg1_0_select_phase_change_impl()
 
   if (micro_mg1_0_phase_change_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_PHASE_CHANGE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_PHASE_CHANGE_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_phase_change_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
@@ -5727,7 +5727,7 @@ subroutine micro_mg1_0_select_get_cols_impl()
 
   if (micro_mg1_0_get_cols_impl_selected) return
 
-  call get_environment_variable('MICRO_MG1_0_GET_COLS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MICRO_MG1_0_GET_COLS_IMPL', impl_name, n, status)
   if (status == 0 .and. n > 0) then
      micro_mg1_0_get_cols_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
   else

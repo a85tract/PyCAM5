@@ -53,7 +53,7 @@ subroutine flux_avg_select_impl()
    if (impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('FLUX_AVG_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('FLUX_AVG_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -87,7 +87,7 @@ subroutine flux_avg_init_select_impl()
    if (init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('FLUX_AVG_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('FLUX_AVG_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

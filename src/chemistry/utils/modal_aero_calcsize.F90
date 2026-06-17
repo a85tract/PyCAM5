@@ -305,7 +305,7 @@ subroutine modal_aero_calcsize_sub_select_impl()
   if (modal_aero_calcsize_sub_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MODAL_AERO_CALCSIZE_SUB_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MODAL_AERO_CALCSIZE_SUB_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

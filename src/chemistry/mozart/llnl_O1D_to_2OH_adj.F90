@@ -156,7 +156,7 @@ contains
     if (o1d_to_2oh_adj_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('O1D_TO_2OH_ADJ_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('O1D_TO_2OH_ADJ_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

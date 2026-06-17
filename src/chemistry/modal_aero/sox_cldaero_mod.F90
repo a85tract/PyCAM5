@@ -85,7 +85,7 @@ contains
     if (sox_cldaero_update_core_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('SOX_CLDAERO_UPDATE_CORE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('SOX_CLDAERO_UPDATE_CORE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -866,7 +866,7 @@ contains
     integer :: n, status, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('SOX_CLDAERO_OBJECT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('SOX_CLDAERO_OBJECT_IMPL', impl_name, n, status)
     if (status == 0 .and. n > 0) then
        do i = 1, n
           code = iachar(impl_name(i:i))

@@ -123,7 +123,7 @@ contains
     if (rebin_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('REBIN_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('REBIN_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -159,7 +159,7 @@ contains
     if (chemistry_misc_impl_initialized) return
 
     impl_name = 'codon'
-    call get_environment_variable('CHEMISTRY_MISC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CHEMISTRY_MISC_HELPERS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

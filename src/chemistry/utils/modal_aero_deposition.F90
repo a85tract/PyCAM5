@@ -342,7 +342,7 @@ logical function modal_aero_deposition_env_native_enabled(selector)
    integer :: status, n, i, code
 
    impl_name = 'codon'
-   call get_environment_variable(selector, value=impl_name, length=n, status=status)
+   call cam_codon_get_impl(selector, impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -367,7 +367,7 @@ subroutine set_srf_wetdep_select_impl()
    if (set_srf_wetdep_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('SET_SRF_WETDEP_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('SET_SRF_WETDEP_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -542,7 +542,7 @@ subroutine set_srf_drydep_select_impl()
    if (set_srf_drydep_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('SET_SRF_DRYDEP_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('SET_SRF_DRYDEP_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

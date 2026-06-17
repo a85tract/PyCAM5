@@ -186,7 +186,7 @@ subroutine check_energy_fix_select_impl()
    if (fix_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_ENERGY_FIX_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_ENERGY_FIX_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -220,7 +220,7 @@ subroutine check_energy_timestep_init_select_impl()
    if (timestep_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_ENERGY_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_ENERGY_TIMESTEP_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -254,7 +254,7 @@ subroutine check_energy_chng_select_impl()
    if (chng_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_ENERGY_CHNG_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_ENERGY_CHNG_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -288,7 +288,7 @@ subroutine check_energy_gmean_select_impl()
    if (gmean_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_ENERGY_GMEAN_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_ENERGY_GMEAN_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -339,7 +339,7 @@ subroutine check_energy_batch_select_impl()
    if (energy_batch_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_ENERGY_BATCH_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_ENERGY_BATCH_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -388,7 +388,7 @@ subroutine check_tracers_init_select_impl()
    if (tracers_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_TRACERS_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_TRACERS_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -422,7 +422,7 @@ subroutine check_tracers_chng_select_impl()
    if (tracers_chng_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_TRACERS_CHNG_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_TRACERS_CHNG_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -473,7 +473,7 @@ subroutine check_tracers_batch_select_impl()
    if (tracers_batch_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CHECK_TRACERS_BATCH_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CHECK_TRACERS_BATCH_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

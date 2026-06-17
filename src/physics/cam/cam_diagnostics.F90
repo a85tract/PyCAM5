@@ -272,7 +272,7 @@ subroutine diag_readnl_select_impl()
    if (diag_readnl_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CAM_DIAGNOSTICS_READNL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAM_DIAGNOSTICS_READNL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -325,7 +325,7 @@ subroutine cam_diag_parent_select_impl()
    if (cam_diag_parent_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CAM_DIAG_PARENT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAM_DIAG_PARENT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1019,7 +1019,7 @@ subroutine cam_diag_init_helpers_select_impl()
    if (cam_diag_init_helpers_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CAM_DIAG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAM_DIAG_INIT_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1086,7 +1086,7 @@ subroutine cam_diag_conv_batch_select_impl()
    if (cam_diag_conv_batch_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CAM_DIAG_CONV_BATCH_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAM_DIAG_CONV_BATCH_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1183,7 +1183,7 @@ subroutine diag_phys_tend_select_impl()
    if (diag_phys_tend_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('DIAG_PHYS_TEND_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('DIAG_PHYS_TEND_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2391,7 +2391,7 @@ subroutine diag_phys_writeout_select_impl()
    if (diag_phys_writeout_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('DIAG_PHYS_WRITEOUT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('DIAG_PHYS_WRITEOUT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2622,7 +2622,7 @@ subroutine diag_surf_select_impl()
    if (diag_surf_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('DIAG_SURF_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('DIAG_SURF_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2656,7 +2656,7 @@ subroutine diag_physvar_ic_select_impl()
    if (diag_physvar_ic_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('DIAG_PHYSVAR_IC_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('DIAG_PHYSVAR_IC_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

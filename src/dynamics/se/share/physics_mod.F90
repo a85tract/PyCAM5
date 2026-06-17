@@ -107,8 +107,7 @@ contains
 !    Tv = Tin*(1_real_kind + rin/Rd_on_Rv)/(1_real_kind + rin)
 
     impl_name = 'codon'
-    call get_environment_variable('VIRTUAL_TEMPERATURE1D_IMPL', value=impl_name, &
-         length=impl_n, status=impl_status)
+    call cam_codon_get_impl('VIRTUAL_TEMPERATURE1D_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native')) then
        Tv = virtual_temperature1d_codon(real(Tin, c_double), real(rin, c_double), &

@@ -317,7 +317,7 @@ subroutine physprop_accum_unique_files_select_impl()
    if (physprop_accum_unique_files_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('PHYS_PROP_ACCUM_UNIQUE_FILES_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('PHYS_PROP_ACCUM_UNIQUE_FILES_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -354,7 +354,7 @@ subroutine physprop_get_select_impl()
    if (physprop_get_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('PHYS_PROP_GET_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('PHYS_PROP_GET_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -391,7 +391,7 @@ subroutine aerosol_optics_init_select_impl()
    if (aerosol_optics_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('AEROSOL_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('AEROSOL_OPTICS_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -428,7 +428,7 @@ subroutine bulk_props_init_select_impl()
    if (bulk_props_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('BULK_PROPS_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('BULK_PROPS_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -465,7 +465,7 @@ subroutine refindex_aer_init_select_impl()
    if (refindex_aer_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('REFINDEX_AER_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('REFINDEX_AER_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -502,7 +502,7 @@ subroutine insoluble_optics_init_select_impl()
    if (insoluble_optics_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('INSOLUBLE_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('INSOLUBLE_OPTICS_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -539,7 +539,7 @@ subroutine hygroscopic_optics_init_select_impl()
    if (hygroscopic_optics_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('HYGROSCOPIC_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('HYGROSCOPIC_OPTICS_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -576,7 +576,7 @@ subroutine modal_optics_init_select_impl()
    if (modal_optics_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_OPTICS_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -613,7 +613,7 @@ subroutine physprop_init_select_impl()
    if (physprop_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('PHYS_PROP_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('PHYS_PROP_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -776,7 +776,7 @@ subroutine phys_prop_interp_select_impl()
    if (phys_prop_interp_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('PHYS_PROP_INTERP_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('PHYS_PROP_INTERP_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

@@ -531,7 +531,7 @@ contains
        if (.not. selected) then
           selected_impl = 'codon'
           n = 0
-          call get_environment_variable('SEARCH_LIST_OF_NAMES_IMPL', value=selected_impl, length=n, status=status)
+          call cam_codon_get_impl('SEARCH_LIST_OF_NAMES_IMPL', selected_impl, n, status)
           if (status == 0 .and. n > 0) then
              selected_impl = adjustl(selected_impl(:n))
           else
@@ -876,7 +876,7 @@ contains
 
        use_native = .false.
        impl_name = 'codon'
-       call get_environment_variable('INITAERMODES_SETSPECPTRS_WRITE2_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('INITAERMODES_SETSPECPTRS_WRITE2_IMPL', impl_name, n, status)
        if (status == 0 .and. n > 0) then
           do i = 1, n
              code = iachar(impl_name(i:i))

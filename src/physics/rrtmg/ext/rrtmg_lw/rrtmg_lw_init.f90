@@ -508,7 +508,7 @@
       if (lwdatinit_impl_selected) return
 
       impl_name = ''
-      call get_environment_variable('RRTMG_LWDATINIT_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LWDATINIT_IMPL', impl_name, n, status)
       if (status == 0 .and. n > 0) then
          use_native_lwdatinit_impl = trim(adjustl(impl_name(:n))) == 'native'
       else
@@ -3904,7 +3904,7 @@
       if (rrtmg_lw_init_impl_selected) return
 
       impl_name = ''
-      call get_environment_variable('RRTMG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
       if (status == 0 .and. n > 0) then
          use_native_rrtmg_lw_init_impl = trim(adjustl(impl_name(:n))) == 'native'
       else

@@ -61,7 +61,7 @@ contains
  
    call date_and_time (date, time, zone, values) 
    impl_name = 'codon'
-   call get_environment_variable('DATETIME_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('DATETIME_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0) then
       do i = 1, n
          code = iachar(impl_name(i:i))

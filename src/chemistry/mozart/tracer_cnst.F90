@@ -76,7 +76,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('TRACER_CNST_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TRACER_CNST_INIT_IMPL', impl_name, n, status)
     if (status == 0 .and. n > 0) then
        do j = 1, n
           code = iachar(impl_name(j:j))

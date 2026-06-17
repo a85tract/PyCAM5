@@ -120,7 +120,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_sub_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_SUB_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_SUB_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -223,7 +223,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_zero_tendencies_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_ZERO_TENDENCIES_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_ZERO_TENDENCIES_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -301,7 +301,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_prepare_box_inputs_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_PREPARE_BOX_INPUTS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_PREPARE_BOX_INPUTS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -480,7 +480,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_setup_modes_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_SETUP_MODES_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_SETUP_MODES_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -651,7 +651,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_set_tendency_flags_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_SET_TENDENCY_FLAGS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_SET_TENDENCY_FLAGS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -767,7 +767,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_scale_qsrflx_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_SCALE_QSRFLX_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_SCALE_QSRFLX_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -864,7 +864,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_apply_tendencies_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_APPLY_TENDENCIES_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_APPLY_TENDENCIES_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1014,7 +1014,7 @@ module modal_aero_newnuc
    if (modal_aero_newnuc_postprocess_label_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MODAL_AERO_NEWNUC_POSTPROCESS_LABEL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MODAL_AERO_NEWNUC_POSTPROCESS_LABEL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1598,7 +1598,7 @@ main_i:	do i = 1, ncol
    if (mer07_veh02_nuc_mosaic_init_state_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_INIT_STATE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MER07_VEH02_NUC_MOSAIC_INIT_STATE_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1720,7 +1720,7 @@ main_i:	do i = 1, ncol
    if (mer07_veh02_nuc_mosaic_prepare_finalize_inputs_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_PREPARE_FINALIZE_INPUTS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MER07_VEH02_NUC_MOSAIC_PREPARE_FINALIZE_INPUTS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1827,7 +1827,7 @@ main_i:	do i = 1, ncol
    if (mer07_veh02_nuc_mosaic_1box_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_1BOX_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MER07_VEH02_NUC_MOSAIC_1BOX_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2533,7 +2533,7 @@ main_i:	do i = 1, ncol
    if (mer07_veh02_nuc_mosaic_prepare_rates_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_PREPARE_RATES_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MER07_VEH02_NUC_MOSAIC_PREPARE_RATES_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2703,7 +2703,7 @@ main_i:	do i = 1, ncol
    if (mer07_veh02_nuc_mosaic_postprocess_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_POSTPROCESS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MER07_VEH02_NUC_MOSAIC_POSTPROCESS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2874,7 +2874,7 @@ main_i:	do i = 1, ncol
    if (mer07_veh02_nuc_mosaic_finalize_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_FINALIZE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MER07_VEH02_NUC_MOSAIC_FINALIZE_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3144,7 +3144,7 @@ main_i:	do i = 1, ncol
    if (pbl_nuc_wang2008_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('PBL_NUC_WANG2008_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('PBL_NUC_WANG2008_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3332,7 +3332,7 @@ main_i:	do i = 1, ncol
         if (binary_nuc_vehk2002_impl_selected) return
 
         impl_name = 'codon'
-        call get_environment_variable('BINARY_NUC_VEHK2002_IMPL', value=impl_name, length=n, status=status)
+        call cam_codon_get_impl('BINARY_NUC_VEHK2002_IMPL', impl_name, n, status)
 
         if (status == 0 .and. n > 0) then
            do i = 1, n

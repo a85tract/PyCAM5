@@ -1573,7 +1573,7 @@ subroutine gw_tend_prep_select_impl()
   if (gw_tend_prep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_TEND_PREP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_TEND_PREP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1703,7 +1703,7 @@ subroutine gw_tend_history_prep_select_impl()
   if (gw_tend_history_prep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_TEND_HISTORY_PREP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_TEND_HISTORY_PREP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1813,7 +1813,7 @@ subroutine gw_tend_oro_post_select_impl()
   if (gw_tend_oro_post_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_TEND_ORO_POST_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_TEND_ORO_POST_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1948,7 +1948,7 @@ subroutine gw_init_select_impl()
   if (gw_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -2046,7 +2046,7 @@ subroutine gw_drag_readnl_select_impl()
   if (gw_drag_readnl_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_DRAG_READNL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_DRAG_READNL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -2135,7 +2135,7 @@ subroutine gw_tend_select_impl()
   if (gw_tend_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_TEND_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('GW_TEND_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

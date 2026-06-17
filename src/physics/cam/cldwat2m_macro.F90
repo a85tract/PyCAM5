@@ -235,7 +235,7 @@
    integer :: n, status
 
    if (ini_macro_impl_selected) return
-   call get_environment_variable('CLDWAT2M_INI_MACRO_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_INI_MACRO_IMPL', impl_name, n, status)
    use_native_ini_macro_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -274,7 +274,7 @@
 
    if (mmacro_pcond_impl_selected) return
    impl_name = 'codon'
-   call get_environment_variable('CLDWAT2M_MMACRO_PCOND_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_MMACRO_PCOND_IMPL', impl_name, n, status)
    use_native_mmacro_pcond_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -291,8 +291,7 @@
    force_native_children = .true.
    child_impl_name = 'native'
    if (use_native_mmacro_pcond_impl) then
-      call get_environment_variable('CLDWAT2M_MMACRO_PCOND_CHILDREN_IMPL', &
-           value=child_impl_name, length=n_child, status=status_child)
+      call cam_codon_get_impl('CLDWAT2M_MMACRO_PCOND_CHILDREN_IMPL', child_impl_name, n_child, status_child)
       if (status_child == 0 .and. n_child > 0) then
          select case (adjustl(child_impl_name(:n_child)))
          case ('codon', 'Codon', 'CODON', 'keep', 'Keep', 'KEEP')
@@ -1378,7 +1377,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (rhcrit_calc_impl_selected) return
-   call get_environment_variable('CLDWAT2M_RHCRIT_CALC_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_RHCRIT_CALC_IMPL', impl_name, n, status)
    use_native_rhcrit_calc_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -1415,7 +1414,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (rhcrit_const_impl_selected) return
-   call get_environment_variable('CLDWAT2M_RHCRIT_CONST_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_RHCRIT_CONST_IMPL', impl_name, n, status)
    use_native_rhcrit_const_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -1454,7 +1453,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (instratus_tendency_impl_selected) return
-   call get_environment_variable('CLDWAT2M_INSTRATUS_TENDENCY_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_INSTRATUS_TENDENCY_IMPL', impl_name, n, status)
    use_native_instratus_tendency_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -1557,7 +1556,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (dropnum_limit_impl_selected) return
-   call get_environment_variable('CLDWAT2M_DROPNUM_LIMIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_DROPNUM_LIMIT_IMPL', impl_name, n, status)
    use_native_dropnum_limit_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -1642,7 +1641,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (ref_state_impl_selected) return
-   call get_environment_variable('CLDWAT2M_REF_STATE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_REF_STATE_IMPL', impl_name, n, status)
    use_native_ref_state_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -1742,7 +1741,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (linear_state_impl_selected) return
-   call get_environment_variable('CLDWAT2M_LINEAR_STATE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_LINEAR_STATE_IMPL', impl_name, n, status)
    use_native_linear_state_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -1920,7 +1919,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (qq_limiter_impl_selected) return
-   call get_environment_variable('CLDWAT2M_QQ_LIMITER_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_QQ_LIMITER_IMPL', impl_name, n, status)
    use_native_qq_limiter_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2039,7 +2038,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (iter_zero_impl_selected) return
-   call get_environment_variable('CLDWAT2M_ITER_ZERO_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_ITER_ZERO_IMPL', impl_name, n, status)
    use_native_iter_zero_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2126,7 +2125,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (init_zero_impl_selected) return
-   call get_environment_variable('CLDWAT2M_INIT_ZERO_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_INIT_ZERO_IMPL', impl_name, n, status)
    use_native_init_zero_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2214,7 +2213,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (iter_column_impl_selected) return
-   call get_environment_variable('CLDWAT2M_ITER_COLUMN_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_ITER_COLUMN_IMPL', impl_name, n, status)
    use_native_iter_column_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2324,7 +2323,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (qq_coeff_impl_selected) return
-   call get_environment_variable('CLDWAT2M_QQ_COEFF_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_QQ_COEFF_IMPL', impl_name, n, status)
    use_native_qq_coeff_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2519,7 +2518,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (advective_state_impl_selected) return
-   call get_environment_variable('CLDWAT2M_ADVECTIVE_STATE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_ADVECTIVE_STATE_IMPL', impl_name, n, status)
    use_native_advective_state_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2615,7 +2614,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (iter_state_impl_selected) return
-   call get_environment_variable('CLDWAT2M_ITER_STATE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_ITER_STATE_IMPL', impl_name, n, status)
    use_native_iter_state_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -2759,7 +2758,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (final_tendency_impl_selected) return
-   call get_environment_variable('CLDWAT2M_FINAL_TENDENCY_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_FINAL_TENDENCY_IMPL', impl_name, n, status)
    use_native_final_tendency_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -3690,7 +3689,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (instratus_core_impl_selected) return
-   call get_environment_variable('CLDWAT2M_INSTRATUS_CORE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_INSTRATUS_CORE_IMPL', impl_name, n, status)
    use_native_instratus_core_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -3725,7 +3724,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (instratus_condensate_impl_selected) return
-   call get_environment_variable('CLDWAT2M_INSTRATUS_CONDENSATE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_INSTRATUS_CONDENSATE_IMPL', impl_name, n, status)
    use_native_instratus_condensate_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -3887,7 +3886,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (funcd_instratus_impl_selected) return
-   call get_environment_variable('CLDWAT2M_FUNCD_INSTRATUS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_FUNCD_INSTRATUS_IMPL', impl_name, n, status)
    use_native_funcd_instratus_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -4020,7 +4019,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (gridmean_rh_impl_selected) return
-   call get_environment_variable('CLDWAT2M_GRIDMEAN_RH_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_GRIDMEAN_RH_IMPL', impl_name, n, status)
    use_native_gridmean_rh_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -4187,7 +4186,7 @@ end subroutine rhcrit_calc
    integer :: n, status
 
    if (positive_moisture_impl_selected) return
-   call get_environment_variable('CLDWAT2M_POSITIVE_MOISTURE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT2M_POSITIVE_MOISTURE_IMPL', impl_name, n, status)
    use_native_positive_moisture_impl = .false.
    if (status == 0 .and. n > 0) then
       select case (adjustl(impl_name(:n)))
@@ -4346,7 +4345,7 @@ end subroutine rhcrit_calc
       integer :: n, status
 
       if (gaussj_impl_selected) return
-      call get_environment_variable('CLDWAT2M_GAUSSJ_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('CLDWAT2M_GAUSSJ_IMPL', impl_name, n, status)
       use_native_gaussj_impl = .false.
       if (status == 0 .and. n > 0) then
          select case (adjustl(impl_name(:n)))

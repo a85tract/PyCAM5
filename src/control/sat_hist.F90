@@ -106,7 +106,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('IS_SATFILE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('IS_SATFILE_IMPL', impl_name, n, status)
     if (status == 0 .and. n > 0) then
        do i = 1, n
           code = iachar(impl_name(i:i))
@@ -269,7 +269,7 @@ contains
 
     if (.not.has_sat_hist) then
        impl_name = 'codon'
-       call get_environment_variable('SAT_HIST_INIT_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('SAT_HIST_INIT_IMPL', impl_name, n, status)
        if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
           if (sat_hist_init_noop_codon(0_c_int64_t) /= 0_c_int64_t) then
              if (masterproc .and. .not. sat_hist_init_codon_logged) then

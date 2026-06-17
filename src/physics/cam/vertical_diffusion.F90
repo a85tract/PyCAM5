@@ -250,7 +250,7 @@ contains
     if (vd_readnl_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VD_READNL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VD_READNL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -288,7 +288,7 @@ contains
     if (vd_register_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VD_REGISTER_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VD_REGISTER_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -326,7 +326,7 @@ contains
     if (vertical_diffusion_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1043,7 +1043,7 @@ contains
     if (ts_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_TS_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_TS_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1081,7 +1081,7 @@ contains
     if (tend_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1195,7 +1195,7 @@ contains
     if (tend_misc_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_TEND_MISC_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_TEND_MISC_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1345,7 +1345,7 @@ contains
     if (diag_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_DIAG_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_DIAG_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1573,7 +1573,7 @@ contains
     if (core_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_CORE_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_CORE_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1818,7 +1818,7 @@ contains
     if (flux_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_FLUX_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_FLUX_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2024,7 +2024,7 @@ contains
     if (ptend_core_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_PTEND_CORE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_PTEND_CORE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2170,7 +2170,7 @@ contains
     if (pre_pbl_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_PRE_PBL_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_PRE_PBL_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2290,7 +2290,7 @@ contains
     if (post_pbl_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_POST_PBL_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_POST_PBL_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2433,7 +2433,7 @@ contains
     if (modal_aero_flux_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_MODAL_AERO_FLUX_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_MODAL_AERO_FLUX_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2533,7 +2533,7 @@ contains
     if (obklen_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_OBKLEN_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_OBKLEN_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2624,7 +2624,7 @@ contains
     if (pre_qsat_rh_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_PRE_QSAT_RH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_PRE_QSAT_RH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2711,7 +2711,7 @@ contains
     if (post_qsat_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_DIFFUSION_POST_QSAT_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_DIFFUSION_POST_QSAT_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

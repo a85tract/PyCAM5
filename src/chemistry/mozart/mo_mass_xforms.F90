@@ -49,7 +49,7 @@ contains
     if (mass_xforms_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MASS_XFORMS_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MASS_XFORMS_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -385,7 +385,7 @@ contains
     if (mmr2vmr_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('MMR2VMR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('MMR2VMR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -423,7 +423,7 @@ contains
     if (vmr2mmr_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VMR2MMR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VMR2MMR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -461,7 +461,7 @@ contains
     if (h2o_to_vmr_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('H2O_TO_VMR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('H2O_TO_VMR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

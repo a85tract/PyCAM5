@@ -155,7 +155,7 @@ subroutine nucleati_init_select_impl(log_unit)
    if (nucleati_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NUCLEATI_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NUCLEATI_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -199,7 +199,7 @@ subroutine nucleate_ice_helpers_select_impl()
    if (nucleate_ice_helpers_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NUCLEATE_ICE_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NUCLEATE_ICE_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -320,7 +320,7 @@ subroutine nucleati_select_impl()
    if (nucleati_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('NUCLEATI_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('NUCLEATI_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

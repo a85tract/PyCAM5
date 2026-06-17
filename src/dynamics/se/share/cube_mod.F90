@@ -217,7 +217,7 @@ contains
     coords_xy = (/ coords(1,1)%x, coords(1,1)%y, coords(np,1)%x, coords(np,1)%y, &
                    coords(np,np)%x, coords(np,np)%y, coords(1,np)%x, coords(1,np)%y /)
     impl_name = 'codon'
-    call get_environment_variable('ELEM_JACOBIANS_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('ELEM_JACOBIANS_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        unif2quadmap(1,1)=(coords(1,1)%x+coords(np,1)%x+coords(np,np)%x+coords(1,np)%x)/4.0d0
        unif2quadmap(1,2)=(coords(1,1)%y+coords(np,1)%y+coords(np,np)%y+coords(1,np)%y)/4.0d0
@@ -670,7 +670,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('DMAP_EQUIANGULAR_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('DMAP_EQUIANGULAR_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        Jp(1,1) = u2qmap(2,1) + u2qmap(4,1)*b
        Jp(1,2) = u2qmap(3,1) + u2qmap(4,1)*a
@@ -767,7 +767,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('VMAP_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('VMAP_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native')) then
        codon_status = vmap_codon(real(x1, c_double), real(x2, c_double), &
@@ -974,7 +974,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('COREOLIS_INIT_ATOMIC_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('COREOLIS_INIT_ATOMIC_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        rangle = rotate_grid*DD_PI/180
        do j=1,np
@@ -1464,7 +1464,7 @@ contains
     ! =========================================
 
     impl_name = 'codon'
-    call get_environment_variable('SET_CORNER_COORDINATES_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('SET_CORNER_COORDINATES_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        face_no = ((elem%vertex%number - 1) / (ne * ne)) + 1
        ie = mod(elem%vertex%number - 1, ne)
@@ -2742,7 +2742,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('REF2SPHERE_EQUIANGULAR_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('REF2SPHERE_EQUIANGULAR_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        pi = (1-a)/2
        pj = (1-b)/2

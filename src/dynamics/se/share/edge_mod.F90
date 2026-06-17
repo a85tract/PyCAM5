@@ -211,7 +211,7 @@ contains
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+    call cam_codon_get_impl(selector, impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -737,7 +737,7 @@ contains
      end interface
 
      impl_name = 'codon'
-     call get_environment_variable('CALCSEGMENTLENGTH_IMPL', value=impl_name, length=impl_n, status=impl_status)
+     call cam_codon_get_impl('CALCSEGMENTLENGTH_IMPL', impl_name, impl_n, impl_status)
      if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
         select case(mPattern)
         CASE(HME_MPATTERN_S)
@@ -994,7 +994,7 @@ contains
        call haltmp('edgeVpack: Buffer overflow: size of the vertical dimension must be increased!')
     endif
     impl_name = 'codon'
-    call get_environment_variable('EDGEVPACK_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('EDGEVPACK_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
        call edgevpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
             int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
@@ -1430,7 +1430,7 @@ contains
 !JMD    call t_adj_detailf(+2)
 
     impl_name = 'codon'
-    call get_environment_variable('EDGEVUNPACK_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('EDGEVUNPACK_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
        call edgevunpack_codon(int(np, c_int64_t), int(max_neigh_edges, c_int64_t), &
             int(max_corner_elem, c_int64_t), int(vlyr, c_int64_t), &
@@ -2216,7 +2216,7 @@ contains
 
     threadsafe=.false.
     impl_name = 'codon'
-    call get_environment_variable('LONGEDGEVUNPACKMIN_IMPL', value=impl_name, length=impl_n, status=impl_status)
+    call cam_codon_get_impl('LONGEDGEVUNPACKMIN_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
        call longedgevunpackmin_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
             int(edge%nlyr, c_int64_t), int(vlyr, c_int64_t), int(kptr, c_int64_t), &

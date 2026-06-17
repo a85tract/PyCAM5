@@ -369,8 +369,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('GAUSSLOBATTO_PTS_IMPL', value=impl_name, &
-         length=impl_n, status=impl_status)
+    call cam_codon_get_impl('GAUSSLOBATTO_PTS_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native')) then
        codon_status = se_gausslobatto_pts_codon(int(np1, c_int64_t), c_loc(pts(1)))
@@ -514,8 +513,7 @@ contains
     integer i,n
 
     impl_name = 'codon'
-    call get_environment_variable('GAUSSLOBATTO_WTS_IMPL', value=impl_name, &
-         length=impl_n, status=impl_status)
+    call cam_codon_get_impl('GAUSSLOBATTO_WTS_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native') then
        c0    = 0.0_longdouble_kind

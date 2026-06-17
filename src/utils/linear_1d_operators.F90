@@ -287,9 +287,9 @@ logical function linear_1d_use_native()
   integer :: status, n, i, code
 
   impl_name = 'codon'
-  call get_environment_variable('LINEAR_1D_OPERATORS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('LINEAR_1D_OPERATORS_IMPL', impl_name, n, status)
   if (status /= 0 .or. n <= 0) then
-     call get_environment_variable('DIFFUSION_SOLVER_TRIDIAG_IMPL', value=impl_name, length=n, status=status)
+     call cam_codon_get_impl('DIFFUSION_SOLVER_TRIDIAG_IMPL', impl_name, n, status)
   end if
 
   if (status == 0 .and. n > 0) then

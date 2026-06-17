@@ -117,7 +117,7 @@ subroutine modal_aero_coag_sub_select_impl()
   if (modal_aero_coag_sub_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MODAL_AERO_COAG_SUB_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MODAL_AERO_COAG_SUB_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -170,7 +170,7 @@ subroutine modal_aero_coag_getcoags_prep_select_impl()
   if (modal_aero_coag_getcoags_prep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MODAL_AERO_COAG_GETCOAGS_PREP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MODAL_AERO_COAG_GETCOAGS_PREP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -223,7 +223,7 @@ subroutine modal_aero_getcoags_core_select_impl()
   if (modal_aero_getcoags_core_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MODAL_AERO_GETCOAGS_CORE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MODAL_AERO_GETCOAGS_CORE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

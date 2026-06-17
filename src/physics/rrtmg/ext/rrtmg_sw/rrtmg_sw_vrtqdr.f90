@@ -168,7 +168,7 @@
       if (vrtqdr_sw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_VRTQDR_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_VRTQDR_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

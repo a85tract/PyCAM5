@@ -131,7 +131,7 @@ subroutine zm_convi_select_impl()
    if (zm_convi_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONVI_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONVI_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -326,7 +326,7 @@ subroutine zm_conv_evap_main_select_impl()
    if (zm_conv_evap_main_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONV_POST_SHELL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -364,8 +364,8 @@ subroutine zm_momtran_main_select_impl()
    if (zm_momtran_main_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
-   call get_environment_variable('ZM_MOMTRAN_MAIN_IMPL', value=mom_impl_name, length=mom_n, status=mom_status)
+   call cam_codon_get_impl('ZM_CONV_POST_SHELL_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('ZM_MOMTRAN_MAIN_IMPL', mom_impl_name, mom_n, mom_status)
    if (mom_status == 0 .and. mom_n > 0) then
       impl_name = mom_impl_name
       n = mom_n
@@ -408,8 +408,8 @@ subroutine zm_convtran_main_select_impl()
    if (zm_convtran_main_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
-   call get_environment_variable('ZM_CONVTRAN_MAIN_IMPL', value=convtran_impl_name, length=convtran_n, status=convtran_status)
+   call cam_codon_get_impl('ZM_CONV_POST_SHELL_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('ZM_CONVTRAN_MAIN_IMPL', convtran_impl_name, convtran_n, convtran_status)
    if (convtran_status == 0 .and. convtran_n > 0) then
       impl_name = convtran_impl_name
       n = convtran_n
@@ -452,8 +452,8 @@ subroutine zm_convr_shell_select_impl()
    if (zm_convr_shell_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
-   call get_environment_variable('ZM_CONVR_SHELL_IMPL', value=convr_impl_name, length=convr_n, status=convr_status)
+   call cam_codon_get_impl('ZM_CONV_POST_SHELL_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('ZM_CONVR_SHELL_IMPL', convr_impl_name, convr_n, convr_status)
    if (convr_status == 0 .and. convr_n > 0) then
       impl_name = convr_impl_name
       n = convr_n
@@ -496,7 +496,7 @@ subroutine zm_cldprp_select_impl()
    if (zm_cldprp_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CLDPRP_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CLDPRP_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -534,7 +534,7 @@ subroutine zm_cldprp_helpers_select_impl()
    if (zm_cldprp_helpers_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CLDPRP_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CLDPRP_HELPERS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -572,8 +572,8 @@ subroutine zm_q1q2_pjr_select_impl()
    if (zm_q1q2_pjr_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
-   call get_environment_variable('ZM_Q1Q2_PJR_IMPL', value=q1q2_impl_name, length=q1q2_n, status=q1q2_status)
+   call cam_codon_get_impl('ZM_CONV_POST_SHELL_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('ZM_Q1Q2_PJR_IMPL', q1q2_impl_name, q1q2_n, q1q2_status)
    if (q1q2_status == 0 .and. q1q2_n > 0) then
       impl_name = q1q2_impl_name
       n = q1q2_n
@@ -616,7 +616,7 @@ subroutine zm_entropy_select_impl()
    if (zm_entropy_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_ENTROPY_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_ENTROPY_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -654,7 +654,7 @@ subroutine zm_qsat_hpa_select_impl()
    if (zm_qsat_hpa_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_QSAT_HPA_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_QSAT_HPA_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -692,7 +692,7 @@ subroutine zm_closure_select_impl()
    if (zm_closure_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CLOSURE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CLOSURE_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -730,7 +730,7 @@ subroutine zm_buoyan_dilute_select_impl()
    if (zm_buoyan_dilute_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_BUOYAN_DILUTE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_BUOYAN_DILUTE_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -768,7 +768,7 @@ subroutine zm_parcel_dilute_select_impl()
    if (zm_parcel_dilute_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_PARCEL_DILUTE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_PARCEL_DILUTE_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

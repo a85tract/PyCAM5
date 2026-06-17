@@ -234,7 +234,7 @@ subroutine macrop_driver_readnl_select_impl()
   if (readnl_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MACROP_DRIVER_READNL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MACROP_DRIVER_READNL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -2884,7 +2884,7 @@ subroutine macrop_driver_select_wtrc_shell_impl()
   if (wtrc_shell_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MACROP_DRIVER_WTRC_SHELL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MACROP_DRIVER_WTRC_SHELL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -2925,7 +2925,7 @@ subroutine macrop_driver_select_wtrc_process_impl()
   if (wtrc_process_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MACROP_DRIVER_WTRC_PROCESS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MACROP_DRIVER_WTRC_PROCESS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3081,7 +3081,7 @@ subroutine macrop_driver_select_impl()
   if (impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('MACROP_DRIVER_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('MACROP_DRIVER_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

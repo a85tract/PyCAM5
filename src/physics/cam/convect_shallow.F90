@@ -1297,7 +1297,7 @@ subroutine convect_shallow_init_select_impl()
    if (init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CONVECT_SHALLOW_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CONVECT_SHALLOW_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1370,7 +1370,7 @@ subroutine convect_shallow_select_impl()
    if (impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

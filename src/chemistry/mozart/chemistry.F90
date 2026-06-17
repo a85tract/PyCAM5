@@ -1230,7 +1230,7 @@ end function chem_is_active
     if (chem_emissions_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CHEM_EMISSIONS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CHEM_EMISSIONS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1514,7 +1514,7 @@ end function chem_is_active
     if (chem_timestep_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CHEM_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CHEM_TIMESTEP_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1912,7 +1912,7 @@ end function chem_is_active
     if (chem_timestep_tend_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CHEM_TIMESTEP_TEND_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CHEM_TIMESTEP_TEND_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1959,7 +1959,7 @@ end function chem_is_active
     if (chem_final_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CHEM_FINAL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CHEM_FINAL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

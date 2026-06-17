@@ -788,7 +788,7 @@ contains
     if (getters_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('PHYS_GRID_GETTERS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHYS_GRID_GETTERS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -854,7 +854,7 @@ contains
     if (transpose_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('PHYS_GRID_TRANSPOSE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHYS_GRID_TRANSPOSE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1195,7 +1195,7 @@ contains
     if (init_helpers_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('PHYS_GRID_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHYS_GRID_INIT_HELPERS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

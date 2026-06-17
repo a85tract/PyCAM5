@@ -1026,7 +1026,7 @@ contains
     if (aero_model_drydep_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_DRYDEP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_DRYDEP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1285,7 +1285,7 @@ contains
     if (aero_model_wetdep_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_WETDEP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_WETDEP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1378,7 +1378,7 @@ contains
     if (qqcw2vmr_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('QQCW2VMR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('QQCW2VMR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1414,7 +1414,7 @@ contains
     if (vmr2qqcw_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VMR2QQCW_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VMR2QQCW_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3364,7 +3364,7 @@ contains
     if (aero_model_gasaerexch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_GASAEREXCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_GASAEREXCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3482,7 +3482,7 @@ contains
     if (aero_model_gasaerexch_h2so4_save_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_GASAEREXCH_H2SO4_SAVE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_GASAEREXCH_H2SO4_SAVE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3518,7 +3518,7 @@ contains
     if (aero_model_gasaerexch_h2so4_delta_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_GASAEREXCH_H2SO4_DELTA_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_GASAEREXCH_H2SO4_DELTA_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3626,7 +3626,7 @@ contains
     if (aero_model_gasaerexch_gas_tend_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_GASAEREXCH_GAS_TEND_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_GASAEREXCH_GAS_TEND_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3697,7 +3697,7 @@ contains
     if (aero_model_gasaerexch_aq_tend_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_GASAEREXCH_AQ_TEND_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_GASAEREXCH_AQ_TEND_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3769,7 +3769,7 @@ contains
     if (aero_model_gasaerexch_column_flux_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_GASAEREXCH_COLUMN_FLUX_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_GASAEREXCH_COLUMN_FLUX_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4035,7 +4035,7 @@ contains
     if (aero_model_emissions_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_EMISSIONS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_EMISSIONS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4176,7 +4176,7 @@ contains
     if (aero_model_emissions_accumulate_sflx_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_EMISSIONS_ACCUMULATE_SFLX_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_EMISSIONS_ACCUMULATE_SFLX_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4253,7 +4253,7 @@ contains
     if (aero_model_emissions_seasalt_wind_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AERO_MODEL_EMISSIONS_SEASALT_WIND_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AERO_MODEL_EMISSIONS_SEASALT_WIND_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

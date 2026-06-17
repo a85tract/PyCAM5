@@ -204,7 +204,7 @@ contains
     if (gcr_ionization_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('GCR_IONIZATION_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('GCR_IONIZATION_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -255,7 +255,7 @@ contains
     if (gcr_ionization_adv_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('GCR_IONIZATION_ADV_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('GCR_IONIZATION_ADV_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

@@ -34,7 +34,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('INIT_MEAN_MASS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('INIT_MEAN_MASS_IMPL', impl_name, n, status)
     if (status == 0 .and. n > 0) then
        do i = 1, n
           code = iachar(impl_name(i:i))
@@ -187,7 +187,7 @@ contains
     if (set_mean_mass_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('SET_MEAN_MASS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('SET_MEAN_MASS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

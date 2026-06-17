@@ -349,7 +349,7 @@
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('COMPUTE_CUBIC_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('COMPUTE_CUBIC_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -376,7 +376,7 @@
     if (init_eddy_diff_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -681,7 +681,7 @@
     if (compute_eddy_diff_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_COMPUTE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_COMPUTE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1857,7 +1857,7 @@
     if (trbintd_core_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_TRBINTD_CORE_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_TRBINTD_CORE_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1948,7 +1948,7 @@
     if (driver_tail_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_DRIVER_TAIL_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_DRIVER_TAIL_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2123,7 +2123,7 @@
     if (driver_front_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_DRIVER_FRONT_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_DRIVER_FRONT_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2293,7 +2293,7 @@
     if (caleddy_light_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_LIGHT_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_LIGHT_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2459,7 +2459,7 @@
     if (caleddy_setup_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_SETUP_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_SETUP_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2667,7 +2667,7 @@
     if (caleddy_cloud_rad_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_CLOUD_RAD_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_CLOUD_RAD_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2874,7 +2874,7 @@
     if (caleddy_core_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_CORE_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_CORE_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3061,7 +3061,7 @@
     if (caleddy_post_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_POST_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_POST_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3226,7 +3226,7 @@
     if (sfdiag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_SFDIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_SFDIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3556,7 +3556,7 @@
     if (trbintd_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_TRBINTD_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_TRBINTD_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -3880,7 +3880,7 @@
     if (trbintd_core_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_TRBINTD_CORE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_TRBINTD_CORE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4042,7 +4042,7 @@
     if (trbintd_midpoint_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_TRBINTD_MIDPOINT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_TRBINTD_MIDPOINT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4167,7 +4167,7 @@
     if (trbintd_slopes_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_TRBINTD_SLOPES_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_TRBINTD_SLOPES_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4297,7 +4297,7 @@
     if (trbintd_sfdiag_interface_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_TRBINTD_SFDIAG_INTERFACE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_TRBINTD_SFDIAG_INTERFACE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4435,7 +4435,7 @@
     if (surface_stress_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_SURFACE_STRESS_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_SURFACE_STRESS_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4543,7 +4543,7 @@
     if (austausch_atm_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('AUSTAUSCH_ATM_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('AUSTAUSCH_ATM_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4704,7 +4704,7 @@
     if (kv_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_KV_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_KV_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4823,7 +4823,7 @@
     if (error_pbl_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ERROR_PBL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ERROR_PBL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4922,7 +4922,7 @@
     if (kv_relax_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_KV_RELAX_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_KV_RELAX_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5017,7 +5017,7 @@
     if (init_fields_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_INIT_FIELDS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_INIT_FIELDS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5156,7 +5156,7 @@
     if (rebuild_thermo_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_REBUILD_THERMO_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_REBUILD_THERMO_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5273,7 +5273,7 @@
     if (zero_nonlocal_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZERO_NONLOCAL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZERO_NONLOCAL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5362,7 +5362,7 @@
     if (restore_fields_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_RESTORE_FIELDS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_RESTORE_FIELDS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5460,7 +5460,7 @@
     if (wstar_pbl_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_WSTAR_PBL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_WSTAR_PBL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5561,7 +5561,7 @@
     if (caleddy_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5755,7 +5755,7 @@
     if (caleddy_diaginit_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_DIAGINIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_DIAGINIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -5927,7 +5927,7 @@
     if (caleddy_regime_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_REGIME_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_REGIME_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6030,7 +6030,7 @@
     if (caleddy_stable_config_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_STABLE_CONFIG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_STABLE_CONFIG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6138,7 +6138,7 @@
     if (caleddy_surface_tke_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_SURFACE_TKE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_SURFACE_TKE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6242,7 +6242,7 @@
     if (zisocl_surface_energy_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_SURFACE_ENERGY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_SURFACE_ENERGY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6347,7 +6347,7 @@
     if (zisocl_surface_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_SURFACE_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_SURFACE_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6483,7 +6483,7 @@
     if (zisocl_surface_extend_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_SURFACE_EXTEND_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_SURFACE_EXTEND_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6597,7 +6597,7 @@
     if (zisocl_sbcl_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_SBCL_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_SBCL_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6697,7 +6697,7 @@
     if (zisocl_initial_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_INITIAL_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_INITIAL_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -6860,7 +6860,7 @@
     if (zisocl_extended_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_EXTENDED_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_EXTENDED_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7007,7 +7007,7 @@
     if (zisocl_non_sbcl_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_NON_SBCL_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_NON_SBCL_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7141,7 +7141,7 @@
     if (zisocl_upward_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_UPWARD_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_UPWARD_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7338,7 +7338,7 @@
     if (zisocl_downward_state_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_DOWNWARD_STATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_DOWNWARD_STATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7562,7 +7562,7 @@
     if (zisocl_stability_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_STABILITY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_STABILITY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7660,7 +7660,7 @@
     if (zisocl_layer_energy_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_LAYER_ENERGY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_LAYER_ENERGY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7794,7 +7794,7 @@
     if (zisocl_interface_energy_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_INTERFACE_ENERGY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_INTERFACE_ENERGY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -7929,7 +7929,7 @@
     if (compute_radf_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_COMPUTE_RADF_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_COMPUTE_RADF_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -8055,7 +8055,7 @@
     if (caleddy_srcl_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_SRCL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_SRCL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -8340,7 +8340,7 @@
     if (caleddy_stl_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_STL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_STL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -8656,7 +8656,7 @@
     if (caleddy_diag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_DIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_DIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -8831,7 +8831,7 @@
     if (caleddy_clprep_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_CLPREP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_CLPREP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -9122,7 +9122,7 @@
     if (caleddy_closure_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_CLOSURE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_CLOSURE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -9596,7 +9596,7 @@
     if (caleddy_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -9663,7 +9663,7 @@
     if (caleddy_full_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_CALEDDY_FULL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_CALEDDY_FULL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -11409,7 +11409,7 @@
     if (exacol_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_EXACOL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_EXACOL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -11695,7 +11695,7 @@
     if (zisocl_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EDDY_DIFF_ZISOCL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EDDY_DIFF_ZISOCL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i_char = 1, n

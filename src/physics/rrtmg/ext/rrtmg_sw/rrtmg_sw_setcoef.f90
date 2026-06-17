@@ -489,7 +489,7 @@
       if (setcoef_sw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_SETCOEF_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_SETCOEF_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -537,7 +537,7 @@
       integer :: status, n, i, code
 
       impl_name = 'codon'
-      call get_environment_variable(selector, value=impl_name, length=n, status=status)
+      call cam_codon_get_impl(selector, impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

@@ -142,7 +142,7 @@ subroutine zm_conv_init_select_impl()
    if (zm_conv_init_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONV_INIT_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0) then
       do i = 1, n
          code = iachar(impl_name(i:i))
@@ -197,7 +197,7 @@ subroutine zm_conv_init_limcnv_select_impl()
    if (zm_conv_init_limcnv_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_INIT_LIMCNV_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONV_INIT_LIMCNV_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0) then
       do i = 1, n
          code = iachar(impl_name(i:i))
@@ -232,7 +232,7 @@ subroutine zm_conv_tend_2_select_impl()
    if (zm_conv_tend_2_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_TEND_2_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONV_TEND_2_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0) then
       do i = 1, n
          code = iachar(impl_name(i:i))
@@ -270,7 +270,7 @@ subroutine zm_conv_tend_select_impl()
    if (zm_conv_tend_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_TEND_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONV_TEND_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0) then
       do i = 1, n
          code = iachar(impl_name(i:i))
@@ -1234,7 +1234,7 @@ subroutine zm_conv_select_post_shell_impl()
    if (zm_post_shell_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('ZM_CONV_POST_SHELL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

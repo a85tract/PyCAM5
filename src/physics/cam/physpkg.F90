@@ -1497,7 +1497,7 @@ subroutine physpkg_orch_select_impl()
   if (phys_orch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_ORCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_ORCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1655,7 +1655,7 @@ subroutine phys_inidat_select_impl()
   if (phys_inidat_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -1734,7 +1734,7 @@ subroutine tphys_shell_select_impl()
   if (tphys_shell_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYS_SHELL_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYS_SHELL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3191,7 +3191,7 @@ subroutine phys_timestep_init_select_impl()
   if (phys_tstep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_TIMESTEP_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3283,7 +3283,7 @@ subroutine tphyspkg_flux_batch_select_impl()
   if (tphyspkg_flux_batch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSPKG_FLUX_BATCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSPKG_FLUX_BATCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3475,7 +3475,7 @@ subroutine tphysbc_precip_ops_select_impl()
   if (tphysbc_precip_ops_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_PRECIP_OPS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_PRECIP_OPS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3647,7 +3647,7 @@ subroutine tphysac_flx_net_update_select_impl()
   if (tphysac_flx_net_update_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSAC_FLX_NET_UPDATE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSAC_FLX_NET_UPDATE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3776,7 +3776,7 @@ subroutine tphysac_t_update_select_impl()
   if (tphysac_t_update_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSAC_T_UPDATE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSAC_T_UPDATE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -3899,7 +3899,7 @@ subroutine tphysac_q_snapshot_select_impl()
   if (tphysac_q_snapshot_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSAC_Q_SNAPSHOT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSAC_Q_SNAPSHOT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4048,7 +4048,7 @@ subroutine tphysbc_state_batch_select_impl()
   if (tphysbc_state_batch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_STATE_BATCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_STATE_BATCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4198,7 +4198,7 @@ subroutine tphysbc_qini_snapshot_select_impl()
   if (tphysbc_qini_snapshot_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_QINI_SNAPSHOT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_QINI_SNAPSHOT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4326,7 +4326,7 @@ subroutine tphysbc_dadadj_input_select_impl()
   if (tphysbc_dadadj_input_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_DADADJ_INPUT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_DADADJ_INPUT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4440,7 +4440,7 @@ subroutine tphysbc_dadadj_output_select_impl()
   if (tphysbc_dadadj_output_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_DADADJ_OUTPUT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_DADADJ_OUTPUT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4563,7 +4563,7 @@ subroutine tphysbc_dtcore_update_select_impl()
   if (tphysbc_dtcore_update_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_DTCORE_UPDATE_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_DTCORE_UPDATE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4675,7 +4675,7 @@ subroutine tphysbc_tini_copy_select_impl()
   if (tphysbc_tini_copy_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_TINI_COPY_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_TINI_COPY_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4777,7 +4777,7 @@ subroutine tphysbc_flx_cnd_sum_select_impl()
   if (tphysbc_flx_cnd_sum_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_FLX_CND_SUM_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_FLX_CND_SUM_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -4879,7 +4879,7 @@ subroutine tphysbc_macrop_fluxes_select_impl()
   if (tphysbc_macrop_fluxes_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_MACROP_FLUXES_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_MACROP_FLUXES_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5005,7 +5005,7 @@ subroutine tphysbc_radheat_flx_net_select_impl()
   if (tphysbc_radheat_flx_net_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_RADHEAT_FLX_NET_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_RADHEAT_FLX_NET_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5104,7 +5104,7 @@ subroutine tphysbc_zero_buffers_select_impl()
   if (tphysbc_zero_buffers_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_ZERO_BUFFERS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_ZERO_BUFFERS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5207,7 +5207,7 @@ subroutine tphysbc_trace_water_clip_select_impl()
   if (tphysbc_trace_water_clip_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_TRACE_WATER_CLIP_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_TRACE_WATER_CLIP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5375,7 +5375,7 @@ subroutine tphysbc_dadadj_lq_init_select_impl()
   if (tphysbc_dadadj_lq_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_DADADJ_LQ_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_DADADJ_LQ_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5484,7 +5484,7 @@ subroutine phys_inidat_batch_select_impl()
   if (phys_inidat_batch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_BATCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_BATCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5590,7 +5590,7 @@ subroutine phys_inidat_qpert_default_select_impl()
   if (phys_inidat_qpert_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_QPERT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_QPERT_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5690,7 +5690,7 @@ subroutine phys_inidat_qpert_expand_select_impl()
   if (phys_inidat_qpert_expand_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_QPERT_EXPAND_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_QPERT_EXPAND_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5791,7 +5791,7 @@ subroutine phys_inidat_pblh_default_select_impl()
   if (phys_inidat_pblh_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_PBLH_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_PBLH_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5891,7 +5891,7 @@ subroutine phys_inidat_tpert_default_select_impl()
   if (phys_inidat_tpert_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_TPERT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_TPERT_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -5991,7 +5991,7 @@ subroutine phys_inidat_cush_default_select_impl()
   if (phys_inidat_cush_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_CUSH_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_CUSH_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6094,7 +6094,7 @@ subroutine phys_inidat_tke_default_select_impl()
   if (phys_inidat_tke_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_TKE_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_TKE_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6202,7 +6202,7 @@ subroutine phys_inidat_kvm_default_select_impl()
   if (phys_inidat_kvm_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_KVM_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_KVM_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6310,7 +6310,7 @@ subroutine phys_inidat_kvh_default_select_impl()
   if (phys_inidat_kvh_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_KVH_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_KVH_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6418,7 +6418,7 @@ subroutine phys_inidat_qcwat_default_select_impl()
   if (phys_inidat_qcwat_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_QCWAT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_QCWAT_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6518,7 +6518,7 @@ subroutine phys_inidat_iccwat_default_select_impl()
   if (phys_inidat_iccwat_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_ICCWAT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_ICCWAT_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6618,7 +6618,7 @@ subroutine phys_inidat_lcwat_default_select_impl()
   if (phys_inidat_lcwat_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_LCWAT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_LCWAT_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6728,7 +6728,7 @@ subroutine phys_inidat_tcwat_default_select_impl()
   if (phys_inidat_tcwat_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_TCWAT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_TCWAT_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6820,7 +6820,7 @@ subroutine phys_inidat_cloud_default_select_impl()
   if (phys_inidat_cloud_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_CLOUD_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_CLOUD_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -6928,7 +6928,7 @@ subroutine phys_inidat_concld_default_select_impl()
   if (phys_inidat_concld_default_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_CONCLD_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_CONCLD_DEFAULT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -7036,7 +7036,7 @@ subroutine phys_inidat_tbot_init_select_impl()
   if (phys_inidat_tbot_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('PHYS_INIDAT_TBOT_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('PHYS_INIDAT_TBOT_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -7124,7 +7124,7 @@ subroutine tphysbc_init_fields_select_impl()
   if (tphysbc_init_fields_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TPHYSBC_INIT_FIELDS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TPHYSBC_INIT_FIELDS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

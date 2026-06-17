@@ -2800,7 +2800,7 @@ contains
     if (gas_phase_chemdr_shell_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('GAS_PHASE_CHEMDR_SHELL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('GAS_PHASE_CHEMDR_SHELL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2844,7 +2844,7 @@ contains
     if (gas_phase_chemdr_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('GAS_PHASE_CHEMDR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('GAS_PHASE_CHEMDR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

@@ -6,10 +6,10 @@ This repository contains an experimental Codon-backed port of selected CAM5
 routines inside the isotope-enabled iCESM1.3/iHESP CAM component.
 
 The native Fortran CAM implementation remains the reference. The Codon
-implementation is enabled routine by routine through runtime environment
-variables such as `*_IMPL=codon`. The main goal is to move computational
-kernels into Codon while preserving bit-for-bit (BFB) CAM output against a
-pristine native baseline.
+implementation is selected at runtime with a global default switch
+(`CAM_CODON_IMPL`) plus per-entry `*_IMPL` overrides. The main goal is to move
+computational kernels into Codon while preserving bit-for-bit (BFB) CAM output
+against a pristine native baseline.
 
 As of the 2026-06-16 validation snapshot, the tracked selector set used for
 validation contains 675 runtime `*_IMPL` switches, and two 6-month
@@ -24,6 +24,8 @@ production-style validations on the Derecho HPC system have achieved
   shared library.
 - Selector: a runtime environment variable, usually named `*_IMPL`, that chooses
   `native` or `codon` for one entry point.
+- Global selector default: `CAM_CODON_IMPL`, which sets the default
+  implementation for every selector unless a specific `*_IMPL` override is set.
 - BFB: bit-for-bit equality. In this project, BFB means the compare script
   reports `overall_numeric_equal=True`.
 - PI and MCO: the internal pre-industrial and Miocene validation cases used for
@@ -35,6 +37,8 @@ production-style validations on the Derecho HPC system have achieved
 - Move computational CAM kernels into Codon while keeping the CESM/CAM calling
   interface stable.
 - Allow routine-by-routine rollout through runtime selectors.
+- Allow all-Codon and all-native runs without generating hundreds of selector
+  variables.
 - Track progress with routine-level execution evidence rather than touched-file
   counts.
 - Keep the native Fortran path available for comparison, fallback, and
@@ -70,9 +74,14 @@ Codon layer beside the native CAM Fortran implementation.
 - Runtime selectors choose the implementation:
 
   ```bash
+  CAM_CODON_IMPL=codon
+  CAM_CODON_IMPL=native
   EXAMPLE_IMPL=native
   EXAMPLE_IMPL=codon
   ```
+
+  `CAM_CODON_IMPL` sets the default for all runtime selectors. Individual
+  `*_IMPL` variables still override that default for a single entry point.
 
 - CAM logs print execution proof lines such as `implementation = codon` or
   `direct = codon`.
@@ -91,10 +100,17 @@ Important Codon-port files live beside the original CAM source:
 - `src/chemistry/*/*_codon.py`: Codon chemistry and aerosol helpers.
 - `src/dynamics/se/*_codon.py`: Codon spectral-element dynamics helpers.
 - `src/utils/cam_misc_codon.py`: shared CAM utility helpers.
+- `src/utils/cam_codon_selectors.F90`: shared selector lookup helper for the
+  global `CAM_CODON_IMPL` default plus per-entry `*_IMPL` overrides.
 - `cime_config/buildlib`: CIME build hook that compiles Codon sources during
   `case.build`.
 - `scripts/cam_codon_guard.py`: validation/pre-commit guard for high-risk
   numerical changes.
+- `scripts/validation/compare_cesm_runpair.py`: repo-local CAM output compare
+  helper used by the examples below.
+- `scripts/validation/env_allcodon_675.sh`: compatibility selector file for the
+  2026-06-16 validation snapshot. New all-Codon runs can usually use
+  `CAM_CODON_IMPL=codon` instead.
 - `.codon_guard.yaml`: guard policy, validation metadata, forbidden generated
   artifacts, and metadata-only compare differences.
 - `doc/internal_validation.md`: internal dashboard, workspace, and validation
@@ -125,10 +141,34 @@ Requirements:
 Build a case normally through CIME:
 
 ```bash
-cd /path/to/case
+SRCROOT=/path/to/iCESM1.3.1_fzhu
+CAM_REPO="$SRCROOT/components/cam"
+CASEROOT=/path/to/case
+COMPSET=YOUR_COMPSET
+GRID=YOUR_GRID
+MACHINE=YOUR_MACHINE
+COMPILER=YOUR_COMPILER
+PROJECT=YOUR_PROJECT
+
+"$SRCROOT/cime/scripts/create_newcase" \
+  --case "$CASEROOT" \
+  --compset "$COMPSET" \
+  --res "$GRID" \
+  --machine "$MACHINE" \
+  --compiler "$COMPILER" \
+  --project "$PROJECT" \
+  --srcroot "$SRCROOT" \
+  --run-unsupported
+
+cd "$CASEROOT"
 ./case.setup
 ./case.build
 ```
+
+The important setting is `--srcroot "$SRCROOT"`. A CESM case points to the full
+iCESM/CESM source root, and CAM is found at `$SRCROOT/components/cam`.
+Use `$SRCROOT/cime/scripts/query_config --compsets`, `--grids`, and
+`--machines` to find valid values for the placeholders above.
 
 During `./case.build`, `components/cam/cime_config/buildlib` finds the Codon
 compiler and builds the CAM Codon shared libraries. If Codon is missing, the
@@ -145,13 +185,59 @@ changes rounding relative to the native Fortran baseline.
 
 ## Quick Start
 
-This assumes you already have a configured CESM case using this CAM source tree.
+First create or verify a CESM case that uses this CAM source tree. The CAM repo
+is not selected directly by `case.submit`; it is selected through the case's
+`SRCROOT`.
+
+Create a new case:
+
+```bash
+SRCROOT=/path/to/iCESM1.3.1_fzhu
+CAM_REPO="$SRCROOT/components/cam"
+CASEROOT=/path/to/case
+COMPSET=YOUR_COMPSET
+GRID=YOUR_GRID
+MACHINE=YOUR_MACHINE
+COMPILER=YOUR_COMPILER
+PROJECT=YOUR_PROJECT
+
+"$SRCROOT/cime/scripts/create_newcase" \
+  --case "$CASEROOT" \
+  --compset "$COMPSET" \
+  --res "$GRID" \
+  --machine "$MACHINE" \
+  --compiler "$COMPILER" \
+  --project "$PROJECT" \
+  --srcroot "$SRCROOT" \
+  --run-unsupported
+
+cd "$CASEROOT"
+./case.setup
+```
+
+For an existing case, confirm it points to the same source tree before using it:
+
+```bash
+cd "$CASEROOT"
+./xmlquery SRCROOT --value
+```
+
+The printed path must be the same as `$SRCROOT`, and
+`$SRCROOT/components/cam` must be this repository. After `case.setup`, the CAM
+file path should include this CAM source tree:
+
+```bash
+rg "$CAM_REPO" Buildconf/camconf/Filepath
+```
+
+If an existing case points at a different `SRCROOT`, recreate or clone the case
+with the correct `--srcroot` instead of reusing stale build and run directories.
+Use `$SRCROOT/cime/scripts/query_config --compsets`, `--grids`, and
+`--machines` to find valid values for new cases.
 
 Build the model:
 
 ```bash
-cd /path/to/case
-./case.setup
 ./case.build
 ```
 
@@ -159,6 +245,18 @@ Run one Codon-enabled path:
 
 ```bash
 env MICROP_DRIVER_IMPL=codon ./case.submit --skip-preview-namelist
+```
+
+Run all selectors through Codon by default:
+
+```bash
+env CAM_CODON_IMPL=codon ./case.submit --skip-preview-namelist
+```
+
+Run all selectors through native Fortran by default:
+
+```bash
+env CAM_CODON_IMPL=native ./case.submit --skip-preview-namelist
 ```
 
 Check that the Codon path executed:
@@ -171,7 +269,9 @@ For BFB validation, compare the run against a pristine native baseline produced
 with the same case configuration:
 
 ```bash
-python /path/to/compare_cesm_runpair.py \
+CAM_REPO=/path/to/iCESM1.3.1_fzhu/components/cam
+
+python "$CAM_REPO/scripts/validation/compare_cesm_runpair.py" \
   --native-run-dir /path/to/pristine/native/run \
   --codon-run-dir /path/to/codon/run
 ```
@@ -184,25 +284,64 @@ overall_numeric_equal=True
 
 ## Running With Native Vs Codon Implementations
 
-Selectors are ordinary environment variables read by the Fortran wrappers:
+Selectors are ordinary environment variables read by the Fortran wrappers. The
+decision order is:
+
+1. Use the specific `*_IMPL` selector if it is set.
+2. Otherwise use `CAM_CODON_IMPL` if it is set.
+3. Otherwise default to `codon`, which preserves the current Codon-first
+   behavior of this branch.
+
+Accepted selector values:
+
+| Requested path | Accepted values |
+|---|---|
+| Codon | `codon`, `on`, `true`, `1` |
+| Native Fortran | `native`, `fortran`, `off`, `false`, `0` |
+
+Run all selectors through Codon by default:
 
 ```bash
-env MICROP_DRIVER_IMPL=codon ./case.submit --skip-preview-namelist
-env MICROP_DRIVER_IMPL=native ./case.submit --skip-preview-namelist
+env CAM_CODON_IMPL=codon ./case.submit --skip-preview-namelist
 ```
 
-For all-Codon validation, source or generate a selector file that sets every
-known selector to `codon`:
+Run all selectors through native Fortran by default:
 
 ```bash
+env CAM_CODON_IMPL=native ./case.submit --skip-preview-namelist
+```
+
+Force one entry point into Codon while the rest default to native:
+
+```bash
+env CAM_CODON_IMPL=native MICROP_DRIVER_IMPL=codon ./case.submit --skip-preview-namelist
+```
+
+Force one entry point back to native while the rest default to Codon:
+
+```bash
+env CAM_CODON_IMPL=codon MICROP_DRIVER_IMPL=native ./case.submit --skip-preview-namelist
+```
+
+For a mixed run, use `CAM_CODON_IMPL=codon` and leave known non-BFB or
+intentionally native selectors as explicit `*_IMPL=native` overrides.
+Generated selector files that set every individual `*_IMPL` value still work,
+but they are no longer required for all-Codon or all-native runs. The repo keeps
+the current 675-selector all-Codon snapshot here:
+
+```bash
+CAM_REPO=/path/to/iCESM1.3.1_fzhu/components/cam
+
 set -a
-source /path/to/env_allcodon_675.sh
+source "$CAM_REPO/scripts/validation/env_allcodon_675.sh"
 set +a
 ./case.submit --skip-preview-namelist
 ```
 
-For a mixed run, leave known non-BFB or intentionally native selectors as
-`native` and set the remaining selectors to `codon`.
+`CAM_CODON_IMPL=native` disables Codon dispatch for selector-controlled paths in
+the current source tree. It is not the same thing as comparing against a
+pristine native source tree; BFB validation still requires a matching pristine
+baseline run.
 
 For isolated validation or parallel work, keep each lane separate:
 
@@ -231,10 +370,12 @@ Typical short validation settings:
 After the job completes, prove execution and compare:
 
 ```bash
-rg -n '<SELECTOR_NAME>' /path/to/case/logs/run_environment.txt.*
+rg -n 'CAM_CODON_IMPL|<SELECTOR_NAME>' /path/to/case/logs/run_environment.txt.*
 zgrep -n 'implementation = codon\|direct = codon' /path/to/run/atm.log.*.gz
 
-python /path/to/compare_cesm_runpair.py \
+CAM_REPO=/path/to/iCESM1.3.1_fzhu/components/cam
+
+python "$CAM_REPO/scripts/validation/compare_cesm_runpair.py" \
   --native-run-dir /path/to/pristine/native/run \
   --codon-run-dir /path/to/codon/run
 ```
@@ -303,8 +444,9 @@ same-routine dispatch path actually executed.
 
 The following long validations were run on the Derecho HPC system with GNU
 builds after the UWSHCU positive-moisture expression-order fix. Both used all
-selectors set to Codon (`675 codon / 0 native`) and compared against matching
-pristine native baselines.
+tracked selectors in the Codon path (`CAM_CODON_IMPL=codon`, equivalent to
+`675 codon / 0 native` in the 2026-06-16 selector snapshot) and compared against
+matching pristine native baselines.
 
 | Case | Length | Jobs | Result | Main timing |
 | --- | ---: | --- | --- | --- |
@@ -323,8 +465,9 @@ compiler, restart state, or production campaign is automatically BFB.
   `__pycache__`, run directories, build directories, case logs, compare outputs,
   `.so` files, or guard receipts.
 - Use fresh run directories for validation proof.
-- Record job id, selector counts, run directory, `atm.log`, `run_environment`,
-  `END OF MODEL RUN`, compare output, and timing.
+- Record job id, global selector setting, single-selector overrides, selector
+  counts when generated by validation tooling, run directory, `atm.log`,
+  `run_environment`, `END OF MODEL RUN`, compare output, and timing.
 - Preserve Fortran floating-point expression order when translating to Codon.
 - If a routine is BFB only with a small native expression island, document the
   expression and validation evidence before marking it `done-native-island`.
@@ -349,6 +492,10 @@ compiler, restart state, or production campaign is automatically BFB.
 - Codon selector is set but no proof line appears in `atm.log`: the selected
   path may not execute in this case configuration, or the routine may still
   dispatch through native orchestration.
+- `CAM_CODON_IMPL=native` still compares non-BFB against a pristine baseline:
+  confirm that the current source tree itself matches the pristine source tree.
+  The global switch disables selector-controlled Codon dispatch; it does not
+  undo source-level changes.
 - Compare reports non-BFB: first verify the baseline uses the same case
   configuration, compiler, restart state, orbit settings, and runtime length.
 - Scattered one-ULP differences: check for FMA contraction, changed operation

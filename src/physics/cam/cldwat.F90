@@ -117,7 +117,7 @@ subroutine cldwat_readnl_select_impl()
    if (cldwat_readnl_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CLDWAT_READNL_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CLDWAT_READNL_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

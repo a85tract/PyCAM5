@@ -209,8 +209,7 @@ contains
 
       ithr            = omp_get_thread_num()
       impl_name = 'codon'
-      call get_environment_variable('CONFIG_THREAD_REGION_PAR_IMPL', value=impl_name, &
-           length=impl_n, status=impl_status)
+      call cam_codon_get_impl('CONFIG_THREAD_REGION_PAR_IMPL', impl_name, impl_n, impl_status)
       use_native_impl = (impl_status == 0 .and. impl_n > 0 .and. &
            trim(adjustl(impl_name(:impl_n))) == 'native')
 

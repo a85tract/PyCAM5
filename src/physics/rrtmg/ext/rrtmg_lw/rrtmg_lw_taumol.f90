@@ -3920,7 +3920,7 @@
       if (taugb4_5_lw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_LW_TAUGB4_5_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LW_TAUGB4_5_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -3984,7 +3984,7 @@
       if (taugb3_7_9_13_15_lw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_LW_TAUGB3_7_9_13_15_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LW_TAUGB3_7_9_13_15_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -4057,7 +4057,7 @@
       if (taugb1_2_6_8_12_16_lw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_LW_TAUGB1_2_6_8_12_16_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LW_TAUGB1_2_6_8_12_16_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -4133,7 +4133,7 @@
       if (taugb10_11_14_lw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_LW_TAUGB10_11_14_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_LW_TAUGB10_11_14_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

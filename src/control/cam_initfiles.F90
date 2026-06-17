@@ -39,7 +39,7 @@ function initial_file_get_id()
   integer(c_int64_t) :: tag_out
 
   impl_name = 'codon'
-  call get_environment_variable('CAM_INITFILE_GETTERS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('CAM_INITFILE_GETTERS_IMPL', impl_name, n, status)
   if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
     tag_out = cam_initfile_getter_touch_codon(3001_c_int64_t)
     if (tag_out /= 3001_c_int64_t) stop 2
@@ -58,7 +58,7 @@ function topo_file_get_id()
   integer(c_int64_t) :: tag_out
 
   impl_name = 'codon'
-  call get_environment_variable('CAM_INITFILE_GETTERS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('CAM_INITFILE_GETTERS_IMPL', impl_name, n, status)
   if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
     tag_out = cam_initfile_getter_touch_codon(3002_c_int64_t)
     if (tag_out /= 3002_c_int64_t) stop 2

@@ -412,8 +412,7 @@ contains
     integer :: impl_n, impl_status
 
     impl_name = 'codon'
-    call get_environment_variable('ELEMENT_VAR_COORDINATES_IMPL', value=impl_name, &
-         length=impl_n, status=impl_status)
+    call cam_codon_get_impl('ELEMENT_VAR_COORDINATES_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native') then
        p(:) = (1.0D0-points(:))/2.0D0

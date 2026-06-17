@@ -113,7 +113,7 @@ module vertremap_mod
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+    call cam_codon_get_impl(selector, impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -950,8 +950,7 @@ subroutine remap_q_ppm_interval_select_impl()
   if (remap_q_ppm_interval_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('REMAP_Q_PPM_INTERVAL_IMPL', &
-       value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('REMAP_Q_PPM_INTERVAL_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -975,8 +974,7 @@ subroutine remap_q_ppm_grid_select_impl()
   if (remap_q_ppm_grid_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('REMAP_Q_PPM_GRID_IMPL', &
-       value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('REMAP_Q_PPM_GRID_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -1000,8 +998,7 @@ subroutine remap_q_ppm_mass_prep_select_impl()
   if (remap_q_ppm_mass_prep_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('REMAP_Q_PPM_MASS_PREP_IMPL', &
-       value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('REMAP_Q_PPM_MASS_PREP_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -1025,8 +1022,7 @@ subroutine remap_q_ppm_compute_select_impl()
   if (remap_q_ppm_compute_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('REMAP_Q_PPM_COMPUTE_IMPL', &
-       value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('REMAP_Q_PPM_COMPUTE_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -1050,8 +1046,7 @@ subroutine remap_q_ppm_mass_apply_select_impl()
   if (remap_q_ppm_mass_apply_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('REMAP_Q_PPM_MASS_APPLY_IMPL', &
-       value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('REMAP_Q_PPM_MASS_APPLY_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
     do i = 1, n
@@ -4223,8 +4218,7 @@ end subroutine ALE_parametric_coords
     if (vertical_remap_rsplit_prepare_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_REMAP_RSPLIT_PREPARE_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_REMAP_RSPLIT_PREPARE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4249,8 +4243,7 @@ end subroutine ALE_parametric_coords
     if (vertical_remap_t_scale_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_REMAP_T_SCALE_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_REMAP_T_SCALE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4274,8 +4267,7 @@ end subroutine ALE_parametric_coords
     if (vertical_remap_v_scale_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_REMAP_V_SCALE_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_REMAP_V_SCALE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4299,8 +4291,7 @@ end subroutine ALE_parametric_coords
     if (vertical_remap_ps_v_update_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VERTICAL_REMAP_PS_V_UPDATE_IMPL', &
-         value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VERTICAL_REMAP_PS_V_UPDATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -4324,7 +4315,7 @@ end subroutine ALE_parametric_coords
     if (qdp_time_avg_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('QDP_TIME_AVG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('QDP_TIME_AVG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4348,7 +4339,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_vstar_prepare_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_VSTAR_PREPARE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_VSTAR_PREPARE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4372,7 +4363,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_limiter_dpstar_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_LIMITER_DPSTAR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_LIMITER_DPSTAR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4396,7 +4387,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qdp_writeback_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QDP_WRITEBACK_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QDP_WRITEBACK_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4420,7 +4411,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qdp_restore_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QDP_RESTORE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QDP_RESTORE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4444,7 +4435,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_dssvar_restore_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_DSSVAR_RESTORE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_DSSVAR_RESTORE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4468,7 +4459,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_dssvar_pack_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_DSSVAR_PACK_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_DSSVAR_PACK_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4492,7 +4483,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_gradq_prepare_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_GRADQ_PREPARE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_GRADQ_PREPARE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4516,7 +4507,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qtens_base_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QTENS_BASE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QTENS_BASE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4540,7 +4531,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qtens_biharmonic_add_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_ADD_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QTENS_BIHARMONIC_ADD_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4564,7 +4555,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qtens_biharmonic_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QTENS_BIHARMONIC_INIT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4588,7 +4579,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qtens_biharmonic_scale_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_SCALE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QTENS_BIHARMONIC_SCALE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4612,7 +4603,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qtens_biharmonic_unapply_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_UNAPPLY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QTENS_BIHARMONIC_UNAPPLY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4636,7 +4627,7 @@ end subroutine ALE_parametric_coords
     if (euler_step_qminmax_update_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('EULER_STEP_QMINMAX_UPDATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('EULER_STEP_QMINMAX_UPDATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4660,7 +4651,7 @@ end subroutine ALE_parametric_coords
     if (limiter2d_zero_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('LIMITER2D_ZERO_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('LIMITER2D_ZERO_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4684,7 +4675,7 @@ end subroutine ALE_parametric_coords
     if (limiter_optim_iter_full_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('LIMITER_OPTIM_ITER_FULL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('LIMITER_OPTIM_ITER_FULL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4708,7 +4699,7 @@ end subroutine ALE_parametric_coords
     if (advance_hypervis_qtens_prepare_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('ADVANCE_HYPERVIS_QTENS_PREPARE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('ADVANCE_HYPERVIS_QTENS_PREPARE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4732,7 +4723,7 @@ end subroutine ALE_parametric_coords
     if (advance_hypervis_qdp_restore_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('ADVANCE_HYPERVIS_QDP_RESTORE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('ADVANCE_HYPERVIS_QDP_RESTORE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -4756,7 +4747,7 @@ end subroutine ALE_parametric_coords
     if (advance_hypervis_qdp_update_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('ADVANCE_HYPERVIS_QDP_UPDATE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('ADVANCE_HYPERVIS_QDP_UPDATE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n

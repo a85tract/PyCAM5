@@ -141,7 +141,7 @@ contains
     if (photo_prep_batch_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('PHOTO_PREP_BATCH_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHOTO_PREP_BATCH_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -726,7 +726,7 @@ contains
     if (photo_inti_fixed_press_setup_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('PHOTO_INTI_FIXED_PRESS_SETUP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHOTO_INTI_FIXED_PRESS_SETUP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1388,7 +1388,7 @@ contains
     if (table_photo_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TABLE_PHOTO_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TABLE_PHOTO_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1464,7 +1464,7 @@ contains
     if (table_photo_zero_photos_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TABLE_PHOTO_ZERO_PHOTOS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TABLE_PHOTO_ZERO_PHOTOS_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1531,7 +1531,7 @@ contains
     if (table_photo_scale_cld_mult_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TABLE_PHOTO_SCALE_CLD_MULT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TABLE_PHOTO_SCALE_CLD_MULT_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1636,7 +1636,7 @@ contains
     if (table_photo_daylight_setup_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TABLE_PHOTO_DAYLIGHT_SETUP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TABLE_PHOTO_DAYLIGHT_SETUP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1725,7 +1725,7 @@ contains
     if (table_photo_jlong_apply_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TABLE_PHOTO_JLONG_APPLY_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TABLE_PHOTO_JLONG_APPLY_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1820,7 +1820,7 @@ contains
     if (table_photo_jno_ho2no2_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TABLE_PHOTO_JNO_HO2NO2_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TABLE_PHOTO_JNO_HO2NO2_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2333,7 +2333,7 @@ secant_in_bounds : &
     if (cloud_mod_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CLOUD_MOD_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CLOUD_MOD_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2540,7 +2540,7 @@ secant_in_bounds : &
     if (set_ub_col_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('SET_UB_COL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('SET_UB_COL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2705,7 +2705,7 @@ secant_in_bounds : &
     if (setcol_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('SETCOL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('SETCOL_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2840,7 +2840,7 @@ secant_in_bounds : &
     if (photo_timestep_init_exo_time_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('PHOTO_TIMESTEP_INIT_EXO_TIME_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('PHOTO_TIMESTEP_INIT_EXO_TIME_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -2960,7 +2960,7 @@ secant_in_bounds : &
     if (set_xnox_photo_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('SET_XNOX_PHOTO_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('SET_XNOX_PHOTO_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

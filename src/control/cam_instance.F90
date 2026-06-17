@@ -49,7 +49,7 @@ subroutine cam_instance_init(in_atm_id)
    inst_suffix = seq_comm_suffix(atm_id)
 
    impl_name = 'codon'
-   call get_environment_variable('CAM_MISC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', impl_name, n, status)
    if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
       tag_out = cam_misc_touch_codon(349_c_int64_t)
       if (tag_out /= 349_c_int64_t) then

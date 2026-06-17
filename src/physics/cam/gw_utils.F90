@@ -60,8 +60,7 @@ subroutine gw_utils_select_impl()
   if (gw_utils_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('GW_UTILS_IMPL', value=impl_name, length=n, &
-       status=status)
+  call cam_codon_get_impl('GW_UTILS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

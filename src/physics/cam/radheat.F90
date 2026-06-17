@@ -104,7 +104,7 @@ subroutine radheat_batch_select_impl()
   if (radheat_batch_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('RADHEAT_BATCH_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('RADHEAT_BATCH_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -352,7 +352,7 @@ subroutine radheat_select_impl()
   if (impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('RADHEAT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('RADHEAT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -387,7 +387,7 @@ subroutine radheat_timestep_init_select_impl()
   if (tstep_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('RADHEAT_TSTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('RADHEAT_TSTEP_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n

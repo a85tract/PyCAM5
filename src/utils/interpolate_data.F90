@@ -54,7 +54,7 @@ contains
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('INTERPOLATE_DATA_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('INTERPOLATE_DATA_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

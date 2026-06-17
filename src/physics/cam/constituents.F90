@@ -169,7 +169,7 @@ CONTAINS
     if (constituents_thermo_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CONSTITUENTS_THERMO_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CONSTITUENTS_THERMO_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -631,8 +631,7 @@ CONTAINS
     integer :: impl_len, impl_status
 !-----------------------------------------------------------------------
 
-    call get_environment_variable('CNST_READ_IV_IMPL', value=impl_name, &
-         length=impl_len, status=impl_status)
+    call cam_codon_get_impl('CNST_READ_IV_IMPL', impl_name, impl_len, impl_status)
     if (impl_status == 0 .and. impl_len > 0 .and. &
          trim(adjustl(impl_name(:impl_len))) == 'native') then
        cnst_read_iv = read_init_vals(m)

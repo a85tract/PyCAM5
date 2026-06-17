@@ -176,7 +176,7 @@ subroutine camsrfexch_alloc_init_select_impl()
    if (alloc_init_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CAMSRFEXCH_ALLOC_INIT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAMSRFEXCH_ALLOC_INIT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -614,7 +614,7 @@ end subroutine atm2hub_alloc_init_log_entered
     logical, save :: proof_seen = .false.
 
     impl_name = 'codon'
-    call get_environment_variable('CAM_MISC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', impl_name, n, status)
     if (status == 0 .and. n > 0) then
        do i = 1, n
           code = iachar(impl_name(i:i))
@@ -732,7 +732,7 @@ subroutine cam_export_select_impl()
    if (cam_export_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('CAM_EXPORT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('CAM_EXPORT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

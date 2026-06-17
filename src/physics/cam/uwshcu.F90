@@ -379,7 +379,7 @@ contains
     if (compute_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_COMPUTE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_COMPUTE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -572,7 +572,7 @@ contains
     if (init_shell_impl_selected) return
 
     impl_name = 'native'
-    call get_environment_variable('UWSHCU_INIT_SHELL_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_INIT_SHELL_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
        ! The Codon init-shell path is opt-in until its saturation/findsp
        ! precompute path is BFB with the fixed case.
@@ -646,7 +646,7 @@ contains
     if (init_uwshcu_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('INIT_UWSHCU_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('INIT_UWSHCU_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
        impl_name = 'codon'
        n = len_trim(impl_name)
@@ -703,9 +703,9 @@ contains
     if (small_kernels_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_SMALL_KERNELS_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_SMALL_KERNELS_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
-       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
     end if
 
     if (status == 0 .and. n > 0) then
@@ -774,9 +774,9 @@ contains
     if (positive_moisture_single_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_POSITIVE_MOISTURE_SINGLE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_POSITIVE_MOISTURE_SINGLE_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
-       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
     end if
 
     if (status == 0 .and. n > 0) then
@@ -848,9 +848,9 @@ contains
     if (conden_init_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_CONDEN_INIT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_CONDEN_INIT_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
-       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
     end if
 
     if (status == 0 .and. n > 0) then
@@ -903,9 +903,9 @@ contains
     if (conden_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_CONDEN_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_CONDEN_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
-       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
     end if
 
     if (status == 0 .and. n > 0) then
@@ -960,9 +960,9 @@ contains
     if (qsinvert_rh_guard_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_QSINVERT_RH_GUARD_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_QSINVERT_RH_GUARD_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
-       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
     end if
 
     if (status == 0 .and. n > 0) then
@@ -1000,9 +1000,9 @@ contains
     if (qsinvert_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UWSHCU_QSINVERT_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UWSHCU_QSINVERT_IMPL', impl_name, n, status)
     if (status /= 0 .or. n <= 0) then
-       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+       call cam_codon_get_impl('CONVECT_SHALLOW_IMPL', impl_name, n, status)
     end if
 
     if (status == 0 .and. n > 0) then
@@ -2936,7 +2936,7 @@ contains
 
            if (.not. exnf_impl_selected) then
               impl_name = 'codon'
-              call get_environment_variable('UWSHCU_EXNF_IMPL', value=impl_name, length=env_len, status=status)
+              call cam_codon_get_impl('UWSHCU_EXNF_IMPL', impl_name, env_len, status)
               if (status == 0 .and. env_len > 0) then
                  do i = 1, env_len
                     code = iachar(impl_name(i:i))
@@ -3054,8 +3054,7 @@ subroutine uwshcu_readnl(nlfile)
    call mpibcast(uwshcu_rpen,            1, mpir8,  0, mpicom)
 #endif
 
-   call get_environment_variable('UWSHCU_READNL_IMPL', value=impl_name, &
-        length=env_len, status=env_status)
+   call cam_codon_get_impl('UWSHCU_READNL_IMPL', impl_name, env_len, env_status)
    if (env_status == 0 .and. env_len > 0 .and. &
         trim(adjustl(impl_name(:env_len))) == 'native') then
       rpen = uwshcu_rpen

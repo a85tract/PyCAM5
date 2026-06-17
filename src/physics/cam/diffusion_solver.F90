@@ -232,7 +232,7 @@
     if (diffusion_solver_setup_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('DIFFUSION_SOLVER_SETUP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DIFFUSION_SOLVER_SETUP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -270,7 +270,7 @@
     if (diffusion_solver_momentum_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('DIFFUSION_SOLVER_MOMENTUM_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DIFFUSION_SOLVER_MOMENTUM_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -308,7 +308,7 @@
     if (diffusion_solver_tridiag_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('DIFFUSION_SOLVER_TRIDIAG_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DIFFUSION_SOLVER_TRIDIAG_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -346,7 +346,7 @@
     if (diffusion_solver_scalar_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('DIFFUSION_SOLVER_SCALAR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DIFFUSION_SOLVER_SCALAR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -414,7 +414,7 @@
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable('VDIFF_SELECTOR_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VDIFF_SELECTOR_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

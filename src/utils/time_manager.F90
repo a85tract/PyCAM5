@@ -117,7 +117,7 @@ logical function time_manager_use_native(selector)
    integer :: status, n, i, code
 
    impl_name = 'codon'
-   call get_environment_variable(selector, value=impl_name, length=n, status=status)
+   call cam_codon_get_impl(selector, impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1355,7 +1355,7 @@ character(len=SHR_KIND_CS) function timemgr_get_calendar_cf()
 !-----------------------------------------------------------------------------------------
 
    impl_name = 'codon'
-   call get_environment_variable('TIMEMGR_GET_CALENDAR_CF_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('TIMEMGR_GET_CALENDAR_CF_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native') then
       if (masterproc .and. .not. timemgr_get_calendar_cf_codon_logged) then
          write(iulog,*) 'timemgr_get_calendar_cf implementation = native'
@@ -1421,7 +1421,7 @@ function timemgr_is_caltype( cal_in )
 !-----------------------------------------------------------------------------------------
 
    impl_name = 'codon'
-   call get_environment_variable('TIMEMGR_IS_CALTYPE_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('TIMEMGR_IS_CALTYPE_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native') then
       if (masterproc .and. .not. timemgr_is_caltype_codon_logged) then
          write(iulog,*) 'timemgr_is_caltype implementation = native'

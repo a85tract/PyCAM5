@@ -82,7 +82,7 @@ logical function cloud_rad_props_use_native(selector)
   integer :: status, n, i, code
 
   impl_name = 'codon'
-  call get_environment_variable(selector, value=impl_name, length=n, status=status)
+  call cam_codon_get_impl(selector, impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -982,7 +982,7 @@ subroutine cloud_ice_optics_select_impl()
    if (cloud_ice_optics_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('RRTMG_CLOUD_ICE_OPTICS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('RRTMG_CLOUD_ICE_OPTICS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -1047,7 +1047,7 @@ subroutine cloud_liquid_optics_select_impl()
    if (cloud_liquid_optics_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('RRTMG_CLOUD_LIQUID_OPTICS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('RRTMG_CLOUD_LIQUID_OPTICS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

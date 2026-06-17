@@ -1336,7 +1336,7 @@ contains
     if (tropopause_output_prep_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TROPOPAUSE_OUTPUT_PREP_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TROPOPAUSE_OUTPUT_PREP_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1396,7 +1396,7 @@ contains
     if (tropopause_find_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TROPOPAUSE_FIND_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TROPOPAUSE_FIND_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n
@@ -1435,7 +1435,7 @@ contains
     if (tropopause_twmo_profile_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('TROPOPAUSE_TWMO_PROFILE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('TROPOPAUSE_TWMO_PROFILE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
        do i = 1, n

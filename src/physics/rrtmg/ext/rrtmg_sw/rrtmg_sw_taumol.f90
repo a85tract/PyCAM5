@@ -2061,7 +2061,7 @@
       if (taumol26_sw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_TAUMOL26_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_TAUMOL26_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -2110,7 +2110,7 @@
       if (taumol16_22_sw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_TAUMOL16_22_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_TAUMOL16_22_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -2189,7 +2189,7 @@
       if (taumol23_29_sw_impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('RRTMG_SW_TAUMOL23_29_IMPL', value=impl_name, length=n, status=status)
+      call cam_codon_get_impl('RRTMG_SW_TAUMOL23_29_IMPL', impl_name, n, status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n

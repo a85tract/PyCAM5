@@ -450,7 +450,7 @@ subroutine rad_constituents_parent_select_impl()
    if (rad_constituents_parent_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('RAD_CONSTITUENTS_PARENT_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('RAD_CONSTITUENTS_PARENT_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -584,7 +584,7 @@ subroutine rad_cnst_out_mass_select_impl()
    if (rad_cnst_out_mass_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('RAD_CNST_OUT_MASS_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('RAD_CNST_OUT_MASS_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2063,8 +2063,7 @@ subroutine parse_mode_defs(nl_in, modes)
       character(len=16) :: impl_name
       integer :: impl_len, impl_status
 
-      call get_environment_variable('RAD_CNST_CHECK_TYPES_IMPL', value=impl_name, &
-           length=impl_len, status=impl_status)
+      call cam_codon_get_impl('RAD_CNST_CHECK_TYPES_IMPL', impl_name, impl_len, impl_status)
       if (impl_status == 0 .and. impl_len > 0 .and. &
            trim(adjustl(impl_name(:impl_len))) == 'native') then
          do i = 1, num_spec_types
@@ -2108,8 +2107,7 @@ subroutine parse_mode_defs(nl_in, modes)
       character(len=16) :: impl_name
       integer :: impl_len, impl_status
 
-      call get_environment_variable('RAD_CNST_CHECK_TYPES_IMPL', value=impl_name, &
-           length=impl_len, status=impl_status)
+      call cam_codon_get_impl('RAD_CNST_CHECK_TYPES_IMPL', impl_name, impl_len, impl_status)
       if (impl_status == 0 .and. impl_len > 0 .and. &
            trim(adjustl(impl_name(:impl_len))) == 'native') then
          do i = 1, num_mode_types

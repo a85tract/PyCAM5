@@ -1249,7 +1249,7 @@ contains
     end interface
 
     impl_name = 'codon'
-    call get_environment_variable('COMP_EXP_IMPL', value=impl_name, length=env_len, status=status)
+    call cam_codon_get_impl('COMP_EXP_IMPL', impl_name, env_len, status)
     if (status == 0 .and. env_len > 0) then
        do i = 1, env_len
           code = iachar(impl_name(i:i))

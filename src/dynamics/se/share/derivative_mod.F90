@@ -2968,7 +2968,7 @@ end do
     if (divergence_sphere_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('DIVERGENCE_SPHERE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DIVERGENCE_SPHERE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -2992,7 +2992,7 @@ end do
     if (divergence_sphere_wk_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('DIVERGENCE_SPHERE_WK_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('DIVERGENCE_SPHERE_WK_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3016,7 +3016,7 @@ end do
     if (laplace_sphere_wk_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('LAPLACE_SPHERE_WK_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('LAPLACE_SPHERE_WK_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3040,7 +3040,7 @@ end do
     if (vlaplace_sphere_wk_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VLAPLACE_SPHERE_WK_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VLAPLACE_SPHERE_WK_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3064,7 +3064,7 @@ end do
     if (vorticity_sphere_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('VORTICITY_SPHERE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('VORTICITY_SPHERE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3088,7 +3088,7 @@ end do
     if (gradient_sphere_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('GRADIENT_SPHERE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('GRADIENT_SPHERE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3112,7 +3112,7 @@ end do
     if (curl_sphere_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('CURL_SPHERE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('CURL_SPHERE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3136,7 +3136,7 @@ end do
     if (ugradv_sphere_impl_selected) return
 
     impl_name = 'codon'
-    call get_environment_variable('UGRADV_SPHERE_IMPL', value=impl_name, length=n, status=status)
+    call cam_codon_get_impl('UGRADV_SPHERE_IMPL', impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -3159,7 +3159,7 @@ end do
     integer :: status, n, i, code
 
     impl_name = 'codon'
-    call get_environment_variable(selector, value=impl_name, length=n, status=status)
+    call cam_codon_get_impl(selector, impl_name, n, status)
 
     if (status == 0 .and. n > 0) then
       do i = 1, n

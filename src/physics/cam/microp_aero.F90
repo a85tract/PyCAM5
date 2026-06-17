@@ -395,7 +395,7 @@ subroutine microp_aero_run_select_impl()
    if (run_impl_selected) return
 
    impl_name = 'codon'
-   call get_environment_variable('MICROP_AERO_RUN_IMPL', value=impl_name, length=n, status=status)
+   call cam_codon_get_impl('MICROP_AERO_RUN_IMPL', impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n
@@ -446,7 +446,7 @@ logical function microp_aero_selector_defaults_codon(env_name)
    integer :: status, n, i, code
 
    impl_name = 'codon'
-   call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+   call cam_codon_get_impl(env_name, impl_name, n, status)
 
    if (status == 0 .and. n > 0) then
       do i = 1, n

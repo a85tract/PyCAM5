@@ -351,8 +351,7 @@ end subroutine dyn_grid_init
     !-----------------------------------------------------------------------
 
     impl_name = 'codon'
-    call get_environment_variable('DYN_GRID_IMPL', value=impl_name, &
-         length=impl_n, status=impl_status)
+    call cam_codon_get_impl('DYN_GRID_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native') then
        get_block_lvl_cnt_d = plevp
@@ -594,8 +593,7 @@ integer function get_gcol_block_cnt_d(gcol)
  logical, save :: proof_seen = .false.
  !-----------------------------------------------------------------------
  impl_name = 'codon'
- call get_environment_variable('DYN_GRID_IMPL', value=impl_name, &
-      length=impl_n, status=impl_status)
+ call cam_codon_get_impl('DYN_GRID_IMPL', impl_name, impl_n, impl_status)
  if (impl_status == 0 .and. impl_n > 0 .and. &
       trim(adjustl(impl_name(:impl_n))) == 'native') then
     get_gcol_block_cnt_d = 1
@@ -1318,7 +1316,7 @@ subroutine dyn_grid_get_pref(pref_edge, pref_mid, num_pr_lev)
 	  integer :: status, n, i, code
 
 	  impl_name = 'codon'
-	  call get_environment_variable('DYN_GRID_IMPL', value=impl_name, length=n, status=status)
+	  call cam_codon_get_impl('DYN_GRID_IMPL', impl_name, n, status)
 	  if (status == 0 .and. n > 0) then
 	     do i = 1, n
 	        code = iachar(impl_name(i:i))

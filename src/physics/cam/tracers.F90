@@ -114,7 +114,7 @@ subroutine tracers_select_impl()
   if (impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TRACERS_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TRACERS_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
@@ -148,7 +148,7 @@ subroutine tracers_tstep_init_select_impl()
   if (tstep_init_impl_selected) return
 
   impl_name = 'codon'
-  call get_environment_variable('TRACERS_TSTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+  call cam_codon_get_impl('TRACERS_TSTEP_INIT_IMPL', impl_name, n, status)
 
   if (status == 0 .and. n > 0) then
      do i = 1, n
