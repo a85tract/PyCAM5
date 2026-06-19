@@ -439,17 +439,47 @@ integer function TimeGetymd( date, tod )
   character(len=*), parameter :: sub = 'TimeGetymd'
   integer :: yr, mon, day
   integer :: rc                          ! return code
+  integer(c_int64_t) :: ymd_out
+  interface
+     function timegetymd_codon(yr_in, mon_in, day_in) result(ymd_out_c) &
+          bind(c, name='timegetymd_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: yr_in
+       integer(c_int64_t), value :: mon_in
+       integer(c_int64_t), value :: day_in
+       integer(c_int64_t) :: ymd_out_c
+     end function timegetymd_codon
+  end interface
+  logical, save :: timegetymd_codon_logged = .false.
+  logical, save :: timegetymd_native_logged = .false.
 
   call ESMF_TimeGet( date, yy=yr, mm=mon, dd=day, rc=rc)
   call chkrc(rc, sub//': error return from ESMF_TimeGet')
-  TimeGetymd = yr*10000 + mon*100 + day
   if ( present( tod ) )then
      call ESMF_TimeGet( date, yy=yr, mm=mon, dd=day, s=tod, rc=rc)
      call chkrc(rc, sub//': error return from ESMF_TimeGet')
   end if
-  if ( yr < 0 )then
+  if (time_manager_use_native('TIMEGETYMD_IMPL')) then
+     TimeGetymd = yr*10000 + mon*100 + day
+     if ( yr < 0 )then
+        write(iulog,*) sub//': error year is less than zero', yr
+        call endrun
+     end if
+     if (.not. timegetymd_native_logged) then
+        write(iulog,*) 'timegetymd implementation = native'
+        timegetymd_native_logged = .true.
+     end if
+     return
+  end if
+  ymd_out = timegetymd_codon(int(yr, c_int64_t), int(mon, c_int64_t), int(day, c_int64_t))
+  if (ymd_out < 0_c_int64_t) then
      write(iulog,*) sub//': error year is less than zero', yr
      call endrun
+  end if
+  TimeGetymd = int(ymd_out)
+  if (.not. timegetymd_codon_logged) then
+     write(iulog,*) 'timegetymd implementation = codon'
+     timegetymd_codon_logged = .true.
   end if
 end function TimeGetymd
 

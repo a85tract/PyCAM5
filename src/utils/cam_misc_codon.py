@@ -697,6 +697,13 @@ def timesetymd_codon(ymd: int, tod: int, out_p: Ptr[int]) -> int:
 
 
 @export
+def timegetymd_codon(yr: int, mon: int, day: int) -> int:
+    if yr < 0:
+        return -1
+    return yr * 10000 + mon * 100 + day
+
+
+@export
 def make_tridiag_deriv_diag_codon(
     spr: Ptr[float],
     sub: Ptr[float],
