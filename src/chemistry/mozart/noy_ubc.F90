@@ -137,21 +137,21 @@ contains
     integer(c_int64_t) :: active_c
 
     interface
-       function noy_ubc_active_codon(active) result(out_c) bind(c, name="noy_ubc_active_codon")
+       function noy_ubc_init_codon(active) result(out_c) bind(c, name="noy_ubc_init_codon")
          import :: c_int64_t
          integer(c_int64_t), value :: active
          integer(c_int64_t) :: out_c
-       end function noy_ubc_active_codon
+       end function noy_ubc_init_codon
     end interface
 
-    active_c = merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc)
+    active_c = noy_ubc_init_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
     if (.not. noy_ubc_init_codon_logged) then
        noy_ubc_init_codon_logged = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'noy_ubc_init direct = codon flag-off no-op'
+             write(iulog,'(A)') 'noy_ubc_init implementation = codon flag-off no-op'
           else
-             write(iulog,'(A)') 'noy_ubc_init selector = codon; active data-file body = native'
+             write(iulog,'(A)') 'noy_ubc_init implementation = codon; active data-file body = native island'
           end if
           call flush(iulog)
        end if
@@ -209,14 +209,14 @@ contains
     integer(c_int64_t) :: active_c
 
     interface
-       function noy_ubc_active_codon(active) result(out_c) bind(c, name="noy_ubc_active_codon")
+       function noy_ubc_advance_codon(active) result(out_c) bind(c, name="noy_ubc_advance_codon")
          import :: c_int64_t
          integer(c_int64_t), value :: active
          integer(c_int64_t) :: out_c
-       end function noy_ubc_active_codon
+       end function noy_ubc_advance_codon
     end interface
 
-    active_c = noy_ubc_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
+    active_c = noy_ubc_advance_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
     if (.not. noy_ubc_advance_codon_logged) then
        noy_ubc_advance_codon_logged = .true.
        if (masterproc) then
@@ -263,21 +263,21 @@ contains
     integer(c_int64_t) :: active_c
 
     interface
-       function noy_ubc_active_codon(active) result(out_c) bind(c, name="noy_ubc_active_codon")
+       function noy_ubc_set_codon(active) result(out_c) bind(c, name="noy_ubc_set_codon")
          import :: c_int64_t
          integer(c_int64_t), value :: active
          integer(c_int64_t) :: out_c
-       end function noy_ubc_active_codon
+       end function noy_ubc_set_codon
     end interface
 
-    active_c = merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc)
+    active_c = noy_ubc_set_codon(merge(1_c_int64_t, 0_c_int64_t, has_noy_ubc))
     if (.not. noy_ubc_set_codon_logged) then
        noy_ubc_set_codon_logged = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'noy_ubc_set direct = native flag-off no-op'
+             write(iulog,'(A)') 'noy_ubc_set implementation = codon flag-off no-op'
           else
-             write(iulog,'(A)') 'noy_ubc_set selector = native; active data-file body = native'
+             write(iulog,'(A)') 'noy_ubc_set implementation = codon; active data-file body = native island'
           end if
           call flush(iulog)
        end if

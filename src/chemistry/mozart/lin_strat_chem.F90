@@ -49,6 +49,7 @@ contains
     use cam_history,  only : addfld, phys_decomp, add_default
     use physics_buffer, only : physics_buffer_desc
     use phys_control, only : phys_getopts
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -56,11 +57,21 @@ contains
     type(physics_state), intent(in) :: phys_state(begchunk:endchunk)
 
     logical :: history_chemistry
+    integer(c_int64_t) :: active_c
+
+    interface
+       function lin_strat_chem_inti_codon(active) result(out_c) bind(c, name="lin_strat_chem_inti_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function lin_strat_chem_inti_codon
+    end interface
 
     call phys_getopts(history_chemistry_out=history_chemistry)
     call chemistry_misc_codon_touch('lin_strat_chem_inti', 154)
 
-    if (.not.has_linoz_data) return
+    active_c = lin_strat_chem_inti_codon(merge(1_c_int64_t, 0_c_int64_t, has_linoz_data))
+    if (active_c == 0_c_int64_t) return
 
     !
     ! find index of ozone

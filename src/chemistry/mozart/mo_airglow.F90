@@ -29,11 +29,11 @@
       public :: airglow, init_airglow
 
       interface
-        function init_airglow_active_codon(active) result(out_c) bind(c, name="init_airglow_active_codon")
+        function init_airglow_codon(active) result(out_c) bind(c, name="init_airglow_codon")
           use iso_c_binding, only : c_int64_t
           integer(c_int64_t), value :: active
           integer(c_int64_t) :: out_c
-        end function init_airglow_active_codon
+        end function init_airglow_codon
       end interface
 
       contains
@@ -55,7 +55,7 @@
 
           has_airglow = rid_ag1 > 0 .and. rid_ag2 > 0 .and. rid_ag3 > 0
 
-          active_c = init_airglow_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_airglow))
+          active_c = init_airglow_codon(merge(1_c_int64_t, 0_c_int64_t, has_airglow))
           if (.not. init_airglow_proof_written) then
              init_airglow_proof_written = .true.
              if (masterproc) then

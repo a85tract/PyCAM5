@@ -54,13 +54,13 @@ module gcr_ionization
       integer(c_int64_t) :: out_c
     end function gcr_ionization_adv_codon
 
-    function gcr_ionization_noxhox_zero_codon(active, ncol_c, pver_c, gcr_nox_p, gcr_hox_p) result(out_c) &
-         bind(c, name="gcr_ionization_noxhox_zero_codon")
+    function gcr_ionization_noxhox_codon(active, ncol_c, pver_c, gcr_nox_p, gcr_hox_p) result(out_c) &
+         bind(c, name="gcr_ionization_noxhox_codon")
       use iso_c_binding, only : c_int64_t, c_ptr
       integer(c_int64_t), value :: active, ncol_c, pver_c
       type(c_ptr), value :: gcr_nox_p, gcr_hox_p
       integer(c_int64_t) :: out_c
-    end function gcr_ionization_noxhox_zero_codon
+    end function gcr_ionization_noxhox_codon
   end interface
 
 contains
@@ -77,6 +77,14 @@ contains
     ! Local variables
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'gcr_ionization_readnl'
+    integer(c_int64_t) :: codon_entry
+
+    interface
+       function gcr_ionization_readnl_codon() result(out_c) bind(c, name="gcr_ionization_readnl_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function gcr_ionization_readnl_codon
+    end interface
 
     character(len=16)  ::  gcr_ionization_fldname
     character(len=256) ::  gcr_ionization_filename
@@ -97,6 +105,7 @@ contains
          gcr_ionization_fixed_ymd, &
          gcr_ionization_fixed_tod
 
+    codon_entry = gcr_ionization_readnl_codon()
     gcr_ionization_fldname = specifier(1)
     gcr_ionization_filename = filename
     gcr_ionization_datapath = datapath
@@ -329,14 +338,13 @@ contains
     integer :: i
     integer(c_int64_t) :: active_c
 
-    gcr_nox(:ncol,:) = 0._r8
-    gcr_hox(:ncol,:) = 0._r8
-    active_c = merge(1_c_int64_t, 0_c_int64_t, has_gcr_ionization)
+    active_c = gcr_ionization_noxhox_codon(merge(1_c_int64_t, 0_c_int64_t, has_gcr_ionization), &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(gcr_nox), c_loc(gcr_hox))
     if (.not. gcr_ionization_noxhox_proof_written) then
        gcr_ionization_noxhox_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'gcr_ionization_noxhox direct = native flag-off zero no-op'
+             write(iulog,'(A)') 'gcr_ionization_noxhox direct = codon flag-off zero no-op'
           else
              write(iulog,'(A)') 'gcr_ionization_noxhox selector = native; active ion-pair body = native'
           end if

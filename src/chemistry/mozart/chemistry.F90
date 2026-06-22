@@ -21,7 +21,7 @@ module chemistry
   use gcr_ionization,   only : gcr_ionization_readnl, gcr_ionization_init, gcr_ionization_adv
   use ref_pres,         only : do_molec_diff, ptop_ref
   use phys_control,     only : waccmx_is   ! WACCM-X switch query function
-  use iso_c_binding,    only : c_int64_t
+  use iso_c_binding,    only : c_int64_t, c_loc, c_ptr
 
   implicit none
   private
@@ -167,8 +167,20 @@ contains
 logical function chem_is (name)
    use phys_control,     only : cam_chempkg_is
    use mo_util,          only : chemistry_misc_codon_touch
+   use iso_c_binding,    only : c_int64_t
 
    character(len=*), intent(in) :: name
+   integer(c_int64_t) :: codon_entry
+
+   interface
+      function chem_is_codon(active_c) result(out_c) bind(c, name="chem_is_codon")
+        use iso_c_binding, only : c_int64_t
+        integer(c_int64_t), value :: active_c
+        integer(c_int64_t) :: out_c
+      end function chem_is_codon
+   end interface
+
+   codon_entry = chem_is_codon(1_c_int64_t)
    call chemistry_misc_codon_touch('chem_is', 165)
    chem_is = cam_chempkg_is(name)
 
@@ -742,8 +754,40 @@ function chem_is_active()
 !----------------------------------------------------------------------- 
 ! Purpose: return true if this package is active
 !-----------------------------------------------------------------------
+   interface
+      function chem_is_active_codon(active_c) result(out_c) bind(c, name="chem_is_active_codon")
+        use iso_c_binding, only : c_int64_t
+        integer(c_int64_t), value :: active_c
+        integer(c_int64_t) :: out_c
+      end function chem_is_active_codon
+   end interface
+
    logical :: chem_is_active
+   logical, save :: logged = .false.
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
 !-----------------------------------------------------------------------
+   impl_name = 'codon'
+   call cam_codon_get_impl('CHEM_IS_ACTIVE_IMPL', impl_name, n, status)
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+   end if
+
+   if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+      chem_is_active = chem_is_active_codon(merge(1_c_int64_t, 0_c_int64_t, is_active)) /= 0_c_int64_t
+      if (masterproc .and. .not. logged) then
+         write(iulog,'(A)') 'chem_is_active direct = codon'
+         call flush(iulog)
+         logged = .true.
+      end if
+      return
+   end if
+
    chem_is_active = is_active
 end function chem_is_active
 
@@ -760,6 +804,16 @@ end function chem_is_active
     use chem_mods,       only : gas_pcnst, inv_lst, nfs
     use mo_tracname,     only : solsym
 
+    interface
+       function chem_implements_cnst_codon(name_len_c, name_ascii_p, solsym_len_c, solsym_ascii_p, &
+            gas_pcnst_c, inv_len_c, inv_ascii_p, nfs_c) result(found_c) bind(c, name="chem_implements_cnst_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: name_len_c, solsym_len_c, gas_pcnst_c, inv_len_c, nfs_c
+         type(c_ptr), value :: name_ascii_p, solsym_ascii_p, inv_ascii_p
+         integer(c_int64_t) :: found_c
+       end function chem_implements_cnst_codon
+    end interface
+
 !-----------------------------------------------------------------------
 !	... dummy arguments
 !-----------------------------------------------------------------------
@@ -768,9 +822,62 @@ end function chem_is_active
 !-----------------------------------------------------------------------
 !	... local variables
 !-----------------------------------------------------------------------
-    integer :: m
+    integer :: m, ichar, i, code, status, n
+    character(len=32) :: impl_name
+    integer(c_int64_t), allocatable, target :: name_ascii(:)
+    integer(c_int64_t), allocatable, target :: solsym_ascii(:,:)
+    integer(c_int64_t), allocatable, target :: inv_ascii(:,:)
+    integer(c_int64_t) :: found_c
+    logical, save :: logged = .false.
     
     chem_implements_cnst = .false.
+    impl_name = 'codon'
+    call cam_codon_get_impl('CHEM_IMPLEMENTS_CNST_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+    end if
+
+    if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+       allocate(name_ascii(max(1, len(name))))
+       allocate(solsym_ascii(len(solsym), max(1, gas_pcnst)))
+       allocate(inv_ascii(len(inv_lst), max(1, nfs)))
+
+       name_ascii(:) = 32_c_int64_t
+       do ichar = 1, len(name)
+          name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+       end do
+
+       solsym_ascii(:,:) = 32_c_int64_t
+       do m = 1, gas_pcnst
+          do ichar = 1, len(solsym)
+             solsym_ascii(ichar,m) = int(iachar(solsym(m)(ichar:ichar)), c_int64_t)
+          end do
+       end do
+
+       inv_ascii(:,:) = 32_c_int64_t
+       do m = 1, nfs
+          do ichar = 1, len(inv_lst)
+             inv_ascii(ichar,m) = int(iachar(inv_lst(m)(ichar:ichar)), c_int64_t)
+          end do
+       end do
+
+       found_c = chem_implements_cnst_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            int(len(solsym), c_int64_t), c_loc(solsym_ascii(1,1)), int(gas_pcnst, c_int64_t), &
+            int(len(inv_lst), c_int64_t), c_loc(inv_ascii(1,1)), int(nfs, c_int64_t))
+       chem_implements_cnst = found_c /= 0_c_int64_t
+       if (masterproc .and. .not. logged) then
+          write(iulog,'(A)') 'chem_implements_cnst direct = codon'
+          call flush(iulog)
+          logged = .true.
+       end if
+       return
+    end if
+
     do m = 1,gas_pcnst
        if( trim(name) /= 'H2O' ) then
           if( trim(name) == solsym(m) ) then
@@ -1122,13 +1229,13 @@ end function chem_is_active
     character(len=256) :: wrap_proof_line
 
     interface
-       subroutine chem_emissions_shell_codon(stage_c, ncol_c, pcols_c, pcnst_c, nmegan_c, h2o_ndx_c, map2chm_p, &
+       subroutine chem_emissions_codon(stage_c, ncol_c, pcols_c, pcnst_c, nmegan_c, h2o_ndx_c, map2chm_p, &
             megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, sflx_p) &
-            bind(c, name="chem_emissions_shell_codon")
+            bind(c, name="chem_emissions_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pcnst_c, nmegan_c, h2o_ndx_c
          type(c_ptr), value :: map2chm_p, megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, sflx_p
-       end subroutine chem_emissions_shell_codon
+       end subroutine chem_emissions_codon
     end interface
 
     if (masterproc .and. .not. chem_emissions_wrap_proof_written) then
@@ -1139,7 +1246,7 @@ end function chem_is_active
         call flush(iulog)
     end if
 
-    call chem_emissions_shell_codon( &
+    call chem_emissions_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pcnst, c_int64_t), int(nmegan, c_int64_t), &
          int(h2o_ndx_in, c_int64_t), map2chm_p, megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, &
          sflx_p &
@@ -1343,12 +1450,12 @@ end function chem_is_active
     integer(c_int64_t), target :: chem_step_flag
 
     interface
-       subroutine chem_timestep_init_should_run_codon(nstep_c, chem_freq_c, chem_step_flag_p) &
-            bind(c, name="chem_timestep_init_should_run_codon")
+       subroutine chem_timestep_init_codon(nstep_c, chem_freq_c, chem_step_flag_p) &
+            bind(c, name="chem_timestep_init_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: nstep_c, chem_freq_c
          type(c_ptr), value :: chem_step_flag_p
-       end subroutine chem_timestep_init_should_run_codon
+       end subroutine chem_timestep_init_codon
     end interface
 
     call chem_timestep_init_select_impl()
@@ -1359,7 +1466,7 @@ end function chem_is_active
     end if
 
     nstep = get_nstep()
-    call chem_timestep_init_should_run_codon(int(nstep, c_int64_t), int(chem_freq, c_int64_t), c_loc(chem_step_flag))
+    call chem_timestep_init_codon(int(nstep, c_int64_t), int(chem_freq, c_int64_t), c_loc(chem_step_flag))
     chem_step = chem_step_flag /= 0_c_int64_t
 
     if ( .not. chem_step ) return
@@ -1999,12 +2106,22 @@ end function chem_is_active
     use tracer_srcs,      only: init_tracer_srcs_restart
     use linoz_data, only : init_linoz_data_restart
     use mo_util, only : chemistry_misc_codon_touch
+    use iso_c_binding, only : c_int64_t
     implicit none
     type(file_desc_t),intent(inout) :: File     ! pio File pointer
+    integer(c_int64_t) :: codon_entry
+
+    interface
+       function chem_init_restart_codon() result(out_c) bind(c, name="chem_init_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function chem_init_restart_codon
+    end interface
 
     !
     ! data for offline tracers
     !
+    codon_entry = chem_init_restart_codon()
     call chemistry_misc_codon_touch('chem_init_restart', 407)
     call init_tracer_cnst_restart(File)
     call init_tracer_srcs_restart(File)
@@ -2018,12 +2135,22 @@ end function chem_is_active
     use linoz_data,  only: write_linoz_data_restart
     use pio, only : file_desc_t
     use mo_util, only : chemistry_misc_codon_touch
+    use iso_c_binding, only : c_int64_t
     implicit none
     type(file_desc_t) :: File
+    integer(c_int64_t) :: codon_entry
+
+    interface
+       function chem_write_restart_codon() result(out_c) bind(c, name="chem_write_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function chem_write_restart_codon
+    end interface
 
     !
     ! data for offline tracers
     !
+    codon_entry = chem_write_restart_codon()
     call chemistry_misc_codon_touch('chem_write_restart', 408)
     call write_tracer_cnst_restart(File)
     call write_tracer_srcs_restart(File)

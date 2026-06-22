@@ -51,16 +51,39 @@ contains
     use ppgrid,         only : pver
     use chem_mods,      only : rxt_tag_lst, rxt_tag_map, rxt_tag_cnt
     use cam_abortutils, only : endrun
+    use cam_logfile,    only : iulog
+    use spmd_utils,     only : masterproc
+    use iso_c_binding,  only : c_int64_t
 
     implicit none
 
     character(len=64) :: longname
     integer :: i, n, tagndx
+    integer(c_int64_t) :: active_c
+
+    interface
+       function init_cph_codon(active) result(out_c) bind(c, name="init_cph_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function init_cph_codon
+    end interface
 
     has_cph = ncph > 0
+    active_c = init_cph_codon(merge(1_c_int64_t, 0_c_int64_t, has_cph))
     call chemistry_misc_codon_touch('init_cph', 155)
 
-    if (.not.has_cph) return
+    if (active_c == 0_c_int64_t) then
+       if (masterproc) then
+          write(iulog,'(A)') 'init_cph implementation = codon no-cph no-op'
+          call flush(iulog)
+       end if
+       return
+    end if
+    if (masterproc) then
+       write(iulog,'(A)') 'init_cph implementation = codon; active history registration native island'
+       call flush(iulog)
+    end if
 
     if ( any(exotherm(:) == 0._r8) ) then
        call endrun('init_cph: Enthalpies for chemical heating must be specified in mechanism file')

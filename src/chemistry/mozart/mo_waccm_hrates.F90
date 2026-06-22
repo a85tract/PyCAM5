@@ -42,12 +42,12 @@
 	        character(len=128) :: attr  ! netcdf variable attribute
 
         interface
-           subroutine init_hrates_ids_codon(lookup_ids_p, ptop_ref_c, psurf_ref_c, ids_p, has_hrates_p) &
-                bind(c, name="init_hrates_ids_codon")
+           subroutine init_hrates_codon(lookup_ids_p, ptop_ref_c, psurf_ref_c, ids_p, has_hrates_p) &
+                bind(c, name="init_hrates_codon")
              use iso_c_binding, only : c_double, c_ptr
              type(c_ptr), value :: lookup_ids_p, ids_p, has_hrates_p
              real(c_double), value :: ptop_ref_c, psurf_ref_c
-           end subroutine init_hrates_ids_codon
+           end subroutine init_hrates_codon
         end interface
 
         call chemistry_misc_codon_touch('init_hrates', 142)
@@ -63,7 +63,7 @@
         ids_c(:) = 0_c_int64_t
         has_hrates_c = 0_c_int64_t
 
-        call init_hrates_ids_codon(c_loc(lookup_ids), real(ptop_ref, c_double), real(psurf_ref, c_double), &
+        call init_hrates_codon(c_loc(lookup_ids), real(ptop_ref, c_double), real(psurf_ref, c_double), &
              c_loc(ids_c), c_loc(has_hrates_c))
 
         id_co2   = int(ids_c(1))

@@ -169,7 +169,16 @@ contains
     implicit none
 
     integer :: ispc, l
+    integer(c_int64_t) :: codon_entry
 
+    interface
+       function dvel_inti_fromlnd_codon() result(out_c) bind(c, name="dvel_inti_fromlnd_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function dvel_inti_fromlnd_codon
+    end interface
+
+    codon_entry = dvel_inti_fromlnd_codon()
     call chemistry_misc_codon_touch('dvel_inti_fromlnd', 175)
 
     allocate(spc_ndx(nddvels))
@@ -195,9 +204,45 @@ contains
     use physics_types,   only : physics_state
     use camsrfexch,      only : cam_in_t     
     use seq_drydep_mod,  only : drydep_method, DD_XLND
+    use iso_c_binding,   only : c_int64_t
 
     type(physics_state), intent(in) :: state           ! Physics state variables
     type(cam_in_t),  intent(in) :: cam_in 
+    integer(c_int64_t) :: active_c
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+    logical :: use_native_impl
+
+    interface
+       function drydep_update_codon(active) result(out_c) bind(c, name="drydep_update_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function drydep_update_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('DRYDEP_UPDATE_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = drydep_update_codon(merge(1_c_int64_t, 0_c_int64_t, nddvels >= 1 .and. drydep_method == DD_XLND))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'drydep_update direct = codon no-xlnd-drydep no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if (nddvels<1) return
     if (drydep_method /= DD_XLND) return

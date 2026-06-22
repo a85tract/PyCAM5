@@ -75,29 +75,28 @@ contains
     real(r8) :: hoxprod_factor(pver)
 
     interface
-       function spe_prod_zero_codon(active, ncol_c, pver_c, noxprod_p, hoxprod_p) result(out_c) &
-            bind(c, name="spe_prod_zero_codon")
+       function spe_prod_codon(active, ncol_c, pver_c, noxprod_p, hoxprod_p) result(out_c) &
+            bind(c, name="spe_prod_codon")
          import :: c_int64_t, c_ptr
          integer(c_int64_t), value :: active, ncol_c, pver_c
          type(c_ptr), value :: noxprod_p, hoxprod_p
          integer(c_int64_t) :: out_c
-       end function spe_prod_zero_codon
+       end function spe_prod_codon
     end interface
 
     !-----------------------------------------------------------------------
     ! 	... intialize NO production
     !-----------------------------------------------------------------------
 
-    noxprod(:ncol,:) = 0._r8
-    hoxprod(:ncol,:) = 0._r8
-    active_c = merge(1_c_int64_t, 0_c_int64_t, spe_run)
+    active_c = spe_prod_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run), &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(noxprod), c_loc(hoxprod))
     if (.not. spe_prod_codon_logged) then
        spe_prod_codon_logged = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'spe_prod direct = native flag-off zero no-op'
+             write(iulog,'(A)') 'spe_prod implementation = codon flag-off zero no-op'
           else
-             write(iulog,'(A)') 'spe_prod selector = native; active ion-pair body = native'
+             write(iulog,'(A)') 'spe_prod implementation = codon; active ion-pair body = native island'
           end if
           call flush(iulog)
        end if

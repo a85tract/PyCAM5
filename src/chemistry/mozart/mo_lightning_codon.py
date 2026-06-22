@@ -124,6 +124,61 @@ def lightning_no_prod_phase1_codon(
 
 
 @export
+def lightning_no_prod_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rga: float,
+    rearth: float,
+    geo_factor: float,
+    factor: float,
+    phis_p: cobj,
+    zm_p: cobj,
+    zi_p: cobj,
+    t_p: cobj,
+    cldtop_p: cobj,
+    cldbot_p: cobj,
+    landfrac_p: cobj,
+    ocnfrac_p: cobj,
+    wght_p: cobj,
+    flash_freq_p: cobj,
+    glob_prod_no_col_p: cobj,
+    prod_no_col_p: cobj,
+    cldhgt_p: cobj,
+    dchgzone_p: cobj,
+    cgic_p: cobj,
+    flash_energy_p: cobj,
+    status_p: cobj,
+):
+    return lightning_no_prod_phase1_codon(
+        ncol,
+        pcols,
+        pver,
+        rga,
+        rearth,
+        geo_factor,
+        factor,
+        phis_p,
+        zm_p,
+        zi_p,
+        t_p,
+        cldtop_p,
+        cldbot_p,
+        landfrac_p,
+        ocnfrac_p,
+        wght_p,
+        flash_freq_p,
+        glob_prod_no_col_p,
+        prod_no_col_p,
+        cldhgt_p,
+        dchgzone_p,
+        cgic_p,
+        flash_energy_p,
+        status_p,
+    )
+
+
+@export
 def lightning_no_prod_phase2_codon(
     ncol: int,
     pcols: int,

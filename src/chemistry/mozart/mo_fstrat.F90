@@ -58,11 +58,11 @@ module mo_fstrat
   logical :: set_fstrat_h2o_proof_written = .false.
 
   interface
-     function fstrat_inti_active_codon(active) result(out_c) bind(c, name="fstrat_inti_active_codon")
+     function fstrat_inti_codon(active) result(out_c) bind(c, name="fstrat_inti_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: active
        integer(c_int64_t) :: out_c
-     end function fstrat_inti_active_codon
+     end function fstrat_inti_codon
      function set_fstrat_vals_active_codon(active) result(out_c) bind(c, name="set_fstrat_vals_active_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: active
@@ -185,7 +185,7 @@ contains
 
     enddo
 
-    active_c = fstrat_inti_active_codon(merge(1_c_int64_t, 0_c_int64_t, any(has_fstrat(:))))
+    active_c = fstrat_inti_codon(merge(1_c_int64_t, 0_c_int64_t, any(has_fstrat(:))))
     if (.not. fstrat_inti_proof_written) then
        fstrat_inti_proof_written = .true.
        if (masterproc) then

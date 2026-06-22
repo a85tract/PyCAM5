@@ -420,7 +420,7 @@ def _neu_wetdep_dempirical_eval(cwater: float, rrate: float, dempirical_impl: in
 
     return _neu_wetdep_dempirical_core(cwater, rrate)
 
-def neu_wetdep_dempirical_codon(
+def dempirical_codon(
     cwater: float,
     rrate: float,
     dempirical_p: cobj,
@@ -1735,7 +1735,7 @@ def _neu_wetdep_washo_species(
         qttjfl[_idx2(ll, n, lpar)] = qttnew[ll - 1]
         ll += 1
 
-def neu_wetdep_disgas_codon(
+def disgas_codon(
     clwx: float,
     cfx: float,
     molmass: float,
@@ -1749,7 +1749,7 @@ def neu_wetdep_disgas_codon(
     qtdis = Ptr[float](qtdis_p)
     qtdis[0] = _neu_wetdep_disgas_core(clwx, cfx, molmass, hstar, tm, pr, qm, qt)
 
-def neu_wetdep_raingas_codon(
+def raingas_codon(
     rrain: float,
     dtscav: float,
     clwx: float,
@@ -1779,7 +1779,7 @@ def neu_wetdep_washgas_codon(
     qtevap = Ptr[float](qtevap_p)
     _neu_wetdep_washgas_core(rwash, boxf, dtscav, qtrtop, hstar, tm, pr, qm, qt, qtwash, qtevap)
 
-def neu_wetdep_washo_codon(
+def washo_codon(
     lpar: int,
     ntrace: int,
     hno3_ndx: int,

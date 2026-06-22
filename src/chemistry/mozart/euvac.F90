@@ -38,6 +38,7 @@
       use spmd_utils,     only : masterproc
       use error_messages, only : alloc_err
       use ioFileMod,      only : getfil
+      use iso_c_binding,  only : c_int64_t
       implicit none
 
       character(len=*), intent(in) :: euvac_file
@@ -51,10 +52,20 @@
       integer  :: varid
 	      integer  :: astat
 	      character(len=256) :: locfn
+	      integer(c_int64_t) :: active_c
+
+      interface
+         function euvac_init_codon(active) result(out_c) bind(c, name="euvac_init_codon")
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t), value :: active
+            integer(c_int64_t) :: out_c
+         end function euvac_init_codon
+      end interface
 
 	      call chemistry_misc_codon_touch('euvac_init', 151)
 	      euvac_on = len_trim(euvac_file)>0
-      if (.not.euvac_on) return
+      active_c = euvac_init_codon(merge(1_c_int64_t, 0_c_int64_t, euvac_on))
+      if (active_c == 0_c_int64_t) return
 
 !-----------------------------------------------------------------------
 !	... readin the etf data
@@ -139,17 +150,17 @@
       integer(c_int64_t) :: active_c
 
       interface
-         function euvac_set_etf_active_codon(active_in) result(active_out) &
-              bind(c, name="euvac_set_etf_active_codon")
+         function euvac_set_etf_codon(active_in) result(active_out) &
+              bind(c, name="euvac_set_etf_codon")
             use iso_c_binding, only : c_int64_t
             integer(c_int64_t), value :: active_in
             integer(c_int64_t) :: active_out
-         end function euvac_set_etf_active_codon
+         end function euvac_set_etf_codon
       end interface
 
-      active_c = euvac_set_etf_active_codon(merge(1_c_int64_t, 0_c_int64_t, euvac_on))
+      active_c = euvac_set_etf_codon(merge(1_c_int64_t, 0_c_int64_t, euvac_on))
       if (active_c /= 0_c_int64_t .and. active_c /= 1_c_int64_t) then
-         call endrun('euvac_set_etf_active_codon: unexpected return value')
+         call endrun('euvac_set_etf_codon: unexpected return value')
       end if
       if (masterproc) then
          write(iulog,*) 'euvac_set_etf implementation = codon'

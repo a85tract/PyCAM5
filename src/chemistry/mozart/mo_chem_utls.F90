@@ -16,21 +16,37 @@ module mo_chem_utls
   logical :: get_rxt_ndx_codon_logged = .false.
 
   interface
-     function chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count) result(idx_c) &
-          bind(c, name="chem_lookup_name_codon")
+     function get_spc_ndx_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count) result(idx_c) &
+          bind(c, name="get_spc_ndx_codon")
        import :: c_int64_t, c_ptr
        integer(c_int64_t), value :: name_len, list_len, list_count
        type(c_ptr), value :: name_ascii_p, list_ascii_p
        integer(c_int64_t) :: idx_c
-     end function chem_lookup_name_codon
+     end function get_spc_ndx_codon
 
-     function chem_lookup_mapped_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, map_p, list_count) result(idx_c) &
-          bind(c, name="chem_lookup_mapped_name_codon")
+     function get_inv_ndx_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count) result(idx_c) &
+          bind(c, name="get_inv_ndx_codon")
+       import :: c_int64_t, c_ptr
+       integer(c_int64_t), value :: name_len, list_len, list_count
+       type(c_ptr), value :: name_ascii_p, list_ascii_p
+       integer(c_int64_t) :: idx_c
+     end function get_inv_ndx_codon
+
+     function get_extfrc_ndx_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count) result(idx_c) &
+          bind(c, name="get_extfrc_ndx_codon")
+       import :: c_int64_t, c_ptr
+       integer(c_int64_t), value :: name_len, list_len, list_count
+       type(c_ptr), value :: name_ascii_p, list_ascii_p
+       integer(c_int64_t) :: idx_c
+     end function get_extfrc_ndx_codon
+
+     function get_rxt_ndx_codon(name_len, name_ascii_p, list_len, list_ascii_p, map_p, list_count) result(idx_c) &
+          bind(c, name="get_rxt_ndx_codon")
        import :: c_int64_t, c_ptr
        integer(c_int64_t), value :: name_len, list_len, list_count
        type(c_ptr), value :: name_ascii_p, list_ascii_p, map_p
        integer(c_int64_t) :: idx_c
-     end function chem_lookup_mapped_name_codon
+     end function get_rxt_ndx_codon
   end interface
 
 contains
@@ -71,7 +87,7 @@ contains
           tracnam_ascii(ichar,m) = int(iachar(tracnam(m)(ichar:ichar)), c_int64_t)
        end do
     end do
-    idx_c = chem_lookup_name_codon(int(len(spc_name), c_int64_t), c_loc(name_ascii(1)), &
+    idx_c = get_spc_ndx_codon(int(len(spc_name), c_int64_t), c_loc(name_ascii(1)), &
          int(len(tracnam), c_int64_t), c_loc(tracnam_ascii(1,1)), int(gas_pcnst, c_int64_t))
     get_spc_ndx = int(idx_c)
     call mo_chem_utls_log_direct(get_spc_ndx_codon_logged, 'get_spc_ndx direct = codon')
@@ -117,7 +133,7 @@ contains
           inv_ascii(ichar,m) = int(iachar(inv_lst(m)(ichar:ichar)), c_int64_t)
        end do
     end do
-    idx_c = chem_lookup_name_codon(int(len(invariant), c_int64_t), c_loc(name_ascii(1)), &
+    idx_c = get_inv_ndx_codon(int(len(invariant), c_int64_t), c_loc(name_ascii(1)), &
          int(len(inv_lst), c_int64_t), c_loc(inv_ascii(1,1)), int(nfs, c_int64_t))
     get_inv_ndx = int(idx_c)
     call mo_chem_utls_log_direct(get_inv_ndx_codon_logged, 'get_inv_ndx direct = codon')
@@ -195,7 +211,7 @@ contains
           extfrc_ascii(ichar,m) = int(iachar(extfrc_lst(m)(ichar:ichar)), c_int64_t)
        end do
     end do
-    idx_c = chem_lookup_name_codon(int(len(frc_name), c_int64_t), c_loc(name_ascii(1)), &
+    idx_c = get_extfrc_ndx_codon(int(len(frc_name), c_int64_t), c_loc(name_ascii(1)), &
          int(len(extfrc_lst), c_int64_t), c_loc(extfrc_ascii(1,1)), int(extcnt, c_int64_t))
     get_extfrc_ndx = int(idx_c)
     call mo_chem_utls_log_direct(get_extfrc_ndx_codon_logged, 'get_extfrc_ndx direct = codon')
@@ -244,7 +260,7 @@ contains
        end do
        rxt_map(m) = int(rxt_tag_map(m), c_int64_t)
     end do
-    idx_c = chem_lookup_mapped_name_codon(int(len(rxt_tag), c_int64_t), c_loc(name_ascii(1)), &
+    idx_c = get_rxt_ndx_codon(int(len(rxt_tag), c_int64_t), c_loc(name_ascii(1)), &
          int(len(rxt_tag_lst), c_int64_t), c_loc(rxt_ascii(1,1)), c_loc(rxt_map(1)), &
          int(rxt_tag_cnt, c_int64_t))
     get_rxt_ndx = int(idx_c)

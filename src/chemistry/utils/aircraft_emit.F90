@@ -197,20 +197,40 @@ contains
     use ppgrid,         only: begchunk, endchunk
     use physics_buffer, only: physics_buffer_desc
     use phys_control,   only: phys_getopts
+    use iso_c_binding,  only: c_int64_t
 
     implicit none
 
     character(len=16)  :: spc_name
 
     integer :: ndx, istat, i, astat, m, n, mm, c
+    integer(c_int64_t) :: active_c
 
     logical :: history_chemistry
+
+    interface
+       function aircraft_emit_init_codon(active) result(out_c) bind(c, name="aircraft_emit_init_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function aircraft_emit_init_codon
+    end interface
 
     call phys_getopts(history_chemistry_out=history_chemistry)
     
     !------------------------------------------------------------------
     ! Return if aircraft_cnt is zero (no aircraft data to process)
     !------------------------------------------------------------------
+    if (.not. aircraft_emit_use_native('AIRCRAFT_EMIT_INIT_IMPL')) then
+       active_c = aircraft_emit_init_codon(merge(1_c_int64_t, 0_c_int64_t, aircraft_cnt /= 0))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'aircraft_emit_init direct = codon no-aircraft-emissions no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
     if (aircraft_cnt == 0 ) return
 
     if (masterproc) write(iulog,*) ' '

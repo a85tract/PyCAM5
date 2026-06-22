@@ -121,6 +121,20 @@
             type(c_ptr), value :: p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p
             type(c_ptr), value :: del_p_p, del_sza_p, del_alb_p, del_o3rat_p
          end subroutine jlong_prep_stage_dispatch_codon
+         subroutine jlong_init_codon(stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c, &
+              numalb_c, numcolo3_c, use_bde_flag_c, hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c, data_we_p, wc_p, &
+              wlintv_p, we_p, data_etf_p, etfphot_p, lng_indexer_p, numj_p, read_varids_p, prs_p, dprs_p, &
+              rsf_tab_p, p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p, del_p_p, &
+              del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_init_codon")
+            use iso_c_binding, only : c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c
+            integer(c_int64_t), value :: numalb_c, numcolo3_c, use_bde_flag_c
+            real(c_double), value :: hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c
+            type(c_ptr), value :: data_we_p, wc_p, wlintv_p, we_p, data_etf_p, etfphot_p
+            type(c_ptr), value :: lng_indexer_p, numj_p, read_varids_p, prs_p, dprs_p, rsf_tab_p
+            type(c_ptr), value :: p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p
+            type(c_ptr), value :: del_p_p, del_sza_p, del_alb_p, del_o3rat_p
+         end subroutine jlong_init_codon
       end interface
 
       contains
@@ -251,7 +265,7 @@
          call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
       else
          call jlong_prep_batch_log_entered()
-         call jlong_prep_stage_dispatch_codon( &
+         call jlong_init_codon( &
               1_c_int64_t, int(data_nw, c_int64_t), int(nw, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
               0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(data_we), c_loc(wc), c_loc(wlintv), &
@@ -2066,10 +2080,10 @@ level_loop_1 : &
       integer  ::  wn
 
       interface
-         subroutine jlong_interpolate_rsf_codon(nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, kbot_c, sza_in_c, &
+         subroutine interpolate_rsf_codon(nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, kbot_c, sza_in_c, &
               alb_in_p, p_in_p, colo3_in_p, p_grid_p, del_p_p, sza_grid_p, del_sza_p, alb_grid_p, del_alb_p, &
               o3rat_p, del_o3rat_p, colo3_grid_p, rsf_tab_p, etfphot_p, psum_l_p, rsf_p) &
-              bind(c, name="jlong_interpolate_rsf_codon")
+              bind(c, name="interpolate_rsf_codon")
            use iso_c_binding, only : c_double, c_int64_t, c_ptr
            integer(c_int64_t), value :: nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, kbot_c
            real(c_double), value :: sza_in_c
@@ -2077,7 +2091,7 @@ level_loop_1 : &
            type(c_ptr), value :: sza_grid_p, del_sza_p, alb_grid_p, del_alb_p
            type(c_ptr), value :: o3rat_p, del_o3rat_p, colo3_grid_p, rsf_tab_p, etfphot_p
            type(c_ptr), value :: psum_l_p, rsf_p
-         end subroutine jlong_interpolate_rsf_codon
+         end subroutine interpolate_rsf_codon
       end interface
 
 !----------------------------------------------------------------------
@@ -2091,7 +2105,7 @@ level_loop_1 : &
       call jlong_interpolate_rsf_select_impl()
 
       if (.not. jlong_interpolate_rsf_use_native_impl) then
-         call jlong_interpolate_rsf_codon( &
+         call interpolate_rsf_codon( &
               int(nw, c_int64_t), int(nump, c_int64_t), int(numsza, c_int64_t), int(numalb, c_int64_t), &
               int(numcolo3, c_int64_t), int(kbot, c_int64_t), real(sza_in, c_double), c_loc(alb_in(1)), &
               c_loc(p_in(1)), c_loc(colo3_in(1)), c_loc(p(1)), c_loc(del_p(1)), c_loc(sza(1)), c_loc(del_sza(1)), &

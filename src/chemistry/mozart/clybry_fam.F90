@@ -49,11 +49,11 @@ contains
     integer(c_int64_t), target :: has_clybry_c
 
     interface
-       subroutine clybry_fam_init_ids_codon(lookup_ids_p, ids_p, has_clybry_p) &
-            bind(c, name="clybry_fam_init_ids_codon")
-         use iso_c_binding, only : c_ptr
-         type(c_ptr), value :: lookup_ids_p, ids_p, has_clybry_p
-       end subroutine clybry_fam_init_ids_codon
+       subroutine clybry_fam_init_codon(lookup_ids_p, ids_p, has_clybry_p) &
+            bind(c, name="clybry_fam_init_codon")
+          use iso_c_binding, only : c_ptr
+          type(c_ptr), value :: lookup_ids_p, ids_p, has_clybry_p
+       end subroutine clybry_fam_init_codon
     end interface
 
     call chemistry_misc_codon_touch('clybry_fam_init', 132)
@@ -78,7 +78,7 @@ contains
     ids_c(:) = 0_c_int64_t
     has_clybry_c = 0_c_int64_t
 
-    call clybry_fam_init_ids_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(has_clybry_c))
+    call clybry_fam_init_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(has_clybry_c))
     call clybry_fam_init_log_codon()
 
     id_cly = int(ids_c(1))
@@ -126,6 +126,9 @@ contains
 
     use time_manager,  only : get_nstep
     use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
 
     implicit none
 
@@ -139,7 +142,41 @@ contains
 
     real(r8) :: wrk(ncol,pver,2)
     real(r8) :: mmr(pcols,pver,gas_pcnst)
-    integer  :: n, m
+    integer  :: n, m, status, i, code
+    integer(c_int64_t) :: active_c
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+
+    interface
+       function clybry_fam_set_codon(active) result(out_c) bind(c, name="clybry_fam_set_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function clybry_fam_set_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('CLYBRY_FAM_SET_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = clybry_fam_set_codon(merge(1_c_int64_t, 0_c_int64_t, has_clybry))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'clybry_fam_set direct = codon no-clybry no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if (.not. has_clybry) return
 

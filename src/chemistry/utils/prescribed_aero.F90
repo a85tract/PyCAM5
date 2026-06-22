@@ -173,9 +173,29 @@ end function prescribed_aero_use_native
     ! local vars
     character(len=32)  :: spec_a
     integer :: ndx, istat, i, i_c, j
+    integer(c_int64_t) :: active_c
+
+    interface
+       function prescribed_aero_init_codon(active) result(out_c) bind(c, name="prescribed_aero_init_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function prescribed_aero_init_codon
+    end interface
 
     call chemistry_misc_codon_touch('prescribed_aero', 114)
     
+    if (.not. prescribed_aero_use_native('PRESCRIBED_AERO_INIT_IMPL')) then
+       active_c = prescribed_aero_init_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_aero))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'prescribed_aero_init direct = codon no-prescribed-aero no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
+
     if ( has_prescribed_aero ) then
        if ( masterproc ) then
           write(iulog,*) 'aero is prescribed in :'//trim(filename)

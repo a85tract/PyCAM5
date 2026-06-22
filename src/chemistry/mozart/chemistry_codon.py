@@ -30,28 +30,524 @@ def chem_lookup_mapped_name_codon(
     return _common.chem_lookup_mapped_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, map_p, list_count)
 
 @export
+def get_spc_ndx_codon(name_len: int, name_ascii_p: cobj, list_len: int, list_ascii_p: cobj, list_count: int) -> int:
+    return _common.chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
+
+@export
+def get_inv_ndx_codon(name_len: int, name_ascii_p: cobj, list_len: int, list_ascii_p: cobj, list_count: int) -> int:
+    return _common.chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
+
+@export
+def get_extfrc_ndx_codon(name_len: int, name_ascii_p: cobj, list_len: int, list_ascii_p: cobj, list_count: int) -> int:
+    return _common.chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
+
+@export
+def get_rxt_ndx_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    list_len: int,
+    list_ascii_p: cobj,
+    map_p: cobj,
+    list_count: int,
+) -> int:
+    return _common.chem_lookup_mapped_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, map_p, list_count)
+
+@inline
+def _chem_name_is_h2o(name_len: int, name_ascii_p: cobj) -> bool:
+    name_ascii = Ptr[int](name_ascii_p)
+    name_trim = name_len
+    while name_trim > 0 and name_ascii[name_trim - 1] == 32:
+        name_trim -= 1
+    return (
+        name_trim == 3
+        and name_ascii[0] == 72
+        and name_ascii[1] == 50
+        and name_ascii[2] == 79
+    )
+
+@export
+def chem_is_active_codon(active: int) -> int:
+    return active
+
+@export
+def chem_is_codon(active: int) -> int:
+    return chem_is_active_codon(active)
+
+@export
+def chem_implements_cnst_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    solsym_len: int,
+    solsym_ascii_p: cobj,
+    gas_pcnst: int,
+    inv_len: int,
+    inv_ascii_p: cobj,
+    nfs: int,
+) -> int:
+    if _chem_name_is_h2o(name_len, name_ascii_p):
+        return 0
+    if _common.chem_lookup_name_codon(name_len, name_ascii_p, solsym_len, solsym_ascii_p, gas_pcnst) > 0:
+        return 1
+    if _common.chem_lookup_name_codon(name_len, name_ascii_p, inv_len, inv_ascii_p, nfs) > 0:
+        return 1
+    return 0
+
+@export
+def slvd_index_codon(name_len: int, name_ascii_p: cobj, list_len: int, list_ascii_p: cobj, list_count: int) -> int:
+    return _common.chem_lookup_name_codon(name_len, name_ascii_p, list_len, list_ascii_p, list_count)
+
+@export
+def init_cfc11star_codon(active: int) -> int:
+    return active
+
+@export
+def tracer_cnst_adv_codon(active: int) -> int:
+    return active
+
+@export
+def tracer_srcs_adv_codon(active: int) -> int:
+    return active
+
+@export
+def linoz_data_adv_codon(active: int) -> int:
+    return active
+
+@export
+def noy_ubc_init_codon(active: int) -> int:
+    return active
+
+@export
+def noy_ubc_set_codon(active: int) -> int:
+    return active
+
+@export
+def register_short_lived_species_codon(active: int) -> int:
+    return active
+
+@export
+def init_cph_codon(active: int) -> int:
+    return active
+
+@export
+def spe_prod_codon(active: int, ncol: int, pver: int, noxprod_p: cobj, hoxprod_p: cobj) -> int:
+    noxprod = Ptr[float](noxprod_p)
+    hoxprod = Ptr[float](hoxprod_p)
+    total = ncol * pver
+    for i in range(total):
+        noxprod[i] = 0.0
+        hoxprod[i] = 0.0
+    return active
+
+@export
+def tracer_cnst_defaultopts_codon(
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    specifier_len: int,
+    specifier_count: int,
+    specifier_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    present_file: int,
+    file_out_p: cobj,
+    present_filelist: int,
+    filelist_out_p: cobj,
+    present_datapath: int,
+    datapath_out_p: cobj,
+    present_type: int,
+    type_out_p: cobj,
+    present_specifier: int,
+    specifier_out_p: cobj,
+    present_rmfile: int,
+    present_cycle_yr: int,
+    present_fixed_ymd: int,
+    present_fixed_tod: int,
+    scalar_out_p: cobj,
+):
+    return _common.tracer_defaultopts_codon(
+        file_len,
+        file_p,
+        filelist_len,
+        filelist_p,
+        datapath_len,
+        datapath_p,
+        type_len,
+        type_p,
+        specifier_len,
+        specifier_count,
+        specifier_p,
+        rmfile,
+        cycle_yr,
+        fixed_ymd,
+        fixed_tod,
+        present_file,
+        file_out_p,
+        present_filelist,
+        filelist_out_p,
+        present_datapath,
+        datapath_out_p,
+        present_type,
+        type_out_p,
+        present_specifier,
+        specifier_out_p,
+        present_rmfile,
+        present_cycle_yr,
+        present_fixed_ymd,
+        present_fixed_tod,
+        scalar_out_p,
+    )
+
+@export
+def tracer_srcs_defaultopts_codon(
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    specifier_len: int,
+    specifier_count: int,
+    specifier_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    present_file: int,
+    file_out_p: cobj,
+    present_filelist: int,
+    filelist_out_p: cobj,
+    present_datapath: int,
+    datapath_out_p: cobj,
+    present_type: int,
+    type_out_p: cobj,
+    present_specifier: int,
+    specifier_out_p: cobj,
+    present_rmfile: int,
+    present_cycle_yr: int,
+    present_fixed_ymd: int,
+    present_fixed_tod: int,
+    scalar_out_p: cobj,
+):
+    return _common.tracer_defaultopts_codon(
+        file_len,
+        file_p,
+        filelist_len,
+        filelist_p,
+        datapath_len,
+        datapath_p,
+        type_len,
+        type_p,
+        specifier_len,
+        specifier_count,
+        specifier_p,
+        rmfile,
+        cycle_yr,
+        fixed_ymd,
+        fixed_tod,
+        present_file,
+        file_out_p,
+        present_filelist,
+        filelist_out_p,
+        present_datapath,
+        datapath_out_p,
+        present_type,
+        type_out_p,
+        present_specifier,
+        specifier_out_p,
+        present_rmfile,
+        present_cycle_yr,
+        present_fixed_ymd,
+        present_fixed_tod,
+        scalar_out_p,
+    )
+
+@export
+def linoz_data_defaultopts_codon(
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    present_file: int,
+    file_out_p: cobj,
+    present_filelist: int,
+    filelist_out_p: cobj,
+    present_datapath: int,
+    datapath_out_p: cobj,
+    present_type: int,
+    type_out_p: cobj,
+    present_rmfile: int,
+    present_cycle_yr: int,
+    present_fixed_ymd: int,
+    present_fixed_tod: int,
+    scalar_out_p: cobj,
+):
+    return _common.linoz_defaultopts_codon(
+        file_len,
+        file_p,
+        filelist_len,
+        filelist_p,
+        datapath_len,
+        datapath_p,
+        type_len,
+        type_p,
+        rmfile,
+        cycle_yr,
+        fixed_ymd,
+        fixed_tod,
+        present_file,
+        file_out_p,
+        present_filelist,
+        filelist_out_p,
+        present_datapath,
+        datapath_out_p,
+        present_type,
+        type_out_p,
+        present_rmfile,
+        present_cycle_yr,
+        present_fixed_ymd,
+        present_fixed_tod,
+        scalar_out_p,
+    )
+
+@export
+def drydep_update_codon(active: int) -> int:
+    return active
+
+@export
+def aircraft_emit_init_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_aero_init_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_ghg_init_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_ozone_init_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_ozone_readnl_codon(
+    name_len: int,
+    name_p: cobj,
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    name_out_p: cobj,
+    file_out_p: cobj,
+    filelist_out_p: cobj,
+    datapath_out_p: cobj,
+    type_out_p: cobj,
+    scalar_out_p: cobj,
+):
+    _common.prescribed_field_readnl_codon(
+        name_len,
+        name_p,
+        file_len,
+        file_p,
+        filelist_len,
+        filelist_p,
+        datapath_len,
+        datapath_p,
+        type_len,
+        type_p,
+        rmfile,
+        cycle_yr,
+        fixed_ymd,
+        fixed_tod,
+        name_out_p,
+        file_out_p,
+        filelist_out_p,
+        datapath_out_p,
+        type_out_p,
+        scalar_out_p,
+    )
+
+@export
+def prescribed_strataero_init_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_volcaero_init_codon(active: int) -> int:
+    return active
+
+@export
+def prescribed_volcaero_readnl_codon(
+    name_len: int,
+    name_p: cobj,
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    name_out_p: cobj,
+    file_out_p: cobj,
+    filelist_out_p: cobj,
+    datapath_out_p: cobj,
+    type_out_p: cobj,
+    scalar_out_p: cobj,
+):
+    _common.prescribed_field_readnl_codon(
+        name_len,
+        name_p,
+        file_len,
+        file_p,
+        filelist_len,
+        filelist_p,
+        datapath_len,
+        datapath_p,
+        type_len,
+        type_p,
+        rmfile,
+        cycle_yr,
+        fixed_ymd,
+        fixed_tod,
+        name_out_p,
+        file_out_p,
+        filelist_out_p,
+        datapath_out_p,
+        type_out_p,
+        scalar_out_p,
+    )
+
+@export
+def clybry_fam_set_codon(active: int) -> int:
+    return active
+
+@export
+def aurora_inti_codon(active: int) -> int:
+    return active
+
+@inline
+def _set_rates_idx(i: int, k: int, m: int, d1: int, d2: int) -> int:
+    return i + d1 * (k + d2 * m)
+
+@export
+def set_rates_codon(
+    ncol: int,
+    rxt_d1: int,
+    rxt_d2: int,
+    sol_d1: int,
+    sol_d2: int,
+    rxt_rates_p: cobj,
+    sol_p: cobj,
+):
+    rxt_rates = Ptr[float](rxt_rates_p)
+    sol = Ptr[float](sol_p)
+    k = 0
+    while k < rxt_d2:
+        i = 0
+        while i < ncol:
+            rxt_rates[_set_rates_idx(i, k, 0, rxt_d1, rxt_d2)] = (
+                rxt_rates[_set_rates_idx(i, k, 0, rxt_d1, rxt_d2)]
+                * sol[_set_rates_idx(i, k, 0, sol_d1, sol_d2)]
+            )
+            rxt_rates[_set_rates_idx(i, k, 2, rxt_d1, rxt_d2)] = (
+                rxt_rates[_set_rates_idx(i, k, 2, rxt_d1, rxt_d2)]
+                * sol[_set_rates_idx(i, k, 0, sol_d1, sol_d2)]
+            )
+            rxt_rates[_set_rates_idx(i, k, 3, rxt_d1, rxt_d2)] = (
+                rxt_rates[_set_rates_idx(i, k, 3, rxt_d1, rxt_d2)]
+                * sol[_set_rates_idx(i, k, 2, sol_d1, sol_d2)]
+            )
+            rxt_rates[_set_rates_idx(i, k, 4, rxt_d1, rxt_d2)] = (
+                rxt_rates[_set_rates_idx(i, k, 4, rxt_d1, rxt_d2)]
+                * sol[_set_rates_idx(i, k, 3, sol_d1, sol_d2)]
+            )
+            rxt_rates[_set_rates_idx(i, k, 5, rxt_d1, rxt_d2)] = (
+                rxt_rates[_set_rates_idx(i, k, 5, rxt_d1, rxt_d2)]
+                * sol[_set_rates_idx(i, k, 3, sol_d1, sol_d2)]
+            )
+            rxt_rates[_set_rates_idx(i, k, 6, rxt_d1, rxt_d2)] = (
+                rxt_rates[_set_rates_idx(i, k, 6, rxt_d1, rxt_d2)]
+                * sol[_set_rates_idx(i, k, 3, sol_d1, sol_d2)]
+            )
+            i += 1
+        k += 1
+
+@export
 def init_mean_mass_ids_codon(lookup_ids_p: cobj, species_ids_p: cobj):
     return _common.init_mean_mass_ids_codon(lookup_ids_p, species_ids_p)
+
+@export
+def init_mean_mass_codon(lookup_ids_p: cobj, species_ids_p: cobj):
+    return init_mean_mass_ids_codon(lookup_ids_p, species_ids_p)
 
 @export
 def init_hrates_ids_codon(lookup_ids_p: cobj, ptop_ref: float, psurf_ref: float, ids_p: cobj, has_hrates_p: cobj):
     return _common.init_hrates_ids_codon(lookup_ids_p, ptop_ref, psurf_ref, ids_p, has_hrates_p)
 
 @export
+def init_hrates_codon(lookup_ids_p: cobj, ptop_ref: float, psurf_ref: float, ids_p: cobj, has_hrates_p: cobj):
+    return init_hrates_ids_codon(lookup_ids_p, ptop_ref, psurf_ref, ids_p, has_hrates_p)
+
+@export
 def clybry_fam_init_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_clybry_p: cobj):
     return _common.clybry_fam_init_ids_codon(lookup_ids_p, ids_p, has_clybry_p)
+
+@export
+def clybry_fam_init_codon(lookup_ids_p: cobj, ids_p: cobj, has_clybry_p: cobj):
+    return clybry_fam_init_ids_codon(lookup_ids_p, ids_p, has_clybry_p)
 
 @export
 def init_strato_rates_ids_codon(lookup_ids_p: cobj, ids_p: cobj, has_strato_chem_p: cobj):
     return _common.init_strato_rates_ids_codon(lookup_ids_p, ids_p, has_strato_chem_p)
 
 @export
+def init_strato_rates_codon(lookup_ids_p: cobj, ids_p: cobj, has_strato_chem_p: cobj):
+    return init_strato_rates_ids_codon(lookup_ids_p, ids_p, has_strato_chem_p)
+
+@export
 def setinv_inti_ids_codon(lookup_ids_p: cobj, ids_p: cobj, flags_p: cobj):
     return _common.setinv_inti_ids_codon(lookup_ids_p, ids_p, flags_p)
 
 @export
+def setinv_inti_codon(lookup_ids_p: cobj, ids_p: cobj, flags_p: cobj):
+    return setinv_inti_ids_codon(lookup_ids_p, ids_p, flags_p)
+
+@export
 def gas_wetdep_readnl_status_codon(pcnst: int, list_p: cobj, method_p: cobj, status_p: cobj):
     return _common.gas_wetdep_readnl_status_codon(pcnst, list_p, method_p, status_p)
+
+@export
+def gas_wetdep_readnl_codon(pcnst: int, list_p: cobj, method_p: cobj, status_p: cobj):
+    return gas_wetdep_readnl_status_codon(pcnst, list_p, method_p, status_p)
 
 @export
 def tracer_cnst_init_codon() -> int:
@@ -156,20 +652,42 @@ def flbc_chk_codon(active: int) -> int:
     return active
 
 @export
+def flbc_set_codon(flbc_count: int) -> int:
+    if flbc_count < 1:
+        return 1
+    return 0
+
+@export
 def noy_ubc_active_codon(active: int) -> int:
     return _common.noy_ubc_active_codon(active)
+
+@export
+def noy_ubc_advance_codon(active: int) -> int:
+    return noy_ubc_active_codon(active)
 
 @export
 def spedata_active_codon(active: int) -> int:
     return _common.spedata_active_codon(active)
 
 @export
+def advance_spedata_codon(active: int) -> int:
+    return spedata_active_codon(active)
+
+@export
 def lightning_inti_active_codon(no_ndx: int, xno_ndx: int) -> int:
     return _common.lightning_inti_active_codon(no_ndx, xno_ndx)
 
 @export
+def lightning_inti_codon(no_ndx: int, xno_ndx: int) -> int:
+    return lightning_inti_active_codon(no_ndx, xno_ndx)
+
+@export
 def euvac_set_etf_active_codon(active: int) -> int:
     return _common.euvac_set_etf_active_codon(active)
+
+@export
+def euvac_set_etf_codon(active: int) -> int:
+    return euvac_set_etf_active_codon(active)
 
 @export
 def spe_prod_zero_codon(active: int, ncol: int, pver: int, noxprod_p: cobj, hoxprod_p: cobj) -> int:
@@ -180,8 +698,16 @@ def gcr_ionization_noxhox_zero_codon(active: int, ncol: int, pver: int, gcr_nox_
     return _common.gcr_ionization_noxhox_zero_codon(active, ncol, pver, gcr_nox_p, gcr_hox_p)
 
 @export
+def gcr_ionization_noxhox_codon(active: int, ncol: int, pver: int, gcr_nox_p: cobj, gcr_hox_p: cobj) -> int:
+    return gcr_ionization_noxhox_zero_codon(active, ncol, pver, gcr_nox_p, gcr_hox_p)
+
+@export
 def airpl_src_active_codon(active: int) -> int:
     return _common.airpl_src_active_codon(active)
+
+@export
+def airpl_src_codon(active: int) -> int:
+    return airpl_src_active_codon(active)
 
 @export
 def airpl_set_zero_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_air_p: cobj) -> int:
@@ -190,6 +716,10 @@ def airpl_set_zero_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_a
 @export
 def sulf_inti_active_codon(active: int) -> int:
     return _common.sulf_inti_active_codon(active)
+
+@export
+def sulf_inti_codon(active: int) -> int:
+    return sulf_inti_active_codon(active)
 
 @export
 def sox_inti_active_codon(active: int) -> int:
@@ -204,6 +734,10 @@ def fstrat_inti_active_codon(active: int) -> int:
     return _common.fstrat_inti_active_codon(active)
 
 @export
+def fstrat_inti_codon(active: int) -> int:
+    return fstrat_inti_active_codon(active)
+
+@export
 def set_fstrat_vals_active_codon(active: int) -> int:
     return _common.set_fstrat_vals_active_codon(active)
 
@@ -216,20 +750,40 @@ def jeuv_init_active_codon(active: int) -> int:
     return _common.jeuv_init_active_codon(active)
 
 @export
+def jeuv_init_codon(active: int) -> int:
+    return jeuv_init_active_codon(active)
+
+@export
 def charge_fix_active_codon(active: int) -> int:
     return _common.charge_fix_active_codon(active)
+
+@export
+def charge_fix_codon(active: int) -> int:
+    return charge_fix_active_codon(active)
 
 @export
 def o1d_to_2oh_adj_init_active_codon(active: int) -> int:
     return _common.o1d_to_2oh_adj_init_active_codon(active)
 
 @export
+def o1d_to_2oh_adj_init_codon(active: int) -> int:
+    return o1d_to_2oh_adj_init_active_codon(active)
+
+@export
 def init_airglow_active_codon(active: int) -> int:
     return _common.init_airglow_active_codon(active)
 
 @export
+def init_airglow_codon(active: int) -> int:
+    return init_airglow_active_codon(active)
+
+@export
 def register_cfc11star_active_codon(active: int) -> int:
     return _common.register_cfc11star_active_codon(active)
+
+@export
+def register_cfc11star_codon(active: int) -> int:
+    return register_cfc11star_active_codon(active)
 
 @export
 def update_cfc11star_active_codon(active: int) -> int:
@@ -240,8 +794,16 @@ def chlorine_loading_init_active_codon(active: int) -> int:
     return _common.chlorine_loading_init_active_codon(active)
 
 @export
+def chlorine_loading_init_codon(active: int) -> int:
+    return chlorine_loading_init_active_codon(active)
+
+@export
 def parse_rate_sums_active_codon(active: int) -> int:
     return _common.parse_rate_sums_active_codon(active)
+
+@export
+def parse_rate_sums_codon(active: int) -> int:
+    return parse_rate_sums_active_codon(active)
 
 @export
 def prescribed_aero_adv_codon(active: int) -> int:
@@ -294,6 +856,58 @@ def set_sulf_time_codon() -> int:
 @export
 def neu_wetdep_init_active_codon(method_is_neu: int, wetdep_count: int) -> int:
     return _common.neu_wetdep_init_active_codon(method_is_neu, wetdep_count)
+
+@export
+def neu_wetdep_init_codon(method_is_neu: int, wetdep_count: int) -> int:
+    return neu_wetdep_init_active_codon(method_is_neu, wetdep_count)
+
+@export
+def dvel_inti_fromlnd_codon() -> int:
+    return 1
+
+@export
+def linoz_data_setopts_codon() -> int:
+    return 1
+
+@export
+def tracer_cnst_setopts_codon() -> int:
+    return 1
+
+@export
+def tracer_srcs_setopts_codon() -> int:
+    return 1
+
+@export
+def chem_init_restart_codon() -> int:
+    return 1
+
+@export
+def chem_write_restart_codon() -> int:
+    return 1
+
+@export
+def chlorine_loading_advance_codon(active: int) -> int:
+    return active
+
+@export
+def euvac_init_codon(active: int) -> int:
+    return active
+
+@export
+def gcr_ionization_readnl_codon() -> int:
+    return 1
+
+@export
+def lin_strat_chem_inti_codon(active: int) -> int:
+    return active
+
+@export
+def init_linoz_data_restart_codon() -> int:
+    return 1
+
+@export
+def write_linoz_data_restart_codon() -> int:
+    return 1
 
 @export
 def chm_diags_zero_codon(
@@ -1220,6 +1834,86 @@ def jlong_prep_stage_dispatch_codon(
     )
 
 @export
+def jlong_init_codon(
+    stage: int,
+    data_nw: int,
+    nw: int,
+    phtcnt: int,
+    np_xs: int,
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    use_bde_flag: int,
+    hc_val: float,
+    wc_o2_b_val: float,
+    wc_o3_a_val: float,
+    wc_o3_b_val: float,
+    data_we_p: cobj,
+    wc_p: cobj,
+    wlintv_p: cobj,
+    we_p: cobj,
+    data_etf_p: cobj,
+    etfphot_p: cobj,
+    lng_indexer_p: cobj,
+    numj_p: cobj,
+    read_varids_p: cobj,
+    prs_p: cobj,
+    dprs_p: cobj,
+    rsf_tab_p: cobj,
+    p_p: cobj,
+    sza_p: cobj,
+    alb_p: cobj,
+    o3rat_p: cobj,
+    bde_o2_b_p: cobj,
+    bde_o3_a_p: cobj,
+    bde_o3_b_p: cobj,
+    del_p_p: cobj,
+    del_sza_p: cobj,
+    del_alb_p: cobj,
+    del_o3rat_p: cobj,
+):
+    return jlong_prep_stage_dispatch_codon(
+        stage,
+        data_nw,
+        nw,
+        phtcnt,
+        np_xs,
+        nump,
+        numsza,
+        numalb,
+        numcolo3,
+        use_bde_flag,
+        hc_val,
+        wc_o2_b_val,
+        wc_o3_a_val,
+        wc_o3_b_val,
+        data_we_p,
+        wc_p,
+        wlintv_p,
+        we_p,
+        data_etf_p,
+        etfphot_p,
+        lng_indexer_p,
+        numj_p,
+        read_varids_p,
+        prs_p,
+        dprs_p,
+        rsf_tab_p,
+        p_p,
+        sza_p,
+        alb_p,
+        o3rat_p,
+        bde_o2_b_p,
+        bde_o3_a_p,
+        bde_o3_b_p,
+        del_p_p,
+        del_sza_p,
+        del_alb_p,
+        del_o3rat_p,
+    )
+
+@export
 def zenith_codon(
     ncol: int,
     calday: float,
@@ -1266,6 +1960,58 @@ def jlong_interpolate_rsf_codon(
     rsf_p: cobj,
 ):
     return _photolysis.jlong_interpolate_rsf_codon(
+        nw,
+        nump,
+        numsza,
+        numalb,
+        numcolo3,
+        kbot,
+        sza_in,
+        alb_in_p,
+        p_in_p,
+        colo3_in_p,
+        p_grid_p,
+        del_p_p,
+        sza_grid_p,
+        del_sza_p,
+        alb_grid_p,
+        del_alb_p,
+        o3rat_p,
+        del_o3rat_p,
+        colo3_grid_p,
+        rsf_tab_p,
+        etfphot_p,
+        psum_l_p,
+        rsf_p,
+    )
+
+@export
+def interpolate_rsf_codon(
+    nw: int,
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    kbot: int,
+    sza_in: float,
+    alb_in_p: cobj,
+    p_in_p: cobj,
+    colo3_in_p: cobj,
+    p_grid_p: cobj,
+    del_p_p: cobj,
+    sza_grid_p: cobj,
+    del_sza_p: cobj,
+    alb_grid_p: cobj,
+    del_alb_p: cobj,
+    o3rat_p: cobj,
+    del_o3rat_p: cobj,
+    colo3_grid_p: cobj,
+    rsf_tab_p: cobj,
+    etfphot_p: cobj,
+    psum_l_p: cobj,
+    rsf_p: cobj,
+):
+    return jlong_interpolate_rsf_codon(
         nw,
         nump,
         numsza,
@@ -1468,6 +2214,38 @@ def chem_emissions_shell_codon(
     sflx_p: cobj,
 ):
     return _emissions.chem_emissions_shell_codon(
+        stage,
+        ncol,
+        pcols,
+        pcnst,
+        nmegan,
+        h2o_ndx,
+        map2chm_p,
+        megan_indices_map_p,
+        megan_wght_factors_p,
+        meganflx_p,
+        cflx_p,
+        megflx_p,
+        sflx_p,
+    )
+
+@export
+def chem_emissions_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pcnst: int,
+    nmegan: int,
+    h2o_ndx: int,
+    map2chm_p: cobj,
+    megan_indices_map_p: cobj,
+    megan_wght_factors_p: cobj,
+    meganflx_p: cobj,
+    cflx_p: cobj,
+    megflx_p: cobj,
+    sflx_p: cobj,
+):
+    return chem_emissions_shell_codon(
         stage,
         ncol,
         pcols,
@@ -1792,6 +2570,26 @@ def h2o_to_vmr_codon(
         mbar_p,
         h2o_vmr_p,
     )
+
+@export
+def init_mass_xforms_codon(list_len: int, list_ascii_p: cobj, list_count: int, adv_mass_p: cobj) -> float:
+    list_ascii = Ptr[int](list_ascii_p)
+    adv_mass = Ptr[float](adv_mass_p)
+
+    for item in range(list_count):
+        offset = item * list_len
+        name_trim = list_len
+        while name_trim > 0 and list_ascii[offset + name_trim - 1] == 32:
+            name_trim -= 1
+        if (
+            name_trim == 3
+            and list_ascii[offset] == 72
+            and list_ascii[offset + 1] == 50
+            and list_ascii[offset + 2] == 79
+        ):
+            return adv_mass[item]
+
+    return 18.0
 
 @export
 def mass_xforms_batch_mmr2vmr_codon(
@@ -2266,6 +3064,34 @@ def photo_prep_stage_dispatch_codon(
     dels_p: cobj,
 ):
     return photo_prep_batch_codon(
+        stage,
+        pinterp,
+        calday,
+        n_exo_levs,
+        levs_p,
+        days_p,
+        ki_p,
+        next_p,
+        last_p,
+        delp_p,
+        dels_p,
+    )
+
+@export
+def photo_timestep_init_codon(
+    stage: int,
+    pinterp: float,
+    calday: float,
+    n_exo_levs: int,
+    levs_p: cobj,
+    days_p: cobj,
+    ki_p: cobj,
+    next_p: cobj,
+    last_p: cobj,
+    delp_p: cobj,
+    dels_p: cobj,
+):
+    return photo_prep_stage_dispatch_codon(
         stage,
         pinterp,
         calday,
@@ -3760,19 +4586,19 @@ def neu_wetdep_prepare_henry_shell_stage_dispatch_codon(
     )
 
 @export
-def neu_wetdep_dempirical_codon(
+def dempirical_codon(
     cwater: float,
     rrate: float,
     dempirical_p: cobj,
 ):
-    return _wetchem.neu_wetdep_dempirical_codon(
+    return _wetchem.dempirical_codon(
         cwater,
         rrate,
         dempirical_p,
     )
 
 @export
-def neu_wetdep_disgas_codon(
+def disgas_codon(
     clwx: float,
     cfx: float,
     molmass: float,
@@ -3783,7 +4609,7 @@ def neu_wetdep_disgas_codon(
     qt: float,
     qtdis_p: cobj,
 ):
-    return _wetchem.neu_wetdep_disgas_codon(
+    return _wetchem.disgas_codon(
         clwx,
         cfx,
         molmass,
@@ -3796,7 +4622,7 @@ def neu_wetdep_disgas_codon(
     )
 
 @export
-def neu_wetdep_raingas_codon(
+def raingas_codon(
     rrain: float,
     dtscav: float,
     clwx: float,
@@ -3806,7 +4632,7 @@ def neu_wetdep_raingas_codon(
     qtdis: float,
     qtrain_p: cobj,
 ):
-    return _wetchem.neu_wetdep_raingas_codon(
+    return _wetchem.raingas_codon(
         rrain,
         dtscav,
         clwx,
@@ -3846,7 +4672,7 @@ def neu_wetdep_washgas_codon(
     )
 
 @export
-def neu_wetdep_washo_codon(
+def washo_codon(
     lpar: int,
     ntrace: int,
     hno3_ndx: int,
@@ -3877,7 +4703,7 @@ def neu_wetdep_washo_codon(
     qtt_p: cobj,
     qttnew_p: cobj,
 ):
-    return _wetchem.neu_wetdep_washo_codon(
+    return _wetchem.washo_codon(
         lpar,
         ntrace,
         hno3_ndx,
@@ -5267,6 +6093,18 @@ def chem_timestep_init_should_run_codon(
     )
 
 @export
+def chem_timestep_init_codon(
+    nstep: int,
+    chem_freq: int,
+    chem_step_flag_p: cobj,
+):
+    return chem_timestep_init_should_run_codon(
+        nstep,
+        chem_freq,
+        chem_step_flag_p,
+    )
+
+@export
 def chem_timestep_tend_fill_cloud_fields_codon(
     ncol: int,
     pcols: int,
@@ -5474,6 +6312,28 @@ def rate_diags_batch_stage_dispatch_codon(
     rxt_tag_map_p: cobj,
 ):
     return rate_diags_batch_codon(
+        ncol,
+        pver,
+        rxntot,
+        rxt_tag_cnt,
+        rxt_rates_p,
+        vmr_p,
+        m_p,
+        rxt_tag_map_p,
+    )
+
+@export
+def rate_diags_calc_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    rxt_tag_cnt: int,
+    rxt_rates_p: cobj,
+    vmr_p: cobj,
+    m_p: cobj,
+    rxt_tag_map_p: cobj,
+):
+    return rate_diags_batch_stage_dispatch_codon(
         ncol,
         pver,
         rxntot,

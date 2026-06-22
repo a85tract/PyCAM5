@@ -42,12 +42,12 @@ contains
     character(len=3), target :: gas_wetdep_method_c
 
     interface
-       subroutine gas_wetdep_readnl_status_codon(pcnst_c, list_p, method_p, status_p) &
-            bind(c, name="gas_wetdep_readnl_status_codon")
+       subroutine gas_wetdep_readnl_codon(pcnst_c, list_p, method_p, status_p) &
+            bind(c, name="gas_wetdep_readnl_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: pcnst_c
          type(c_ptr), value :: list_p, method_p, status_p
-       end subroutine gas_wetdep_readnl_status_codon
+       end subroutine gas_wetdep_readnl_codon
     end interface
 
     namelist /wetdep_inparm/ gas_wetdep_list
@@ -74,7 +74,7 @@ contains
 
     gas_wetdep_method_c = gas_wetdep_method
     status_c(:) = 0_c_int64_t
-    call gas_wetdep_readnl_status_codon(int(pcnst, c_int64_t), c_loc(gas_wetdep_list), c_loc(gas_wetdep_method_c), &
+    call gas_wetdep_readnl_codon(int(pcnst, c_int64_t), c_loc(gas_wetdep_list), c_loc(gas_wetdep_method_c), &
          c_loc(status_c))
     call gas_wetdep_readnl_log_codon()
 

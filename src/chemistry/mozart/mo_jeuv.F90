@@ -36,11 +36,11 @@
 	       logical :: jeuv_init_proof_written = .false.
 
 	       interface
-	          function jeuv_init_active_codon(active) result(out_c) bind(c, name="jeuv_init_active_codon")
+	          function jeuv_init_codon(active) result(out_c) bind(c, name="jeuv_init_codon")
 	            import :: c_int64_t
 	            integer(c_int64_t), value :: active
 	            integer(c_int64_t) :: out_c
-	          end function jeuv_init_active_codon
+	          end function jeuv_init_codon
 	       end interface
 
 	       contains
@@ -89,7 +89,7 @@
 
 		        call chemistry_misc_codon_touch('mo_jeuv', 153)
 		        jeuv_1_ndx = get_rxt_ndx( 'jeuv_1' )
-		        active_c = jeuv_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, jeuv_1_ndx > 0))
+		        active_c = jeuv_init_codon(merge(1_c_int64_t, 0_c_int64_t, jeuv_1_ndx > 0))
 	        if (.not. jeuv_init_proof_written) then
 	           jeuv_init_proof_written = .true.
 	           if (masterproc) then

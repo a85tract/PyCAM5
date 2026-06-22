@@ -217,6 +217,18 @@
       real(r8) :: e21, e22
 
 	      integer :: op_ndx,o2p_ndx,np_ndx,n2p_ndx,e_ndx
+      integer(c_int64_t) :: active_c
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+
+      interface
+         function aurora_inti_codon(active) result(out_c) bind(c, name="aurora_inti_codon")
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t), value :: active
+            integer(c_int64_t) :: out_c
+         end function aurora_inti_codon
+      end interface
 
 	      call chemistry_misc_codon_touch('mo_aurora', 145)
 	      op_ndx   = get_spc_ndx( 'Op' )
@@ -226,6 +238,31 @@
       e_ndx    = get_spc_ndx( 'e' )
 
       has_ions = op_ndx > 0 .and. o2p_ndx > 0 .and. np_ndx > 0 .and. n2p_ndx > 0 .and. e_ndx > 0
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('AURORA_INTI_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         active_c = aurora_inti_codon(merge(1_c_int64_t, 0_c_int64_t, has_ions))
+         if (active_c == 0_c_int64_t) then
+            if (masterproc) then
+               write(iulog,'(A)') 'aurora_inti direct = codon no-ions no-op'
+               call flush(iulog)
+            end if
+            return
+         end if
+      end if
 
       if (.not. has_ions) return
 

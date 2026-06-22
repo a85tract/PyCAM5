@@ -9,6 +9,7 @@ module mo_mass_xforms
   save
 
   real(r8) :: adv_mass_h2o = 18._r8
+  logical :: init_mass_xforms_logged = .false.
   logical :: mmr2vmr_use_native_impl = .false.
   logical :: mmr2vmr_impl_selected = .false.
   logical :: vmr2mmr_use_native_impl = .false.
@@ -95,23 +96,74 @@ contains
   end subroutine mass_xforms_batch_log_entered
 
   subroutine init_mass_xforms
-    use mo_chem_utls, only : get_spc_ndx
-    use chem_mods,    only : adv_mass
-    use mo_util,      only : chemistry_misc_codon_touch
+    use mo_chem_utls,   only : get_spc_ndx
+    use chem_mods,      only : adv_mass, gas_pcnst
+    use mo_tracname,    only : tracnam => solsym
+    use cam_logfile,    only : iulog
+    use spmd_utils,     only : masterproc
+    use iso_c_binding,  only : c_double, c_int64_t, c_loc, c_ptr
 
     implicit none
 
     integer  :: id_h2o
+    integer  :: i, m, status, n, code
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+    integer(c_int64_t), allocatable, target :: tracnam_ascii(:,:)
+    real(r8), target :: adv_mass_local(gas_pcnst)
+    real(c_double) :: adv_mass_h2o_c
 
-    call chemistry_misc_codon_touch('init_mass_xforms', 173)
+    interface
+       function init_mass_xforms_codon(list_len_c, list_ascii_p, list_count_c, adv_mass_p) result(adv_mass_h2o_c) &
+            bind(c, name="init_mass_xforms_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: list_len_c, list_count_c
+         type(c_ptr), value :: list_ascii_p, adv_mass_p
+         real(c_double) :: adv_mass_h2o_c
+       end function init_mass_xforms_codon
+    end interface
 
-    id_h2o = get_spc_ndx('H2O')
-
-    if ( id_h2o > 0 ) then
-       adv_mass_h2o = adv_mass(id_h2o)
+    impl_name = 'codon'
+    call cam_codon_get_impl('INIT_MASS_XFORMS_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
     else
-       adv_mass_h2o = 18._r8
-    endif
+       use_native_impl = .false.
+    end if
+
+    if (use_native_impl) then
+       id_h2o = get_spc_ndx('H2O')
+
+       if ( id_h2o > 0 ) then
+          adv_mass_h2o = adv_mass(id_h2o)
+       else
+          adv_mass_h2o = 18._r8
+       endif
+       return
+    end if
+
+    allocate(tracnam_ascii(len(tracnam), max(1, gas_pcnst)))
+    do m = 1, gas_pcnst
+       do i = 1, len(tracnam)
+          tracnam_ascii(i,m) = int(iachar(tracnam(m)(i:i)), c_int64_t)
+       end do
+    end do
+    adv_mass_local(:) = adv_mass(:)
+
+    adv_mass_h2o_c = init_mass_xforms_codon( &
+         int(len(tracnam), c_int64_t), c_loc(tracnam_ascii(1,1)), int(gas_pcnst, c_int64_t), c_loc(adv_mass_local(1)) &
+    )
+    adv_mass_h2o = real(adv_mass_h2o_c, r8)
+
+    if (masterproc .and. .not. init_mass_xforms_logged) then
+       write(iulog,'(A)') 'init_mass_xforms direct = codon'
+       call flush(iulog)
+       init_mass_xforms_logged = .true.
+    end if
 
   endsubroutine init_mass_xforms
 
@@ -121,6 +173,8 @@ contains
     !-----------------------------------------------------------------
 
     use chem_mods, only : adv_mass, gas_pcnst
+    use cam_logfile, only : iulog
+    use spmd_utils,  only : masterproc
     use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
@@ -138,6 +192,7 @@ contains
     !-----------------------------------------------------------------
     integer :: k, m
     real(r8), target :: adv_mass_local(gas_pcnst)
+    logical, save :: mmr2vmr_direct_logged = .false.
 
     interface
        subroutine mass_xforms_batch_mmr2vmr_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, mbar_p, mmr_p, adv_mass_p, vmr_p) &
@@ -162,6 +217,13 @@ contains
     end if
 
     adv_mass_local(:) = adv_mass(:)
+
+    if (masterproc .and. .not. mmr2vmr_direct_logged) then
+       write(iulog,'(A)') 'mmr2vmr direct = codon'
+       call flush(iulog)
+       call mass_xforms_batch_append_proof('mmr2vmr direct = codon')
+       mmr2vmr_direct_logged = .true.
+    end if
 
     call mass_xforms_batch_log_entered()
     call mass_xforms_batch_mmr2vmr_codon( &
@@ -226,20 +288,20 @@ contains
     real(r8), target :: adv_mass_local(gas_pcnst)
 
     interface
-       subroutine mass_xforms_batch_vmr2mmr_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, mbar_p, vmr_p, adv_mass_p, mmr_p) &
-            bind(c, name="mass_xforms_batch_vmr2mmr_codon")
+       subroutine vmr2mmr_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, mbar_p, vmr_p, adv_mass_p, mmr_p) &
+            bind(c, name="vmr2mmr_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c
          type(c_ptr), value :: mbar_p, vmr_p, adv_mass_p, mmr_p
-       end subroutine mass_xforms_batch_vmr2mmr_codon
+       end subroutine vmr2mmr_codon
     end interface
 
-    call mass_xforms_batch_select_impl()
+    call vmr2mmr_select_impl()
 
     !-----------------------------------------------------------------
     !	... The non-group species
     !-----------------------------------------------------------------
-    if (mass_xforms_batch_use_native_impl) then
+    if (vmr2mmr_use_native_impl) then
        do m = 1,gas_pcnst
           if( adv_mass(m) /= 0._r8 ) then
              do k = 1,pver
@@ -252,8 +314,8 @@ contains
 
     adv_mass_local(:) = adv_mass(:)
 
-    call mass_xforms_batch_log_entered()
-    call mass_xforms_batch_vmr2mmr_codon( &
+    call mass_xforms_batch_append_proof('vmr2mmr direct = codon')
+    call vmr2mmr_codon( &
          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
          c_loc(mbar), c_loc(vmr), c_loc(adv_mass_local), c_loc(mmr) &
     )
@@ -317,26 +379,26 @@ contains
     integer ::   k
 
     interface
-       subroutine mass_xforms_batch_h2o_to_vmr_codon(ncol_c, pcols_c, pver_c, adv_mass_h2o_c, h2o_mmr_p, mbar_p, h2o_vmr_p) &
-            bind(c, name="mass_xforms_batch_h2o_to_vmr_codon")
+       subroutine h2o_to_vmr_codon(ncol_c, pcols_c, pver_c, adv_mass_h2o_c, h2o_mmr_p, mbar_p, h2o_vmr_p) &
+            bind(c, name="h2o_to_vmr_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
          real(c_double), value :: adv_mass_h2o_c
          type(c_ptr), value :: h2o_mmr_p, mbar_p, h2o_vmr_p
-       end subroutine mass_xforms_batch_h2o_to_vmr_codon
+       end subroutine h2o_to_vmr_codon
     end interface
 
-    call mass_xforms_batch_select_impl()
+    call h2o_to_vmr_select_impl()
 
-    if (mass_xforms_batch_use_native_impl) then
+    if (h2o_to_vmr_use_native_impl) then
        do k = 1,pver
           h2o_vmr(:ncol,k) = mbar(:ncol,k) * h2o_mmr(:ncol,k) / adv_mass_h2o
        end do
        return
     end if
 
-    call mass_xforms_batch_log_entered()
-    call mass_xforms_batch_h2o_to_vmr_codon( &
+    call mass_xforms_batch_append_proof('h2o_to_vmr direct = codon')
+    call h2o_to_vmr_codon( &
          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(adv_mass_h2o, c_double), &
          c_loc(h2o_mmr), c_loc(mbar), c_loc(h2o_vmr) &
     )

@@ -27,10 +27,10 @@ contains
     logical :: use_native_impl
 
     interface
-       subroutine init_mean_mass_ids_codon(lookup_ids_p, species_ids_p) bind(c, name="init_mean_mass_ids_codon")
+       subroutine init_mean_mass_codon(lookup_ids_p, species_ids_p) bind(c, name="init_mean_mass_codon")
          use iso_c_binding, only : c_ptr
          type(c_ptr), value :: lookup_ids_p, species_ids_p
-       end subroutine init_mean_mass_ids_codon
+       end subroutine init_mean_mass_codon
     end interface
 
     impl_name = 'codon'
@@ -63,7 +63,7 @@ contains
        lookup_ids(4) = int(get_spc_ndx('N'), c_int64_t)
        species_ids(:) = 0_c_int64_t
 
-       call init_mean_mass_ids_codon(c_loc(lookup_ids), c_loc(species_ids))
+       call init_mean_mass_codon(c_loc(lookup_ids), c_loc(species_ids))
        call init_mean_mass_log_codon()
 
        id_o2 = int(species_ids(1))

@@ -70,20 +70,20 @@ contains
     integer(c_int64_t) :: active_c
 
     interface
-       function lightning_inti_active_codon(no_ndx_c, xno_ndx_c) result(active) &
-            bind(c, name="lightning_inti_active_codon")
+       function lightning_inti_codon(no_ndx_c, xno_ndx_c) result(active) &
+            bind(c, name="lightning_inti_codon")
          use iso_c_binding, only : c_int64_t
          integer(c_int64_t), value :: no_ndx_c, xno_ndx_c
          integer(c_int64_t) :: active
-       end function lightning_inti_active_codon
+       end function lightning_inti_codon
     end interface
 
     no_ndx = get_spc_ndx('NO')
     xno_ndx = get_spc_ndx('XNO')
 
-    active_c = lightning_inti_active_codon(int(no_ndx, c_int64_t), int(xno_ndx, c_int64_t))
+    active_c = lightning_inti_codon(int(no_ndx, c_int64_t), int(xno_ndx, c_int64_t))
     if (active_c /= 0_c_int64_t .and. active_c /= 1_c_int64_t) then
-       call endrun('lightning_inti_active_codon: unexpected return value')
+       call endrun('lightning_inti_codon: unexpected return value')
     end if
     has_no_lightning_prod = active_c == 1_c_int64_t
     if (masterproc) then
@@ -180,11 +180,11 @@ contains
     real(r8), target :: wght(pcols)
 
     interface
-       subroutine lightning_no_prod_phase1_codon(ncol_c, pcols_c, pver_c, &
+       subroutine lightning_no_prod_codon(ncol_c, pcols_c, pver_c, &
             rga_c, rearth_c, geo_factor_c, factor_c, phis_p, zm_p, zi_p, t_p, &
             cldtop_p, cldbot_p, landfrac_p, ocnfrac_p, wght_p, flash_freq_p, &
             glob_prod_no_col_p, prod_no_col_p, cldhgt_p, dchgzone_p, cgic_p, &
-            flash_energy_p, status_p) bind(c, name="lightning_no_prod_phase1_codon")
+            flash_energy_p, status_p) bind(c, name="lightning_no_prod_codon")
          use iso_c_binding, only : c_int64_t, c_double, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
          real(c_double), value :: rga_c, rearth_c, geo_factor_c, factor_c
@@ -192,7 +192,7 @@ contains
          type(c_ptr), value :: cldtop_p, cldbot_p, landfrac_p, ocnfrac_p, wght_p
          type(c_ptr), value :: flash_freq_p, glob_prod_no_col_p, prod_no_col_p
          type(c_ptr), value :: cldhgt_p, dchgzone_p, cgic_p, flash_energy_p, status_p
-       end subroutine lightning_no_prod_phase1_codon
+       end subroutine lightning_no_prod_codon
 
        subroutine lightning_no_prod_phase2_codon(ncol_c, pcols_c, pver_c, rga_c, lat25_c, &
             phis_p, zi_p, cldtop_p, landfrac_p, rlats_p, vdist_p, prod_no_col_p, &
@@ -235,7 +235,7 @@ contains
        call get_rlat_all_p(c, ncol, rlats(1,c))
        call get_wght_all_p(c, ncol, wght)
 
-       call lightning_no_prod_phase1_codon( &
+       call lightning_no_prod_codon( &
             int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
             real(rga, c_double), real(rearth, c_double), real(geo_factor, c_double), real(factor, c_double), &
             c_loc(state(c)%phis(1)), c_loc(state(c)%zm(1,1)), c_loc(state(c)%zi(1,1)), c_loc(state(c)%t(1,1)), &

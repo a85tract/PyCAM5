@@ -63,6 +63,7 @@ module mo_flbc
 
   logical, parameter :: debug = .false.
   logical :: flbc_chk_logged = .false.
+  logical :: flbc_set_logged = .false.
 
   interface
      function flbc_chk_codon(active_c) result(out_c) bind(c, name="flbc_chk_codon")
@@ -70,6 +71,11 @@ module mo_flbc
        integer(c_int64_t), value :: active_c
        integer(c_int64_t) :: out_c
      end function flbc_chk_codon
+     function flbc_set_codon(flbc_cnt_c) result(out_c) bind(c, name="flbc_set_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: flbc_cnt_c
+       integer(c_int64_t) :: out_c
+     end function flbc_set_codon
   end interface
 
 contains
@@ -695,6 +701,19 @@ contains
     integer  :: m, n
     integer  :: last, next
     real(r8) :: dels
+    integer(c_int64_t) :: flbc_noop
+
+    if (.not. mo_flbc_use_native('FLBC_SET_IMPL')) then
+       flbc_noop = flbc_set_codon(int(flbc_cnt, c_int64_t))
+       if (flbc_noop == 1_c_int64_t) then
+          if (masterproc .and. .not. flbc_set_logged) then
+             write(iulog,'(A)') 'flbc_set direct = codon no-flbc no-op'
+             flbc_set_logged = .true.
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if( flbc_cnt < 1 ) then
        return

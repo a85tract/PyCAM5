@@ -230,6 +230,26 @@ end subroutine prescribed_ghg_readnl
     implicit none
 
     integer :: ndx, istat, i
+    integer(c_int64_t) :: active_c
+
+    interface
+       function prescribed_ghg_init_codon(active) result(out_c) bind(c, name="prescribed_ghg_init_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function prescribed_ghg_init_codon
+    end interface
+
+    if (.not. prescribed_ghg_use_native('PRESCRIBED_GHG_INIT_IMPL')) then
+       active_c = prescribed_ghg_init_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_ghg))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'prescribed_ghg_init direct = codon no-prescribed-ghg no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
     
     if ( has_prescribed_ghg ) then
        if ( masterproc ) then

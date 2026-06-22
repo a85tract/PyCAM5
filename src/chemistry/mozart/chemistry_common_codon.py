@@ -33,6 +33,174 @@ def _flux_idx(i: int, m: int, pcols: int) -> int:
 def chemistry_misc_touch_codon(tag: int) -> int:
     return tag
 
+@inline
+def _copy_i64_chars(n: int, src: Ptr[int], dst: Ptr[int]):
+    for i in range(n):
+        dst[i] = src[i]
+
+@inline
+def _trimmed_i64_len(n: int, text: Ptr[int]) -> int:
+    trimmed = n
+    while trimmed > 0 and (text[trimmed - 1] == 32 or text[trimmed - 1] == 0):
+        trimmed -= 1
+    return trimmed
+
+def prescribed_field_readnl_codon(
+    name_len: int,
+    name_p: cobj,
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    name_out_p: cobj,
+    file_out_p: cobj,
+    filelist_out_p: cobj,
+    datapath_out_p: cobj,
+    type_out_p: cobj,
+    scalar_out_p: cobj,
+):
+    name = Ptr[int](name_p)
+    filename = Ptr[int](file_p)
+    filelist = Ptr[int](filelist_p)
+    datapath = Ptr[int](datapath_p)
+    data_type = Ptr[int](type_p)
+    name_out = Ptr[int](name_out_p)
+    filename_out = Ptr[int](file_out_p)
+    filelist_out = Ptr[int](filelist_out_p)
+    datapath_out = Ptr[int](datapath_out_p)
+    data_type_out = Ptr[int](type_out_p)
+    scalar_out = Ptr[int](scalar_out_p)
+
+    _copy_i64_chars(name_len, name, name_out)
+    _copy_i64_chars(file_len, filename, filename_out)
+    _copy_i64_chars(filelist_len, filelist, filelist_out)
+    _copy_i64_chars(datapath_len, datapath, datapath_out)
+    _copy_i64_chars(type_len, data_type, data_type_out)
+
+    scalar_out[0] = 1 if rmfile != 0 else 0
+    scalar_out[1] = cycle_yr
+    scalar_out[2] = fixed_ymd
+    scalar_out[3] = fixed_tod
+    scalar_out[4] = 1 if _trimmed_i64_len(file_len, filename) > 0 else 0
+
+def tracer_defaultopts_codon(
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    specifier_len: int,
+    specifier_count: int,
+    specifier_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    present_file: int,
+    file_out_p: cobj,
+    present_filelist: int,
+    filelist_out_p: cobj,
+    present_datapath: int,
+    datapath_out_p: cobj,
+    present_type: int,
+    type_out_p: cobj,
+    present_specifier: int,
+    specifier_out_p: cobj,
+    present_rmfile: int,
+    present_cycle_yr: int,
+    present_fixed_ymd: int,
+    present_fixed_tod: int,
+    scalar_out_p: cobj,
+):
+    if present_file != 0:
+        _copy_i64_chars(file_len, Ptr[int](file_p), Ptr[int](file_out_p))
+
+    if present_filelist != 0:
+        _copy_i64_chars(filelist_len, Ptr[int](filelist_p), Ptr[int](filelist_out_p))
+
+    if present_datapath != 0:
+        _copy_i64_chars(datapath_len, Ptr[int](datapath_p), Ptr[int](datapath_out_p))
+
+    if present_type != 0:
+        _copy_i64_chars(type_len, Ptr[int](type_p), Ptr[int](type_out_p))
+
+    if present_specifier != 0:
+        specifier = Ptr[int](specifier_p)
+        specifier_out = Ptr[int](specifier_out_p)
+        total = specifier_len * specifier_count
+        for i in range(total):
+            specifier_out[i] = specifier[i]
+
+    scalar_out = Ptr[int](scalar_out_p)
+    if present_rmfile != 0:
+        scalar_out[0] = 1 if rmfile != 0 else 0
+    if present_cycle_yr != 0:
+        scalar_out[1] = cycle_yr
+    if present_fixed_ymd != 0:
+        scalar_out[2] = fixed_ymd
+    if present_fixed_tod != 0:
+        scalar_out[3] = fixed_tod
+
+def linoz_defaultopts_codon(
+    file_len: int,
+    file_p: cobj,
+    filelist_len: int,
+    filelist_p: cobj,
+    datapath_len: int,
+    datapath_p: cobj,
+    type_len: int,
+    type_p: cobj,
+    rmfile: int,
+    cycle_yr: int,
+    fixed_ymd: int,
+    fixed_tod: int,
+    present_file: int,
+    file_out_p: cobj,
+    present_filelist: int,
+    filelist_out_p: cobj,
+    present_datapath: int,
+    datapath_out_p: cobj,
+    present_type: int,
+    type_out_p: cobj,
+    present_rmfile: int,
+    present_cycle_yr: int,
+    present_fixed_ymd: int,
+    present_fixed_tod: int,
+    scalar_out_p: cobj,
+):
+    if present_file != 0:
+        _copy_i64_chars(file_len, Ptr[int](file_p), Ptr[int](file_out_p))
+
+    if present_filelist != 0:
+        _copy_i64_chars(filelist_len, Ptr[int](filelist_p), Ptr[int](filelist_out_p))
+
+    if present_datapath != 0:
+        _copy_i64_chars(datapath_len, Ptr[int](datapath_p), Ptr[int](datapath_out_p))
+
+    if present_type != 0:
+        _copy_i64_chars(type_len, Ptr[int](type_p), Ptr[int](type_out_p))
+
+    scalar_out = Ptr[int](scalar_out_p)
+    if present_rmfile != 0:
+        scalar_out[0] = 1 if rmfile != 0 else 0
+    if present_cycle_yr != 0:
+        scalar_out[1] = cycle_yr
+    if present_fixed_ymd != 0:
+        scalar_out[2] = fixed_ymd
+    if present_fixed_tod != 0:
+        scalar_out[3] = fixed_tod
+
 def spedata_defaultopts_codon(
     spe_data_file_len: int,
     spe_data_file_p: cobj,

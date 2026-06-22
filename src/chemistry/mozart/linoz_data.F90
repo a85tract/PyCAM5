@@ -129,7 +129,9 @@ contains
        linoz_data_cycle_yr_in,  &
        linoz_data_fixed_ymd_in, &
        linoz_data_fixed_tod_in  &
-       )
+        )
+
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -141,7 +143,16 @@ contains
     integer,          intent(in), optional :: linoz_data_cycle_yr_in
     integer,          intent(in), optional :: linoz_data_fixed_ymd_in
     integer,          intent(in), optional :: linoz_data_fixed_tod_in
+    integer(c_int64_t) :: codon_entry
 
+    interface
+       function linoz_data_setopts_codon() result(out_c) bind(c, name="linoz_data_setopts_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function linoz_data_setopts_codon
+    end interface
+
+    codon_entry = linoz_data_setopts_codon()
     call chemistry_misc_codon_touch('linoz_data_setopts', 183)
     call chemistry_misc_codon_touch('linoz_data', 120)
 
@@ -187,6 +198,8 @@ contains
        linoz_data_fixed_tod_out &
        ) 
 
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
     implicit none
 
     character(len=*), intent(out), optional :: linoz_data_file_out
@@ -197,6 +210,119 @@ contains
     integer,          intent(out), optional :: linoz_data_cycle_yr_out
     integer,          intent(out), optional :: linoz_data_fixed_ymd_out
     integer,          intent(out), optional :: linoz_data_fixed_tod_out
+    integer :: i, status, n, code
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+    logical, save :: linoz_data_defaultopts_logged = .false.
+    integer(c_int64_t), target :: filename_ascii(len(filename))
+    integer(c_int64_t), target :: filelist_ascii(len(filelist))
+    integer(c_int64_t), target :: datapath_ascii(len(datapath))
+    integer(c_int64_t), target :: datatype_ascii(len(datatype))
+    integer(c_int64_t), target :: filename_out_ascii(len(filename))
+    integer(c_int64_t), target :: filelist_out_ascii(len(filelist))
+    integer(c_int64_t), target :: datapath_out_ascii(len(datapath))
+    integer(c_int64_t), target :: datatype_out_ascii(len(datatype))
+    integer(c_int64_t), target :: scalar_out(4)
+
+    interface
+       subroutine linoz_data_defaultopts_codon(file_len_c, file_p, filelist_len_c, filelist_p, &
+            datapath_len_c, datapath_p, type_len_c, type_p, rmfile_c, cycle_yr_c, fixed_ymd_c, &
+            fixed_tod_c, present_file_c, file_out_p, present_filelist_c, filelist_out_p, &
+            present_datapath_c, datapath_out_p, present_type_c, type_out_p, present_rmfile_c, &
+            present_cycle_yr_c, present_fixed_ymd_c, present_fixed_tod_c, scalar_out_p) &
+            bind(c, name="linoz_data_defaultopts_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: file_len_c, filelist_len_c, datapath_len_c, type_len_c
+         integer(c_int64_t), value :: rmfile_c, cycle_yr_c, fixed_ymd_c, fixed_tod_c
+         integer(c_int64_t), value :: present_file_c, present_filelist_c, present_datapath_c
+         integer(c_int64_t), value :: present_type_c, present_rmfile_c, present_cycle_yr_c
+         integer(c_int64_t), value :: present_fixed_ymd_c, present_fixed_tod_c
+         type(c_ptr), value :: file_p, filelist_p, datapath_p, type_p
+         type(c_ptr), value :: file_out_p, filelist_out_p, datapath_out_p, type_out_p, scalar_out_p
+       end subroutine linoz_data_defaultopts_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('LINOZ_DATA_DEFAULTOPTS_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       do i = 1, len(filename)
+          filename_ascii(i) = int(iachar(filename(i:i)), c_int64_t)
+          filelist_ascii(i) = int(iachar(filelist(i:i)), c_int64_t)
+          datapath_ascii(i) = int(iachar(datapath(i:i)), c_int64_t)
+       end do
+       do i = 1, len(datatype)
+          datatype_ascii(i) = int(iachar(datatype(i:i)), c_int64_t)
+       end do
+
+       filename_out_ascii(:) = 32_c_int64_t
+       filelist_out_ascii(:) = 32_c_int64_t
+       datapath_out_ascii(:) = 32_c_int64_t
+       datatype_out_ascii(:) = 32_c_int64_t
+       scalar_out(:) = 0_c_int64_t
+
+       call linoz_data_defaultopts_codon( &
+            int(len(filename), c_int64_t), c_loc(filename_ascii(1)), &
+            int(len(filelist), c_int64_t), c_loc(filelist_ascii(1)), &
+            int(len(datapath), c_int64_t), c_loc(datapath_ascii(1)), &
+            int(len(datatype), c_int64_t), c_loc(datatype_ascii(1)), &
+            merge(1_c_int64_t, 0_c_int64_t, rmv_file), int(cycle_yr, c_int64_t), &
+            int(fixed_ymd, c_int64_t), int(fixed_tod, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_file_out)), c_loc(filename_out_ascii(1)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_filelist_out)), c_loc(filelist_out_ascii(1)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_path_out)), c_loc(datapath_out_ascii(1)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_type_out)), c_loc(datatype_out_ascii(1)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_rmfile_out)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_cycle_yr_out)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_fixed_ymd_out)), &
+            merge(1_c_int64_t, 0_c_int64_t, present(linoz_data_fixed_tod_out)), c_loc(scalar_out(1)) &
+       )
+
+       if ( present(linoz_data_file_out) ) then
+          linoz_data_file_out = ' '
+          do i = 1, min(len(linoz_data_file_out), len(filename))
+             linoz_data_file_out(i:i) = achar(int(filename_out_ascii(i)))
+          end do
+       end if
+       if ( present(linoz_data_filelist_out) ) then
+          linoz_data_filelist_out = ' '
+          do i = 1, min(len(linoz_data_filelist_out), len(filelist))
+             linoz_data_filelist_out(i:i) = achar(int(filelist_out_ascii(i)))
+          end do
+       end if
+       if ( present(linoz_data_path_out) ) then
+          linoz_data_path_out = ' '
+          do i = 1, min(len(linoz_data_path_out), len(datapath))
+             linoz_data_path_out(i:i) = achar(int(datapath_out_ascii(i)))
+          end do
+       end if
+       if ( present(linoz_data_type_out) ) then
+          linoz_data_type_out = ' '
+          do i = 1, min(len(linoz_data_type_out), len(datatype))
+             linoz_data_type_out(i:i) = achar(int(datatype_out_ascii(i)))
+          end do
+       end if
+       if ( present(linoz_data_rmfile_out) ) linoz_data_rmfile_out = scalar_out(1) /= 0_c_int64_t
+       if ( present(linoz_data_cycle_yr_out) ) linoz_data_cycle_yr_out = int(scalar_out(2))
+       if ( present(linoz_data_fixed_ymd_out) ) linoz_data_fixed_ymd_out = int(scalar_out(3))
+       if ( present(linoz_data_fixed_tod_out) ) linoz_data_fixed_tod_out = int(scalar_out(4))
+
+       if (masterproc .and. .not. linoz_data_defaultopts_logged) then
+          write(iulog,'(A)') 'linoz_data_defaultopts implementation = codon'
+          linoz_data_defaultopts_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     if ( present(linoz_data_file_out) ) then
        linoz_data_file_out = filename
@@ -237,6 +363,7 @@ contains
     use cam_history,  only : outfld
     use physconst,    only : boltz                ! J/K/molecule
     use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -245,8 +372,42 @@ contains
     type(physics_state), intent(in):: state(begchunk:endchunk)                 
 
   ! local vars
-    integer :: ind,c,ncol,i
+    integer :: ind,c,ncol,i,status,n,code
+    integer(c_int64_t) :: active_c
     real(r8) :: to_mmr(pcols,pver)
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+
+    interface
+       function linoz_data_adv_codon(active) result(out_c) bind(c, name="linoz_data_adv_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function linoz_data_adv_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('LINOZ_DATA_ADV_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = linoz_data_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_linoz_data))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'linoz_data_adv direct = codon no-linoz-data no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if( .not. has_linoz_data ) return
 
@@ -268,9 +429,19 @@ contains
   subroutine init_linoz_data_restart( piofile )
     use pio, only : file_desc_t
     use tracer_data, only : init_trc_restart
+    use iso_c_binding, only : c_int64_t
     implicit none
     type(file_desc_t),intent(inout) :: piofile     ! pio File pointer
+    integer(c_int64_t) :: codon_entry
 
+    interface
+       function init_linoz_data_restart_codon() result(out_c) bind(c, name="init_linoz_data_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function init_linoz_data_restart_codon
+    end interface
+
+    codon_entry = init_linoz_data_restart_codon()
     call chemistry_misc_codon_touch('init_linoz_data_restart', 401)
     call init_trc_restart( 'linoz_data', piofile, file )
 
@@ -279,10 +450,20 @@ contains
   subroutine write_linoz_data_restart( PioFile )
     use tracer_data, only : write_trc_restart
     use pio, only : file_desc_t
+    use iso_c_binding, only : c_int64_t
     implicit none
 
     type(file_desc_T) :: piofile
+    integer(c_int64_t) :: codon_entry
 
+    interface
+       function write_linoz_data_restart_codon() result(out_c) bind(c, name="write_linoz_data_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t) :: out_c
+       end function write_linoz_data_restart_codon
+    end interface
+
+    codon_entry = write_linoz_data_restart_codon()
     call chemistry_misc_codon_touch('write_linoz_data_restart', 402)
     call write_trc_restart( piofile, file )
 

@@ -5,7 +5,7 @@
 module prescribed_ozone
 
   use shr_kind_mod,     only : r8 => shr_kind_r8
-  use iso_c_binding,    only : c_int64_t
+  use iso_c_binding,    only : c_int64_t, c_loc, c_ptr
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
@@ -56,6 +56,18 @@ module prescribed_ozone
        integer(c_int64_t), value :: stage_c
        integer(c_int64_t) :: out_c
      end function write_prescribed_ozone_restart_codon
+     subroutine prescribed_ozone_readnl_codon(name_len_c, name_p, file_len_c, file_p, &
+          filelist_len_c, filelist_p, datapath_len_c, datapath_p, type_len_c, type_p, &
+          rmfile_c, cycle_yr_c, fixed_ymd_c, fixed_tod_c, name_out_p, file_out_p, &
+          filelist_out_p, datapath_out_p, type_out_p, scalar_out_p) &
+          bind(c, name="prescribed_ozone_readnl_codon")
+       import :: c_int64_t, c_ptr
+       integer(c_int64_t), value :: name_len_c, file_len_c, filelist_len_c, datapath_len_c, type_len_c
+       integer(c_int64_t), value :: rmfile_c, cycle_yr_c, fixed_ymd_c, fixed_tod_c
+       type(c_ptr), value :: name_p, file_p, filelist_p, datapath_p, type_p
+       type(c_ptr), value :: name_out_p, file_out_p, filelist_out_p, datapath_out_p, type_out_p
+       type(c_ptr), value :: scalar_out_p
+     end subroutine prescribed_ozone_readnl_codon
   end interface
 
 contains
@@ -121,7 +133,27 @@ end function prescribed_ozone_use_native
 
     integer :: ndx, istat
     character(len=32) :: specifier(1)
+    integer(c_int64_t) :: active_c
+
+    interface
+       function prescribed_ozone_init_codon(active) result(out_c) bind(c, name="prescribed_ozone_init_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function prescribed_ozone_init_codon
+    end interface
     
+    if (.not. prescribed_ozone_use_native('PRESCRIBED_OZONE_INIT_IMPL')) then
+       active_c = prescribed_ozone_init_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_ozone))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'prescribed_ozone_init direct = codon no-prescribed-ozone no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
+
     if ( has_prescribed_ozone ) then
        if ( masterproc ) then
           write(iulog,*) 'ozone is prescribed in :'//trim(filename)
@@ -166,6 +198,11 @@ subroutine prescribed_ozone_readnl(nlfile)
    integer            :: prescribed_ozone_cycle_yr
    integer            :: prescribed_ozone_fixed_ymd
    integer            :: prescribed_ozone_fixed_tod
+   integer(c_int64_t), target :: name_ascii(16), filename_ascii(256)
+   integer(c_int64_t), target :: filelist_ascii(256), datapath_ascii(256), type_ascii(32)
+   integer(c_int64_t), target :: name_out_ascii(16), filename_out_ascii(256)
+   integer(c_int64_t), target :: filelist_out_ascii(256), datapath_out_ascii(256), type_out_ascii(32)
+   integer(c_int64_t), target :: scalar_out(5)
 
    namelist /prescribed_ozone_nl/ &
       prescribed_ozone_name,      &
@@ -178,8 +215,6 @@ subroutine prescribed_ozone_readnl(nlfile)
       prescribed_ozone_fixed_ymd, &
       prescribed_ozone_fixed_tod      
    !-----------------------------------------------------------------------------
-
-   call chemistry_misc_codon_touch('prescribed_ozone_readnl', 111)
 
    ! Initialize namelist variables from local module variables.
    prescribed_ozone_name     = fld_name
@@ -220,6 +255,44 @@ subroutine prescribed_ozone_readnl(nlfile)
    call mpibcast(prescribed_ozone_fixed_tod,1, mpiint,  0, mpicom)
 #endif
 
+   if (.not. prescribed_ozone_use_native('PRESCRIBED_OZONE_READNL_IMPL')) then
+      call prescribed_ozone_pack_char(prescribed_ozone_name, name_ascii)
+      call prescribed_ozone_pack_char(prescribed_ozone_file, filename_ascii)
+      call prescribed_ozone_pack_char(prescribed_ozone_filelist, filelist_ascii)
+      call prescribed_ozone_pack_char(prescribed_ozone_datapath, datapath_ascii)
+      call prescribed_ozone_pack_char(prescribed_ozone_type, type_ascii)
+
+      call prescribed_ozone_readnl_codon( &
+           int(len(prescribed_ozone_name), c_int64_t), c_loc(name_ascii(1)), &
+           int(len(prescribed_ozone_file), c_int64_t), c_loc(filename_ascii(1)), &
+           int(len(prescribed_ozone_filelist), c_int64_t), c_loc(filelist_ascii(1)), &
+           int(len(prescribed_ozone_datapath), c_int64_t), c_loc(datapath_ascii(1)), &
+           int(len(prescribed_ozone_type), c_int64_t), c_loc(type_ascii(1)), &
+           merge(1_c_int64_t, 0_c_int64_t, prescribed_ozone_rmfile), &
+           int(prescribed_ozone_cycle_yr, c_int64_t), int(prescribed_ozone_fixed_ymd, c_int64_t), &
+           int(prescribed_ozone_fixed_tod, c_int64_t), c_loc(name_out_ascii(1)), &
+           c_loc(filename_out_ascii(1)), c_loc(filelist_out_ascii(1)), c_loc(datapath_out_ascii(1)), &
+           c_loc(type_out_ascii(1)), c_loc(scalar_out(1)) &
+      )
+
+      call prescribed_ozone_unpack_char(name_out_ascii, fld_name)
+      call prescribed_ozone_unpack_char(filename_out_ascii, filename)
+      call prescribed_ozone_unpack_char(filelist_out_ascii, filelist)
+      call prescribed_ozone_unpack_char(datapath_out_ascii, datapath)
+      call prescribed_ozone_unpack_char(type_out_ascii, data_type)
+      rmv_file = scalar_out(1) /= 0_c_int64_t
+      cycle_yr = int(scalar_out(2))
+      fixed_ymd = int(scalar_out(3))
+      fixed_tod = int(scalar_out(4))
+      has_prescribed_ozone = scalar_out(5) /= 0_c_int64_t
+
+      if (masterproc) then
+         write(iulog,'(A)') 'prescribed_ozone_readnl implementation = codon'
+         call flush(iulog)
+      end if
+      return
+   end if
+
    ! Update module variables with user settings.
    fld_name   = prescribed_ozone_name
    filename   = prescribed_ozone_file
@@ -235,6 +308,26 @@ subroutine prescribed_ozone_readnl(nlfile)
    if (len_trim(filename) > 0 ) has_prescribed_ozone = .true.
 
 end subroutine prescribed_ozone_readnl
+
+subroutine prescribed_ozone_pack_char(src, dst)
+   character(len=*), intent(in) :: src
+   integer(c_int64_t), intent(out) :: dst(:)
+   integer :: i
+
+   do i = 1, size(dst)
+      dst(i) = int(iachar(src(i:i)), c_int64_t)
+   end do
+end subroutine prescribed_ozone_pack_char
+
+subroutine prescribed_ozone_unpack_char(src, dst)
+   integer(c_int64_t), intent(in) :: src(:)
+   character(len=*), intent(out) :: dst
+   integer :: i
+
+   do i = 1, len(dst)
+      dst(i:i) = achar(int(src(i)))
+   end do
+end subroutine prescribed_ozone_unpack_char
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------

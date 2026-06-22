@@ -236,7 +236,7 @@ def _modal_aero_trimmed_equal(name: Ptr[int], name_len: int, items: Ptr[int], it
 
 
 @export
-def modal_aero_search_list_of_names_codon(
+def search_list_of_names_codon(
     name_len: int,
     name_ascii_p: cobj,
     list_len: int,
@@ -307,7 +307,7 @@ def _modal_aero_copy_cnst_name(
 
 
 @export
-def modal_aero_initaermodes_setspecptrs_write2_codon(
+def initaermodes_setspecptrs_write2_codon(
     laptr: int,
     lcptr: int,
     name_len: int,
@@ -7751,6 +7751,123 @@ def modal_aero_rename_no_acc_crs_tendencies_codon(
                             qqcwsrflx[_idx3(i, lstooc, jsrflx_rename, pcols, pcnstxx)] += (
                                 xfertend * pdel_fac
                             )
+
+
+@export
+def modal_aero_rename_no_acc_crs_init_codon(
+    pcnst: int,
+    ntot_amode: int,
+    maxpair_renamexf: int,
+    maxspec_renamexf: int,
+    modeptr_accum: int,
+    modeptr_aitken: int,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    npair_renamexf_p: cobj,
+    modefrm_renamexf_p: cobj,
+    modetoo_renamexf_p: cobj,
+    nspecfrm_renamexf_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+) -> int:
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lspectype_amode = Ptr[int](lspectype_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lmassptrcw_amode = Ptr[int](lmassptrcw_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    npair_renamexf = Ptr[int](npair_renamexf_p)
+    modefrm_renamexf = Ptr[int](modefrm_renamexf_p)
+    modetoo_renamexf = Ptr[int](modetoo_renamexf_p)
+    nspecfrm_renamexf = Ptr[int](nspecfrm_renamexf_p)
+    lspecfrma_renamexf = Ptr[int](lspecfrma_renamexf_p)
+    lspecfrmc_renamexf = Ptr[int](lspecfrmc_renamexf_p)
+    lspectooa_renamexf = Ptr[int](lspectooa_renamexf_p)
+    lspectooc_renamexf = Ptr[int](lspectooc_renamexf_p)
+
+    n1 = modeptr_accum
+    n2 = modeptr_aitken
+    if n1 > 0 and n2 > 0:
+        npair_renamexf[0] = 1
+        modefrm_renamexf[0] = n2
+        modetoo_renamexf[0] = n1
+    else:
+        npair_renamexf[0] = 0
+        return 0
+
+    for ipair in range(1, npair_renamexf[0] + 1):
+        mfrm = modefrm_renamexf[ipair - 1]
+        mtoo = modetoo_renamexf[ipair - 1]
+        nspec = 0
+
+        for iqfrm in range(-1, nspec_amode[mfrm - 1] + 1):
+            iqtoo = iqfrm
+            if iqfrm == -1:
+                lsfrma = numptr_amode[mfrm - 1]
+                lstooa = numptr_amode[mtoo - 1]
+                lsfrmc = numptrcw_amode[mfrm - 1]
+                lstooc = numptrcw_amode[mtoo - 1]
+            elif iqfrm == 0:
+                continue
+            else:
+                lsfrma = lmassptr_amode[_idx2(iqfrm, mfrm, maxspec_renamexf)]
+                lsfrmc = lmassptrcw_amode[_idx2(iqfrm, mfrm, maxspec_renamexf)]
+                lstooa = 0
+                lstooc = 0
+
+            if lsfrma < 1 or lsfrma > pcnst:
+                return 1
+
+            if iqfrm > 0:
+                if lsfrmc < 1 or lsfrmc > pcnst:
+                    return 2
+
+                iqfrm_aa = 1
+                iqtoo_aa = 1
+                if iqfrm > nspec_amode[mfrm - 1]:
+                    iqfrm_aa = nspec_amode[mfrm - 1] + 1
+                    iqtoo_aa = nspec_amode[mtoo - 1] + 1
+
+                nsamefrm = 0
+                frm_type = lspectype_amode[_idx2(iqfrm, mfrm, maxspec_renamexf)]
+                for iq in range(iqfrm_aa, iqfrm + 1):
+                    if lspectype_amode[_idx2(iq, mfrm, maxspec_renamexf)] == frm_type:
+                        nsamefrm += 1
+
+                nsametoo = 0
+                for iqtoo_scan in range(iqtoo_aa, nspec_amode[mtoo - 1] + 1):
+                    if lspectype_amode[_idx2(iqtoo_scan, mtoo, maxspec_renamexf)] == frm_type:
+                        nsametoo += 1
+                        if nsametoo == nsamefrm:
+                            iqtoo = iqtoo_scan
+                            lstooc = lmassptrcw_amode[_idx2(iqtoo_scan, mtoo, maxspec_renamexf)]
+                            lstooa = lmassptr_amode[_idx2(iqtoo_scan, mtoo, maxspec_renamexf)]
+                            break
+
+            nspec += 1
+            if lstooc < 1 or lstooc > pcnst:
+                lstooc = 0
+            if lstooa < 1 or lstooa > pcnst:
+                lstooa = 0
+            if lstooa == 0:
+                return 3
+            if lstooc == 0 and iqfrm != 0:
+                return 4
+
+            lspecfrma_renamexf[_idx2(nspec, ipair, maxspec_renamexf)] = lsfrma
+            lspectooa_renamexf[_idx2(nspec, ipair, maxspec_renamexf)] = lstooa
+            lspecfrmc_renamexf[_idx2(nspec, ipair, maxspec_renamexf)] = lsfrmc
+            lspectooc_renamexf[_idx2(nspec, ipair, maxspec_renamexf)] = lstooc
+
+        nspecfrm_renamexf[ipair - 1] = nspec
+
+    return 0
 
 
 @export

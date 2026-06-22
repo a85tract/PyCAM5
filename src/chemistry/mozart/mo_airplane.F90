@@ -32,11 +32,11 @@ module mo_airplane
   logical :: airpl_set_proof_written = .false.
 
   interface
-     function airpl_src_active_codon(active) result(out_c) bind(c, name="airpl_src_active_codon")
+     function airpl_src_codon(active) result(out_c) bind(c, name="airpl_src_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: active
        integer(c_int64_t) :: out_c
-     end function airpl_src_active_codon
+     end function airpl_src_codon
 
      function airpl_set_zero_codon(active, ncol_c, pver_c, no_air_p, co_air_p) result(out_c) &
           bind(c, name="airpl_set_zero_codon")
@@ -202,7 +202,7 @@ contains
 	    co_ndx = get_extfrc_ndx('CO')
     no_ndx = get_extfrc_ndx('NO')
 
-    active_c = airpl_src_active_codon(merge(1_c_int64_t, 0_c_int64_t, co_ndx >= 0 .or. no_ndx >= 0))
+    active_c = airpl_src_codon(merge(1_c_int64_t, 0_c_int64_t, co_ndx >= 0 .or. no_ndx >= 0))
     if (.not. airpl_src_proof_written) then
        airpl_src_proof_written = .true.
        if (masterproc) then

@@ -22,11 +22,11 @@ module llnl_O1D_to_2OH_adj
   integer :: jo1d_ndx
 
   interface
-     function o1d_to_2oh_adj_init_active_codon(active) result(out_c) bind(c, name="o1d_to_2oh_adj_init_active_codon")
+     function o1d_to_2oh_adj_init_codon(active) result(out_c) bind(c, name="o1d_to_2oh_adj_init_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: active
        integer(c_int64_t) :: out_c
-     end function o1d_to_2oh_adj_init_active_codon
+     end function o1d_to_2oh_adj_init_codon
   end interface
 
 contains
@@ -43,7 +43,7 @@ contains
     integer(c_int64_t) :: active_c
 
     jo1d_ndx  = get_rxt_ndx( 'j2oh' )
-    active_c = o1d_to_2oh_adj_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, jo1d_ndx > 0))
+    active_c = o1d_to_2oh_adj_init_codon(merge(1_c_int64_t, 0_c_int64_t, jo1d_ndx > 0))
     if (masterproc) then
        write (iulog,*) 'O1D_to_2OH_adj_init: Found j2oh index in O1D_to_2OH_adj_init of   ', jo1d_ndx
        if (active_c == 0_c_int64_t) then

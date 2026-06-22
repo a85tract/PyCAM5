@@ -2917,7 +2917,7 @@ mainloop1_i:  do i = 1, ncol
 
 
 !-------------------------------------------------------------------------
-	subroutine modal_aero_rename_no_acc_crs_init
+		subroutine modal_aero_rename_no_acc_crs_init
 !
 !   computes pointers for species transfer during aerosol renaming
 !	(a2 --> a1 transfer)
@@ -2925,12 +2925,113 @@ mainloop1_i:  do i = 1, ncol
 !	water_a
 !
 
-	implicit none
+        use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+		implicit none
 
 !   local variables
-	integer ipair, iq, iqfrm, iqfrm_aa, iqtoo, iqtoo_aa,   &
-      	  lsfrma, lsfrmc, lstooa, lstooc, lunout,   &
-      	  mfrm, mtoo, n1, n2, nsamefrm, nsametoo, nspec
+                integer ipair, iq, iqfrm, iqfrm_aa, iqtoo, iqtoo_aa,   &
+                  lsfrma, lsfrmc, lstooa, lstooc, lunout,   &
+                  mfrm, mtoo, n, n1, n2, nsamefrm, nsametoo, nspec
+                integer(c_int64_t) :: codon_status
+                integer(c_int64_t), target :: npair_renamexf_c(1)
+                integer(c_int64_t), target :: modefrm_renamexf_c(maxpair_renamexf)
+                integer(c_int64_t), target :: modetoo_renamexf_c(maxpair_renamexf)
+                integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+                integer(c_int64_t), target :: lspectype_amode_c(maxspec_renamexf,ntot_amode)
+                integer(c_int64_t), target :: lmassptr_amode_c(maxspec_renamexf,ntot_amode)
+                integer(c_int64_t), target :: lmassptrcw_amode_c(maxspec_renamexf,ntot_amode)
+                integer(c_int64_t), target :: numptr_amode_c(ntot_amode)
+                integer(c_int64_t), target :: numptrcw_amode_c(ntot_amode)
+                integer(c_int64_t), target :: nspecfrm_renamexf_c(maxpair_renamexf)
+                integer(c_int64_t), target :: lspecfrma_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+                integer(c_int64_t), target :: lspecfrmc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+                integer(c_int64_t), target :: lspectooa_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+                integer(c_int64_t), target :: lspectooc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+
+                interface
+                   function modal_aero_rename_no_acc_crs_init_codon( &
+                        pcnst_c, ntot_amode_c, maxpair_renamexf_c, maxspec_renamexf_c, &
+                        modeptr_accum_c, modeptr_aitken_c, nspec_amode_p, lspectype_amode_p, &
+                        lmassptr_amode_p, lmassptrcw_amode_p, numptr_amode_p, numptrcw_amode_p, &
+                        npair_renamexf_p, modefrm_renamexf_p, modetoo_renamexf_p, nspecfrm_renamexf_p, &
+                        lspecfrma_renamexf_p, lspecfrmc_renamexf_p, lspectooa_renamexf_p, &
+                        lspectooc_renamexf_p ) result(status_c) &
+                        bind(c, name="modal_aero_rename_no_acc_crs_init_codon")
+                     use iso_c_binding, only: c_int64_t, c_ptr
+                     integer(c_int64_t), value :: pcnst_c, ntot_amode_c, maxpair_renamexf_c, maxspec_renamexf_c
+                     integer(c_int64_t), value :: modeptr_accum_c, modeptr_aitken_c
+                     type(c_ptr), value :: nspec_amode_p, lspectype_amode_p, lmassptr_amode_p, lmassptrcw_amode_p
+                     type(c_ptr), value :: numptr_amode_p, numptrcw_amode_p, npair_renamexf_p
+                     type(c_ptr), value :: modefrm_renamexf_p, modetoo_renamexf_p, nspecfrm_renamexf_p
+                     type(c_ptr), value :: lspecfrma_renamexf_p, lspecfrmc_renamexf_p
+                     type(c_ptr), value :: lspectooa_renamexf_p, lspectooc_renamexf_p
+                     integer(c_int64_t) :: status_c
+                   end function modal_aero_rename_no_acc_crs_init_codon
+                end interface
+
+                lunout = iulog
+                if (.not. modal_aero_rename_env_native_enabled('MODAL_AERO_RENAME_NO_ACC_CRS_INIT_IMPL')) then
+                   npair_renamexf_c(1) = int(npair_renamexf, c_int64_t)
+                   do ipair = 1, maxpair_renamexf
+                      modefrm_renamexf_c(ipair) = int(modefrm_renamexf(ipair), c_int64_t)
+                      modetoo_renamexf_c(ipair) = int(modetoo_renamexf(ipair), c_int64_t)
+                      nspecfrm_renamexf_c(ipair) = int(nspecfrm_renamexf(ipair), c_int64_t)
+                      do iq = 1, maxspec_renamexf
+                         lspecfrma_renamexf_c(iq,ipair) = int(lspecfrma_renamexf(iq,ipair), c_int64_t)
+                         lspecfrmc_renamexf_c(iq,ipair) = int(lspecfrmc_renamexf(iq,ipair), c_int64_t)
+                         lspectooa_renamexf_c(iq,ipair) = int(lspectooa_renamexf(iq,ipair), c_int64_t)
+                         lspectooc_renamexf_c(iq,ipair) = int(lspectooc_renamexf(iq,ipair), c_int64_t)
+                      end do
+                   end do
+
+                   do n = 1, ntot_amode
+                      nspec_amode_c(n) = int(nspec_amode(n), c_int64_t)
+                      numptr_amode_c(n) = int(numptr_amode(n), c_int64_t)
+                      numptrcw_amode_c(n) = int(numptrcw_amode(n), c_int64_t)
+                      do iq = 1, maxspec_renamexf
+                         lspectype_amode_c(iq,n) = int(lspectype_amode(iq,n), c_int64_t)
+                         lmassptr_amode_c(iq,n) = int(lmassptr_amode(iq,n), c_int64_t)
+                         lmassptrcw_amode_c(iq,n) = int(lmassptrcw_amode(iq,n), c_int64_t)
+                      end do
+                   end do
+
+                   codon_status = modal_aero_rename_no_acc_crs_init_codon( &
+                        int(pcnst, c_int64_t), int(ntot_amode, c_int64_t), &
+                        int(maxpair_renamexf, c_int64_t), int(maxspec_renamexf, c_int64_t), &
+                        int(modeptr_accum, c_int64_t), int(modeptr_aitken, c_int64_t), &
+                        c_loc(nspec_amode_c(1)), c_loc(lspectype_amode_c(1,1)), &
+                        c_loc(lmassptr_amode_c(1,1)), c_loc(lmassptrcw_amode_c(1,1)), &
+                        c_loc(numptr_amode_c(1)), c_loc(numptrcw_amode_c(1)), &
+                        c_loc(npair_renamexf_c(1)), c_loc(modefrm_renamexf_c(1)), &
+                        c_loc(modetoo_renamexf_c(1)), c_loc(nspecfrm_renamexf_c(1)), &
+                        c_loc(lspecfrma_renamexf_c(1,1)), c_loc(lspecfrmc_renamexf_c(1,1)), &
+                        c_loc(lspectooa_renamexf_c(1,1)), c_loc(lspectooc_renamexf_c(1,1)) )
+
+                   if (codon_status /= 0_c_int64_t) then
+                      call endrun( 'modal_aero_rename_no_acc_crs_init error' )
+                   end if
+
+                   npair_renamexf = int(npair_renamexf_c(1))
+                   do ipair = 1, maxpair_renamexf
+                      modefrm_renamexf(ipair) = int(modefrm_renamexf_c(ipair))
+                      modetoo_renamexf(ipair) = int(modetoo_renamexf_c(ipair))
+                      nspecfrm_renamexf(ipair) = int(nspecfrm_renamexf_c(ipair))
+                      do iq = 1, maxspec_renamexf
+                         lspecfrma_renamexf(iq,ipair) = int(lspecfrma_renamexf_c(iq,ipair))
+                         lspecfrmc_renamexf(iq,ipair) = int(lspecfrmc_renamexf_c(iq,ipair))
+                         lspectooa_renamexf(iq,ipair) = int(lspectooa_renamexf_c(iq,ipair))
+                         lspectooc_renamexf(iq,ipair) = int(lspectooc_renamexf_c(iq,ipair))
+                      end do
+                   end do
+
+                   if (masterproc) then
+                      write(iulog,'(A)') 'modal_aero_rename_no_acc_crs_init direct = codon; pointer table computation direct; logging/endrun native CAM API island'
+                      call flush(iulog)
+                   end if
+                   if (npair_renamexf .le. 0) return
+                   goto 8000
+                end if
 
         call chemistry_misc_codon_touch('modal_aero_rename_no_acc_crs_init', 170)
 
@@ -3056,7 +3157,8 @@ mainloop1_i:  do i = 1, ncol
 !
 !   output results
 !
-	if ( masterproc ) then
+8000    continue
+		if ( masterproc ) then
 
 	write(lunout,9310)
 

@@ -102,11 +102,11 @@
 	          integer(c_int64_t), target :: has_strato_chem_c
 
           interface
-             subroutine init_strato_rates_ids_codon(lookup_ids_p, ids_p, has_strato_chem_p) &
-                  bind(c, name="init_strato_rates_ids_codon")
-               use iso_c_binding, only : c_ptr
-               type(c_ptr), value :: lookup_ids_p, ids_p, has_strato_chem_p
-             end subroutine init_strato_rates_ids_codon
+             subroutine init_strato_rates_codon(lookup_ids_p, ids_p, has_strato_chem_p) &
+                  bind(c, name="init_strato_rates_codon")
+                use iso_c_binding, only : c_ptr
+                type(c_ptr), value :: lookup_ids_p, ids_p, has_strato_chem_p
+             end subroutine init_strato_rates_codon
           end interface
 
 	          call chemistry_misc_codon_touch('init_strato_rates', 131)
@@ -137,7 +137,7 @@
           ids_c(:) = 0_c_int64_t
           has_strato_chem_c = 0_c_int64_t
 
-          call init_strato_rates_ids_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(has_strato_chem_c))
+          call init_strato_rates_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(has_strato_chem_c))
           call init_strato_rates_log_codon()
 
 	          rid_het1  = int(ids_c(1))

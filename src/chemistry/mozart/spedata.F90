@@ -337,14 +337,14 @@ contains
     integer(c_int64_t) :: active_c
 
     interface
-       function spedata_active_codon(active) result(out_c) bind(c, name="spedata_active_codon")
+       function advance_spedata_codon(active) result(out_c) bind(c, name="advance_spedata_codon")
          import :: c_int64_t
          integer(c_int64_t), value :: active
          integer(c_int64_t) :: out_c
-       end function spedata_active_codon
+       end function advance_spedata_codon
     end interface
 
-    active_c = spedata_active_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run))
+    active_c = advance_spedata_codon(merge(1_c_int64_t, 0_c_int64_t, spe_run))
     if (masterproc .and. .not. advance_spedata_codon_logged) then
        if (active_c == 0_c_int64_t) then
           write(iulog,'(A)') 'advance_spedata direct = native flag-off no-op'

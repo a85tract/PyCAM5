@@ -519,13 +519,13 @@ contains
        integer(c_int64_t), target :: list_ascii(max(1,len(list_of_names(1)))*max(1,list_length))
 
        interface
-          function modal_aero_search_list_of_names_codon(name_len_c, name_ascii_p, list_len_c, list_ascii_p, &
-               list_count_c) result(out_c) bind(c, name="modal_aero_search_list_of_names_codon")
+          function search_list_of_names_codon(name_len_c, name_ascii_p, list_len_c, list_ascii_p, &
+               list_count_c) result(out_c) bind(c, name="search_list_of_names_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: name_len_c, list_len_c, list_count_c
             type(c_ptr), value :: name_ascii_p, list_ascii_p
             integer(c_int64_t) :: out_c
-          end function modal_aero_search_list_of_names_codon
+          end function search_list_of_names_codon
        end interface
 
        if (.not. selected) then
@@ -579,7 +579,7 @@ contains
           end do
        end do
 
-       name_id = int(modal_aero_search_list_of_names_codon( &
+       name_id = int(search_list_of_names_codon( &
             int(len(name_to_find), c_int64_t), c_loc(name_ascii(1)), &
             int(len(list_of_names(1)), c_int64_t), c_loc(list_ascii(1)), int(list_length, c_int64_t) ))
 
@@ -864,14 +864,14 @@ contains
        logical, save :: proof_seen = .false.
 
        interface
-          function modal_aero_initaermodes_setspecptrs_write2_codon(laptr_c, lcptr_c, name_len_c, cnst_names_ascii_p, &
+          function initaermodes_setspecptrs_write2_codon(laptr_c, lcptr_c, name_len_c, cnst_names_ascii_p, &
                pcnst_c, out_len_c, dumnamea_ascii_p, dumnamec_ascii_p) result(status_out_c) &
-               bind(c, name="modal_aero_initaermodes_setspecptrs_write2_codon")
+               bind(c, name="initaermodes_setspecptrs_write2_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: laptr_c, lcptr_c, name_len_c, pcnst_c, out_len_c
             type(c_ptr), value :: cnst_names_ascii_p, dumnamea_ascii_p, dumnamec_ascii_p
             integer(c_int64_t) :: status_out_c
-          end function modal_aero_initaermodes_setspecptrs_write2_codon
+          end function initaermodes_setspecptrs_write2_codon
        end interface
 
        use_native = .false.
@@ -907,7 +907,7 @@ contains
           end do
        end do
 
-       status_c = modal_aero_initaermodes_setspecptrs_write2_codon( &
+       status_c = initaermodes_setspecptrs_write2_codon( &
             int(laptr, c_int64_t), int(lcptr, c_int64_t), int(len(cnst_name(1)), c_int64_t), &
             c_loc(cnst_names_ascii(1,1)), int(pcnst, c_int64_t), 8_c_int64_t, &
             c_loc(dumnamea_ascii(1)), c_loc(dumnamec_ascii(1)) )

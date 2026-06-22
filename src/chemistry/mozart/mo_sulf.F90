@@ -56,11 +56,11 @@
 	            integer(c_int64_t) :: out_c
 	         end function set_sulf_time_codon
 
-	         function sulf_inti_active_codon(active) result(out_c) bind(c, name="sulf_inti_active_codon")
+	         function sulf_inti_codon(active) result(out_c) bind(c, name="sulf_inti_codon")
 	            use iso_c_binding, only : c_int64_t
 	            integer(c_int64_t), value :: active
 	            integer(c_int64_t) :: out_c
-	         end function sulf_inti_active_codon
+	         end function sulf_inti_codon
 	      end interface
 
 	      contains
@@ -196,7 +196,7 @@ end subroutine sulf_readnl
 
       read_sulf = any( ndxs > 0) .and. (so4_ndx < 0)
 
-      active_c = sulf_inti_active_codon(merge(1_c_int64_t, 0_c_int64_t, read_sulf))
+      active_c = sulf_inti_codon(merge(1_c_int64_t, 0_c_int64_t, read_sulf))
       if (.not. sulf_inti_proof_written) then
          sulf_inti_proof_written = .true.
          if (masterproc) then
@@ -321,12 +321,12 @@ end subroutine sulf_readnl
       type(c_ptr) :: fields_data_p
 
       interface
-         subroutine sulf_interp_stage_dispatch_codon(ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c, &
-              fields_data_p, ccm_sulf_p) bind(c, name="sulf_interp_stage_dispatch_codon")
-            use iso_c_binding, only : c_int64_t, c_ptr
-            integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c
-            type(c_ptr), value :: fields_data_p, ccm_sulf_p
-         end subroutine sulf_interp_stage_dispatch_codon
+         subroutine sulf_interp_codon(ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c, &
+              fields_data_p, ccm_sulf_p) bind(c, name="sulf_interp_codon")
+           use iso_c_binding, only : c_int64_t, c_ptr
+           integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c
+           type(c_ptr), value :: fields_data_p, ccm_sulf_p
+         end subroutine sulf_interp_codon
       end interface
 
       call sulf_interp_select_impl()
@@ -338,7 +338,7 @@ end subroutine sulf_readnl
       else
          fields_data_p = c_null_ptr
          if (read_sulf) fields_data_p = c_loc(fields(1)%data(1,1,begchunk))
-         call sulf_interp_stage_dispatch_codon( &
+         call sulf_interp_codon( &
               int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(begchunk, c_int64_t), &
               int(lchnk, c_int64_t), int(merge(1, 0, read_sulf), c_int64_t), fields_data_p, c_loc(ccm_sulf) &
          )

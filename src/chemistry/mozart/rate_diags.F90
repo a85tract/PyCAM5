@@ -50,11 +50,11 @@ module rate_diags
       integer(c_int64_t) :: out_c
     end function rate_diags_init_codon
 
-    function parse_rate_sums_active_codon(active) result(out_c) bind(c, name="parse_rate_sums_active_codon")
+    function parse_rate_sums_codon(active) result(out_c) bind(c, name="parse_rate_sums_codon")
       use iso_c_binding, only : c_int64_t
       integer(c_int64_t), value :: active
       integer(c_int64_t) :: out_c
-    end function parse_rate_sums_active_codon
+    end function parse_rate_sums_codon
   end interface
 
 contains
@@ -236,12 +236,12 @@ contains
     real(r8) :: group_rate(ncol,pver)
 
     interface
-       subroutine rate_diags_batch_stage_dispatch_codon(ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c, &
-            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p) bind(c, name="rate_diags_batch_stage_dispatch_codon")
+       subroutine rate_diags_calc_codon(ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c, &
+            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p) bind(c, name="rate_diags_calc_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c
          type(c_ptr), value :: rxt_rates_p, vmr_p, m_p, rxt_tag_map_p
-       end subroutine rate_diags_batch_stage_dispatch_codon
+       end subroutine rate_diags_calc_codon
     end interface
 
     call rate_diags_batch_select_impl()
@@ -259,7 +259,7 @@ contains
        do i = 1, rxt_tag_cnt
           rxt_tag_map_i64(i) = int(rxt_tag_map(i), c_int64_t)
        end do
-       call rate_diags_batch_stage_dispatch_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot, c_int64_t), &
+       call rate_diags_calc_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot, c_int64_t), &
             int(rxt_tag_cnt, c_int64_t), c_loc(rxt_rates), c_loc(vmr), c_loc(m), c_loc(rxt_tag_map_i64))
     end if
 
@@ -307,7 +307,7 @@ contains
        endif
     enddo sumcnt
 
-    active_c = parse_rate_sums_active_codon(merge(1_c_int64_t, 0_c_int64_t, ngrps > 0))
+    active_c = parse_rate_sums_codon(merge(1_c_int64_t, 0_c_int64_t, ngrps > 0))
     if (.not. parse_rate_sums_proof_written) then
        parse_rate_sums_proof_written = .true.
        if (masterproc) then

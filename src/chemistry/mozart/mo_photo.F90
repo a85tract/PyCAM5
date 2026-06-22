@@ -2761,13 +2761,13 @@ secant_in_bounds : &
     real(c_double), target :: dels_c
 
     interface
-       subroutine photo_prep_stage_dispatch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
-            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_stage_dispatch_codon")
+       subroutine photo_timestep_init_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
+            next_p, last_p, delp_p, dels_p) bind(c, name="photo_timestep_init_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, n_exo_levs_c
          real(c_double), value :: pinterp_c, calday_c
          type(c_ptr), value :: levs_p, days_p, ki_p, next_p, last_p, delp_p, dels_p
-       end subroutine photo_prep_stage_dispatch_codon
+       end subroutine photo_timestep_init_codon
     end interface
 
     if ( do_jeuv ) then
@@ -2781,7 +2781,7 @@ secant_in_bounds : &
        call photo_prep_batch_select_impl()
        if (.not. photo_prep_batch_use_native_impl) then
           call photo_prep_batch_log_entered()
-          call photo_prep_stage_dispatch_codon( &
+          call photo_timestep_init_codon( &
                2_c_int64_t, 0._c_double, real(calday, c_double), 0_c_int64_t, c_null_ptr, c_loc(days), &
                c_null_ptr, c_loc(next_c), c_loc(last_c), c_null_ptr, c_loc(dels_c) &
           )

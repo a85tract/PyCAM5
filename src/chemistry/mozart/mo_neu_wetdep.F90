@@ -95,12 +95,12 @@ subroutine neu_wetdep_init
   logical :: init_native
 
   interface
-     function neu_wetdep_init_active_codon(method_is_neu_c, wetdep_count_c) result(out_c) &
-          bind(c, name="neu_wetdep_init_active_codon")
+     function neu_wetdep_init_codon(method_is_neu_c, wetdep_count_c) result(out_c) &
+          bind(c, name="neu_wetdep_init_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: method_is_neu_c, wetdep_count_c
        integer(c_int64_t) :: out_c
-     end function neu_wetdep_init_active_codon
+     end function neu_wetdep_init_codon
   end interface
 
   call phys_getopts(history_chemistry_out=history_chemistry)
@@ -120,7 +120,7 @@ subroutine neu_wetdep_init
         neu_wetdep_init_proof_written = .true.
      end if
   else
-     active_c = neu_wetdep_init_active_codon(merge(1_c_int64_t, 0_c_int64_t, method_is_neu), &
+     active_c = neu_wetdep_init_codon(merge(1_c_int64_t, 0_c_int64_t, method_is_neu), &
           int(gas_wetdep_cnt, c_int64_t))
      do_neu_wetdep = active_c /= 0_c_int64_t
      if (masterproc .and. .not. neu_wetdep_init_proof_written) then
@@ -450,12 +450,12 @@ subroutine neu_wetdep_disgas_codon_wrap(clwx, cfx, molmass, hstar, tm, pr, qm, q
   real(r8), target, intent(out) :: qtdis
 
   interface
-     subroutine neu_wetdep_disgas_codon(clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c, &
-          qtdis_p) bind(c, name="neu_wetdep_disgas_codon")
+     subroutine disgas_codon(clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c, &
+          qtdis_p) bind(c, name="disgas_codon")
        use iso_c_binding, only : c_double, c_ptr
        real(c_double), value :: clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c
        type(c_ptr), value :: qtdis_p
-     end subroutine neu_wetdep_disgas_codon
+     end subroutine disgas_codon
   end interface
 
   if (masterproc .and. .not. neu_wetdep_disgas_wrap_proof_written) then
@@ -465,7 +465,7 @@ subroutine neu_wetdep_disgas_codon_wrap(clwx, cfx, molmass, hstar, tm, pr, qm, q
      call flush(iulog)
   end if
 
-  call neu_wetdep_disgas_codon(real(clwx, c_double), real(cfx, c_double), real(molmass, c_double), &
+  call disgas_codon(real(clwx, c_double), real(cfx, c_double), real(molmass, c_double), &
        real(hstar, c_double), real(tm, c_double), real(pr, c_double), real(qm, c_double), &
        real(qt, c_double), c_loc(qtdis))
 
@@ -479,12 +479,12 @@ subroutine neu_wetdep_raingas_codon_wrap(rrain, dtscav, clwx, cfx, qm, qt, qtdis
   real(r8), target, intent(out) :: qtrain
 
   interface
-     subroutine neu_wetdep_raingas_codon(rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c, &
-          qtrain_p) bind(c, name="neu_wetdep_raingas_codon")
+     subroutine raingas_codon(rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c, &
+          qtrain_p) bind(c, name="raingas_codon")
        use iso_c_binding, only : c_double, c_ptr
        real(c_double), value :: rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c
        type(c_ptr), value :: qtrain_p
-     end subroutine neu_wetdep_raingas_codon
+     end subroutine raingas_codon
   end interface
 
   if (masterproc .and. .not. neu_wetdep_raingas_wrap_proof_written) then
@@ -494,7 +494,7 @@ subroutine neu_wetdep_raingas_codon_wrap(rrain, dtscav, clwx, cfx, qm, qt, qtdis
      call flush(iulog)
   end if
 
-  call neu_wetdep_raingas_codon(real(rrain, c_double), real(dtscav, c_double), real(clwx, c_double), &
+  call raingas_codon(real(rrain, c_double), real(dtscav, c_double), real(clwx, c_double), &
        real(cfx, c_double), real(qm, c_double), real(qt, c_double), real(qtdis, c_double), c_loc(qtrain))
 
 end subroutine neu_wetdep_raingas_codon_wrap
@@ -528,7 +528,7 @@ subroutine neu_wetdep_washgas_codon_wrap(rwash, boxf, dtscav, qtrtop, hstar, tm,
 
 end subroutine neu_wetdep_washgas_codon_wrap
 !
-subroutine neu_wetdep_dempirical_codon_wrap(cwater, rrate, dempirical)
+subroutine dempirical_codon_wrap(cwater, rrate, dempirical)
 
   use iso_c_binding, only : c_double, c_loc, c_ptr
 
@@ -536,23 +536,23 @@ subroutine neu_wetdep_dempirical_codon_wrap(cwater, rrate, dempirical)
   real(r8), target, intent(out) :: dempirical
 
   interface
-     subroutine neu_wetdep_dempirical_codon(cwater_c, rrate_c, dempirical_p) bind(c, name="neu_wetdep_dempirical_codon")
+     subroutine dempirical_codon(cwater_c, rrate_c, dempirical_p) bind(c, name="dempirical_codon")
        use iso_c_binding, only : c_double, c_ptr
        real(c_double), value :: cwater_c, rrate_c
        type(c_ptr), value :: dempirical_p
-     end subroutine neu_wetdep_dempirical_codon
+     end subroutine dempirical_codon
   end interface
 
   if (masterproc .and. .not. neu_wetdep_dempirical_wrap_proof_written) then
-     write(iulog,*) 'neu_wetdep_dempirical_codon_wrap entered'
+     write(iulog,*) 'dempirical_codon_wrap entered'
      call neu_wetdep_washo_append_impl_proof('washo_dempirical_codon_wrap entered')
      neu_wetdep_dempirical_wrap_proof_written = .true.
      call flush(iulog)
   end if
 
-  call neu_wetdep_dempirical_codon(real(cwater, c_double), real(rrate, c_double), c_loc(dempirical))
+  call dempirical_codon(real(cwater, c_double), real(rrate, c_double), c_loc(dempirical))
 
-end subroutine neu_wetdep_dempirical_codon_wrap
+end subroutine dempirical_codon_wrap
 !
 subroutine neu_wetdep_washo_append_impl_proof(proof_line)
 
@@ -658,7 +658,7 @@ subroutine neu_wetdep_washo_dempirical_select_impl()
 
 end subroutine neu_wetdep_washo_dempirical_select_impl
 !
-subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, delz, &
+subroutine washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, delz, &
      rls, clwc, ciwc, cfr, tem, evaprate, garea, hstar, tcmass, tckaqb, tcnion, &
      qt_rain, qt_rime, qt_wash, qt_evap)
 
@@ -680,17 +680,17 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
   integer :: n
 
   interface
-     subroutine neu_wetdep_washo_codon(lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dempirical_impl_c, dtscav_c, garea_c, &
+     subroutine washo_codon(lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dempirical_impl_c, dtscav_c, garea_c, &
           adj_factor_c, qttjfl_p, qm_p, pofl_p, delz_p, rls_p, clwc_p, ciwc_p, cfr_p, tem_p, &
           evaprate_p, hstar_p, tcmass_p, tckaqb_p, tcnion_p, qt_rain_p, qt_rime_p, qt_wash_p, &
-          qt_evap_p, cfxx_p, qtt_p, qttnew_p) bind(c, name="neu_wetdep_washo_codon")
+          qt_evap_p, cfxx_p, qtt_p, qttnew_p) bind(c, name="washo_codon")
        use iso_c_binding, only : c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dempirical_impl_c
        real(c_double), value :: dtscav_c, garea_c, adj_factor_c
        type(c_ptr), value :: qttjfl_p, qm_p, pofl_p, delz_p, rls_p, clwc_p, ciwc_p, cfr_p, tem_p
        type(c_ptr), value :: evaprate_p, hstar_p, tcmass_p, tckaqb_p, tcnion_p
        type(c_ptr), value :: qt_rain_p, qt_rime_p, qt_wash_p, qt_evap_p, cfxx_p, qtt_p, qttnew_p
-     end subroutine neu_wetdep_washo_codon
+     end subroutine washo_codon
   end interface
 
   if (.not. neu_wetdep_washo_dempirical_impl_selected) call neu_wetdep_washo_dempirical_select_impl()
@@ -704,7 +704,7 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
   end if
 
   if (masterproc .and. .not. neu_wetdep_washo_wrap_proof_written) then
-     write(iulog,'(3A)') 'neu_wetdep_washo_codon_wrap entered (washo shell = codon, dempirical implementation = ', &
+     write(iulog,'(3A)') 'washo_codon_wrap entered (washo shell = codon, dempirical implementation = ', &
           trim(dempirical_impl_name), ')'
      call neu_wetdep_washo_append_impl_proof('washo_codon_wrap entered shell = codon, dempirical implementation = ' // &
           trim(dempirical_impl_name))
@@ -731,7 +731,7 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
      do_diag_c = 0_c_int64_t
   end if
 
-  call neu_wetdep_washo_codon( &
+  call washo_codon( &
        int(lpar, c_int64_t), int(ntrace, c_int64_t), int(hno3_ndx, c_int64_t), do_diag_c, dempirical_impl_c, &
        real(dtscav, c_double), real(garea, c_double), real(one + 10._r8*epsilon(one), c_double), &
        c_loc(qttjfl), c_loc(qm), c_loc(pofl), c_loc(delz), c_loc(rls), c_loc(clwc), c_loc(ciwc), &
@@ -740,7 +740,7 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
        c_loc(qtt), c_loc(qttnew) &
   )
 
-end subroutine neu_wetdep_washo_codon_wrap
+end subroutine washo_codon_wrap
 !
 subroutine neu_wetdep_washo_columns_codon_wrap(ncol, lpar, ntrace, dtscav, trc_mass, qm, pofl, delz, &
      rls, clwc, ciwc, cfr, tem, evaprate, garea, hstar, tcmass, tckaqb, tcnion, &
@@ -1406,7 +1406,7 @@ end subroutine neu_wetdep_tend
          call WASHO_native(LPAR, NTRACE, DTSCAV, QTTJFL, QM, POFL, DELZ, RLS, CLWC, CIWC, CFR, TEM, &
               EVAPRATE, GAREA, HSTAR, TCMASS, TCKAQB, TCNION, qt_rain, qt_rime, qt_wash, qt_evap)
       else
-         call neu_wetdep_washo_codon_wrap(LPAR, NTRACE, DTSCAV, QTTJFL, QM, POFL, DELZ, RLS, CLWC, &
+         call washo_codon_wrap(LPAR, NTRACE, DTSCAV, QTTJFL, QM, POFL, DELZ, RLS, CLWC, &
               CIWC, CFR, TEM, EVAPRATE, GAREA, HSTAR, TCMASS, TCKAQB, TCNION, qt_rain, qt_rime, &
               qt_wash, qt_evap)
       end if
@@ -2736,7 +2736,7 @@ upper_level : &
       if (neu_wetdep_washo_dempirical_use_native_impl) then
         neu_wetdep_dempirical_eval = DEMPIRICAL(CWATER,RRATE)
       else
-        call neu_wetdep_dempirical_codon_wrap(CWATER,RRATE,neu_wetdep_dempirical_eval)
+        call dempirical_codon_wrap(CWATER,RRATE,neu_wetdep_dempirical_eval)
       end if
 
       return
@@ -2763,7 +2763,7 @@ upper_level : &
             call flush(iulog)
          end if
       else
-         call neu_wetdep_dempirical_codon_wrap(CWATER, RRATE, DEMPIRICAL)
+         call dempirical_codon_wrap(CWATER, RRATE, DEMPIRICAL)
          if (masterproc .and. .not. dempirical_codon_logged) then
             write(iulog,*) 'dempirical implementation = codon'
             dempirical_codon_logged = .true.

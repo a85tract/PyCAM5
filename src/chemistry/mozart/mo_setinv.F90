@@ -71,10 +71,10 @@ contains
     integer(c_int64_t), target :: flags_c(5)
 
     interface
-       subroutine setinv_inti_ids_codon(lookup_ids_p, ids_p, flags_p) bind(c, name="setinv_inti_ids_codon")
+       subroutine setinv_inti_codon(lookup_ids_p, ids_p, flags_p) bind(c, name="setinv_inti_codon")
          use iso_c_binding, only : c_ptr
          type(c_ptr), value :: lookup_ids_p, ids_p, flags_p
-       end subroutine setinv_inti_ids_codon
+       end subroutine setinv_inti_codon
     end interface
 
     lookup_ids(1) = int(get_inv_ndx( 'M' ), c_int64_t)
@@ -89,7 +89,7 @@ contains
     ids_c(:) = 0_c_int64_t
     flags_c(:) = 0_c_int64_t
 
-    call setinv_inti_ids_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(flags_c))
+    call setinv_inti_codon(c_loc(lookup_ids), c_loc(ids_c), c_loc(flags_c))
     call setinv_inti_log_codon()
 
     m_ndx   = int(ids_c(1))

@@ -36,11 +36,11 @@ module cfc11star
   logical :: update_cfc11star_proof_written = .false.
 
   interface
-    function register_cfc11star_active_codon(active) result(out_c) bind(c, name="register_cfc11star_active_codon")
+    function register_cfc11star_codon(active) result(out_c) bind(c, name="register_cfc11star_codon")
       use iso_c_binding, only : c_int64_t
       integer(c_int64_t), value :: active
       integer(c_int64_t) :: out_c
-    end function register_cfc11star_active_codon
+    end function register_cfc11star_codon
 
     function update_cfc11star_active_codon(active) result(out_c) bind(c, name="update_cfc11star_active_codon")
       use iso_c_binding, only : c_int64_t
@@ -73,7 +73,7 @@ contains
     enddo
 
     do_cfc11star = any(indices(:)>0)
-    active_c = register_cfc11star_active_codon(merge(1_c_int64_t, 0_c_int64_t, do_cfc11star))
+    active_c = register_cfc11star_codon(merge(1_c_int64_t, 0_c_int64_t, do_cfc11star))
     if (.not. register_cfc11star_proof_written) then
        register_cfc11star_proof_written = .true.
        if (masterproc) then
@@ -99,11 +99,49 @@ contains
     use cam_history,  only : addfld, phys_decomp
     use infnan,       only : nan, assignment(=)
     use physics_buffer, only : physics_buffer_desc, pbuf_set_field
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
     real(r8) :: real_nan
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+    integer(c_int64_t) :: active_c
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+    logical :: use_native_impl
+
+    interface
+      function init_cfc11star_codon(active) result(out_c) bind(c, name="init_cfc11star_codon")
+        use iso_c_binding, only : c_int64_t
+        integer(c_int64_t), value :: active
+        integer(c_int64_t) :: out_c
+      end function init_cfc11star_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('INIT_CFC11STAR_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = init_cfc11star_codon(merge(1_c_int64_t, 0_c_int64_t, do_cfc11star))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'init_cfc11star direct = codon no-cfc11star no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if (.not.do_cfc11star) return
 
