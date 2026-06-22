@@ -205,6 +205,30 @@ module physics_types
        integer(c_int64_t) :: stage_out
      end function physics_types_touch_codon
 
+     function physics_type_alloc_codon_raw(stage_c) result(stage_out) bind(c, name="physics_type_alloc_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function physics_type_alloc_codon_raw
+
+     function physics_state_dealloc_codon_raw(stage_c) result(stage_out) bind(c, name="physics_state_dealloc_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function physics_state_dealloc_codon_raw
+
+     function physics_ptend_alloc_codon_raw(stage_c) result(stage_out) bind(c, name="physics_ptend_alloc_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function physics_ptend_alloc_codon_raw
+
+     function physics_ptend_dealloc_codon_raw(stage_c) result(stage_out) bind(c, name="physics_ptend_dealloc_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function physics_ptend_dealloc_codon_raw
+
      subroutine physics_tend_init_codon_raw(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
           bind(c, name="physics_tend_init_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -338,20 +362,20 @@ module physics_types
        type(c_ptr), value :: src_flx_top_p, dst_flx_top_p
      end subroutine physics_ptend_sum_field_codon_raw
 
-     subroutine physics_ptend_reset_shell_codon_raw(psetcols_c, pver_c, pcnst_c, ls_c, lu_c, lv_c, lq_p, &
+     subroutine physics_ptend_reset_codon_raw(psetcols_c, pver_c, pcnst_c, ls_c, lu_c, lv_c, lq_p, &
           s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p, &
-          cflx_srf_p, cflx_top_p) bind(c, name="physics_ptend_reset_shell_codon")
+          cflx_srf_p, cflx_top_p) bind(c, name="physics_ptend_reset_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: psetcols_c, pver_c, pcnst_c, ls_c, lu_c, lv_c
        type(c_ptr), value :: lq_p, s_p, u_p, v_p, q_p
        type(c_ptr), value :: hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p
        type(c_ptr), value :: tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p
-     end subroutine physics_ptend_reset_shell_codon_raw
+     end subroutine physics_ptend_reset_codon_raw
 
-     subroutine physics_ptend_scale_shell_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, &
+     subroutine physics_ptend_scale_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, &
           bot_level_c, fac_c, ls_c, lu_c, lv_c, lq_p, s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, &
           taux_srf_p, taux_top_p, tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p) &
-          bind(c, name="physics_ptend_scale_shell_codon")
+          bind(c, name="physics_ptend_scale_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c
        integer(c_int64_t), value :: ls_c, lu_c, lv_c
@@ -359,14 +383,14 @@ module physics_types
        type(c_ptr), value :: lq_p, s_p, u_p, v_p, q_p
        type(c_ptr), value :: hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p
        type(c_ptr), value :: tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p
-     end subroutine physics_ptend_scale_shell_codon_raw
+     end subroutine physics_ptend_scale_codon_raw
 
-     subroutine physics_ptend_sum_shell_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c, &
+     subroutine physics_ptend_sum_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c, &
           ls_c, lu_c, lv_c, lq_p, src_s_p, dst_s_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_q_p, dst_q_p, &
           src_hflux_srf_p, dst_hflux_srf_p, src_hflux_top_p, dst_hflux_top_p, src_taux_srf_p, &
           dst_taux_srf_p, src_taux_top_p, dst_taux_top_p, src_tauy_srf_p, dst_tauy_srf_p, &
           src_tauy_top_p, dst_tauy_top_p, src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, &
-          dst_cflx_top_p) bind(c, name="physics_ptend_sum_shell_codon")
+          dst_cflx_top_p) bind(c, name="physics_ptend_sum_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c, top_level_c, bot_level_c
        integer(c_int64_t), value :: ls_c, lu_c, lv_c
@@ -375,16 +399,16 @@ module physics_types
        type(c_ptr), value :: src_taux_srf_p, dst_taux_srf_p, src_taux_top_p, dst_taux_top_p
        type(c_ptr), value :: src_tauy_srf_p, dst_tauy_srf_p, src_tauy_top_p, dst_tauy_top_p
        type(c_ptr), value :: src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, dst_cflx_top_p
-     end subroutine physics_ptend_sum_shell_codon_raw
+     end subroutine physics_ptend_sum_codon_raw
 
-     subroutine physics_set_state_pdry_codon_raw(ncol_c, psetcols_c, pver_c, do_pdeld_calc_c, psdry_p, pint_p, &
+     subroutine set_state_pdry_codon_raw(ncol_c, psetcols_c, pver_c, do_pdeld_calc_c, psdry_p, pint_p, &
           pdel_p, q_p, pdeldry_p, pintdry_p, pmiddry_p, rpdeldry_p, lnpmiddry_p, lnpintdry_p) &
-          bind(c, name="physics_set_state_pdry_codon")
+          bind(c, name="set_state_pdry_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, do_pdeld_calc_c
        type(c_ptr), value :: psdry_p, pint_p, pdel_p, q_p, pdeldry_p, pintdry_p
        type(c_ptr), value :: pmiddry_p, rpdeldry_p, lnpmiddry_p, lnpintdry_p
-     end subroutine physics_set_state_pdry_codon_raw
+     end subroutine set_state_pdry_codon_raw
 
      subroutine physics_set_wet_to_dry_constituent_codon_raw(ncol_c, psetcols_c, pver_c, q_p, pdel_p, &
           pdeldry_p) bind(c, name="physics_set_wet_to_dry_constituent_codon")
@@ -400,12 +424,34 @@ module physics_types
        type(c_ptr), value :: q_p, pdeldry_p, pdel_p
      end subroutine physics_set_dry_to_wet_constituent_codon_raw
 
-     subroutine physics_init_geo_unique_maps_codon_raw(ncol_c, psetcols_c, lat_p, lon_p, ulat_p, ulon_p, &
-          latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p) bind(c, name="physics_init_geo_unique_maps_codon")
+     subroutine set_wet_to_dry_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, dry_mask_p, q_p, pdel_p, &
+          pdeldry_p) bind(c, name="set_wet_to_dry_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c
+       type(c_ptr), value :: dry_mask_p, q_p, pdel_p, pdeldry_p
+     end subroutine set_wet_to_dry_codon_raw
+
+     subroutine set_dry_to_wet_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, dry_mask_p, q_p, pdeldry_p, &
+          pdel_p) bind(c, name="set_dry_to_wet_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c
+       type(c_ptr), value :: dry_mask_p, q_p, pdeldry_p, pdel_p
+     end subroutine set_dry_to_wet_codon_raw
+
+     subroutine init_geo_unique_codon_raw(ncol_c, psetcols_c, lat_p, lon_p, ulat_p, ulon_p, &
+          latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p) bind(c, name="init_geo_unique_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, psetcols_c
        type(c_ptr), value :: lat_p, lon_p, ulat_p, ulon_p, latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p
-     end subroutine physics_init_geo_unique_maps_codon_raw
+     end subroutine init_geo_unique_codon_raw
+
+     subroutine physics_state_set_grid_codon_raw(ncol_c, psetcols_c, rlat_p, rlon_p, lat_p, lon_p, ulat_p, ulon_p, &
+          latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p) bind(c, name="physics_state_set_grid_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c
+       type(c_ptr), value :: rlat_p, rlon_p, lat_p, lon_p, ulat_p, ulon_p
+       type(c_ptr), value :: latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p
+     end subroutine physics_state_set_grid_codon_raw
 
      subroutine physics_copy_real_1d_codon_raw(n_c, src_p, dst_p) bind(c, name="physics_copy_real_1d_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -805,7 +851,7 @@ contains
          c_loc(dst_field), c_loc(src_flx_srf), c_loc(dst_flx_srf), c_loc(src_flx_top), c_loc(dst_flx_top))
   end subroutine physics_ptend_sum_field_codon
 
-  subroutine physics_set_state_pdry_codon(ncol_local, psetcols_local, do_pdeld_calc, psdry, pint, pdel, q, &
+  subroutine set_state_pdry_codon(ncol_local, psetcols_local, do_pdeld_calc, psdry, pint, pdel, q, &
                                                pdeldry, pintdry, pmiddry, rpdeldry, lnpmiddry, lnpintdry)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncol_local, psetcols_local
@@ -814,11 +860,11 @@ contains
     real(r8), target, intent(inout) :: rpdeldry(:,:), lnpmiddry(:,:), lnpintdry(:,:)
     real(r8), target, intent(in) :: pint(:,:), pdel(:,:), q(:,:,:)
 
-    call physics_set_state_pdry_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+    call set_state_pdry_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
          int(pver, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_pdeld_calc), c_loc(psdry), &
          c_loc(pint), c_loc(pdel), c_loc(q), c_loc(pdeldry), c_loc(pintdry), c_loc(pmiddry), &
          c_loc(rpdeldry), c_loc(lnpmiddry), c_loc(lnpintdry))
-  end subroutine physics_set_state_pdry_codon
+  end subroutine set_state_pdry_codon
 
   subroutine physics_set_wet_to_dry_constituent_codon(ncol_local, psetcols_local, q_m, pdel, pdeldry)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -840,7 +886,29 @@ contains
          int(pver, c_int64_t), c_loc(q_m), c_loc(pdeldry), c_loc(pdel))
   end subroutine physics_set_dry_to_wet_constituent_codon
 
-  subroutine physics_init_geo_unique_maps_codon(ncol_local, psetcols_local, lat, lon, ulat, ulon, &
+  subroutine set_wet_to_dry_codon(ncol_local, psetcols_local, dry_mask, q, pdel, pdeldry)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    integer(c_int64_t), target, intent(in) :: dry_mask(pcnst)
+    real(r8), target, intent(inout) :: q(psetcols_local,pver,pcnst)
+    real(r8), target, intent(in) :: pdel(psetcols_local,pver), pdeldry(psetcols_local,pver)
+
+    call set_wet_to_dry_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), int(pcnst, c_int64_t), c_loc(dry_mask), c_loc(q), c_loc(pdel), c_loc(pdeldry))
+  end subroutine set_wet_to_dry_codon
+
+  subroutine set_dry_to_wet_codon(ncol_local, psetcols_local, dry_mask, q, pdeldry, pdel)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    integer(c_int64_t), target, intent(in) :: dry_mask(pcnst)
+    real(r8), target, intent(inout) :: q(psetcols_local,pver,pcnst)
+    real(r8), target, intent(in) :: pdeldry(psetcols_local,pver), pdel(psetcols_local,pver)
+
+    call set_dry_to_wet_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), int(pcnst, c_int64_t), c_loc(dry_mask), c_loc(q), c_loc(pdeldry), c_loc(pdel))
+  end subroutine set_dry_to_wet_codon
+
+  subroutine init_geo_unique_codon(ncol_local, psetcols_local, lat, lon, ulat, ulon, &
                                                      latmapback, lonmapback, ulatcnt, uloncnt)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncol_local, psetcols_local
@@ -850,12 +918,29 @@ contains
     integer, intent(out) :: ulatcnt, uloncnt
     integer(c_int64_t), target :: ulatcnt_out, uloncnt_out
 
-    call physics_init_geo_unique_maps_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+    call init_geo_unique_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
          c_loc(lat), c_loc(lon), c_loc(ulat), c_loc(ulon), c_loc(latmapback), c_loc(lonmapback), &
          c_loc(ulatcnt_out), c_loc(uloncnt_out))
     ulatcnt = int(ulatcnt_out)
     uloncnt = int(uloncnt_out)
-  end subroutine physics_init_geo_unique_maps_codon
+  end subroutine init_geo_unique_codon
+
+  subroutine physics_state_set_grid_codon(ncol_local, psetcols_local, rlat, rlon, lat, lon, ulat, ulon, &
+                                                     latmapback, lonmapback, ulatcnt, uloncnt)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    real(r8), target, intent(in) :: rlat(:), rlon(:)
+    real(r8), target, intent(inout) :: lat(:), lon(:), ulat(:), ulon(:)
+    integer, target, intent(inout) :: latmapback(:), lonmapback(:)
+    integer, intent(out) :: ulatcnt, uloncnt
+    integer(c_int64_t), target :: ulatcnt_out, uloncnt_out
+
+    call physics_state_set_grid_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         c_loc(rlat), c_loc(rlon), c_loc(lat), c_loc(lon), c_loc(ulat), c_loc(ulon), &
+         c_loc(latmapback), c_loc(lonmapback), c_loc(ulatcnt_out), c_loc(uloncnt_out))
+    ulatcnt = int(ulatcnt_out)
+    uloncnt = int(uloncnt_out)
+  end subroutine physics_state_set_grid_codon
 
   subroutine physics_copy_real_1d_codon(n_local, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -986,7 +1071,7 @@ contains
 
     call physics_types_zero_select_impl()
     if (.not. use_native_zero_impl) then
-       touch_c = physics_types_touch_codon(1_c_int64_t)
+       touch_c = physics_type_alloc_codon_raw(1_c_int64_t)
        if (touch_c == 1_c_int64_t) then
           call physics_types_zero_proof_once()
           call physics_types_log_direct(physics_type_alloc_logged, &
@@ -1800,7 +1885,7 @@ contains
           src_cflx_top_p = c_loc(ptend%cflx_top); dst_cflx_top_p = c_loc(ptend_sum%cflx_top)
        end if
 
-       call physics_ptend_sum_shell_codon_raw(int(ncol, c_int64_t), int(psetcols, c_int64_t), &
+       call physics_ptend_sum_codon_raw(int(ncol, c_int64_t), int(psetcols, c_int64_t), &
             int(pver, c_int64_t), int(pcnst, c_int64_t), int(ptend%top_level, c_int64_t), &
             int(ptend%bot_level, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, ptend%ls), &
             merge(1_c_int64_t, 0_c_int64_t, ptend%lu), merge(1_c_int64_t, 0_c_int64_t, ptend%lv), &
@@ -1904,7 +1989,7 @@ contains
           cflx_top_p = c_loc(ptend%cflx_top)
        end if
 
-       call physics_ptend_scale_shell_codon_raw(int(ncol, c_int64_t), int(ptend%psetcols, c_int64_t), &
+       call physics_ptend_scale_codon_raw(int(ncol, c_int64_t), int(ptend%psetcols, c_int64_t), &
             int(pver, c_int64_t), int(pcnst, c_int64_t), int(ptend%top_level, c_int64_t), &
             int(ptend%bot_level, c_int64_t), real(fac, c_double), &
             merge(1_c_int64_t, 0_c_int64_t, ptend%ls), merge(1_c_int64_t, 0_c_int64_t, ptend%lu), &
@@ -2094,7 +2179,7 @@ end subroutine physics_ptend_copy
           cflx_top_p = c_loc(ptend%cflx_top)
        end if
 
-       call physics_ptend_reset_shell_codon_raw(int(ptend%psetcols, c_int64_t), int(pver, c_int64_t), &
+       call physics_ptend_reset_codon_raw(int(ptend%psetcols, c_int64_t), int(pver, c_int64_t), &
             int(pcnst, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, ptend%ls), &
             merge(1_c_int64_t, 0_c_int64_t, ptend%lu), merge(1_c_int64_t, 0_c_int64_t, ptend%lv), &
             c_loc(lq_mask), s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p, &
@@ -2213,6 +2298,7 @@ end subroutine physics_ptend_copy
 !===============================================================================
 
   subroutine physics_state_set_grid(lchnk, phys_state)
+    use iso_c_binding, only: c_int64_t
 !-----------------------------------------------------------------------
 ! Set the grid components of the physics_state object
 !-----------------------------------------------------------------------
@@ -2222,8 +2308,8 @@ end subroutine physics_ptend_copy
 
     ! local variables
     integer  :: i, ncol
-    real(r8) :: rlon(pcols)
-    real(r8) :: rlat(pcols)
+    real(r8), target :: rlon(pcols)
+    real(r8), target :: rlat(pcols)
 
     !-----------------------------------------------------------------------
     ! get_ncols_p requires a state which does not have sub-columns
@@ -2242,15 +2328,17 @@ end subroutine physics_ptend_copy
     call get_rlat_all_p(lchnk, ncol, rlat)
     phys_state%ncol  = ncol
     phys_state%lchnk = lchnk
-    do i=1,ncol
-       phys_state%lat(i) = rlat(i)
-       phys_state%lon(i) = rlon(i)
-    end do
     call physics_types_zero_select_impl()
     if (use_native_zero_impl) then
+       do i=1,ncol
+          phys_state%lat(i) = rlat(i)
+          phys_state%lon(i) = rlon(i)
+       end do
        call init_geo_unique(phys_state,ncol)
     else
-       call init_geo_unique(phys_state,ncol)
+       call physics_state_set_grid_codon(ncol, phys_state%psetcols, rlat, rlon, &
+            phys_state%lat, phys_state%lon, phys_state%ulat, phys_state%ulon, &
+            phys_state%latmapback, phys_state%lonmapback, phys_state%ulatcnt, phys_state%uloncnt)
        call physics_types_zero_proof_once()
        call physics_types_log_direct(physics_state_set_grid_logged, &
             'physics_state_set_grid direct = codon; init_geo_unique direct; get_gcol_all_p native CAM API island')
@@ -2307,7 +2395,7 @@ end subroutine physics_ptend_copy
        phys_state%uloncnt=uloncnt
        phys_state%ulatcnt=ulatcnt
     else
-       call physics_init_geo_unique_maps_codon(ncol, phys_state%psetcols, phys_state%lat, phys_state%lon, &
+       call init_geo_unique_codon(ncol, phys_state%psetcols, phys_state%lat, phys_state%lon, &
             phys_state%ulat, phys_state%ulon, phys_state%latmapback, phys_state%lonmapback, ulatcnt, uloncnt)
        phys_state%uloncnt=uloncnt
        phys_state%ulatcnt=ulatcnt
@@ -2630,7 +2718,7 @@ subroutine set_state_pdry (state,pdeld_calc)
      state%lnpmiddry(:ncol,:) = log(state%pmiddry(:ncol,:))
      state%lnpintdry(:ncol,:) = log(state%pintdry(:ncol,:))
   else
-     call physics_set_state_pdry_codon(ncol, state%psetcols, do_pdeld_calc, state%psdry, state%pint, &
+     call set_state_pdry_codon(ncol, state%psetcols, do_pdeld_calc, state%psdry, state%pint, &
           state%pdel, state%q, state%pdeldry, state%pintdry, state%pmiddry, state%rpdeldry, &
           state%lnpmiddry, state%lnpintdry)
      call physics_types_zero_proof_once()
@@ -2644,14 +2732,15 @@ end subroutine set_state_pdry
 subroutine set_wet_to_dry (state)
 
   use constituents,  only: pcnst, cnst_type
+  use iso_c_binding, only: c_int64_t
 
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
-  logical :: used_codon
+  integer(c_int64_t), target :: dry_mask(pcnst)
 
   ncol = state%ncol
-  used_codon = .false.
+  dry_mask = 0_c_int64_t
   call physics_types_zero_select_impl()
 
   if (use_native_zero_impl) then
@@ -2663,12 +2752,11 @@ subroutine set_wet_to_dry (state)
   else
      do m = 1,pcnst
         if (cnst_type(m).eq.'dry') then
-           call physics_set_wet_to_dry_constituent_codon(ncol, state%psetcols, state%q(:,:,m), &
-                state%pdel, state%pdeldry)
-           used_codon = .true.
+           dry_mask(m) = 1_c_int64_t
         endif
      end do
-     if (used_codon) then
+     if (any(dry_mask /= 0_c_int64_t)) then
+        call set_wet_to_dry_codon(ncol, state%psetcols, dry_mask, state%q, state%pdel, state%pdeldry)
         call physics_types_zero_proof_once()
         call physics_types_log_direct(set_wet_to_dry_logged, 'set_wet_to_dry direct = codon')
      end if
@@ -2681,14 +2769,15 @@ end subroutine set_wet_to_dry
 subroutine set_dry_to_wet (state)
 
   use constituents,  only: pcnst, cnst_type
+  use iso_c_binding, only: c_int64_t
 
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
-  logical :: used_codon
+  integer(c_int64_t), target :: dry_mask(pcnst)
 
   ncol = state%ncol
-  used_codon = .false.
+  dry_mask = 0_c_int64_t
   call physics_types_zero_select_impl()
 
   if (use_native_zero_impl) then
@@ -2700,12 +2789,11 @@ subroutine set_dry_to_wet (state)
   else
      do m = 1,pcnst
         if (cnst_type(m).eq.'dry') then
-           call physics_set_dry_to_wet_constituent_codon(ncol, state%psetcols, state%q(:,:,m), &
-                state%pdeldry, state%pdel)
-           used_codon = .true.
+           dry_mask(m) = 1_c_int64_t
         endif
      end do
-     if (used_codon) then
+     if (any(dry_mask /= 0_c_int64_t)) then
+        call set_dry_to_wet_codon(ncol, state%psetcols, dry_mask, state%q, state%pdeldry, state%pdel)
         call physics_types_zero_proof_once()
         call physics_types_log_direct(set_dry_to_wet_logged, 'set_dry_to_wet direct = codon')
      end if
@@ -2905,7 +2993,7 @@ subroutine physics_state_dealloc(state)
 
   call physics_types_zero_select_impl()
   if (.not. use_native_zero_impl) then
-     if (physics_types_touch_codon(4_c_int64_t) == 4_c_int64_t) then
+     if (physics_state_dealloc_codon_raw(4_c_int64_t) == 4_c_int64_t) then
         call physics_types_zero_proof_once()
         call physics_types_log_direct(physics_state_dealloc_logged, &
              'physics_state_dealloc direct = codon; deallocation selector/touch direct = codon; native deallocate/error island')
@@ -3117,7 +3205,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
 
   call physics_types_zero_select_impl()
   if (.not. use_native_zero_impl) then
-     if (physics_types_touch_codon(5_c_int64_t) == 5_c_int64_t) then
+     if (physics_ptend_alloc_codon_raw(5_c_int64_t) == 5_c_int64_t) then
         call physics_types_zero_proof_once()
         call physics_types_log_direct(physics_ptend_alloc_logged, &
              'physics_ptend_alloc direct = codon; allocation selector/touch direct = codon; native allocate/error island')
@@ -3185,7 +3273,7 @@ subroutine physics_ptend_dealloc(ptend)
 
   call physics_types_zero_select_impl()
   if (.not. use_native_zero_impl) then
-     if (physics_types_touch_codon(6_c_int64_t) == 6_c_int64_t) then
+     if (physics_ptend_dealloc_codon_raw(6_c_int64_t) == 6_c_int64_t) then
         call physics_types_zero_proof_once()
         call physics_types_log_direct(physics_ptend_dealloc_logged, &
              'physics_ptend_dealloc direct = codon; deallocation selector/touch direct = codon; native deallocate/error island')

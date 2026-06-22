@@ -2485,6 +2485,26 @@ def physics_types_touch_codon(stage: int) -> int:
 
 
 @export
+def physics_type_alloc_codon(stage: int) -> int:
+    return physics_types_touch_codon(stage)
+
+
+@export
+def physics_state_dealloc_codon(stage: int) -> int:
+    return physics_types_touch_codon(stage)
+
+
+@export
+def physics_ptend_alloc_codon(stage: int) -> int:
+    return physics_types_touch_codon(stage)
+
+
+@export
+def physics_ptend_dealloc_codon(stage: int) -> int:
+    return physics_types_touch_codon(stage)
+
+
+@export
 def physics_tend_init_codon(
     psetcols: int,
     pver: int,
@@ -3127,6 +3147,35 @@ def physics_ptend_reset_shell_codon(
 
 
 @export
+def physics_ptend_reset_codon(
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    ls: int,
+    lu: int,
+    lv: int,
+    lq_p: cobj,
+    s_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    hflux_srf_p: cobj,
+    hflux_top_p: cobj,
+    taux_srf_p: cobj,
+    taux_top_p: cobj,
+    tauy_srf_p: cobj,
+    tauy_top_p: cobj,
+    cflx_srf_p: cobj,
+    cflx_top_p: cobj,
+):
+    physics_ptend_reset_shell_codon(
+        psetcols, pver, pcnst, ls, lu, lv, lq_p, s_p, u_p, v_p, q_p,
+        hflux_srf_p, hflux_top_p, taux_srf_p, taux_top_p, tauy_srf_p,
+        tauy_top_p, cflx_srf_p, cflx_top_p,
+    )
+
+
+@export
 def physics_ptend_scale_shell_codon(
     ncol: int,
     psetcols: int,
@@ -3164,6 +3213,39 @@ def physics_ptend_scale_shell_codon(
     for m in range(1, pcnst + 1):
         if lq[_idx(m)] != 0:
             _physics_ptend_scale_field(ncol, psetcols, pver, top_level, bot_level, fac, 3, m, q_p, cflx_srf_p, cflx_top_p)
+
+
+@export
+def physics_ptend_scale_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_level: int,
+    bot_level: int,
+    fac: float,
+    ls: int,
+    lu: int,
+    lv: int,
+    lq_p: cobj,
+    s_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    hflux_srf_p: cobj,
+    hflux_top_p: cobj,
+    taux_srf_p: cobj,
+    taux_top_p: cobj,
+    tauy_srf_p: cobj,
+    tauy_top_p: cobj,
+    cflx_srf_p: cobj,
+    cflx_top_p: cobj,
+):
+    physics_ptend_scale_shell_codon(
+        ncol, psetcols, pver, pcnst, top_level, bot_level, fac, ls, lu, lv,
+        lq_p, s_p, u_p, v_p, q_p, hflux_srf_p, hflux_top_p, taux_srf_p,
+        taux_top_p, tauy_srf_p, tauy_top_p, cflx_srf_p, cflx_top_p,
+    )
 
 
 @export
@@ -3226,6 +3308,53 @@ def physics_ptend_sum_shell_codon(
 
 
 @export
+def physics_ptend_sum_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_level: int,
+    bot_level: int,
+    ls: int,
+    lu: int,
+    lv: int,
+    lq_p: cobj,
+    src_s_p: cobj,
+    dst_s_p: cobj,
+    src_u_p: cobj,
+    dst_u_p: cobj,
+    src_v_p: cobj,
+    dst_v_p: cobj,
+    src_q_p: cobj,
+    dst_q_p: cobj,
+    src_hflux_srf_p: cobj,
+    dst_hflux_srf_p: cobj,
+    src_hflux_top_p: cobj,
+    dst_hflux_top_p: cobj,
+    src_taux_srf_p: cobj,
+    dst_taux_srf_p: cobj,
+    src_taux_top_p: cobj,
+    dst_taux_top_p: cobj,
+    src_tauy_srf_p: cobj,
+    dst_tauy_srf_p: cobj,
+    src_tauy_top_p: cobj,
+    dst_tauy_top_p: cobj,
+    src_cflx_srf_p: cobj,
+    dst_cflx_srf_p: cobj,
+    src_cflx_top_p: cobj,
+    dst_cflx_top_p: cobj,
+):
+    physics_ptend_sum_shell_codon(
+        ncol, psetcols, pver, pcnst, top_level, bot_level, ls, lu, lv, lq_p,
+        src_s_p, dst_s_p, src_u_p, dst_u_p, src_v_p, dst_v_p, src_q_p, dst_q_p,
+        src_hflux_srf_p, dst_hflux_srf_p, src_hflux_top_p, dst_hflux_top_p,
+        src_taux_srf_p, dst_taux_srf_p, src_taux_top_p, dst_taux_top_p,
+        src_tauy_srf_p, dst_tauy_srf_p, src_tauy_top_p, dst_tauy_top_p,
+        src_cflx_srf_p, dst_cflx_srf_p, src_cflx_top_p, dst_cflx_top_p,
+    )
+
+
+@export
 def physics_set_state_pdry_codon(
     ncol: int,
     psetcols: int,
@@ -3284,6 +3413,41 @@ def physics_set_state_pdry_codon(
 
 
 @export
+def set_state_pdry_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    do_pdeld_calc: int,
+    psdry_p: cobj,
+    pint_p: cobj,
+    pdel_p: cobj,
+    q_p: cobj,
+    pdeldry_p: cobj,
+    pintdry_p: cobj,
+    pmiddry_p: cobj,
+    rpdeldry_p: cobj,
+    lnpmiddry_p: cobj,
+    lnpintdry_p: cobj,
+):
+    physics_set_state_pdry_codon(
+        ncol,
+        psetcols,
+        pver,
+        do_pdeld_calc,
+        psdry_p,
+        pint_p,
+        pdel_p,
+        q_p,
+        pdeldry_p,
+        pintdry_p,
+        pmiddry_p,
+        rpdeldry_p,
+        lnpmiddry_p,
+        lnpintdry_p,
+    )
+
+
+@export
 def physics_set_wet_to_dry_constituent_codon(
     ncol: int,
     psetcols: int,
@@ -3319,6 +3483,56 @@ def physics_set_dry_to_wet_constituent_codon(
         for i in range(1, ncol + 1):
             idx2 = _field2_idx(i, k, psetcols)
             q[idx2] = q[idx2] * pdeldry[idx2] / pdel[idx2]
+
+
+@export
+def set_wet_to_dry_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    dry_mask_p: cobj,
+    q_p: cobj,
+    pdel_p: cobj,
+    pdeldry_p: cobj,
+):
+    dry_mask = Ptr[int](dry_mask_p)
+    q = Ptr[float](q_p)
+    pdel = Ptr[float](pdel_p)
+    pdeldry = Ptr[float](pdeldry_p)
+
+    for m in range(1, pcnst + 1):
+        if dry_mask[_idx(m)] != 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx2 = _field2_idx(i, k, psetcols)
+                    idx3 = _field3_idx(i, k, m, psetcols, pver)
+                    q[idx3] = q[idx3] * pdel[idx2] / pdeldry[idx2]
+
+
+@export
+def set_dry_to_wet_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    dry_mask_p: cobj,
+    q_p: cobj,
+    pdeldry_p: cobj,
+    pdel_p: cobj,
+):
+    dry_mask = Ptr[int](dry_mask_p)
+    q = Ptr[float](q_p)
+    pdeldry = Ptr[float](pdeldry_p)
+    pdel = Ptr[float](pdel_p)
+
+    for m in range(1, pcnst + 1):
+        if dry_mask[_idx(m)] != 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx2 = _field2_idx(i, k, psetcols)
+                    idx3 = _field3_idx(i, k, m, psetcols, pver)
+                    q[idx3] = q[idx3] * pdeldry[idx2] / pdel[idx2]
 
 
 @export
@@ -3376,6 +3590,55 @@ def physics_init_geo_unique_maps_codon(
 
     ulatcnt_out[0] = ulatcnt
     uloncnt_out[0] = uloncnt
+
+
+@export
+def init_geo_unique_codon(
+    ncol: int,
+    psetcols: int,
+    lat_p: cobj,
+    lon_p: cobj,
+    ulat_p: cobj,
+    ulon_p: cobj,
+    latmapback_p: cobj,
+    lonmapback_p: cobj,
+    ulatcnt_p: cobj,
+    uloncnt_p: cobj,
+):
+    physics_init_geo_unique_maps_codon(
+        ncol, psetcols, lat_p, lon_p, ulat_p, ulon_p, latmapback_p, lonmapback_p,
+        ulatcnt_p, uloncnt_p,
+    )
+
+
+@export
+def physics_state_set_grid_codon(
+    ncol: int,
+    psetcols: int,
+    rlat_p: cobj,
+    rlon_p: cobj,
+    lat_p: cobj,
+    lon_p: cobj,
+    ulat_p: cobj,
+    ulon_p: cobj,
+    latmapback_p: cobj,
+    lonmapback_p: cobj,
+    ulatcnt_p: cobj,
+    uloncnt_p: cobj,
+):
+    rlat = Ptr[float](rlat_p)
+    rlon = Ptr[float](rlon_p)
+    lat = Ptr[float](lat_p)
+    lon = Ptr[float](lon_p)
+
+    for i in range(1, ncol + 1):
+        lat[_idx(i)] = rlat[_idx(i)]
+        lon[_idx(i)] = rlon[_idx(i)]
+
+    init_geo_unique_codon(
+        ncol, psetcols, lat_p, lon_p, ulat_p, ulon_p, latmapback_p, lonmapback_p,
+        ulatcnt_p, uloncnt_p,
+    )
 
 
 @export
