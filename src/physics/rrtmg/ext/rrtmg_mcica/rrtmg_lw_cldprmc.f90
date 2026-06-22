@@ -63,17 +63,17 @@
       integer(c_int64_t), target :: ngb64(ngptlw)
 
       interface
-         subroutine rrtmg_lw_cldprmc_codon(nlayers_c, inflag_c, iceflag_c, liqflag_c, ngptlw_c, &
+         subroutine cldprmc_codon(nlayers_c, inflag_c, iceflag_c, liqflag_c, ngptlw_c, &
               absliq0_c, cldfmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, relqmc_p, &
               ncbands_p, taucmc_p, absice0_p, absice1_p, absice2_p, absice3_p, absliq1_p, &
-              ngb_p) bind(c, name="rrtmg_lw_cldprmc_codon")
+              ngb_p) bind(c, name="cldprmc_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, inflag_c, iceflag_c, liqflag_c, ngptlw_c
             real(c_double), value :: absliq0_c
             type(c_ptr), value :: cldfmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, relqmc_p
             type(c_ptr), value :: ncbands_p, taucmc_p
             type(c_ptr), value :: absice0_p, absice1_p, absice2_p, absice3_p, absliq1_p, ngb_p
-         end subroutine rrtmg_lw_cldprmc_codon
+         end subroutine cldprmc_codon
       end interface
 
       call cldprmc_lw_select_impl()
@@ -86,7 +86,7 @@
          enddo
 
          call cldprmc_lw_log_entered()
-         call rrtmg_lw_cldprmc_codon( &
+         call cldprmc_codon( &
               int(nlayers, c_int64_t), int(inflag, c_int64_t), int(iceflag, c_int64_t), &
               int(liqflag, c_int64_t), int(ngptlw, c_int64_t), real(absliq0, c_double), &
               c_loc(cldfmc(1,1)), c_loc(ciwpmc(1,1)), c_loc(clwpmc(1,1)), &

@@ -39,16 +39,16 @@
             real(c_double), value :: value_c
             real(c_double) :: result_c
          end function rrtmg_init_real_passthrough_codon
-         subroutine rrtmg_swdatinit_codon(nbndsw_c, wavenum1_p, wavenum2_p, &
+         subroutine swdatinit_codon(nbndsw_c, wavenum1_p, wavenum2_p, &
               delwave_p, ng_p, nspa_p, nspb_p, constants_p) &
-              bind(c, name="rrtmg_swdatinit_codon")
+              bind(c, name="swdatinit_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nbndsw_c
             type(c_ptr), value :: wavenum1_p, wavenum2_p, delwave_p
             type(c_ptr), value :: ng_p, nspa_p, nspb_p, constants_p
-         end subroutine rrtmg_swdatinit_codon
-         subroutine rrtmg_sw_swcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
-              bind(c, name="rrtmg_sw_swcmbdat_codon")
+         end subroutine swdatinit_codon
+         subroutine swcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
+              bind(c, name="swcmbdat_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: ngc_p
             type(c_ptr), value :: ngs_p
@@ -56,11 +56,11 @@
             type(c_ptr), value :: ngn_p
             type(c_ptr), value :: ngb_p
             type(c_ptr), value :: wt_p
-         end subroutine rrtmg_sw_swcmbdat_codon
-         subroutine rrtmg_sw_cmbgb16s_codon(ngc1_c, ngn_p, rwgt_p, &
+         end subroutine swcmbdat_codon
+         subroutine cmbgb16s_codon(ngc1_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
               kb_p, selfref_p, forref_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb16s_codon")
+              bind(c, name="cmbgb16s_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc1_c
             type(c_ptr), value :: ngn_p
@@ -75,11 +75,11 @@
             type(c_ptr), value :: selfref_p
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb16s_codon
-         subroutine rrtmg_sw_cmbgb17_codon(ngc2_c, ngs1_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb16s_codon
+         subroutine cmbgb17_codon(ngc2_c, ngs1_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
               kb_p, selfref_p, forref_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb17_codon")
+              bind(c, name="cmbgb17_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc2_c
             integer(c_int64_t), value :: ngs1_c
@@ -95,11 +95,11 @@
             type(c_ptr), value :: selfref_p
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb17_codon
-         subroutine rrtmg_sw_cmbgb18_codon(ngc3_c, ngs2_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb17_codon
+         subroutine cmbgb18_codon(ngc3_c, ngs2_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
               kb_p, selfref_p, forref_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb18_codon")
+              bind(c, name="cmbgb18_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc3_c
             integer(c_int64_t), value :: ngs2_c
@@ -115,11 +115,11 @@
             type(c_ptr), value :: selfref_p
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb18_codon
-         subroutine rrtmg_sw_cmbgb19_codon(ngc4_c, ngs3_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb18_codon
+         subroutine cmbgb19_codon(ngc4_c, ngs3_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
               kb_p, selfref_p, forref_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb19_codon")
+              bind(c, name="cmbgb19_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc4_c
             integer(c_int64_t), value :: ngs3_c
@@ -135,11 +135,11 @@
             type(c_ptr), value :: selfref_p
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb19_codon
-         subroutine rrtmg_sw_cmbgb20_codon(ngc5_c, ngs4_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb19_codon
+         subroutine cmbgb20_codon(ngc5_c, ngs4_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, absch4o_p, &
               ka_p, kb_p, selfref_p, forref_p, sfluxref_p, absch4_p) &
-              bind(c, name="rrtmg_sw_cmbgb20_codon")
+              bind(c, name="cmbgb20_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc5_c
             integer(c_int64_t), value :: ngs4_c
@@ -157,11 +157,11 @@
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
             type(c_ptr), value :: absch4_p
-         end subroutine rrtmg_sw_cmbgb20_codon
-         subroutine rrtmg_sw_cmbgb21_codon(ngc6_c, ngs5_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb20_codon
+         subroutine cmbgb21_codon(ngc6_c, ngs5_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
               kb_p, selfref_p, forref_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb21_codon")
+              bind(c, name="cmbgb21_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc6_c
             integer(c_int64_t), value :: ngs5_c
@@ -177,11 +177,11 @@
             type(c_ptr), value :: selfref_p
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb21_codon
-         subroutine rrtmg_sw_cmbgb22_codon(ngc7_c, ngs6_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb21_codon
+         subroutine cmbgb22_codon(ngc7_c, ngs6_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, ka_p, &
               kb_p, selfref_p, forref_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb22_codon")
+              bind(c, name="cmbgb22_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc7_c
             integer(c_int64_t), value :: ngs6_c
@@ -197,11 +197,11 @@
             type(c_ptr), value :: selfref_p
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb22_codon
-         subroutine rrtmg_sw_cmbgb23_codon(ngc8_c, ngs7_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb22_codon
+         subroutine cmbgb23_codon(ngc8_c, ngs7_c, ngn_p, rwgt_p, &
               kao_p, selfrefo_p, forrefo_p, sfluxrefo_p, raylo_p, ka_p, &
               selfref_p, forref_p, sfluxref_p, rayl_p) &
-              bind(c, name="rrtmg_sw_cmbgb23_codon")
+              bind(c, name="cmbgb23_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc8_c
             integer(c_int64_t), value :: ngs7_c
@@ -217,12 +217,12 @@
             type(c_ptr), value :: forref_p
             type(c_ptr), value :: sfluxref_p
             type(c_ptr), value :: rayl_p
-         end subroutine rrtmg_sw_cmbgb23_codon
-         subroutine rrtmg_sw_cmbgb24_codon(ngc9_c, ngs8_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb23_codon
+         subroutine cmbgb24_codon(ngc9_c, ngs8_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, &
               abso3ao_p, abso3bo_p, raylao_p, raylbo_p, ka_p, kb_p, &
               selfref_p, forref_p, sfluxref_p, abso3a_p, abso3b_p, &
-              rayla_p, raylb_p) bind(c, name="rrtmg_sw_cmbgb24_codon")
+              rayla_p, raylb_p) bind(c, name="cmbgb24_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc9_c
             integer(c_int64_t), value :: ngs8_c
@@ -246,10 +246,10 @@
             type(c_ptr), value :: abso3b_p
             type(c_ptr), value :: rayla_p
             type(c_ptr), value :: raylb_p
-         end subroutine rrtmg_sw_cmbgb24_codon
-         subroutine rrtmg_sw_cmbgb26_codon(ngc11_c, ngs10_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb24_codon
+         subroutine cmbgb26_codon(ngc11_c, ngs10_c, ngn_p, rwgt_p, &
               raylo_p, sfluxrefo_p, rayl_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb26_codon")
+              bind(c, name="cmbgb26_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc11_c
             integer(c_int64_t), value :: ngs10_c
@@ -259,11 +259,11 @@
             type(c_ptr), value :: sfluxrefo_p
             type(c_ptr), value :: rayl_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb26_codon
-         subroutine rrtmg_sw_cmbgb25_codon(ngc10_c, ngs9_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb26_codon
+         subroutine cmbgb25_codon(ngc10_c, ngs9_c, ngn_p, rwgt_p, &
               kao_p, sfluxrefo_p, abso3ao_p, abso3bo_p, raylo_p, ka_p, &
               sfluxref_p, abso3a_p, abso3b_p, rayl_p) &
-              bind(c, name="rrtmg_sw_cmbgb25_codon")
+              bind(c, name="cmbgb25_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc10_c
             integer(c_int64_t), value :: ngs9_c
@@ -279,10 +279,10 @@
             type(c_ptr), value :: abso3a_p
             type(c_ptr), value :: abso3b_p
             type(c_ptr), value :: rayl_p
-         end subroutine rrtmg_sw_cmbgb25_codon
-         subroutine rrtmg_sw_cmbgb27_codon(ngc12_c, ngs11_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb25_codon
+         subroutine cmbgb27_codon(ngc12_c, ngs11_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, sfluxrefo_p, raylo_p, ka_p, kb_p, sfluxref_p, &
-              rayl_p) bind(c, name="rrtmg_sw_cmbgb27_codon")
+              rayl_p) bind(c, name="cmbgb27_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc12_c
             integer(c_int64_t), value :: ngs11_c
@@ -296,10 +296,10 @@
             type(c_ptr), value :: kb_p
             type(c_ptr), value :: sfluxref_p
             type(c_ptr), value :: rayl_p
-         end subroutine rrtmg_sw_cmbgb27_codon
-         subroutine rrtmg_sw_cmbgb28_codon(ngc13_c, ngs12_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb27_codon
+         subroutine cmbgb28_codon(ngc13_c, ngs12_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, sfluxrefo_p, ka_p, kb_p, sfluxref_p) &
-              bind(c, name="rrtmg_sw_cmbgb28_codon")
+              bind(c, name="cmbgb28_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc13_c
             integer(c_int64_t), value :: ngs12_c
@@ -311,11 +311,11 @@
             type(c_ptr), value :: ka_p
             type(c_ptr), value :: kb_p
             type(c_ptr), value :: sfluxref_p
-         end subroutine rrtmg_sw_cmbgb28_codon
-         subroutine rrtmg_sw_cmbgb29_codon(ngc14_c, ngs13_c, ngn_p, rwgt_p, &
+         end subroutine cmbgb28_codon
+         subroutine cmbgb29_codon(ngc14_c, ngs13_c, ngn_p, rwgt_p, &
               kao_p, kbo_p, selfrefo_p, forrefo_p, sfluxrefo_p, absh2oo_p, &
               absco2o_p, ka_p, kb_p, selfref_p, forref_p, sfluxref_p, &
-              absh2o_p, absco2_p) bind(c, name="rrtmg_sw_cmbgb29_codon")
+              absh2o_p, absco2_p) bind(c, name="cmbgb29_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc14_c
             integer(c_int64_t), value :: ngs13_c
@@ -335,18 +335,18 @@
             type(c_ptr), value :: sfluxref_p
             type(c_ptr), value :: absh2o_p
             type(c_ptr), value :: absco2_p
-         end subroutine rrtmg_sw_cmbgb29_codon
-         subroutine rrtmg_sw_swaerpr_codon(rsrtaua_p, rsrpiza_p, rsrasya_p) &
-              bind(c, name="rrtmg_sw_swaerpr_codon")
+         end subroutine cmbgb29_codon
+         subroutine swaerpr_codon(rsrtaua_p, rsrpiza_p, rsrasya_p) &
+              bind(c, name="swaerpr_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: rsrtaua_p
             type(c_ptr), value :: rsrpiza_p
             type(c_ptr), value :: rsrasya_p
-         end subroutine rrtmg_sw_swaerpr_codon
-         subroutine rrtmg_sw_swcldpr_codon(abari_p, bbari_p, cbari_p, dbari_p, &
+         end subroutine swaerpr_codon
+         subroutine swcldpr_codon(abari_p, bbari_p, cbari_p, dbari_p, &
               ebari_p, fbari_p, extliq1_p, ssaliq1_p, asyliq1_p, extice2_p, &
               ssaice2_p, asyice2_p, extice3_p, ssaice3_p, asyice3_p, fdlice3_p) &
-              bind(c, name="rrtmg_sw_swcldpr_codon")
+              bind(c, name="swcldpr_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: abari_p
             type(c_ptr), value :: bbari_p
@@ -364,7 +364,7 @@
             type(c_ptr), value :: ssaice3_p
             type(c_ptr), value :: asyice3_p
             type(c_ptr), value :: fdlice3_p
-         end subroutine rrtmg_sw_swcldpr_codon
+         end subroutine swcldpr_codon
       end interface
 
       contains
@@ -520,7 +520,7 @@
 
       call swdatinit_select_impl()
       if (.not. use_native_swdatinit_impl) then
-         call rrtmg_swdatinit_codon(int(nbndsw, c_int64_t), &
+         call swdatinit_codon(int(nbndsw, c_int64_t), &
               c_loc(wavenum1(lbound(wavenum1,1))), c_loc(wavenum2(lbound(wavenum2,1))), &
               c_loc(delwave(lbound(delwave,1))), c_loc(ng_c(1)), c_loc(nspa_c(1)), &
               c_loc(nspb_c(1)), c_loc(constants_c(1)))
@@ -669,7 +669,7 @@
 
       call rrtmg_sw_init_select_impl()
       if (.not. use_native_rrtmg_sw_init_impl) then
-         call rrtmg_sw_swcmbdat_codon(c_loc(ngc_c(1)), c_loc(ngs_c(1)), &
+         call swcmbdat_codon(c_loc(ngc_c(1)), c_loc(ngs_c(1)), &
               c_loc(ngm_c(1)), c_loc(ngn_c(1)), c_loc(ngb_c(1)), c_loc(wt_c(1)))
          ngc(:) = int(ngc_c(:))
          ngs(:) = int(ngs_c(:))
@@ -857,7 +857,7 @@
          selfrefo_c(:,:) = selfrefo(:,:)
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:) = sfluxrefo(:)
-         call rrtmg_sw_cmbgb16s_codon(int(ngc(1), c_int64_t), &
+         call cmbgb16s_codon(int(ngc(1), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
@@ -980,7 +980,7 @@
          selfrefo_c(:,:) = selfrefo(:,:)
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:,:) = sfluxrefo(:,:)
-         call rrtmg_sw_cmbgb17_codon(int(ngc(2), c_int64_t), int(ngs(1), c_int64_t), &
+         call cmbgb17_codon(int(ngc(2), c_int64_t), int(ngs(1), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,1,13,1)), &
@@ -1107,7 +1107,7 @@
          selfrefo_c(:,:) = selfrefo(:,:)
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:,:) = sfluxrefo(:,:)
-         call rrtmg_sw_cmbgb18_codon(int(ngc(3), c_int64_t), int(ngs(2), c_int64_t), &
+         call cmbgb18_codon(int(ngc(3), c_int64_t), int(ngs(2), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
@@ -1232,7 +1232,7 @@
          selfrefo_c(:,:) = selfrefo(:,:)
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:,:) = sfluxrefo(:,:)
-         call rrtmg_sw_cmbgb19_codon(int(ngc(4), c_int64_t), int(ngs(3), c_int64_t), &
+         call cmbgb19_codon(int(ngc(4), c_int64_t), int(ngs(3), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
@@ -1360,7 +1360,7 @@
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:) = sfluxrefo(:)
          absch4o_c(:) = absch4o(:)
-         call rrtmg_sw_cmbgb20_codon(int(ngc(5), c_int64_t), int(ngs(4), c_int64_t), &
+         call cmbgb20_codon(int(ngc(5), c_int64_t), int(ngs(4), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1)), c_loc(absch4o_c(1)), c_loc(ka_c(1,1,1)), &
@@ -1483,7 +1483,7 @@
          selfrefo_c(:,:) = selfrefo(:,:)
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:,:) = sfluxrefo(:,:)
-         call rrtmg_sw_cmbgb21_codon(int(ngc(6), c_int64_t), int(ngs(5), c_int64_t), &
+         call cmbgb21_codon(int(ngc(6), c_int64_t), int(ngs(5), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,1,13,1)), &
@@ -1610,7 +1610,7 @@
          selfrefo_c(:,:) = selfrefo(:,:)
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:,:) = sfluxrefo(:,:)
-         call rrtmg_sw_cmbgb22_codon(int(ngc(7), c_int64_t), int(ngs(6), c_int64_t), &
+         call cmbgb22_codon(int(ngc(7), c_int64_t), int(ngs(6), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), c_loc(kb_c(1,13,1)), &
@@ -1735,7 +1735,7 @@
          forrefo_c(:,:) = forrefo(:,:)
          sfluxrefo_c(:) = sfluxrefo(:)
          raylo_c(:) = raylo(:)
-         call rrtmg_sw_cmbgb23_codon(int(ngc(8), c_int64_t), int(ngs(7), c_int64_t), &
+         call cmbgb23_codon(int(ngc(8), c_int64_t), int(ngs(7), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
               c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), c_loc(sfluxrefo_c(1)), &
               c_loc(raylo_c(1)), c_loc(ka_c(1,1,1)), c_loc(selfref_c(1,1)), &
@@ -1859,7 +1859,7 @@
          abso3bo_c(:) = abso3bo(:)
          raylao_c(:,:) = raylao(:,:)
          raylbo_c(:) = raylbo(:)
-         call rrtmg_sw_cmbgb24_codon(int(ngc(9), c_int64_t), int(ngs(8), c_int64_t), &
+         call cmbgb24_codon(int(ngc(9), c_int64_t), int(ngs(8), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1,1)), c_loc(abso3ao_c(1)), c_loc(abso3bo_c(1)), &
@@ -2012,7 +2012,7 @@
          abso3ao_c(:) = abso3ao(:)
          abso3bo_c(:) = abso3bo(:)
          raylo_c(:) = raylo(:)
-         call rrtmg_sw_cmbgb25_codon(int(ngc(10), c_int64_t), int(ngs(9), c_int64_t), &
+         call cmbgb25_codon(int(ngc(10), c_int64_t), int(ngs(9), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
               c_loc(sfluxrefo_c(1)), c_loc(abso3ao_c(1)), c_loc(abso3bo_c(1)), &
               c_loc(raylo_c(1)), c_loc(ka_c(1,1,1)), c_loc(sfluxref_c(1)), &
@@ -2095,7 +2095,7 @@
          rwgt_c(:) = rwgt(:)
          raylo_c(:) = raylo(:)
          sfluxrefo_c(:) = sfluxrefo(:)
-         call rrtmg_sw_cmbgb26_codon(int(ngc(11), c_int64_t), int(ngs(10), c_int64_t), &
+         call cmbgb26_codon(int(ngc(11), c_int64_t), int(ngs(10), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(raylo_c(1)), &
               c_loc(sfluxrefo_c(1)), c_loc(rayl_c(1)), c_loc(sfluxref_c(1)))
          rayl(:) = rayl_c(:)
@@ -2160,7 +2160,7 @@
          kbo_c(:,:,:) = kbo(:,:,:)
          sfluxrefo_c(:) = sfluxrefo(:)
          raylo_c(:) = raylo(:)
-         call rrtmg_sw_cmbgb27_codon(int(ngc(12), c_int64_t), int(ngs(11), c_int64_t), &
+         call cmbgb27_codon(int(ngc(12), c_int64_t), int(ngs(11), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(sfluxrefo_c(1)), c_loc(raylo_c(1)), &
               c_loc(ka_c(1,1,1)), c_loc(kb_c(1,13,1)), c_loc(sfluxref_c(1)), &
@@ -2250,7 +2250,7 @@
          kao_c(:,:,:,:) = kao(:,:,:,:)
          kbo_c(:,:,:,:) = kbo(:,:,:,:)
          sfluxrefo_c(:,:) = sfluxrefo(:,:)
-         call rrtmg_sw_cmbgb28_codon(int(ngc(13), c_int64_t), int(ngs(12), c_int64_t), &
+         call cmbgb28_codon(int(ngc(13), c_int64_t), int(ngs(12), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1,1)), &
               c_loc(kbo_c(1,1,13,1)), c_loc(sfluxrefo_c(1,1)), c_loc(ka_c(1,1,1,1)), &
               c_loc(kb_c(1,1,13,1)), c_loc(sfluxref_c(1,1)))
@@ -2358,7 +2358,7 @@
          sfluxrefo_c(:) = sfluxrefo(:)
          absh2oo_c(:) = absh2oo(:)
          absco2o_c(:) = absco2o(:)
-         call rrtmg_sw_cmbgb29_codon(int(ngc(14), c_int64_t), int(ngs(13), c_int64_t), &
+         call cmbgb29_codon(int(ngc(14), c_int64_t), int(ngs(13), c_int64_t), &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(kao_c(1,1,1)), &
               c_loc(kbo_c(1,13,1)), c_loc(selfrefo_c(1,1)), c_loc(forrefo_c(1,1)), &
               c_loc(sfluxrefo_c(1)), c_loc(absh2oo_c(1)), c_loc(absco2o_c(1)), &
@@ -2469,7 +2469,7 @@
 
       call rrtmg_sw_init_select_impl()
       if (.not. use_native_rrtmg_sw_init_impl) then
-         call rrtmg_sw_swaerpr_codon(c_loc(rsrtaua_c(1,1)), c_loc(rsrpiza_c(1,1)), &
+         call swaerpr_codon(c_loc(rsrtaua_c(1,1)), c_loc(rsrpiza_c(1,1)), &
               c_loc(rsrasya_c(1,1)))
          rsrtaua(:,:) = rsrtaua_c(:,:)
          rsrpiza(:,:) = rsrpiza_c(:,:)
@@ -2593,7 +2593,7 @@
          call swcldpr_native
       else
          call rrtmg_sw_init_log_entered()
-         call rrtmg_sw_swcldpr_codon(c_loc(abari(1)), c_loc(bbari(1)), &
+         call swcldpr_codon(c_loc(abari(1)), c_loc(bbari(1)), &
               c_loc(cbari(1)), c_loc(dbari(1)), c_loc(ebari(1)), c_loc(fbari(1)), &
               c_loc(extliq1(1,16)), c_loc(ssaliq1(1,16)), c_loc(asyliq1(1,16)), &
               c_loc(extice2(1,16)), c_loc(ssaice2(1,16)), c_loc(asyice2(1,16)), &

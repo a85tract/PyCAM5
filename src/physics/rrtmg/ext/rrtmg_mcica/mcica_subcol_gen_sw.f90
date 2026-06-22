@@ -808,12 +808,12 @@
       logical :: big_endian
 
       interface
-         subroutine rrtmg_mcica_kissvec_codon(n_c, seed1_p, seed2_p, seed3_p, seed4_p, ran_arr_p) &
-              bind(c, name="rrtmg_mcica_kissvec_codon")
+         subroutine kissvec_codon(n_c, seed1_p, seed2_p, seed3_p, seed4_p, ran_arr_p) &
+              bind(c, name="kissvec_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: n_c
             type(c_ptr), value :: seed1_p, seed2_p, seed3_p, seed4_p, ran_arr_p
-         end subroutine rrtmg_mcica_kissvec_codon
+         end subroutine kissvec_codon
       end interface
 
       if (mcica_sw_use_native('RRTMG_MCICA_KISSVEC_IMPL')) then
@@ -827,7 +827,7 @@
             endif
          endif
       else
-         call rrtmg_mcica_kissvec_codon(int(size(ran_arr), c_int64_t), &
+         call kissvec_codon(int(size(ran_arr), c_int64_t), &
               c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)), c_loc(ran_arr(1)))
          if (.not. kissvec_sw_entered_logged) then
             kissvec_sw_entered_logged = .true.

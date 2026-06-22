@@ -223,6 +223,7 @@ contains
     real(r8), pointer, dimension(:,:) :: co2    ! co2   mass mixing ratio
     
     integer  :: ncol, i, kk, k
+    logical, save :: rrtmg_state_update_direct_logged = .false.
 
     interface
        subroutine rrtmg_state_update_codon(ncol_c, pcols_c, pverp_c, num_rrtmg_levs_c, &
@@ -259,6 +260,11 @@ contains
 
     if (.not. use_native_rrtmg_state_impl) then
        call rrtmg_state_log_entered()
+       if (masterproc .and. .not. rrtmg_state_update_direct_logged) then
+          write(iulog,'(A)') 'rrtmg_state_update direct = codon'
+          call flush(iulog)
+          rrtmg_state_update_direct_logged = .true.
+       end if
        call rrtmg_state_update_codon( &
             int(ncol, c_int64_t), int(pcols, c_int64_t), int(pverp, c_int64_t), int(num_rrtmg_levs, c_int64_t), &
             c_loc(sp_hum(1,1)), c_loc(o2(1,1)), c_loc(o3(1,1)), c_loc(co2(1,1)), &

@@ -847,7 +847,7 @@
       integer(c_int64_t), target :: ixindx64(maxxsec)
 
       interface
-         subroutine rrtmg_lw_inatm_codon(iplon_c, nlay_c, ldcol_c, icld_c, iaer_c, &
+         subroutine inatm_codon(iplon_c, nlay_c, ldcol_c, icld_c, iaer_c, &
               nbndlw_c, ngptlw_c, nmol_c, maxxsec_c, mxmol_c, grav_c, avogad_c, &
               play_p, plev_p, tlay_p, tlev_p, tsfc_p, h2ovmr_p, o3vmr_p, co2vmr_p, &
               ch4vmr_p, o2vmr_p, n2ovmr_p, cfc11vmr_p, cfc12vmr_p, cfc22vmr_p, &
@@ -856,7 +856,7 @@
               pavel_p, pz_p, tavel_p, tz_p, tbound_p, semiss_p, coldry_p, wbrodl_p, &
               wkl_p, wx_p, pwvcm_p, inflag_p, iceflag_p, liqflag_p, cldfmc_p, &
               taucmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, relqmc_p, taua_p, &
-              ixindx_p) bind(c, name="rrtmg_lw_inatm_codon")
+              ixindx_p) bind(c, name="inatm_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: iplon_c, nlay_c, ldcol_c, icld_c, iaer_c
             integer(c_int64_t), value :: nbndlw_c, ngptlw_c, nmol_c, maxxsec_c, mxmol_c
@@ -871,7 +871,7 @@
             type(c_ptr), value :: wx_p, pwvcm_p, inflag_p, iceflag_p, liqflag_p, cldfmc_p
             type(c_ptr), value :: taucmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p
             type(c_ptr), value :: relqmc_p, taua_p, ixindx_p
-         end subroutine rrtmg_lw_inatm_codon
+         end subroutine inatm_codon
       end interface
 
       call rrtmg_lw_inatm_select_impl()
@@ -883,7 +883,7 @@
          do ix = 1, maxxsec
             ixindx64(ix) = int(ixindx(ix), c_int64_t)
          enddo
-         call rrtmg_lw_inatm_codon( &
+         call inatm_codon( &
               int(iplon, c_int64_t), int(nlay, c_int64_t), int(size(play,1), c_int64_t), &
               int(icld, c_int64_t), int(iaer, c_int64_t), int(nbndlw, c_int64_t), &
               int(ngptlw, c_int64_t), int(nmol, c_int64_t), int(maxxsec, c_int64_t), &

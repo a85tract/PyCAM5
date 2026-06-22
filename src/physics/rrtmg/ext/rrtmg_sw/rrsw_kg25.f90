@@ -27,12 +27,12 @@
 
       integer, parameter :: no25 = 16
 
-      real(kind=r8) :: kao(5,13,no25)
-      real(kind=r8) :: sfluxrefo(no25)
-      real(kind=r8) :: abso3ao(no25), abso3bo(no25)
-      real(kind=r8) :: raylo(no25)
+      real(kind=r8), target :: kao(5,13,no25)
+      real(kind=r8), target :: sfluxrefo(no25)
+      real(kind=r8), target :: abso3ao(no25), abso3bo(no25)
+      real(kind=r8), target :: raylo(no25)
 
-      integer :: layreffr
+      integer, target :: layreffr
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 25

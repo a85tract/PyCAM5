@@ -27,13 +27,13 @@
 
       integer, parameter :: no23 = 16
 
-      real(kind=r8) :: kao(5,13,no23)
-      real(kind=r8) :: selfrefo(10,no23), forrefo(3,no23)
-      real(kind=r8) :: sfluxrefo(no23)
-      real(kind=r8) :: raylo(no23)
+      real(kind=r8), target :: kao(5,13,no23)
+      real(kind=r8), target :: selfrefo(10,no23), forrefo(3,no23)
+      real(kind=r8), target :: sfluxrefo(no23)
+      real(kind=r8), target :: raylo(no23)
 
-      integer :: layreffr
-      real(kind=r8) :: givfac
+      integer, target :: layreffr
+      real(kind=r8), target :: givfac
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 23

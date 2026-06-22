@@ -26,13 +26,13 @@
 
       integer, parameter :: no16 = 16
 
-      real(kind=r8) , dimension(no16) :: fracrefbo
+      real(kind=r8) , dimension(no16), target :: fracrefbo
 
-      real(kind=r8) :: fracrefao(no16,9)
-      real(kind=r8) :: kao(9,5,13,no16)
-      real(kind=r8) :: kbo(5,13:59,no16)
-      real(kind=r8) :: selfrefo(10,no16)
-      real(kind=r8) :: forrefo(4,no16)
+      real(kind=r8), target :: fracrefao(no16,9)
+      real(kind=r8), target :: kao(9,5,13,no16)
+      real(kind=r8), target :: kbo(5,13:59,no16)
+      real(kind=r8), target :: selfrefo(10,no16)
+      real(kind=r8), target :: forrefo(4,no16)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 16

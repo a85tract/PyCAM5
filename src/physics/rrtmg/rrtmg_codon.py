@@ -14,7 +14,12 @@ def rrtmg_init_int_passthrough_codon(value: int) -> int:
 
 
 @export
-def rrtmg_lwdatinit_codon(
+def get_number_sw_bands_codon(value: int) -> int:
+    return rrtmg_init_int_passthrough_codon(value)
+
+
+@export
+def lwdatinit_codon(
     nbndlw: int,
     maxinpx: int,
     wavenum1_p: cobj,
@@ -75,7 +80,7 @@ def rrtmg_lwdatinit_codon(
 
 
 @export
-def rrtmg_lw_lwcmbdat_codon(
+def lwcmbdat_codon(
     ngc_p: cobj,
     ngs_p: cobj,
     ngm_p: cobj,
@@ -169,7 +174,7 @@ def rrtmg_lw_lwcmbdat_codon(
 
 
 @export
-def rrtmg_swdatinit_codon(
+def swdatinit_codon(
     nbndsw: int,
     wavenum1_p: cobj,
     wavenum2_p: cobj,
@@ -221,7 +226,7 @@ def rrtmg_swdatinit_codon(
 
 
 @export
-def rrtmg_rad_gas_index_codon(name_len: int, name_p: cobj) -> int:
+def rad_gas_index_codon(name_len: int, name_p: cobj) -> int:
     name = Ptr[int](name_p)
     if name_len == 3 and name[0] == 72 and name[1] == 50 and name[2] == 79:
         return 1
@@ -268,6 +273,45 @@ def rrtmg_ref_solar_band_irrad_codon(
 
 
 @export
+def get_ref_solar_band_irrad_codon(
+    nbands: int,
+    band_irrad_p: cobj,
+    c01: float,
+    c02: float,
+    c03: float,
+    c04: float,
+    c05: float,
+    c06: float,
+    c07: float,
+    c08: float,
+    c09: float,
+    c10: float,
+    c11: float,
+    c12: float,
+    c13: float,
+    c14: float,
+):
+    rrtmg_ref_solar_band_irrad_codon(
+        nbands,
+        band_irrad_p,
+        c01,
+        c02,
+        c03,
+        c04,
+        c05,
+        c06,
+        c07,
+        c08,
+        c09,
+        c10,
+        c11,
+        c12,
+        c13,
+        c14,
+    )
+
+
+@export
 def rrtmg_solar_band_fraction_irrad_codon(
     nbands: int,
     fraction_p: cobj,
@@ -293,6 +337,45 @@ def rrtmg_solar_band_fraction_irrad_codon(
         total = total + values[i]
     for i in range(nbands):
         fraction[i] = values[i] / total
+
+
+@export
+def get_solar_band_fraction_irrad_codon(
+    nbands: int,
+    fraction_p: cobj,
+    c01: float,
+    c02: float,
+    c03: float,
+    c04: float,
+    c05: float,
+    c06: float,
+    c07: float,
+    c08: float,
+    c09: float,
+    c10: float,
+    c11: float,
+    c12: float,
+    c13: float,
+    c14: float,
+):
+    rrtmg_solar_band_fraction_irrad_codon(
+        nbands,
+        fraction_p,
+        c01,
+        c02,
+        c03,
+        c04,
+        c05,
+        c06,
+        c07,
+        c08,
+        c09,
+        c10,
+        c11,
+        c12,
+        c13,
+        c14,
+    )
 
 
 @export
@@ -472,7 +555,7 @@ def rrtmg_state_destroy_codon_touch(value: int) -> int:
 
 
 @export
-def rrtmg_swatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj):
+def swatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj):
     pref = Ptr[float](pref_p)
     preflog = Ptr[float](preflog_p)
     tref = Ptr[float](tref_p)
@@ -525,8 +608,8 @@ def rrtmg_swatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj):
 
 
 @export
-def rrtmg_lwatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj, chi_mls_p: cobj) -> int:
-    rrtmg_swatmref_codon(pref_p, preflog_p, tref_p)
+def lwatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj, chi_mls_p: cobj) -> int:
+    swatmref_codon(pref_p, preflog_p, tref_p)
     chi_mls = Ptr[float](chi_mls_p)
     chi_mls_values = (
         1.8760e-02, 1.2223e-02, 5.8909e-03, 2.7675e-03, 1.4065e-03,
@@ -626,7 +709,7 @@ def rrtmg_lwatmref_codon(pref_p: cobj, preflog_p: cobj, tref_p: cobj, chi_mls_p:
 
 
 @export
-def rrtmg_sw_swcmbdat_codon(
+def swcmbdat_codon(
     ngc_p: cobj,
     ngs_p: cobj,
     ngm_p: cobj,
@@ -749,7 +832,7 @@ def _sw_idx4_dim3_lb(
 
 
 @export
-def rrtmg_sw_cmbgb16s_codon(
+def cmbgb16s_codon(
     ngc1: int,
     ngn_p: cobj,
     rwgt_p: cobj,
@@ -826,7 +909,7 @@ def rrtmg_sw_cmbgb16s_codon(
 
 
 @export
-def rrtmg_sw_cmbgb17_codon(
+def cmbgb17_codon(
     ngc2: int,
     ngs1: int,
     ngn_p: cobj,
@@ -906,7 +989,7 @@ def rrtmg_sw_cmbgb17_codon(
 
 
 @export
-def rrtmg_sw_cmbgb18_codon(
+def cmbgb18_codon(
     ngc3: int,
     ngs2: int,
     ngn_p: cobj,
@@ -985,7 +1068,7 @@ def rrtmg_sw_cmbgb18_codon(
 
 
 @export
-def rrtmg_sw_cmbgb19_codon(
+def cmbgb19_codon(
     ngc4: int,
     ngs3: int,
     ngn_p: cobj,
@@ -1064,7 +1147,7 @@ def rrtmg_sw_cmbgb19_codon(
 
 
 @export
-def rrtmg_sw_cmbgb20_codon(
+def cmbgb20_codon(
     ngc5: int,
     ngs4: int,
     ngn_p: cobj,
@@ -1146,7 +1229,7 @@ def rrtmg_sw_cmbgb20_codon(
 
 
 @export
-def rrtmg_sw_cmbgb21_codon(
+def cmbgb21_codon(
     ngc6: int,
     ngs5: int,
     ngn_p: cobj,
@@ -1226,7 +1309,7 @@ def rrtmg_sw_cmbgb21_codon(
 
 
 @export
-def rrtmg_sw_cmbgb22_codon(
+def cmbgb22_codon(
     ngc7: int,
     ngs6: int,
     ngn_p: cobj,
@@ -1305,7 +1388,7 @@ def rrtmg_sw_cmbgb22_codon(
 
 
 @export
-def rrtmg_sw_cmbgb23_codon(
+def cmbgb23_codon(
     ngc8: int,
     ngs7: int,
     ngn_p: cobj,
@@ -1375,7 +1458,7 @@ def rrtmg_sw_cmbgb23_codon(
 
 
 @export
-def rrtmg_sw_cmbgb24_codon(
+def cmbgb24_codon(
     ngc9: int,
     ngs8: int,
     ngn_p: cobj,
@@ -1487,7 +1570,7 @@ def rrtmg_sw_cmbgb24_codon(
 
 
 @export
-def rrtmg_sw_cmbgb25_codon(
+def cmbgb25_codon(
     ngc10: int,
     ngs9: int,
     ngn_p: cobj,
@@ -1545,7 +1628,7 @@ def rrtmg_sw_cmbgb25_codon(
 
 
 @export
-def rrtmg_sw_cmbgb26_codon(
+def cmbgb26_codon(
     ngc11: int,
     ngs10: int,
     ngn_p: cobj,
@@ -1704,7 +1787,7 @@ def _lw_cmb_weighted_4d(
 
 
 @export
-def rrtmg_lw_cmbgb1_codon(
+def cmbgb1_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -1756,7 +1839,7 @@ def rrtmg_lw_cmbgb1_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb2_codon(
+def cmbgb2_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -1798,7 +1881,7 @@ def rrtmg_lw_cmbgb2_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb3_codon(
+def cmbgb3_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -1850,7 +1933,7 @@ def rrtmg_lw_cmbgb3_codon(
     _lw_cmb_unweighted_2d(ngc, ngs_prev, 5, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb4_codon(
+def cmbgb4_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -1892,7 +1975,7 @@ def rrtmg_lw_cmbgb4_codon(
     _lw_cmb_unweighted_2d(ngc, ngs_prev, 5, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb5_codon(
+def cmbgb5_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -1944,7 +2027,7 @@ def rrtmg_lw_cmbgb5_codon(
     _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, ccl4o, ccl4, ngn, rwgt)
 
 @export
-def rrtmg_lw_cmbgb6_codon(
+def cmbgb6_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -1991,7 +2074,7 @@ def rrtmg_lw_cmbgb6_codon(
     _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, cfc12o, cfc12, ngn, rwgt)
 
 @export
-def rrtmg_lw_cmbgb7_codon(
+def cmbgb7_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2043,7 +2126,7 @@ def rrtmg_lw_cmbgb7_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb8_codon(
+def cmbgb8_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2120,7 +2203,7 @@ def rrtmg_lw_cmbgb8_codon(
     _lw_cmb_weighted_1d(ngc, ngs_prev, rwgt_offset, cfc22adjo, cfc22adj, ngn, rwgt)
 
 @export
-def rrtmg_lw_cmbgb9_codon(
+def cmbgb9_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2172,7 +2255,7 @@ def rrtmg_lw_cmbgb9_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb10_codon(
+def cmbgb10_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2214,7 +2297,7 @@ def rrtmg_lw_cmbgb10_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb11_codon(
+def cmbgb11_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2266,7 +2349,7 @@ def rrtmg_lw_cmbgb11_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb12_codon(
+def cmbgb12_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2298,7 +2381,7 @@ def rrtmg_lw_cmbgb12_codon(
     _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
 
 @export
-def rrtmg_lw_cmbgb13_codon(
+def cmbgb13_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2350,7 +2433,7 @@ def rrtmg_lw_cmbgb13_codon(
     _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
 
 @export
-def rrtmg_lw_cmbgb14_codon(
+def cmbgb14_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2392,7 +2475,7 @@ def rrtmg_lw_cmbgb14_codon(
     _lw_cmb_unweighted_1d(ngc, ngs_prev, fracrefbo, fracrefb, ngn)
 
 @export
-def rrtmg_lw_cmbgb15_codon(
+def cmbgb15_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2429,7 +2512,7 @@ def rrtmg_lw_cmbgb15_codon(
     _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
 
 @export
-def rrtmg_lw_cmbgb16_codon(
+def cmbgb16_codon(
     ngc: int,
     ngs_prev: int,
     rwgt_offset: int,
@@ -2471,7 +2554,7 @@ def rrtmg_lw_cmbgb16_codon(
     _lw_cmb_unweighted_2d(ngc, ngs_prev, 9, fracrefao, fracrefa, ngn)
 
 @export
-def rrtmg_sw_cmbgb27_codon(
+def cmbgb27_codon(
     ngc12: int,
     ngs11: int,
     ngn_p: cobj,
@@ -2528,7 +2611,7 @@ def rrtmg_sw_cmbgb27_codon(
 
 
 @export
-def rrtmg_sw_cmbgb28_codon(
+def cmbgb28_codon(
     ngc13: int,
     ngs12: int,
     ngn_p: cobj,
@@ -2582,7 +2665,7 @@ def rrtmg_sw_cmbgb28_codon(
 
 
 @export
-def rrtmg_sw_cmbgb29_codon(
+def cmbgb29_codon(
     ngc14: int,
     ngs13: int,
     ngn_p: cobj,
@@ -2672,7 +2755,7 @@ def rrtmg_sw_cmbgb29_codon(
 
 
 @export
-def rrtmg_sw_swaerpr_codon(rsrtaua_p: cobj, rsrpiza_p: cobj, rsrasya_p: cobj):
+def swaerpr_codon(rsrtaua_p: cobj, rsrpiza_p: cobj, rsrasya_p: cobj):
     rsrtaua = Ptr[float](rsrtaua_p)
     rsrpiza = Ptr[float](rsrpiza_p)
     rsrasya = Ptr[float](rsrasya_p)
@@ -2734,7 +2817,7 @@ def rrtmg_sw_swaerpr_codon(rsrtaua_p: cobj, rsrpiza_p: cobj, rsrasya_p: cobj):
 
 
 @export
-def rrtmg_lw_lwcldpr_codon(
+def lwcldpr_codon(
     abscld1_p: cobj,
     absliq0_p: cobj,
     absice0_p: cobj,
@@ -2743,7 +2826,7 @@ def rrtmg_lw_lwcldpr_codon(
     absice3_p: cobj,
     absliq1_p: cobj,
 ):
-    _init_tables.rrtmg_lw_lwcldpr_codon(
+    _init_tables.lwcldpr_codon(
         abscld1_p,
         absliq0_p,
         absice0_p,
@@ -2755,7 +2838,7 @@ def rrtmg_lw_lwcldpr_codon(
 
 
 @export
-def rrtmg_sw_swcldpr_codon(
+def swcldpr_codon(
     abari_p: cobj,
     bbari_p: cobj,
     cbari_p: cobj,
@@ -2773,7 +2856,7 @@ def rrtmg_sw_swcldpr_codon(
     asyice3_p: cobj,
     fdlice3_p: cobj,
 ):
-    _init_tables.rrtmg_sw_swcldpr_codon(
+    _init_tables.swcldpr_codon(
         abari_p,
         bbari_p,
         cbari_p,
@@ -2794,8 +2877,8 @@ def rrtmg_sw_swcldpr_codon(
 
 
 @export
-def rrtmg_lw_lwavplank_codon(totplnk_p: cobj, totplk16_p: cobj):
-    _init_tables.rrtmg_lw_lwavplank_codon(totplnk_p, totplk16_p)
+def lwavplank_codon(totplnk_p: cobj, totplk16_p: cobj):
+    _init_tables.lwavplank_codon(totplnk_p, totplk16_p)
 
 
 @inline
@@ -4602,6 +4685,88 @@ def rad_solar_var_init_far_ir_codon(nradbins: int, radbinmax_p: cobj) -> int:
 
 
 @export
+def get_variability_no_scaling_codon(nradbins: int, sol_tsi: float, tsi_ref: float, sfac_p: cobj):
+    sfac = Ptr[float](sfac_p)
+    value = sol_tsi / tsi_ref
+    for i in range(nradbins):
+        sfac[i] = value
+
+
+@export
+def get_variability_codon(
+    do_scaling: int,
+    nsrc: int,
+    ntrg: int,
+    sol_tsi: float,
+    tsi_ref: float,
+    src_x_p: cobj,
+    min_trg_p: cobj,
+    max_trg_p: cobj,
+    src_p: cobj,
+    trg_p: cobj,
+    ref_irrad_p: cobj,
+    sfac_p: cobj,
+):
+    if do_scaling == 0:
+        sfac = Ptr[float](sfac_p)
+        value = sol_tsi / tsi_ref
+        for i in range(ntrg):
+            sfac[i] = value
+        return
+
+    rrtmg_solar_variability_codon(
+        nsrc,
+        ntrg,
+        src_x_p,
+        min_trg_p,
+        max_trg_p,
+        src_p,
+        trg_p,
+        ref_irrad_p,
+        sfac_p,
+    )
+
+
+@export
+def sw_kgb26_codon(sfluxrefo_p: cobj, raylo_p: cobj):
+    sfluxrefo = Ptr[float](sfluxrefo_p)
+    raylo = Ptr[float](raylo_p)
+    sfluxrefo[0] = 29.0079
+    sfluxrefo[1] = 28.4088
+    sfluxrefo[2] = 20.3099
+    sfluxrefo[3] = 13.0283
+    sfluxrefo[4] = 11.8619
+    sfluxrefo[5] = 9.95840
+    sfluxrefo[6] = 6.68696
+    sfluxrefo[7] = 5.38987
+    sfluxrefo[8] = 3.49829
+    sfluxrefo[9] = 0.407693
+    sfluxrefo[10] = 0.299027
+    sfluxrefo[11] = 0.236827
+    sfluxrefo[12] = 0.188502
+    sfluxrefo[13] = 0.163489
+    sfluxrefo[14] = 4.64335e-02
+    sfluxrefo[15] = 2.72662e-03
+
+    raylo[0] = 1.21263e-06
+    raylo[1] = 1.43428e-06
+    raylo[2] = 1.67677e-06
+    raylo[3] = 1.93255e-06
+    raylo[4] = 2.19177e-06
+    raylo[5] = 2.44195e-06
+    raylo[6] = 2.66926e-06
+    raylo[7] = 2.85990e-06
+    raylo[8] = 3.00380e-06
+    raylo[9] = 3.06996e-06
+    raylo[10] = 3.08184e-06
+    raylo[11] = 3.09172e-06
+    raylo[12] = 3.09938e-06
+    raylo[13] = 3.10456e-06
+    raylo[14] = 3.10727e-06
+    raylo[15] = 3.10818e-06
+
+
+@export
 def rrtmg_sw_setcoef_codon(
     nlayers: int,
     mxmol: int,
@@ -4790,7 +4955,7 @@ def rrtmg_sw_setcoef_codon(
 
 
 @export
-def rrtmg_sw_taumol26_codon(
+def taumol26_codon(
     nlayers: int,
     laytrop: int,
     ng26: int,
@@ -4825,7 +4990,7 @@ def rrtmg_sw_taumol26_codon(
 
 
 @export
-def rrtmg_sw_taumol23_codon(
+def taumol23_codon(
     nlayers: int,
     laytrop: int,
     ng23: int,
@@ -4934,7 +5099,7 @@ def rrtmg_sw_taumol23_codon(
 
 
 @export
-def rrtmg_sw_taumol24_codon(
+def taumol24_codon(
     nlayers: int,
     laytrop: int,
     ng24: int,
@@ -5098,7 +5263,7 @@ def rrtmg_sw_taumol24_codon(
 
 
 @export
-def rrtmg_sw_taumol25_codon(
+def taumol25_codon(
     nlayers: int,
     laytrop: int,
     ng25: int,
@@ -5174,7 +5339,7 @@ def rrtmg_sw_taumol25_codon(
 
 
 @export
-def rrtmg_sw_taumol27_codon(
+def taumol27_codon(
     nlayers: int,
     laytrop: int,
     ng27: int,
@@ -5253,7 +5418,7 @@ def rrtmg_sw_taumol27_codon(
 
 
 @export
-def rrtmg_sw_taumol28_codon(
+def taumol28_codon(
     nlayers: int,
     laytrop: int,
     ng28: int,
@@ -5374,7 +5539,7 @@ def rrtmg_sw_taumol28_codon(
 
 
 @export
-def rrtmg_sw_taumol29_codon(
+def taumol29_codon(
     nlayers: int,
     laytrop: int,
     ng29: int,
@@ -5640,7 +5805,80 @@ def rrtmg_sw_taumol16_codon(
 
 
 @export
-def rrtmg_sw_taumol17_codon(
+def taumol16_codon(
+    nlayers: int,
+    laytrop: int,
+    ng16: int,
+    nspa16: int,
+    nspb16: int,
+    layreffr: int,
+    strrat1: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colch4_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    rrtmg_sw_taumol16_codon(
+        nlayers,
+        laytrop,
+        ng16,
+        nspa16,
+        nspb16,
+        layreffr,
+        strrat1,
+        rayl,
+        oneminus,
+        colh2o_p,
+        colch4_p,
+        colmol_p,
+        jp_p,
+        jt_p,
+        jt1_p,
+        indself_p,
+        indfor_p,
+        fac00_p,
+        fac01_p,
+        fac10_p,
+        fac11_p,
+        selffac_p,
+        selffrac_p,
+        forfac_p,
+        forfrac_p,
+        absa_p,
+        absb_p,
+        selfref_p,
+        forref_p,
+        sfluxref_p,
+        sfluxzen_p,
+        taug_p,
+        taur_p,
+    )
+
+
+@export
+def taumol17_codon(
     nlayers: int,
     laytrop: int,
     ng17: int,
@@ -5817,7 +6055,7 @@ def rrtmg_sw_taumol17_codon(
 
 
 @export
-def rrtmg_sw_taumol18_codon(
+def taumol18_codon(
     nlayers: int,
     laytrop: int,
     ng18: int,
@@ -5964,7 +6202,7 @@ def rrtmg_sw_taumol18_codon(
 
 
 @export
-def rrtmg_sw_taumol19_codon(
+def taumol19_codon(
     nlayers: int,
     laytrop: int,
     ng19: int,
@@ -6111,7 +6349,7 @@ def rrtmg_sw_taumol19_codon(
 
 
 @export
-def rrtmg_sw_taumol20_codon(
+def taumol20_codon(
     nlayers: int,
     laytrop: int,
     ng20: int,
@@ -6243,7 +6481,7 @@ def rrtmg_sw_taumol20_codon(
 
 
 @export
-def rrtmg_sw_taumol21_codon(
+def taumol21_codon(
     nlayers: int,
     laytrop: int,
     ng21: int,
@@ -6423,7 +6661,7 @@ def rrtmg_sw_taumol21_codon(
 
 
 @export
-def rrtmg_sw_taumol22_codon(
+def taumol22_codon(
     nlayers: int,
     laytrop: int,
     ng22: int,
@@ -6702,7 +6940,7 @@ def _rrtmg_kiss_next_i32(
 
 
 @export
-def rrtmg_mcica_kissvec_codon(
+def kissvec_codon(
     n: int,
     seed1_p: cobj,
     seed2_p: cobj,
@@ -7092,7 +7330,7 @@ def rrtmg_lw_subcol_fill_codon(
 
 
 @export
-def rrtmg_lw_taugb10_codon(
+def taugb10_codon(
     nlayers: int,
     laytrop: int,
     ng10: int,
@@ -7191,7 +7429,7 @@ def rrtmg_lw_taugb10_codon(
 
 
 @export
-def rrtmg_lw_taugb11_codon(
+def taugb11_codon(
     nlayers: int,
     laytrop: int,
     ng11: int,
@@ -7314,7 +7552,7 @@ def rrtmg_lw_taugb11_codon(
 
 
 @export
-def rrtmg_lw_taugb14_codon(
+def taugb14_codon(
     nlayers: int,
     laytrop: int,
     ng14: int,
@@ -7548,7 +7786,82 @@ def rrtmg_lw_taugb1_codon(
 
 
 @export
-def rrtmg_lw_taugb2_codon(
+def taugb1_codon(
+    nlayers: int,
+    laytrop: int,
+    ng1: int,
+    nspa1: int,
+    nspb1: int,
+    pavel_p: cobj,
+    colh2o_p: cobj,
+    colbrd_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    indminor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    scaleminorn2_p: cobj,
+    minorfrac_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    ka_mn2_p: cobj,
+    kb_mn2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    rrtmg_lw_taugb1_codon(
+        nlayers,
+        laytrop,
+        ng1,
+        nspa1,
+        nspb1,
+        pavel_p,
+        colh2o_p,
+        colbrd_p,
+        jp_p,
+        jt_p,
+        jt1_p,
+        indself_p,
+        indfor_p,
+        indminor_p,
+        fac00_p,
+        fac01_p,
+        fac10_p,
+        fac11_p,
+        selffac_p,
+        selffrac_p,
+        forfac_p,
+        forfrac_p,
+        scaleminorn2_p,
+        minorfrac_p,
+        fracrefa_p,
+        fracrefb_p,
+        absa_p,
+        absb_p,
+        ka_mn2_p,
+        kb_mn2_p,
+        selfref_p,
+        forref_p,
+        fracs_p,
+        taug_p,
+    )
+
+
+@export
+def taugb2_codon(
     nlayers: int,
     laytrop: int,
     ng2: int,
@@ -7654,7 +7967,7 @@ def rrtmg_lw_taugb2_codon(
 
 
 @export
-def rrtmg_lw_taugb6_codon(
+def taugb6_codon(
     nlayers: int,
     laytrop: int,
     ng6: int,
@@ -7782,7 +8095,7 @@ def rrtmg_lw_taugb6_codon(
 
 
 @export
-def rrtmg_lw_taugb8_codon(
+def taugb8_codon(
     nlayers: int,
     laytrop: int,
     ng8: int,
@@ -7966,7 +8279,7 @@ def rrtmg_lw_taugb8_codon(
 
 
 @export
-def rrtmg_lw_taugb12_codon(
+def taugb12_codon(
     nlayers: int,
     laytrop: int,
     ng12: int,
@@ -8193,7 +8506,7 @@ def rrtmg_lw_taugb12_codon(
 
 
 @export
-def rrtmg_lw_taugb16_codon(
+def taugb16_codon(
     nlayers: int,
     laytrop: int,
     ng16: int,
@@ -8432,7 +8745,7 @@ def rrtmg_lw_taugb16_codon(
 
 
 @export
-def rrtmg_lw_taugb4_codon(
+def taugb4_codon(
     nlayers: int,
     laytrop: int,
     ng4: int,
@@ -8722,7 +9035,7 @@ def rrtmg_lw_taugb4_codon(
 
 
 @export
-def rrtmg_lw_taugb5_codon(
+def taugb5_codon(
     nlayers: int,
     laytrop: int,
     ng5: int,
@@ -9013,7 +9326,7 @@ def rrtmg_lw_taugb5_codon(
 
 
 @export
-def rrtmg_lw_taugb3_codon(
+def taugb3_codon(
     nlayers: int,
     laytrop: int,
     ng3: int,
@@ -9346,7 +9659,7 @@ def rrtmg_lw_taugb3_codon(
 
 
 @export
-def rrtmg_lw_taugb7_codon(
+def taugb7_codon(
     nlayers: int,
     laytrop: int,
     ng7: int,
@@ -9619,7 +9932,7 @@ def rrtmg_lw_taugb7_codon(
 
 
 @export
-def rrtmg_lw_taugb9_codon(
+def taugb9_codon(
     nlayers: int,
     laytrop: int,
     ng9: int,
@@ -9885,7 +10198,7 @@ def rrtmg_lw_taugb9_codon(
 
 
 @export
-def rrtmg_lw_taugb13_codon(
+def taugb13_codon(
     nlayers: int,
     laytrop: int,
     ng13: int,
@@ -10147,7 +10460,7 @@ def rrtmg_lw_taugb13_codon(
 
 
 @export
-def rrtmg_lw_taugb15_codon(
+def taugb15_codon(
     nlayers: int,
     laytrop: int,
     ng15: int,
@@ -10365,7 +10678,7 @@ def rrtmg_lw_taugb15_codon(
 
 
 @export
-def rrtmg_lw_setcoef_codon(
+def setcoef_codon(
     nlayers: int,
     istart: int,
     mxmol: int,
@@ -10760,7 +11073,7 @@ def rrtmg_lw_setcoef_codon(
 
 
 @export
-def rrtmg_lw_cldprmc_codon(
+def cldprmc_codon(
     nlayers: int,
     inflag: int,
     iceflag: int,
@@ -11674,7 +11987,7 @@ def _rrtmg_lw_a2(iband: int) -> float:
 
 
 @export
-def rrtmg_lw_rtrnmc_codon(
+def rtrnmc_codon(
     nlayers: int,
     istart: int,
     iend: int,
@@ -12879,7 +13192,7 @@ def rrtmg_sw_inatm_codon(
 
 
 @export
-def rrtmg_lw_inatm_codon(
+def inatm_codon(
     iplon: int,
     nlay: int,
     ldcol: int,
@@ -13098,3 +13411,366 @@ def rrtmg_lw_inatm_codon(
         relqmc[nlay - 1] = 0.0
         for ib in range(1, nbndlw + 1):
             taua[_idx2(nlay, ib, nlay)] = 0.0
+
+# BEGIN GENERATED RRTMG KGB DIRECT EXPORTS
+@export
+def lw_kgb01_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mn2_p: cobj,
+    kbo_mn2_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb01_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mn2_p, kbo_mn2_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb02_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb02_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb03_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mn2o_p: cobj,
+    kbo_mn2o_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb03_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mn2o_p, kbo_mn2o_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb04_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb04_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb05_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    ccl4o_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mo3_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb05_codon(fracrefao_p, fracrefbo_p, ccl4o_p, kao_p, kbo_p, kao_mo3_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb06_codon(
+    fracrefao_p: cobj,
+    cfc11adjo_p: cobj,
+    cfc12o_p: cobj,
+    kao_p: cobj,
+    kao_mco2_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb06_codon(fracrefao_p, cfc11adjo_p, cfc12o_p, kao_p, kao_mco2_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb07_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mco2_p: cobj,
+    kbo_mco2_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb07_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mco2_p, kbo_mco2_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb08_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    cfc12o_p: cobj,
+    cfc22adjo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mco2_p: cobj,
+    kao_mo3_p: cobj,
+    kao_mn2o_p: cobj,
+    kbo_mco2_p: cobj,
+    kbo_mn2o_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb08_codon(fracrefao_p, fracrefbo_p, cfc12o_p, cfc22adjo_p, kao_p, kbo_p, kao_mco2_p, kao_mo3_p, kao_mn2o_p, kbo_mco2_p, kbo_mn2o_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb09_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mn2o_p: cobj,
+    kbo_mn2o_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb09_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mn2o_p, kbo_mn2o_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb10_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb10_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb11_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    kao_mo2_p: cobj,
+    kbo_mo2_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb11_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mo2_p, kbo_mo2_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb12_codon(
+    fracrefao_p: cobj,
+    kao_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb12_codon(fracrefao_p, kao_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb13_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kao_mco2_p: cobj,
+    kao_mco_p: cobj,
+    kbo_mo3_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb13_codon(fracrefao_p, fracrefbo_p, kao_p, kao_mco2_p, kao_mco_p, kbo_mo3_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb14_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb14_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb15_codon(
+    fracrefao_p: cobj,
+    kao_p: cobj,
+    kao_mn2_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb15_codon(fracrefao_p, kao_p, kao_mn2_p, forrefo_p, selfrefo_p)
+
+@export
+def lw_kgb16_codon(
+    fracrefao_p: cobj,
+    fracrefbo_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.lw_kgb16_codon(fracrefao_p, fracrefbo_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb16_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat1_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb16_codon(sfluxrefo_p, rayl_p, strrat1_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb17_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb17_codon(sfluxrefo_p, rayl_p, strrat_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb18_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb18_codon(sfluxrefo_p, rayl_p, strrat_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb19_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb19_codon(sfluxrefo_p, rayl_p, strrat_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb20_codon(
+    sfluxrefo_p: cobj,
+    absch4o_p: cobj,
+    rayl_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb20_codon(sfluxrefo_p, absch4o_p, rayl_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb21_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb21_codon(sfluxrefo_p, rayl_p, strrat_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb22_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb22_codon(sfluxrefo_p, rayl_p, strrat_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb23_codon(
+    sfluxrefo_p: cobj,
+    raylo_p: cobj,
+    givfac_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb23_codon(sfluxrefo_p, raylo_p, givfac_p, layreffr_p, kao_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb24_codon(
+    sfluxrefo_p: cobj,
+    raylao_p: cobj,
+    raylbo_p: cobj,
+    abso3ao_p: cobj,
+    abso3bo_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb24_codon(sfluxrefo_p, raylao_p, raylbo_p, abso3ao_p, abso3bo_p, strrat_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+
+@export
+def sw_kgb25_codon(
+    sfluxrefo_p: cobj,
+    raylo_p: cobj,
+    abso3ao_p: cobj,
+    abso3bo_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+):
+    _init_tables.sw_kgb25_codon(sfluxrefo_p, raylo_p, abso3ao_p, abso3bo_p, layreffr_p, kao_p)
+
+@export
+def sw_kgb27_codon(
+    sfluxrefo_p: cobj,
+    raylo_p: cobj,
+    scalekur_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+):
+    _init_tables.sw_kgb27_codon(sfluxrefo_p, raylo_p, scalekur_p, layreffr_p, kao_p, kbo_p)
+
+@export
+def sw_kgb28_codon(
+    sfluxrefo_p: cobj,
+    rayl_p: cobj,
+    strrat_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+):
+    _init_tables.sw_kgb28_codon(sfluxrefo_p, rayl_p, strrat_p, layreffr_p, kao_p, kbo_p)
+
+@export
+def sw_kgb29_codon(
+    sfluxrefo_p: cobj,
+    absco2o_p: cobj,
+    absh2oo_p: cobj,
+    rayl_p: cobj,
+    layreffr_p: cobj,
+    kao_p: cobj,
+    kbo_p: cobj,
+    forrefo_p: cobj,
+    selfrefo_p: cobj,
+):
+    _init_tables.sw_kgb29_codon(sfluxrefo_p, absco2o_p, absh2oo_p, rayl_p, layreffr_p, kao_p, kbo_p, forrefo_p, selfrefo_p)
+# END GENERATED RRTMG KGB DIRECT EXPORTS

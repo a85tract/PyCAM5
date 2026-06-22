@@ -139,42 +139,45 @@ public :: get_number_sw_bands, &
 logical :: use_native_radconstants_impl = .false.
 logical :: radconstants_impl_selected = .false.
 logical :: radconstants_entered_logged = .false.
+logical :: get_number_sw_bands_logged = .false.
+logical :: get_ref_solar_band_irrad_logged = .false.
+logical :: get_solar_band_fraction_irrad_logged = .false.
 
 interface
-   function rrtmg_init_int_passthrough_codon(value_c) result(result_c) &
-        bind(c, name="rrtmg_init_int_passthrough_codon")
+   function get_number_sw_bands_codon(value_c) result(result_c) &
+        bind(c, name="get_number_sw_bands_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: result_c
-   end function rrtmg_init_int_passthrough_codon
+   end function get_number_sw_bands_codon
 
-   function rrtmg_rad_gas_index_codon(name_len_c, name_p) result(index_c) &
-        bind(c, name="rrtmg_rad_gas_index_codon")
+   function rad_gas_index_codon(name_len_c, name_p) result(index_c) &
+        bind(c, name="rad_gas_index_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: name_len_c
       type(c_ptr), value :: name_p
       integer(c_int64_t) :: index_c
-   end function rrtmg_rad_gas_index_codon
+   end function rad_gas_index_codon
 
-   subroutine rrtmg_ref_solar_band_irrad_codon(nbands_c, band_irrad_p, &
+   subroutine get_ref_solar_band_irrad_codon(nbands_c, band_irrad_p, &
         c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14) &
-        bind(c, name="rrtmg_ref_solar_band_irrad_codon")
+        bind(c, name="get_ref_solar_band_irrad_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: nbands_c
       type(c_ptr), value :: band_irrad_p
       real(c_double), value :: c01, c02, c03, c04, c05, c06, c07
       real(c_double), value :: c08, c09, c10, c11, c12, c13, c14
-   end subroutine rrtmg_ref_solar_band_irrad_codon
+   end subroutine get_ref_solar_band_irrad_codon
 
-   subroutine rrtmg_solar_band_fraction_irrad_codon(nbands_c, fraction_p, &
+   subroutine get_solar_band_fraction_irrad_codon(nbands_c, fraction_p, &
         c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14) &
-        bind(c, name="rrtmg_solar_band_fraction_irrad_codon")
+        bind(c, name="get_solar_band_fraction_irrad_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: nbands_c
       type(c_ptr), value :: fraction_p
       real(c_double), value :: c01, c02, c03, c04, c05, c06, c07
       real(c_double), value :: c08, c09, c10, c11, c12, c13, c14
-   end subroutine rrtmg_solar_band_fraction_irrad_codon
+   end subroutine get_solar_band_fraction_irrad_codon
 
    subroutine rrtmg_sw_spectral_boundaries_codon(nbands_c, mode_c, low_p, high_p, &
         l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, &
@@ -205,7 +208,7 @@ subroutine get_solar_band_fraction_irrad(fractional_irradiance)
    endif
 
    call radconstants_log_get_solar_band_fraction_irrad()
-   call rrtmg_solar_band_fraction_irrad_codon( &
+   call get_solar_band_fraction_irrad_codon( &
         int(nswbands, c_int64_t), c_loc(fractional_irradiance(1)), &
         real(solar_ref_band_irradiance(1), c_double), real(solar_ref_band_irradiance(2), c_double), &
         real(solar_ref_band_irradiance(3), c_double), real(solar_ref_band_irradiance(4), c_double), &
@@ -242,7 +245,7 @@ subroutine get_ref_solar_band_irrad( band_irrad )
    endif
 
    call radconstants_log_get_ref_solar_band_irrad()
-   call rrtmg_ref_solar_band_irrad_codon( &
+   call get_ref_solar_band_irrad_codon( &
         int(nswbands, c_int64_t), c_loc(band_irrad(1)), &
         real(solar_ref_band_irradiance(1), c_double), real(solar_ref_band_irradiance(2), c_double), &
         real(solar_ref_band_irradiance(3), c_double), real(solar_ref_band_irradiance(4), c_double), &
@@ -264,8 +267,8 @@ subroutine get_number_sw_bands(number_of_bands)
    if (use_native_radconstants_impl) then
       number_of_bands = nswbands
    else
-      call radconstants_log_entered()
-      number_of_bands = rrtmg_init_int_passthrough_codon(int(nswbands, c_int64_t))
+      call radconstants_log_get_number_sw_bands()
+      number_of_bands = get_number_sw_bands_codon(int(nswbands, c_int64_t))
    endif
 
 end subroutine get_number_sw_bands
@@ -387,7 +390,7 @@ integer function rad_gas_index(gasname)
          gasname_ascii(i) = int(iachar(gasname(i:i)), c_int64_t)
       end do
       call radconstants_log_rad_gas_index()
-      codon_index = rrtmg_rad_gas_index_codon(int(len_trim(gasname), c_int64_t), c_loc(gasname_ascii(1)))
+      codon_index = rad_gas_index_codon(int(len_trim(gasname), c_int64_t), c_loc(gasname_ascii(1)))
       if (codon_index > 0_c_int64_t) then
          rad_gas_index = int(codon_index)
          return
@@ -458,8 +461,11 @@ subroutine radconstants_log_get_ref_solar_band_irrad()
    use cam_logfile, only: iulog
    use spmd_utils, only: masterproc
 
+   if (get_ref_solar_band_irrad_logged) return
+   get_ref_solar_band_irrad_logged = .true.
+
    if (masterproc) then
-      write(iulog,*) 'get_ref_solar_band_irrad implementation = codon'
+      write(iulog,'(A)') 'get_ref_solar_band_irrad direct = codon'
       call flush(iulog)
    endif
 
@@ -471,12 +477,31 @@ subroutine radconstants_log_get_solar_band_fraction_irrad()
    use cam_logfile, only: iulog
    use spmd_utils, only: masterproc
 
+   if (get_solar_band_fraction_irrad_logged) return
+   get_solar_band_fraction_irrad_logged = .true.
+
    if (masterproc) then
-      write(iulog,*) 'get_solar_band_fraction_irrad implementation = codon'
+      write(iulog,'(A)') 'get_solar_band_fraction_irrad direct = codon'
       call flush(iulog)
    endif
 
 end subroutine radconstants_log_get_solar_band_fraction_irrad
+
+!------------------------------------------------------------------------------
+subroutine radconstants_log_get_number_sw_bands()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (get_number_sw_bands_logged) return
+   get_number_sw_bands_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'get_number_sw_bands direct = codon'
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_log_get_number_sw_bands
 
 !------------------------------------------------------------------------------
 subroutine radconstants_log_get_sw_spectral_boundaries()

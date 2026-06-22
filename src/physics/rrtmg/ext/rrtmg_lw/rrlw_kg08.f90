@@ -34,20 +34,20 @@
 
       integer, parameter :: no8  = 16
 
-      real(kind=r8) , dimension(no8) :: fracrefao
-      real(kind=r8) , dimension(no8) :: fracrefbo
-      real(kind=r8) , dimension(no8) :: cfc12o
-      real(kind=r8) , dimension(no8) :: cfc22adjo
+      real(kind=r8) , dimension(no8), target :: fracrefao
+      real(kind=r8) , dimension(no8), target :: fracrefbo
+      real(kind=r8) , dimension(no8), target :: cfc12o
+      real(kind=r8) , dimension(no8), target :: cfc22adjo
 
-      real(kind=r8) :: kao(5,13,no8)
-      real(kind=r8) :: kao_mco2(19,no8)
-      real(kind=r8) :: kao_mn2o(19,no8)
-      real(kind=r8) :: kao_mo3(19,no8)
-      real(kind=r8) :: kbo(5,13:59,no8)
-      real(kind=r8) :: kbo_mco2(19,no8)
-      real(kind=r8) :: kbo_mn2o(19,no8)
-      real(kind=r8) :: selfrefo(10,no8)
-      real(kind=r8) :: forrefo(4,no8)
+      real(kind=r8), target :: kao(5,13,no8)
+      real(kind=r8), target :: kao_mco2(19,no8)
+      real(kind=r8), target :: kao_mn2o(19,no8)
+      real(kind=r8), target :: kao_mo3(19,no8)
+      real(kind=r8), target :: kbo(5,13:59,no8)
+      real(kind=r8), target :: kbo_mco2(19,no8)
+      real(kind=r8), target :: kbo_mn2o(19,no8)
+      real(kind=r8), target :: selfrefo(10,no8)
+      real(kind=r8), target :: forrefo(4,no8)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 8

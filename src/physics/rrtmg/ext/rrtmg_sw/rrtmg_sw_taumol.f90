@@ -292,14 +292,15 @@
       real(kind=r8) :: fac000, fac001, fac010, fac011, fac100, fac101, &
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
+      logical, save :: taumol16_direct_logged = .false.
 
       interface
-         subroutine rrtmg_sw_taumol16_codon(nlayers_c, laytrop_c, ng16_c, &
+         subroutine taumol16_codon(nlayers_c, laytrop_c, ng16_c, &
               nspa16_c, nspb16_c, layreffr_c, strrat1_c, rayl_c, oneminus_c, &
               colh2o_p, colch4_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, selfref_p, &
-              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol16_codon")
+              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol16_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng16_c
             integer(c_int64_t), value :: nspa16_c, nspb16_c, layreffr_c
@@ -308,7 +309,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol16_codon
+         end subroutine taumol16_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -318,7 +319,12 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(16)
-         call rrtmg_sw_taumol16_codon( &
+         if (masterproc .and. .not. taumol16_direct_logged) then
+            write(iulog,'(A)') 'taumol16 direct = codon'
+            call flush(iulog)
+            taumol16_direct_logged = .true.
+         end if
+         call taumol16_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng16, c_int64_t), &
               int(nspa(16), c_int64_t), int(nspb(16), c_int64_t), int(layreffr, c_int64_t), &
               real(strrat1, c_double), real(rayl, c_double), real(oneminus, c_double), &
@@ -429,12 +435,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol17_codon(nlayers_c, laytrop_c, ng17_c, ngs16_c, &
+         subroutine taumol17_codon(nlayers_c, laytrop_c, ng17_c, ngs16_c, &
               nspa17_c, nspb17_c, layreffr_c, strrat_c, rayl_c, oneminus_c, &
               colh2o_p, colco2_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, selfref_p, &
-              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol17_codon")
+              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol17_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng17_c, ngs16_c
             integer(c_int64_t), value :: nspa17_c, nspb17_c, layreffr_c
@@ -443,7 +449,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol17_codon
+         end subroutine taumol17_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -453,7 +459,7 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(17)
-         call rrtmg_sw_taumol17_codon( &
+         call taumol17_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng17, c_int64_t), &
               int(ngs16, c_int64_t), int(nspa(17), c_int64_t), int(nspb(17), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
@@ -589,12 +595,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol18_codon(nlayers_c, laytrop_c, ng18_c, ngs17_c, &
+         subroutine taumol18_codon(nlayers_c, laytrop_c, ng18_c, ngs17_c, &
               nspa18_c, nspb18_c, layreffr_c, strrat_c, rayl_c, oneminus_c, &
               colh2o_p, colch4_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, selfref_p, &
-              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol18_codon")
+              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol18_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng18_c, ngs17_c
             integer(c_int64_t), value :: nspa18_c, nspb18_c, layreffr_c
@@ -603,7 +609,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol18_codon
+         end subroutine taumol18_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -613,7 +619,7 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(18)
-         call rrtmg_sw_taumol18_codon( &
+         call taumol18_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng18, c_int64_t), &
               int(ngs17, c_int64_t), int(nspa(18), c_int64_t), int(nspb(18), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
@@ -726,12 +732,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol19_codon(nlayers_c, laytrop_c, ng19_c, ngs18_c, &
+         subroutine taumol19_codon(nlayers_c, laytrop_c, ng19_c, ngs18_c, &
               nspa19_c, nspb19_c, layreffr_c, strrat_c, rayl_c, oneminus_c, &
               colh2o_p, colco2_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, selfref_p, &
-              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol19_codon")
+              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol19_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng19_c, ngs18_c
             integer(c_int64_t), value :: nspa19_c, nspb19_c, layreffr_c
@@ -740,7 +746,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol19_codon
+         end subroutine taumol19_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -750,7 +756,7 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(19)
-         call rrtmg_sw_taumol19_codon( &
+         call taumol19_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng19, c_int64_t), &
               int(ngs18, c_int64_t), int(nspa(19), c_int64_t), int(nspb(19), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
@@ -865,12 +871,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol20_codon(nlayers_c, laytrop_c, ng20_c, ngs19_c, &
+         subroutine taumol20_codon(nlayers_c, laytrop_c, ng20_c, ngs19_c, &
               nspa20_c, nspb20_c, layreffr_c, rayl_c, colh2o_p, colch4_p, &
               colmol_p, jp_p, jt_p, jt1_p, indself_p, indfor_p, fac00_p, &
               fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, &
               forfrac_p, absa_p, absb_p, selfref_p, forref_p, sfluxref_p, &
-              absch4_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol20_codon")
+              absch4_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol20_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng20_c, ngs19_c
             integer(c_int64_t), value :: nspa20_c, nspb20_c, layreffr_c
@@ -879,7 +885,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, absch4_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol20_codon
+         end subroutine taumol20_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -889,7 +895,7 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(20)
-         call rrtmg_sw_taumol20_codon( &
+         call taumol20_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng20, c_int64_t), &
               int(ngs19, c_int64_t), int(nspa(20), c_int64_t), int(nspb(20), c_int64_t), &
               int(layreffr, c_int64_t), real(rayl, c_double), &
@@ -988,12 +994,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol21_codon(nlayers_c, laytrop_c, ng21_c, ngs20_c, &
+         subroutine taumol21_codon(nlayers_c, laytrop_c, ng21_c, ngs20_c, &
               nspa21_c, nspb21_c, layreffr_c, strrat_c, rayl_c, oneminus_c, &
               colh2o_p, colco2_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, selfref_p, &
-              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol21_codon")
+              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol21_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng21_c, ngs20_c
             integer(c_int64_t), value :: nspa21_c, nspb21_c, layreffr_c
@@ -1002,7 +1008,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol21_codon
+         end subroutine taumol21_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1012,7 +1018,7 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(21)
-         call rrtmg_sw_taumol21_codon( &
+         call taumol21_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng21, c_int64_t), &
               int(ngs20, c_int64_t), int(nspa(21), c_int64_t), int(nspb(21), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
@@ -1148,12 +1154,12 @@
                          tauray, o2adj, o2cont
 
       interface
-         subroutine rrtmg_sw_taumol22_codon(nlayers_c, laytrop_c, ng22_c, ngs21_c, &
+         subroutine taumol22_codon(nlayers_c, laytrop_c, ng22_c, ngs21_c, &
               nspa22_c, nspb22_c, layreffr_c, strrat_c, rayl_c, oneminus_c, &
               colh2o_p, colo2_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, selfref_p, &
-              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol22_codon")
+              forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol22_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng22_c, ngs21_c
             integer(c_int64_t), value :: nspa22_c, nspb22_c, layreffr_c
@@ -1162,7 +1168,7 @@
             type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol22_codon
+         end subroutine taumol22_codon
       end interface
 
 ! The following factor is the ratio of total O2 band intensity (lines 
@@ -1177,7 +1183,7 @@
       call taumol16_22_sw_select_impl()
       if (.not. use_native_taumol16_22_sw_impl) then
          call taumol16_22_sw_log_entered(22)
-         call rrtmg_sw_taumol22_codon( &
+         call taumol22_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng22, c_int64_t), &
               int(ngs21, c_int64_t), int(nspa(22), c_int64_t), int(nspb(22), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
@@ -1295,11 +1301,11 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol23_codon(nlayers_c, laytrop_c, ng23_c, ngs22_c, &
+         subroutine taumol23_codon(nlayers_c, laytrop_c, ng23_c, ngs22_c, &
               nspa23_c, layreffr_c, givfac_c, colh2o_p, colmol_p, jp_p, jt_p, jt1_p, &
               indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, absa_p, selfref_p, forref_p, &
-              sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol23_codon")
+              sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol23_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng23_c, ngs22_c
             integer(c_int64_t), value :: nspa23_c, layreffr_c
@@ -1308,7 +1314,7 @@
             type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p
             type(c_ptr), value :: forfac_p, forfrac_p, absa_p, selfref_p, forref_p
             type(c_ptr), value :: sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol23_codon
+         end subroutine taumol23_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1318,7 +1324,7 @@
       call taumol23_29_sw_select_impl()
       if (.not. use_native_taumol23_29_sw_impl) then
          call taumol23_29_sw_log_entered(23)
-         call rrtmg_sw_taumol23_codon( &
+         call taumol23_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng23, c_int64_t), &
               int(ngs22, c_int64_t), int(nspa(23), c_int64_t), int(layreffr, c_int64_t), &
               real(givfac, c_double), transfer(loc(colh2o(1)), c_null_ptr), c_loc(colmol(1)), &
@@ -1403,12 +1409,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol24_codon(nlayers_c, laytrop_c, ng24_c, ngs23_c, &
+         subroutine taumol24_codon(nlayers_c, laytrop_c, ng24_c, ngs23_c, &
               nspa24_c, nspb24_c, layreffr_c, strrat_c, oneminus_c, colh2o_p, &
               colo2_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, indfor_p, &
               fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, &
               forfrac_p, absa_p, absb_p, selfref_p, forref_p, sfluxref_p, abso3a_p, &
-              abso3b_p, rayla_p, raylb_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol24_codon")
+              abso3b_p, rayla_p, raylb_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol24_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng24_c, ngs23_c
             integer(c_int64_t), value :: nspa24_c, nspb24_c, layreffr_c
@@ -1418,7 +1424,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, abso3a_p, abso3b_p
             type(c_ptr), value :: rayla_p, raylb_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol24_codon
+         end subroutine taumol24_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1428,7 +1434,7 @@
       call taumol23_29_sw_select_impl()
       if (.not. use_native_taumol23_29_sw_impl) then
          call taumol23_29_sw_log_entered(24)
-         call rrtmg_sw_taumol24_codon( &
+         call taumol24_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng24, c_int64_t), &
               int(ngs23, c_int64_t), int(nspa(24), c_int64_t), int(nspb(24), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(oneminus, c_double), &
@@ -1546,17 +1552,17 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol25_codon(nlayers_c, laytrop_c, ng25_c, ngs24_c, &
+         subroutine taumol25_codon(nlayers_c, laytrop_c, ng25_c, ngs24_c, &
               nspa25_c, layreffr_c, colh2o_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p, &
               fac00_p, fac01_p, fac10_p, fac11_p, absa_p, sfluxref_p, abso3a_p, &
-              abso3b_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol25_codon")
+              abso3b_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol25_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng25_c, ngs24_c
             integer(c_int64_t), value :: nspa25_c, layreffr_c
             type(c_ptr), value :: colh2o_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p
             type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, absa_p, sfluxref_p
             type(c_ptr), value :: abso3a_p, abso3b_p, rayl_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol25_codon
+         end subroutine taumol25_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1566,7 +1572,7 @@
       call taumol23_29_sw_select_impl()
       if (.not. use_native_taumol23_29_sw_impl) then
          call taumol23_29_sw_log_entered(25)
-         call rrtmg_sw_taumol25_codon( &
+         call taumol25_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng25, c_int64_t), &
               int(ngs24, c_int64_t), int(nspa(25), c_int64_t), int(layreffr, c_int64_t), &
               transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colo3(1)), c_null_ptr), &
@@ -1640,12 +1646,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol26_codon(nlayers_c, laytrop_c, ng26_c, ngs25_c, &
-              colmol_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol26_codon")
+         subroutine taumol26_codon(nlayers_c, laytrop_c, ng26_c, ngs25_c, &
+              colmol_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol26_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng26_c, ngs25_c
             type(c_ptr), value :: colmol_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol26_codon
+         end subroutine taumol26_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1655,7 +1661,7 @@
       call taumol26_sw_select_impl()
       if (.not. use_native_taumol26_sw_impl) then
          call taumol26_sw_log_entered()
-         call rrtmg_sw_taumol26_codon( &
+         call taumol26_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), &
               int(ng26, c_int64_t), int(ngs25, c_int64_t), &
               c_loc(colmol(1)), c_loc(sfluxref(1)), c_loc(rayl(1)), &
@@ -1714,10 +1720,10 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol27_codon(nlayers_c, laytrop_c, ng27_c, ngs26_c, &
+         subroutine taumol27_codon(nlayers_c, laytrop_c, ng27_c, ngs26_c, &
               nspa27_c, nspb27_c, layreffr_c, scalekur_c, colo3_p, colmol_p, &
               jp_p, jt_p, jt1_p, fac00_p, fac01_p, fac10_p, fac11_p, absa_p, &
-              absb_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol27_codon")
+              absb_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol27_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng27_c, ngs26_c
             integer(c_int64_t), value :: nspa27_c, nspb27_c, layreffr_c
@@ -1725,7 +1731,7 @@
             type(c_ptr), value :: colo3_p, colmol_p, jp_p, jt_p, jt1_p
             type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, absa_p, absb_p
             type(c_ptr), value :: sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol27_codon
+         end subroutine taumol27_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1735,7 +1741,7 @@
       call taumol23_29_sw_select_impl()
       if (.not. use_native_taumol23_29_sw_impl) then
          call taumol23_29_sw_log_entered(27)
-         call rrtmg_sw_taumol27_codon( &
+         call taumol27_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng27, c_int64_t), &
               int(ngs26, c_int64_t), int(nspa(27), c_int64_t), int(nspb(27), c_int64_t), &
               int(layreffr, c_int64_t), real(scalekur, c_double), &
@@ -1816,10 +1822,10 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol28_codon(nlayers_c, laytrop_c, ng28_c, ngs27_c, &
+         subroutine taumol28_codon(nlayers_c, laytrop_c, ng28_c, ngs27_c, &
               nspa28_c, nspb28_c, layreffr_c, strrat_c, rayl_c, oneminus_c, colo2_p, &
               colo3_p, colmol_p, jp_p, jt_p, jt1_p, fac00_p, fac01_p, fac10_p, &
-              fac11_p, absa_p, absb_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol28_codon")
+              fac11_p, absa_p, absb_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="taumol28_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng28_c, ngs27_c
             integer(c_int64_t), value :: nspa28_c, nspb28_c, layreffr_c
@@ -1827,7 +1833,7 @@
             type(c_ptr), value :: colo2_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p
             type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, absa_p, absb_p
             type(c_ptr), value :: sfluxref_p, sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol28_codon
+         end subroutine taumol28_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1837,7 +1843,7 @@
       call taumol23_29_sw_select_impl()
       if (.not. use_native_taumol23_29_sw_impl) then
          call taumol23_29_sw_log_entered(28)
-         call rrtmg_sw_taumol28_codon( &
+         call taumol28_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng28, c_int64_t), &
               int(ngs27, c_int64_t), int(nspa(28), c_int64_t), int(nspb(28), c_int64_t), &
               int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
@@ -1955,12 +1961,12 @@
                          tauray
 
       interface
-         subroutine rrtmg_sw_taumol29_codon(nlayers_c, laytrop_c, ng29_c, ngs28_c, &
+         subroutine taumol29_codon(nlayers_c, laytrop_c, ng29_c, ngs28_c, &
               nspa29_c, nspb29_c, layreffr_c, rayl_c, colh2o_p, colco2_p, colmol_p, &
               jp_p, jt_p, jt1_p, indself_p, indfor_p, fac00_p, fac01_p, fac10_p, &
               fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, &
               selfref_p, forref_p, sfluxref_p, absh2o_p, absco2_p, sfluxzen_p, &
-              taug_p, taur_p) bind(c, name="rrtmg_sw_taumol29_codon")
+              taug_p, taur_p) bind(c, name="taumol29_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng29_c, ngs28_c
             integer(c_int64_t), value :: nspa29_c, nspb29_c, layreffr_c
@@ -1970,7 +1976,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, absh2o_p, absco2_p
             type(c_ptr), value :: sfluxzen_p, taug_p, taur_p
-         end subroutine rrtmg_sw_taumol29_codon
+         end subroutine taumol29_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure), 
@@ -1980,7 +1986,7 @@
       call taumol23_29_sw_select_impl()
       if (.not. use_native_taumol23_29_sw_impl) then
          call taumol23_29_sw_log_entered(29)
-         call rrtmg_sw_taumol29_codon( &
+         call taumol29_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng29, c_int64_t), &
               int(ngs28, c_int64_t), int(nspa(29), c_int64_t), int(nspb(29), c_int64_t), &
               int(layreffr, c_int64_t), real(rayl, c_double), &
@@ -2095,7 +2101,7 @@
       taumol26_sw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_taumol26 entered (shortwave band 26 optical depth = codon)'
+         write(iulog,*) 'taumol26 direct = codon'
          call flush(iulog)
       end if
 
@@ -2147,25 +2153,25 @@
       select case (band)
       case (16)
          idx = 1
-         proof_line = 'rrtmg_sw_taumol16 entered (shortwave band 16 optical depth = codon)'
+         proof_line = 'taumol16 direct = codon'
       case (17)
          idx = 2
-         proof_line = 'rrtmg_sw_taumol17 entered (shortwave band 17 optical depth = codon)'
+         proof_line = 'taumol17 direct = codon'
       case (18)
          idx = 3
-         proof_line = 'rrtmg_sw_taumol18 entered (shortwave band 18 optical depth = codon)'
+         proof_line = 'taumol18 direct = codon'
       case (19)
          idx = 4
-         proof_line = 'rrtmg_sw_taumol19 entered (shortwave band 19 optical depth = codon)'
+         proof_line = 'taumol19 direct = codon'
       case (20)
          idx = 5
-         proof_line = 'rrtmg_sw_taumol20 entered (shortwave band 20 optical depth = codon)'
+         proof_line = 'taumol20 direct = codon'
       case (21)
          idx = 6
-         proof_line = 'rrtmg_sw_taumol21 entered (shortwave band 21 optical depth = codon)'
+         proof_line = 'taumol21 direct = codon'
       case (22)
          idx = 7
-         proof_line = 'rrtmg_sw_taumol22 entered (shortwave band 22 optical depth = codon)'
+         proof_line = 'taumol22 direct = codon'
       case default
          return
       end select
@@ -2226,22 +2232,22 @@
       select case (band)
       case (23)
          idx = 1
-         proof_line = 'rrtmg_sw_taumol23 entered (shortwave band 23 optical depth = codon)'
+         proof_line = 'taumol23 direct = codon'
       case (24)
          idx = 2
-         proof_line = 'rrtmg_sw_taumol24 entered (shortwave band 24 optical depth = codon)'
+         proof_line = 'taumol24 direct = codon'
       case (25)
          idx = 3
-         proof_line = 'rrtmg_sw_taumol25 entered (shortwave band 25 optical depth = codon)'
+         proof_line = 'taumol25 direct = codon'
       case (27)
          idx = 4
-         proof_line = 'rrtmg_sw_taumol27 entered (shortwave band 27 optical depth = codon)'
+         proof_line = 'taumol27 direct = codon'
       case (28)
          idx = 5
-         proof_line = 'rrtmg_sw_taumol28 entered (shortwave band 28 optical depth = codon)'
+         proof_line = 'taumol28 direct = codon'
       case (29)
          idx = 6
-         proof_line = 'rrtmg_sw_taumol29 entered (shortwave band 29 optical depth = codon)'
+         proof_line = 'taumol29 direct = codon'
       case default
          return
       end select

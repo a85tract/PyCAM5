@@ -29,11 +29,11 @@
 
       integer, parameter :: no1  = 16
 
-      real(kind=r8) :: fracrefao(no1)  , fracrefbo(no1)
-      real(kind=r8) :: kao(5,13,no1)
-      real(kind=r8) :: kbo(5,13:59,no1)
-      real(kind=r8) :: kao_mn2(19,no1) , kbo_mn2(19,no1)
-      real(kind=r8) :: selfrefo(10,no1), forrefo(4,no1)
+      real(kind=r8), target :: fracrefao(no1)  , fracrefbo(no1)
+      real(kind=r8), target :: kao(5,13,no1)
+      real(kind=r8), target :: kbo(5,13:59,no1)
+      real(kind=r8), target :: kao_mn2(19,no1) , kbo_mn2(19,no1)
+      real(kind=r8), target :: selfrefo(10,no1), forrefo(4,no1)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 1

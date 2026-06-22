@@ -410,14 +410,14 @@
       save
 
       interface
-         subroutine rrtmg_swatmref_codon(pref_p, preflog_p, tref_p) bind(c, name="rrtmg_swatmref_codon")
+         subroutine swatmref_codon(pref_p, preflog_p, tref_p) bind(c, name="swatmref_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: pref_p, preflog_p, tref_p
-         end subroutine rrtmg_swatmref_codon
+         end subroutine swatmref_codon
       end interface
 
       if (.not. setcoef_sw_use_native('SWATMREF_IMPL')) then
-         call rrtmg_swatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)))
+         call swatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)))
          if (masterproc) then
             write(iulog,*) 'swatmref implementation = codon'
             call flush(iulog)

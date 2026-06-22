@@ -28,14 +28,14 @@
 
       integer, parameter :: no6  = 16
 
-      real(kind=r8) , dimension(no6) :: fracrefao
-      real(kind=r8) :: kao(5,13,no6)
-      real(kind=r8) :: kao_mco2(19,no6)
-      real(kind=r8) :: selfrefo(10,no6)
-      real(kind=r8) :: forrefo(4,no6)
+      real(kind=r8) , dimension(no6), target :: fracrefao
+      real(kind=r8), target :: kao(5,13,no6)
+      real(kind=r8), target :: kao_mco2(19,no6)
+      real(kind=r8), target :: selfrefo(10,no6)
+      real(kind=r8), target :: forrefo(4,no6)
 
-      real(kind=r8) , dimension(no6) :: cfc11adjo
-      real(kind=r8) , dimension(no6) :: cfc12o
+      real(kind=r8) , dimension(no6), target :: cfc11adjo
+      real(kind=r8) , dimension(no6), target :: cfc12o
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 6

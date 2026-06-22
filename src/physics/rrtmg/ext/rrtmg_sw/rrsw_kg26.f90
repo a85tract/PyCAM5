@@ -24,8 +24,8 @@
 
       integer, parameter :: no26 = 16
 
-      real(kind=r8) :: sfluxrefo(no26)
-      real(kind=r8) :: raylo(no26)
+      real(kind=r8), target :: sfluxrefo(no26)
+      real(kind=r8), target :: raylo(no26)
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 26

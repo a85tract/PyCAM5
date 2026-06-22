@@ -26,11 +26,11 @@
 
       integer, parameter :: no15 = 16
 
-      real(kind=r8) :: fracrefao(no15,9)
-      real(kind=r8) :: kao(9,5,13,no15)
-      real(kind=r8) :: kao_mn2(9,19,no15)
-      real(kind=r8) :: selfrefo(10,no15)
-      real(kind=r8) :: forrefo(4,no15)
+      real(kind=r8), target :: fracrefao(no15,9)
+      real(kind=r8), target :: kao(9,5,13,no15)
+      real(kind=r8), target :: kao_mn2(9,19,no15)
+      real(kind=r8), target :: selfrefo(10,no15)
+      real(kind=r8), target :: forrefo(4,no15)
 
 
 !-----------------------------------------------------------------

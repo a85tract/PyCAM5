@@ -27,10 +27,10 @@
 
       integer, parameter :: no4  = 16
 
-      real(kind=r8) :: fracrefao(no4,9)  ,fracrefbo(no4,6)
-      real(kind=r8) :: kao(9,5,13,no4)
-      real(kind=r8) :: kbo(5,5,13:59,no4)
-      real(kind=r8) :: selfrefo(10,no4)  ,forrefo(4,no4)
+      real(kind=r8), target :: fracrefao(no4,9)  ,fracrefbo(no4,6)
+      real(kind=r8), target :: kao(9,5,13,no4)
+      real(kind=r8), target :: kbo(5,5,13:59,no4)
+      real(kind=r8), target :: selfrefo(10,no4)  ,forrefo(4,no4)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 4

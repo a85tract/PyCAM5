@@ -29,14 +29,14 @@
 
       integer, parameter :: no29 = 16
 
-      real(kind=r8) :: kao(5,13,no29)
-      real(kind=r8) :: kbo(5,13:59,no29)
-      real(kind=r8) :: selfrefo(10,no29), forrefo(4,no29)
-      real(kind=r8) :: sfluxrefo(no29)
-      real(kind=r8) :: absh2oo(no29), absco2o(no29)
+      real(kind=r8), target :: kao(5,13,no29)
+      real(kind=r8), target :: kbo(5,13:59,no29)
+      real(kind=r8), target :: selfrefo(10,no29), forrefo(4,no29)
+      real(kind=r8), target :: sfluxrefo(no29)
+      real(kind=r8), target :: absh2oo(no29), absco2o(no29)
 
-      integer :: layreffr
-      real(kind=r8) :: rayl
+      integer, target :: layreffr
+      real(kind=r8), target :: rayl
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 29

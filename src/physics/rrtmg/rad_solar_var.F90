@@ -10,7 +10,7 @@ module rad_solar_var
   use cam_abortutils,    only : endrun
   use cam_logfile,       only : iulog
   use spmd_utils,        only : masterproc
-  use iso_c_binding,     only : c_int64_t, c_loc, c_ptr
+  use iso_c_binding,     only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   implicit none
   save
@@ -29,6 +29,9 @@ module rad_solar_var
   logical :: use_native_rad_solar_var_init_impl = .false.
   logical :: rad_solar_var_init_impl_selected = .false.
   logical :: rad_solar_var_init_logged = .false.
+  logical :: use_native_get_variability_impl = .false.
+  logical :: get_variability_impl_selected = .false.
+  logical :: get_variability_logged = .false.
   logical :: use_native_rrtmg_solar_variability_impl = .false.
   logical :: rrtmg_solar_variability_impl_selected = .false.
   logical :: rrtmg_solar_variability_entered_logged = .false.
@@ -40,6 +43,14 @@ module rad_solar_var
        type(c_ptr), value :: radbinmax_p
        integer(c_int64_t) :: radmax_loc_c
      end function rad_solar_var_init_far_ir_codon
+     subroutine get_variability_codon(do_scaling_c, nsrc_c, ntrg_c, sol_tsi_c, tsi_ref_c, &
+          src_x_p, min_trg_p, max_trg_p, src_p, trg_p, ref_irrad_p, sfac_p) &
+          bind(c, name="get_variability_codon")
+       import :: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: do_scaling_c, nsrc_c, ntrg_c
+       real(c_double), value :: sol_tsi_c, tsi_ref_c
+       type(c_ptr), value :: src_x_p, min_trg_p, max_trg_p, src_p, trg_p, ref_irrad_p, sfac_p
+     end subroutine get_variability_codon
   end interface
 contains
 
@@ -156,9 +167,24 @@ contains
 !-------------------------------------------------------------------------------
   subroutine get_variability( sfac )
 
-    real(r8), intent(out) :: sfac(nradbins)       ! scaling factors for CAM heating
+    real(r8), target, intent(out) :: sfac(nradbins)       ! scaling factors for CAM heating
 
     integer :: yr, mon, day, tod
+
+    call get_variability_select_impl()
+    if (.not. use_native_get_variability_impl) then
+       if (do_spctrl_scaling) then
+          call get_variability_codon_spectral_wrap(nbins, nradbins, we, radbinmin, radbinmax, &
+               sol_irrad, irrad, ref_band_irrad, sfac)
+          call get_variability_log_direct('get_variability direct = codon spectral-scaling')
+       else
+          call get_variability_codon(0_c_int64_t, 0_c_int64_t, int(nradbins, c_int64_t), &
+               real(sol_tsi, c_double), real(tsi_ref, c_double), &
+               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(sfac(1)))
+          call get_variability_log_direct('get_variability direct = codon no-spectral-scaling')
+       end if
+       return
+    end if
 
     if ( do_spctrl_scaling ) then
 
@@ -179,6 +205,72 @@ contains
     endif
 
   endsubroutine get_variability
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine get_variability_codon_spectral_wrap(nsrc, ntrg, src_x, min_trg, max_trg, src, trg, ref_irrad, sfac)
+
+    implicit none
+
+    integer,  intent(in)  :: nsrc
+    integer,  intent(in)  :: ntrg
+    real(r8), target, intent(in)  :: src_x(nsrc+1)
+    real(r8), target, intent(in)  :: min_trg(ntrg)
+    real(r8), target, intent(in)  :: max_trg(ntrg)
+    real(r8), target, intent(in)  :: src(nsrc)
+    real(r8), target, intent(out) :: trg(ntrg)
+    real(r8), target, intent(in)  :: ref_irrad(ntrg)
+    real(r8), target, intent(out) :: sfac(ntrg)
+
+    call get_variability_codon(1_c_int64_t, int(nsrc, c_int64_t), int(ntrg, c_int64_t), &
+         0.0_c_double, 1.0_c_double, c_loc(src_x(1)), c_loc(min_trg(1)), c_loc(max_trg(1)), &
+         c_loc(src(1)), c_loc(trg(1)), c_loc(ref_irrad(1)), c_loc(sfac(1)))
+
+  end subroutine get_variability_codon_spectral_wrap
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine get_variability_log_direct(message)
+
+    character(len=*), intent(in) :: message
+
+    if (get_variability_logged) return
+    get_variability_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(message)
+       call flush(iulog)
+    end if
+
+  end subroutine get_variability_log_direct
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine get_variability_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (get_variability_impl_selected) return
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('GET_VARIABILITY_IMPL', impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_get_variability_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_get_variability_impl = .false.
+    end if
+
+    get_variability_impl_selected = .true.
+
+  end subroutine get_variability_select_impl
 
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

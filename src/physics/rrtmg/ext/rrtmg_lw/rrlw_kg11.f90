@@ -29,15 +29,15 @@
 
       integer, parameter :: no11 = 16
 
-      real(kind=r8) , dimension(no11) :: fracrefao
-      real(kind=r8) , dimension(no11) :: fracrefbo
+      real(kind=r8) , dimension(no11), target :: fracrefao
+      real(kind=r8) , dimension(no11), target :: fracrefbo
 
-      real(kind=r8) :: kao(5,13,no11)
-      real(kind=r8) :: kbo(5,13:59,no11)
-      real(kind=r8) :: kao_mo2(19,no11)
-      real(kind=r8) :: kbo_mo2(19,no11)
-      real(kind=r8) :: selfrefo(10,no11)
-      real(kind=r8) :: forrefo(4,no11)
+      real(kind=r8), target :: kao(5,13,no11)
+      real(kind=r8), target :: kbo(5,13:59,no11)
+      real(kind=r8), target :: kao_mo2(19,no11)
+      real(kind=r8), target :: kbo_mo2(19,no11)
+      real(kind=r8), target :: selfrefo(10,no11)
+      real(kind=r8), target :: forrefo(4,no11)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 11

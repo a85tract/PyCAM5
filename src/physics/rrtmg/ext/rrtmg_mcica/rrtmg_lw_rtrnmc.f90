@@ -99,7 +99,7 @@
       integer :: ibnd, ig
 
       interface
-         subroutine rrtmg_lw_rtrnmc_codon(nlayers_c, istart_c, iend_c, iout_c, ncbands_c, &
+         subroutine rtrnmc_codon(nlayers_c, istart_c, iend_c, iout_c, ncbands_c, &
               nbndlw_c, ngptlw_c, pwvcm_c, fluxfac_c, heatfac_c, tblint_c, bpade_c, &
               pz_p, semiss_p, cldfmc_p, taucmc_p, planklay_p, planklev_p, plankbnd_p, &
               fracs_p, taut_p, totuflux_p, totdflux_p, fnet_p, htr_p, totuclfl_p, &
@@ -107,7 +107,7 @@
               exp_tbl_p, tfn_tbl_p, delwave_p, ngs_p, ngb_p, abscld_p, atot_p, atrans_p, &
               bbugas_p, bbutot_p, clrurad_p, clrdrad_p, efclfrac_p, uflux_p, dflux_p, &
               urad_p, drad_p, uclfl_p, dclfl_p, odcld_p, secdiff_p, icldlyr_p) &
-              bind(c, name="rrtmg_lw_rtrnmc_codon")
+              bind(c, name="rtrnmc_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, istart_c, iend_c, iout_c, ncbands_c
             integer(c_int64_t), value :: nbndlw_c, ngptlw_c
@@ -120,7 +120,7 @@
             type(c_ptr), value :: bbugas_p, bbutot_p, clrurad_p, clrdrad_p, efclfrac_p
             type(c_ptr), value :: uflux_p, dflux_p, urad_p, drad_p, uclfl_p, dclfl_p
             type(c_ptr), value :: odcld_p, secdiff_p, icldlyr_p
-         end subroutine rrtmg_lw_rtrnmc_codon
+         end subroutine rtrnmc_codon
       end interface
 
       hvrrtc = '$Revision: 1.3 $'
@@ -141,7 +141,7 @@
          enddo
 
          call rtrnmc_log_entered()
-         call rrtmg_lw_rtrnmc_codon( &
+         call rtrnmc_codon( &
               int(nlayers, c_int64_t), int(istart, c_int64_t), int(iend, c_int64_t), &
               int(iout, c_int64_t), int(ncbands, c_int64_t), int(nbndlw, c_int64_t), &
               int(ngptlw, c_int64_t), real(pwvcm, c_double), real(fluxfac, c_double), &

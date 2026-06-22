@@ -35,6 +35,10 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg16, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             rayl, strrat1, layreffr
@@ -42,6 +46,67 @@
 
       implicit none
       save
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb16_logged = .false.
+
+      interface
+         subroutine sw_kgb16_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat1_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb16_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat1_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb16_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB16_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         hvrkg = '$Revision: 1.2 $'
+         call sw_kgb16_codon( &
+              c_loc(sfluxrefo(1)), &
+              c_loc(rayl), &
+              c_loc(strrat1), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb16_logged) then
+            write(iulog,'(A)') 'sw_kgb16 direct = codon'
+            call flush(iulog)
+            sw_kgb16_logged = .true.
+         end if
+         return
+      end if
 
       hvrkg = '$Revision: 1.2 $'
 
@@ -4801,12 +4866,77 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg17, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             rayl, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb17_logged = .false.
+
+      interface
+         subroutine sw_kgb17_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb17_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb17_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB17_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb17_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(rayl), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb17_logged) then
+            write(iulog,'(A)') 'sw_kgb17 direct = codon'
+            call flush(iulog)
+            sw_kgb17_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:,1) = (/ &
@@ -15599,12 +15729,77 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg18, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             rayl, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb18_logged = .false.
+
+      interface
+         subroutine sw_kgb18_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb18_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb18_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB18_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb18_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(rayl), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb18_logged) then
+            write(iulog,'(A)') 'sw_kgb18 direct = codon'
+            call flush(iulog)
+            sw_kgb18_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:,1) = (/ &
@@ -20401,12 +20596,77 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg19, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             rayl, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb19_logged = .false.
+
+      interface
+         subroutine sw_kgb19_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb19_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb19_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB19_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb19_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(rayl), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb19_logged) then
+            write(iulog,'(A)') 'sw_kgb19 direct = codon'
+            call flush(iulog)
+            sw_kgb19_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:,1) = (/ &
@@ -25203,12 +25463,77 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg20, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             absch4o, rayl, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb20_logged = .false.
+
+      interface
+         subroutine sw_kgb20_codon( &
+              sfluxrefo_p, &
+              absch4o_p, &
+              rayl_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb20_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: absch4o_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb20_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB20_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb20_codon( &
+              c_loc(sfluxrefo(1)), &
+              c_loc(absch4o(1)), &
+              c_loc(rayl), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb20_logged) then
+            write(iulog,'(A)') 'sw_kgb20 direct = codon'
+            call flush(iulog)
+            sw_kgb20_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:) = (/ &
@@ -27265,12 +27590,77 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg21, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             rayl, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb21_logged = .false.
+
+      interface
+         subroutine sw_kgb21_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb21_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb21_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB21_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb21_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(rayl), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb21_logged) then
+            write(iulog,'(A)') 'sw_kgb21 direct = codon'
+            call flush(iulog)
+            sw_kgb21_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:, 1) = (/ &
@@ -38083,12 +38473,77 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg22, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             rayl, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb22_logged = .false.
+
+      interface
+         subroutine sw_kgb22_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb22_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb22_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB22_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb22_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(rayl), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb22_logged) then
+            write(iulog,'(A)') 'sw_kgb22 direct = codon'
+            call flush(iulog)
+            sw_kgb22_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:, 1) = (/ &
@@ -42885,12 +43340,74 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg23, only : kao, selfrefo, forrefo, sfluxrefo, &
                             raylo, givfac, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb23_logged = .false.
+
+      interface
+         subroutine sw_kgb23_codon( &
+              sfluxrefo_p, &
+              raylo_p, &
+              givfac_p, &
+              layreffr_p, &
+              kao_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb23_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: raylo_p
+           type(c_ptr), value :: givfac_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb23_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB23_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb23_codon( &
+              c_loc(sfluxrefo(1)), &
+              c_loc(raylo(1)), &
+              c_loc(givfac), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb23_logged) then
+            write(iulog,'(A)') 'sw_kgb23 direct = codon'
+            call flush(iulog)
+            sw_kgb23_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:) = (/ &
@@ -43429,12 +43946,86 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg24, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             raylao, raylbo, abso3ao, abso3bo, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb24_logged = .false.
+
+      interface
+         subroutine sw_kgb24_codon( &
+              sfluxrefo_p, &
+              raylao_p, &
+              raylbo_p, &
+              abso3ao_p, &
+              abso3bo_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb24_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: raylao_p
+           type(c_ptr), value :: raylbo_p
+           type(c_ptr), value :: abso3ao_p
+           type(c_ptr), value :: abso3bo_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb24_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB24_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb24_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(raylao(1,1)), &
+              c_loc(raylbo(1)), &
+              c_loc(abso3ao(1)), &
+              c_loc(abso3bo(1)), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb24_logged) then
+            write(iulog,'(A)') 'sw_kgb24 direct = codon'
+            call flush(iulog)
+            sw_kgb24_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:,1) = (/ &
@@ -48293,12 +48884,71 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg25, only : kao, sfluxrefo, &
                             raylo, abso3ao, abso3bo, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb25_logged = .false.
+
+      interface
+         subroutine sw_kgb25_codon( &
+              sfluxrefo_p, &
+              raylo_p, &
+              abso3ao_p, &
+              abso3bo_p, &
+              layreffr_p, &
+              kao_p) &
+              bind(c, name="sw_kgb25_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: raylo_p
+           type(c_ptr), value :: abso3ao_p
+           type(c_ptr), value :: abso3bo_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+         end subroutine sw_kgb25_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB25_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb25_codon( &
+              c_loc(sfluxrefo(1)), &
+              c_loc(raylo(1)), &
+              c_loc(abso3ao(1)), &
+              c_loc(abso3bo(1)), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1)))
+         if (masterproc .and. .not. sw_kgb25_logged) then
+            write(iulog,'(A)') 'sw_kgb25 direct = codon'
+            call flush(iulog)
+            sw_kgb25_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:) = (/ &
@@ -48770,12 +49420,50 @@
 ! **************************************************************************
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
 
 !      use parkind, only : jpim, jprb 
       use rrsw_kg26, only : sfluxrefo, raylo
 
       implicit none
       save
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb26_logged = .false.
+
+      interface
+         subroutine sw_kgb26_codon(sfluxrefo_p, raylo_p) bind(c, name="sw_kgb26_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p, raylo_p
+         end subroutine sw_kgb26_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB26_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb26_codon(c_loc(sfluxrefo(1)), c_loc(raylo(1)))
+         if (masterproc .and. .not. sw_kgb26_logged) then
+            write(iulog,'(A)') 'sw_kgb26 direct = codon'
+            call flush(iulog)
+            sw_kgb26_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:) = (/ &
@@ -48800,12 +49488,71 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg27, only : kao, kbo, sfluxrefo, raylo, &
                             scalekur, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb27_logged = .false.
+
+      interface
+         subroutine sw_kgb27_codon( &
+              sfluxrefo_p, &
+              raylo_p, &
+              scalekur_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p) &
+              bind(c, name="sw_kgb27_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: raylo_p
+           type(c_ptr), value :: scalekur_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+         end subroutine sw_kgb27_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB27_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb27_codon( &
+              c_loc(sfluxrefo(1)), &
+              c_loc(raylo(1)), &
+              c_loc(scalekur), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1)), &
+              c_loc(kbo(1,13,1)))
+         if (masterproc .and. .not. sw_kgb27_logged) then
+            write(iulog,'(A)') 'sw_kgb27 direct = codon'
+            call flush(iulog)
+            sw_kgb27_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
 ! The following values were obtained using the "low resolution"
@@ -50792,12 +51539,71 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg28, only : kao, kbo, sfluxrefo, &
                             rayl, strrat, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb28_logged = .false.
+
+      interface
+         subroutine sw_kgb28_codon( &
+              sfluxrefo_p, &
+              rayl_p, &
+              strrat_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p) &
+              bind(c, name="sw_kgb28_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: strrat_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+         end subroutine sw_kgb28_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB28_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb28_codon( &
+              c_loc(sfluxrefo(1,1)), &
+              c_loc(rayl), &
+              c_loc(strrat), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1,1)), &
+              c_loc(kbo(1,1,13,1)))
+         if (masterproc .and. .not. sw_kgb28_logged) then
+            write(iulog,'(A)') 'sw_kgb28 direct = codon'
+            call flush(iulog)
+            sw_kgb28_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:,1) = (/ &
@@ -61515,12 +62321,80 @@
 
       use shr_kind_mod, only: r8 => shr_kind_r8
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_loc, c_ptr
+
 !      use parkind, only : jpim, jprb 
       use rrsw_kg29, only : kao, kbo, selfrefo, forrefo, sfluxrefo, &
                             absh2oo, absco2o, rayl, layreffr
 
       implicit none
       save
+
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+      logical :: use_native_impl
+      logical, save :: sw_kgb29_logged = .false.
+
+      interface
+         subroutine sw_kgb29_codon( &
+              sfluxrefo_p, &
+              absco2o_p, &
+              absh2oo_p, &
+              rayl_p, &
+              layreffr_p, &
+              kao_p, &
+              kbo_p, &
+              forrefo_p, &
+              selfrefo_p) &
+              bind(c, name="sw_kgb29_codon")
+           use iso_c_binding, only : c_ptr
+           type(c_ptr), value :: sfluxrefo_p
+           type(c_ptr), value :: absco2o_p
+           type(c_ptr), value :: absh2oo_p
+           type(c_ptr), value :: rayl_p
+           type(c_ptr), value :: layreffr_p
+           type(c_ptr), value :: kao_p
+           type(c_ptr), value :: kbo_p
+           type(c_ptr), value :: forrefo_p
+           type(c_ptr), value :: selfrefo_p
+         end subroutine sw_kgb29_codon
+      end interface
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('SW_KGB29_IMPL', impl_name, n, status)
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      if (.not. use_native_impl) then
+         call sw_kgb29_codon( &
+              c_loc(sfluxrefo(1)), &
+              c_loc(absco2o(1)), &
+              c_loc(absh2oo(1)), &
+              c_loc(rayl), &
+              c_loc(layreffr), &
+              c_loc(kao(1,1,1)), &
+              c_loc(kbo(1,13,1)), &
+              c_loc(forrefo(1,1)), &
+              c_loc(selfrefo(1,1)))
+         if (masterproc .and. .not. sw_kgb29_logged) then
+            write(iulog,'(A)') 'sw_kgb29 direct = codon'
+            call flush(iulog)
+            sw_kgb29_logged = .true.
+         end if
+         return
+      end if
 
 ! Kurucz solar source function
       sfluxrefo(:) = (/ &
@@ -63576,4 +64450,3 @@
         &  0.587212e-01_r8, 0.173470e+00_r8, 0.512452e+00_r8, 0.151385e+01_r8, 0.447209e+01_r8 /)
      
       end subroutine sw_kgb29
-

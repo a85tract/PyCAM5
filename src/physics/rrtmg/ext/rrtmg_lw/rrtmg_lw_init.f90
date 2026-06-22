@@ -37,16 +37,16 @@
             real(c_double), value :: value_c
             real(c_double) :: result_c
          end function rrtmg_init_real_passthrough_codon
-         subroutine rrtmg_lwdatinit_codon(nbndlw_c, maxinpx_c, wavenum1_p, wavenum2_p, &
+         subroutine lwdatinit_codon(nbndlw_c, maxinpx_c, wavenum1_p, wavenum2_p, &
               delwave_p, ng_p, nspa_p, nspb_p, ixindx_p, constants_p) &
-              bind(c, name="rrtmg_lwdatinit_codon")
+              bind(c, name="lwdatinit_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nbndlw_c, maxinpx_c
             type(c_ptr), value :: wavenum1_p, wavenum2_p, delwave_p
             type(c_ptr), value :: ng_p, nspa_p, nspb_p, ixindx_p, constants_p
-         end subroutine rrtmg_lwdatinit_codon
-         subroutine rrtmg_lw_lwcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
-              bind(c, name="rrtmg_lw_lwcmbdat_codon")
+         end subroutine lwdatinit_codon
+         subroutine lwcmbdat_codon(ngc_p, ngs_p, ngm_p, ngn_p, ngb_p, wt_p) &
+              bind(c, name="lwcmbdat_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: ngc_p
             type(c_ptr), value :: ngs_p
@@ -54,10 +54,10 @@
             type(c_ptr), value :: ngn_p
             type(c_ptr), value :: ngb_p
             type(c_ptr), value :: wt_p
-         end subroutine rrtmg_lw_lwcmbdat_codon
-         subroutine rrtmg_lw_lwcldpr_codon(abscld1_p, absliq0_p, absice0_p, &
+         end subroutine lwcmbdat_codon
+         subroutine lwcldpr_codon(abscld1_p, absliq0_p, absice0_p, &
               absice1_p, absice2_p, absice3_p, absliq1_p) &
-              bind(c, name="rrtmg_lw_lwcldpr_codon")
+              bind(c, name="lwcldpr_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: abscld1_p
             type(c_ptr), value :: absliq0_p
@@ -66,81 +66,81 @@
             type(c_ptr), value :: absice2_p
             type(c_ptr), value :: absice3_p
             type(c_ptr), value :: absliq1_p
-         end subroutine rrtmg_lw_lwcldpr_codon
-         subroutine rrtmg_lw_cmbgb1_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine lwcldpr_codon
+         subroutine cmbgb1_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, kao_mn2_p, kbo_mn2_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, kb_p, ka_mn2_p, kb_mn2_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb1_codon")
+              bind(c, name="cmbgb1_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mn2_p
             type(c_ptr), value :: kbo_mn2_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p
             type(c_ptr), value :: ka_mn2_p, kb_mn2_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb1_codon
-         subroutine rrtmg_lw_cmbgb2_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb1_codon
+         subroutine cmbgb2_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, &
               selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb2_codon")
+              bind(c, name="cmbgb2_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, selfrefo_p
             type(c_ptr), value :: forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb2_codon
-         subroutine rrtmg_lw_cmbgb3_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb2_codon
+         subroutine cmbgb3_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, kao_mn2o_p, kbo_mn2o_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, kb_p, ka_mn2o_p, kb_mn2o_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb3_codon")
+              bind(c, name="cmbgb3_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mn2o_p
             type(c_ptr), value :: kbo_mn2o_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p
             type(c_ptr), value :: ka_mn2o_p, kb_mn2o_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb3_codon
-         subroutine rrtmg_lw_cmbgb4_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb3_codon
+         subroutine cmbgb4_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, &
               selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb4_codon")
+              bind(c, name="cmbgb4_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, selfrefo_p
             type(c_ptr), value :: forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb4_codon
-         subroutine rrtmg_lw_cmbgb5_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb4_codon
+         subroutine cmbgb5_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, kao_mo3_p, ccl4o_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, kb_p, ka_mo3_p, ccl4_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb5_codon")
+              bind(c, name="cmbgb5_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mo3_p
             type(c_ptr), value :: ccl4o_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p
             type(c_ptr), value :: ka_mo3_p, ccl4_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb5_codon
-         subroutine rrtmg_lw_cmbgb6_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb5_codon
+         subroutine cmbgb6_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               kao_p, kao_mco2_p, cfc11adjo_p, cfc12o_p, selfrefo_p, forrefo_p, fracrefa_p, ka_p, &
               ka_mco2_p, cfc11adj_p, cfc12_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb6_codon")
+              bind(c, name="cmbgb6_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, kao_p, kao_mco2_p, cfc11adjo_p, cfc12o_p
             type(c_ptr), value :: selfrefo_p, forrefo_p, fracrefa_p, ka_p, ka_mco2_p, cfc11adj_p
             type(c_ptr), value :: cfc12_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb6_codon
-         subroutine rrtmg_lw_cmbgb7_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb6_codon
+         subroutine cmbgb7_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, kao_mco2_p, kbo_mco2_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, kb_p, ka_mco2_p, kb_mco2_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb7_codon")
+              bind(c, name="cmbgb7_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, kao_mco2_p
             type(c_ptr), value :: kbo_mco2_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p
             type(c_ptr), value :: ka_mco2_p, kb_mco2_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb7_codon
-         subroutine rrtmg_lw_cmbgb8_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb7_codon
+         subroutine cmbgb8_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kao_mco2_p, kao_mn2o_p, kao_mo3_p, kbo_p, kbo_mco2_p, kbo_mn2o_p, &
               selfrefo_p, forrefo_p, cfc12o_p, cfc22adjo_p, fracrefa_p, fracrefb_p, ka_p, ka_mco2_p, &
               ka_mn2o_p, ka_mo3_p, kb_p, kb_mco2_p, kb_mn2o_p, selfref_p, forref_p, cfc12_p, &
               cfc22adj_p) &
-              bind(c, name="rrtmg_lw_cmbgb8_codon")
+              bind(c, name="cmbgb8_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kao_mco2_p, kao_mn2o_p
@@ -148,80 +148,80 @@
             type(c_ptr), value :: cfc12o_p, cfc22adjo_p, fracrefa_p, fracrefb_p, ka_p, ka_mco2_p
             type(c_ptr), value :: ka_mn2o_p, ka_mo3_p, kb_p, kb_mco2_p, kb_mn2o_p, selfref_p, forref_p
             type(c_ptr), value :: cfc12_p, cfc22adj_p
-         end subroutine rrtmg_lw_cmbgb8_codon
-         subroutine rrtmg_lw_cmbgb9_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb8_codon
+         subroutine cmbgb9_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kao_mn2o_p, kbo_p, kbo_mn2o_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, ka_mn2o_p, kb_p, kb_mn2o_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb9_codon")
+              bind(c, name="cmbgb9_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kao_mn2o_p, kbo_p
             type(c_ptr), value :: kbo_mn2o_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p
             type(c_ptr), value :: ka_mn2o_p, kb_p, kb_mn2o_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb9_codon
-         subroutine rrtmg_lw_cmbgb10_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb9_codon
+         subroutine cmbgb10_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, &
               selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb10_codon")
+              bind(c, name="cmbgb10_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, selfrefo_p
             type(c_ptr), value :: forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb10_codon
-         subroutine rrtmg_lw_cmbgb11_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb10_codon
+         subroutine cmbgb11_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kao_mo2_p, kbo_p, kbo_mo2_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, ka_mo2_p, kb_p, kb_mo2_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb11_codon")
+              bind(c, name="cmbgb11_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kao_mo2_p, kbo_p
             type(c_ptr), value :: kbo_mo2_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p
             type(c_ptr), value :: ka_mo2_p, kb_p, kb_mo2_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb11_codon
-         subroutine rrtmg_lw_cmbgb12_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb11_codon
+         subroutine cmbgb12_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               kao_p, selfrefo_p, forrefo_p, fracrefa_p, ka_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb12_codon")
+              bind(c, name="cmbgb12_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, kao_p, selfrefo_p, forrefo_p, fracrefa_p
             type(c_ptr), value :: ka_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb12_codon
-         subroutine rrtmg_lw_cmbgb13_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb12_codon
+         subroutine cmbgb13_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kao_mco2_p, kao_mco_p, kbo_mo3_p, selfrefo_p, forrefo_p, fracrefa_p, &
               fracrefb_p, ka_p, ka_mco2_p, ka_mco_p, kb_mo3_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb13_codon")
+              bind(c, name="cmbgb13_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kao_mco2_p, kao_mco_p
             type(c_ptr), value :: kbo_mo3_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p
             type(c_ptr), value :: ka_mco2_p, ka_mco_p, kb_mo3_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb13_codon
-         subroutine rrtmg_lw_cmbgb14_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb13_codon
+         subroutine cmbgb14_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, &
               selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb14_codon")
+              bind(c, name="cmbgb14_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, selfrefo_p
             type(c_ptr), value :: forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb14_codon
-         subroutine rrtmg_lw_cmbgb15_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb14_codon
+         subroutine cmbgb15_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               kao_p, kao_mn2_p, selfrefo_p, forrefo_p, fracrefa_p, ka_p, ka_mn2_p, selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb15_codon")
+              bind(c, name="cmbgb15_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, kao_p, kao_mn2_p, selfrefo_p, forrefo_p
             type(c_ptr), value :: fracrefa_p, ka_p, ka_mn2_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb15_codon
-         subroutine rrtmg_lw_cmbgb16_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
+         end subroutine cmbgb15_codon
+         subroutine cmbgb16_codon(ngc_c, ngs_prev_c, rwgt_offset_c, ngn_p, rwgt_p, fracrefao_p, &
               fracrefbo_p, kao_p, kbo_p, selfrefo_p, forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, &
               selfref_p, forref_p) &
-              bind(c, name="rrtmg_lw_cmbgb16_codon")
+              bind(c, name="cmbgb16_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ngc_c, ngs_prev_c, rwgt_offset_c
             type(c_ptr), value :: ngn_p, rwgt_p, fracrefao_p, fracrefbo_p, kao_p, kbo_p, selfrefo_p
             type(c_ptr), value :: forrefo_p, fracrefa_p, fracrefb_p, ka_p, kb_p, selfref_p, forref_p
-         end subroutine rrtmg_lw_cmbgb16_codon
+         end subroutine cmbgb16_codon
       end interface
 
       contains
@@ -396,7 +396,7 @@
 
       call lwdatinit_select_impl()
       if (.not. use_native_lwdatinit_impl) then
-         call rrtmg_lwdatinit_codon(int(size(wavenum1), c_int64_t), int(maxinpx, c_int64_t), &
+         call lwdatinit_codon(int(size(wavenum1), c_int64_t), int(maxinpx, c_int64_t), &
               c_loc(wavenum1(1)), c_loc(wavenum2(1)), c_loc(delwave(1)), &
               c_loc(ng_c(1)), c_loc(nspa_c(1)), c_loc(nspb_c(1)), c_loc(ixindx_c(1)), &
               c_loc(constants_c(1)))
@@ -565,7 +565,7 @@
 
       call rrtmg_lw_init_select_impl()
       if (.not. use_native_rrtmg_lw_init_impl) then
-         call rrtmg_lw_lwcmbdat_codon(c_loc(ngc_c(1)), c_loc(ngs_c(1)), &
+         call lwcmbdat_codon(c_loc(ngc_c(1)), c_loc(ngs_c(1)), &
               c_loc(ngm_c(1)), c_loc(ngn_c(1)), c_loc(ngb_c(1)), c_loc(wt_c(1)))
          ngc(:) = int(ngc_c(:))
          ngs(:) = int(ngs_c(:))
@@ -729,7 +729,7 @@
          kb_mn2_c(:) = reshape(kb_mn2, (/ size(kb_mn2) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb1_codon(int(ngc(1), c_int64_t), int(0, c_int64_t), int(0, c_int64_t),  &
+         call cmbgb1_codon(int(ngc(1), c_int64_t), int(0, c_int64_t), int(0, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(kao_mn2_c(1)), c_loc(kbo_mn2_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)),  &
@@ -881,7 +881,7 @@
          kb_c(:) = reshape(kb, (/ size(kb) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb2_codon(int(ngc(2), c_int64_t), int(ngs(1), c_int64_t), int(16, c_int64_t),  &
+         call cmbgb2_codon(int(ngc(2), c_int64_t), int(ngs(1), c_int64_t), int(16, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)),  &
               c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)), c_loc(ka_c(1)), c_loc(kb_c(1)),  &
@@ -1025,7 +1025,7 @@
          kb_mn2o_c(:) = reshape(kb_mn2o, (/ size(kb_mn2o) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb3_codon(int(ngc(3), c_int64_t), int(ngs(2), c_int64_t), int(32, c_int64_t),  &
+         call cmbgb3_codon(int(ngc(3), c_int64_t), int(ngs(2), c_int64_t), int(32, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(kao_mn2o_c(1)), c_loc(kbo_mn2o_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)),  &
@@ -1206,7 +1206,7 @@
          kb_c(:) = reshape(kb, (/ size(kb) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb4_codon(int(ngc(4), c_int64_t), int(ngs(3), c_int64_t), int(48, c_int64_t),  &
+         call cmbgb4_codon(int(ngc(4), c_int64_t), int(ngs(3), c_int64_t), int(48, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)),  &
               c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)), c_loc(ka_c(1)), c_loc(kb_c(1)),  &
@@ -1367,7 +1367,7 @@
          ccl4_c(:) = reshape(ccl4, (/ size(ccl4) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb5_codon(int(ngc(5), c_int64_t), int(ngs(4), c_int64_t), int(64, c_int64_t),  &
+         call cmbgb5_codon(int(ngc(5), c_int64_t), int(ngs(4), c_int64_t), int(64, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(kao_mo3_c(1)), c_loc(ccl4o_c(1)), c_loc(selfrefo_c(1)),  &
               c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)), c_loc(ka_c(1)),  &
@@ -1550,7 +1550,7 @@
          cfc12_c(:) = reshape(cfc12, (/ size(cfc12) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb6_codon(int(ngc(6), c_int64_t), int(ngs(5), c_int64_t), int(80, c_int64_t),  &
+         call cmbgb6_codon(int(ngc(6), c_int64_t), int(ngs(5), c_int64_t), int(80, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(kao_c(1)),  &
               c_loc(kao_mco2_c(1)), c_loc(cfc11adjo_c(1)), c_loc(cfc12o_c(1)), c_loc(selfrefo_c(1)),  &
               c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(ka_c(1)), c_loc(ka_mco2_c(1)),  &
@@ -1699,7 +1699,7 @@
          kb_mco2_c(:) = reshape(kb_mco2, (/ size(kb_mco2) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb7_codon(int(ngc(7), c_int64_t), int(ngs(6), c_int64_t), int(96, c_int64_t),  &
+         call cmbgb7_codon(int(ngc(7), c_int64_t), int(ngs(6), c_int64_t), int(96, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(kao_mco2_c(1)), c_loc(kbo_mco2_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)),  &
@@ -1907,7 +1907,7 @@
          forref_c(:) = reshape(forref, (/ size(forref) /))
          cfc12_c(:) = reshape(cfc12, (/ size(cfc12) /))
          cfc22adj_c(:) = reshape(cfc22adj, (/ size(cfc22adj) /))
-         call rrtmg_lw_cmbgb8_codon(int(ngc(8), c_int64_t), int(ngs(7), c_int64_t), int(112, c_int64_t),  &
+         call cmbgb8_codon(int(ngc(8), c_int64_t), int(ngs(7), c_int64_t), int(112, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kao_mco2_c(1)), c_loc(kao_mn2o_c(1)), c_loc(kao_mo3_c(1)),  &
               c_loc(kbo_c(1)), c_loc(kbo_mco2_c(1)), c_loc(kbo_mn2o_c(1)), c_loc(selfrefo_c(1)),  &
@@ -2093,7 +2093,7 @@
          kb_mn2o_c(:) = reshape(kb_mn2o, (/ size(kb_mn2o) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb9_codon(int(ngc(9), c_int64_t), int(ngs(8), c_int64_t), int(128, c_int64_t),  &
+         call cmbgb9_codon(int(ngc(9), c_int64_t), int(ngs(8), c_int64_t), int(128, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kao_mn2o_c(1)), c_loc(kbo_c(1)), c_loc(kbo_mn2o_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)),  &
@@ -2271,7 +2271,7 @@
          kb_c(:) = reshape(kb, (/ size(kb) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb10_codon(int(ngc(10), c_int64_t), int(ngs(9), c_int64_t), int(144, c_int64_t),  &
+         call cmbgb10_codon(int(ngc(10), c_int64_t), int(ngs(9), c_int64_t), int(144, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)),  &
               c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)), c_loc(ka_c(1)), c_loc(kb_c(1)),  &
@@ -2419,7 +2419,7 @@
          kb_mo2_c(:) = reshape(kb_mo2, (/ size(kb_mo2) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb11_codon(int(ngc(11), c_int64_t), int(ngs(10), c_int64_t), int(160, c_int64_t),  &
+         call cmbgb11_codon(int(ngc(11), c_int64_t), int(ngs(10), c_int64_t), int(160, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kao_mo2_c(1)), c_loc(kbo_c(1)), c_loc(kbo_mo2_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)),  &
@@ -2564,7 +2564,7 @@
          ka_c(:) = reshape(ka, (/ size(ka) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb12_codon(int(ngc(12), c_int64_t), int(ngs(11), c_int64_t), int(176, c_int64_t),  &
+         call cmbgb12_codon(int(ngc(12), c_int64_t), int(ngs(11), c_int64_t), int(176, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(kao_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(ka_c(1)),  &
               c_loc(selfref_c(1)), c_loc(forref_c(1)))
@@ -2694,7 +2694,7 @@
          kb_mo3_c(:) = reshape(kb_mo3, (/ size(kb_mo3) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb13_codon(int(ngc(13), c_int64_t), int(ngs(12), c_int64_t), int(192, c_int64_t),  &
+         call cmbgb13_codon(int(ngc(13), c_int64_t), int(ngs(12), c_int64_t), int(192, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kao_mco2_c(1)), c_loc(kao_mco_c(1)), c_loc(kbo_mo3_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)),  &
@@ -2861,7 +2861,7 @@
          kb_c(:) = reshape(kb, (/ size(kb) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb14_codon(int(ngc(14), c_int64_t), int(ngs(13), c_int64_t), int(208, c_int64_t),  &
+         call cmbgb14_codon(int(ngc(14), c_int64_t), int(ngs(13), c_int64_t), int(208, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)),  &
               c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)), c_loc(ka_c(1)), c_loc(kb_c(1)),  &
@@ -2994,7 +2994,7 @@
          ka_mn2_c(:) = reshape(ka_mn2, (/ size(ka_mn2) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb15_codon(int(ngc(15), c_int64_t), int(ngs(14), c_int64_t), int(224, c_int64_t),  &
+         call cmbgb15_codon(int(ngc(15), c_int64_t), int(ngs(14), c_int64_t), int(224, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(kao_c(1)), c_loc(kao_mn2_c(1)),  &
               c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)), c_loc(fracrefa_c(1)), c_loc(ka_c(1)),  &
               c_loc(ka_mn2_c(1)), c_loc(selfref_c(1)), c_loc(forref_c(1)))
@@ -3129,7 +3129,7 @@
          kb_c(:) = reshape(kb, (/ size(kb) /))
          selfref_c(:) = reshape(selfref, (/ size(selfref) /))
          forref_c(:) = reshape(forref, (/ size(forref) /))
-         call rrtmg_lw_cmbgb16_codon(int(ngc(16), c_int64_t), int(ngs(15), c_int64_t), int(240, c_int64_t),  &
+         call cmbgb16_codon(int(ngc(16), c_int64_t), int(ngs(15), c_int64_t), int(240, c_int64_t),  &
               c_loc(ngn_c(1)), c_loc(rwgt_c(1)), c_loc(fracrefao_c(1)), c_loc(fracrefbo_c(1)),  &
               c_loc(kao_c(1)), c_loc(kbo_c(1)), c_loc(selfrefo_c(1)), c_loc(forrefo_c(1)),  &
               c_loc(fracrefa_c(1)), c_loc(fracrefb_c(1)), c_loc(ka_c(1)), c_loc(kb_c(1)),  &
@@ -3243,7 +3243,7 @@
          call lwcldpr_native
       else
          call rrtmg_lw_init_log_entered()
-         call rrtmg_lw_lwcldpr_codon(c_loc(abscld1), c_loc(absliq0), &
+         call lwcldpr_codon(c_loc(abscld1), c_loc(absliq0), &
               c_loc(absice0(1)), c_loc(absice1(1,1)), c_loc(absice2(1,1)), &
               c_loc(absice3(1,1)), c_loc(absliq1(1,1)))
       endif

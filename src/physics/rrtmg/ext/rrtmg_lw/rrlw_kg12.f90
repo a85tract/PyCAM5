@@ -25,10 +25,10 @@
 
       integer, parameter :: no12 = 16
 
-      real(kind=r8) :: fracrefao(no12,9)
-      real(kind=r8) :: kao(9,5,13,no12)
-      real(kind=r8) :: selfrefo(10,no12)
-      real(kind=r8) :: forrefo(4,no12)
+      real(kind=r8), target :: fracrefao(no12,9)
+      real(kind=r8), target :: kao(9,5,13,no12)
+      real(kind=r8), target :: selfrefo(10,no12)
+      real(kind=r8), target :: forrefo(4,no12)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 12

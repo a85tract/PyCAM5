@@ -25,12 +25,12 @@
 
       integer, parameter :: no28 = 16
 
-      real(kind=r8) :: kao(9,5,13,no28)
-      real(kind=r8) :: kbo(5,5,13:59,no28)
-      real(kind=r8) :: sfluxrefo(no28,5)
+      real(kind=r8), target :: kao(9,5,13,no28)
+      real(kind=r8), target :: kbo(5,5,13:59,no28)
+      real(kind=r8), target :: sfluxrefo(no28,5)
 
-      integer :: layreffr
-      real(kind=r8) :: rayl, strrat
+      integer, target :: layreffr
+      real(kind=r8), target :: rayl, strrat
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 28

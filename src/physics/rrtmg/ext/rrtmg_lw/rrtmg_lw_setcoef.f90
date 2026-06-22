@@ -114,7 +114,7 @@
       integer(c_int64_t), target :: indminor64(nlayers)
 
       interface
-         subroutine rrtmg_lw_setcoef_codon(nlayers_c, istart_c, mxmol_c, nbndlw_c, &
+         subroutine setcoef_codon(nlayers_c, istart_c, mxmol_c, nbndlw_c, &
               pavel_p, tavel_p, tz_p, tbound_c, semiss_p, coldry_p, wkl_p, wbroad_p, &
               laytrop_p, jp_p, jt_p, jt1_p, planklay_p, planklev_p, plankbnd_p, &
               colh2o_p, colco2_p, colo3_p, coln2o_p, colco_p, colch4_p, colo2_p, &
@@ -124,7 +124,7 @@
               rat_n2oco2_1_p, rat_o3co2_p, rat_o3co2_1_p, selffac_p, selffrac_p, &
               indself_p, forfac_p, forfrac_p, indfor_p, minorfrac_p, scaleminor_p, &
               scaleminorn2_p, indminor_p, totplnk_p, totplk16_p, preflog_p, tref_p, &
-              chi_mls_p) bind(c, name="rrtmg_lw_setcoef_codon")
+              chi_mls_p) bind(c, name="setcoef_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, istart_c, mxmol_c, nbndlw_c
             real(c_double), value :: tbound_c
@@ -140,7 +140,7 @@
             type(c_ptr), value :: indfor_p, minorfrac_p, scaleminor_p, scaleminorn2_p
             type(c_ptr), value :: indminor_p, totplnk_p, totplk16_p, preflog_p, tref_p
             type(c_ptr), value :: chi_mls_p
-         end subroutine rrtmg_lw_setcoef_codon
+         end subroutine setcoef_codon
       end interface
 
       call setcoef_select_impl()
@@ -165,7 +165,7 @@
          indfor64(:) = 0_c_int64_t
          indminor64(:) = 0_c_int64_t
 
-         call rrtmg_lw_setcoef_codon( &
+         call setcoef_codon( &
               int(nlayers, c_int64_t), int(istart, c_int64_t), int(mxmol, c_int64_t), &
               int(nbndlw, c_int64_t), c_loc(pavel(1)), c_loc(tavel(1)), c_loc(tz(0)), &
               tbound, c_loc(semiss(1)), c_loc(coldry(1)), c_loc(wkl(1,1)), &
@@ -575,16 +575,16 @@
       integer(c_int64_t) :: filled_count
 
       interface
-         function rrtmg_lwatmref_codon(pref_p, preflog_p, tref_p, chi_mls_p) &
-              result(filled_count_c) bind(c, name="rrtmg_lwatmref_codon")
+         function lwatmref_codon(pref_p, preflog_p, tref_p, chi_mls_p) &
+              result(filled_count_c) bind(c, name="lwatmref_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             type(c_ptr), value :: pref_p, preflog_p, tref_p, chi_mls_p
             integer(c_int64_t) :: filled_count_c
-         end function rrtmg_lwatmref_codon
+         end function lwatmref_codon
       end interface
 
       if (.not. setcoef_use_native('LWATMREF_IMPL')) then
-         filled_count = rrtmg_lwatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)), &
+         filled_count = lwatmref_codon(c_loc(pref(1)), c_loc(preflog(1)), c_loc(tref(1)), &
               c_loc(chi_mls(1,1)))
          if (filled_count /= 7_c_int64_t * 59_c_int64_t) then
             if (masterproc) then
@@ -767,12 +767,12 @@
       use iso_c_binding, only: c_loc, c_ptr
 
       interface
-         subroutine rrtmg_lw_lwavplank_codon(totplnk_p, totplk16_p) &
-              bind(c, name="rrtmg_lw_lwavplank_codon")
+         subroutine lwavplank_codon(totplnk_p, totplk16_p) &
+              bind(c, name="lwavplank_codon")
             use iso_c_binding, only: c_ptr
             type(c_ptr), value :: totplnk_p
             type(c_ptr), value :: totplk16_p
-         end subroutine rrtmg_lw_lwavplank_codon
+         end subroutine lwavplank_codon
       end interface
 
       call lwavplank_select_impl()
@@ -780,7 +780,7 @@
          call lwavplank_native()
       else
          call lwavplank_log_entered()
-         call rrtmg_lw_lwavplank_codon(c_loc(totplnk(1,1)), c_loc(totplk16(1)))
+         call lwavplank_codon(c_loc(totplnk(1,1)), c_loc(totplk16(1)))
       endif
 
       end subroutine lwavplank

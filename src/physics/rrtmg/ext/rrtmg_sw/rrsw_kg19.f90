@@ -27,13 +27,13 @@
 
       integer, parameter :: no19 = 16
 
-      real(kind=r8) :: kao(9,5,13,no19)
-      real(kind=r8) :: kbo(5,13:59,no19)
-      real(kind=r8) :: selfrefo(10,no19), forrefo(3,no19)
-      real(kind=r8) :: sfluxrefo(no19,9)
+      real(kind=r8), target :: kao(9,5,13,no19)
+      real(kind=r8), target :: kbo(5,13:59,no19)
+      real(kind=r8), target :: selfrefo(10,no19), forrefo(3,no19)
+      real(kind=r8), target :: sfluxrefo(no19,9)
 
-      integer :: layreffr
-      real(kind=r8) :: rayl, strrat
+      integer, target :: layreffr
+      real(kind=r8), target :: rayl, strrat
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 19

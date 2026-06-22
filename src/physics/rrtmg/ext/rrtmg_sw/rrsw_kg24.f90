@@ -31,15 +31,15 @@
 
       integer, parameter :: no24 = 16
 
-      real(kind=r8) :: kao(9,5,13,no24)
-      real(kind=r8) :: kbo(5,13:59,no24)
-      real(kind=r8) :: selfrefo(10,no24), forrefo(3,no24)
-      real(kind=r8) :: sfluxrefo(no24,9)
-      real(kind=r8) :: abso3ao(no24), abso3bo(no24)
-      real(kind=r8) :: raylao(no24,9), raylbo(no24)
+      real(kind=r8), target :: kao(9,5,13,no24)
+      real(kind=r8), target :: kbo(5,13:59,no24)
+      real(kind=r8), target :: selfrefo(10,no24), forrefo(3,no24)
+      real(kind=r8), target :: sfluxrefo(no24,9)
+      real(kind=r8), target :: abso3ao(no24), abso3bo(no24)
+      real(kind=r8), target :: raylao(no24,9), raylbo(no24)
 
-      integer :: layreffr
-      real(kind=r8) :: strrat
+      integer, target :: layreffr
+      real(kind=r8), target :: strrat
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 24

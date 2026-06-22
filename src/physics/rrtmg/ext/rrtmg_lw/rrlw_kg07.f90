@@ -29,14 +29,14 @@
 
       integer, parameter :: no7  = 16
 
-      real(kind=r8) , dimension(no7) :: fracrefbo
-      real(kind=r8) :: fracrefao(no7,9)
-      real(kind=r8) :: kao(9,5,13,no7)
-      real(kind=r8) :: kbo(5,13:59,no7)
-      real(kind=r8) :: kao_mco2(9,19,no7)
-      real(kind=r8) :: kbo_mco2(19,no7)
-      real(kind=r8) :: selfrefo(10,no7)
-      real(kind=r8) :: forrefo(4,no7)
+      real(kind=r8) , dimension(no7), target :: fracrefbo
+      real(kind=r8), target :: fracrefao(no7,9)
+      real(kind=r8), target :: kao(9,5,13,no7)
+      real(kind=r8), target :: kbo(5,13:59,no7)
+      real(kind=r8), target :: kao_mco2(9,19,no7)
+      real(kind=r8), target :: kbo_mco2(19,no7)
+      real(kind=r8), target :: selfrefo(10,no7)
+      real(kind=r8), target :: forrefo(4,no7)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 7

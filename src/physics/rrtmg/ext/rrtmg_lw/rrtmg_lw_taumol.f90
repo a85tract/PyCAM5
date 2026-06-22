@@ -335,15 +335,16 @@
 ! Local 
       integer :: lay, ind0, ind1, inds, indf, indm, ig
       real(kind=r8) :: pp, corradj, scalen2, tauself, taufor, taun2
+      logical, save :: taugb1_direct_logged = .false.
 
       interface
-         subroutine rrtmg_lw_taugb1_codon(nlayers_c, laytrop_c, ng1_c, &
+         subroutine taugb1_codon(nlayers_c, laytrop_c, ng1_c, &
               nspa1_c, nspb1_c, pavel_p, colh2o_p, colbrd_p, jp_p, jt_p, &
               jt1_p, indself_p, indfor_p, indminor_p, fac00_p, fac01_p, &
               fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
               scaleminorn2_p, minorfrac_p, fracrefa_p, fracrefb_p, absa_p, &
               absb_p, ka_mn2_p, kb_mn2_p, selfref_p, forref_p, fracs_p, &
-              taug_p) bind(c, name="rrtmg_lw_taugb1_codon")
+              taug_p) bind(c, name="taugb1_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng1_c
             integer(c_int64_t), value :: nspa1_c, nspb1_c
@@ -355,7 +356,7 @@
             type(c_ptr), value :: fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: ka_mn2_p, kb_mn2_p, selfref_p, forref_p
             type(c_ptr), value :: fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb1_codon
+         end subroutine taugb1_codon
       end interface
 
 
@@ -370,7 +371,12 @@
       call taugb1_2_6_8_12_16_lw_select_impl()
       if (.not. use_native_taugb1_2_6_8_12_16_lw_impl) then
          call taugb1_2_6_8_12_16_lw_log_entered(1)
-         call rrtmg_lw_taugb1_codon( &
+         if (masterproc .and. .not. taugb1_direct_logged) then
+            write(iulog,'(A)') 'taugb1 direct = codon'
+            call flush(iulog)
+            taugb1_direct_logged = .true.
+         end if
+         call taugb1_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng1, c_int64_t), &
               int(nspa(1), c_int64_t), int(nspb(1), c_int64_t), &
               transfer(loc(pavel(1)), c_null_ptr), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -475,12 +481,12 @@
       real(kind=r8) :: pp, corradj, tauself, taufor
 
       interface
-         subroutine rrtmg_lw_taugb2_codon(nlayers_c, laytrop_c, ng2_c, ngs1_c, &
+         subroutine taugb2_codon(nlayers_c, laytrop_c, ng2_c, ngs1_c, &
               nspa2_c, nspb2_c, pavel_p, colh2o_p, jp_p, jt_p, jt1_p, &
               indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, &
               selffac_p, selffrac_p, forfac_p, forfrac_p, fracrefa_p, &
               fracrefb_p, absa_p, absb_p, selfref_p, forref_p, fracs_p, &
-              taug_p) bind(c, name="rrtmg_lw_taugb2_codon")
+              taug_p) bind(c, name="taugb2_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng2_c, ngs1_c
             integer(c_int64_t), value :: nspa2_c, nspb2_c
@@ -490,7 +496,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
             type(c_ptr), value :: fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb2_codon
+         end subroutine taugb2_codon
       end interface
 
 
@@ -501,7 +507,7 @@
       call taugb1_2_6_8_12_16_lw_select_impl()
       if (.not. use_native_taugb1_2_6_8_12_16_lw_impl) then
          call taugb1_2_6_8_12_16_lw_log_entered(2)
-         call rrtmg_lw_taugb2_codon( &
+         call taugb2_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng2, c_int64_t), &
               int(ngs1, c_int64_t), int(nspa(2), c_int64_t), int(nspb(2), c_int64_t), &
               transfer(loc(pavel(1)), c_null_ptr), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -598,14 +604,14 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb3_codon(nlayers_c, laytrop_c, ng3_c, ngs2_c, &
+         subroutine taugb3_codon(nlayers_c, laytrop_c, ng3_c, ngs2_c, &
               nspa3_c, nspb3_c, oneminus_c, colh2o_p, colco2_p, coln2o_p, &
               coldry_p, rat_h2oco2_p, rat_h2oco2_1_p, jp_p, jt_p, jt1_p, &
               indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
               fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
               minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, &
               absb_p, ka_mn2o_p, kb_mn2o_p, selfref_p, forref_p, fracs_p, &
-              taug_p) bind(c, name="rrtmg_lw_taugb3_codon")
+              taug_p) bind(c, name="taugb3_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng3_c, ngs2_c
             integer(c_int64_t), value :: nspa3_c, nspb3_c
@@ -618,7 +624,7 @@
             type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
             type(c_ptr), value :: absa_p, absb_p, ka_mn2o_p, kb_mn2o_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb3_codon
+         end subroutine taugb3_codon
       end interface
 
 
@@ -646,7 +652,7 @@
       call taugb3_7_9_13_15_lw_select_impl()
       if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
          call taugb3_7_9_13_15_lw_log_entered(3)
-         call rrtmg_lw_taugb3_codon( &
+         call taugb3_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng3, c_int64_t), &
               int(ngs2, c_int64_t), int(nspa(3), c_int64_t), int(nspb(3), c_int64_t), &
               real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -961,13 +967,13 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb4_codon(nlayers_c, laytrop_c, ng4_c, ngs3_c, &
+         subroutine taugb4_codon(nlayers_c, laytrop_c, ng4_c, ngs3_c, &
               nspa4_c, nspb4_c, oneminus_c, colh2o_p, colco2_p, colo3_p, &
               rat_h2oco2_p, rat_h2oco2_1_p, rat_o3co2_p, rat_o3co2_1_p, &
               jp_p, jt_p, jt1_p, indself_p, indfor_p, fac00_p, fac01_p, &
               fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
               chi_mls_p, fracrefa_p, fracrefb_p, absa_p, absb_p, selfref_p, &
-              forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb4_codon")
+              forref_p, fracs_p, taug_p) bind(c, name="taugb4_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng4_c, ngs3_c
             integer(c_int64_t), value :: nspa4_c, nspb4_c
@@ -979,7 +985,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
             type(c_ptr), value :: chi_mls_p, fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb4_codon
+         end subroutine taugb4_codon
       end interface
 
 
@@ -997,7 +1003,7 @@
       call taugb4_5_lw_select_impl()
       if (.not. use_native_taugb4_5_lw_impl) then
          call taugb4_5_lw_log_entered(4)
-         call rrtmg_lw_taugb4_codon( &
+         call taugb4_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng4, c_int64_t), &
               int(ngs3, c_int64_t), int(nspa(4), c_int64_t), int(nspb(4), c_int64_t), &
               real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -1269,14 +1275,14 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb5_codon(nlayers_c, laytrop_c, ng5_c, ngs4_c, &
+         subroutine taugb5_codon(nlayers_c, laytrop_c, ng5_c, ngs4_c, &
               nspa5_c, nspb5_c, maxxsec_c, oneminus_c, colh2o_p, colco2_p, &
               colo3_p, wx_p, rat_h2oco2_p, rat_h2oco2_1_p, rat_o3co2_p, &
               rat_o3co2_1_p, jp_p, jt_p, jt1_p, indself_p, indfor_p, &
               indminor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, minorfrac_p, chi_mls_p, &
               fracrefa_p, fracrefb_p, absa_p, absb_p, ka_mo3_p, selfref_p, &
-              forref_p, ccl4_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb5_codon")
+              forref_p, ccl4_p, fracs_p, taug_p) bind(c, name="taugb5_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng5_c, ngs4_c
             integer(c_int64_t), value :: nspa5_c, nspb5_c, maxxsec_c
@@ -1288,7 +1294,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, minorfrac_p
             type(c_ptr), value :: chi_mls_p, fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: ka_mo3_p, selfref_p, forref_p, ccl4_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb5_codon
+         end subroutine taugb5_codon
       end interface
 
 
@@ -1316,7 +1322,7 @@
       call taugb4_5_lw_select_impl()
       if (.not. use_native_taugb4_5_lw_impl) then
          call taugb4_5_lw_log_entered(5)
-         call rrtmg_lw_taugb5_codon( &
+         call taugb5_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng5, c_int64_t), &
               int(ngs4, c_int64_t), int(nspa(5), c_int64_t), int(nspb(5), c_int64_t), &
               int(maxxsec, c_int64_t), real(oneminus, c_double), &
@@ -1586,12 +1592,12 @@
       real(kind=r8) :: tauself, taufor, absco2
 
       interface
-         subroutine rrtmg_lw_taugb6_codon(nlayers_c, laytrop_c, ng6_c, ngs5_c, &
+         subroutine taugb6_codon(nlayers_c, laytrop_c, ng6_c, ngs5_c, &
               nspa6_c, maxxsec_c, colh2o_p, colco2_p, coldry_p, wx_p, jp_p, jt_p, &
               jt1_p, indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
               fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, minorfrac_p, &
               chi_mls_p, fracrefa_p, absa_p, ka_mco2_p, selfref_p, forref_p, &
-              cfc11adj_p, cfc12_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb6_codon")
+              cfc11adj_p, cfc12_p, fracs_p, taug_p) bind(c, name="taugb6_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng6_c, ngs5_c
             integer(c_int64_t), value :: nspa6_c, maxxsec_c
@@ -1602,7 +1608,7 @@
             type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, absa_p
             type(c_ptr), value :: ka_mco2_p, selfref_p, forref_p
             type(c_ptr), value :: cfc11adj_p, cfc12_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb6_codon
+         end subroutine taugb6_codon
       end interface
 
 
@@ -1617,7 +1623,7 @@
       call taugb1_2_6_8_12_16_lw_select_impl()
       if (.not. use_native_taugb1_2_6_8_12_16_lw_impl) then
          call taugb1_2_6_8_12_16_lw_log_entered(6)
-         call rrtmg_lw_taugb6_codon( &
+         call taugb6_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng6, c_int64_t), &
               int(ngs5, c_int64_t), int(nspa(6), c_int64_t), int(maxxsec, c_int64_t), &
               transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colco2(1)), c_null_ptr), &
@@ -1726,14 +1732,14 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb7_codon(nlayers_c, laytrop_c, ng7_c, ngs6_c, &
+         subroutine taugb7_codon(nlayers_c, laytrop_c, ng7_c, ngs6_c, &
               nspa7_c, nspb7_c, oneminus_c, colh2o_p, colco2_p, colo3_p, &
               coldry_p, rat_h2oo3_p, rat_h2oo3_1_p, jp_p, jt_p, jt1_p, &
               indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
               fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
               minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, &
               absb_p, ka_mco2_p, kb_mco2_p, selfref_p, forref_p, fracs_p, &
-              taug_p) bind(c, name="rrtmg_lw_taugb7_codon")
+              taug_p) bind(c, name="taugb7_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng7_c, ngs6_c
             integer(c_int64_t), value :: nspa7_c, nspb7_c
@@ -1746,7 +1752,7 @@
             type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
             type(c_ptr), value :: absa_p, absb_p, ka_mco2_p, kb_mco2_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb7_codon
+         end subroutine taugb7_codon
       end interface
 
 
@@ -1771,7 +1777,7 @@
       call taugb3_7_9_13_15_lw_select_impl()
       if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
          call taugb3_7_9_13_15_lw_log_entered(7)
-         call rrtmg_lw_taugb7_codon( &
+         call taugb7_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng7, c_int64_t), &
               int(ngs6, c_int64_t), int(nspa(7), c_int64_t), int(nspb(7), c_int64_t), &
               real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -2042,14 +2048,14 @@
       real(kind=r8) :: chi_co2, ratco2, adjfac, adjcolco2
 
       interface
-         subroutine rrtmg_lw_taugb8_codon(nlayers_c, laytrop_c, ng8_c, ngs7_c, &
+         subroutine taugb8_codon(nlayers_c, laytrop_c, ng8_c, ngs7_c, &
               nspa8_c, nspb8_c, maxxsec_c, colh2o_p, colco2_p, colo3_p, &
               coln2o_p, coldry_p, wx_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, fac11_p, &
               selffac_p, selffrac_p, forfac_p, forfrac_p, minorfrac_p, &
               chi_mls_p, fracrefa_p, fracrefb_p, absa_p, absb_p, ka_mco2_p, &
               ka_mn2o_p, ka_mo3_p, kb_mco2_p, kb_mn2o_p, selfref_p, forref_p, &
-              cfc12_p, cfc22adj_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb8_codon")
+              cfc12_p, cfc22adj_p, fracs_p, taug_p) bind(c, name="taugb8_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng8_c, ngs7_c
             integer(c_int64_t), value :: nspa8_c, nspb8_c, maxxsec_c
@@ -2061,7 +2067,7 @@
             type(c_ptr), value :: absa_p, absb_p, ka_mco2_p, ka_mn2o_p, ka_mo3_p
             type(c_ptr), value :: kb_mco2_p, kb_mn2o_p, selfref_p, forref_p
             type(c_ptr), value :: cfc12_p, cfc22adj_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb8_codon
+         end subroutine taugb8_codon
       end interface
 
 
@@ -2081,7 +2087,7 @@
       call taugb1_2_6_8_12_16_lw_select_impl()
       if (.not. use_native_taugb1_2_6_8_12_16_lw_impl) then
          call taugb1_2_6_8_12_16_lw_log_entered(8)
-         call rrtmg_lw_taugb8_codon( &
+         call taugb8_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng8, c_int64_t), &
               int(ngs7, c_int64_t), int(nspa(8), c_int64_t), int(nspb(8), c_int64_t), &
               int(maxxsec, c_int64_t), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -2226,14 +2232,14 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb9_codon(nlayers_c, laytrop_c, ng9_c, ngs8_c, &
+         subroutine taugb9_codon(nlayers_c, laytrop_c, ng9_c, ngs8_c, &
               nspa9_c, nspb9_c, oneminus_c, colh2o_p, colch4_p, coln2o_p, &
               coldry_p, rat_h2och4_p, rat_h2och4_1_p, jp_p, jt_p, jt1_p, &
               indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
               fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
               minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, &
               absb_p, ka_mn2o_p, kb_mn2o_p, selfref_p, forref_p, fracs_p, &
-              taug_p) bind(c, name="rrtmg_lw_taugb9_codon")
+              taug_p) bind(c, name="taugb9_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng9_c, ngs8_c
             integer(c_int64_t), value :: nspa9_c, nspb9_c
@@ -2246,7 +2252,7 @@
             type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
             type(c_ptr), value :: absa_p, absb_p, ka_mn2o_p, kb_mn2o_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb9_codon
+         end subroutine taugb9_codon
       end interface
 
 
@@ -2271,7 +2277,7 @@
       call taugb3_7_9_13_15_lw_select_impl()
       if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
          call taugb3_7_9_13_15_lw_log_entered(9)
-         call rrtmg_lw_taugb9_codon( &
+         call taugb9_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng9, c_int64_t), &
               int(ngs8, c_int64_t), int(nspa(9), c_int64_t), int(nspb(9), c_int64_t), &
               real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -2527,11 +2533,11 @@
       real(kind=r8) :: tauself, taufor
 
       interface
-         subroutine rrtmg_lw_taugb10_codon(nlayers_c, laytrop_c, ng10_c, ngs9_c, &
+         subroutine taugb10_codon(nlayers_c, laytrop_c, ng10_c, ngs9_c, &
               nspa10_c, nspb10_c, colh2o_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, fracrefa_p, fracrefb_p, absa_p, &
-              absb_p, selfref_p, forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb10_codon")
+              absb_p, selfref_p, forref_p, fracs_p, taug_p) bind(c, name="taugb10_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng10_c, ngs9_c
             integer(c_int64_t), value :: nspa10_c, nspb10_c
@@ -2539,7 +2545,7 @@
             type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p
             type(c_ptr), value :: forfac_p, forfrac_p, fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb10_codon
+         end subroutine taugb10_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure) and 
@@ -2549,7 +2555,7 @@
       call taugb10_11_14_lw_select_impl()
       if (.not. use_native_taugb10_11_14_lw_impl) then
          call taugb10_11_14_lw_log_entered(10)
-         call rrtmg_lw_taugb10_codon( &
+         call taugb10_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng10, c_int64_t), &
               int(ngs9, c_int64_t), int(nspa(10), c_int64_t), int(nspb(10), c_int64_t), &
               transfer(loc(colh2o(1)), c_null_ptr), c_loc(jp64(1)), c_loc(jt64(1)), &
@@ -2631,12 +2637,12 @@
       real(kind=r8) :: scaleo2, tauself, taufor, tauo2
 
       interface
-         subroutine rrtmg_lw_taugb11_codon(nlayers_c, laytrop_c, ng11_c, ngs10_c, &
+         subroutine taugb11_codon(nlayers_c, laytrop_c, ng11_c, ngs10_c, &
               nspa11_c, nspb11_c, colh2o_p, colo2_p, jp_p, jt_p, jt1_p, &
               indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
               fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, scaleminor_p, &
               minorfrac_p, fracrefa_p, fracrefb_p, absa_p, absb_p, ka_mo2_p, &
-              kb_mo2_p, selfref_p, forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb11_codon")
+              kb_mo2_p, selfref_p, forref_p, fracs_p, taug_p) bind(c, name="taugb11_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng11_c, ngs10_c
             integer(c_int64_t), value :: nspa11_c, nspb11_c
@@ -2646,7 +2652,7 @@
             type(c_ptr), value :: forfrac_p, scaleminor_p, minorfrac_p, fracrefa_p, fracrefb_p
             type(c_ptr), value :: absa_p, absb_p, ka_mo2_p, kb_mo2_p, selfref_p, forref_p
             type(c_ptr), value :: fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb11_codon
+         end subroutine taugb11_codon
       end interface
 
 ! Minor gas mapping level :
@@ -2660,7 +2666,7 @@
       call taugb10_11_14_lw_select_impl()
       if (.not. use_native_taugb10_11_14_lw_impl) then
          call taugb10_11_14_lw_log_entered(11)
-         call rrtmg_lw_taugb11_codon( &
+         call taugb11_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng11, c_int64_t), &
               int(ngs10, c_int64_t), int(nspa(11), c_int64_t), int(nspb(11), c_int64_t), &
               transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colo2(1)), c_null_ptr), &
@@ -2762,12 +2768,12 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb12_codon(nlayers_c, laytrop_c, ng12_c, ngs11_c, &
+         subroutine taugb12_codon(nlayers_c, laytrop_c, ng12_c, ngs11_c, &
               nspa12_c, oneminus_c, colh2o_p, colco2_p, rat_h2oco2_p, &
               rat_h2oco2_1_p, jp_p, jt_p, jt1_p, indself_p, indfor_p, &
               fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, &
               forfac_p, forfrac_p, chi_mls_p, fracrefa_p, absa_p, selfref_p, &
-              forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb12_codon")
+              forref_p, fracs_p, taug_p) bind(c, name="taugb12_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng12_c, ngs11_c
             integer(c_int64_t), value :: nspa12_c
@@ -2778,7 +2784,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
             type(c_ptr), value :: chi_mls_p, fracrefa_p, absa_p, selfref_p, forref_p
             type(c_ptr), value :: fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb12_codon
+         end subroutine taugb12_codon
       end interface
 
 
@@ -2796,7 +2802,7 @@
       call taugb1_2_6_8_12_16_lw_select_impl()
       if (.not. use_native_taugb1_2_6_8_12_16_lw_impl) then
          call taugb1_2_6_8_12_16_lw_log_entered(12)
-         call rrtmg_lw_taugb12_codon( &
+         call taugb12_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng12, c_int64_t), &
               int(ngs11, c_int64_t), int(nspa(12), c_int64_t), real(oneminus, c_double), &
               transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colco2(1)), c_null_ptr), &
@@ -3011,14 +3017,14 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb13_codon(nlayers_c, laytrop_c, ng13_c, &
+         subroutine taugb13_codon(nlayers_c, laytrop_c, ng13_c, &
               ngs12_c, nspa13_c, oneminus_c, colh2o_p, coln2o_p, colco2_p, &
               colco_p, colo3_p, coldry_p, rat_h2on2o_p, rat_h2on2o_1_p, &
               jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p, fac00_p, &
               fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, &
               forfrac_p, minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, &
               absa_p, ka_mco2_p, ka_mco_p, kb_mo3_p, selfref_p, forref_p, &
-              fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb13_codon")
+              fracs_p, taug_p) bind(c, name="taugb13_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng13_c, ngs12_c
             integer(c_int64_t), value :: nspa13_c
@@ -3031,7 +3037,7 @@
             type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
             type(c_ptr), value :: absa_p, ka_mco2_p, ka_mco_p, kb_mo3_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb13_codon
+         end subroutine taugb13_codon
       end interface
 
 
@@ -3060,7 +3066,7 @@
       call taugb3_7_9_13_15_lw_select_impl()
       if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
          call taugb3_7_9_13_15_lw_log_entered(13)
-         call rrtmg_lw_taugb13_codon( &
+         call taugb13_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng13, c_int64_t), &
               int(ngs12, c_int64_t), int(nspa(13), c_int64_t), real(oneminus, c_double), &
               transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(coln2o(1)), c_null_ptr), &
@@ -3308,11 +3314,11 @@
       real(kind=r8) :: tauself, taufor
 
       interface
-         subroutine rrtmg_lw_taugb14_codon(nlayers_c, laytrop_c, ng14_c, ngs13_c, &
+         subroutine taugb14_codon(nlayers_c, laytrop_c, ng14_c, ngs13_c, &
               nspa14_c, nspb14_c, colco2_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
               selffrac_p, forfac_p, forfrac_p, fracrefa_p, fracrefb_p, absa_p, &
-              absb_p, selfref_p, forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb14_codon")
+              absb_p, selfref_p, forref_p, fracs_p, taug_p) bind(c, name="taugb14_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng14_c, ngs13_c
             integer(c_int64_t), value :: nspa14_c, nspb14_c
@@ -3320,7 +3326,7 @@
             type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p
             type(c_ptr), value :: forfac_p, forfrac_p, fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb14_codon
+         end subroutine taugb14_codon
       end interface
 
 ! Compute the optical depth by interpolating in ln(pressure) and 
@@ -3330,7 +3336,7 @@
       call taugb10_11_14_lw_select_impl()
       if (.not. use_native_taugb10_11_14_lw_impl) then
          call taugb10_11_14_lw_log_entered(14)
-         call rrtmg_lw_taugb14_codon( &
+         call taugb14_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng14, c_int64_t), &
               int(ngs13, c_int64_t), int(nspa(14), c_int64_t), int(nspb(14), c_int64_t), &
               transfer(loc(colco2(1)), c_null_ptr), c_loc(jp64(1)), c_loc(jt64(1)), &
@@ -3417,13 +3423,13 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb15_codon(nlayers_c, laytrop_c, ng15_c, &
+         subroutine taugb15_codon(nlayers_c, laytrop_c, ng15_c, &
               ngs14_c, nspa15_c, oneminus_c, coln2o_p, colco2_p, colbrd_p, &
               rat_n2oco2_p, rat_n2oco2_1_p, jp_p, jt_p, jt1_p, indself_p, &
               indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, fac11_p, &
               selffac_p, selffrac_p, forfac_p, forfrac_p, scaleminor_p, &
               minorfrac_p, chi_mls_p, fracrefa_p, absa_p, ka_mn2_p, &
-              selfref_p, forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb15_codon")
+              selfref_p, forref_p, fracs_p, taug_p) bind(c, name="taugb15_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng15_c, ngs14_c
             integer(c_int64_t), value :: nspa15_c
@@ -3435,7 +3441,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
             type(c_ptr), value :: scaleminor_p, minorfrac_p, chi_mls_p, fracrefa_p
             type(c_ptr), value :: absa_p, ka_mn2_p, selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb15_codon
+         end subroutine taugb15_codon
       end interface
 
 
@@ -3458,7 +3464,7 @@
       call taugb3_7_9_13_15_lw_select_impl()
       if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
          call taugb3_7_9_13_15_lw_log_entered(15)
-         call rrtmg_lw_taugb15_codon( &
+         call taugb15_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng15, c_int64_t), &
               int(ngs14, c_int64_t), int(nspa(15), c_int64_t), real(oneminus, c_double), &
               transfer(loc(coln2o(1)), c_null_ptr), transfer(loc(colco2(1)), c_null_ptr), &
@@ -3687,12 +3693,12 @@
       real(kind=r8) :: tau_major, tau_major1
 
       interface
-         subroutine rrtmg_lw_taugb16_codon(nlayers_c, laytrop_c, ng16_c, ngs15_c, &
+         subroutine taugb16_codon(nlayers_c, laytrop_c, ng16_c, ngs15_c, &
               nspa16_c, nspb16_c, oneminus_c, colh2o_p, colch4_p, rat_h2och4_p, &
               rat_h2och4_1_p, jp_p, jt_p, jt1_p, indself_p, indfor_p, fac00_p, &
               fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, &
               forfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, absb_p, &
-              selfref_p, forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb16_codon")
+              selfref_p, forref_p, fracs_p, taug_p) bind(c, name="taugb16_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, laytrop_c, ng16_c, ngs15_c
             integer(c_int64_t), value :: nspa16_c, nspb16_c
@@ -3703,7 +3709,7 @@
             type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
             type(c_ptr), value :: chi_mls_p, fracrefa_p, fracrefb_p, absa_p, absb_p
             type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
-         end subroutine rrtmg_lw_taugb16_codon
+         end subroutine taugb16_codon
       end interface
 
 
@@ -3721,7 +3727,7 @@
       call taugb1_2_6_8_12_16_lw_select_impl()
       if (.not. use_native_taugb1_2_6_8_12_16_lw_impl) then
          call taugb1_2_6_8_12_16_lw_log_entered(16)
-         call rrtmg_lw_taugb16_codon( &
+         call taugb16_codon( &
               int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng16, c_int64_t), &
               int(ngs15, c_int64_t), int(nspa(16), c_int64_t), int(nspb(16), c_int64_t), &
               real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
@@ -3957,10 +3963,10 @@
       select case (band)
       case (4)
          idx = 1
-         proof_line = 'rrtmg_lw_taugb4 entered (longwave band 4 optical depth = codon)'
+         proof_line = 'taugb4 direct = codon'
       case (5)
          idx = 2
-         proof_line = 'rrtmg_lw_taugb5 entered (longwave band 5 optical depth = codon)'
+         proof_line = 'taugb5 direct = codon'
       case default
          return
       end select
@@ -4021,19 +4027,19 @@
       select case (band)
       case (3)
          idx = 1
-         proof_line = 'rrtmg_lw_taugb3 entered (longwave band 3 optical depth = codon)'
+         proof_line = 'taugb3 direct = codon'
       case (7)
          idx = 2
-         proof_line = 'rrtmg_lw_taugb7 entered (longwave band 7 optical depth = codon)'
+         proof_line = 'taugb7 direct = codon'
       case (9)
          idx = 3
-         proof_line = 'rrtmg_lw_taugb9 entered (longwave band 9 optical depth = codon)'
+         proof_line = 'taugb9 direct = codon'
       case (13)
          idx = 4
-         proof_line = 'rrtmg_lw_taugb13 entered (longwave band 13 optical depth = codon)'
+         proof_line = 'taugb13 direct = codon'
       case (15)
          idx = 5
-         proof_line = 'rrtmg_lw_taugb15 entered (longwave band 15 optical depth = codon)'
+         proof_line = 'taugb15 direct = codon'
       case default
          return
       end select
@@ -4094,22 +4100,22 @@
       select case (band)
       case (1)
          idx = 1
-         proof_line = 'rrtmg_lw_taugb1 entered (longwave band 1 optical depth = codon)'
+         proof_line = 'taugb1 direct = codon'
       case (2)
          idx = 2
-         proof_line = 'rrtmg_lw_taugb2 entered (longwave band 2 optical depth = codon)'
+         proof_line = 'taugb2 direct = codon'
       case (6)
          idx = 3
-         proof_line = 'rrtmg_lw_taugb6 entered (longwave band 6 optical depth = codon)'
+         proof_line = 'taugb6 direct = codon'
       case (8)
          idx = 4
-         proof_line = 'rrtmg_lw_taugb8 entered (longwave band 8 optical depth = codon)'
+         proof_line = 'taugb8 direct = codon'
       case (12)
          idx = 5
-         proof_line = 'rrtmg_lw_taugb12 entered (longwave band 12 optical depth = codon)'
+         proof_line = 'taugb12 direct = codon'
       case (16)
          idx = 6
-         proof_line = 'rrtmg_lw_taugb16 entered (longwave band 16 optical depth = codon)'
+         proof_line = 'taugb16 direct = codon'
       case default
          return
       end select
@@ -4170,13 +4176,13 @@
       select case (band)
       case (10)
          idx = 1
-         proof_line = 'rrtmg_lw_taugb10 entered (longwave band 10 optical depth = codon)'
+         proof_line = 'taugb10 direct = codon'
       case (11)
          idx = 2
-         proof_line = 'rrtmg_lw_taugb11 entered (longwave band 11 optical depth = codon)'
+         proof_line = 'taugb11 direct = codon'
       case (14)
          idx = 3
-         proof_line = 'rrtmg_lw_taugb14 entered (longwave band 14 optical depth = codon)'
+         proof_line = 'taugb14 direct = codon'
       case default
          return
       end select

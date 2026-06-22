@@ -29,13 +29,13 @@
 
       integer, parameter :: no5  = 16
 
-      real(kind=r8) :: fracrefao(no5,9) ,fracrefbo(no5,5)
-      real(kind=r8) :: kao(9,5,13,no5)
-      real(kind=r8) :: kbo(5,5,13:59,no5)
-      real(kind=r8) :: kao_mo3(9,19,no5)
-      real(kind=r8) :: selfrefo(10,no5)
-      real(kind=r8) :: forrefo(4,no5)
-      real(kind=r8) :: ccl4o(no5)
+      real(kind=r8), target :: fracrefao(no5,9) ,fracrefbo(no5,5)
+      real(kind=r8), target :: kao(9,5,13,no5)
+      real(kind=r8), target :: kbo(5,5,13:59,no5)
+      real(kind=r8), target :: kao_mo3(9,19,no5)
+      real(kind=r8), target :: selfrefo(10,no5)
+      real(kind=r8), target :: forrefo(4,no5)
+      real(kind=r8), target :: ccl4o(no5)
 
 !-----------------------------------------------------------------
 ! rrtmg_lw COMBINED abs. coefficients for interval 5

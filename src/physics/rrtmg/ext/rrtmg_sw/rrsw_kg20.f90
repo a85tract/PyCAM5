@@ -28,14 +28,14 @@
 
       integer, parameter :: no20 = 16
 
-      real(kind=r8) :: kao(5,13,no20)
-      real(kind=r8) :: kbo(5,13:59,no20)
-      real(kind=r8) :: selfrefo(10,no20), forrefo(4,no20)
-      real(kind=r8) :: sfluxrefo(no20)
-      real(kind=r8) :: absch4o(no20)
+      real(kind=r8), target :: kao(5,13,no20)
+      real(kind=r8), target :: kbo(5,13:59,no20)
+      real(kind=r8), target :: selfrefo(10,no20), forrefo(4,no20)
+      real(kind=r8), target :: sfluxrefo(no20)
+      real(kind=r8), target :: absch4o(no20)
 
-      integer :: layreffr
-      real(kind=r8) :: rayl 
+      integer, target :: layreffr
+      real(kind=r8), target :: rayl
 
 !-----------------------------------------------------------------
 ! rrtmg_sw COMBINED abs. coefficients for interval 20
@@ -66,4 +66,3 @@
       equivalence (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
       end module rrsw_kg20
-
