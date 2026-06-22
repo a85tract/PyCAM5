@@ -106,45 +106,45 @@ interface
      type(c_ptr), value :: a_p, ga_p
    end subroutine cldfrc2m_astg_pdf_zero_codon
 
-   subroutine cldfrc2m_astg_pdf_single_codon(u_c, p_c, qv_c, landfrac_c, snowh_c, &
+   subroutine astg_pdf_single_codon(u_c, p_c, qv_c, landfrac_c, snowh_c, &
         rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c, a_p, ga_p, rhmin_p) &
-        bind(c, name="cldfrc2m_astg_pdf_single_codon")
+        bind(c, name="astg_pdf_single_codon")
      use iso_c_binding, only: c_double, c_ptr
      real(c_double), value :: u_c, p_c, qv_c, landfrac_c, snowh_c
      real(c_double), value :: rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c
      type(c_ptr), value :: a_p, ga_p, rhmin_p
-   end subroutine cldfrc2m_astg_pdf_single_codon
+   end subroutine astg_pdf_single_codon
 
-   subroutine cldfrc2m_astg_pdf_codon(pcols_c, ncol_c, premib_c, premit_c, u_p, p_p, qv_p, &
+   subroutine astg_pdf_codon(pcols_c, ncol_c, premib_c, premit_c, u_p, p_p, qv_p, &
         landfrac_p, snowh_p, rhminl_p, rhminl_adj_land_p, rhminh_p, a_p, ga_p) &
-        bind(c, name="cldfrc2m_astg_pdf_codon")
+        bind(c, name="astg_pdf_codon")
      use iso_c_binding, only: c_double, c_int64_t, c_ptr
      integer(c_int64_t), value :: pcols_c, ncol_c
      real(c_double), value :: premib_c, premit_c
      type(c_ptr), value :: u_p, p_p, qv_p, landfrac_p, snowh_p
      type(c_ptr), value :: rhminl_p, rhminl_adj_land_p, rhminh_p, a_p, ga_p
-   end subroutine cldfrc2m_astg_pdf_codon
+   end subroutine astg_pdf_codon
 
-   function cldfrc2m_aist_single_codon(iceopt_c, qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, qs_c, esl_c, esi_c, &
+   function aist_single_codon(iceopt_c, qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, qs_c, esl_c, esi_c, &
         rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c, premib_c, premit_c, icecrit_c, rair_c) &
-        result(aist_c) bind(c, name="cldfrc2m_aist_single_codon")
+        result(aist_c) bind(c, name="aist_single_codon")
      use iso_c_binding, only: c_double, c_int64_t
      integer(c_int64_t), value :: iceopt_c
      real(c_double), value :: qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, qs_c, esl_c, esi_c
      real(c_double), value :: rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c
      real(c_double), value :: premib_c, premit_c, icecrit_c, rair_c
      real(c_double) :: aist_c
-   end function cldfrc2m_aist_single_codon
+   end function aist_single_codon
 
-   subroutine cldfrc2m_aist_vector_codon(pcols_c, ncol_c, iceopt_c, rhmaxi_c, premib_c, premit_c, icecrit_c, rair_c, &
+   subroutine aist_vector_codon(pcols_c, ncol_c, iceopt_c, rhmaxi_c, premib_c, premit_c, icecrit_c, rair_c, &
         qv_p, t_p, p_p, qi_p, ni_p, landfrac_p, snowh_p, qsat_p, esl_p, esi_p, rhmini_p, rhminl_p, &
-        rhminl_adj_land_p, rhminh_p, aist_p) bind(c, name="cldfrc2m_aist_vector_codon")
+        rhminl_adj_land_p, rhminh_p, aist_p) bind(c, name="aist_vector_codon")
      use iso_c_binding, only: c_int64_t, c_double, c_ptr
      integer(c_int64_t), value :: pcols_c, ncol_c, iceopt_c
      real(c_double), value :: rhmaxi_c, premib_c, premit_c, icecrit_c, rair_c
      type(c_ptr), value :: qv_p, t_p, p_p, qi_p, ni_p, landfrac_p, snowh_p, qsat_p, esl_p, esi_p
      type(c_ptr), value :: rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, aist_p
-   end subroutine cldfrc2m_aist_vector_codon
+   end subroutine aist_vector_codon
 end interface
 
 !================================================================================================
@@ -530,7 +530,7 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
    call cldfrc2m_astg_pdf_select_impl()
    if (.not. use_native_cldfrc2m_astg_pdf_impl) then
       call cldfrc2m_astg_pdf_proof_once()
-      call cldfrc2m_astg_pdf_single_codon(real(U, c_double), real(p, c_double), &
+      call astg_pdf_single_codon(real(U, c_double), real(p, c_double), &
            real(qv, c_double), real(landfrac, c_double), real(snowh, c_double), &
            real(rhminl, c_double), real(rhminl_adj_land, c_double), real(rhminh, c_double), &
            real(premib, c_double), real(premit, c_double), c_loc(a_c), c_loc(ga_c), c_loc(rhmin_c))
@@ -721,7 +721,7 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
          if (present(rhminh_in))          rhminh_work(i)          = real(rhminh_in(i), c_double)
       end do
 
-      call cldfrc2m_astg_pdf_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+      call astg_pdf_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
            real(premib, c_double), real(premit, c_double), &
            c_loc(U_in(1)), c_loc(p_in(1)), c_loc(qv_in(1)), c_loc(landfrac_in(1)), &
            c_loc(snowh_in(1)), c_loc(rhminl_work(1)), c_loc(rhminl_adj_land_work(1)), &
@@ -1173,7 +1173,7 @@ subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
      call cldfrc2m_aist_select_impl()
      if (.not. use_native_cldfrc2m_aist_impl) then
         call cldfrc2m_aist_single_proof_once()
-        aist = real(cldfrc2m_aist_single_codon(int(iceopt, c_int64_t), real(qv, c_double), &
+        aist = real(aist_single_codon(int(iceopt, c_int64_t), real(qv, c_double), &
              real(T, c_double), real(p, c_double), real(qi, c_double), real(landfrac, c_double), &
              real(snowh, c_double), real(qs, c_double), real(esl, c_double), real(esi, c_double), &
              real(rhmaxi, c_double), real(rhmini, c_double), real(rhminl, c_double), &
@@ -1327,7 +1327,7 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
    end do
 
    call cldfrc2m_aist_proof_once()
-   call cldfrc2m_aist_vector_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), int(iceopt, c_int64_t), &
+   call aist_vector_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), int(iceopt, c_int64_t), &
         rhmaxi, real(premib, c_double), real(premit, c_double), real(icecrit, c_double), real(rair, c_double), &
         c_loc(qv_in(1)), c_loc(T_in(1)), c_loc(p_in(1)), c_loc(qi_in(1)), c_loc(ni_in(1)), &
         c_loc(landfrac_in(1)), c_loc(snowh_in(1)), c_loc(qsat_in(1)), c_loc(esl_in(1)), c_loc(esi_in(1)), &

@@ -107,7 +107,7 @@ def modal_aer_opt_init_mode_dims_mismatch_codon(
 
 
 @export
-def modal_aer_opt_read_water_refindex_codon(
+def read_water_refindex_codon(
     nswbands: int,
     nlwbands: int,
     refrwsw_p: cobj,
@@ -257,7 +257,7 @@ def _binterp_kernel(
             out[_out_idx(ic, kk, pcols)] = value
 
 
-def modal_aer_opt_binterp_codon(
+def binterp_codon(
     pcols: int,
     ncol: int,
     km: int,

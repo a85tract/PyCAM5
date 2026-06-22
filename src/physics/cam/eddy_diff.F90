@@ -2963,12 +2963,12 @@
     integer(i4), target :: extend_codon, extend_up_codon, extend_dn_codon, zisocl_status_codon
 
     interface
-       subroutine eddy_diff_caleddy_core_batch_zisocl_codon(i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, &
+       subroutine zisocl_codon(i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, &
             use_dw_surf_c, choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c, alph1_c, alph2_c, alph3_c, alph4_c, &
             alph5_c, b1_c, vk_c, ntzero_c, ricrit_c, lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c, rinc_c, &
             z_p, zi_p, n2_p, s2_p, leng_max_p, bprod_p, sprod_p, bflxs_p, tkes_p, ncvfin_p, kbase_p, ktop_p, &
             ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p, belong_mask_p, extend_p, extend_up_p, &
-            extend_dn_p, status_p) bind(c, name="eddy_diff_caleddy_core_batch_zisocl_codon")
+            extend_dn_p, status_p) bind(c, name="zisocl_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, use_dw_surf_c
          integer(c_int64_t), value :: choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c
@@ -2977,7 +2977,7 @@
          type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, bprod_p, sprod_p, bflxs_p, tkes_p, ncvfin_p
          type(c_ptr), value :: kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p
          type(c_ptr), value :: belong_mask_p, extend_p, extend_up_p, extend_dn_p, status_p
-       end subroutine eddy_diff_caleddy_core_batch_zisocl_codon
+       end subroutine zisocl_codon
     end interface
 
     call eddy_diff_caleddy_core_batch_select_impl()
@@ -2996,7 +2996,7 @@
     zisocl_status_codon = 0_i4
 
     call eddy_diff_caleddy_core_batch_log_entered()
-    call eddy_diff_caleddy_core_batch_zisocl_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+    call zisocl_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
          int(pver_local, c_int64_t), int(ncvmax_local, c_int64_t), int(ntop_turb, c_int64_t), &
          int(use_dw_surf_mode_local, c_int64_t), int(choice_tkes_ebprod_mode_local, c_int64_t), &
          int(tunl_mode_local, c_int64_t), int(leng_mode_local, c_int64_t), real(alph1, c_double), &
@@ -3344,14 +3344,14 @@
     integer :: mode_local, stratus_mode_local
 
     interface
-       subroutine eddy_diff_sfdiag_codon(mode_c, stratus_mode_c, ntop_turb_c, nbot_turb_c, ncol_c, pcols_c, pver_c, qmin_c, &
+       subroutine sfdiag_codon(mode_c, stratus_mode_c, ntop_turb_c, nbot_turb_c, ncol_c, pcols_c, pver_c, qmin_c, &
             cpair_c, g_c, qt_p, ql_p, sl_p, pi_p, pm_p, zi_p, cld_p, sfi_p, sfuh_p, sflh_p, slslope_p, qtslope_p) &
-            bind(c, name="eddy_diff_sfdiag_codon")
+            bind(c, name="sfdiag_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: mode_c, stratus_mode_c, ntop_turb_c, nbot_turb_c, ncol_c, pcols_c, pver_c
          real(c_double), value :: qmin_c, cpair_c, g_c
          type(c_ptr), value :: qt_p, ql_p, sl_p, pi_p, pm_p, zi_p, cld_p, sfi_p, sfuh_p, sflh_p, slslope_p, qtslope_p
-       end subroutine eddy_diff_sfdiag_codon
+       end subroutine sfdiag_codon
     end interface
 
     call sfdiag_select_impl()
@@ -3365,7 +3365,7 @@
        return
     end if
 
-    call eddy_diff_sfdiag_codon(int(mode_local, c_int64_t), int(stratus_mode_local, c_int64_t), int(ntop_turb, c_int64_t), &
+    call sfdiag_codon(int(mode_local, c_int64_t), int(stratus_mode_local, c_int64_t), int(ntop_turb, c_int64_t), &
          int(nbot_turb, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(qmin, c_double), &
          real(cpair, c_double), real(g, c_double), c_loc(qt), c_loc(ql), c_loc(sl), c_loc(pi), c_loc(pm), c_loc(zi), &
          c_loc(cld), c_loc(sfi), c_loc(sfuh), c_loc(sflh), c_loc(slslope), c_loc(qtslope))

@@ -358,14 +358,14 @@ def micro_mg_cam_init_default_plan_codon(
 
 
 @export
-def micro_mg_cam_p1_codon(n: int) -> int:
+def p1_codon(n: int) -> int:
     if n >= 0:
         return 1
     return 0
 
 
 @export
-def micro_mg_cam_p2_codon(n1: int, n2: int) -> int:
+def p2_codon(n1: int, n2: int) -> int:
     if n1 >= 0 and n2 >= 0:
         return 1
     return 0

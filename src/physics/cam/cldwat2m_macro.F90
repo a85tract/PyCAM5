@@ -175,17 +175,17 @@
    integer(c_int64_t), target :: i_rhmini_c
 
    interface
-      subroutine cldwat2m_ini_macro_codon(rhminl_opt_c, rhmini_opt_c, rhminl_in_c, &
+      subroutine ini_macro_codon(rhminl_opt_c, rhmini_opt_c, rhminl_in_c, &
            rhminl_adj_land_in_c, rhminh_in_c, premit_in_c, premib_in_c, i_rhminl_out_p, &
            i_rhmini_out_p, rhminl_p, rhminl_adj_land_p, rhminh_p, premit_p, premib_p) &
-           bind(c, name="cldwat2m_ini_macro_codon")
+           bind(c, name="ini_macro_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: rhminl_opt_c, rhmini_opt_c
          real(c_double), value :: rhminl_in_c, rhminl_adj_land_in_c, rhminh_in_c
          real(c_double), value :: premit_in_c, premib_in_c
          type(c_ptr), value :: i_rhminl_out_p, i_rhmini_out_p, rhminl_p, rhminl_adj_land_p
          type(c_ptr), value :: rhminh_p, premit_p, premib_p
-      end subroutine cldwat2m_ini_macro_codon
+      end subroutine ini_macro_codon
    end interface
 
    call ini_macro_select_impl()
@@ -199,7 +199,7 @@
    else
       i_rhminl_c = int(i_rhminl, c_int64_t)
       i_rhmini_c = int(i_rhmini, c_int64_t)
-      call cldwat2m_ini_macro_codon(int(rhminl_opt_in, c_int64_t), &
+      call ini_macro_codon(int(rhminl_opt_in, c_int64_t), &
            int(rhmini_opt_in, c_int64_t), rhminl_const, rhminl_adj_land_const, &
            rhminh_const, premit, premib, c_loc(i_rhminl_c), c_loc(i_rhmini_c), &
            c_loc(rhminl_const), c_loc(rhminl_adj_land_const), c_loc(rhminh_const), &
@@ -691,11 +691,11 @@
    real(r8) cone                                           ! Number close to but smaller than 1
 
    interface
-      subroutine cldwat2m_mmacro_pcond_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
+      subroutine mmacro_pcond_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
            i_rhmini_c, i_rhminl_c, camstfrac_c, niter_c, dt_c, cone_c, qsmall_c, latvap_c, &
            latice_c, cpair_c, gravit_c, rhmaxi_c, rhmini_const_c, rhminl_const_c, &
            rhminl_adj_land_const_c, rhminh_const_c, tau_deti_c, tau_detw_c, c_aniso_c, &
-           qvmin_c, qlmin_c, qimin_c, ptrs_p, status_p) bind(c, name="cldwat2m_mmacro_pcond_codon")
+           qvmin_c, qlmin_c, qimin_c, ptrs_p, status_p) bind(c, name="mmacro_pcond_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c
          integer(c_int64_t), value :: i_rhmini_c, i_rhminl_c, camstfrac_c, niter_c
@@ -704,7 +704,7 @@
          real(c_double), value :: rhminl_adj_land_const_c, rhminh_const_c
          real(c_double), value :: tau_deti_c, tau_detw_c, c_aniso_c, qvmin_c, qlmin_c, qimin_c
          type(c_ptr), value :: ptrs_p, status_p
-      end subroutine cldwat2m_mmacro_pcond_codon
+      end subroutine mmacro_pcond_codon
    end interface
 
    call mmacro_pcond_select_impl()
@@ -835,7 +835,7 @@
       do_cldice_c = 0_c_int64_t
       if (do_cldice) do_cldice_c = 1_c_int64_t
       mmacro_status = 0_c_int64_t
-      call cldwat2m_mmacro_pcond_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call mmacro_pcond_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(top_lev, c_int64_t), do_cldice_c, &
            int(i_rhmini, c_int64_t), int(i_rhminl, c_int64_t), int(merge(1, 0, CAMstfrac), c_int64_t), &
            int(niter, c_int64_t), dt, cone, qsmall, latvap, latice, cpair, gravit, rhmaxi, &
@@ -1199,12 +1199,12 @@ subroutine rhcrit_calc( &
    real(r8) :: sig_tmp
 
    interface
-      subroutine cldwat2m_rhcrit_calc_codon(ncol_c, pcols_c, pver_c, top_lev_c, i_rhmini_c, i_rhminl_c, &
+      subroutine rhcrit_calc_codon(ncol_c, pcols_c, pver_c, top_lev_c, i_rhmini_c, i_rhminl_c, &
            rhmini_const_c, rhminl_const_c, rhminl_adj_land_const_c, rhminh_const_c, rhmaxi_c, &
            tau_deti_c, tau_detw_c, gravit_c, qsmall_c, c_aniso_c, dp_p, t0_p, p_p, clrw_old_p, &
            clri_old_p, tke_p, qtl_flx_p, qti_flx_p, cmfr_det_p, qlr_det_p, qir_det_p, rhmini_p, &
            rhminl_p, rhminl_adj_land_p, rhminh_p, d_rhmin_liq_pbl_p, d_rhmin_ice_pbl_p, &
-           d_rhmin_liq_det_p, d_rhmin_ice_det_p) bind(c, name="cldwat2m_rhcrit_calc_codon")
+           d_rhmin_liq_det_p, d_rhmin_ice_det_p) bind(c, name="rhcrit_calc_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, i_rhmini_c, i_rhminl_c
          real(c_double), value :: rhmini_const_c, rhminl_const_c, rhminl_adj_land_const_c, rhminh_const_c
@@ -1213,7 +1213,7 @@ subroutine rhcrit_calc( &
          type(c_ptr), value :: cmfr_det_p, qlr_det_p, qir_det_p, rhmini_p, rhminl_p
          type(c_ptr), value :: rhminl_adj_land_p, rhminh_p, d_rhmin_liq_pbl_p, d_rhmin_ice_pbl_p
          type(c_ptr), value :: d_rhmin_liq_det_p, d_rhmin_ice_det_p
-      end subroutine cldwat2m_rhcrit_calc_codon
+      end subroutine rhcrit_calc_codon
 
       subroutine cldwat2m_rhcrit_const_codon(pcols_c, pver_c, rhmini_const_c, rhminl_const_c, &
            rhminl_adj_land_const_c, rhminh_const_c, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p) &
@@ -1241,7 +1241,7 @@ subroutine rhcrit_calc( &
       if (associated(qlr_det)) qlr_det_p = c_loc(qlr_det(1,1))
       if (associated(qir_det)) qir_det_p = c_loc(qir_det(1,1))
       call rhcrit_calc_log_entered()
-      call cldwat2m_rhcrit_calc_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call rhcrit_calc_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(top_lev, c_int64_t), int(i_rhmini, c_int64_t), &
            int(i_rhminl, c_int64_t), rhmini_const, rhminl_const, rhminl_adj_land_const, &
            rhminh_const, rhmaxi, tau_deti, tau_detw, gravit, qsmall, c_aniso, &
@@ -3067,12 +3067,12 @@ end subroutine rhcrit_calc
    real(r8) rhminh
 
    interface
-      subroutine cldwat2m_instratus_condensate_codon(ncol_c, pcols_c, camstfrac_c, &
+      subroutine instratus_condensate_codon(ncol_c, pcols_c, camstfrac_c, &
            cpair_c, latvap_c, latice_c, qlst_min_c, qlst_max_c, rhmaxi_c, p_p, t0_p, qv0_p, &
            ql0_p, qi0_p, ni0_p, a_dc_p, ql_dc_p, qi_dc_p, a_sc_p, ql_sc_p, qi_sc_p, &
            landfrac_p, snowh_p, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, t_out_p, &
            qv_out_p, ql_out_p, qi_out_p, al_st_out_p, ai_st_out_p, ql_st_out_p, qi_st_out_p, &
-           status_p) bind(c, name="cldwat2m_instratus_condensate_codon")
+           status_p) bind(c, name="instratus_condensate_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, camstfrac_c
          real(c_double), value :: cpair_c, latvap_c, latice_c, qlst_min_c, qlst_max_c, rhmaxi_c
@@ -3081,7 +3081,7 @@ end subroutine rhcrit_calc
          type(c_ptr), value :: landfrac_p, snowh_p, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p
          type(c_ptr), value :: t_out_p, qv_out_p, ql_out_p, qi_out_p
          type(c_ptr), value :: al_st_out_p, ai_st_out_p, ql_st_out_p, qi_st_out_p, status_p
-      end subroutine cldwat2m_instratus_condensate_codon
+      end subroutine instratus_condensate_codon
    end interface
 
    ! ---------------- !
@@ -3092,7 +3092,7 @@ end subroutine rhcrit_calc
    if (.not. use_native_instratus_condensate_impl) then
       codon_status = 0_c_int64_t
       call instratus_condensate_log_entered()
-      call cldwat2m_instratus_condensate_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call instratus_condensate_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            merge(1_c_int64_t, 0_c_int64_t, CAMstfrac), cpair, latvap, latice, qlst_min, qlst_max, rhmaxi, &
            c_loc(p_in(1)), c_loc(T0_in(1)), c_loc(qv0_in(1)), c_loc(ql0_in(1)), c_loc(qi0_in(1)), &
            c_loc(ni0_in(1)), c_loc(a_dc_in(1)), c_loc(ql_dc_in(1)), c_loc(qi_dc_in(1)), &
@@ -3549,11 +3549,11 @@ end subroutine rhcrit_calc
    real(r8), parameter :: xacc = 1.e-3_r8
 
    interface
-      subroutine cldwat2m_instratus_core_codon(p_c, t0_c, qv0_c, ql0_c, qi0_c, &
+      subroutine instratus_core_codon(p_c, t0_c, qv0_c, ql0_c, qi0_c, &
            a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c, ai_st_c, &
            qcst_crit_c, tmin_c, tmax_c, landfrac_c, snowh_c, rhminl_c, &
            rhminl_adj_land_c, rhminh_c, cpair_c, latvap_c, qlst_min_c, qlst_max_c, &
-           camstfrac_c, t_p, qv_p, ql_p, qi_p) bind(c, name="cldwat2m_instratus_core_codon")
+           camstfrac_c, t_p, qv_p, ql_p, qi_p) bind(c, name="instratus_core_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          real(c_double), value :: p_c, t0_c, qv0_c, ql0_c, qi0_c
          real(c_double), value :: a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c
@@ -3562,7 +3562,7 @@ end subroutine rhcrit_calc
          real(c_double), value :: cpair_c, latvap_c, qlst_min_c, qlst_max_c
          integer(c_int64_t), value :: camstfrac_c
          type(c_ptr), value :: t_p, qv_p, ql_p, qi_p
-      end subroutine cldwat2m_instratus_core_codon
+      end subroutine instratus_core_codon
    end interface
 
    ! ---------------- !
@@ -3572,7 +3572,7 @@ end subroutine rhcrit_calc
    call instratus_core_select_impl()
    if (.not. use_native_instratus_core_impl) then
       call instratus_core_log_entered()
-      call cldwat2m_instratus_core_codon(p, T0, qv0, ql0, qi0, &
+      call instratus_core_codon(p, T0, qv0, ql0, qi0, &
            a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc, ai_st, qcst_crit, Tmin, Tmax, &
            landfrac, snowh, rhminl, rhminl_adj_land, rhminh, cpair, latvap, qlst_min, qlst_max, &
            merge(1_c_int64_t, 0_c_int64_t, CAMstfrac), c_loc(T), c_loc(qv), c_loc(ql), c_loc(qi))
@@ -3821,11 +3821,11 @@ end subroutine rhcrit_calc
    real(r8) qv
 
    interface
-      subroutine cldwat2m_funcd_instratus_codon(t_c, p_c, t0_c, qv0_c, ql0_c, qi0_c, &
+      subroutine funcd_instratus_codon(t_c, p_c, t0_c, qv0_c, ql0_c, qi0_c, &
            fice0_c, muq0_c, qc_nc0_c, a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, &
            qi_sc_c, ai_st_c, qcst_crit_c, landfrac_c, snowh_c, rhminl_c, &
            rhminl_adj_land_c, rhminh_c, cpair_c, latvap_c, camstfrac_c, f_p, fg_p, &
-           qc_nc_p, fice_p, al_st_p) bind(c, name="cldwat2m_funcd_instratus_codon")
+           qc_nc_p, fice_p, al_st_p) bind(c, name="funcd_instratus_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          real(c_double), value :: t_c, p_c, t0_c, qv0_c, ql0_c, qi0_c
          real(c_double), value :: fice0_c, muq0_c, qc_nc0_c
@@ -3834,7 +3834,7 @@ end subroutine rhcrit_calc
          real(c_double), value :: rhminl_c, rhminl_adj_land_c, rhminh_c, cpair_c, latvap_c
          integer(c_int64_t), value :: camstfrac_c
          type(c_ptr), value :: f_p, fg_p, qc_nc_p, fice_p, al_st_p
-      end subroutine cldwat2m_funcd_instratus_codon
+      end subroutine funcd_instratus_codon
    end interface
 
    ! ---------------- !
@@ -3844,7 +3844,7 @@ end subroutine rhcrit_calc
    call funcd_instratus_select_impl()
    if (.not. use_native_funcd_instratus_impl) then
       call funcd_instratus_log_entered()
-      call cldwat2m_funcd_instratus_codon(T, p, T0, qv0, ql0, qi0, &
+      call funcd_instratus_codon(T, p, T0, qv0, ql0, qi0, &
            fice0, muQ0, qc_nc0, a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc, ai_st, &
            qcst_crit, landfrac, snowh, rhminl, rhminl_adj_land, rhminh, cpair, latvap, &
            merge(1_c_int64_t, 0_c_int64_t, CAMstfrac), c_loc(f), c_loc(fg), &
@@ -4124,13 +4124,13 @@ end subroutine rhcrit_calc
    real(r8), parameter :: xacc = 1.e-3_r8
 
    interface
-      subroutine cldwat2m_gridmean_rh_codon(p_c, latvap_c, cpair_c, t_p, qv_p, ql_p, qi_p, &
-           a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c) bind(c, name="cldwat2m_gridmean_rh_codon")
+      subroutine gridmean_rh_codon(p_c, latvap_c, cpair_c, t_p, qv_p, ql_p, qi_p, &
+           a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c) bind(c, name="gridmean_rh_codon")
          use iso_c_binding, only: c_double, c_ptr
          real(c_double), value :: p_c, latvap_c, cpair_c
          type(c_ptr), value :: t_p, qv_p, ql_p, qi_p
          real(c_double), value :: a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c
-      end subroutine cldwat2m_gridmean_rh_codon
+      end subroutine gridmean_rh_codon
    end interface
 
    ! ---------------- !
@@ -4140,7 +4140,7 @@ end subroutine rhcrit_calc
    call gridmean_rh_select_impl()
    if (.not. use_native_gridmean_rh_impl) then
       call gridmean_rh_log_entered()
-      call cldwat2m_gridmean_rh_codon(p, latvap, cpair, c_loc(T), c_loc(qv), c_loc(ql), c_loc(qi), &
+      call gridmean_rh_codon(p, latvap, cpair, c_loc(T), c_loc(qv), c_loc(ql), c_loc(qi), &
            a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc)
       return
    end if
@@ -4244,15 +4244,15 @@ end subroutine rhcrit_calc
    real(r8)  dql, dqi, dqv, sum, aa, dum 
 
    interface
-      subroutine cldwat2m_positive_moisture_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
+      subroutine positive_moisture_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
            dt_c, latvap_c, latice_c, cpair_c, dp_p, qvmin_p, qlmin_p, qimin_p, qv_p, ql_p, qi_p, &
-           t_p, qvten_p, qlten_p, qiten_p, tten_p) bind(c, name="cldwat2m_positive_moisture_codon")
+           t_p, qvten_p, qlten_p, qiten_p, tten_p) bind(c, name="positive_moisture_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c
          real(c_double), value :: dt_c, latvap_c, latice_c, cpair_c
          type(c_ptr), value :: dp_p, qvmin_p, qlmin_p, qimin_p, qv_p, ql_p, qi_p, t_p
          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, tten_p
-      end subroutine cldwat2m_positive_moisture_codon
+      end subroutine positive_moisture_codon
    end interface
 
    call positive_moisture_select_impl()
@@ -4260,7 +4260,7 @@ end subroutine rhcrit_calc
       call positive_moisture_log_entered()
       do_cldice_c = 0_c_int64_t
       if (do_cldice) do_cldice_c = 1_c_int64_t
-      call cldwat2m_positive_moisture_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call positive_moisture_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(top_lev, c_int64_t), do_cldice_c, dt, latvap, latice, cpair, &
            c_loc(dp(1,1)), c_loc(qvmin(1,1)), c_loc(qlmin(1,1)), c_loc(qimin(1,1)), &
            c_loc(qv(1,1)), c_loc(ql(1,1)), c_loc(qi(1,1)), c_loc(t(1,1)), &

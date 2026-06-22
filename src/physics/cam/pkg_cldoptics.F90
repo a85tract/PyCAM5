@@ -24,12 +24,12 @@ module pkg_cldoptics
   logical :: cldclw_logged = .false.
 
   interface
-     subroutine pkg_cldoptics_cldovrlap_codon(ncol_c, pcols_c, pver_c, pverp_c, pint_p, cld_p, nmxrgn_p, pmxrgn_p) &
-          bind(c, name="pkg_cldoptics_cldovrlap_codon")
+     subroutine cldovrlap_codon(ncol_c, pcols_c, pver_c, pverp_c, pint_p, cld_p, nmxrgn_p, pmxrgn_p) &
+          bind(c, name="cldovrlap_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
        type(c_ptr), value :: pint_p, cld_p, nmxrgn_p, pmxrgn_p
-     end subroutine pkg_cldoptics_cldovrlap_codon
+     end subroutine cldovrlap_codon
 
      subroutine cldclw_codon(ncol_c, pcols_c, pver_c, pverp_c, &
           zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p) bind(c, name="cldclw_codon")
@@ -225,7 +225,7 @@ contains
     end if
 
     call pkg_cldoptics_proof_once()
-    call pkg_cldoptics_cldovrlap_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldovrlap_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(pverp, c_int64_t), c_loc(pint(1,1)), c_loc(cld(1,1)), c_loc(nmxrgn(1)), c_loc(pmxrgn(1,1)))
 
     return

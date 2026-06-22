@@ -216,11 +216,21 @@ module water_tracers
       integer(c_int64_t), value :: value_c, expected_c
       integer(c_int64_t) :: result_c
     end function wtrc_int_ne_codon
+    function wtrc_is_wtrc_codon(value_c, expected_c) result(result_c) bind(c, name="wtrc_is_wtrc_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c, expected_c
+      integer(c_int64_t) :: result_c
+    end function wtrc_is_wtrc_codon
     function wtrc_bool_id_codon(value_c) result(result_c) bind(c, name="wtrc_bool_id_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: result_c
     end function wtrc_bool_id_codon
+    function wtrc_is_tagged_codon(value_c) result(result_c) bind(c, name="wtrc_is_tagged_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: result_c
+    end function wtrc_is_tagged_codon
     subroutine wtrc_control_stage_codon(stage_c, enabled_c, status_p) &
          bind(c, name="wtrc_control_stage_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -1717,7 +1727,7 @@ end subroutine wtrc_register
     call wtrc_scalar_helpers_select_impl()
     if (.not. use_native_wtrc_scalar_helpers_impl) then
       call wtrc_scalar_helpers_log_entered()
-      wtrc_is_wtrc = wtrc_int_ne_codon(int(iwater(m), c_int64_t), int(iwtundef, c_int64_t)) /= 0_c_int64_t
+      wtrc_is_wtrc = wtrc_is_wtrc_codon(int(iwater(m), c_int64_t), int(iwtundef, c_int64_t)) /= 0_c_int64_t
       call wtrc_scalar_helpers_log_direct(wtrc_is_wtrc_logged, 'wtrc_is_wtrc direct = codon')
       return
     end if
@@ -1870,7 +1880,7 @@ end subroutine wtrc_register
     call wtrc_scalar_helpers_select_impl()
     if (.not. use_native_wtrc_scalar_helpers_impl) then
       call wtrc_scalar_helpers_log_entered()
-      wtrc_is_tagged = wtrc_bool_id_codon(merge(1_c_int64_t, 0_c_int64_t, iwistag(m))) /= 0_c_int64_t
+      wtrc_is_tagged = wtrc_is_tagged_codon(merge(1_c_int64_t, 0_c_int64_t, iwistag(m))) /= 0_c_int64_t
       call wtrc_scalar_helpers_log_direct(wtrc_is_tagged_logged, 'wtrc_is_tagged direct = codon')
       return
     end if

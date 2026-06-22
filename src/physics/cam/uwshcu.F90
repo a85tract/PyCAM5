@@ -185,58 +185,58 @@
   logical :: init_uwshcu_direct_logged = .false.
 
   interface
-     subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
+     subroutine getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
           thvubot_c, thvutop_c, r_c, p00_c, rovcp_c, plfc_p, cin_p) &
-          bind(c, name="uwshcu_getbuoy_codon")
+          bind(c, name="getbuoy_codon")
         use iso_c_binding, only: c_double, c_ptr
         real(c_double), value :: pbot_c, thv0bot_c, ptop_c, thv0top_c
         real(c_double), value :: thvubot_c, thvutop_c, r_c, p00_c, rovcp_c
         type(c_ptr), value :: plfc_p, cin_p
-     end subroutine uwshcu_getbuoy_codon
+     end subroutine getbuoy_codon
 
-     function uwshcu_single_cin_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
+     function single_cin_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
           thvubot_c, thvutop_c, r_c, p00_c, rovcp_c) result(cin_c) &
-          bind(c, name="uwshcu_single_cin_codon")
+          bind(c, name="single_cin_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: pbot_c, thv0bot_c, ptop_c, thv0top_c
         real(c_double), value :: thvubot_c, thvutop_c, r_c, p00_c, rovcp_c
         real(c_double) :: cin_c
-     end function uwshcu_single_cin_codon
+     end function single_cin_codon
 
-     subroutine uwshcu_roots_codon(a_c, b_c, c_c, r1_p, r2_p, status_p) &
-          bind(c, name="uwshcu_roots_codon")
+     subroutine roots_codon(a_c, b_c, c_c, r1_p, r2_p, status_p) &
+          bind(c, name="roots_codon")
         use iso_c_binding, only: c_double, c_ptr
         real(c_double), value :: a_c, b_c, c_c
         type(c_ptr), value :: r1_p, r2_p, status_p
-     end subroutine uwshcu_roots_codon
+     end subroutine roots_codon
 
-     subroutine uwshcu_slope_codon(mkx_c, field_p, p0_p, slope_p) &
-          bind(c, name="uwshcu_slope_codon")
+     subroutine slope_codon(mkx_c, field_p, p0_p, slope_p) &
+          bind(c, name="slope_codon")
         use iso_c_binding, only: c_int64_t, c_ptr
         integer(c_int64_t), value :: mkx_c
         type(c_ptr), value :: field_p, p0_p, slope_p
-     end subroutine uwshcu_slope_codon
+     end subroutine slope_codon
 
-     function uwshcu_compute_alpha_codon(del_cin_c, ke_c) result(alpha_c) &
-          bind(c, name="uwshcu_compute_alpha_codon")
+     function compute_alpha_codon(del_cin_c, ke_c) result(alpha_c) &
+          bind(c, name="compute_alpha_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: del_cin_c, ke_c
         real(c_double) :: alpha_c
-     end function uwshcu_compute_alpha_codon
+     end function compute_alpha_codon
 
-     function uwshcu_compute_ppen_codon(wtwb_c, d_c, bogbot_c, bogtop_c, &
-          rho0j_c, dpen_c) result(ppen_c) bind(c, name="uwshcu_compute_ppen_codon")
+     function compute_ppen_codon(wtwb_c, d_c, bogbot_c, bogtop_c, &
+          rho0j_c, dpen_c) result(ppen_c) bind(c, name="compute_ppen_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: wtwb_c, d_c, bogbot_c, bogtop_c, rho0j_c, dpen_c
         real(c_double) :: ppen_c
-     end function uwshcu_compute_ppen_codon
+     end function compute_ppen_codon
 
-     function uwshcu_compute_mumin2_codon(mulcl_c, rmaxfrac_c, mulow_c) result(mumin2_c) &
-          bind(c, name="uwshcu_compute_mumin2_codon")
+     function compute_mumin2_codon(mulcl_c, rmaxfrac_c, mulow_c) result(mumin2_c) &
+          bind(c, name="compute_mumin2_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: mulcl_c, rmaxfrac_c, mulow_c
         real(c_double) :: mumin2_c
-     end function uwshcu_compute_mumin2_codon
+     end function compute_mumin2_codon
 
      function compute_uwshcu_codon(stage_c) result(stage_out) bind(c, name="compute_uwshcu_codon")
         use iso_c_binding, only: c_int64_t
@@ -294,14 +294,14 @@
        type(c_ptr), value :: plcl_p, klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
      end subroutine uwshcu_source_lcl_solve_prep_shell_codon
 
-     subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
+     subroutine fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
           xmean_c, xtopin_c, xbotin_c, g_c, ps0_p, xflx_p) &
-          bind(c, name="uwshcu_fluxbelowinv_codon")
+          bind(c, name="fluxbelowinv_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
         integer(c_int64_t), value :: mkx_c, kinv_c
         real(c_double), value :: cbmf_c, dt_c, xsrc_c, xmean_c, xtopin_c, xbotin_c, g_c
         type(c_ptr), value :: ps0_p, xflx_p
-     end subroutine uwshcu_fluxbelowinv_codon
+     end subroutine fluxbelowinv_codon
 
      subroutine uwshcu_init_constants_codon(xlv_in_c, xlf_in_c, cp_in_c, &
           zvir_in_c, r_in_c, g_in_c, ep2_in_c, constants_p) &
@@ -328,13 +328,13 @@
         integer(c_int64_t) :: is_dry_c
      end function uwshcu_qsinvert_rh_guard_codon
 
-     function uwshcu_qsinvert_codon(qt_c, thl_c, psfc_c, p00_c, rovcp_c, xlv_c, xls_c, &
-          cp_c, ep2_c, es_p, qs_p, gam_p) result(plcl_c) bind(c, name="uwshcu_qsinvert_codon")
+     function qsinvert_codon(qt_c, thl_c, psfc_c, p00_c, rovcp_c, xlv_c, xls_c, &
+          cp_c, ep2_c, es_p, qs_p, gam_p) result(plcl_c) bind(c, name="qsinvert_codon")
        use iso_c_binding, only: c_double, c_ptr
        real(c_double), value :: qt_c, thl_c, psfc_c, p00_c, rovcp_c, xlv_c, xls_c, cp_c, ep2_c
        type(c_ptr), value :: es_p, qs_p, gam_p
        real(c_double) :: plcl_c
-     end function uwshcu_qsinvert_codon
+     end function qsinvert_codon
 
      function exnf_codon(pressure_c, p00_c, rovcp_c) result(exnf_c) &
           bind(c, name="exnf_codon")
@@ -8738,7 +8738,7 @@ end subroutine uwshcu_readnl
        call getbuoy_native(pbot, thv0bot, ptop, thv0top, thvubot, thvutop, plfc, cin)
     else
        call uwshcu_log_small_kernels_entered()
-       call uwshcu_getbuoy_codon(pbot, thv0bot, ptop, thv0top, thvubot, thvutop, &
+       call getbuoy_codon(pbot, thv0bot, ptop, thv0top, thvubot, thvutop, &
             r, p00, rovcp, c_loc(plfc), c_loc(cin))
     end if
 
@@ -8785,7 +8785,7 @@ end subroutine uwshcu_readnl
        single_cin = single_cin_native(pbot, thv0bot, ptop, thv0top, thvubot, thvutop)
     else
        call uwshcu_log_small_kernels_entered()
-       single_cin = uwshcu_single_cin_codon(pbot, thv0bot, ptop, thv0top, &
+       single_cin = single_cin_codon(pbot, thv0bot, ptop, thv0top, &
             thvubot, thvutop, r, p00, rovcp)
     end if
 
@@ -8822,7 +8822,7 @@ end subroutine uwshcu_readnl
     else
        status_c = 0_c_int64_t
        call uwshcu_log_small_kernels_entered()
-       call uwshcu_roots_codon(a, b, c, c_loc(r1), c_loc(r2), c_loc(status_c))
+       call roots_codon(a, b, c, c_loc(r1), c_loc(r2), c_loc(status_c))
        status = int(status_c)
     end if
 
@@ -9153,7 +9153,7 @@ end subroutine uwshcu_readnl
        slope = slope_native(mkx, field, p0)
     else
        call uwshcu_log_small_kernels_entered()
-       call uwshcu_slope_codon(int(mkx, c_int64_t), c_loc(field(1)), c_loc(p0(1)), c_loc(slope(1)))
+       call slope_codon(int(mkx, c_int64_t), c_loc(field(1)), c_loc(p0(1)), c_loc(slope(1)))
     end if
 
   end function slope
@@ -9216,7 +9216,7 @@ end subroutine uwshcu_readnl
     call uwshcu_select_qsinvert_impl()
     if (.not. use_native_qsinvert_impl) then
        call uwshcu_log_qsinvert_direct_entered()
-       qsinvert = real(uwshcu_qsinvert_codon(real(qt, c_double), real(thl, c_double), real(psfc, c_double), &
+       qsinvert = real(qsinvert_codon(real(qt, c_double), real(thl, c_double), real(psfc, c_double), &
             real(p00, c_double), real(rovcp, c_double), real(xlv, c_double), real(xls, c_double), &
             real(cp, c_double), real(ep2, c_double), c_loc(es), c_loc(qs), c_loc(gam)), r8)
        return
@@ -9291,7 +9291,7 @@ end subroutine uwshcu_readnl
        compute_alpha = x0
     else
        call uwshcu_log_small_kernels_entered()
-       compute_alpha = uwshcu_compute_alpha_codon(del_CIN, ke)
+       compute_alpha = compute_alpha_codon(del_CIN, ke)
     end if
 
   end function compute_alpha
@@ -9306,7 +9306,7 @@ end subroutine uwshcu_readnl
     else
        call uwshcu_log_small_kernels_entered()
        call uwshcu_log_compute_mumin2_entered()
-       compute_mumin2 = uwshcu_compute_mumin2_codon(real(mulcl, c_double), real(rmaxfrac, c_double), &
+       compute_mumin2 = compute_mumin2_codon(real(mulcl, c_double), real(rmaxfrac, c_double), &
             real(mulow, c_double))
     end if
 
@@ -9349,7 +9349,7 @@ end subroutine uwshcu_readnl
        compute_ppen = compute_ppen_native(wtwb, D, bogbot, bogtop, rho0j, dpen)
     else
        call uwshcu_log_small_kernels_entered()
-       compute_ppen = uwshcu_compute_ppen_codon(wtwb, D, bogbot, bogtop, rho0j, dpen)
+       compute_ppen = compute_ppen_codon(wtwb, D, bogbot, bogtop, rho0j, dpen)
     end if
 
   end function compute_ppen
@@ -9416,7 +9416,7 @@ end subroutine uwshcu_readnl
        call fluxbelowinv_native(cbmf, ps0, mkx, kinv, dt, xsrc, xmean, xtopin, xbotin, xflx)
     else
        call uwshcu_log_small_kernels_entered()
-       call uwshcu_fluxbelowinv_codon(int(mkx, c_int64_t), int(kinv, c_int64_t), &
+       call fluxbelowinv_codon(int(mkx, c_int64_t), int(kinv, c_int64_t), &
             cbmf, dt, xsrc, xmean, xtopin, xbotin, g, c_loc(ps0(0)), c_loc(xflx(0)))
     end if
 
@@ -9517,16 +9517,16 @@ end subroutine uwshcu_readnl
     integer :: m, ispec
 
     interface
-       subroutine uwshcu_positive_moisture_single_codon(mkx_c, xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, &
+       subroutine positive_moisture_single_codon(mkx_c, xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, &
             trace_water_c, wtrc_nwset_c, ncnst_c, wtrc_qmin_c, dp_p, qv_p, ql_p, qi_p, s_p, qvten_p, qlten_p, &
             qiten_p, sten_p, wtrc_iatype_p, iwspec_p, rstd_p, wtr_p, wtten_p, status_p) &
-            bind(c, name="uwshcu_positive_moisture_single_codon")
+            bind(c, name="positive_moisture_single_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, trace_water_c, wtrc_nwset_c, ncnst_c
           real(c_double), value :: xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, wtrc_qmin_c
           type(c_ptr), value :: dp_p, qv_p, ql_p, qi_p, s_p, qvten_p, qlten_p, qiten_p, sten_p
           type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p, wtr_p, wtten_p, status_p
-       end subroutine uwshcu_positive_moisture_single_codon
+       end subroutine positive_moisture_single_codon
     end interface
 
     call uwshcu_select_positive_moisture_single_impl()
@@ -9562,7 +9562,7 @@ end subroutine uwshcu_readnl
 
     status_c = 0_c_int64_t
     call uwshcu_log_positive_moisture_single_entered()
-    call uwshcu_positive_moisture_single_codon(int(mkx, c_int64_t), real(xlv, c_double), real(xls, c_double), &
+    call positive_moisture_single_codon(int(mkx, c_int64_t), real(xlv, c_double), real(xls, c_double), &
          real(dt, c_double), real(qvmin, c_double), real(qlmin, c_double), real(qimin, c_double), &
          merge(1_c_int64_t, 0_c_int64_t, trace_water), int(wtrc_nwset, c_int64_t), int(ncnst, c_int64_t), &
          real(wtrc_qmin, c_double), c_loc(dp(1)), c_loc(qv(1)), c_loc(ql(1)), c_loc(qi(1)), c_loc(s(1)), &

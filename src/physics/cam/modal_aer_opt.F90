@@ -114,12 +114,12 @@ interface
       type(c_ptr), value :: dgnumwet_p, cheby_p
    end subroutine modal_aer_opt_lw_size_parameters_codon
 
-   subroutine modal_aer_opt_binterp_codon(pcols_c, ncol_c, km_c, im_c, jm_c, table_p, x_p, y_p, &
-        xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p) bind(c, name="modal_aer_opt_binterp_codon")
+   subroutine binterp_codon(pcols_c, ncol_c, km_c, im_c, jm_c, table_p, x_p, y_p, &
+        xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p) bind(c, name="binterp_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: pcols_c, ncol_c, km_c, im_c, jm_c
       type(c_ptr), value :: table_p, x_p, y_p, xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p
-   end subroutine modal_aer_opt_binterp_codon
+   end subroutine binterp_codon
 
    subroutine modal_aer_opt_sw_binterp3_codon(pcols_c, ncol_c, ncoef_c, prefr_c, prefi_c, &
         extpsw_p, abspsw_p, asmpsw_p, refr_p, refi_p, refrtabsw_p, refitabsw_p, itab_p, &
@@ -411,12 +411,12 @@ interface
       type(c_ptr), value :: refr_p, refi_p, pabs_p, dopaer_p, tauxar_p
    end subroutine modal_aero_lw_codon
 
-   subroutine modal_aer_opt_read_water_refindex_codon(nswbands_c, nlwbands_c, refrwsw_p, refiwsw_p, &
-        refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p) bind(c, name="modal_aer_opt_read_water_refindex_codon")
+   subroutine read_water_refindex_codon(nswbands_c, nlwbands_c, refrwsw_p, refiwsw_p, &
+        refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p) bind(c, name="read_water_refindex_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: nswbands_c, nlwbands_c
       type(c_ptr), value :: refrwsw_p, refiwsw_p, refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p
-   end subroutine modal_aer_opt_read_water_refindex_codon
+   end subroutine read_water_refindex_codon
 end interface
 
 !===============================================================================
@@ -1988,7 +1988,7 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
                call modal_aer_opt_helpers_proof_once()
                call modal_aer_opt_lw_helpers_proof_once()
                itab(:ncol) = 0
-               call modal_aer_opt_binterp_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+               call binterp_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
                     int(ncoef, c_int64_t), int(prefr, c_int64_t), int(prefi, c_int64_t), &
                     c_loc(absplw(1,1,1,ilw)), c_loc(refr(1)), c_loc(refi(1)), &
                     c_loc(refrtablw(1,ilw)), c_loc(refitablw(1,ilw)), c_loc(itab(1)), &
@@ -2147,7 +2147,7 @@ subroutine read_water_refindex(infilename)
          crefwlw(i)  = cmplx(refrwlw(i), abs(refiwlw(i)),kind=r8)
       end do
    else
-      call modal_aer_opt_read_water_refindex_codon(int(nswbands, c_int64_t), int(nlwbands, c_int64_t), &
+      call read_water_refindex_codon(int(nswbands, c_int64_t), int(nlwbands, c_int64_t), &
            c_loc(refrwsw(1)), c_loc(refiwsw(1)), c_loc(refrwlw(1)), c_loc(refiwlw(1)), &
            c_loc(crefwsw(1)), c_loc(crefwlw(1)))
       call read_water_refindex_proof_once()
@@ -2311,7 +2311,7 @@ end subroutine modal_lw_size_parameters_native
       end if
 
       call modal_aer_opt_helpers_proof_once()
-      call modal_aer_opt_binterp_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+      call binterp_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
            int(km, c_int64_t), int(im, c_int64_t), int(jm, c_int64_t), c_loc(table(1,1,1)), &
            c_loc(x(1)), c_loc(y(1)), c_loc(xtab(1)), c_loc(ytab(1)), c_loc(ix(1)), c_loc(jy(1)), &
            c_loc(t(1)), c_loc(u(1)), c_loc(out(1,1)))

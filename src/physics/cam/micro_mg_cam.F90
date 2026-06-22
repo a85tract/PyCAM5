@@ -345,17 +345,17 @@ interface
       type(c_ptr), value :: count_p, codes_p, files_p
    end subroutine micro_mg_cam_init_default_plan_codon
 
-   function micro_mg_cam_p1_codon(n_c) result(out_c) bind(c, name="micro_mg_cam_p1_codon")
+   function p1_codon(n_c) result(out_c) bind(c, name="p1_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: n_c
       integer(c_int64_t) :: out_c
-   end function micro_mg_cam_p1_codon
+   end function p1_codon
 
-   function micro_mg_cam_p2_codon(n1_c, n2_c) result(out_c) bind(c, name="micro_mg_cam_p2_codon")
+   function p2_codon(n1_c, n2_c) result(out_c) bind(c, name="p2_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: n1_c, n2_c
       integer(c_int64_t) :: out_c
-   end function micro_mg_cam_p2_codon
+   end function p2_codon
 
    function micro_mg_cam_tend_codon(stage_c) result(stage_out) bind(c, name="micro_mg_cam_tend_codon")
       use iso_c_binding, only: c_int64_t
@@ -6521,7 +6521,7 @@ function p1(tin) result(pout)
   integer(c_int64_t) :: touched
   call micro_mg_cam_select_p_ptr_impl()
   if (.not. use_native_p_ptr_impl) then
-     touched = micro_mg_cam_p1_codon(int(size(tin), c_int64_t))
+     touched = p1_codon(int(size(tin), c_int64_t))
      if (touched == 0_c_int64_t) call endrun('micro_mg_cam:p1 Codon pointer-touch failed')
      call micro_mg_cam_log_p_ptr_once(p1_logged, &
           'p1 direct = codon entry; native Fortran pointer association')
@@ -6536,7 +6536,7 @@ function p2(tin) result(pout)
   integer(c_int64_t) :: touched
   call micro_mg_cam_select_p_ptr_impl()
   if (.not. use_native_p_ptr_impl) then
-     touched = micro_mg_cam_p2_codon(int(size(tin, 1), c_int64_t), int(size(tin, 2), c_int64_t))
+     touched = p2_codon(int(size(tin, 1), c_int64_t), int(size(tin, 2), c_int64_t))
      if (touched == 0_c_int64_t) call endrun('micro_mg_cam:p2 Codon pointer-touch failed')
      call micro_mg_cam_log_p_ptr_once(p2_logged, &
           'p2 direct = codon entry; native Fortran pointer association')

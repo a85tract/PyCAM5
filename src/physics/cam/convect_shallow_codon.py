@@ -891,7 +891,7 @@ def uwshcu_conden_wtout_codon(
 
 
 @export
-def uwshcu_getbuoy_codon(
+def getbuoy_codon(
     pbot: float,
     thv0bot: float,
     ptop: float,
@@ -933,7 +933,7 @@ def uwshcu_getbuoy_codon(
 
 
 @export
-def uwshcu_single_cin_codon(
+def single_cin_codon(
     pbot: float,
     thv0bot: float,
     ptop: float,
@@ -951,7 +951,7 @@ def uwshcu_single_cin_codon(
 
 
 @export
-def uwshcu_roots_codon(a: float, b: float, c: float, r1_p: cobj, r2_p: cobj, status_p: cobj):
+def roots_codon(a: float, b: float, c: float, r1_p: cobj, r2_p: cobj, status_p: cobj):
     r1 = Ptr[float](r1_p)
     r2 = Ptr[float](r2_p)
     status = Ptr[int](status_p)
@@ -985,7 +985,7 @@ def uwshcu_roots_codon(a: float, b: float, c: float, r1_p: cobj, r2_p: cobj, sta
 
 
 @export
-def uwshcu_slope_codon(mkx: int, field_p: cobj, p0_p: cobj, slope_p: cobj):
+def slope_codon(mkx: int, field_p: cobj, p0_p: cobj, slope_p: cobj):
     field = Ptr[float](field_p)
     p0 = Ptr[float](p0_p)
     slope = Ptr[float](slope_p)
@@ -1002,7 +1002,7 @@ def uwshcu_slope_codon(mkx: int, field_p: cobj, p0_p: cobj, slope_p: cobj):
 
 
 @export
-def uwshcu_compute_alpha_codon(del_CIN: float, ke: float) -> float:
+def compute_alpha_codon(del_CIN: float, ke: float) -> float:
     x0 = 0.0
     for _ in range(10):
         x1 = x0 - (exp(-x0 * ke * del_CIN) - x0) / (-ke * del_CIN * exp(-x0 * ke * del_CIN) - 1.0)
@@ -1011,7 +1011,7 @@ def uwshcu_compute_alpha_codon(del_CIN: float, ke: float) -> float:
 
 
 @export
-def uwshcu_compute_ppen_codon(wtwb: float, D: float, bogbot: float, bogtop: float, rho0j: float, dpen: float) -> float:
+def compute_ppen_codon(wtwb: float, D: float, bogbot: float, bogtop: float, rho0j: float, dpen: float) -> float:
     SB = (bogtop - bogbot) / dpen
     s00 = bogbot / rho0j - D * wtwb
 
@@ -1043,7 +1043,7 @@ def uwshcu_compute_ppen_codon(wtwb: float, D: float, bogbot: float, bogtop: floa
 
 
 @export
-def uwshcu_compute_mumin2_codon(mulcl: float, rmaxfrac: float, mulow: float) -> float:
+def compute_mumin2_codon(mulcl: float, rmaxfrac: float, mulow: float) -> float:
     x0 = mulow
     for iteration in range(1, 11):
         ex = exp(-(x0 ** 2))
@@ -1703,7 +1703,7 @@ def uwshcu_parent_prefix_load_shell_codon(
 
 
 @export
-def uwshcu_fluxbelowinv_codon(
+def fluxbelowinv_codon(
     mkx: int,
     kinv: int,
     cbmf: float,
@@ -6468,7 +6468,7 @@ def uwshcu_source_lcl_solve_prep_shell_codon(
     thl0lcl_p: cobj,
     qt0lcl_p: cobj,
 ):
-    plcl = uwshcu_qsinvert_codon(
+    plcl = qsinvert_codon(
         qtsrc,
         thlsrc,
         psfc,
@@ -6616,7 +6616,7 @@ def uwshcu_cin_main_loop_shell_codon(
             if k < klcl:
                 thvubot = thvlsrc
                 thvutop = thvlsrc
-                cin[0] = cin[0] + uwshcu_single_cin_codon(
+                cin[0] = cin[0] + single_cin_codon(
                     ps0[k - 1],
                     thv0bot[k - 1],
                     ps0[k],
@@ -6630,7 +6630,7 @@ def uwshcu_cin_main_loop_shell_codon(
             elif k == klcl:
                 thvubot = thvlsrc
                 thvutop = thvlsrc
-                cin[0] = cin[0] + uwshcu_single_cin_codon(
+                cin[0] = cin[0] + single_cin_codon(
                     ps0[k - 1],
                     thv0bot[k - 1],
                     plcl,
@@ -6664,7 +6664,7 @@ def uwshcu_cin_main_loop_shell_codon(
                     exit_code[0] = 1
                     return
                 thvutop = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
-                uwshcu_getbuoy_codon(
+                getbuoy_codon(
                     plcl,
                     thv0lcl,
                     ps0[k],
@@ -6699,7 +6699,7 @@ def uwshcu_cin_main_loop_shell_codon(
                     exit_code[0] = 1
                     return
                 thvutop = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
-                uwshcu_getbuoy_codon(
+                getbuoy_codon(
                     ps0[k - 1],
                     thv0bot[k - 1],
                     ps0[k],
@@ -6755,7 +6755,7 @@ def uwshcu_cin_main_loop_shell_codon(
                 exit_code[0] = 1
                 return
             thvutop = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
-            uwshcu_getbuoy_codon(
+            getbuoy_codon(
                 ps0[k - 1],
                 thv0bot[k - 1],
                 ps0[k],
@@ -8173,7 +8173,7 @@ def uwshcu_buoy_top_prep_full_shell_codon(
             ppen[0] = -dp0[layer_idx]
             warning_code[0] = 1
     else:
-        ppen[0] = uwshcu_compute_ppen_codon(wtwb, drage, bogbot, bogtop, rho0j, dp0[layer_idx])
+        ppen[0] = compute_ppen_codon(wtwb, drage, bogbot, bogtop, rho0j, dp0[layer_idx])
 
     if ppen[0] == -dp0[layer_idx] or ppen[0] == 0.0:
         limit_ppen[0] = 1.0
@@ -9731,7 +9731,7 @@ def uwshcu_release_base_full_shell_codon(
         need_mumin2 = 1
 
     if need_mumin2 != 0:
-        mumin2[0] = uwshcu_compute_mumin2_codon(mulcl[0], rmaxfrac_v, mu_v)
+        mumin2[0] = compute_mumin2_codon(mulcl[0], rmaxfrac_v, mu_v)
         if mu_v > mumin2[0]:
             exit_code[0] = 2
             return
@@ -14849,7 +14849,7 @@ def uwshcu_qsinvert_rh_guard_codon(rhi: float) -> int:
 
 
 @export
-def uwshcu_qsinvert_codon(
+def qsinvert_codon(
     qt: float,
     thl: float,
     psfc: float,
@@ -14903,7 +14903,7 @@ def uwshcu_qsinvert_codon(
 
 
 @export
-def uwshcu_positive_moisture_single_codon(
+def positive_moisture_single_codon(
     mkx: int,
     xlv_v: float,
     xls_v: float,
@@ -15096,7 +15096,7 @@ def uwshcu_positive_moisture_single_shell_codon(
     wtten_p: cobj,
     status_p: cobj,
 ):
-    uwshcu_positive_moisture_single_codon(
+    positive_moisture_single_codon(
         mkx,
         xlv_v,
         xls_v,

@@ -652,12 +652,12 @@ subroutine hetero(T,ww,Ns,Nis,Nid)
     real(c_double), target :: Nis_c, Nid_c
 
     interface
-       subroutine nucleate_ice_hetero_codon(T_c, ww_c, Ns_c, Nis_p, Nid_p) &
-            bind(c, name="nucleate_ice_hetero_codon")
+       subroutine hetero_codon(T_c, ww_c, Ns_c, Nis_p, Nid_p) &
+            bind(c, name="hetero_codon")
           use iso_c_binding, only: c_double, c_ptr
           real(c_double), value :: T_c, ww_c, Ns_c
           type(c_ptr), value :: Nis_p, Nid_p
-       end subroutine nucleate_ice_hetero_codon
+       end subroutine hetero_codon
     end interface
 
     call nucleate_ice_helpers_select_impl()
@@ -668,7 +668,7 @@ subroutine hetero(T,ww,Ns,Nis,Nid)
     end if
 
     call nucleate_ice_helpers_note_entered()
-    call nucleate_ice_hetero_codon(real(T, c_double), real(ww, c_double), real(Ns, c_double), &
+    call hetero_codon(real(T, c_double), real(ww, c_double), real(Ns, c_double), &
          c_loc(Nis_c), c_loc(Nid_c))
     Nis = Nis_c
     Nid = Nid_c
@@ -764,12 +764,12 @@ subroutine hf(T,ww,RH,Na,Ni)
       real(c_double), target :: Ni_c
 
       interface
-         subroutine nucleate_ice_hf_codon(T_c, ww_c, RH_c, Na_c, subgrid_c, Ni_p) &
-              bind(c, name="nucleate_ice_hf_codon")
+         subroutine hf_codon(T_c, ww_c, RH_c, Na_c, subgrid_c, Ni_p) &
+              bind(c, name="hf_codon")
             use iso_c_binding, only: c_double, c_ptr
             real(c_double), value :: T_c, ww_c, RH_c, Na_c, subgrid_c
             type(c_ptr), value :: Ni_p
-         end subroutine nucleate_ice_hf_codon
+         end subroutine hf_codon
       end interface
 
       call nucleate_ice_helpers_select_impl()
@@ -780,7 +780,7 @@ subroutine hf(T,ww,RH,Na,Ni)
       end if
 
       call nucleate_ice_helpers_note_entered()
-      call nucleate_ice_hf_codon(real(T, c_double), real(ww, c_double), real(RH, c_double), &
+      call hf_codon(real(T, c_double), real(ww, c_double), real(RH, c_double), &
            real(Na, c_double), real(subgrid, c_double), c_loc(Ni_c))
       Ni = Ni_c
 

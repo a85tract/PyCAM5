@@ -3564,7 +3564,7 @@ def _eddy_diff_caleddy_core_batch_zisocl_dispatch(
     )
 
 @export
-def eddy_diff_caleddy_core_batch_zisocl_codon(
+def zisocl_codon(
     i_col: int,
     pcols: int,
     pver: int,
@@ -7365,7 +7365,7 @@ def eddy_diff_trbintd_core_stage_dispatch_codon(
         dsldp_b_p,
         dqtdp_b_p,
     )
-    eddy_diff_sfdiag_codon(
+    sfdiag_codon(
         mode,
         stratus_mode,
         ntop_turb,
@@ -7567,7 +7567,7 @@ def eddy_diff_trbintd_slopes_codon(
 
 
 @export
-def eddy_diff_sfdiag_codon(
+def sfdiag_codon(
     mode: int,
     stratus_mode: int,
     ntop_turb: int,

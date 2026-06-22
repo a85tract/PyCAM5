@@ -6,7 +6,7 @@
     use physconst, only: gravit, rair
     use ppgrid
     use hirsbtpar
-    use iso_c_binding, only: c_int64_t
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
     use cam_logfile, only: iulog
     use spmd_utils, only: masterproc
 
@@ -33,6 +33,13 @@
         integer(c_int64_t), value :: dtime_c
         integer(c_int64_t) :: out_c
       end function hirsbt_freq_codon
+
+      subroutine hirsbt_init_codon(freq_c, dtime_c, out_p) bind(c, name="hirsbt_init_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: freq_c
+        integer(c_int64_t), value :: dtime_c
+        type(c_ptr), value :: out_p
+      end subroutine hirsbt_init_codon
     end interface
 
     contains
@@ -773,7 +780,7 @@
 
 !------------------------------Local variables--------------------------
     integer :: dtime      ! integer timestep size
-    integer(c_int64_t) :: out_c
+    integer(c_int64_t), target :: hirsbt_out(2)
 
 !*******************************************************************************************
 !     Set constants to values used in the model
@@ -807,20 +814,16 @@
     call hirsbt_init_select_impl()
     if (use_native_hirsbt_init_impl) then
       dohirs = .true.
-    else
-      call hirsbt_init_proof_once()
-      out_c = hirsbt_flag_codon(1_c_int64_t)
-      dohirs = out_c /= 0_c_int64_t
-      call hirsbt_init_log_direct()
-    end if
 ! Set frequency of HIRS calculation
 ! ihirsfq is in timesteps if positive, or hours if negative; 6 hours is recommended
-    if (use_native_hirsbt_init_impl) then
       ihirsfq = -6
       if (ihirsfq < 0) ihirsfq = nint((-ihirsfq*3600._r8)/dtime)
     else
-      out_c = hirsbt_freq_codon(int(-6, c_int64_t), int(dtime, c_int64_t))
-      ihirsfq = int(out_c)
+      call hirsbt_init_proof_once()
+      call hirsbt_init_codon(int(-6, c_int64_t), int(dtime, c_int64_t), c_loc(hirsbt_out(1)))
+      dohirs = hirsbt_out(1) /= 0_c_int64_t
+      ihirsfq = int(hirsbt_out(2))
+      call hirsbt_init_log_direct()
     end if
 
 ! Convert ihirsfq from hours to timesteps if necessary

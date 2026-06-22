@@ -154,7 +154,7 @@ def macrop_driver_init_codon(flag: int) -> int:
 
 
 @export
-def cldwat2m_ini_macro_codon(
+def ini_macro_codon(
     rhminl_opt: int,
     rhmini_opt: int,
     rhminl_in: float,
@@ -188,7 +188,7 @@ def cldwat2m_ini_macro_codon(
 
 
 @export
-def cldwat2m_mmacro_pcond_codon(
+def mmacro_pcond_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -413,7 +413,7 @@ def cldwat2m_mmacro_pcond_codon(
     rhminl_adj_land = Ptr[float](ptrs[187])
     rhminh = Ptr[float](ptrs[188])
 
-    cldwat2m_rhcrit_calc_codon(
+    rhcrit_calc_codon(
         ncol,
         pcols,
         pver,
@@ -452,12 +452,12 @@ def cldwat2m_mmacro_pcond_codon(
     )
     cldwat2m_input_state_codon(ncol, pcols, pver, top_lev, dt, ptrs[28], ptrs[27], ptrs[2], ptrs[3], ptrs[4], ptrs[5], ptrs[6], ptrs[7], ptrs[112], ptrs[58], ptrs[65], ptrs[72], ptrs[79], ptrs[86], ptrs[93])
     cldwat2m_qmin_fill_codon(ncol, pcols, pver, qvmin, qlmin, qimin, ptrs[171], ptrs[172], ptrs[173])
-    cldwat2m_positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[65], ptrs[72], ptrs[79], ptrs[58], ptrs[115], ptrs[116], ptrs[117], ptrs[114])
+    positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[65], ptrs[72], ptrs[79], ptrs[58], ptrs[115], ptrs[116], ptrs[117], ptrs[114])
     cldwat2m_dropnum_limit_codon(1, ncol, pcols, pver, top_lev, dt, qsmall, ptrs[72], ptrs[79], ptrs[86], ptrs[93], ptrs[118], ptrs[119])
 
     for k in range(top_lev, pver + 1):
         col = (k - 1) * pcols
-        cldwat2m_instratus_condensate_codon(
+        instratus_condensate_codon(
             ncol, pcols, camstfrac, cpair, latvap, latice, 2.0e-5, 3.0e-3, rhmaxi,
             ptrs[0] + col * 8, ptrs[58] + col * 8, ptrs[65] + col * 8, ptrs[72] + col * 8,
             ptrs[79] + col * 8, ptrs[93] + col * 8, ptrs[27] + col * 8, ptrs[56] + col * 8,
@@ -478,7 +478,7 @@ def cldwat2m_mmacro_pcond_codon(
         )
 
     cldwat2m_advective_state_codon(ncol, pcols, pver, top_lev, dt, ptrs[59], ptrs[66], ptrs[73], ptrs[80], ptrs[87], ptrs[94], ptrs[8], ptrs[14], ptrs[9], ptrs[15], ptrs[10], ptrs[16], ptrs[11], ptrs[17], ptrs[12], ptrs[18], ptrs[13], ptrs[19], ptrs[60], ptrs[67], ptrs[74], ptrs[81], ptrs[88], ptrs[95])
-    cldwat2m_positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[67], ptrs[74], ptrs[81], ptrs[60], ptrs[127], ptrs[128], ptrs[129], ptrs[126])
+    positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[67], ptrs[74], ptrs[81], ptrs[60], ptrs[127], ptrs[128], ptrs[129], ptrs[126])
     cldwat2m_ref_state_codon(ncol, pcols, pver, top_lev, ptrs[59], ptrs[66], ptrs[73], ptrs[80], ptrs[103], ptrs[106], ptrs[100], ptrs[109], ptrs[111], ptrs[87], ptrs[94], ptrs[57], ptrs[64], ptrs[71], ptrs[78], ptrs[102], ptrs[105], ptrs[99], ptrs[108], ptrs[110], ptrs[85], ptrs[92])
 
     for k in range(top_lev, pver + 1):
@@ -520,12 +520,12 @@ def cldwat2m_mmacro_pcond_codon(
         cldwat2m_qq_limiter_codon(ncol, pcols, pver, top_lev, dt, qsmall, cone, qvmin, ptrs[67], ptrs[74], ptrs[81], ptrs[88], ptrs[95], ptrs[174], ptrs[176], ptrs[142], ptrs[143], ptrs[144], ptrs[140], ptrs[141])
         cldwat2m_iter_state_codon(iter_num, ncol, pcols, pver, top_lev, dt, 0.5, qsmall, latvap, latice, cpair, ptrs[143], ptrs[144], ptrs[140], ptrs[141], ptrs[147], ptrs[148], ptrs[149], ptrs[150], ptrs[151], ptrs[152], ptrs[153], ptrs[154], ptrs[59], ptrs[66], ptrs[73], ptrs[80], ptrs[87], ptrs[94], ptrs[8], ptrs[126], ptrs[14], ptrs[9], ptrs[127], ptrs[15], ptrs[10], ptrs[128], ptrs[16], ptrs[11], ptrs[129], ptrs[17], ptrs[12], ptrs[18], ptrs[13], ptrs[19], ptrs[61], ptrs[68], ptrs[75], ptrs[82], ptrs[89], ptrs[96])
         cldwat2m_detrain_state_codon(ncol, pcols, pver, top_lev, dt, ptrs[61], ptrs[68], ptrs[75], ptrs[82], ptrs[89], ptrs[96], ptrs[21], ptrs[22], ptrs[23], ptrs[24], ptrs[25], ptrs[26], ptrs[62], ptrs[69], ptrs[76], ptrs[83], ptrs[90], ptrs[97])
-        cldwat2m_positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[69], ptrs[76], ptrs[83], ptrs[62], ptrs[121], ptrs[122], ptrs[123], ptrs[120])
+        positive_moisture_codon(ncol, pcols, pver, top_lev, do_cldice, dt, latvap, latice, cpair, ptrs[1], ptrs[171], ptrs[172], ptrs[173], ptrs[69], ptrs[76], ptrs[83], ptrs[62], ptrs[121], ptrs[122], ptrs[123], ptrs[120])
         cldwat2m_dropnum_limit_codon(2, ncol, pcols, pver, top_lev, dt, qsmall, ptrs[76], ptrs[83], ptrs[90], ptrs[97], ptrs[124], ptrs[125])
 
         for k in range(top_lev, pver + 1):
             col = (k - 1) * pcols
-            cldwat2m_instratus_condensate_codon(
+            instratus_condensate_codon(
                 ncol, pcols, camstfrac, cpair, latvap, latice, 2.0e-5, 3.0e-3, rhmaxi,
                 ptrs[0] + col * 8, ptrs[62] + col * 8, ptrs[69] + col * 8, ptrs[76] + col * 8,
                 ptrs[83] + col * 8, ptrs[97] + col * 8, ptrs[28] + col * 8, ptrs[56] + col * 8,
@@ -639,7 +639,7 @@ def _cldwat2m_aist_single_native(
 
 
 @export
-def cldwat2m_gridmean_rh_codon(
+def gridmean_rh_codon(
     p: float,
     latvap: float,
     cpair: float,
@@ -723,7 +723,7 @@ def _cldwat2m_gridmean_rh_calc(
 
 
 @export
-def cldwat2m_funcd_instratus_codon(
+def funcd_instratus_codon(
     t: float,
     p: float,
     t0: float,
@@ -864,7 +864,7 @@ def _cldwat2m_funcd_instratus_calc(
 
 
 @export
-def cldwat2m_instratus_core_codon(
+def instratus_core_codon(
     p: float,
     t0: float,
     qv0: float,
@@ -1195,7 +1195,7 @@ def _cldwat2m_instratus_core_calc(
 
 
 @export
-def cldwat2m_instratus_condensate_codon(
+def instratus_condensate_codon(
     ncol: int,
     pcols: int,
     camstfrac: int,
@@ -3037,7 +3037,7 @@ def cldwat2m_rhcrit_const_codon(
 
 
 @export
-def cldwat2m_rhcrit_calc_codon(
+def rhcrit_calc_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -3174,7 +3174,7 @@ def cldwat2m_rhcrit_calc_codon(
 
 
 @export
-def cldwat2m_positive_moisture_codon(
+def positive_moisture_codon(
     ncol: int,
     pcols: int,
     pver: int,

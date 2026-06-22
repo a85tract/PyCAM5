@@ -15,9 +15,11 @@ module physics_buffer
   use shr_kind_mod,   only: r8 => shr_kind_r8, r4=> shr_kind_r4, i4=> shr_kind_i4
   use ppgrid,         only: pcols, begchunk, endchunk, psubcols
   use cam_logfile,    only: iulog
+  use spmd_utils,     only: masterproc
   use pio,            only: var_desc_t
   use dyn_grid,       only: ptimelevels
   use cam_abortutils, only: endrun
+  use iso_c_binding,  only: c_int64_t, c_loc
   use buffer,         only: buffer_field_allocate, buffer_field_deallocate, buffer_get_field_ptr, buffer_set_field, &
                             dtype_i4, dtype_r4, dtype_r8, buffer_field_default_type, buffer_field_is_alloc
 
@@ -155,6 +157,32 @@ module physics_buffer
   !
 
   logical :: buffer_initialized =.false.
+  logical :: pbuf_init_time_logged = .false.
+  logical :: pbuf_old_tim_idx_logged = .false.
+  logical :: pbuf_update_tim_idx_logged = .false.
+  logical :: pbuf_col_type_index_logged = .false.
+  logical :: pbuf_get_index_logged = .false.
+  logical :: pbuftype2piotype_logged = .false.
+  logical :: pbuf_get_chunk_logged = .false.
+  logical :: pbuf_initialize_logged = .false.
+  logical :: pbuf_allocate_logged = .false.
+  logical :: pbuf_allocate_field_logged = .false.
+  logical :: pbuf_do_deallocate_logged = .false.
+  logical :: pbuf_deallocate_logged = .false.
+  logical :: find_pbuf_header_logged = .false.
+  logical :: pbuf_register_field_int_logged = .false.
+  logical :: pbuf_add_field_logged = .false.
+  logical :: get_pbuf1d_field_by_index_logged = .false.
+  logical :: pbuf_get_field_name_logged = .false.
+  logical :: get_pbuf2d_field_by_index_logged = .false.
+  logical :: get_pbuf2d_field_restart_logged = .false.
+  logical :: set_pbuf2d_field_const_by_index_logged = .false.
+  logical :: set_pbuf1d_field_const_by_index_logged = .false.
+  logical :: set_pbuf2d_field_by_index_logged = .false.
+  logical :: get_field_chunk_logged = .false.
+  logical :: set_pbuf1d_field_by_index_logged = .false.
+  logical :: pbuf_init_restart_logged = .false.
+  logical :: pbuf_write_restart_logged = .false.
 
   !
   ! private pio descriptor for time
@@ -163,6 +191,59 @@ module physics_buffer
   type(var_desc_t) :: timeidx_desc
 
 CONTAINS
+
+  logical function physics_buffer_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'native'
+    call cam_codon_get_impl(selector, impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       physics_buffer_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       physics_buffer_use_native = .true.
+    end if
+  end function physics_buffer_use_native
+
+  logical function physics_buffer_use_codon(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'native'
+    call cam_codon_get_impl(selector, impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       physics_buffer_use_codon = trim(adjustl(impl_name(:n))) == 'codon'
+    else
+       physics_buffer_use_codon = .false.
+    end if
+  end function physics_buffer_use_codon
+
+  subroutine physics_buffer_log_direct(logged, message)
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: message
+
+    if (masterproc .and. .not. logged) then
+       write(iulog,'(A)') trim(message)
+       call flush(iulog)
+       logged = .true.
+    end if
+  end subroutine physics_buffer_log_direct
 
   !
   ! Purpose: Return default runtime options
@@ -191,7 +272,28 @@ CONTAINS
   ! Initialize dyn_time_lvls
   !
   subroutine pbuf_init_time()
-     dyn_time_lvls = ptimelevels - 1
+     integer(c_int64_t) :: out_c
+
+     interface
+        function pbuf_init_time_codon(ptimelevels_c) result(out_c) bind(c, name="pbuf_init_time_codon")
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: ptimelevels_c
+          integer(c_int64_t) :: out_c
+        end function pbuf_init_time_codon
+     end interface
+
+     if (physics_buffer_use_native('PBUF_INIT_TIME_IMPL')) then
+        dyn_time_lvls = ptimelevels - 1
+        return
+     end if
+
+     out_c = pbuf_init_time_codon(int(ptimelevels, c_int64_t))
+     dyn_time_lvls = int(out_c)
+     if (masterproc .and. .not. pbuf_init_time_logged) then
+        write(iulog,'(A)') 'pbuf_init_time direct = codon'
+        call flush(iulog)
+        pbuf_init_time_logged = .true.
+     end if
   end subroutine pbuf_init_time
 
   !
@@ -200,7 +302,28 @@ CONTAINS
 
   function pbuf_old_tim_idx()
      integer :: pbuf_old_tim_idx
-     pbuf_old_tim_idx = old_time_idx
+     integer(c_int64_t) :: out_c
+
+     interface
+        function pbuf_old_tim_idx_codon(old_time_idx_c) result(out_c) bind(c, name="pbuf_old_tim_idx_codon")
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: old_time_idx_c
+          integer(c_int64_t) :: out_c
+        end function pbuf_old_tim_idx_codon
+     end interface
+
+     if (physics_buffer_use_native('PBUF_OLD_TIM_IDX_IMPL')) then
+        pbuf_old_tim_idx = old_time_idx
+        return
+     end if
+
+     out_c = pbuf_old_tim_idx_codon(int(old_time_idx, c_int64_t))
+     pbuf_old_tim_idx = int(out_c)
+     if (masterproc .and. .not. pbuf_old_tim_idx_logged) then
+        write(iulog,'(A)') 'pbuf_old_tim_idx direct = codon'
+        call flush(iulog)
+        pbuf_old_tim_idx_logged = .true.
+     end if
   end function pbuf_old_tim_idx
 
   !
@@ -208,7 +331,29 @@ CONTAINS
   !
 
   subroutine pbuf_update_tim_idx()
-     old_time_idx = mod(old_time_idx, dyn_time_lvls) + 1
+     integer(c_int64_t) :: out_c
+
+     interface
+        function pbuf_update_tim_idx_codon(old_time_idx_c, dyn_time_lvls_c) result(out_c) &
+             bind(c, name="pbuf_update_tim_idx_codon")
+          use iso_c_binding, only : c_int64_t
+          integer(c_int64_t), value :: old_time_idx_c, dyn_time_lvls_c
+          integer(c_int64_t) :: out_c
+        end function pbuf_update_tim_idx_codon
+     end interface
+
+     if (physics_buffer_use_native('PBUF_UPDATE_TIM_IDX_IMPL')) then
+        old_time_idx = mod(old_time_idx, dyn_time_lvls) + 1
+        return
+     end if
+
+     out_c = pbuf_update_tim_idx_codon(int(old_time_idx, c_int64_t), int(dyn_time_lvls, c_int64_t))
+     old_time_idx = int(out_c)
+     if (masterproc .and. .not. pbuf_update_tim_idx_logged) then
+        write(iulog,'(A)') 'pbuf_update_tim_idx direct = codon'
+        call flush(iulog)
+        pbuf_update_tim_idx_logged = .true.
+     end if
   end subroutine pbuf_update_tim_idx
 
   !
@@ -222,6 +367,28 @@ CONTAINS
 
     logical,                  intent(in)  :: use_subcol
     integer,                  intent(out) :: col_type
+    integer(c_int64_t) :: out_c
+
+    interface
+       function pbuf_col_type_index_codon(use_subcol_c, col_type_grid_c, col_type_subcol_c) result(out_c) &
+            bind(c, name="pbuf_col_type_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: use_subcol_c, col_type_grid_c, col_type_subcol_c
+         integer(c_int64_t) :: out_c
+       end function pbuf_col_type_index_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('PBUF_COL_TYPE_INDEX_IMPL')) then
+      out_c = pbuf_col_type_index_codon(merge(1_c_int64_t, 0_c_int64_t, use_subcol), &
+           int(col_type_grid, c_int64_t), int(col_type_subcol, c_int64_t))
+      col_type = int(out_c)
+      if (masterproc .and. .not. pbuf_col_type_index_logged) then
+         write(iulog,'(A)') 'pbuf_col_type_index direct = codon'
+         call flush(iulog)
+         pbuf_col_type_index_logged = .true.
+      end if
+      return
+    end if
 
     if (use_subcol) then
       col_type = col_type_subcol
@@ -241,6 +408,8 @@ CONTAINS
     integer :: i
     type(physics_buffer_hdr), pointer :: hdrbuffer
 
+    if (index < 1 .or. index > currentpbufflds) call endrun('pbuf_get_field_name: index out of range')
+
     hdrbuffer => hdrbuffertop
     do i=2,index
        hdrbuffer=>hdrbuffer%nexthdr
@@ -255,9 +424,27 @@ CONTAINS
     integer, intent(in) :: lchnk
 
     type(physics_buffer_desc), pointer :: pbuf_get_chunk(:)
+    integer(c_int64_t) :: lchnk_c
+
+    interface
+       function pbuf_get_chunk_codon(lchnk_in_c, begchunk_c, endchunk_c) result(lchnk_out_c) &
+            bind(c, name="pbuf_get_chunk_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: lchnk_in_c, begchunk_c, endchunk_c
+         integer(c_int64_t) :: lchnk_out_c
+       end function pbuf_get_chunk_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('PBUF_GET_CHUNK_IMPL')) then
+       lchnk_c = pbuf_get_chunk_codon(int(lchnk, c_int64_t), int(begchunk, c_int64_t), &
+            int(endchunk, c_int64_t))
+       if (lchnk_c < 0_c_int64_t) call endrun('pbuf_get_chunk: lchnk out of range')
+       call physics_buffer_log_direct(pbuf_get_chunk_logged, 'pbuf_get_chunk direct = codon')
+       pbuf_get_chunk => pbuf2d(:,int(lchnk_c))
+       return
+    end if
 
     pbuf_get_chunk => pbuf2d(:,lchnk)
-
 
   end function pbuf_get_chunk
 
@@ -326,14 +513,33 @@ CONTAINS
     
     integer :: i, c
     type(physics_buffer_hdr), pointer :: hdrbuffer
+    integer(c_int64_t) :: state_c
+
+    interface
+       function pbuf_initialize_codon(buffer_initialized_c, currentpbufflds_c) result(state_out_c) &
+            bind(c, name="pbuf_initialize_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: buffer_initialized_c, currentpbufflds_c
+         integer(c_int64_t) :: state_out_c
+       end function pbuf_initialize_codon
+    end interface
 
     !
     ! Allocate memory
     !
-    if(buffer_initialized) return
+    if (.not. physics_buffer_use_native('PBUF_INITIALIZE_IMPL')) then
+       state_c = pbuf_initialize_codon(merge(1_c_int64_t, 0_c_int64_t, buffer_initialized), &
+            int(currentpbufflds, c_int64_t))
+       call physics_buffer_log_direct(pbuf_initialize_logged, 'pbuf_initialize direct = codon')
+       if (state_c == 0_c_int64_t) return
+    else
+       if(buffer_initialized) return
+       state_c = merge(1_c_int64_t, 2_c_int64_t, currentpbufflds < 1)
+    end if
+
     ! Allocate at least 1 to avoid unallocated error in ideal physics
     allocate(pbuf2d(max(1,currentpbufflds),begchunk:endchunk)) 
-    if(currentpbufflds<1) return
+    if (state_c == 1_c_int64_t) return
 
     do c = begchunk, endchunk
       hdrbuffer => hdrbuffertop
@@ -361,19 +567,52 @@ CONTAINS
     character(len=*), intent(in) :: persistence
     integer :: i
     logical :: allocate_all
+    integer :: persistence_mode, ichar
+    integer(c_int64_t), target :: persistence_ascii(32)
+    integer(c_int64_t) :: mode_c
+
+    interface
+       function pbuf_allocate_codon(global_allocate_all_c, persistence_len_c, persistence_ascii_p) result(mode_out_c) &
+            bind(c, name="pbuf_allocate_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: global_allocate_all_c, persistence_len_c
+         type(c_ptr), value :: persistence_ascii_p
+         integer(c_int64_t) :: mode_out_c
+       end function pbuf_allocate_codon
+    end interface
 
     ! allocate_all is used to force allocation of all fields at same time as allocation
     ! for global scope.
     allocate_all = .false.
-    if ( global_allocate_all ) then
-       if ( persistence == 'global' ) then
-          allocate_all = .true.
-       else
-          return
+    persistence_mode = 0
+
+    if (.not. physics_buffer_use_native('PBUF_ALLOCATE_IMPL')) then
+       persistence_ascii(:) = 32_c_int64_t
+       do ichar = 1, min(len(persistence), size(persistence_ascii))
+          persistence_ascii(ichar) = int(iachar(persistence(ichar:ichar)), c_int64_t)
+       end do
+       mode_c = pbuf_allocate_codon(merge(1_c_int64_t, 0_c_int64_t, global_allocate_all), &
+            int(min(len(persistence), size(persistence_ascii)), c_int64_t), c_loc(persistence_ascii(1)))
+       call physics_buffer_log_direct(pbuf_allocate_logged, 'pbuf_allocate direct = codon')
+       persistence_mode = int(mode_c)
+       if (persistence_mode == 0) return
+       allocate_all = persistence_mode == 1
+    else
+       if ( global_allocate_all ) then
+          if ( persistence == 'global' ) then
+             allocate_all = .true.
+             persistence_mode = 1
+          else
+             return
+          end if
+       else if (persistence .eq. 'physpkg') then
+          persistence_mode = 2
+       else if (persistence .eq. 'global') then
+          persistence_mode = 3
        end if
     end if
 
-    if(allocate_all) then
+    if(persistence_mode == 1) then
        do i=1,currentpbufflds
           select case(pbuf2d(i,begchunk)%hdr%dtype)
           case(TYPEDOUBLE)
@@ -386,7 +625,7 @@ CONTAINS
              call pbuf_allocate_field_int(pbuf2d, i, dtype_i4)
           end select
        end do
-    else if(persistence .eq. 'physpkg') then
+    else if(persistence_mode == 2) then
        do i=1,currentpbufflds
           if(pbuf2d(i,begchunk)%hdr%persistence==persistence_physpkg) then
              select case(pbuf2d(i,begchunk)%hdr%dtype)
@@ -398,10 +637,10 @@ CONTAINS
 !                call pbuf_allocate_field_long(pbuf2d, i)
              case(TYPEINT)
                 call pbuf_allocate_field_int(pbuf2d, i, dtype_i4)
-             end select
+            end select
           end if
        end do
-    else if(persistence .eq. 'global') then
+    else if(persistence_mode == 3) then
        do i=1,currentpbufflds
           if(pbuf2d(i,begchunk)%hdr%persistence==persistence_global) then
 
@@ -429,6 +668,18 @@ CONTAINS
     integer,                   pointer                :: dimsizes(:)
     integer                                           :: c, i
     logical                                           :: is_copy
+    integer(c_int64_t), target                        :: dimsizes_c(6)
+    integer(c_int64_t)                                :: alloc_c
+
+    interface
+       function pbuf_allocate_field_codon(dimsizes_p, is_copy_c) result(alloc_out_c) &
+            bind(c, name="pbuf_allocate_field_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         type(c_ptr), value :: dimsizes_p
+         integer(c_int64_t), value :: is_copy_c
+         integer(c_int64_t) :: alloc_out_c
+       end function pbuf_allocate_field_codon
+    end interface
 
     do i = 1, ngrid_types
        ! Note - dimsizes(:)=0 is special case to indicate "do not allocate" and is not fatal
@@ -437,11 +688,22 @@ CONTAINS
        ! Note - We may have dimsizes /= 0 but still don't allocate if copy
        is_copy = pbuf2d(index,begchunk)%hdr%is_copy(i)
 
-       if (any(dimsizes(:) < 0)) &
-          call endrun('pbuf_allocate_field: dimsizes must be greater than 0 for pbuf field '&
-                       //trim(pbuf2d(index,begchunk)%hdr%name))
+       if (.not. physics_buffer_use_native('PBUF_ALLOCATE_FIELD_IMPL')) then
+          dimsizes_c(:) = int(dimsizes(:), c_int64_t)
+          alloc_c = pbuf_allocate_field_codon(c_loc(dimsizes_c(1)), &
+               merge(1_c_int64_t, 0_c_int64_t, is_copy))
+          call physics_buffer_log_direct(pbuf_allocate_field_logged, 'pbuf_allocate_field_ direct = codon')
+          if (alloc_c < 0_c_int64_t) &
+             call endrun('pbuf_allocate_field: dimsizes must be greater than 0 for pbuf field '&
+                          //trim(pbuf2d(index,begchunk)%hdr%name))
+       else
+          if (any(dimsizes(:) < 0)) &
+             call endrun('pbuf_allocate_field: dimsizes must be greater than 0 for pbuf field '&
+                          //trim(pbuf2d(index,begchunk)%hdr%name))
+          alloc_c = merge(1_c_int64_t, 0_c_int64_t, all(dimsizes(:) /= 0) .and. (.not. is_copy))
+       end if
 
-       if (all(dimsizes(:) /= 0) .and. (.not. is_copy)) then
+       if (alloc_c == 1_c_int64_t) then
           do c = begchunk, endchunk
              call buffer_field_allocate(pbuf2d(index,c)%bfg(i), dimsizes, dtype)
           end do
@@ -450,10 +712,41 @@ CONTAINS
     
   end subroutine pbuf_allocate_field_{TYPE}
 
-  pure logical function pbuf_do_deallocate(hdr, persistence, col_type) result(rval)
+  logical function pbuf_do_deallocate(hdr, persistence, col_type) result(rval)
     type(physics_buffer_hdr), pointer            :: hdr
     character(len=*),                 intent(in) :: persistence
     integer,                          intent(in) :: col_type
+    integer :: ichar
+    integer(c_int64_t), target :: persistence_ascii(32)
+    integer(c_int64_t) :: rval_c
+
+    interface
+       function pbuf_do_deallocate_codon(persistence_len_c, persistence_ascii_p, hdr_is_copy_c, &
+            global_allocate_all_c, hdr_persistence_c, persistence_physpkg_c) result(rval_out_c) &
+            bind(c, name="pbuf_do_deallocate_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: persistence_len_c
+         type(c_ptr), value :: persistence_ascii_p
+         integer(c_int64_t), value :: hdr_is_copy_c, global_allocate_all_c
+         integer(c_int64_t), value :: hdr_persistence_c, persistence_physpkg_c
+         integer(c_int64_t) :: rval_out_c
+       end function pbuf_do_deallocate_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('PBUF_DO_DEALLOCATE_IMPL')) then
+      persistence_ascii(:) = 32_c_int64_t
+      do ichar = 1, min(len(persistence), size(persistence_ascii))
+        persistence_ascii(ichar) = int(iachar(persistence(ichar:ichar)), c_int64_t)
+      end do
+      rval_c = pbuf_do_deallocate_codon(int(min(len(persistence), size(persistence_ascii)), c_int64_t), &
+           c_loc(persistence_ascii(1)), &
+           merge(1_c_int64_t, 0_c_int64_t, hdr%is_copy(col_type)), &
+           merge(1_c_int64_t, 0_c_int64_t, global_allocate_all), int(hdr%persistence, c_int64_t), &
+           int(persistence_physpkg, c_int64_t))
+      rval = rval_c /= 0_c_int64_t
+      call physics_buffer_log_direct(pbuf_do_deallocate_logged, 'pbuf_do_deallocate direct = codon')
+      return
+    end if
 
     if (persistence .eq. 'physpkg') then
       if (hdr%is_copy(col_type)) then
@@ -480,6 +773,22 @@ CONTAINS
     character(len=*) :: persistence
 
     integer :: i, j, c
+    integer(c_int64_t) :: dealloc_c
+
+    interface
+       function pbuf_deallocate_codon(currentpbufflds_c, ngrid_types_c) result(dealloc_out_c) &
+            bind(c, name="pbuf_deallocate_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: currentpbufflds_c, ngrid_types_c
+         integer(c_int64_t) :: dealloc_out_c
+       end function pbuf_deallocate_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('PBUF_DEALLOCATE_IMPL')) then
+      dealloc_c = pbuf_deallocate_codon(int(currentpbufflds, c_int64_t), int(ngrid_types, c_int64_t))
+      if (dealloc_c < 0_c_int64_t) call endrun('pbuf_deallocate: invalid pbuf dimensions')
+      call physics_buffer_log_direct(pbuf_deallocate_logged, 'pbuf_deallocate direct = codon')
+    end if
 
     do i = 1, currentpbufflds
       do j = 1, ngrid_types
@@ -514,6 +823,78 @@ CONTAINS
 
     ! Local Variables
     logical                                       :: buf_found
+    integer                                       :: i, ichar
+    integer(c_int64_t), target                    :: name_ascii(256), hdr_ascii(16,1000)
+    integer(c_int64_t)                            :: target_index_c
+    integer                                       :: name_len_use
+
+    interface
+       function find_pbuf_header_codon(name_len_c, field_len_c, field_count_c, name_ascii_p, hdr_ascii_p) &
+            result(index_out_c) bind(c, name="find_pbuf_header_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: name_len_c, field_len_c, field_count_c
+         type(c_ptr), value :: name_ascii_p, hdr_ascii_p
+         integer(c_int64_t) :: index_out_c
+       end function find_pbuf_header_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('FIND_PBUF_HEADER_IMPL')) then
+      if (currentpbufflds > size(hdr_ascii, 2)) call endrun('find_pbuf_header: too many pbuf fields')
+      name_len_use = min(len(name), size(name_ascii))
+      name_ascii(:) = 32_c_int64_t
+      do ichar = 1, name_len_use
+        name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+      end do
+
+      if(.not. associated(hdrbuffertop)) then
+        hdr_ascii(:,:) = 32_c_int64_t
+        target_index_c = find_pbuf_header_codon(int(name_len_use, c_int64_t), 16_c_int64_t, &
+             0_c_int64_t, c_loc(name_ascii(1)), c_loc(hdr_ascii(1,1)))
+        if (target_index_c /= 1_c_int64_t) call endrun('find_pbuf_header: invalid codon first index')
+        allocate(hdrbuffertop)
+        currentpbufflds = 1
+        hdrbuffertop%name = name
+        bufptr => hdrbuffertop
+        index = 1
+        call physics_buffer_log_direct(find_pbuf_header_logged, 'find_pbuf_header direct = codon')
+        return
+      end if
+
+      hdr_ascii(:,:) = 32_c_int64_t
+      bufptr => hdrbuffertop
+      do i = 1, currentpbufflds
+        do ichar = 1, 16
+          hdr_ascii(ichar,i) = int(iachar(bufptr%name(ichar:ichar)), c_int64_t)
+        end do
+        if (i < currentpbufflds) bufptr => bufptr%nexthdr
+      end do
+
+      target_index_c = find_pbuf_header_codon(int(name_len_use, c_int64_t), 16_c_int64_t, &
+           int(currentpbufflds, c_int64_t), c_loc(name_ascii(1)), c_loc(hdr_ascii(1,1)))
+
+      bufptr => hdrbuffertop
+      if (target_index_c <= int(currentpbufflds, c_int64_t)) then
+        index = int(target_index_c)
+        do i = 2, index
+          bufptr => bufptr%nexthdr
+        end do
+      else
+        if (target_index_c /= int(currentpbufflds + 1, c_int64_t)) then
+          call endrun("find_pbuf_header: currentpbufflds indexing off")
+        end if
+        do i = 2, currentpbufflds
+          bufptr => bufptr%nexthdr
+        end do
+        currentpbufflds = currentpbufflds + 1
+        index = currentpbufflds
+        allocate(bufptr%nexthdr)
+        bufptr => bufptr%nexthdr
+        bufptr%name = trim(name)
+      end if
+
+      call physics_buffer_log_direct(find_pbuf_header_logged, 'find_pbuf_header direct = codon')
+      return
+    end if
 
     if(.not. associated(hdrbuffertop)) then
       ! This is the very first pbuf, allocate and set
@@ -574,12 +955,104 @@ CONTAINS
     type(physics_buffer_hdr), pointer :: bufptr
     integer                           :: dimcnt, col_type_use
     character(len=128)                :: errmsg
+    integer                           :: ichar, persistence_len
+    integer(c_int64_t), target        :: persistence_ascii(32), dimsizes_c(6)
+    integer(c_int64_t), target        :: current_dims_c(6,ngrid_types), out_dims_c(6,ngrid_types)
+    integer(c_int64_t), target        :: out_persistence_c(1), out_dtype_c(1), out_col_type_c(1)
+    integer(c_int64_t)                :: dtype_c, col_type_c, pbuf_add_c, err_c, dimcnt_c
+
+    interface
+       function pbuf_register_field_int_codon(persistence_present_c, persistence_len_c, persistence_ascii_p, &
+            dtype_present_c, dtype_value_c, dims_present_c, dimcnt_c, dimsizes_p, col_type_present_c, &
+            col_type_value_c, pbuf_add_present_c, pbuf_add_value_c, pcols_c, psubcols_c, col_type_grid_c, &
+            col_type_subcol_c, persistence_global_c, persistence_physpkg_c, current_persistence_c, &
+            current_dtype_c, current_dims_p, out_persistence_p, out_dtype_p, out_dims_p, out_col_type_p) &
+            result(err_out_c) bind(c, name="pbuf_register_field_int_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: persistence_present_c, persistence_len_c
+         type(c_ptr), value :: persistence_ascii_p
+         integer(c_int64_t), value :: dtype_present_c, dtype_value_c
+         integer(c_int64_t), value :: dims_present_c, dimcnt_c
+         type(c_ptr), value :: dimsizes_p
+         integer(c_int64_t), value :: col_type_present_c, col_type_value_c
+         integer(c_int64_t), value :: pbuf_add_present_c, pbuf_add_value_c
+         integer(c_int64_t), value :: pcols_c, psubcols_c, col_type_grid_c, col_type_subcol_c
+         integer(c_int64_t), value :: persistence_global_c, persistence_physpkg_c
+         integer(c_int64_t), value :: current_persistence_c, current_dtype_c
+         type(c_ptr), value :: current_dims_p, out_persistence_p, out_dtype_p, out_dims_p, out_col_type_p
+         integer(c_int64_t) :: err_out_c
+       end function pbuf_register_field_int_codon
+    end interface
 
     if(buffer_initialized) then
       call endrun('Attempt to register pbuf field after buffer initialized')
     end if
 
     call find_pbuf_header(name, index, bufptr)
+
+    if (.not. physics_buffer_use_native('PBUF_REGISTER_FIELD_INT_IMPL')) then
+      persistence_len = 0
+      if (present(persistence)) persistence_len = min(len(persistence), size(persistence_ascii))
+      persistence_ascii(:) = 32_c_int64_t
+      if (present(persistence)) then
+        do ichar = 1, persistence_len
+          persistence_ascii(ichar) = int(iachar(persistence(ichar:ichar)), c_int64_t)
+        end do
+      end if
+
+      dimsizes_c(:) = 0_c_int64_t
+      if (present(dimsizes)) then
+        dimcnt_c = int(size(dimsizes), c_int64_t)
+        do ichar = 1, min(size(dimsizes), size(dimsizes_c))
+          dimsizes_c(ichar) = int(dimsizes(ichar), c_int64_t)
+        end do
+      else
+        dimcnt_c = 0_c_int64_t
+      end if
+
+      dtype_c = 0_c_int64_t
+      if (present(dtype)) dtype_c = int(dtype, c_int64_t)
+      col_type_c = 0_c_int64_t
+      if (present(col_type)) col_type_c = int(col_type, c_int64_t)
+      pbuf_add_c = 0_c_int64_t
+      if (present(pbuf_add)) pbuf_add_c = merge(1_c_int64_t, 0_c_int64_t, pbuf_add)
+
+      current_dims_c(:,:) = int(bufptr%dimsizes(:,:), c_int64_t)
+      err_c = pbuf_register_field_int_codon(merge(1_c_int64_t, 0_c_int64_t, present(persistence)), &
+           int(persistence_len, c_int64_t), c_loc(persistence_ascii(1)), &
+           merge(1_c_int64_t, 0_c_int64_t, present(dtype)), dtype_c, &
+           merge(1_c_int64_t, 0_c_int64_t, present(dimsizes)), dimcnt_c, c_loc(dimsizes_c(1)), &
+           merge(1_c_int64_t, 0_c_int64_t, present(col_type)), col_type_c, &
+           merge(1_c_int64_t, 0_c_int64_t, present(pbuf_add)), pbuf_add_c, &
+           int(pcols, c_int64_t), int(psubcols, c_int64_t), int(col_type_grid, c_int64_t), &
+           int(col_type_subcol, c_int64_t), int(persistence_global, c_int64_t), &
+           int(persistence_physpkg, c_int64_t), int(bufptr%persistence, c_int64_t), &
+           int(bufptr%dtype, c_int64_t), c_loc(current_dims_c(1,1)), c_loc(out_persistence_c(1)), &
+           c_loc(out_dtype_c(1)), c_loc(out_dims_c(1,1)), c_loc(out_col_type_c(1)))
+
+      select case (err_c)
+      case (1_c_int64_t)
+        call endrun('pbuf_register_field: Attempt to exceed maximum of 5 dimensions for '//trim(name))
+      case (2_c_int64_t)
+        write(errmsg, *) 'pbuf_add_field: trying to add field with no dimensions'
+        call endrun(errmsg)
+      case (3_c_int64_t)
+        write(errmsg, *) 'pbuf_add_field: trying to add field with no type'
+        call endrun(errmsg)
+      case (4_c_int64_t)
+        write(errmsg, *) 'pbuf_add_field: trying to add field with bad persistence'
+        call endrun(errmsg)
+      end select
+
+      bufptr%persistence = int(out_persistence_c(1))
+      bufptr%dtype = int(out_dtype_c(1))
+      bufptr%dimsizes(:,:) = int(out_dims_c(:,:))
+      if (present(pbuf_add)) then
+        if (pbuf_add) bufptr%added = .true.
+      end if
+      call physics_buffer_log_direct(pbuf_register_field_int_logged, 'pbuf_register_field_int direct = codon')
+      return
+    end if
 
     if (present(persistence)) then
       if(persistence .eq. "global") then
@@ -672,12 +1145,29 @@ CONTAINS
     ! Local Variables
     type(physics_buffer_hdr), pointer :: bufptr
     integer                           :: col_type_use
+    integer(c_int64_t)                :: col_type_c, col_type_in_c
+
+    interface
+       function pbuf_add_field_codon(col_type_present_c, col_type_value_c, col_type_grid_c) result(col_type_out_c) &
+            bind(c, name="pbuf_add_field_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: col_type_present_c, col_type_value_c, col_type_grid_c
+         integer(c_int64_t) :: col_type_out_c
+       end function pbuf_add_field_codon
+    end interface
 
     if(buffer_initialized) then
       call endrun('Attempt to add pbuf field after buffer initialized')
     end if
 
-    if (present(col_type)) then
+    if (.not. physics_buffer_use_native('PBUF_ADD_FIELD_IMPL')) then
+      col_type_in_c = 0_c_int64_t
+      if (present(col_type)) col_type_in_c = int(col_type, c_int64_t)
+      col_type_c = pbuf_add_field_codon(merge(1_c_int64_t, 0_c_int64_t, present(col_type)), &
+           col_type_in_c, int(col_type_grid, c_int64_t))
+      col_type_use = int(col_type_c)
+      call physics_buffer_log_direct(pbuf_add_field_logged, 'pbuf_add_field_ direct = codon')
+    else if (present(col_type)) then
       col_type_use = col_type
     else
       col_type_use = col_type_grid
@@ -741,19 +1231,57 @@ CONTAINS
     character(len=*), intent(in)     :: name
     integer, intent(inout), optional :: errcode
     integer :: index
-    integer :: i
+    integer :: i, ichar
     type(physics_buffer_hdr), pointer :: bufptr
+    integer(c_int64_t), target :: name_ascii(max(1, len(name)))
+    integer(c_int64_t), allocatable, target :: hdr_ascii(:,:)
+    integer(c_int64_t) :: index_c
+
+    interface
+       function pbuf_get_index_codon(name_len_c, field_len_c, field_count_c, name_ascii_p, hdr_ascii_p) result(index_c) &
+            bind(c, name="pbuf_get_index_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: name_len_c, field_len_c, field_count_c
+         type(c_ptr), value :: name_ascii_p, hdr_ascii_p
+         integer(c_int64_t) :: index_c
+       end function pbuf_get_index_codon
+    end interface
 
 
     bufptr=>hdrbuffertop
     index = -1
-    do i=1,currentpbufflds
-       if(bufptr%name .eq. name) then
-          index=i
-          exit
+    if (physics_buffer_use_codon('PBUF_GET_INDEX_IMPL')) then
+       allocate(hdr_ascii(16, max(1, currentpbufflds)))
+       name_ascii(:) = 32_c_int64_t
+       do ichar = 1, len(name)
+          name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+       end do
+       hdr_ascii(:,:) = 32_c_int64_t
+       do i = 1, currentpbufflds
+          do ichar = 1, 16
+             hdr_ascii(ichar,i) = int(iachar(bufptr%name(ichar:ichar)), c_int64_t)
+          end do
+          bufptr=>bufptr%nexthdr
+       end do
+
+       index_c = pbuf_get_index_codon(int(len(name), c_int64_t), 16_c_int64_t, &
+            int(currentpbufflds, c_int64_t), c_loc(name_ascii(1)), c_loc(hdr_ascii(1,1)))
+       index = int(index_c)
+       deallocate(hdr_ascii)
+       if (index > 0 .and. masterproc .and. .not. pbuf_get_index_logged) then
+          write(iulog,'(A)') 'pbuf_get_index direct = codon'
+          call flush(iulog)
+          pbuf_get_index_logged = .true.
        end if
-       bufptr=>bufptr%nexthdr
-    end do
+    else
+       do i=1,currentpbufflds
+          if(bufptr%name .eq. name) then
+             index=i
+             exit
+          end if
+          bufptr=>bufptr%nexthdr
+       end do
+    end if
 
     if (present(errcode)) then
         errcode = index 
@@ -793,33 +1321,67 @@ CONTAINS
     integer                           :: col_type_use
     integer, allocatable              :: kount_grid(:) ! For use in copy_if_needed
     logical                           :: subset
+    integer                           :: state_i
+    integer(c_int64_t)                :: state_c, col_type_in_c
+
+    interface
+       function get_pbuf1d_field_by_index_codon(index_c, pbuf_size_c, col_type_present_c, col_type_value_c, &
+            col_type_grid_c, start_present_c, kount_present_c, errcode_present_c) result(state_out_c) &
+            bind(c, name="get_pbuf1d_field_by_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, col_type_present_c, col_type_value_c
+         integer(c_int64_t), value :: col_type_grid_c, start_present_c, kount_present_c, errcode_present_c
+         integer(c_int64_t) :: state_out_c
+       end function get_pbuf1d_field_by_index_codon
+    end interface
 
     ! Copy the generic type to one compatable with the request
-    if(index<1 .or. index>size(pbuf)) then
-      print *,__FILE__,__LINE__,index
-      call endrun('index out of range')
-    end if
-
-    ! Default col_type is grid columns
-    if (present(col_type)) then
-      col_type_use = col_type
+    if (.not. physics_buffer_use_native('GET_PBUF1D_FIELD_BY_INDEX_IMPL')) then
+      col_type_in_c = 0_c_int64_t
+      if (present(col_type)) col_type_in_c = int(col_type, c_int64_t)
+      state_c = get_pbuf1d_field_by_index_codon(int(index, c_int64_t), int(size(pbuf), c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, present(col_type)), col_type_in_c, &
+           int(col_type_grid, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, present(start)), &
+           merge(1_c_int64_t, 0_c_int64_t, present(kount)), merge(1_c_int64_t, 0_c_int64_t, present(errcode)))
+      if (state_c == -1_c_int64_t) then
+        print *,__FILE__,__LINE__,index
+        call endrun('index out of range')
+      end if
+      if (state_c == -2_c_int64_t) then
+        call endrun('pbuf_get_field: Both start and kount must be present for '//trim(pbuf(index)%hdr%name))
+      end if
+      state_i = int(state_c)
+      col_type_use = mod(state_i, 100)
+      subset = mod(state_i / 100, 10) == 1
+      if (present(errcode)) errcode = 0
+      call physics_buffer_log_direct(get_pbuf1d_field_by_index_logged, 'get_pbuf1d_field_by_index_ direct = codon')
     else
-      col_type_use = col_type_grid
-    end if
+      if(index<1 .or. index>size(pbuf)) then
+        print *,__FILE__,__LINE__,index
+        call endrun('index out of range')
+      end if
 
-    ! If there is an errcode, start with an OK status (zero)
-    if (present(errcode)) then
-      errcode = 0
-    end if
+      ! Default col_type is grid columns
+      if (present(col_type)) then
+        col_type_use = col_type
+      else
+        col_type_use = col_type_grid
+      end if
 
-    ! Check whether subset of data requested (default is false)
-    subset = .false.
-    if (present(start) .and. present(kount)) subset = .true.
+      ! If there is an errcode, start with an OK status (zero)
+      if (present(errcode)) then
+        errcode = 0
+      end if
 
-    ! Check for ill-formed request
-    if ( (present(start) .and. .not. present(kount)) .or.        &
-         (.not. present(start) .and. present(kount)) ) then
-      call endrun('pbuf_get_field: Both start and kount must be present for '//trim(pbuf(index)%hdr%name))
+      ! Check whether subset of data requested (default is false)
+      subset = .false.
+      if (present(start) .and. present(kount)) subset = .true.
+
+      ! Check for ill-formed request
+      if ( (present(start) .and. .not. present(kount)) .or.        &
+           (.not. present(start) .and. present(kount)) ) then
+        call endrun('pbuf_get_field: Both start and kount must be present for '//trim(pbuf(index)%hdr%name))
+      end if
     end if
 
     ! See if we need to copy the grid field to subcolumns
@@ -939,6 +1501,34 @@ CONTAINS
     integer, intent(out), optional :: errcode
 
     {VTYPE}, pointer :: field{DIMSTR}
+    integer(c_int64_t) :: state_c
+    integer :: col_type_c_use
+
+    interface
+       function get_pbuf2d_field_by_index_codon(index_c, pbuf_size_c, start_present_c, &
+            kount_present_c, col_type_present_c, col_type_value_c, col_type_grid_c, &
+            errcode_present_c) result(state_out_c) bind(c, name="get_pbuf2d_field_by_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, start_present_c
+         integer(c_int64_t), value :: kount_present_c, col_type_present_c, col_type_value_c
+         integer(c_int64_t), value :: col_type_grid_c, errcode_present_c
+         integer(c_int64_t) :: state_out_c
+       end function get_pbuf2d_field_by_index_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('GET_PBUF2D_FIELD_BY_INDEX_IMPL')) then
+       col_type_c_use = col_type_grid
+       if (present(col_type)) col_type_c_use = col_type
+       state_c = get_pbuf2d_field_by_index_codon(int(index, c_int64_t), int(size(pbuf2d, 1), c_int64_t), &
+            int(merge(1, 0, present(start)), c_int64_t), int(merge(1, 0, present(kount)), c_int64_t), &
+            int(merge(1, 0, present(col_type)), c_int64_t), &
+            int(col_type_c_use, c_int64_t), &
+            int(col_type_grid, c_int64_t), int(merge(1, 0, present(errcode)), c_int64_t))
+       if (state_c == -10_c_int64_t) call endrun('pbuf_get_field: index out of range')
+       if (state_c == -20_c_int64_t) call endrun('pbuf_get_field: Both start and kount must be present for '// &
+            trim(pbuf2d(index,begchunk)%hdr%name))
+       call physics_buffer_log_direct(get_pbuf2d_field_by_index_logged, 'get_pbuf2d_field_by_index_ direct = codon')
+    end if
 
     ! Check for ill-formed request
     if ( (present(start) .and. .not. present(kount)) .or.&
@@ -975,6 +1565,29 @@ CONTAINS
     {VTYPE}                            :: fillvalue
     character(len=128)                 :: errmsg
     integer,                   pointer :: dimsizes(:)
+    integer(c_int64_t)                 :: state_c
+
+    interface
+       function get_pbuf2d_field_restart_codon(index_c, pbuf_size_c, col_type_c, &
+            col_type_grid_c, col_type_subcol_c) result(state_out_c) &
+            bind(c, name="get_pbuf2d_field_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, col_type_c
+         integer(c_int64_t), value :: col_type_grid_c, col_type_subcol_c
+         integer(c_int64_t) :: state_out_c
+       end function get_pbuf2d_field_restart_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('GET_PBUF2D_FIELD_RESTART_IMPL')) then
+       state_c = get_pbuf2d_field_restart_codon(int(index, c_int64_t), int(size(pbuf2d, 1), c_int64_t), &
+            int(col_type, c_int64_t), int(col_type_grid, c_int64_t), int(col_type_subcol, c_int64_t))
+       if (state_c == -10_c_int64_t) call endrun('get_pbuf2d_field_restart_{TYPE}: index out of range')
+       if (state_c == -20_c_int64_t) then
+          write(errmsg, *) "get_pbuf2d_field_restart_{TYPE}: Bad col_type:",col_type
+          call endrun(errmsg)
+       end if
+       call physics_buffer_log_direct(get_pbuf2d_field_restart_logged, 'get_pbuf2d_field_restart_ direct = codon')
+    end if
 
 #if ({ITYPE}==TYPEREAL)
     fillvalue = 0._r4
@@ -1015,6 +1628,25 @@ CONTAINS
     integer,intent(in)  ,optional      :: col_type
 
     integer :: c
+    integer(c_int64_t) :: state_c
+
+    interface
+       function set_pbuf2d_field_const_by_index_codon(index_c, pbuf_size_c, begchunk_c, endchunk_c) &
+            result(state_out_c) bind(c, name="set_pbuf2d_field_const_by_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, begchunk_c, endchunk_c
+         integer(c_int64_t) :: state_out_c
+       end function set_pbuf2d_field_const_by_index_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('SET_PBUF2D_FIELD_CONST_BY_INDEX_IMPL')) then
+       state_c = set_pbuf2d_field_const_by_index_codon(int(index, c_int64_t), int(size(pbuf2d, 1), c_int64_t), &
+            int(begchunk, c_int64_t), int(endchunk, c_int64_t))
+       if (state_c == -10_c_int64_t) call endrun('pbuf_set_field: index out of range')
+       if (state_c == -20_c_int64_t) call endrun('pbuf_set_field: invalid chunk range')
+       call physics_buffer_log_direct(set_pbuf2d_field_const_by_index_logged, &
+            'set_pbuf2d_field_const_by_index_ direct = codon')
+    end if
     
     do c=begchunk,endchunk
        if(present(col_type)) then
@@ -1039,6 +1671,22 @@ CONTAINS
    
     integer :: col_type_use
     logical :: subset
+    integer :: grid_alloc_c, subcol_alloc_c
+    integer(c_int64_t) :: state_c
+
+    interface
+       function set_pbuf1d_field_const_by_index_codon(index_c, pbuf_size_c, start_present_c, &
+            kount_present_c, col_type_present_c, col_type_value_c, col_type_grid_c, &
+            col_type_subcol_c, grid_allocated_c, subcol_allocated_c) result(state_out_c) &
+            bind(c, name="set_pbuf1d_field_const_by_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, start_present_c
+         integer(c_int64_t), value :: kount_present_c, col_type_present_c, col_type_value_c
+         integer(c_int64_t), value :: col_type_grid_c, col_type_subcol_c
+         integer(c_int64_t), value :: grid_allocated_c, subcol_allocated_c
+         integer(c_int64_t) :: state_out_c
+       end function set_pbuf1d_field_const_by_index_codon
+    end interface
 
     ! Default col_type is grid
     if (present(col_type)) then
@@ -1050,6 +1698,31 @@ CONTAINS
     ! Check whether subset of data requested (default is false)
     subset = .false.
     if (present(start) .and. present(kount)) subset = .true.
+
+    if (.not. physics_buffer_use_native('SET_PBUF1D_FIELD_CONST_BY_INDEX_IMPL')) then
+       grid_alloc_c = 0
+       subcol_alloc_c = 0
+       if (index >= 1 .and. index <= size(pbuf)) then
+          if (buffer_field_is_alloc(pbuf(index)%bfg(col_type_grid))) grid_alloc_c = 1
+          if (buffer_field_is_alloc(pbuf(index)%bfg(col_type_subcol))) subcol_alloc_c = 1
+       end if
+       state_c = set_pbuf1d_field_const_by_index_codon(int(index, c_int64_t), int(size(pbuf), c_int64_t), &
+            int(merge(1, 0, present(start)), c_int64_t), int(merge(1, 0, present(kount)), c_int64_t), &
+            int(merge(1, 0, present(col_type)), c_int64_t), int(col_type_use, c_int64_t), &
+            int(col_type_grid, c_int64_t), int(col_type_subcol, c_int64_t), &
+            int(grid_alloc_c, c_int64_t), int(subcol_alloc_c, c_int64_t))
+       if (state_c == -10_c_int64_t) call endrun('pbuf_set_field: index out of range')
+       if (state_c == -20_c_int64_t) call endrun('pbuf_set_field: Both start and kount must be present for '// &
+            trim(pbuf(index)%hdr%name))
+       if (state_c == -30_c_int64_t) call endrun('pbuf_set_field: sub-column field not allocated for '// &
+            trim(pbuf(index)%hdr%name))
+       if (state_c == -40_c_int64_t) call endrun('pbuf_set_field: grid field not allocated for '// &
+            trim(pbuf(index)%hdr%name))
+       if (state_c == -50_c_int64_t) call endrun('pbuf_set_field: Trying to set '//trim(pbuf(index)%hdr%name)//&
+            ' but col_type is neither col_type_grid nor col_type_subcol')
+       call physics_buffer_log_direct(set_pbuf1d_field_const_by_index_logged, &
+            'set_pbuf1d_field_const_by_index_ direct = codon')
+    end if
 
     ! Check for ill-formed request
     if ( (present(start) .and. .not. present(kount)) .or.&
@@ -1111,7 +1784,19 @@ CONTAINS
     logical :: subset
 
     integer :: c
+    integer(c_int64_t) :: state_c
     {VTYPE}, pointer :: fld{DIMSTR}
+
+    interface
+       function set_pbuf2d_field_by_index_codon(index_c, pbuf_size_c, begchunk_c, endchunk_c, &
+            start_present_c, kount_present_c) result(state_out_c) &
+            bind(c, name="set_pbuf2d_field_by_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, begchunk_c, endchunk_c
+         integer(c_int64_t), value :: start_present_c, kount_present_c
+         integer(c_int64_t) :: state_out_c
+       end function set_pbuf2d_field_by_index_codon
+    end interface
 
 
 #if ({DIMS}==1)
@@ -1129,6 +1814,18 @@ CONTAINS
     ! Check whether subset of data requested (default is false)
     subset = .false.
     if (present(start) .and. present(kount)) subset = .true.
+
+    if (.not. physics_buffer_use_native('SET_PBUF2D_FIELD_BY_INDEX_IMPL')) then
+       state_c = set_pbuf2d_field_by_index_codon(int(index, c_int64_t), int(size(pbuf2d, 1), c_int64_t), &
+            int(begchunk, c_int64_t), int(endchunk, c_int64_t), &
+            int(merge(1, 0, present(start)), c_int64_t), int(merge(1, 0, present(kount)), c_int64_t))
+       if (state_c == -10_c_int64_t) call endrun('pbuf_set_field: index out of range')
+       if (state_c == -20_c_int64_t) call endrun('pbuf_set_field: invalid chunk range')
+       if (state_c == -30_c_int64_t) call endrun('pbuf_set_field: Both start and kount must be present for '// &
+            trim(pbuf2d(index,begchunk)%hdr%name))
+       call physics_buffer_log_direct(set_pbuf2d_field_by_index_logged, &
+            'set_pbuf2d_field_by_index_ direct = codon')
+    end if
 
     ! Check for ill-formed request
     if ( (present(start) .and. .not. present(kount)) .or.&
@@ -1156,21 +1853,44 @@ CONTAINS
     ! module private helper function
     {VTYPE}, pointer :: fld{DIMSTR}
     integer, intent(in) :: c
+    integer(c_int64_t) :: state_c
 
 #if ({DIMS}==1)
     {VTYPE},pointer :: field(:,:)
-    fld => field(:,c)
 #elif ({DIMS}==2)
     {VTYPE},pointer :: field(:,:,:)
-    fld => field(:,:,c)
 #elif ({DIMS}==3)
     {VTYPE},pointer :: field(:,:,:,:)
-    fld => field(:,:,:,c)
 #elif ({DIMS}==4)
     {VTYPE},pointer :: field(:,:,:,:,:)
-    fld => field(:,:,:,:,c)
 #elif ({DIMS}==5)
     {VTYPE},pointer :: field(:,:,:,:,:,:)
+#endif
+
+    interface
+       function get_field_chunk_codon(c_in_c, begchunk_c, endchunk_c) result(c_out_c) &
+            bind(c, name="get_field_chunk_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: c_in_c, begchunk_c, endchunk_c
+         integer(c_int64_t) :: c_out_c
+       end function get_field_chunk_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('GET_FIELD_CHUNK_IMPL')) then
+       state_c = get_field_chunk_codon(int(c, c_int64_t), int(begchunk, c_int64_t), int(endchunk, c_int64_t))
+       if (state_c < 0_c_int64_t) call endrun('get_field_chunk_: chunk out of range')
+       call physics_buffer_log_direct(get_field_chunk_logged, 'get_field_chunk_ direct = codon')
+    end if
+
+#if ({DIMS}==1)
+    fld => field(:,c)
+#elif ({DIMS}==2)
+    fld => field(:,:,c)
+#elif ({DIMS}==3)
+    fld => field(:,:,:,c)
+#elif ({DIMS}==4)
+    fld => field(:,:,:,:,c)
+#elif ({DIMS}==5)
     fld => field(:,:,:,:,:,c)
 #endif    
 
@@ -1190,6 +1910,22 @@ CONTAINS
 
     integer :: col_type_use
     logical :: subset
+    integer :: grid_alloc_c, subcol_alloc_c
+    integer(c_int64_t) :: state_c
+
+    interface
+       function set_pbuf1d_field_by_index_codon(index_c, pbuf_size_c, start_present_c, &
+            kount_present_c, col_type_present_c, col_type_value_c, col_type_grid_c, &
+            col_type_subcol_c, grid_allocated_c, subcol_allocated_c) result(state_out_c) &
+            bind(c, name="set_pbuf1d_field_by_index_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: index_c, pbuf_size_c, start_present_c
+         integer(c_int64_t), value :: kount_present_c, col_type_present_c, col_type_value_c
+         integer(c_int64_t), value :: col_type_grid_c, col_type_subcol_c
+         integer(c_int64_t), value :: grid_allocated_c, subcol_allocated_c
+         integer(c_int64_t) :: state_out_c
+       end function set_pbuf1d_field_by_index_codon
+    end interface
 
     ! Default col_type is grid only
     if (present(col_type)) then
@@ -1201,6 +1937,31 @@ CONTAINS
     ! Check whether subset of data requested (default is false)
     subset = .false.
     if (present(start) .and. present(kount)) subset = .true.
+
+    if (.not. physics_buffer_use_native('SET_PBUF1D_FIELD_BY_INDEX_IMPL')) then
+       grid_alloc_c = 0
+       subcol_alloc_c = 0
+       if (index >= 1 .and. index <= size(pbuf)) then
+          if (buffer_field_is_alloc(pbuf(index)%bfg(col_type_grid))) grid_alloc_c = 1
+          if (buffer_field_is_alloc(pbuf(index)%bfg(col_type_subcol))) subcol_alloc_c = 1
+       end if
+       state_c = set_pbuf1d_field_by_index_codon(int(index, c_int64_t), int(size(pbuf), c_int64_t), &
+            int(merge(1, 0, present(start)), c_int64_t), int(merge(1, 0, present(kount)), c_int64_t), &
+            int(merge(1, 0, present(col_type)), c_int64_t), int(col_type_use, c_int64_t), &
+            int(col_type_grid, c_int64_t), int(col_type_subcol, c_int64_t), &
+            int(grid_alloc_c, c_int64_t), int(subcol_alloc_c, c_int64_t))
+       if (state_c == -10_c_int64_t) call endrun('pbuf_set_field: index out of range')
+       if (state_c == -20_c_int64_t) call endrun('pbuf_set_field: Both start and kount must be present for '// &
+            trim(pbuf(index)%hdr%name))
+       if (state_c == -30_c_int64_t) call endrun('pbuf_set_field: sub-column field not allocated for '// &
+            trim(pbuf(index)%hdr%name))
+       if (state_c == -40_c_int64_t) call endrun('pbuf_set_field: grid field not allocated for '// &
+            trim(pbuf(index)%hdr%name))
+       if (state_c == -50_c_int64_t) call endrun('pbuf_set_field: Trying to set '//trim(pbuf(index)%hdr%name)//&
+                    ' but col_type is neither col_type_grid nor col_type_subcol ')
+       call physics_buffer_log_direct(set_pbuf1d_field_by_index_logged, &
+            'set_pbuf1d_field_by_index_ direct = codon')
+    end if
 
     ! Check for ill-formed request
     if ( (present(start) .and. .not. present(kount)) .or.&
@@ -1252,6 +2013,32 @@ CONTAINS
 
     integer, intent(in) :: pbuftype
     integer :: piotype
+    integer(c_int64_t) :: out_c
+
+    interface
+       function pbuftype2piotype_codon(pbuftype_c, type_double_c, type_int_c, type_real_c, &
+            pio_double_c, pio_int_c, pio_real_c) result(out_c) bind(c, name="pbuftype2piotype_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: pbuftype_c, type_double_c, type_int_c, type_real_c
+         integer(c_int64_t), value :: pio_double_c, pio_int_c, pio_real_c
+         integer(c_int64_t) :: out_c
+       end function pbuftype2piotype_codon
+    end interface
+
+    if (.not. physics_buffer_use_native('PBUFTYPE2PIOTYPE_IMPL')) then
+       out_c = pbuftype2piotype_codon(int(pbuftype, c_int64_t), int(TYPEDOUBLE, c_int64_t), &
+            int(TYPEINT, c_int64_t), int(TYPEREAL, c_int64_t), int(pio_double, c_int64_t), &
+            int(pio_int, c_int64_t), int(pio_real, c_int64_t))
+       if (out_c /= -999999_c_int64_t) then
+          piotype = int(out_c)
+          if (masterproc .and. .not. pbuftype2piotype_logged) then
+             write(iulog,'(A)') 'pbuftype2piotype direct = codon'
+             call flush(iulog)
+             pbuftype2piotype_logged = .true.
+          end if
+          return
+       end if
+    end if
 
     select case(pbuftype)
     case (TYPEDOUBLE)
@@ -1288,20 +2075,41 @@ CONTAINS
     integer                                          :: ierr, i, grid_select
     integer                                          :: adimid(3), hdimcnt, dimcnt
     integer                                          :: mdimsize, piodtype
+    integer                                          :: has_lonlat_c
+    integer(c_int64_t)                               :: state_c
 
     character(len=10)                                :: dimname
     character(len=24)                                :: varname
+
+    interface
+       function pbuf_init_restart_codon(currentpbufflds_c, ngrid_types_c, has_lonlat_c) &
+            result(hdimcnt_c) bind(c, name="pbuf_init_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: currentpbufflds_c, ngrid_types_c, has_lonlat_c
+         integer(c_int64_t) :: hdimcnt_c
+       end function pbuf_init_restart_codon
+    end interface
 
     call pio_seterrorhandling(File, pio_bcast_error)
     ierr = pio_inq_dimid(File, 'lon', adimid(1))
     if(ierr==PIO_NOERR) then
       ierr = pio_inq_dimid(File, 'lat', adimid(2))
       hdimcnt = 2
+      has_lonlat_c = 1
     else
       ierr = pio_inq_dimid(File, 'ncol', adimid(1))
       hdimcnt = 1
+      has_lonlat_c = 0
     end if
     call pio_seterrorhandling(File, pio_internal_error)
+
+    if (.not. physics_buffer_use_native('PBUF_INIT_RESTART_IMPL')) then
+       state_c = pbuf_init_restart_codon(int(currentpbufflds, c_int64_t), int(ngrid_types, c_int64_t), &
+            int(has_lonlat_c, c_int64_t))
+       if (state_c < 0_c_int64_t) call endrun('pbuf_init_restart: invalid pbuf state')
+       hdimcnt = int(state_c)
+       call physics_buffer_log_direct(pbuf_init_restart_logged, 'pbuf_init_restart direct = codon')
+    end if
 
     do i = 1, currentpbufflds
       pbuf => pbuf2d(i,begchunk)
@@ -1351,8 +2159,24 @@ CONTAINS
     type(physics_buffer_desc), pointer                :: pbufhdr(:)
 
     integer                                           :: index, dtype, ierr
+    integer(c_int64_t)                                :: state_c
+
+    interface
+       function pbuf_write_restart_codon(currentpbufflds_c, ngrid_types_c) result(state_out_c) &
+            bind(c, name="pbuf_write_restart_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: currentpbufflds_c, ngrid_types_c
+         integer(c_int64_t) :: state_out_c
+       end function pbuf_write_restart_codon
+    end interface
 
     pbufhdr => pbuf_get_chunk(pbuf2d, begchunk)
+
+    if (.not. physics_buffer_use_native('PBUF_WRITE_RESTART_IMPL')) then
+       state_c = pbuf_write_restart_codon(int(currentpbufflds, c_int64_t), int(ngrid_types, c_int64_t))
+       if (state_c < 0_c_int64_t) call endrun('pbuf_write_restart: invalid pbuf state')
+       call physics_buffer_log_direct(pbuf_write_restart_logged, 'pbuf_write_restart direct = codon')
+    end if
 
     do index = 1, currentpbufflds
       if(pbufhdr(index)%hdr%persistence == persistence_global) then
@@ -1523,8 +2347,3 @@ CONTAINS
   end subroutine read_restart_field_{TYPE}
 
 end module physics_buffer
-
-
-
-
-

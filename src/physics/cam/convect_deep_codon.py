@@ -2321,7 +2321,7 @@ def zm_convr_closure_limit_shell_codon(
 
 
 @export
-def zm_closure_codon(
+def closure_codon(
     pcols: int,
     pver: int,
     il1g: int,
@@ -2578,7 +2578,7 @@ def zm_closure_codon(
 
 
 @export
-def zm_q1q2_pjr_codon(
+def q1q2_pjr_codon(
     lengath: int,
     pcols: int,
     pver: int,
@@ -2953,7 +2953,7 @@ def zm_convr_finish_stage_dispatch_codon(
         pflxg_p,
         rppe_p,
     )
-    zm_q1q2_pjr_codon(
+    q1q2_pjr_codon(
         lengath,
         pcols,
         pver,
@@ -3456,7 +3456,7 @@ def zm_convr_core_codon(
         jt_p, capeg_p, lclg_p, lelg_p, maxg_p, tlg_p, dsubcld_p,
         lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p,
     )
-    zm_buoyan_dilute_codon(
+    buoyan_dilute_codon(
         lchnk, ncol, msg, pcols, pver, pverp, zm_org, tiedke_add, rl,
         rgas, grav, cpres, rgas, cpliq, tfreez, latice, cpwv, cpres,
         eps1, rh2o, epsilo, 1.0 - epsilo, qsat_idx, q_p, t_p, p_p,
@@ -3511,7 +3511,7 @@ def zm_convr_core_codon(
         count, pcols, pver, msg, zfg_p, dp_p, du_p, eu_p, ed_p, cug_p,
         cmeg_p, rprdg_p, evpg_p, rppe_p,
     )
-    zm_closure_codon(
+    closure_codon(
         pcols, pver, 1, count, msg, rgas, grav, cpres, rl, eps1, tau,
         capelmt, qg_p, tg_p, pg_p, zg_p, sg_p, tpg_p, qs_p, qu_p,
         su_p, mc_p, du_p, mu_p, md_p, qd_p, sd_p, qhat_p, shat_p,
@@ -4984,7 +4984,7 @@ def zm_convtran2_dpdry_shell_codon(
 
 
 @export
-def zm_parcel_dilute_codon(
+def parcel_dilute_codon(
     lchnk: int,
     ncol: int,
     msg: int,
@@ -5384,7 +5384,7 @@ def _zm_nint_codon(value: float) -> int:
 
 
 @export
-def zm_buoyan_dilute_codon(
+def buoyan_dilute_codon(
     lchnk: int,
     ncol: int,
     msg: int,
@@ -5533,7 +5533,7 @@ def zm_buoyan_dilute_codon(
         pl[i] = p[mx_idx]
         i += 1
 
-    zm_parcel_dilute_codon(
+    parcel_dilute_codon(
         lchnk,
         ncol,
         msg,

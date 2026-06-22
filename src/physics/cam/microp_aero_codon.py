@@ -1213,7 +1213,7 @@ def nucleate_ice_cam_modal_nucleati_batch_codon(
 
 
 @export
-def nucleate_ice_hetero_codon(T: float, ww: float, Ns: float, Nis_p: cobj, Nid_p: cobj):
+def hetero_codon(T: float, ww: float, Ns: float, Nis_p: cobj, Nid_p: cobj):
     Nis = Ptr[float](Nis_p)
     Nid = Ptr[float](Nid_p)
 
@@ -1237,7 +1237,7 @@ def nucleate_ice_hetero_codon(T: float, ww: float, Ns: float, Nis_p: cobj, Nid_p
 
 
 @export
-def nucleate_ice_hf_codon(T: float, ww: float, RH: float, Na: float, subgrid: float, Ni_p: cobj):
+def hf_codon(T: float, ww: float, RH: float, Na: float, subgrid: float, Ni_p: cobj):
     Ni = Ptr[float](Ni_p)
 
     A1_fast = 0.0231

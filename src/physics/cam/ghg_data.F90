@@ -79,13 +79,13 @@ interface
 	    integer(c_int64_t), value :: flag_c
 	    integer(c_int64_t) :: out_c
 	  end function ghg_data_timestep_init_codon
-	  subroutine ghg_data_trcmix_codon(gas_id_c, ncol_c, pcols_c, pver_c, trop_mmr_c, constant_mmr_c, &
-	       clat_p, pmid_p, q_p) bind(c, name="ghg_data_trcmix_codon")
+	  subroutine trcmix_codon(gas_id_c, ncol_c, pcols_c, pver_c, trop_mmr_c, constant_mmr_c, &
+	       clat_p, pmid_p, q_p) bind(c, name="trcmix_codon")
 	    use iso_c_binding, only: c_double, c_int64_t, c_ptr
 	    integer(c_int64_t), value :: gas_id_c, ncol_c, pcols_c, pver_c
 	    real(c_double), value :: trop_mmr_c, constant_mmr_c
 	    type(c_ptr), value :: clat_p, pmid_p, q_p
-	  end subroutine ghg_data_trcmix_codon
+	  end subroutine trcmix_codon
 	end interface
 
 !================================================================================================
@@ -391,7 +391,7 @@ subroutine trcmix(name, ncol, clat, pmid, q)
       end if
 
       if (gas_id /= 0_c_int64_t) then
-         call ghg_data_trcmix_codon(gas_id, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         call trcmix_codon(gas_id, int(ncol, c_int64_t), int(pcols, c_int64_t), &
               int(pver, c_int64_t), real(trop_mmr, c_double), real(constant_mmr, c_double), &
               c_loc(clat(1)), c_loc(pmid(1,1)), c_loc(q(1,1)))
          call ghg_data_trcmix_direct_proof_once()

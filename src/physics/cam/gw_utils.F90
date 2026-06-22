@@ -25,26 +25,26 @@ logical :: gw_utils_dot_2d_logged = .false.
 logical :: gw_utils_midpoint_interp_logged = .false.
 
 interface
-   subroutine gw_utils_get_unit_vector_codon(u_p, v_p, u_n_p, v_n_p, mag_p, n_c) &
-        bind(c, name="gw_utils_get_unit_vector_codon")
+   subroutine get_unit_vector_codon(u_p, v_p, u_n_p, v_n_p, mag_p, n_c) &
+        bind(c, name="get_unit_vector_codon")
      use iso_c_binding, only: c_int64_t, c_ptr
      type(c_ptr), value :: u_p, v_p, u_n_p, v_n_p, mag_p
      integer(c_int64_t), value :: n_c
-   end subroutine gw_utils_get_unit_vector_codon
+   end subroutine get_unit_vector_codon
 
-   subroutine gw_utils_dot_2d_codon(u1_p, v1_p, u2_p, v2_p, out_p, n_c) &
-        bind(c, name="gw_utils_dot_2d_codon")
+   subroutine dot_2d_codon(u1_p, v1_p, u2_p, v2_p, out_p, n_c) &
+        bind(c, name="dot_2d_codon")
      use iso_c_binding, only: c_int64_t, c_ptr
      type(c_ptr), value :: u1_p, v1_p, u2_p, v2_p, out_p
      integer(c_int64_t), value :: n_c
-   end subroutine gw_utils_dot_2d_codon
+   end subroutine dot_2d_codon
 
-   subroutine gw_utils_midpoint_interp_codon(arr_p, interp_p, n1_c, n2_c) &
-        bind(c, name="gw_utils_midpoint_interp_codon")
+   subroutine midpoint_interp_codon(arr_p, interp_p, n1_c, n2_c) &
+        bind(c, name="midpoint_interp_codon")
      use iso_c_binding, only: c_int64_t, c_ptr
      type(c_ptr), value :: arr_p, interp_p
      integer(c_int64_t), value :: n1_c, n2_c
-   end subroutine gw_utils_midpoint_interp_codon
+   end subroutine midpoint_interp_codon
 end interface
 
 contains
@@ -132,7 +132,7 @@ subroutine get_unit_vector(u, v, u_n, v_n, mag)
 
   if (.not. use_native_gw_utils_impl) then
      call gw_utils_proof_once()
-     call gw_utils_get_unit_vector_codon(c_loc(u), c_loc(v), c_loc(u_n), c_loc(v_n), c_loc(mag), &
+     call get_unit_vector_codon(c_loc(u), c_loc(v), c_loc(u_n), c_loc(v_n), c_loc(mag), &
           int(size(mag), c_int64_t))
      return
   end if
@@ -166,7 +166,7 @@ function dot_2d(u1, v1, u2, v2)
 
   if (.not. use_native_gw_utils_impl) then
      call gw_utils_proof_once()
-     call gw_utils_dot_2d_codon(c_loc(u1), c_loc(v1), c_loc(u2), c_loc(v2), c_loc(dot_2d), &
+     call dot_2d_codon(c_loc(u1), c_loc(v1), c_loc(u2), c_loc(v2), c_loc(dot_2d), &
           int(size(u1), c_int64_t))
      call gw_utils_log_direct(gw_utils_dot_2d_logged, 'dot_2d direct = codon')
   else
@@ -189,7 +189,7 @@ function midpoint_interp(arr) result(interp)
 
   if (.not. use_native_gw_utils_impl) then
      call gw_utils_proof_once()
-     call gw_utils_midpoint_interp_codon(c_loc(arr), c_loc(interp), &
+     call midpoint_interp_codon(c_loc(arr), c_loc(interp), &
           int(size(arr,1), c_int64_t), int(size(arr,2), c_int64_t))
      call gw_utils_log_direct(gw_utils_midpoint_interp_logged, 'midpoint_interp direct = codon')
   else

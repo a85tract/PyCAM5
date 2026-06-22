@@ -993,15 +993,15 @@ contains
     type(c_ptr) :: tropP_p, tropT_p, tropZ_p
 
     interface
-       subroutine tropopause_twmo_codon(ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, &
+       subroutine twmo_codon(ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, &
             write_tropz_c, cnst_kap_c, cnst_ka1_c, cnst_faktor_c, state_t_p, state_pmid_p, state_pint_p, &
-            state_zm_p, state_zi_p, trop_lev_p, trop_p_p, trop_t_p, trop_z_p) bind(c, name="tropopause_twmo_codon")
+            state_zm_p, state_zi_p, trop_lev_p, trop_p_p, trop_t_p, trop_z_p) bind(c, name="twmo_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, write_tropz_c
          real(c_double), value :: cnst_kap_c, cnst_ka1_c, cnst_faktor_c
          type(c_ptr), value :: state_t_p, state_pmid_p, state_pint_p, state_zm_p, state_zi_p
          type(c_ptr), value :: trop_lev_p, trop_p_p, trop_t_p, trop_z_p
-       end subroutine tropopause_twmo_codon
+       end subroutine twmo_codon
     end interface
 
     call tropopause_find_select_impl()
@@ -1029,7 +1029,7 @@ contains
          call flush(iulog)
       end if
 
-      call tropopause_twmo_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+      call twmo_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
            int(NOTFOUND, c_int64_t), int(merge(1, 0, present(tropP)), c_int64_t), &
            int(merge(1, 0, present(tropT)), c_int64_t), int(merge(1, 0, present(tropZ)), c_int64_t), &
            real(cnst_kap, c_double), real(cnst_ka1, c_double), real(cnst_faktor, c_double), &
@@ -1482,7 +1482,7 @@ contains
 
   !===============================================================================
 
-  subroutine tropopause_twmo_codon_wrap(pstate, tropLev, tropP, tropT, tropZ)
+  subroutine twmo_codon_wrap(pstate, tropLev, tropP, tropT, tropZ)
 
     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
@@ -1543,7 +1543,7 @@ contains
        tropLev(i) = int(tropLev_i8(i))
     end do
 
-  end subroutine tropopause_twmo_codon_wrap
+  end subroutine twmo_codon_wrap
 
   !===============================================================================
 

@@ -105,19 +105,19 @@ logical :: phys_deepconv_pbl_logged = .false.
 logical :: phys_do_flux_avg_logged = .false.
 
 interface
-   function phys_control_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c) &
-        result(deepconv_pbl_c) bind(c, name="phys_control_deepconv_pbl_codon")
+   function phys_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c) &
+        result(deepconv_pbl_c) bind(c, name="phys_deepconv_pbl_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: eddy_diag_tke_c, shallow_uw_c
       integer(c_int64_t) :: deepconv_pbl_c
-   end function phys_control_deepconv_pbl_codon
+   end function phys_deepconv_pbl_codon
 
-   function phys_control_do_flux_avg_codon(srf_flux_avg_c) &
-        result(do_flux_avg_c) bind(c, name="phys_control_do_flux_avg_codon")
+   function phys_do_flux_avg_codon(srf_flux_avg_c) &
+        result(do_flux_avg_c) bind(c, name="phys_do_flux_avg_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: srf_flux_avg_c
       integer(c_int64_t) :: do_flux_avg_c
-   end function phys_control_do_flux_avg_codon
+   end function phys_do_flux_avg_codon
 
    function phys_control_bool_flag_codon(flag_c) &
         result(flag_out_c) bind(c, name="phys_control_bool_flag_codon")
@@ -603,7 +603,7 @@ function phys_deepconv_pbl()
    shallow_uw_c = 0_c_int64_t
    if (eddy_scheme .eq. 'diag_TKE') eddy_diag_tke_c = 1_c_int64_t
    if (shallow_scheme .eq. 'UW') shallow_uw_c = 1_c_int64_t
-   result_c = phys_control_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c)
+   result_c = phys_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c)
    phys_deepconv_pbl = (result_c /= 0_c_int64_t)
    call phys_control_log_direct(phys_deepconv_pbl_logged, 'phys_deepconv_pbl direct = codon')
 
@@ -643,7 +643,7 @@ function phys_do_flux_avg()
    end if
 
    call phys_control_bool_helpers_proof_once()
-   result_c = phys_control_do_flux_avg_codon(int(srf_flux_avg, c_int64_t))
+   result_c = phys_do_flux_avg_codon(int(srf_flux_avg, c_int64_t))
    phys_do_flux_avg = (result_c /= 0_c_int64_t)
    call phys_control_log_direct(phys_do_flux_avg_logged, 'phys_do_flux_avg direct = codon')
 

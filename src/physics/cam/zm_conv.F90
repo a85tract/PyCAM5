@@ -1339,15 +1339,15 @@ subroutine zm_convr(lchnk   ,ncol    , &
          type(c_ptr), value :: ideep_p, jt_p, zm_p, pblh_p, mu_p, dp_p, mb_p, mumax_p
       end subroutine zm_convr_closure_limit_shell_codon
 
-      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
+      subroutine q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
            qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p, dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, &
-           dqdt_p, dsdt_p) bind(c, name="zm_q1q2_pjr_codon")
+           dqdt_p, dsdt_p) bind(c, name="q1q2_pjr_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c
          real(c_double), value :: cpres_c, rl_c
          type(c_ptr), value :: q_p, qu_p, su_p, du_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p
          type(c_ptr), value :: dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, dqdt_p, dsdt_p
-      end subroutine zm_q1q2_pjr_codon
+      end subroutine q1q2_pjr_codon
 
       subroutine zm_convr_tail_shell_codon(ncol_c, lengath_c, pcols_c, pver_c, pverp_c, msg_c, delt_c, &
            cpres_c, rgrav_c, gravit_c, ideep_p, jt_p, maxg_p, qh_p, dpp_p, q_p, dqdt_p, dsdt_p, cmeg_p, &
@@ -4758,11 +4758,11 @@ subroutine closure(lchnk   , &
    real(r8) rd
    real(r8) rl
    interface
-      subroutine zm_closure_codon(pcols_c, pver_c, il1g_c, il2g_c, msg_c, rd_c, grav_c, cp_c, rl_c, &
+      subroutine closure_codon(pcols_c, pver_c, il1g_c, il2g_c, msg_c, rd_c, grav_c, cp_c, rl_c, &
            eps1_c, tau_c, capelmt_c, q_p, t_p, p_p, z_p, s_p, tp_p, qs_p, qu_p, su_p, mc_p, du_p, &
            mu_p, md_p, qd_p, sd_p, qhat_p, shat_p, dp_p, qstp_p, zf_p, ql_p, dsubcld_p, mb_p, &
            cape_p, tl_p, lcl_p, lel_p, jt_p, mx_p, dtpdt_p, dqsdtp_p, dtmdt_p, dqmdt_p, dboydt_p, &
-           thetavp_p, thetavm_p, dtbdt_p, dqbdt_p, dtldt_p, dadt_p) bind(c, name="zm_closure_codon")
+           thetavp_p, thetavm_p, dtbdt_p, dqbdt_p, dtldt_p, dadt_p) bind(c, name="closure_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: pcols_c, pver_c, il1g_c, il2g_c, msg_c
          real(c_double), value :: rd_c, grav_c, cp_c, rl_c, eps1_c, tau_c, capelmt_c
@@ -4771,7 +4771,7 @@ subroutine closure(lchnk   , &
          type(c_ptr), value :: dsubcld_p, mb_p, cape_p, tl_p, lcl_p, lel_p, jt_p, mx_p
          type(c_ptr), value :: dtpdt_p, dqsdtp_p, dtmdt_p, dqmdt_p, dboydt_p, thetavp_p, thetavm_p
          type(c_ptr), value :: dtbdt_p, dqbdt_p, dtldt_p, dadt_p
-      end subroutine zm_closure_codon
+      end subroutine closure_codon
    end interface
 ! change of subcloud layer properties due to convection is
 ! related to cumulus updrafts and downdrafts.
@@ -4784,7 +4784,7 @@ subroutine closure(lchnk   , &
    call zm_closure_select_impl()
    if (.not. use_native_zm_closure) then
       call zm_closure_log_entered()
-      call zm_closure_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(il1g, c_int64_t), &
+      call closure_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(il1g, c_int64_t), &
            int(il2g, c_int64_t), int(msg, c_int64_t), real(rd, c_double), real(grav, c_double), &
            real(cp, c_double), real(rl, c_double), real(eps1, c_double), real(tau, c_double), &
            real(capelmt, c_double), c_loc(q), c_loc(t), c_loc(p), c_loc(z), c_loc(s), c_loc(tp), &
@@ -4952,15 +4952,15 @@ subroutine q1q2_pjr(lchnk   , &
    integer(c_int64_t), target :: mx64(pcols)
 
    interface
-      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
+      subroutine q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
            qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p, dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, &
-           dqdt_p, dsdt_p) bind(c, name="zm_q1q2_pjr_codon")
+           dqdt_p, dsdt_p) bind(c, name="q1q2_pjr_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c, il1g_c, il2g_c
          real(c_double), value :: cpres_c, rl_c
          type(c_ptr), value :: q_p, qu_p, su_p, du_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p
          type(c_ptr), value :: dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, dqdt_p, dsdt_p
-      end subroutine zm_q1q2_pjr_codon
+      end subroutine q1q2_pjr_codon
    end interface
 
    call zm_q1q2_pjr_select_impl()
@@ -4983,7 +4983,7 @@ subroutine q1q2_pjr(lchnk   , &
       zm_q1q2_logged = .true.
    end if
 
-   call zm_q1q2_pjr_codon(int(il2g-il1g+1, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+   call q1q2_pjr_codon(int(il2g-il1g+1, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(msg, c_int64_t), int(il1g, c_int64_t), int(il2g, c_int64_t), &
         real(cp, c_double), real(rl, c_double), c_loc(q), c_loc(qu), c_loc(su), &
         c_loc(du), c_loc(qhat), c_loc(shat), c_loc(dp), c_loc(mu), c_loc(md), c_loc(sd), c_loc(qd), &
@@ -5237,13 +5237,13 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
    real(r8) rhd
 #endif
    interface
-      subroutine zm_buoyan_dilute_codon(lchnk_c, ncol_c, msg_c, pcols_c, pver_c, pverp_c, zm_org_c, &
+      subroutine buoyan_dilute_codon(lchnk_c, ncol_c, msg_c, pcols_c, pver_c, pverp_c, zm_org_c, &
            tiedke_add_c, rl_c, rd_c, grav_c, cp_c, rgas_c, cpliq_c, tfreez_c, latice_c, cpwv_c, &
            cpres_c, eps1_c, rh2o_c, epsilo_c, omeps_c, wv_idx_c, q_p, t_p, p_p, z_p, pf_p, pblt_p, tpert_p, &
            tp_p, qstp_p, tl_p, cape_p, lcl_p, lel_p, lon_p, mx_p, org_p, landfrac_p, capeten_p, &
            tv_p, tpv_p, buoy_p, pl_p, hmax_p, hmn_p, knt_p, lelten_p, tmix_p, qtmix_p, qsmix_p, &
            smix_p, xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p, status_p) &
-           bind(c, name="zm_buoyan_dilute_codon")
+           bind(c, name="buoyan_dilute_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: lchnk_c, ncol_c, msg_c, pcols_c, pver_c, pverp_c, zm_org_c, wv_idx_c
          real(c_double), value :: tiedke_add_c, rl_c, rd_c, grav_c, cp_c, rgas_c, cpliq_c
@@ -5254,7 +5254,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
          type(c_ptr), value :: knt_p, lelten_p, tmix_p, qtmix_p, qsmix_p, smix_p
          type(c_ptr), value :: xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p
          type(c_ptr), value :: sp0_p, qtp0_p, mp0_p, status_p
-      end subroutine zm_buoyan_dilute_codon
+      end subroutine buoyan_dilute_codon
    end interface
 !
 !-----------------------------------------------------------------------
@@ -5266,7 +5266,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
       if (zm_org .and. associated(org)) org_p = c_loc(org(1,1))
       call zm_conv_log_direct(zm_buoyan_dilute_logged, &
            'buoyan_dilute direct = codon; parcel_dilute direct = codon; entropy expression native callback')
-      call zm_buoyan_dilute_codon(int(lchnk, c_int64_t), int(ncol, c_int64_t), int(msg, c_int64_t), &
+      call buoyan_dilute_codon(int(lchnk, c_int64_t), int(ncol, c_int64_t), int(msg, c_int64_t), &
            int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
            merge(1_c_int64_t, 0_c_int64_t, zm_org), real(tiedke_add, c_double), real(rl, c_double), &
            real(rd, c_double), real(grav, c_double), real(cp, c_double), real(rgas, c_double), &
@@ -5532,12 +5532,12 @@ type(c_ptr) :: org_p
 integer(c_int64_t), target :: parcel_status_c
 
 interface
-   subroutine zm_parcel_dilute_codon(lchnk_c, ncol_c, msg_c, pcols_c, pver_c, zm_org_c, &
+   subroutine parcel_dilute_codon(lchnk_c, ncol_c, msg_c, pcols_c, pver_c, zm_org_c, &
         grav_c, rgas_c, cpliq_c, tfreez_c, latice_c, rl_c, cpwv_c, cpres_c, eps1_c, rh2o_c, &
         epsilo_c, omeps_c, wv_idx_c, klaunch_p, p_p, t_p, q_p, tpert_p, tp_p, tpv_p, qstp_p, &
         pl_p, tl_p, lcl_p, org_p, landfrac_p, tmix_p, qtmix_p, qsmix_p, smix_p, xsh2o_p, &
         ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p, sp_p, sp0_p, qtp0_p, mp0_p, status_p) &
-        bind(c, name="zm_parcel_dilute_codon")
+        bind(c, name="parcel_dilute_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: lchnk_c, ncol_c, msg_c, pcols_c, pver_c, zm_org_c, wv_idx_c
       real(c_double), value :: grav_c, rgas_c, cpliq_c, tfreez_c, latice_c, rl_c, cpwv_c
@@ -5546,7 +5546,7 @@ interface
       type(c_ptr), value :: pl_p, tl_p, lcl_p, org_p, landfrac_p, tmix_p, qtmix_p, qsmix_p
       type(c_ptr), value :: smix_p, xsh2o_p, ds_xsh2o_p, ds_freeze_p, mp_p, qtp_p
       type(c_ptr), value :: sp_p, sp0_p, qtp0_p, mp0_p, status_p
-   end subroutine zm_parcel_dilute_codon
+   end subroutine parcel_dilute_codon
 end interface
 
 !======================================================================
@@ -5569,7 +5569,7 @@ if (.not. use_native_zm_parcel_dilute) then
    if (zm_org .and. associated(org)) org_p = c_loc(org(1,1))
    call zm_conv_log_direct(zm_parcel_dilute_logged, &
         'parcel_dilute direct = codon; entraining parcel/Brent entropy solve direct = codon; entropy expression native callback')
-   call zm_parcel_dilute_codon(int(lchnk, c_int64_t), int(ncol, c_int64_t), int(msg, c_int64_t), &
+   call parcel_dilute_codon(int(lchnk, c_int64_t), int(ncol, c_int64_t), int(msg, c_int64_t), &
         int(pcols, c_int64_t), int(pver, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, zm_org), &
         real(grav, c_double), real(rgas, c_double), real(cpliq, c_double), real(tfreez, c_double), &
         real(latice, c_double), real(rl, c_double), real(cpwv, c_double), real(cpres, c_double), &

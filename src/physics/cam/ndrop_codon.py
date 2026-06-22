@@ -1947,7 +1947,7 @@ def _ndrop_maxsat_codon(
     return 1.0 / sqrt(total)
 
 
-def ndrop_maxsat_codon(
+def maxsat_codon(
     nmode: int,
     zeta_p: cobj,
     eta_p: cobj,
@@ -2252,7 +2252,7 @@ def ndrop_activate_modal_core_codon(
     return 0
 
 
-def ndrop_explmix_codon(
+def explmix_codon(
     pver: int,
     top_lev: int,
     surfrate: float,

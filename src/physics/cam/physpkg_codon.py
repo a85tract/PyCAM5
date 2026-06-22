@@ -71,6 +71,601 @@ def phys_inidat_codon(aqua_planet: int, unstructured: int, chunk_count: int, dyn
 
 
 @export
+def pbuf_init_time_codon(ptimelevels: int) -> int:
+    return ptimelevels - 1
+
+
+@export
+def pbuf_old_tim_idx_codon(old_time_idx: int) -> int:
+    return old_time_idx
+
+
+@export
+def pbuf_update_tim_idx_codon(old_time_idx: int, dyn_time_lvls: int) -> int:
+    return (old_time_idx % dyn_time_lvls) + 1
+
+
+@export
+def pbuf_col_type_index_codon(use_subcol: int, col_type_grid: int, col_type_subcol: int) -> int:
+    if use_subcol != 0:
+        return col_type_subcol
+    return col_type_grid
+
+
+@inline
+def _pbuf_ascii_at(ptr: Ptr[int], offset: int, limit: int) -> int:
+    if offset < limit:
+        return ptr[offset]
+    return 32
+
+
+@export
+def pbuf_get_index_codon(
+    name_len: int,
+    field_len: int,
+    field_count: int,
+    name_ascii_p: cobj,
+    hdr_ascii_p: cobj,
+) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    hdr_ascii = Ptr[int](hdr_ascii_p)
+    field = 0
+    compare_len = name_len
+    if field_len > compare_len:
+        compare_len = field_len
+    while field < field_count:
+        same = True
+        i = 0
+        while i < compare_len:
+            hdr_ch = 32
+            if i < field_len:
+                hdr_ch = hdr_ascii[i + field_len * field]
+            name_ch = _pbuf_ascii_at(name_ascii, i, name_len)
+            if hdr_ch != name_ch:
+                same = False
+                break
+            i += 1
+        if same:
+            return field + 1
+        field += 1
+    return -1
+
+
+@inline
+def _pbuf_trimmed_len(ptr: Ptr[int], length: int) -> int:
+    n = length
+    while n > 0 and ptr[n - 1] == 32:
+        n -= 1
+    return n
+
+
+@inline
+def _pbuf_ascii_equal_trimmed(a: Ptr[int], alen: int, b: Ptr[int], blen: int) -> bool:
+    an = _pbuf_trimmed_len(a, alen)
+    bn = _pbuf_trimmed_len(b, blen)
+    if an != bn:
+        return False
+    i = 0
+    while i < an:
+        if a[i] != b[i]:
+            return False
+        i += 1
+    return True
+
+
+@inline
+def _pbuf_ascii_equals_global(ptr: Ptr[int], length: int) -> bool:
+    n = _pbuf_trimmed_len(ptr, length)
+    if n != 6:
+        return False
+    return (
+        ptr[0] == 103
+        and ptr[1] == 108
+        and ptr[2] == 111
+        and ptr[3] == 98
+        and ptr[4] == 97
+        and ptr[5] == 108
+    )
+
+
+@inline
+def _pbuf_ascii_equals_physpkg(ptr: Ptr[int], length: int) -> bool:
+    n = _pbuf_trimmed_len(ptr, length)
+    if n != 7:
+        return False
+    return (
+        ptr[0] == 112
+        and ptr[1] == 104
+        and ptr[2] == 121
+        and ptr[3] == 115
+        and ptr[4] == 112
+        and ptr[5] == 107
+        and ptr[6] == 103
+    )
+
+
+@export
+def pbuf_get_chunk_codon(lchnk: int, begchunk: int, endchunk: int) -> int:
+    if lchnk < begchunk or lchnk > endchunk:
+        return -999999
+    return lchnk
+
+
+@export
+def pbuf_initialize_codon(buffer_initialized: int, currentpbufflds: int) -> int:
+    if buffer_initialized != 0:
+        return 0
+    if currentpbufflds < 1:
+        return 1
+    return 2
+
+
+@export
+def pbuf_allocate_codon(global_allocate_all: int, persistence_len: int, persistence_ascii_p: cobj) -> int:
+    persistence_ascii = Ptr[int](persistence_ascii_p)
+    if global_allocate_all != 0:
+        if _pbuf_ascii_equals_global(persistence_ascii, persistence_len):
+            return 1
+        return 0
+    if _pbuf_ascii_equals_physpkg(persistence_ascii, persistence_len):
+        return 2
+    if _pbuf_ascii_equals_global(persistence_ascii, persistence_len):
+        return 3
+    return 0
+
+
+@export
+def pbuf_allocate_field_codon(dimsizes_p: cobj, is_copy: int) -> int:
+    dimsizes = Ptr[int](dimsizes_p)
+    i = 0
+    any_zero = False
+    while i < 6:
+        if dimsizes[i] < 0:
+            return -1
+        if dimsizes[i] == 0:
+            any_zero = True
+        i += 1
+    if (not any_zero) and is_copy == 0:
+        return 1
+    return 0
+
+
+@export
+def pbuf_do_deallocate_codon(
+    persistence_len: int,
+    persistence_ascii_p: cobj,
+    hdr_is_copy: int,
+    global_allocate_all: int,
+    hdr_persistence: int,
+    persistence_physpkg: int,
+) -> int:
+    persistence_ascii = Ptr[int](persistence_ascii_p)
+    if _pbuf_ascii_equals_physpkg(persistence_ascii, persistence_len):
+        if hdr_is_copy != 0:
+            return 1
+        if global_allocate_all != 0:
+            return 0
+        if hdr_persistence == persistence_physpkg:
+            return 1
+        return 0
+    return 1
+
+
+@export
+def pbuf_deallocate_codon(currentpbufflds: int, ngrid_types: int) -> int:
+    if currentpbufflds < 0 or ngrid_types < 1:
+        return -1
+    return currentpbufflds * ngrid_types
+
+
+@export
+def find_pbuf_header_codon(
+    name_len: int,
+    field_len: int,
+    field_count: int,
+    name_ascii_p: cobj,
+    hdr_ascii_p: cobj,
+) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    hdr_ascii = Ptr[int](hdr_ascii_p)
+    if field_count <= 0:
+        return 1
+    name_trim = _pbuf_trimmed_len(name_ascii, name_len)
+    field = 0
+    while field < field_count:
+        hdr_base = field_len * field
+        hdr_trim = field_len
+        while hdr_trim > 0 and hdr_ascii[hdr_base + hdr_trim - 1] == 32:
+            hdr_trim -= 1
+        same = hdr_trim == name_trim
+        if same:
+            i = 0
+            while i < name_trim:
+                if name_ascii[i] != hdr_ascii[hdr_base + i]:
+                    same = False
+                    break
+                i += 1
+        if same:
+            return field + 1
+        field += 1
+    return field_count + 1
+
+
+@export
+def pbuf_register_field_int_codon(
+    persistence_present: int,
+    persistence_len: int,
+    persistence_ascii_p: cobj,
+    dtype_present: int,
+    dtype_value: int,
+    dims_present: int,
+    dimcnt: int,
+    dimsizes_p: cobj,
+    col_type_present: int,
+    col_type_value: int,
+    pbuf_add_present: int,
+    pbuf_add_value: int,
+    pcols: int,
+    psubcols: int,
+    col_type_grid: int,
+    col_type_subcol: int,
+    persistence_global: int,
+    persistence_physpkg: int,
+    current_persistence: int,
+    current_dtype: int,
+    current_dims_p: cobj,
+    out_persistence_p: cobj,
+    out_dtype_p: cobj,
+    out_dims_p: cobj,
+    out_col_type_p: cobj,
+) -> int:
+    persistence_ascii = Ptr[int](persistence_ascii_p)
+    dimsizes = Ptr[int](dimsizes_p)
+    current_dims = Ptr[int](current_dims_p)
+    out_dims = Ptr[int](out_dims_p)
+    out_persistence = Ptr[int](out_persistence_p)
+    out_dtype = Ptr[int](out_dtype_p)
+    out_col_type = Ptr[int](out_col_type_p)
+
+    i = 0
+    while i < 12:
+        out_dims[i] = current_dims[i]
+        i += 1
+    out_persistence[0] = current_persistence
+    out_dtype[0] = current_dtype
+    out_col_type[0] = col_type_grid
+
+    if persistence_present != 0:
+        if _pbuf_ascii_equals_global(persistence_ascii, persistence_len):
+            out_persistence[0] = persistence_global
+        else:
+            out_persistence[0] = persistence_physpkg
+
+    if dtype_present != 0:
+        out_dtype[0] = dtype_value
+
+    if dims_present != 0:
+        if dimcnt > 5:
+            return 1
+        col_type_use = col_type_grid
+        if col_type_present != 0:
+            col_type_use = col_type_value
+        out_col_type[0] = col_type_use
+
+        if col_type_use == col_type_grid:
+            i = 0
+            while i < 6:
+                out_dims[i] = 1
+                i += 1
+            i = 0
+            while i < dimcnt:
+                out_dims[i] = dimsizes[i]
+                i += 1
+            if out_dims[6] == pcols * psubcols:
+                i = 1
+                while i < dimcnt:
+                    out_dims[6 + i] = dimsizes[i]
+                    i += 1
+        elif col_type_use == col_type_subcol:
+            i = 0
+            while i < 6:
+                out_dims[6 + i] = 1
+                i += 1
+            out_dims[6] = pcols * psubcols
+            if dimcnt > 1:
+                i = 1
+                while i < dimcnt:
+                    out_dims[6 + i] = dimsizes[i]
+                    i += 1
+            elif out_dims[0] > 0:
+                i = 1
+                while i < 6:
+                    out_dims[6 + i] = out_dims[i]
+                    i += 1
+
+    if pbuf_add_present != 0 and pbuf_add_value != 0:
+        all_zero = True
+        i = 0
+        while i < 12:
+            if out_dims[i] != 0:
+                all_zero = False
+                break
+            i += 1
+        if all_zero:
+            return 2
+        if out_dtype[0] < 0:
+            return 3
+        if out_persistence[0] < 0:
+            return 4
+
+    return 0
+
+
+@export
+def pbuf_add_field_codon(col_type_present: int, col_type_value: int, col_type_grid: int) -> int:
+    if col_type_present != 0:
+        return col_type_value
+    return col_type_grid
+
+
+@export
+def get_pbuf1d_field_by_index_codon(
+    index: int,
+    pbuf_size: int,
+    col_type_present: int,
+    col_type_value: int,
+    col_type_grid: int,
+    start_present: int,
+    kount_present: int,
+    errcode_present: int,
+) -> int:
+    if index < 1 or index > pbuf_size:
+        return -1
+    if (start_present != 0 and kount_present == 0) or (start_present == 0 and kount_present != 0):
+        return -2
+    col_type_use = col_type_grid
+    if col_type_present != 0:
+        col_type_use = col_type_value
+    subset = 0
+    if start_present != 0 and kount_present != 0:
+        subset = 1
+    return col_type_use + 100 * subset + 1000 * errcode_present
+
+
+@inline
+def _pbuf_present_pair_code(start_present: int, kount_present: int) -> int:
+    if (start_present != 0 and kount_present == 0) or (start_present == 0 and kount_present != 0):
+        return -1
+    if start_present != 0 and kount_present != 0:
+        return 1
+    return 0
+
+
+@inline
+def _pbuf_set_field_code(
+    index: int,
+    pbuf_size: int,
+    start_present: int,
+    kount_present: int,
+    col_type_present: int,
+    col_type_value: int,
+    col_type_grid: int,
+    col_type_subcol: int,
+    grid_allocated: int,
+    subcol_allocated: int,
+) -> int:
+    if index < 1 or index > pbuf_size:
+        return -10
+    subset = _pbuf_present_pair_code(start_present, kount_present)
+    if subset < 0:
+        return -20
+    col_type_use = col_type_grid
+    if col_type_present != 0:
+        col_type_use = col_type_value
+    if col_type_use == col_type_subcol:
+        if subcol_allocated == 0:
+            return -30
+    elif col_type_use == col_type_grid:
+        if grid_allocated == 0:
+            return -40
+    else:
+        return -50
+    return col_type_use + 100 * subset
+
+
+@export
+def pbuf_get_field_name_codon(index: int, currentpbufflds: int) -> int:
+    if index < 1 or index > currentpbufflds:
+        return -1
+    return index
+
+
+@export
+def get_pbuf2d_field_by_index_codon(
+    index: int,
+    pbuf_size: int,
+    start_present: int,
+    kount_present: int,
+    col_type_present: int,
+    col_type_value: int,
+    col_type_grid: int,
+    errcode_present: int,
+) -> int:
+    if index < 1 or index > pbuf_size:
+        return -10
+    subset = _pbuf_present_pair_code(start_present, kount_present)
+    if subset < 0:
+        return -20
+    col_type_use = col_type_grid
+    if col_type_present != 0:
+        col_type_use = col_type_value
+    return col_type_use + 100 * subset + 1000 * errcode_present
+
+
+@export
+def get_pbuf2d_field_restart_codon(index: int, pbuf_size: int, col_type: int, col_type_grid: int, col_type_subcol: int) -> int:
+    if index < 1 or index > pbuf_size:
+        return -10
+    if col_type == col_type_grid:
+        return 1
+    if col_type == col_type_subcol:
+        return 2
+    return -20
+
+
+@export
+def set_pbuf2d_field_const_by_index_codon(index: int, pbuf_size: int, begchunk: int, endchunk: int) -> int:
+    if index < 1 or index > pbuf_size:
+        return -10
+    if endchunk < begchunk:
+        return -20
+    return endchunk - begchunk + 1
+
+
+@export
+def set_pbuf1d_field_const_by_index_codon(
+    index: int,
+    pbuf_size: int,
+    start_present: int,
+    kount_present: int,
+    col_type_present: int,
+    col_type_value: int,
+    col_type_grid: int,
+    col_type_subcol: int,
+    grid_allocated: int,
+    subcol_allocated: int,
+) -> int:
+    return _pbuf_set_field_code(
+        index,
+        pbuf_size,
+        start_present,
+        kount_present,
+        col_type_present,
+        col_type_value,
+        col_type_grid,
+        col_type_subcol,
+        grid_allocated,
+        subcol_allocated,
+    )
+
+
+@export
+def set_pbuf2d_field_by_index_codon(
+    index: int,
+    pbuf_size: int,
+    begchunk: int,
+    endchunk: int,
+    start_present: int,
+    kount_present: int,
+) -> int:
+    if index < 1 or index > pbuf_size:
+        return -10
+    if endchunk < begchunk:
+        return -20
+    subset = _pbuf_present_pair_code(start_present, kount_present)
+    if subset < 0:
+        return -30
+    return (endchunk - begchunk + 1) + 100 * subset
+
+
+@export
+def get_field_chunk_codon(c: int, begchunk: int, endchunk: int) -> int:
+    if c < begchunk or c > endchunk:
+        return -1
+    return c
+
+
+@export
+def set_pbuf1d_field_by_index_codon(
+    index: int,
+    pbuf_size: int,
+    start_present: int,
+    kount_present: int,
+    col_type_present: int,
+    col_type_value: int,
+    col_type_grid: int,
+    col_type_subcol: int,
+    grid_allocated: int,
+    subcol_allocated: int,
+) -> int:
+    return _pbuf_set_field_code(
+        index,
+        pbuf_size,
+        start_present,
+        kount_present,
+        col_type_present,
+        col_type_value,
+        col_type_grid,
+        col_type_subcol,
+        grid_allocated,
+        subcol_allocated,
+    )
+
+
+@export
+def pbuf_init_restart_codon(currentpbufflds: int, ngrid_types: int, has_lonlat: int) -> int:
+    if currentpbufflds < 0 or ngrid_types < 1:
+        return -1
+    if has_lonlat != 0:
+        return 2
+    return 1
+
+
+@export
+def pbuf_write_restart_codon(currentpbufflds: int, ngrid_types: int) -> int:
+    if currentpbufflds < 0 or ngrid_types < 1:
+        return -1
+    return currentpbufflds * ngrid_types
+
+
+@export
+def pbuftype2piotype_codon(
+    pbuftype: int,
+    type_double: int,
+    type_int: int,
+    type_real: int,
+    pio_double: int,
+    pio_int: int,
+    pio_real: int,
+) -> int:
+    if pbuftype == type_double:
+        return pio_double
+    if pbuftype == type_int:
+        return pio_int
+    if pbuftype == type_real:
+        return pio_real
+    return -999999
+
+
+@export
+def is_subcol_on_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
+    scheme_ascii = Ptr[int](scheme_ascii_p)
+    trimmed_len = scheme_len
+    while trimmed_len > 0 and scheme_ascii[trimmed_len - 1] == 32:
+        trimmed_len -= 1
+    if trimmed_len == 3 and scheme_ascii[0] == 111 and scheme_ascii[1] == 102 and scheme_ascii[2] == 102:
+        return 0
+    return 1
+
+
+@export
+def subcol_get_scheme_codon(scheme_len: int, scheme_ascii_p: cobj, out_ascii_p: cobj) -> int:
+    scheme_ascii = Ptr[int](scheme_ascii_p)
+    out_ascii = Ptr[int](out_ascii_p)
+    trimmed_len = scheme_len
+    while trimmed_len > 0 and scheme_ascii[trimmed_len - 1] == 32:
+        trimmed_len -= 1
+    i = 0
+    while i < scheme_len:
+        if i < trimmed_len:
+            out_ascii[i] = scheme_ascii[i]
+        else:
+            out_ascii[i] = 32
+        i += 1
+    return trimmed_len
+
+
+@export
 def tphys_shell_mask_codon(stage: int, ncol: int, flag1: int, flag2: int, flag3: int, flag4: int, flag5: int) -> int:
     mask = stage
     if ncol > 0:
@@ -682,7 +1277,7 @@ def tropopause_twmo_pressure_profile_codon(
 
 
 @export
-def tropopause_twmo_codon(
+def twmo_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -757,7 +1352,7 @@ def tropopause_twmo_stage_dispatch_codon(
     trop_t_p: cobj,
     trop_z_p: cobj,
 ):
-    tropopause_twmo_codon(
+    twmo_codon(
         ncol,
         pcols,
         pver,
@@ -5903,7 +6498,7 @@ def _cldfrc2m_astg_pdf_core(
 
 
 @export
-def cldfrc2m_astg_pdf_single_codon(
+def astg_pdf_single_codon(
     u: float,
     p: float,
     qv: float,
@@ -5940,7 +6535,7 @@ def cldfrc2m_astg_pdf_single_codon(
 
 
 @export
-def cldfrc2m_astg_pdf_codon(
+def astg_pdf_codon(
     pcols: int,
     ncol: int,
     premib: float,
@@ -6093,7 +6688,7 @@ def _cldfrc2m_aist_core(
 
 
 @export
-def cldfrc2m_aist_single_codon(
+def aist_single_codon(
     iceopt: int,
     qv: float,
     t: float,
@@ -6168,7 +6763,7 @@ def cldfrc2m_aist_single_option5_codon(
 
 
 @export
-def cldfrc2m_aist_vector_codon(
+def aist_vector_codon(
     pcols: int,
     ncol: int,
     iceopt: int,
@@ -7766,7 +8361,7 @@ def modal_aer_opt_lw_size_parameters_codon(
 
 
 @export
-def modal_aer_opt_binterp_codon(
+def binterp_codon(
     pcols: int,
     ncol: int,
     km: int,
@@ -9301,7 +9896,7 @@ def ndrop_activate_modal_core_codon(
 
 
 @export
-def ndrop_maxsat_codon(
+def maxsat_codon(
     nmode: int,
     zeta_p: cobj,
     eta_p: cobj,
@@ -9309,11 +9904,11 @@ def ndrop_maxsat_codon(
     f1_p: cobj,
     f2_p: cobj,
 ) -> float:
-    return _ndrop.ndrop_maxsat_codon(nmode, zeta_p, eta_p, smc_p, f1_p, f2_p)
+    return _ndrop.maxsat_codon(nmode, zeta_p, eta_p, smc_p, f1_p, f2_p)
 
 
 @export
-def ndrop_explmix_codon(
+def explmix_codon(
     pver: int,
     top_lev: int,
     surfrate: float,
@@ -9329,7 +9924,7 @@ def ndrop_explmix_codon(
     qold_p: cobj,
     qactold_p: cobj,
 ):
-    _ndrop.ndrop_explmix_codon(
+    _ndrop.explmix_codon(
         pver,
         top_lev,
         surfrate,
@@ -9481,6 +10076,31 @@ def ghg_data_trcmix_codon(
             else:
                 pratio = pmid[idx] / ptrop
                 q[idx] = trop_mmr * (pratio) ** scale
+
+
+@export
+def trcmix_codon(
+    gas_id: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    trop_mmr: float,
+    constant_mmr: float,
+    clat_p: cobj,
+    pmid_p: cobj,
+    q_p: cobj,
+):
+    ghg_data_trcmix_codon(
+        gas_id,
+        ncol,
+        pcols,
+        pver,
+        trop_mmr,
+        constant_mmr,
+        clat_p,
+        pmid_p,
+        q_p,
+    )
 
 
 @export
@@ -10124,10 +10744,20 @@ def phys_control_deepconv_pbl_codon(eddy_diag_tke: int, shallow_uw: int) -> int:
 
 
 @export
+def phys_deepconv_pbl_codon(eddy_diag_tke: int, shallow_uw: int) -> int:
+    return phys_control_deepconv_pbl_codon(eddy_diag_tke, shallow_uw)
+
+
+@export
 def phys_control_do_flux_avg_codon(srf_flux_avg: int) -> int:
     if srf_flux_avg == 1:
         return 1
     return 0
+
+
+@export
+def phys_do_flux_avg_codon(srf_flux_avg: int) -> int:
+    return phys_control_do_flux_avg_codon(srf_flux_avg)
 
 
 @export
@@ -11673,6 +12303,13 @@ def hirsbt_freq_codon(freq: int, dtime: int) -> int:
 
 
 @export
+def hirsbt_init_codon(freq: int, dtime: int, out_p: cobj):
+    out = Ptr[int](out_p)
+    out[0] = hirsbt_flag_codon(1)
+    out[1] = hirsbt_freq_codon(freq, dtime)
+
+
+@export
 def hetfrz_classnuc_cam_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
@@ -12742,12 +13379,12 @@ def wv_saturation_limit_es_codon(es: float, p: float) -> float:
 
 
 @export
-def wv_saturation_tq_enthalpy_codon(cpair: float, t: float, q: float, hltalt: float) -> float:
+def tq_enthalpy_codon(cpair: float, t: float, q: float, hltalt: float) -> float:
     return cpair * t + hltalt * q
 
 
 @export
-def wv_saturation_no_ip_hltalt_codon(t: float, tmelt: float, latvap: float) -> float:
+def no_ip_hltalt_codon(t: float, tmelt: float, latvap: float) -> float:
     hltalt = latvap
     if t >= tmelt:
         hltalt = hltalt - 2369.0 * (t - tmelt)
@@ -12755,7 +13392,7 @@ def wv_saturation_no_ip_hltalt_codon(t: float, tmelt: float, latvap: float) -> f
 
 
 @export
-def wv_saturation_calc_hltalt_codon(
+def calc_hltalt_codon(
     t: float,
     tmelt: float,
     ttrice: float,
@@ -13140,7 +13777,7 @@ def _wv_saturation_findsp_impl(
 
 
 @export
-def wv_saturation_findsp_codon(
+def findsp_codon(
     q: float,
     t: float,
     p: float,
@@ -13309,7 +13946,7 @@ def vdiff_lu_solver_flag_codon(flag: int) -> int:
 
 
 @export
-def gw_utils_get_unit_vector_codon(u_p: cobj, v_p: cobj, u_n_p: cobj, v_n_p: cobj, mag_p: cobj, n: int):
+def get_unit_vector_codon(u_p: cobj, v_p: cobj, u_n_p: cobj, v_n_p: cobj, mag_p: cobj, n: int):
     u = Ptr[float](u_p)
     v = Ptr[float](v_p)
     u_n = Ptr[float](u_n_p)
@@ -13329,7 +13966,7 @@ def gw_utils_get_unit_vector_codon(u_p: cobj, v_p: cobj, u_n_p: cobj, v_n_p: cob
 
 
 @export
-def gw_utils_dot_2d_codon(u1_p: cobj, v1_p: cobj, u2_p: cobj, v2_p: cobj, out_p: cobj, n: int):
+def dot_2d_codon(u1_p: cobj, v1_p: cobj, u2_p: cobj, v2_p: cobj, out_p: cobj, n: int):
     u1 = Ptr[float](u1_p)
     v1 = Ptr[float](v1_p)
     u2 = Ptr[float](u2_p)
@@ -13341,7 +13978,7 @@ def gw_utils_dot_2d_codon(u1_p: cobj, v1_p: cobj, u2_p: cobj, v2_p: cobj, out_p:
 
 
 @export
-def gw_utils_midpoint_interp_codon(arr_p: cobj, interp_p: cobj, n1: int, n2: int):
+def midpoint_interp_codon(arr_p: cobj, interp_p: cobj, n1: int, n2: int):
     arr = Ptr[float](arr_p)
     interp = Ptr[float](interp_p)
 

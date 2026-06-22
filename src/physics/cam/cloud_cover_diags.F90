@@ -34,15 +34,15 @@ module cloud_cover_diags
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: out_c
      end function cloud_cover_diags_out_codon
-     subroutine cloud_cover_cldsav_codon(ncol_c, pcols_c, pver_c, pverp_c, cld_p, pmid_p, &
+     subroutine cldsav_codon(ncol_c, pcols_c, pver_c, pverp_c, cld_p, pmid_p, &
           pmxrgn_p, nmxrgn_p, cldtot_p, cldlow_p, cldmed_p, cldhgh_p, irgn_p, &
-          clrsky_p, clrskymax_p) bind(c, name="cloud_cover_cldsav_codon")
+          clrsky_p, clrskymax_p) bind(c, name="cldsav_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
        type(c_ptr), value :: cld_p, pmid_p, pmxrgn_p, nmxrgn_p
        type(c_ptr), value :: cldtot_p, cldlow_p, cldmed_p, cldhgh_p
        type(c_ptr), value :: irgn_p, clrsky_p, clrskymax_p
-     end subroutine cloud_cover_cldsav_codon
+     end subroutine cldsav_codon
   end interface
 
 contains
@@ -163,7 +163,7 @@ subroutine cloud_cover_diags_out(lchnk, ncol, cld, pmid, nmxrgn, pmxrgn )
      call cldsav (lchnk, ncol, cld, pmid, cltot, cllow, clmed, clhgh, nmxrgn, pmxrgn)
   else
      call cloud_cover_diags_proof_once()
-     call cloud_cover_cldsav_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+     call cldsav_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
           int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(cld(1,1)), c_loc(pmid(1,1)), &
           c_loc(pmxrgn(1,1)), c_loc(nmxrgn(1)), c_loc(cltot(1)), c_loc(cllow(1)), &
           c_loc(clmed(1)), c_loc(clhgh(1)), c_loc(irgn(1)), c_loc(clrsky(1)), &
@@ -212,7 +212,7 @@ subroutine cldsav(lchnk   ,ncol    , &
       call cldsav_native(lchnk, ncol, cld, pmid, cldtot, cldlow, cldmed, cldhgh, nmxrgn, pmxrgn)
    else
       call cloud_cover_diags_proof_once()
-      call cloud_cover_cldsav_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call cldsav_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(cld(1,1)), c_loc(pmid(1,1)), &
            c_loc(pmxrgn(1,1)), c_loc(nmxrgn(1)), c_loc(cldtot(1)), c_loc(cldlow(1)), &
            c_loc(cldmed(1)), c_loc(cldhgh(1)), c_loc(irgn(1)), c_loc(clrsky(1)), &

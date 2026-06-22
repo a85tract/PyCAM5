@@ -118,12 +118,12 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double) :: es_out
      end function wv_saturation_limit_es_codon
 
-     pure function wv_saturation_tq_enthalpy_codon(cpair_c, t_c, q_c, hltalt_c) result(enthalpy_out) &
-          bind(c, name="wv_saturation_tq_enthalpy_codon")
+     pure function tq_enthalpy_codon(cpair_c, t_c, q_c, hltalt_c) result(enthalpy_out) &
+          bind(c, name="tq_enthalpy_codon")
        use iso_c_binding, only: c_double
        real(c_double), intent(in), value :: cpair_c, t_c, q_c, hltalt_c
        real(c_double) :: enthalpy_out
-     end function wv_saturation_tq_enthalpy_codon
+     end function tq_enthalpy_codon
 
      function wv_saturation_touch_codon(stage_c) result(stage_out) bind(c, name="wv_saturation_touch_codon")
        use iso_c_binding, only: c_int64_t
@@ -131,21 +131,21 @@ real(r8), parameter :: tboil = 373.16_r8
        integer(c_int64_t) :: stage_out
      end function wv_saturation_touch_codon
 
-     pure function wv_saturation_no_ip_hltalt_codon(t_c, tmelt_c, latvap_c) result(hltalt_out) &
-          bind(c, name="wv_saturation_no_ip_hltalt_codon")
+     pure function no_ip_hltalt_codon(t_c, tmelt_c, latvap_c) result(hltalt_out) &
+          bind(c, name="no_ip_hltalt_codon")
        use iso_c_binding, only: c_double
        real(c_double), intent(in), value :: t_c, tmelt_c, latvap_c
        real(c_double) :: hltalt_out
-     end function wv_saturation_no_ip_hltalt_codon
+     end function no_ip_hltalt_codon
 
-     pure subroutine wv_saturation_calc_hltalt_codon(t_c, tmelt_c, ttrice_c, latvap_c, latice_c, &
+     pure subroutine calc_hltalt_codon(t_c, tmelt_c, ttrice_c, latvap_c, latice_c, &
           pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, hltalt_c, tterm_c) &
-          bind(c, name="wv_saturation_calc_hltalt_codon")
+          bind(c, name="calc_hltalt_codon")
        use iso_c_binding, only: c_double
        real(c_double), intent(in), value :: t_c, tmelt_c, ttrice_c, latvap_c, latice_c
        real(c_double), intent(in), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c
        real(c_double), intent(out) :: hltalt_c, tterm_c
-     end subroutine wv_saturation_calc_hltalt_codon
+     end subroutine calc_hltalt_codon
 
      pure function wv_saturation_deriv_dqsdt_codon(t_c, p_c, es_c, qs_c, hltalt_c, tterm_c, &
           rh2o_c, omeps_c) result(dqsdt_out) bind(c, name="wv_saturation_deriv_dqsdt_codon")
@@ -185,10 +185,10 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double) :: es_c
      end function estblf_codon
 
-     pure subroutine wv_saturation_findsp_codon(q_c, t_c, p_c, use_ice_c, idx_c, &
+     pure subroutine findsp_codon(q_c, t_c, p_c, use_ice_c, idx_c, &
           epsilo_c, omeps_c, cpair_c, c3_c, tmelt_c, ttrice_c, latvap_c, latice_c, &
           rh2o_c, pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c, estbl_p, &
-          plenest_c, tsp_p, qsp_p, status_p) bind(c, name="wv_saturation_findsp_codon")
+          plenest_c, tsp_p, qsp_p, status_p) bind(c, name="findsp_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        real(c_double), intent(in), value :: q_c, t_c, p_c
        integer(c_int64_t), intent(in), value :: use_ice_c, idx_c, plenest_c
@@ -196,7 +196,7 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), intent(in), value :: latvap_c, latice_c, rh2o_c
        real(c_double), intent(in), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c
        type(c_ptr), intent(in), value :: estbl_p, tsp_p, qsp_p, status_p
-     end subroutine wv_saturation_findsp_codon
+     end subroutine findsp_codon
 
      subroutine wv_sat_init_table_codon(plenest_c, tmin_c, tmelt_c, ttrice_c, idx_c, estbl_p) &
           bind(c, name="wv_sat_init_table_codon")
@@ -639,7 +639,7 @@ elemental function tq_enthalpy(t, q, hltalt) result(enthalpy)
      return
   end if
 
-  enthalpy = real(wv_saturation_tq_enthalpy_codon(real(cpair, c_double), real(t, c_double), &
+  enthalpy = real(tq_enthalpy_codon(real(cpair, c_double), real(t, c_double), &
        real(q, c_double), real(hltalt, c_double)), r8)
   
 end function tq_enthalpy
@@ -668,7 +668,7 @@ elemental subroutine no_ip_hltalt(t, hltalt)
      return
   end if
 
-  hltalt = real(wv_saturation_no_ip_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
+  hltalt = real(no_ip_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
        real(latvap, c_double)), r8)
 
 end subroutine no_ip_hltalt
@@ -724,7 +724,7 @@ elemental subroutine calc_hltalt(t, hltalt, tterm)
      return
   end if
 
-  call wv_saturation_calc_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
+  call calc_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
        real(ttrice, c_double), real(latvap, c_double), real(latice, c_double), &
        real(pcf(1), c_double), real(pcf(2), c_double), real(pcf(3), c_double), &
        real(pcf(4), c_double), real(pcf(5), c_double), hltalt, tterm_loc)
@@ -1059,7 +1059,7 @@ elemental subroutine findsp (q, t, p, use_ice, tsp, qsp, status)
   real(r8) enin, enout
 
   if (.not. use_native_wv_saturation_impl) then
-     call wv_saturation_findsp_codon(real(q, c_double), real(t, c_double), real(p, c_double), &
+     call findsp_codon(real(q, c_double), real(t, c_double), real(p, c_double), &
           int(merge(1, 0, use_ice), c_int64_t), int(wv_sat_get_default_idx(), c_int64_t), &
           real(epsilo, c_double), real(omeps, c_double), real(cpair, c_double), real(c3, c_double), &
           real(tmelt, c_double), real(ttrice, c_double), real(latvap, c_double), real(latice, c_double), &

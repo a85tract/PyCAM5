@@ -530,22 +530,22 @@ interface
       integer(c_int64_t) :: status_c
    end function ndrop_activate_modal_core_codon
 
-   function ndrop_maxsat_codon(nmode_c, zeta_p, eta_p, smc_p, f1_p, f2_p) result(smax_c) &
-        bind(c, name="ndrop_maxsat_codon")
+   function maxsat_codon(nmode_c, zeta_p, eta_p, smc_p, f1_p, f2_p) result(smax_c) &
+        bind(c, name="maxsat_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
       integer(c_int64_t), value :: nmode_c
       type(c_ptr), value :: zeta_p, eta_p, smc_p, f1_p, f2_p
       real(c_double) :: smax_c
-   end function ndrop_maxsat_codon
+   end function maxsat_codon
 
-   subroutine ndrop_explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
+   subroutine explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
         q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p) &
-        bind(c, name="ndrop_explmix_codon")
+        bind(c, name="explmix_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
       integer(c_int64_t), value :: pver_c, top_lev_c, is_unact_c
       real(c_double), value :: surfrate_c, flxconv_c, dt_c
       type(c_ptr), value :: q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p
-   end subroutine ndrop_explmix_codon
+   end subroutine explmix_codon
 end interface
 
 !===============================================================================
@@ -2343,13 +2343,13 @@ subroutine explmix( q, src, ekkp, ekkm, overlapp, overlapm, &
          call endrun('explmix: qactold is required when is_unact is true')
       end if
       call ndrop_explmix_proof_once()
-      call ndrop_explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+      call explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
            surfrate, flxconv, dt, 1_c_int64_t, c_loc(q(1)), c_loc(src(1)), &
            c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(overlapp(1)), c_loc(overlapm(1)), &
            c_loc(qold(1)), c_loc(qactold(1)))
    else
       call ndrop_explmix_proof_once()
-      call ndrop_explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+      call explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
            surfrate, flxconv, dt, 0_c_int64_t, c_loc(q(1)), c_loc(src(1)), &
            c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(overlapp(1)), c_loc(overlapm(1)), &
            c_loc(qold(1)), c_null_ptr)
@@ -2858,7 +2858,7 @@ subroutine maxsat(zeta,eta,nmode,smc,smax)
       call maxsat_native(zeta, eta, nmode, smc, smax)
    else
       call ndrop_maxsat_proof_once()
-      smax = ndrop_maxsat_codon(int(nmode, c_int64_t), c_loc(zeta(1)), c_loc(eta(1)), &
+      smax = maxsat_codon(int(nmode, c_int64_t), c_loc(zeta(1)), c_loc(eta(1)), &
            c_loc(smc(1)), c_loc(f1(1)), c_loc(f2(1)))
    end if
 

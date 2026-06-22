@@ -12,6 +12,9 @@
    use ppgrid,          only: pcols, psubcols, pver
    use constituents,    only: pcnst
    use cam_abortutils,  only: endrun
+   use cam_logfile,     only: iulog
+   use spmd_utils,      only: masterproc
+   use iso_c_binding,   only: c_int64_t, c_loc
    use pio,             only: var_desc_t
 
    implicit none
@@ -118,8 +121,31 @@
    integer :: fillval_int
    real(r8):: fillval_double
    real(r4):: fillval_real
+   logical :: is_subcol_on_logged = .false.
+   logical :: subcol_get_scheme_logged = .false.
 
 contains
+
+   logical function subcol_utils_use_native(selector)
+      character(len=*), intent(in) :: selector
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      impl_name = 'codon'
+      call cam_codon_get_impl(selector, impl_name, n, status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         subcol_utils_use_native = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         subcol_utils_use_native = .false.
+      end if
+   end function subcol_utils_use_native
 
    subroutine subcol_allocate_internal()
       use ppgrid,         only: begchunk, endchunk
@@ -307,11 +333,76 @@ contains
    end function is_filter_set
 
    logical function is_subcol_on()
-      is_subcol_on = (trim(subcol_scheme) /= 'off')
+      integer(c_int64_t), target :: scheme_ascii(len(subcol_scheme))
+      integer(c_int64_t) :: out_c
+      integer :: i
+
+      interface
+         function is_subcol_on_codon(scheme_len_c, scheme_ascii_p) result(out_c) &
+              bind(c, name="is_subcol_on_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: scheme_len_c
+            type(c_ptr), value :: scheme_ascii_p
+            integer(c_int64_t) :: out_c
+         end function is_subcol_on_codon
+      end interface
+
+      if (subcol_utils_use_native('IS_SUBCOL_ON_IMPL')) then
+         is_subcol_on = (trim(subcol_scheme) /= 'off')
+         return
+      end if
+
+      do i = 1, len(subcol_scheme)
+         scheme_ascii(i) = int(iachar(subcol_scheme(i:i)), c_int64_t)
+      end do
+      out_c = is_subcol_on_codon(int(len(subcol_scheme), c_int64_t), c_loc(scheme_ascii(1)))
+      is_subcol_on = out_c /= 0_c_int64_t
+      if (masterproc .and. .not. is_subcol_on_logged) then
+         write(iulog,'(A)') 'is_subcol_on direct = codon'
+         call flush(iulog)
+         is_subcol_on_logged = .true.
+      end if
    end function is_subcol_on
 
    character(len=16) function subcol_get_scheme()
-      subcol_get_scheme = trim(subcol_scheme)
+      integer(c_int64_t), target :: scheme_ascii(len(subcol_scheme))
+      integer(c_int64_t), target :: out_ascii(len(subcol_get_scheme))
+      integer(c_int64_t) :: out_len
+      integer :: i, ncopy
+
+      interface
+         function subcol_get_scheme_codon(scheme_len_c, scheme_ascii_p, out_ascii_p) result(out_len_c) &
+              bind(c, name="subcol_get_scheme_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: scheme_len_c
+            type(c_ptr), value :: scheme_ascii_p, out_ascii_p
+            integer(c_int64_t) :: out_len_c
+         end function subcol_get_scheme_codon
+      end interface
+
+      if (subcol_utils_use_native('SUBCOL_GET_SCHEME_IMPL')) then
+         subcol_get_scheme = trim(subcol_scheme)
+         return
+      end if
+
+      do i = 1, len(subcol_scheme)
+         scheme_ascii(i) = int(iachar(subcol_scheme(i:i)), c_int64_t)
+      end do
+      out_ascii(:) = 32_c_int64_t
+      out_len = subcol_get_scheme_codon(int(len(subcol_scheme), c_int64_t), &
+           c_loc(scheme_ascii(1)), c_loc(out_ascii(1)))
+
+      subcol_get_scheme = ' '
+      ncopy = min(len(subcol_get_scheme), max(0, int(out_len)))
+      do i = 1, ncopy
+         subcol_get_scheme(i:i) = achar(int(out_ascii(i)))
+      end do
+
+      if (masterproc .and. .not. subcol_get_scheme_logged) then
+         write(iulog,'(A)') 'subcol_get_scheme direct = codon'
+         call flush(iulog)
+         subcol_get_scheme_logged = .true.
+      end if
    end function subcol_get_scheme
 
    subroutine subcol_utils_readnl(nlfile)

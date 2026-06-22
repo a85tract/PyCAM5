@@ -36,10 +36,20 @@ def wtrc_int_ne_codon(value: int, expected: int) -> int:
 
 
 @export
+def wtrc_is_wtrc_codon(iwater_value: int, iwtundef: int) -> int:
+    return wtrc_int_ne_codon(iwater_value, iwtundef)
+
+
+@export
 def wtrc_bool_id_codon(value: int) -> int:
     if value != 0:
         return 1
     return 0
+
+
+@export
+def wtrc_is_tagged_codon(is_tagged: int) -> int:
+    return wtrc_bool_id_codon(is_tagged)
 
 
 @export

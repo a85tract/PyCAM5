@@ -2415,7 +2415,7 @@ def diag_phys_writeout_rhi_rhcfmip_codon(
 
 
 @export
-def cloud_cover_cldsav_codon(
+def cldsav_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -2510,7 +2510,7 @@ def cloud_cover_cldsav_codon(
 
 
 @export
-def pkg_cldoptics_cldovrlap_codon(
+def cldovrlap_codon(
     ncol: int,
     pcols: int,
     pver: int,
