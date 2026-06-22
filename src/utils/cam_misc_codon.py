@@ -40,7 +40,7 @@ def datetime_format_codon(values_p: cobj, cdate_p: cobj, ctime_p: cobj):
 
 
 @export
-def wrap_mpi_mpialltoallint_codon(
+def mpialltoallint_codon(
     sendbuf_p: cobj,
     sendcnt: int,
     recvbuf_p: cobj,
@@ -62,7 +62,7 @@ def wrap_mpi_mpialltoallint_codon(
 
 
 @export
-def wrap_mpi_mpiallgatherint_codon(
+def mpiallgatherint_codon(
     sendbuf_p: cobj,
     scount: int,
     recvbuf_p: cobj,

@@ -1143,13 +1143,13 @@
    integer :: ier              ! MPI error code
 
    interface
-      function wrap_mpi_mpialltoallint_codon(sendbuf_p, sendcnt, recvbuf_p, recvcnt, comm, mpiint_arg) result(ierr) &
-            bind(c, name='wrap_mpi_mpialltoallint_codon')
+      function mpialltoallint_codon(sendbuf_p, sendcnt, recvbuf_p, recvcnt, comm, mpiint_arg) result(ierr) &
+            bind(c, name='mpialltoallint_codon')
          import :: c_int, c_ptr
          type(c_ptr), value :: sendbuf_p, recvbuf_p
          integer(c_int), value :: sendcnt, recvcnt, comm, mpiint_arg
          integer(c_int) :: ierr
-      end function wrap_mpi_mpialltoallint_codon
+      end function mpialltoallint_codon
    end interface
 
 #define CAM_MISC_TAG 258
@@ -1162,7 +1162,7 @@
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_alltoallint')
 #endif
-   ier = wrap_mpi_mpialltoallint_codon(c_loc(sendbuf), int(sendcnt, c_int), &
+   ier = mpialltoallint_codon(c_loc(sendbuf), int(sendcnt, c_int), &
                                        c_loc(recvbuf), int(recvcnt, c_int), &
                                        int(comm, c_int), int(mpiint, c_int))
    if (ier/=mpi_success) then
@@ -1249,13 +1249,13 @@
    integer ier   !MP error code
 
    interface
-      function wrap_mpi_mpiallgatherint_codon(sendbuf_p, scount, recvbuf_p, rcount, comm, mpiint_arg) result(ierr) &
-            bind(c, name='wrap_mpi_mpiallgatherint_codon')
+      function mpiallgatherint_codon(sendbuf_p, scount, recvbuf_p, rcount, comm, mpiint_arg) result(ierr) &
+            bind(c, name='mpiallgatherint_codon')
          import :: c_int, c_ptr
          type(c_ptr), value :: sendbuf_p, recvbuf_p
          integer(c_int), value :: scount, rcount, comm, mpiint_arg
          integer(c_int) :: ierr
-      end function wrap_mpi_mpiallgatherint_codon
+      end function mpiallgatherint_codon
    end interface
 
 #define CAM_MISC_TAG 259
@@ -1268,7 +1268,7 @@
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_allgather')
 #endif
-   ier = wrap_mpi_mpiallgatherint_codon(c_loc(sendbuf), int(scount, c_int), &
+   ier = mpiallgatherint_codon(c_loc(sendbuf), int(scount, c_int), &
                                         c_loc(recvbuf), int(rcount, c_int), &
                                         int(comm, c_int), int(mpiint, c_int))
    if (ier/=mpi_success) then
