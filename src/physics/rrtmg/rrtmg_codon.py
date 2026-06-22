@@ -4088,7 +4088,77 @@ def rrtmg_cloud_liquid_optics_lw_codon(
 
 
 @export
-def rrtmg_gam_liquid_sw_codon(
+def get_ice_optics_sw_codon(
+    ncol: int, pcols: int, pver: int, nswbands: int, ngd: int,
+    iciwpth_p: cobj, dei_p: cobj, gd_p: cobj, ext_p: cobj, ssa_p: cobj,
+    asm_p: cobj, tau_p: cobj, tau_w_p: cobj, tau_w_g_p: cobj, tau_w_f_p: cobj,
+):
+    rrtmg_cloud_ice_optics_sw_codon(
+        ncol, pcols, pver, nswbands, ngd, iciwpth_p, dei_p, gd_p, ext_p, ssa_p,
+        asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p,
+    )
+
+
+@export
+def get_snow_optics_sw_codon(
+    ncol: int, pcols: int, pver: int, nswbands: int, ngd: int,
+    icswpth_p: cobj, des_p: cobj, gd_p: cobj, ext_p: cobj, ssa_p: cobj,
+    asm_p: cobj, tau_p: cobj, tau_w_p: cobj, tau_w_g_p: cobj, tau_w_f_p: cobj,
+):
+    rrtmg_cloud_ice_optics_sw_codon(
+        ncol, pcols, pver, nswbands, ngd, icswpth_p, des_p, gd_p, ext_p, ssa_p,
+        asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p,
+    )
+
+
+@export
+def ice_cloud_get_rad_props_lw_codon(
+    ncol: int, pcols: int, pver: int, nlwbands: int, ngd: int,
+    iciwpth_p: cobj, dei_p: cobj, gd_p: cobj, absor_p: cobj, abs_od_p: cobj,
+):
+    rrtmg_cloud_ice_optics_lw_codon(
+        ncol, pcols, pver, nlwbands, ngd, iciwpth_p, dei_p, gd_p, absor_p, abs_od_p,
+    )
+
+
+@export
+def snow_cloud_get_rad_props_lw_codon(
+    ncol: int, pcols: int, pver: int, nlwbands: int, ngd: int,
+    icswpth_p: cobj, des_p: cobj, gd_p: cobj, absor_p: cobj, abs_od_p: cobj,
+):
+    rrtmg_cloud_ice_optics_lw_codon(
+        ncol, pcols, pver, nlwbands, ngd, icswpth_p, des_p, gd_p, absor_p, abs_od_p,
+    )
+
+
+@export
+def get_liquid_optics_sw_codon(
+    ncol: int, pcols: int, pver: int, nswbands: int, nmu: int, nlambda: int,
+    iclwpth_p: cobj, lamc_p: cobj, pgam_p: cobj, g_mu_p: cobj, g_lambda_p: cobj,
+    ext_p: cobj, ssa_p: cobj, asm_p: cobj, tau_p: cobj, tau_w_p: cobj,
+    tau_w_g_p: cobj, tau_w_f_p: cobj,
+):
+    rrtmg_cloud_liquid_optics_sw_codon(
+        ncol, pcols, pver, nswbands, nmu, nlambda, iclwpth_p, lamc_p, pgam_p,
+        g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p,
+        tau_w_f_p,
+    )
+
+
+@export
+def liquid_cloud_get_rad_props_lw_codon(
+    ncol: int, pcols: int, pver: int, nlwbands: int, nmu: int, nlambda: int,
+    iclwpth_p: cobj, lamc_p: cobj, pgam_p: cobj, g_mu_p: cobj, g_lambda_p: cobj,
+    abs_liq_p: cobj, abs_od_p: cobj,
+):
+    rrtmg_cloud_liquid_optics_lw_codon(
+        ncol, pcols, pver, nlwbands, nmu, nlambda, iclwpth_p, lamc_p, pgam_p,
+        g_mu_p, g_lambda_p, abs_liq_p, abs_od_p,
+    )
+
+
+@export
+def gam_liquid_sw_codon(
     clwptn: float,
     lamc: float,
     pgam: float,
@@ -4150,7 +4220,7 @@ def rrtmg_gam_liquid_sw_codon(
 
 
 @export
-def rrtmg_gam_liquid_lw_codon(
+def gam_liquid_lw_codon(
     clwptn: float,
     lamc: float,
     pgam: float,

@@ -459,17 +459,43 @@ subroutine get_snow_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    type(physics_state), intent(in)   :: state
    type(physics_buffer_desc),pointer :: pbuf(:)
 
-   real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-   real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-   real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
-   real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
+   real(r8), target, intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
+   real(r8), target, intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
+   real(r8), target, intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
+   real(r8), target, intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
    real(r8), pointer :: icswpth(:,:), des(:,:)
+
+   interface
+      subroutine get_snow_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, ngd_c, &
+           icswpth_p, des_p, gd_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
+           bind(c, name="get_snow_optics_sw_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, ngd_c
+         type(c_ptr), value :: icswpth_p, des_p, gd_p, ext_p, ssa_p, asm_p
+         type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
+      end subroutine get_snow_optics_sw_codon
+   end interface
 
    ! This does the same thing as get_ice_optics_sw, except with a different
    ! water path and effective diameter.
    call pbuf_get_field(pbuf, i_icswp, icswpth)
    call pbuf_get_field(pbuf, i_des,   des)
+
+   call cloud_ice_optics_select_impl()
+   if (.not. use_native_cloud_ice_optics_impl) then
+      call cloud_ice_optics_sw_log_entered()
+      call get_snow_optics_sw_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nswbands, c_int64_t), int(n_g_d, c_int64_t), &
+           c_loc(icswpth(1,1)), c_loc(des(1,1)), c_loc(g_d_eff(1)), c_loc(ext_sw_ice(1,1)), &
+           c_loc(ssa_sw_ice(1,1)), c_loc(asm_sw_ice(1,1)), c_loc(tau(1,1,1)), &
+           c_loc(tau_w(1,1,1)), c_loc(tau_w_g(1,1,1)), c_loc(tau_w_f(1,1,1)))
+      if (masterproc) then
+         write(iulog,*) 'get_snow_optics_sw implementation = codon'
+         call flush(iulog)
+      endif
+      return
+   end if
 
    call interpolate_ice_optics_sw(state%ncol, icswpth, des, tau, tau_w, &
         tau_w_g, tau_w_f)
@@ -488,17 +514,43 @@ subroutine get_ice_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    type(physics_state), intent(in)   :: state
    type(physics_buffer_desc),pointer :: pbuf(:)
 
-   real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-   real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-   real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
-   real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
+   real(r8), target, intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
+   real(r8), target, intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
+   real(r8), target, intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
+   real(r8), target, intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
    real(r8), pointer :: iciwpth(:,:), dei(:,:)
+
+   interface
+      subroutine get_ice_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, ngd_c, &
+           iciwpth_p, dei_p, gd_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
+           bind(c, name="get_ice_optics_sw_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, ngd_c
+         type(c_ptr), value :: iciwpth_p, dei_p, gd_p, ext_p, ssa_p, asm_p
+         type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
+      end subroutine get_ice_optics_sw_codon
+   end interface
 
    ! Get relevant pbuf fields, and interpolate optical properties from
    ! the lookup tables.
    call pbuf_get_field(pbuf, i_iciwp, iciwpth)
    call pbuf_get_field(pbuf, i_dei,   dei)
+
+   call cloud_ice_optics_select_impl()
+   if (.not. use_native_cloud_ice_optics_impl) then
+      call cloud_ice_optics_sw_log_entered()
+      call get_ice_optics_sw_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nswbands, c_int64_t), int(n_g_d, c_int64_t), &
+           c_loc(iciwpth(1,1)), c_loc(dei(1,1)), c_loc(g_d_eff(1)), c_loc(ext_sw_ice(1,1)), &
+           c_loc(ssa_sw_ice(1,1)), c_loc(asm_sw_ice(1,1)), c_loc(tau(1,1,1)), &
+           c_loc(tau_w(1,1,1)), c_loc(tau_w_g(1,1,1)), c_loc(tau_w_f(1,1,1)))
+      if (masterproc) then
+         write(iulog,*) 'get_ice_optics_sw implementation = codon'
+         call flush(iulog)
+      endif
+      return
+   end if
 
    call interpolate_ice_optics_sw(state%ncol, iciwpth, dei, tau, tau_w, &
         tau_w_g, tau_w_f)
@@ -598,14 +650,14 @@ subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    integer i,k,swband,lchnk,ncol
 
    interface
-      subroutine rrtmg_cloud_liquid_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, nmu_c, nlambda_c, &
+      subroutine get_liquid_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, nmu_c, nlambda_c, &
            iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p, &
-           tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) bind(c, name="rrtmg_cloud_liquid_optics_sw_codon")
+           tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) bind(c, name="get_liquid_optics_sw_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, nmu_c, nlambda_c
          type(c_ptr), value :: iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p
          type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
-      end subroutine rrtmg_cloud_liquid_optics_sw_codon
+      end subroutine get_liquid_optics_sw_codon
    end interface
 
    lchnk = state%lchnk
@@ -619,11 +671,15 @@ subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    call cloud_liquid_optics_select_impl()
    if (.not. use_native_cloud_liquid_optics_impl) then
       call cloud_liquid_optics_sw_log_entered()
-      call rrtmg_cloud_liquid_optics_sw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call get_liquid_optics_sw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(nswbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
            c_loc(iclwpth(1,1)), c_loc(lamc(1,1)), c_loc(pgam(1,1)), c_loc(g_mu(1)), c_loc(g_lambda(1,1)), &
            c_loc(ext_sw_liq(1,1,1)), c_loc(ssa_sw_liq(1,1,1)), c_loc(asm_sw_liq(1,1,1)), &
            c_loc(tau(1,1,1)), c_loc(tau_w(1,1,1)), c_loc(tau_w_g(1,1,1)), c_loc(tau_w_f(1,1,1)))
+      if (masterproc) then
+         write(iulog,*) 'get_liquid_optics_sw implementation = codon'
+         call flush(iulog)
+      endif
       return
    end if
    
@@ -656,13 +712,13 @@ subroutine liquid_cloud_get_rad_props_lw(state, pbuf, abs_od)
    integer lwband, i, k
 
    interface
-      subroutine rrtmg_cloud_liquid_optics_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, nmu_c, nlambda_c, &
+      subroutine liquid_cloud_get_rad_props_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, nmu_c, nlambda_c, &
            iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, abs_liq_p, abs_od_p) &
-           bind(c, name="rrtmg_cloud_liquid_optics_lw_codon")
+           bind(c, name="liquid_cloud_get_rad_props_lw_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c, nmu_c, nlambda_c
          type(c_ptr), value :: iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, abs_liq_p, abs_od_p
-      end subroutine rrtmg_cloud_liquid_optics_lw_codon
+      end subroutine liquid_cloud_get_rad_props_lw_codon
    end interface
 
    abs_od = 0._r8
@@ -677,10 +733,14 @@ subroutine liquid_cloud_get_rad_props_lw(state, pbuf, abs_od)
    call cloud_liquid_optics_select_impl()
    if (.not. use_native_cloud_liquid_optics_impl) then
       call cloud_liquid_optics_lw_log_entered()
-      call rrtmg_cloud_liquid_optics_lw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call liquid_cloud_get_rad_props_lw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(nlwbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
            c_loc(iclwpth(1,1)), c_loc(lamc(1,1)), c_loc(pgam(1,1)), c_loc(g_mu(1)), c_loc(g_lambda(1,1)), &
            c_loc(abs_lw_liq(1,1,1)), c_loc(abs_od(1,1,1)))
+      if (masterproc) then
+         write(iulog,*) 'liquid_cloud_get_rad_props_lw implementation = codon'
+         call flush(iulog)
+      endif
       return
    end if
 
@@ -700,14 +760,37 @@ end subroutine liquid_cloud_get_rad_props_lw
 subroutine snow_cloud_get_rad_props_lw(state, pbuf, abs_od)
    type(physics_state), intent(in)    :: state
    type(physics_buffer_desc), pointer :: pbuf(:)
-   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)
+   real(r8), target, intent(out) :: abs_od(nlwbands,pcols,pver)
 
    real(r8), pointer :: icswpth(:,:), des(:,:)
+
+   interface
+      subroutine snow_cloud_get_rad_props_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c, &
+           icswpth_p, des_p, gd_p, absor_p, abs_od_p) bind(c, name="snow_cloud_get_rad_props_lw_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c
+         type(c_ptr), value :: icswpth_p, des_p, gd_p, absor_p, abs_od_p
+      end subroutine snow_cloud_get_rad_props_lw_codon
+   end interface
 
    ! This does the same thing as ice_cloud_get_rad_props_lw, except with a
    ! different water path and effective diameter.
    call pbuf_get_field(pbuf, i_icswp, icswpth)
    call pbuf_get_field(pbuf, i_des,   des)
+
+   call cloud_ice_optics_select_impl()
+   if (.not. use_native_cloud_ice_optics_impl) then
+      call cloud_ice_optics_lw_log_entered()
+      call snow_cloud_get_rad_props_lw_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nlwbands, c_int64_t), int(n_g_d, c_int64_t), &
+           c_loc(icswpth(1,1)), c_loc(des(1,1)), c_loc(g_d_eff(1)), c_loc(abs_lw_ice(1,1)), &
+           c_loc(abs_od(1,1,1)))
+      if (masterproc) then
+         write(iulog,*) 'snow_cloud_get_rad_props_lw implementation = codon'
+         call flush(iulog)
+      endif
+      return
+   end if
 
    call interpolate_ice_optics_lw(state%ncol,icswpth, des, abs_od)
    if (.not. use_native_cloud_ice_optics_impl .and. masterproc) then
@@ -722,14 +805,37 @@ end subroutine snow_cloud_get_rad_props_lw
 subroutine ice_cloud_get_rad_props_lw(state, pbuf, abs_od)
    type(physics_state), intent(in)     :: state
    type(physics_buffer_desc), pointer  :: pbuf(:)
-   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)
+   real(r8), target, intent(out) :: abs_od(nlwbands,pcols,pver)
 
    real(r8), pointer :: iciwpth(:,:), dei(:,:)
+
+   interface
+      subroutine ice_cloud_get_rad_props_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c, &
+           iciwpth_p, dei_p, gd_p, absor_p, abs_od_p) bind(c, name="ice_cloud_get_rad_props_lw_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c
+         type(c_ptr), value :: iciwpth_p, dei_p, gd_p, absor_p, abs_od_p
+      end subroutine ice_cloud_get_rad_props_lw_codon
+   end interface
 
    ! Get relevant pbuf fields, and interpolate optical properties from
    ! the lookup tables.
    call pbuf_get_field(pbuf, i_iciwp, iciwpth)
    call pbuf_get_field(pbuf, i_dei,   dei)
+
+   call cloud_ice_optics_select_impl()
+   if (.not. use_native_cloud_ice_optics_impl) then
+      call cloud_ice_optics_lw_log_entered()
+      call ice_cloud_get_rad_props_lw_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nlwbands, c_int64_t), int(n_g_d, c_int64_t), &
+           c_loc(iciwpth(1,1)), c_loc(dei(1,1)), c_loc(g_d_eff(1)), c_loc(abs_lw_ice(1,1)), &
+           c_loc(abs_od(1,1,1)))
+      if (masterproc) then
+         write(iulog,*) 'ice_cloud_get_rad_props_lw implementation = codon'
+         call flush(iulog)
+      endif
+      return
+   end if
 
    call interpolate_ice_optics_lw(state%ncol,iciwpth, dei, abs_od)
    if (.not. use_native_cloud_ice_optics_impl .and. masterproc) then
@@ -811,13 +917,13 @@ subroutine gam_liquid_lw(clwptn, lamc, pgam, abs_od)
   type(interp_type) :: lambda_wgts
 
   interface
-     subroutine rrtmg_gam_liquid_lw_codon(clwptn_c, lamc_c, pgam_c, nlwbands_c, nmu_c, nlambda_c, &
-          g_mu_p, g_lambda_p, abs_liq_p, abs_od_p) bind(c, name="rrtmg_gam_liquid_lw_codon")
+     subroutine gam_liquid_lw_codon(clwptn_c, lamc_c, pgam_c, nlwbands_c, nmu_c, nlambda_c, &
+          g_mu_p, g_lambda_p, abs_liq_p, abs_od_p) bind(c, name="gam_liquid_lw_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
         real(c_double), value :: clwptn_c, lamc_c, pgam_c
         integer(c_int64_t), value :: nlwbands_c, nmu_c, nlambda_c
         type(c_ptr), value :: g_mu_p, g_lambda_p, abs_liq_p, abs_od_p
-     end subroutine rrtmg_gam_liquid_lw_codon
+     end subroutine gam_liquid_lw_codon
   end interface
 
   if (cloud_rad_props_use_native('RRTMG_GAM_LIQUID_LW_IMPL')) then
@@ -829,7 +935,7 @@ subroutine gam_liquid_lw(clwptn, lamc, pgam, abs_od)
         end if
      end if
   else
-     call rrtmg_gam_liquid_lw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
+     call gam_liquid_lw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
           int(nlwbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
           c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(abs_lw_liq(1,1,1)), c_loc(abs_od(1)))
      if (.not. gam_liquid_lw_entered_logged) then
@@ -879,15 +985,15 @@ subroutine gam_liquid_sw(clwptn, lamc, pgam, tau, tau_w, tau_w_g, tau_w_f)
   type(interp_type) :: lambda_wgts
 
   interface
-     subroutine rrtmg_gam_liquid_sw_codon(clwptn_c, lamc_c, pgam_c, nswbands_c, nmu_c, nlambda_c, &
+     subroutine gam_liquid_sw_codon(clwptn_c, lamc_c, pgam_c, nswbands_c, nmu_c, nlambda_c, &
           g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
-          bind(c, name="rrtmg_gam_liquid_sw_codon")
+          bind(c, name="gam_liquid_sw_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
         real(c_double), value :: clwptn_c, lamc_c, pgam_c
         integer(c_int64_t), value :: nswbands_c, nmu_c, nlambda_c
         type(c_ptr), value :: g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p
         type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
-     end subroutine rrtmg_gam_liquid_sw_codon
+     end subroutine gam_liquid_sw_codon
   end interface
 
   if (cloud_rad_props_use_native('RRTMG_GAM_LIQUID_SW_IMPL')) then
@@ -899,7 +1005,7 @@ subroutine gam_liquid_sw(clwptn, lamc, pgam, tau, tau_w, tau_w_g, tau_w_f)
         end if
      end if
   else
-     call rrtmg_gam_liquid_sw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
+     call gam_liquid_sw_codon(real(clwptn, c_double), real(lamc, c_double), real(pgam, c_double), &
           int(nswbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
           c_loc(g_mu(1)), c_loc(g_lambda(1,1)), c_loc(ext_sw_liq(1,1,1)), &
           c_loc(ssa_sw_liq(1,1,1)), c_loc(asm_sw_liq(1,1,1)), c_loc(tau(1)), &
