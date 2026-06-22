@@ -728,12 +728,12 @@ contains
      integer :: impl_n, impl_status
      logical, save :: proof_seen = .false.
      interface
-        function se_calcsegmentlength_codon(lenp_c, lens_c, mpattern_c, nlyr_c, hme_s_c, hme_p_c) result(len_c) &
-             bind(c, name='se_calcsegmentlength_codon')
+        function calcsegmentlength_codon(lenp_c, lens_c, mpattern_c, nlyr_c, hme_s_c, hme_p_c) result(len_c) &
+             bind(c, name='calcsegmentlength_codon')
           use iso_c_binding, only : c_int64_t
           integer(c_int64_t), value :: lenp_c, lens_c, mpattern_c, nlyr_c, hme_s_c, hme_p_c
           integer(c_int64_t) :: len_c
-        end function se_calcsegmentlength_codon
+        end function calcsegmentlength_codon
      end interface
 
      impl_name = 'codon'
@@ -752,7 +752,7 @@ contains
            proof_seen = .true.
         endif
      else
-       len = int(se_calcsegmentlength_codon(int(pgIndx%lenP, c_int64_t), int(pgIndx%lenS, c_int64_t), &
+       len = int(calcsegmentlength_codon(int(pgIndx%lenP, c_int64_t), int(pgIndx%lenS, c_int64_t), &
             int(mPattern, c_int64_t), int(nlyr, c_int64_t), int(HME_MPATTERN_S, c_int64_t), &
             int(HME_MPATTERN_P, c_int64_t)))
        if (.not. proof_seen) then

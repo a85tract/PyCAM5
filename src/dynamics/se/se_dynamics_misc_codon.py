@@ -39,19 +39,19 @@ def mass_matrix_sphere_init_codon(np: int, mp_p: cobj, metdet_p: cobj, spheremp_
             rspheremp[idx] = value
 
 
-def se_omp_get_thread_num_codon() -> int:
+def omp_get_thread_num_codon() -> int:
     return 0
 
 
-def se_omp_get_num_threads_codon() -> int:
+def omp_get_num_threads_codon() -> int:
     return 1
 
 
-def se_omp_in_parallel_codon() -> int:
+def omp_in_parallel_codon() -> int:
     return 0
 
 
-def se_omp_set_num_threads_codon(nthreads: int) -> int:
+def omp_set_num_threads_codon(nthreads: int) -> int:
     return 1
 
 
@@ -1465,7 +1465,7 @@ def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> in
     return 1
 
 
-def se_gausslobatto_pts_codon(npts: int, points_p: cobj) -> int:
+def gausslobatto_pts_codon(npts: int, points_p: cobj) -> int:
     if npts != 4:
         return 0
     points = Ptr[float](points_p)
@@ -1486,7 +1486,7 @@ def deallocate_gridvertex_nbrs_touch_codon(tag: int) -> int:
     return tag
 
 
-def se_log2_codon(n: int) -> int:
+def log2_codon(n: int) -> int:
     ans = 1
     tmp = n
     while tmp // 2 != 1:
@@ -1526,7 +1526,7 @@ def se_factor_fill_codon(num: int, factors_p: cobj, numfact_p: cobj):
         numfact[0] = i32(-1)
 
 
-def se_calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
+def calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
     if mpattern == hme_mpattern_s:
         ans = nlyr * lens
     elif mpattern == hme_mpattern_p:
@@ -1536,7 +1536,7 @@ def se_calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, h
     return ans
 
 
-def se_timelevel_init_default_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, nstep0_p: cobj):
+def timelevel_init_default_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, nstep0_p: cobj):
     Ptr[i32](nm1_p)[0] = i32(1)
     Ptr[i32](n0_p)[0] = i32(2)
     Ptr[i32](np1_p)[0] = i32(3)
@@ -1544,7 +1544,7 @@ def se_timelevel_init_default_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_
     Ptr[i32](nstep0_p)[0] = i32(2)
 
 
-def se_timelevel_update_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, uptype_code: int) -> int:
+def timelevel_update_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, uptype_code: int) -> int:
     nm1 = Ptr[i32](nm1_p)
     n0 = Ptr[i32](n0_p)
     np1 = Ptr[i32](np1_p)

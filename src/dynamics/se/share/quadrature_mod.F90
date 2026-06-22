@@ -359,20 +359,20 @@ contains
     integer :: impl_n, impl_status
 
     interface
-       function se_gausslobatto_pts_codon(npts_c, points_p) result(status_c) &
-            bind(c, name="se_gausslobatto_pts_codon")
+       function gausslobatto_pts_codon(npts_c, points_p) result(status_c) &
+            bind(c, name="gausslobatto_pts_codon")
          import :: c_int64_t, c_ptr
          integer(c_int64_t), value :: npts_c
          type(c_ptr), value :: points_p
          integer(c_int64_t) :: status_c
-       end function se_gausslobatto_pts_codon
+       end function gausslobatto_pts_codon
     end interface
 
     impl_name = 'codon'
     call cam_codon_get_impl('GAUSSLOBATTO_PTS_IMPL', impl_name, impl_n, impl_status)
     if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
          trim(adjustl(impl_name(:impl_n))) == 'native')) then
-       codon_status = se_gausslobatto_pts_codon(int(np1, c_int64_t), c_loc(pts(1)))
+       codon_status = gausslobatto_pts_codon(int(np1, c_int64_t), c_loc(pts(1)))
        if (codon_status == 1_c_int64_t) then
           if (masterproc .and. .not. gausslobatto_pts_codon_logged) then
              write(iulog,*) 'gausslobatto_pts implementation = codon'

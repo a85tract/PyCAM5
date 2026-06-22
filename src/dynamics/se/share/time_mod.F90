@@ -76,11 +76,11 @@ contains
     use cam_logfile, only : iulog
     type (TimeLevel_t), target, intent(out) :: tl
     interface
-       subroutine se_timelevel_init_default_codon(nm1_p, n0_p, np1_p, nstep_p, nstep0_p) &
-            bind(c, name='se_timelevel_init_default_codon')
+       subroutine timelevel_init_default_codon(nm1_p, n0_p, np1_p, nstep_p, nstep0_p) &
+            bind(c, name='timelevel_init_default_codon')
          use iso_c_binding, only : c_ptr
          type(c_ptr), value :: nm1_p, n0_p, np1_p, nstep_p, nstep0_p
-       end subroutine se_timelevel_init_default_codon
+       end subroutine timelevel_init_default_codon
     end interface
 
 #define SE_MISC_TAG 29
@@ -100,7 +100,7 @@ contains
        return
     end if
 
-    call se_timelevel_init_default_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
+    call timelevel_init_default_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
          c_loc(tl%nstep), c_loc(tl%nstep0))
     write(iulog,*) 'timelevel_init_default implementation = codon'
   end subroutine TimeLevel_init_default
@@ -196,13 +196,13 @@ contains
     integer :: ierr, ntmp, uptype_code
     logical, save :: native_proof_seen = .false.
     interface
-       function se_timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code_c) result(ierr_c) &
-            bind(c, name='se_timelevel_update_codon')
+       function timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code_c) result(ierr_c) &
+            bind(c, name='timelevel_update_codon')
          use iso_c_binding, only : c_int64_t, c_ptr
          type(c_ptr), value :: nm1_p, n0_p, np1_p, nstep_p
          integer(c_int64_t), value :: uptype_code_c
          integer(c_int64_t) :: ierr_c
-       end function se_timelevel_update_codon
+       end function timelevel_update_codon
     end interface
 #if (defined HORIZ_OPENMP)
 !$OMP BARRIER
@@ -236,7 +236,7 @@ contains
           print *,'WARNING: TimeLevel_update called wint invalid uptype=',uptype
           uptype_code = 0
        end if
-       ierr = int(se_timelevel_update_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
+       ierr = int(timelevel_update_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
             c_loc(tl%nstep), int(uptype_code, c_int64_t)))
        if (ierr == 0) write(iulog,*) 'timelevel_update implementation = codon'
     end if

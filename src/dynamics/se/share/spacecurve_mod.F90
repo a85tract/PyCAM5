@@ -861,17 +861,17 @@ contains
 
     integer  :: log2,tmp
     interface
-       function se_log2_codon(n_c) result(log2_c) bind(c, name='se_log2_codon')
+       function log2_codon(n_c) result(log2_c) bind(c, name='log2_codon')
          use iso_c_binding, only : c_int64_t
          integer(c_int64_t), value :: n_c
          integer(c_int64_t) :: log2_c
-       end function se_log2_codon
+       end function log2_codon
     end interface
     ! 
     !  Find the log2 of input value
     !
     tmp =n
-    log2 = int(se_log2_codon(int(tmp, c_int64_t)))
+    log2 = int(log2_codon(int(tmp, c_int64_t)))
     write(iulog,*) 'log2 implementation = codon'
 
   end function log2

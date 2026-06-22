@@ -37,14 +37,14 @@ contains
     use iso_c_binding, only : c_int64_t
     use cam_logfile, only : iulog
     interface
-      function se_omp_get_thread_num_codon() result(ithr_c) bind(c, name='se_omp_get_thread_num_codon')
+      function omp_get_thread_num_codon() result(ithr_c) bind(c, name='omp_get_thread_num_codon')
         import :: c_int64_t
         integer(c_int64_t) :: ithr_c
-      end function se_omp_get_thread_num_codon
+      end function omp_get_thread_num_codon
     end interface
     integer ithr
     logical, save :: proof_seen = .false.
-    ithr=int(se_omp_get_thread_num_codon())
+    ithr=int(omp_get_thread_num_codon())
     if (.not. proof_seen) then
        write(iulog,*) 'omp_get_thread_num implementation = codon'
        proof_seen = .true.
@@ -55,14 +55,14 @@ contains
     use iso_c_binding, only : c_int64_t
     use cam_logfile, only : iulog
     interface
-      function se_omp_get_num_threads_codon() result(ithr_c) bind(c, name='se_omp_get_num_threads_codon')
+      function omp_get_num_threads_codon() result(ithr_c) bind(c, name='omp_get_num_threads_codon')
         import :: c_int64_t
         integer(c_int64_t) :: ithr_c
-      end function se_omp_get_num_threads_codon
+      end function omp_get_num_threads_codon
     end interface
     integer ithr
     logical, save :: proof_seen = .false.
-    ithr=int(se_omp_get_num_threads_codon())
+    ithr=int(omp_get_num_threads_codon())
     if (.not. proof_seen) then
        write(iulog,*) 'omp_get_num_threads implementation = codon'
        proof_seen = .true.
@@ -73,14 +73,14 @@ contains
     use iso_c_binding, only : c_int64_t
     use cam_logfile, only : iulog
     interface
-      function se_omp_in_parallel_codon() result(ans_c) bind(c, name='se_omp_in_parallel_codon')
+      function omp_in_parallel_codon() result(ans_c) bind(c, name='omp_in_parallel_codon')
         import :: c_int64_t
         integer(c_int64_t) :: ans_c
-      end function se_omp_in_parallel_codon
+      end function omp_in_parallel_codon
     end interface
     logical ans
     logical, save :: proof_seen = .false.
-    ans=(se_omp_in_parallel_codon() /= 0_c_int64_t)
+    ans=(omp_in_parallel_codon() /= 0_c_int64_t)
     if (.not. proof_seen) then
        write(iulog,*) 'omp_in_parallel implementation = codon'
        proof_seen = .true.
@@ -91,12 +91,12 @@ contains
     use iso_c_binding, only : c_int64_t
     use cam_logfile, only : iulog
     interface
-      function se_omp_set_num_threads_codon(nthreads_c) result(nthreads_out_c) &
-           bind(c, name='se_omp_set_num_threads_codon')
+      function omp_set_num_threads_codon(nthreads_c) result(nthreads_out_c) &
+           bind(c, name='omp_set_num_threads_codon')
         import :: c_int64_t
         integer(c_int64_t), value :: nthreads_c
         integer(c_int64_t) :: nthreads_out_c
-      end function se_omp_set_num_threads_codon
+      end function omp_set_num_threads_codon
     end interface
     integer Nthreads
     logical, save :: proof_seen = .false.
@@ -108,7 +108,7 @@ contains
 #undef SE_MISC_LABEL
 #undef SE_MISC_TAG
 
-    NThreads=int(se_omp_set_num_threads_codon(int(NThreads, c_int64_t)))
+    NThreads=int(omp_set_num_threads_codon(int(NThreads, c_int64_t)))
     if (.not. proof_seen) then
        write(iulog,*) 'omp_set_num_threads implementation = codon'
        proof_seen = .true.

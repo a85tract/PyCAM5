@@ -117,24 +117,24 @@ def preq_omega_ps_codon(
     return _prim_si.preq_omega_ps_codon(np, nlev, omega_p_p, p_p, vgrad_p_p, divdp_p, suml_p)
 
 @export
-def se_log2_codon(n: int) -> int:
-    return _misc.se_log2_codon(n)
+def log2_codon(n: int) -> int:
+    return _misc.log2_codon(n)
 
 @export
 def se_factor_fill_codon(num: int, factors_p: cobj, numfact_p: cobj):
     return _misc.se_factor_fill_codon(num, factors_p, numfact_p)
 
 @export
-def se_calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
-    return _misc.se_calcsegmentlength_codon(lenp, lens, mpattern, nlyr, hme_mpattern_s, hme_mpattern_p)
+def calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
+    return _misc.calcsegmentlength_codon(lenp, lens, mpattern, nlyr, hme_mpattern_s, hme_mpattern_p)
 
 @export
-def se_timelevel_init_default_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, nstep0_p: cobj):
-    return _misc.se_timelevel_init_default_codon(nm1_p, n0_p, np1_p, nstep_p, nstep0_p)
+def timelevel_init_default_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, nstep0_p: cobj):
+    return _misc.timelevel_init_default_codon(nm1_p, n0_p, np1_p, nstep_p, nstep0_p)
 
 @export
-def se_timelevel_update_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, uptype_code: int) -> int:
-    return _misc.se_timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code)
+def timelevel_update_codon(nm1_p: cobj, n0_p: cobj, np1_p: cobj, nstep_p: cobj, uptype_code: int) -> int:
+    return _misc.timelevel_update_codon(nm1_p, n0_p, np1_p, nstep_p, uptype_code)
 
 @export
 def qdp_time_avg_codon(
@@ -909,13 +909,13 @@ def remap_q_ppm_mass_prep_codon(
     )
 
 @export
-def remap_q_ppm_compute_ppm_grids_codon(
+def compute_ppm_grids_codon(
     nlev: int,
     vert_remap_q_alg: int,
     dx_p: cobj,
     rslt_p: cobj,
 ):
-    return _remap.remap_q_ppm_compute_ppm_grids_codon(
+    return _remap.compute_ppm_grids_codon(
         nlev,
         vert_remap_q_alg,
         dx_p,
@@ -923,7 +923,7 @@ def remap_q_ppm_compute_ppm_grids_codon(
     )
 
 @export
-def remap_q_ppm_compute_ppm_codon(
+def compute_ppm_codon(
     nlev: int,
     vert_remap_q_alg: int,
     a_p: cobj,
@@ -932,7 +932,7 @@ def remap_q_ppm_compute_ppm_codon(
     dma_p: cobj,
     coefs_p: cobj,
 ):
-    return _remap.remap_q_ppm_compute_ppm_codon(
+    return _remap.compute_ppm_codon(
         nlev,
         vert_remap_q_alg,
         a_p,
@@ -1006,20 +1006,20 @@ def virtual_temperature1d_codon(
     return tin * (1.0 + (rwater_vapor / rgas - 1.0) * rin)
 
 @export
-def se_omp_get_thread_num_codon() -> int:
-    return _misc.se_omp_get_thread_num_codon()
+def omp_get_thread_num_codon() -> int:
+    return _misc.omp_get_thread_num_codon()
 
 @export
-def se_omp_get_num_threads_codon() -> int:
-    return _misc.se_omp_get_num_threads_codon()
+def omp_get_num_threads_codon() -> int:
+    return _misc.omp_get_num_threads_codon()
 
 @export
-def se_omp_in_parallel_codon() -> int:
-    return _misc.se_omp_in_parallel_codon()
+def omp_in_parallel_codon() -> int:
+    return _misc.omp_in_parallel_codon()
 
 @export
-def se_omp_set_num_threads_codon(nthreads: int) -> int:
-    return _misc.se_omp_set_num_threads_codon(nthreads)
+def omp_set_num_threads_codon(nthreads: int) -> int:
+    return _misc.omp_set_num_threads_codon(nthreads)
 
 @export
 def parallelmax0d_local_codon(data: float) -> float:
@@ -2052,11 +2052,11 @@ def se_gausslobatto_fill_codon(
     )
 
 @export
-def se_gausslobatto_pts_codon(
+def gausslobatto_pts_codon(
     npts: int,
     points_p: cobj,
 ) -> int:
-    return _misc.se_gausslobatto_pts_codon(
+    return _misc.gausslobatto_pts_codon(
         npts,
         points_p,
     )

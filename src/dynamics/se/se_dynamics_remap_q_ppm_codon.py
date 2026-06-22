@@ -66,7 +66,7 @@ def remap_q_ppm_mass_prep_codon(
         ao[_common._ghost_col_idx(nlev + k)] = ao[_common._ghost_col_idx(nlev + 1 - k)]
 
 
-def remap_q_ppm_compute_ppm_grids_codon(
+def compute_ppm_grids_codon(
     nlev: int,
     vert_remap_q_alg: int,
     dx_p: cobj,
@@ -111,7 +111,7 @@ def remap_q_ppm_compute_ppm_grids_codon(
         rslt[_common._ppm_grid_idx(10, j)] = dxjp1 * (dxjp1 + dxjp2) / (dxj + (2.0 * dxjp1))
 
 
-def remap_q_ppm_compute_ppm_codon(
+def compute_ppm_codon(
     nlev: int,
     vert_remap_q_alg: int,
     a_p: cobj,

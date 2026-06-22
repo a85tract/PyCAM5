@@ -601,24 +601,24 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
        integer(c_int64_t), value :: nlev_c
        type(c_ptr), value :: pio_p, pin_p, dpo_p, kid_p, z1_p, z2_p
      end subroutine remap_q_ppm_interval_setup_codon
-     subroutine remap_q_ppm_compute_ppm_grids_codon(nlev_c, vert_remap_q_alg_c, dx_p, rslt_p) &
-          bind(c, name='remap_q_ppm_compute_ppm_grids_codon')
+     subroutine compute_ppm_grids_codon(nlev_c, vert_remap_q_alg_c, dx_p, rslt_p) &
+          bind(c, name='compute_ppm_grids_codon')
        use iso_c_binding, only : c_int64_t, c_ptr
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: dx_p, rslt_p
-     end subroutine remap_q_ppm_compute_ppm_grids_codon
+     end subroutine compute_ppm_grids_codon
      subroutine remap_q_ppm_mass_prep_codon(nx_c, nlev_c, qsize_c, i_c, j_c, q_c, qdp_p, dpo_p, masso_p, ao_p) &
           bind(c, name='remap_q_ppm_mass_prep_codon')
        use iso_c_binding, only : c_int64_t, c_ptr
        integer(c_int64_t), value :: nx_c, nlev_c, qsize_c, i_c, j_c, q_c
        type(c_ptr), value :: qdp_p, dpo_p, masso_p, ao_p
      end subroutine remap_q_ppm_mass_prep_codon
-     subroutine remap_q_ppm_compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
-          bind(c, name='remap_q_ppm_compute_ppm_codon')
+     subroutine compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
+          bind(c, name='compute_ppm_codon')
        use iso_c_binding, only : c_int64_t, c_ptr
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: a_p, dx_p, ai_p, dma_p, coefs_p
-     end subroutine remap_q_ppm_compute_ppm_codon
+     end subroutine compute_ppm_codon
      subroutine remap_q_ppm_mass_apply_codon(nx_c, nlev_c, i_c, j_c, q_c, kid_p, masso_p, coefs_p, z1_p, z2_p, dpo_p, qdp_p) &
           bind(c, name='remap_q_ppm_mass_apply_codon')
        use iso_c_binding, only : c_int64_t, c_ptr
@@ -772,16 +772,16 @@ function compute_ppm_grids( dx )   result(rslt)
   integer :: indB, indE
   logical, save :: proof_seen = .false.
   interface
-     subroutine remap_q_ppm_compute_ppm_grids_codon(nlev_c, vert_remap_q_alg_c, dx_p, rslt_p) &
-          bind(c, name='remap_q_ppm_compute_ppm_grids_codon')
+     subroutine compute_ppm_grids_codon(nlev_c, vert_remap_q_alg_c, dx_p, rslt_p) &
+          bind(c, name='compute_ppm_grids_codon')
        import :: c_int64_t, c_ptr
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: dx_p, rslt_p
-     end subroutine remap_q_ppm_compute_ppm_grids_codon
+     end subroutine compute_ppm_grids_codon
   end interface
 
   if (.not. remap_q_ppm_grid_use_native_impl) then
-    call remap_q_ppm_compute_ppm_grids_codon( &
+    call compute_ppm_grids_codon( &
          int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(dx), c_loc(rslt) &
     )
     if (.not. proof_seen) then
@@ -847,16 +847,16 @@ function compute_ppm( a , dx )    result(coefs)
   integer :: indB, indE
   logical, save :: proof_seen = .false.
   interface
-     subroutine remap_q_ppm_compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
-          bind(c, name='remap_q_ppm_compute_ppm_codon')
+     subroutine compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
+          bind(c, name='compute_ppm_codon')
        import :: c_int64_t, c_ptr
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: a_p, dx_p, ai_p, dma_p, coefs_p
-     end subroutine remap_q_ppm_compute_ppm_codon
+     end subroutine compute_ppm_codon
   end interface
 
   if (.not. remap_q_ppm_compute_use_native_impl) then
-    call remap_q_ppm_compute_ppm_codon( &
+    call compute_ppm_codon( &
          int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(a), c_loc(dx), &
          c_loc(ai), c_loc(dma), c_loc(coefs) &
     )
