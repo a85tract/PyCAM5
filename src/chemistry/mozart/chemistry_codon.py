@@ -7514,6 +7514,16 @@ def lu_slv_codon(
     )
 
 @export
+def lu_slv01_codon(
+    lu_p: cobj,
+    b_p: cobj,
+):
+    return _gas_phase.lu_slv_codon(
+        lu_p,
+        b_p,
+    )
+
+@export
 def lu_fac_codon(
     lu_p: cobj,
 ):
@@ -7522,7 +7532,27 @@ def lu_fac_codon(
     )
 
 @export
+def lu_fac01_codon(
+    lu_p: cobj,
+):
+    return _gas_phase.lu_fac_codon(
+        lu_p,
+    )
+
+@export
 def linmat_codon(
+    mat_p: cobj,
+    rxt_p: cobj,
+    het_rates_p: cobj,
+):
+    return _gas_phase.linmat_codon(
+        mat_p,
+        rxt_p,
+        het_rates_p,
+    )
+
+@export
+def linmat01_codon(
     mat_p: cobj,
     rxt_p: cobj,
     het_rates_p: cobj,

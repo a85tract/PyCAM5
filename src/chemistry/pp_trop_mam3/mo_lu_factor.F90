@@ -10,6 +10,7 @@
 
       logical :: lu_fac_use_native_impl = .false.
       logical :: lu_fac_impl_selected = .false.
+      logical :: lu_fac01_logged = .false.
 
       contains
 
@@ -18,6 +19,8 @@
 
       use shr_kind_mod, only : r8 => shr_kind_r8
       use iso_c_binding, only : c_loc, c_ptr
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
 
       implicit none
 
@@ -27,16 +30,21 @@
       real(r8), target, intent(inout) :: lu(:)
 
       interface
-         subroutine lu_fac_codon(lu_p) bind(c, name="lu_fac_codon")
+         subroutine lu_fac01_codon(lu_p) bind(c, name="lu_fac01_codon")
             use iso_c_binding, only : c_ptr
             type(c_ptr), value :: lu_p
-         end subroutine lu_fac_codon
+         end subroutine lu_fac01_codon
       end interface
 
       call lu_fac_select_impl()
 
       if (.not. lu_fac_use_native_impl) then
-         call lu_fac_codon(c_loc(lu))
+         call lu_fac01_codon(c_loc(lu))
+         if (masterproc .and. .not. lu_fac01_logged) then
+            write(iulog,*) 'lu_fac01 implementation = codon'
+            lu_fac01_logged = .true.
+            call flush(iulog)
+         end if
          return
       end if
 

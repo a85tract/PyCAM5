@@ -10,6 +10,7 @@
 
       logical :: linmat_use_native_impl = .false.
       logical :: linmat_impl_selected = .false.
+      logical :: linmat01_logged = .false.
 
       contains
 
@@ -21,6 +22,8 @@
       use chem_mods, only : gas_pcnst, rxntot, nzcnt
       use shr_kind_mod, only : r8 => shr_kind_r8
       use iso_c_binding, only : c_loc, c_ptr
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
 
       implicit none
 
@@ -33,16 +36,21 @@
       real(r8), target, intent(inout) :: mat(nzcnt)
 
       interface
-         subroutine linmat_codon(mat_p, rxt_p, het_rates_p) bind(c, name="linmat_codon")
+         subroutine linmat01_codon(mat_p, rxt_p, het_rates_p) bind(c, name="linmat01_codon")
             use iso_c_binding, only : c_ptr
             type(c_ptr), value :: mat_p, rxt_p, het_rates_p
-         end subroutine linmat_codon
+         end subroutine linmat01_codon
       end interface
 
       call linmat_select_impl()
 
       if (.not. linmat_use_native_impl) then
-         call linmat_codon(c_loc(mat), c_loc(rxt), c_loc(het_rates))
+         call linmat01_codon(c_loc(mat), c_loc(rxt), c_loc(het_rates))
+         if (masterproc .and. .not. linmat01_logged) then
+            write(iulog,*) 'linmat01 implementation = codon'
+            linmat01_logged = .true.
+            call flush(iulog)
+         end if
          return
       end if
 

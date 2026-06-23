@@ -10,6 +10,7 @@
 
       logical :: lu_slv_use_native_impl = .false.
       logical :: lu_slv_impl_selected = .false.
+      logical :: lu_slv01_logged = .false.
 
       contains
 
@@ -18,6 +19,8 @@
 
       use shr_kind_mod, only : r8 => shr_kind_r8
       use iso_c_binding, only : c_loc, c_ptr
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
 
       implicit none
 
@@ -32,16 +35,21 @@
 !-----------------------------------------------------------------------
 
       interface
-         subroutine lu_slv_codon(lu_p, b_p) bind(c, name="lu_slv_codon")
+         subroutine lu_slv01_codon(lu_p, b_p) bind(c, name="lu_slv01_codon")
             use iso_c_binding, only : c_ptr
             type(c_ptr), value :: lu_p, b_p
-         end subroutine lu_slv_codon
+         end subroutine lu_slv01_codon
       end interface
 
       call lu_slv_select_impl()
 
       if (.not. lu_slv_use_native_impl) then
-         call lu_slv_codon(c_loc(lu), c_loc(b))
+         call lu_slv01_codon(c_loc(lu), c_loc(b))
+         if (masterproc .and. .not. lu_slv01_logged) then
+            write(iulog,*) 'lu_slv01 implementation = codon'
+            lu_slv01_logged = .true.
+            call flush(iulog)
+         end if
          return
       end if
 
