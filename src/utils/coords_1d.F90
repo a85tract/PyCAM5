@@ -72,15 +72,37 @@ end function new_Coords1D_from_fields
 ! Constructor if you only have interface coordinates; derives all the other
 ! fields.
 function new_Coords1D_from_int(ifc) result(coords)
+  use iso_c_binding, only : c_int64_t
   real(r8), USE_CONTIGUOUS intent(in) :: ifc(:,:)
   type(Coords1D) :: coords
 
-#define CAM_MISC_TAG 218
-#define CAM_MISC_LABEL 'coords_1d'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    interface
+       function new_coords1d_from_int_codon(tag) result(tag_out) bind(c, name='new_coords1d_from_int_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function new_coords1d_from_int_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('NEW_COORDS1D_FROM_INT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = new_coords1d_from_int_codon(int(218, c_int64_t))
+       if (rt_codon_tag_out /= int(218, c_int64_t)) then
+          write(iulog,*) 'new_coords1d_from_int_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'new_coords1d_from_int implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
   coords = allocate_coords(size(ifc, 1), size(ifc, 2) - 1)
 
@@ -117,6 +139,7 @@ end function section
 
 ! Quick utility to get allocate each array with the correct size.
 function allocate_coords(n, d) result(coords)
+  use iso_c_binding, only : c_int64_t
   integer, intent(in) :: n, d
   type(Coords1D) :: coords
 #define CAM_MISC_TAG 260

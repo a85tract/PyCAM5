@@ -196,6 +196,7 @@ end subroutine cam_init
 !-----------------------------------------------------------------------
 !
 subroutine cam_run1(cam_in, cam_out)
+   use iso_c_binding, only : c_int64_t
 !-----------------------------------------------------------------------
 !
 ! Purpose:   First phase of atmosphere model run method.
@@ -232,12 +233,33 @@ subroutine cam_run1(cam_in, cam_out)
 #endif
 !-----------------------------------------------------------------------
 
-#define CAM_MISC_TAG 211
-#define CAM_MISC_LABEL 'cam_comp'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    interface
+       function cam_run1_codon(tag) result(tag_out) bind(c, name='cam_run1_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function cam_run1_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_RUN1_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = cam_run1_codon(int(211, c_int64_t))
+       if (rt_codon_tag_out /= int(211, c_int64_t)) then
+          write(iulog,*) 'cam_run1_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'cam_run1 implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
    call sat_hist_misc_touch()
    call cam_initfiles_misc_touch()

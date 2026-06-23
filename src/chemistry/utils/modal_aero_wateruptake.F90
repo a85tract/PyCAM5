@@ -152,11 +152,25 @@ end subroutine modal_aero_wateruptake_reg
 
 !===============================================================================
 !===============================================================================
-
 subroutine modal_aero_wateruptake_init(pbuf2d)
+   use iso_c_binding, only : c_int64_t
    use time_manager,  only: is_first_step
    use physics_buffer,only: pbuf_set_field
    use infnan,       only : nan, assignment(=)
+
+    interface
+       function modal_aero_wateruptake_init_codon(tag) result(tag_out) bind(c, name='modal_aero_wateruptake_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function modal_aero_wateruptake_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
    real(r8) :: real_nan
@@ -176,7 +190,21 @@ subroutine modal_aero_wateruptake_init(pbuf2d)
          end if
       end if
    else
-      call chemistry_misc_codon_touch('modal_aero_wateruptake_init', 312)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('MODAL_AERO_WATERUPTAKE_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = modal_aero_wateruptake_init_codon(int(312, c_int64_t))
+       if (rt_codon_tag_out /= int(312, c_int64_t)) then
+          write(iulog,*) 'modal_aero_wateruptake_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'modal_aero_wateruptake_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
       if (.not. modal_aero_wateruptake_init_logged) then
          modal_aero_wateruptake_init_logged = .true.
          if (masterproc) then

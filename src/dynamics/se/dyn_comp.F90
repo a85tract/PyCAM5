@@ -116,12 +116,33 @@ CONTAINS
     integer :: nthreads
     !----------------------------------------------------------------------
 
-#define SE_MISC_TAG 18
-#define SE_MISC_LABEL 'dyn_comp'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    interface
+       function dyn_init1_codon(tag) result(tag_out) bind(c, name='dyn_init1_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function dyn_init1_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('DYN_INIT1_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = dyn_init1_codon(int(18, c_int64_t))
+       if (rt_codon_tag_out /= int(18, c_int64_t)) then
+          write(iulog,*) 'dyn_init1_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'dyn_init1 implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     if (use_gw_front .or. use_gw_front_igw) then
        call pbuf_add_field("FRONTGF", "global", dtype_r8, (/pcols,pver/), &

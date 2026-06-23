@@ -47,9 +47,23 @@ module upper_bc
 !================================================================================================
 contains
 !================================================================================================
-
 subroutine ubc_defaultopts(tgcm_ubc_file_out, tgcm_ubc_data_type_out, tgcm_ubc_cycle_yr_out, tgcm_ubc_fixed_ymd_out, &
      tgcm_ubc_fixed_tod_out, snoe_ubc_file_out, t_pert_ubc_out, no_xfac_ubc_out)
+    use iso_c_binding, only : c_int64_t
+
+    interface
+       function ubc_defaultopts_codon(tag) result(tag_out) bind(c, name='ubc_defaultopts_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function ubc_defaultopts_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 !----------------------------------------------------------------------- 
 ! Purpose: Return default runtime options
 !-----------------------------------------------------------------------
@@ -65,8 +79,20 @@ subroutine ubc_defaultopts(tgcm_ubc_file_out, tgcm_ubc_data_type_out, tgcm_ubc_c
 
 !-----------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('ubc_defaultopts', 184)
-   call chemistry_misc_codon_touch('upper_bc', 126)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('UBC_DEFAULTOPTS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = ubc_defaultopts_codon(int(184, c_int64_t))
+       if (rt_codon_tag_out /= int(184, c_int64_t)) then
+          write(iulog,*) 'ubc_defaultopts_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'ubc_defaultopts implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
    if ( present(tgcm_ubc_file_out) ) then
       tgcm_ubc_file_out = tgcm_ubc_file
    endif
@@ -95,7 +121,6 @@ subroutine ubc_defaultopts(tgcm_ubc_file_out, tgcm_ubc_data_type_out, tgcm_ubc_c
 end subroutine ubc_defaultopts
 
 !================================================================================================
-
 subroutine ubc_setopts(tgcm_ubc_file_in, tgcm_ubc_data_type_in, tgcm_ubc_cycle_yr_in, tgcm_ubc_fixed_ymd_in, &
      tgcm_ubc_fixed_tod_in, snoe_ubc_file_in, t_pert_ubc_in, no_xfac_ubc_in)
 !----------------------------------------------------------------------- 
@@ -103,6 +128,21 @@ subroutine ubc_setopts(tgcm_ubc_file_in, tgcm_ubc_data_type_in, tgcm_ubc_cycle_y
 !-----------------------------------------------------------------------
 
    use cam_abortutils, only : endrun
+    use iso_c_binding, only : c_int64_t
+
+    interface
+       function ubc_setopts_codon(tag) result(tag_out) bind(c, name='ubc_setopts_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function ubc_setopts_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
    real(r8), intent(in), optional         :: t_pert_ubc_in
    real(r8), intent(in), optional         :: no_xfac_ubc_in
@@ -115,8 +155,20 @@ subroutine ubc_setopts(tgcm_ubc_file_in, tgcm_ubc_data_type_in, tgcm_ubc_cycle_y
 
 !-----------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('ubc_setopts', 185)
-   call chemistry_misc_codon_touch('upper_bc', 126)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('UBC_SETOPTS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = ubc_setopts_codon(int(185, c_int64_t))
+       if (rt_codon_tag_out /= int(185, c_int64_t)) then
+          write(iulog,*) 'ubc_setopts_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'ubc_setopts implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
    if ( present(tgcm_ubc_file_in) ) then
       tgcm_ubc_file = tgcm_ubc_file_in
    endif

@@ -124,6 +124,7 @@ contains
 !-------------------------------------------------------------------
   subroutine aerodep_flx_init()
     
+    use iso_c_binding, only : c_int64_t
     use tracer_data, only : trcdata_init
     use cam_history, only : addfld, phys_decomp
     use physics_buffer, only : physics_buffer_desc
@@ -131,9 +132,36 @@ contains
     
     implicit none
 
+    interface
+       function aerodep_flx_init_codon(tag) result(tag_out) bind(c, name='aerodep_flx_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function aerodep_flx_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+
     integer :: ndx, istat, i
 
-    call chemistry_misc_codon_touch('aerodep_flx_init', 158)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('AERODEP_FLX_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = aerodep_flx_init_codon(int(158, c_int64_t))
+       if (rt_codon_tag_out /= int(158, c_int64_t)) then
+          write(iulog,*) 'aerodep_flx_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'aerodep_flx_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     if ( has_aerodep_flx ) then
        if ( masterproc ) then
@@ -237,9 +265,24 @@ contains
 !-------------------------------------------------------------------
 subroutine aerodep_flx_readnl(nlfile)
 
+   use iso_c_binding, only : c_int64_t
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+
+    interface
+       function aerodep_flx_readnl_codon(tag) result(tag_out) bind(c, name='aerodep_flx_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function aerodep_flx_readnl_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -321,7 +364,20 @@ subroutine aerodep_flx_readnl(nlfile)
 
    ! Turn on prescribed volcanics if user has specified an input dataset.
    if (len_trim(filename) > 0 ) has_aerodep_flx = .true.
-   call chemistry_misc_codon_touch('aerodep_flx_readnl', 121)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('AERODEP_FLX_READNL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = aerodep_flx_readnl_codon(int(121, c_int64_t))
+       if (rt_codon_tag_out /= int(121, c_int64_t)) then
+          write(iulog,*) 'aerodep_flx_readnl_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'aerodep_flx_readnl implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
 end subroutine aerodep_flx_readnl
 
@@ -350,6 +406,7 @@ end subroutine aerodep_flx_readnl
 !-------------------------------------------------------------------
   subroutine aerodep_flx_adv( state, pbuf2d, cam_out )
 
+    use iso_c_binding, only : c_int64_t
     use tracer_data,      only : advance_trcdata
     use physics_types,    only : physics_state
     use camsrfexch,       only : cam_out_t
@@ -357,13 +414,40 @@ end subroutine aerodep_flx_readnl
 
     implicit none
 
+    interface
+       function aerodep_flx_adv_codon(tag) result(tag_out) bind(c, name='aerodep_flx_adv_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function aerodep_flx_adv_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+
     type(physics_state), intent(in)    :: state(begchunk:endchunk)                 
     type(cam_out_t),     intent(inout) :: cam_out(begchunk:endchunk)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     integer :: c, ncol
     
-    call chemistry_misc_codon_touch('aerodep_flx_adv', 159)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('AERODEP_FLX_ADV_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = aerodep_flx_adv_codon(int(159, c_int64_t))
+       if (rt_codon_tag_out /= int(159, c_int64_t)) then
+          write(iulog,*) 'aerodep_flx_adv_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'aerodep_flx_adv implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     if( .not. has_aerodep_flx ) return
 

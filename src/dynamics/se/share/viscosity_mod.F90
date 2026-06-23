@@ -236,12 +236,33 @@ real (kind=real_kind), dimension(np,np,2) :: v
 real (kind=real_kind) :: nu_ratio1, nu_ratio2
 logical var_coef1
 
-#define SE_MISC_TAG 16
-#define SE_MISC_LABEL 'viscosity_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    interface
+       function biharmonic_wk_dp3d_codon(tag) result(tag_out) bind(c, name='biharmonic_wk_dp3d_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function biharmonic_wk_dp3d_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('BIHARMONIC_WK_DP3D_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = biharmonic_wk_dp3d_codon(int(16, c_int64_t))
+       if (rt_codon_tag_out /= int(16, c_int64_t)) then
+          write(iulog,*) 'biharmonic_wk_dp3d_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'biharmonic_wk_dp3d implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
    !if tensor hyperviscosity with tensor V is used, then biharmonic operator is (\grad\cdot V\grad) (\grad \cdot \grad) 
    !so tensor is only used on second call to laplace_sphere_wk

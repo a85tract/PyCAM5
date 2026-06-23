@@ -22,6 +22,7 @@ contains
   !=============================================================================
   !=============================================================================
   subroutine soil_erod_init( dust_emis_fact, soil_erod_file )
+    use iso_c_binding, only : c_int64_t
     use interpolate_data, only: lininterp_init, lininterp, lininterp_finish, interp_type
     use ppgrid,           only: begchunk, endchunk, pcols
     use mo_constants,     only: pi, d2r
@@ -29,6 +30,20 @@ contains
     use phys_grid,        only: get_ncols_p, get_rlat_all_p, get_rlon_all_p
     use cam_pio_utils,    only: cam_pio_openfile
     use ioFileMod,        only: getfil
+
+    interface
+       function soil_erod_init_codon(tag) result(tag_out) bind(c, name='soil_erod_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function soil_erod_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     real(r8),         intent(in) :: dust_emis_fact
     character(len=*), intent(in) :: soil_erod_file
@@ -45,7 +60,21 @@ contains
     integer :: c, ncols, ierr
     real(r8), parameter :: zero=0._r8, twopi=2._r8*pi
 
-    call chemistry_misc_codon_touch('soil_erod_mod', 125)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SOIL_EROD_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = soil_erod_init_codon(int(125, c_int64_t))
+       if (rt_codon_tag_out /= int(125, c_int64_t)) then
+          write(iulog,*) 'soil_erod_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'soil_erod_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
     soil_erod_fact = dust_emis_fact
 
     ! Summary to log file

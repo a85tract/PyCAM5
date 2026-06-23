@@ -49,12 +49,42 @@ contains
   !=============================================================================
   !=============================================================================
   subroutine seasalt_init
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     use sslt_sections, only: sslt_sections_init
     use constituents,  only: cnst_get_ind
 
+    interface
+       function seasalt_init_codon(tag) result(tag_out) bind(c, name='seasalt_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function seasalt_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+
     integer :: m
 
-    call chemistry_misc_codon_touch('seasalt_model', 135)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SEASALT_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = seasalt_init_codon(int(135, c_int64_t))
+       if (rt_codon_tag_out /= int(135, c_int64_t)) then
+          write(iulog,*) 'seasalt_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'seasalt_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
     do m = 1, seasalt_nbin
        call cnst_get_ind(seasalt_names(m), seasalt_indices(m),abort=.false.)
     enddo

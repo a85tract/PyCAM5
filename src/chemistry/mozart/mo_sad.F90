@@ -27,7 +27,6 @@
       integer :: sad_topp
 
     contains
-        
 
       subroutine sad_inti(pbuf2d)
 !----------------------------------------------------------------------
@@ -38,8 +37,22 @@
       use ref_pres,     only : pref_mid_norm
       use cam_history,  only : addfld, phys_decomp
       use physics_buffer, only : physics_buffer_desc, pbuf_set_field
+      use iso_c_binding, only : c_int64_t
 
       implicit none
+
+    interface
+       function sad_inti_codon(tag) result(tag_out) bind(c, name='sad_inti_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function sad_inti_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
       type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
@@ -51,7 +64,21 @@
 	!----------------------------------------------------------------------
 	!	... find level where etamids are all > 1 hPa
 	!----------------------------------------------------------------------
-	      call chemistry_misc_codon_touch('sad_inti', 146)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SAD_INTI_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = sad_inti_codon(int(146, c_int64_t))
+       if (rt_codon_tag_out /= int(146, c_int64_t)) then
+          write(iulog,*) 'sad_inti_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'sad_inti implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
 	      sad_top = 0
       do k = pver,1,-1
 	 if( (pref_mid_norm(k)) < .001_r8 ) then

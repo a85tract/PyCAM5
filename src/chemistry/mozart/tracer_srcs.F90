@@ -49,6 +49,7 @@ contains
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
   subroutine tracer_srcs_init()
+    use iso_c_binding, only : c_int64_t
 
     use mo_chem_utls, only : get_extfrc_ndx
     use tracer_data,  only : trcdata_init
@@ -58,9 +59,36 @@ contains
 
     implicit none
 
+    interface
+       function tracer_srcs_init_codon(tag) result(tag_out) bind(c, name='tracer_srcs_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function tracer_srcs_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+
     integer :: i ,ndx
 
-    call chemistry_misc_codon_touch('tracer_srcs_init', 113)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('TRACER_SRCS_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = tracer_srcs_init_codon(int(113, c_int64_t))
+       if (rt_codon_tag_out /= int(113, c_int64_t)) then
+          write(iulog,*) 'tracer_srcs_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'tracer_srcs_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     allocate(file%in_pbuf(size(specifier)))
     file%in_pbuf(:) = .false.

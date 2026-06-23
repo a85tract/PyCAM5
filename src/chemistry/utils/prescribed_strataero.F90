@@ -95,9 +95,24 @@ end function prescribed_strataero_use_native
 !-------------------------------------------------------------------
 subroutine prescribed_strataero_readnl(nlfile)
 
+   use iso_c_binding, only : c_int64_t
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+
+    interface
+       function prescribed_strataero_readnl_codon(tag) result(tag_out) bind(c, name='prescribed_strataero_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function prescribed_strataero_readnl_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -127,7 +142,20 @@ subroutine prescribed_strataero_readnl(nlfile)
       prescribed_strataero_fixed_tod      
    !-----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('prescribed_strataero_readnl', 119)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('PRESCRIBED_STRATAERO_READNL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = prescribed_strataero_readnl_codon(int(119, c_int64_t))
+       if (rt_codon_tag_out /= int(119, c_int64_t)) then
+          write(iulog,*) 'prescribed_strataero_readnl_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'prescribed_strataero_readnl implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
    ! Initialize namelist variables from local module variables.
    prescribed_strataero_specifier= specifier

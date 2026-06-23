@@ -73,10 +73,26 @@ module dust_model
   ! reads dust namelist options
   !=============================================================================
   subroutine dust_readnl(nlfile)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
 
     use namelist_utils,  only: find_group_name
     use units,           only: getunit, freeunit
     use mpishorthand
+
+    interface
+       function dust_readnl_codon(tag) result(tag_out) bind(c, name='dust_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function dust_readnl_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -109,7 +125,20 @@ module dust_model
     call mpibcast(soil_erod_file, len(soil_erod_file), mpichar, 0, mpicom)
 #endif
 
-    call chemistry_misc_codon_touch('dust_model', 127)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('DUST_READNL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = dust_readnl_codon(int(127, c_int64_t))
+       if (rt_codon_tag_out /= int(127, c_int64_t)) then
+          write(iulog,*) 'dust_readnl_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'dust_readnl implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
   end subroutine dust_readnl
 

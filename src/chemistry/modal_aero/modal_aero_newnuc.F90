@@ -3622,6 +3622,7 @@ main_i:	do i = 1, ncol
 !----------------------------------------------------------------------
 subroutine modal_aero_newnuc_init
 
+use iso_c_binding, only : c_int64_t
 !-----------------------------------------------------------------------
 !
 ! Purpose:
@@ -3646,6 +3647,20 @@ use mo_util,          only: chemistry_misc_codon_touch
 
 implicit none
 
+    interface
+       function modal_aero_newnuc_init_codon(tag) result(tag_out) bind(c, name='modal_aero_newnuc_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function modal_aero_newnuc_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+
 !-----------------------------------------------------------------------
 ! arguments
 
@@ -3665,8 +3680,21 @@ implicit none
    logical                        :: history_aerosol      ! Output the MAM aerosol tendencies
 
    !-----------------------------------------------------------------------     
-        call chemistry_misc_codon_touch('modal_aero_newnuc_init', 169)
-   
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('MODAL_AERO_NEWNUC_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = modal_aero_newnuc_init_codon(int(169, c_int64_t))
+       if (rt_codon_tag_out /= int(169, c_int64_t)) then
+          write(iulog,*) 'modal_aero_newnuc_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'modal_aero_newnuc_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
         call phys_getopts( history_aerosol_out        = history_aerosol   )
 
 

@@ -17,7 +17,6 @@ module mo_setext
   integer :: aoa_nh_ndx
 
 contains
-
   subroutine setext_inti
     !--------------------------------------------------------
     !	... Initialize the external forcing module
@@ -27,10 +26,38 @@ contains
     use ppgrid,       only : pver
     use cam_history,  only : addfld, phys_decomp
     use spmd_utils,   only : masterproc
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
-    call chemistry_misc_codon_touch('mo_setext', 115)
+    interface
+       function setext_inti_codon(tag) result(tag_out) bind(c, name='setext_inti_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function setext_inti_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SETEXT_INTI_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = setext_inti_codon(int(115, c_int64_t))
+       if (rt_codon_tag_out /= int(115, c_int64_t)) then
+          write(iulog,*) 'setext_inti_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'setext_inti implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     co_ndx    = get_extfrc_ndx( 'CO' )
     no_ndx    = get_extfrc_ndx( 'NO' )

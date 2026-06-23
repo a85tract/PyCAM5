@@ -2657,3 +2657,55 @@ def mass_matrix_codon(tag: int) -> int:
 @export
 def nctopo_util_inidat_codon(tag: int) -> int:
     return _misc.nctopo_util_inidat_codon(tag)
+
+@export
+def prim_set_mass_codon(tag: int) -> int:
+    return _misc.prim_set_mass_codon(tag)
+
+@export
+def cube_init_atomic_codon(tag: int) -> int:
+    return _misc.cube_init_atomic_codon(tag)
+
+@export
+def prim_advance_init_codon(tag: int) -> int:
+    return _misc.prim_advance_init_codon(tag)
+
+@export
+def cam_initial_codon(tag: int) -> int:
+    return _misc.cam_initial_codon(tag)
+
+@export
+def global_dof_codon(tag: int) -> int:
+    return _misc.global_dof_codon(tag)
+
+@export
+def spmd_readnl_codon(tag: int) -> int:
+    return _misc.spmd_readnl_codon(tag)
+
+@export
+def native_mapping_readnl_codon(tag: int) -> int:
+    return _misc.native_mapping_readnl_codon(tag)
+
+@export
+def hilbert_codon(tag: int) -> int:
+    return _misc.hilbert_codon(tag)
+
+@export
+def init_restart_dynamics_codon(tag: int) -> int:
+    return _misc.init_restart_dynamics_codon(tag)
+
+@export
+def stepon_init_codon(tag: int) -> int:
+    return _misc.stepon_init_codon(tag)
+
+@export
+def dyn_init1_codon(tag: int) -> int:
+    return _misc.dyn_init1_codon(tag)
+
+@export
+def biharmonic_wk_dp3d_codon(tag: int) -> int:
+    return _misc.biharmonic_wk_dp3d_codon(tag)
+
+@export
+def initmpi_codon(tag: int) -> int:
+    return _misc.initmpi_codon(tag)

@@ -5,7 +5,6 @@
       public :: set_sim_dat
 
       contains
-
       subroutine set_sim_dat
 
       use chem_mods,       only : clscnt, cls_rxt_cnt, clsmap, permute, adv_mass, fix_mass, crb_mass
@@ -20,15 +19,44 @@
       use shr_kind_mod,    only : r8 => shr_kind_r8
       use cam_logfile,     only : iulog
       use mo_util,         only : chemistry_misc_codon_touch
+    use iso_c_binding, only : c_int64_t
 
       implicit none
+
+    interface
+       function set_sim_dat_codon(tag) result(tag_out) bind(c, name='set_sim_dat_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function set_sim_dat_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
 !--------------------------------------------------------------
 !      ... local variables
 !--------------------------------------------------------------
       integer :: ios
 
-      call chemistry_misc_codon_touch('mo_sim_dat', 128)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SET_SIM_DAT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = set_sim_dat_codon(int(128, c_int64_t))
+       if (rt_codon_tag_out /= int(128, c_int64_t)) then
+          write(iulog,*) 'set_sim_dat_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'set_sim_dat implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
       clscnt(:) = (/      0,     0,     0,    20,     0 /)
 
       cls_rxt_cnt(:,4) = (/      1,     6,     0,    20 /)

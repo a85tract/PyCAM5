@@ -37,6 +37,7 @@ contains
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
   subroutine register_short_lived_species
+    use iso_c_binding, only : c_int64_t
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
     implicit none
@@ -72,6 +73,7 @@ contains
 !---------------------------------------------------------------------
 !---------------------------------------------------------------------
   subroutine initialize_short_lived_species(ncid_ini, pbuf2d)
+    use iso_c_binding, only : c_int64_t
     use ioFileMod,      only : getfil
     use error_messages, only : handle_ncerr
     use dycore,         only : dycore_is
@@ -81,6 +83,20 @@ contains
     use physics_buffer, only : physics_buffer_desc, pbuf_set_field, pbuf_get_chunk, pbuf_get_field
 
     implicit none
+
+    interface
+       function initialize_short_lived_species_codon(tag) result(tag_out) bind(c, name='initialize_short_lived_species_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function initialize_short_lived_species_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     type(file_desc_t), intent(inout) :: ncid_ini
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
@@ -93,7 +109,21 @@ contains
     real(r8),pointer :: tmpptr(:,:,:)   ! temporary pointer
     real(r8),pointer :: tmpptr2(:,:,:)   ! temporary pointer
 
-    call chemistry_misc_codon_touch('initialize_short_lived_species', 163)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('INITIALIZE_SHORT_LIVED_SPECIES_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = initialize_short_lived_species_codon(int(163, c_int64_t))
+       if (rt_codon_tag_out /= int(163, c_int64_t)) then
+          write(iulog,*) 'initialize_short_lived_species_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'initialize_short_lived_species implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
     if ( nslvd < 1 ) return
 
     found = .false.

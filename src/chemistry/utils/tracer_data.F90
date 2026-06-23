@@ -622,10 +622,25 @@ contains
 ! Reads more data if needed and interpolates data to current model time
 !-----------------------------------------------------------------------
   subroutine advance_trcdata( flds, file, state, pbuf2d )
+    use iso_c_binding, only : c_int64_t
     use physics_types,only : physics_state
     use physics_buffer, only : physics_buffer_desc
 
     implicit none
+
+    interface
+       function advance_trcdata_codon(tag) result(tag_out) bind(c, name='advance_trcdata_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function advance_trcdata_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     type(trfile),        intent(inout) :: file
     type(trfld),         intent(inout) :: flds(:)
@@ -635,7 +650,20 @@ contains
 
     real(r8) :: data_time
 
-    call chemistry_misc_codon_touch('tracer_data::advance_trcdata', 304)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('ADVANCE_TRCDATA_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = advance_trcdata_codon(int(304, c_int64_t))
+       if (rt_codon_tag_out /= int(304, c_int64_t)) then
+          write(iulog,*) 'advance_trcdata_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'advance_trcdata implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     call t_startf('advance_trcdata')
     if ( .not.( file%fixed .and. file%initialized ) ) then
@@ -677,10 +705,25 @@ contains
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
   subroutine get_fld_data( flds, field_name, data, ncol, lchnk, pbuf )
+    use iso_c_binding, only : c_int64_t
 
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field
 
     implicit none
+
+    interface
+       function get_fld_data_codon(tag) result(tag_out) bind(c, name='get_fld_data_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_fld_data_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     type(trfld), intent(inout) :: flds(:)
     character(len=*), intent(in) :: field_name
@@ -693,7 +736,20 @@ contains
     integer :: f, nflds
     real(r8),pointer  :: tmpptr(:,:)
 
-    call chemistry_misc_codon_touch('tracer_data::get_fld_data', 305)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('GET_FLD_DATA_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_fld_data_codon(int(305, c_int64_t))
+       if (rt_codon_tag_out /= int(305, c_int64_t)) then
+          write(iulog,*) 'get_fld_data_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'get_fld_data implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     data(:,:) = 0._r8
     nflds = size(flds)
@@ -1764,7 +1820,22 @@ contains
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
   subroutine get_dimension( fid, dname, dsize, dimid, data )
+    use iso_c_binding, only : c_int64_t
     implicit none
+
+    interface
+       function get_dimension_codon(tag) result(tag_out) bind(c, name='get_dimension_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_dimension_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
     type(file_desc_t), intent(inout) :: fid
     character(*), intent(in) :: dname
     integer, intent(out) :: dsize
@@ -1774,7 +1845,20 @@ contains
 
     integer :: vid, ierr, id
 
-    call chemistry_misc_codon_touch('tracer_data::get_dimension', 307)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('GET_DIMENSION_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_dimension_codon(int(307, c_int64_t))
+       if (rt_codon_tag_out /= int(307, c_int64_t)) then
+          write(iulog,*) 'get_dimension_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'get_dimension implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     call pio_seterrorhandling( fid, PIO_BCAST_ERROR)
     ierr = pio_inq_dimid( fid, dname, id )
@@ -1980,7 +2064,22 @@ contains
 !--------------------------------------------------------------------------
   subroutine specify_fields( specifier, fields )
 
+    use iso_c_binding, only : c_int64_t
     implicit none
+
+    interface
+       function specify_fields_codon(tag) result(tag_out) bind(c, name='specify_fields_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function specify_fields_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     character(len=*), intent(in) :: specifier(:)
     type(trfld), pointer, dimension(:) :: fields
@@ -1991,7 +2090,20 @@ contains
     character(len=32), allocatable, dimension(:) :: fld_name,  src_name
     integer :: nflds
 
-    call chemistry_misc_codon_touch('tracer_data::specify_fields', 308)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SPECIFY_FIELDS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = specify_fields_codon(int(308, c_int64_t))
+       if (rt_codon_tag_out /= int(308, c_int64_t)) then
+          write(iulog,*) 'specify_fields_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'specify_fields implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     nflds = size(specifier)
 
@@ -2049,10 +2161,24 @@ contains
   end subroutine specify_fields
 
 !------------------------------------------------------------------------------
-
   subroutine init_trc_restart( whence, piofile, tr_file )
 
+    use iso_c_binding, only : c_int64_t
     implicit none
+
+    interface
+       function init_trc_restart_codon(tag) result(tag_out) bind(c, name='init_trc_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function init_trc_restart_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
     character(len=*), intent(in) :: whence
     type(file_desc_t), intent(inout) :: piofile
     type(trfile), intent(inout) :: tr_file
@@ -2060,7 +2186,20 @@ contains
     character(len=32) :: name
     integer :: ioerr, mcdimid, maxlen
 
-    call chemistry_misc_codon_touch('tracer_data::init_trc_restart', 309)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('INIT_TRC_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = init_trc_restart_codon(int(309, c_int64_t))
+       if (rt_codon_tag_out /= int(309, c_int64_t)) then
+          write(iulog,*) 'init_trc_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'init_trc_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     ! Dimension should already be defined in restart file
     call pio_seterrorhandling(pioFile, PIO_BCAST_ERROR)
@@ -2097,13 +2236,41 @@ contains
 !-------------------------------------------------------------------------
   subroutine write_trc_restart( piofile, tr_file )
 
+    use iso_c_binding, only : c_int64_t
     implicit none
+
+    interface
+       function write_trc_restart_codon(tag) result(tag_out) bind(c, name='write_trc_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function write_trc_restart_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     type(file_desc_t), intent(inout) :: piofile
     type(trfile), intent(inout) :: tr_file
 
     integer :: ioerr, slen   ! error status
-    call chemistry_misc_codon_touch('tracer_data::write_trc_restart', 310)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('WRITE_TRC_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = write_trc_restart_codon(int(310, c_int64_t))
+       if (rt_codon_tag_out /= int(310, c_int64_t)) then
+          write(iulog,*) 'write_trc_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'write_trc_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     if(associated(tr_file%currfnameid)) then
        ioerr = pio_put_var(pioFile, tr_file%currfnameid, tr_file%curr_filename)

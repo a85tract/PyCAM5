@@ -69,9 +69,24 @@
 !-------------------------------------------------------------------
 subroutine sulf_readnl(nlfile)
 
+   use iso_c_binding, only : c_int64_t
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+
+    interface
+       function sulf_readnl_codon(tag) result(tag_out) bind(c, name='sulf_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function sulf_readnl_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -153,7 +168,20 @@ subroutine sulf_readnl(nlfile)
 
    ! Turn on prescribed volcanics if user has specified an input dataset.
    if (len_trim(filename) > 0 ) has_sulf = .true.
-   call chemistry_misc_codon_touch('sulf_readnl', 187)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SULF_READNL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = sulf_readnl_codon(int(187, c_int64_t))
+       if (rt_codon_tag_out /= int(187, c_int64_t)) then
+          write(iulog,*) 'sulf_readnl_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'sulf_readnl implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
 end subroutine sulf_readnl
 

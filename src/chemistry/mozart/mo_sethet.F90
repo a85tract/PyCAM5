@@ -40,7 +40,6 @@ module mo_sethet
   logical :: prog_modal_aero
 
 contains
-
   subroutine sethet_inti
     !-----------------------------------------------------------------------      
     !       ... intialize the wet removal rate constants routine
@@ -49,10 +48,39 @@ contains
     use mo_chem_utls,     only : get_het_ndx, get_spc_ndx
     use spmd_utils,       only : masterproc
     use cam_abortutils,   only : endrun
+    use iso_c_binding, only : c_int64_t
+
+    interface
+       function sethet_inti_codon(tag) result(tag_out) bind(c, name='sethet_inti_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function sethet_inti_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     integer :: k, m
 
-    call chemistry_misc_codon_touch('sethet_inti', 156)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SETHET_INTI_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = sethet_inti_codon(int(156, c_int64_t))
+       if (rt_codon_tag_out /= int(156, c_int64_t)) then
+          write(iulog,*) 'sethet_inti_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'sethet_inti implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
     do_wetdep = gas_wetdep_cnt>0 .and. gas_wetdep_method=='MOZ'
     if ( .not. do_wetdep) return
 

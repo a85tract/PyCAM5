@@ -4392,6 +4392,7 @@ contains
   !===============================================================================
   !===============================================================================
   subroutine modal_aero_bcscavcoef_init
+    use iso_c_binding, only : c_int64_t
     !-----------------------------------------------------------------------
     !
     ! Purpose:
@@ -4406,6 +4407,20 @@ contains
     use cam_abortutils,  only: endrun
 
     implicit none
+
+    interface
+       function modal_aero_bcscavcoef_init_codon(tag) result(tag_out) bind(c, name='modal_aero_bcscavcoef_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function modal_aero_bcscavcoef_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
 
     !   local variables
@@ -4422,8 +4437,21 @@ contains
     real(r8) aafitnum(1), xxfitnum(1,nnfit_maxd), yyfitnum(nnfit_maxd)
     real(r8) aafitvol(1), xxfitvol(1,nnfit_maxd), yyfitvol(nnfit_maxd)
 
-    call chemistry_misc_codon_touch('modal_aero_bcscavcoef_init', 168)
-    
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('MODAL_AERO_BCSCAVCOEF_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = modal_aero_bcscavcoef_init_codon(int(168, c_int64_t))
+       if (rt_codon_tag_out /= int(168, c_int64_t)) then
+          write(iulog,*) 'modal_aero_bcscavcoef_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'modal_aero_bcscavcoef_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
     lunerr = 6
     dlndg_nimptblgrow = log( 1.25_r8 )
 

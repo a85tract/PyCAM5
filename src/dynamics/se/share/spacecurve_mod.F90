@@ -691,12 +691,33 @@ contains
     integer :: ierr
     logical     :: debug = .FALSE.
 
-#define SE_MISC_TAG 12
-#define SE_MISC_LABEL 'spacecurve_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    interface
+       function hilbert_codon(tag) result(tag_out) bind(c, name='hilbert_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function hilbert_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('HILBERT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = hilbert_codon(int(12, c_int64_t))
+       if (rt_codon_tag_out /= int(12, c_int64_t)) then
+          write(iulog,*) 'hilbert_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'hilbert implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     ll = l
     if(ll .gt. 1) ltype = fact%factors(ll-1)  ! Set the next type of space curve

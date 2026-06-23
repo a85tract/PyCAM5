@@ -1581,3 +1581,15 @@ def read_namelist_codon(tag: int) -> int:
 @export
 def h_define_codon(tag: int) -> int:
     return tag
+
+@export
+def check_hist_coord_all_codon(tag: int) -> int:
+    return tag
+
+@export
+def new_coords1d_from_int_codon(tag: int) -> int:
+    return tag
+
+@export
+def cam_run1_codon(tag: int) -> int:
+    return tag

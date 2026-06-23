@@ -119,12 +119,33 @@ contains
     real (kind=real_kind)          :: alpha=1
     real (kind=longdouble_kind)      :: gll_points(np)
 
-#define SE_MISC_TAG 1
-#define SE_MISC_LABEL 'cube_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    interface
+       function cube_init_atomic_codon(tag) result(tag_out) bind(c, name='cube_init_atomic_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function cube_init_atomic_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CUBE_INIT_ATOMIC_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = cube_init_atomic_codon(int(1, c_int64_t))
+       if (rt_codon_tag_out /= int(1, c_int64_t)) then
+          write(iulog,*) 'cube_init_atomic_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'cube_init_atomic implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     if(present(alpha_in)) alpha=alpha_in
     

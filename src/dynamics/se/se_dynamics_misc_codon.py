@@ -2237,3 +2237,42 @@ def mass_matrix_codon(tag: int) -> int:
 
 def nctopo_util_inidat_codon(tag: int) -> int:
     return tag
+
+def prim_set_mass_codon(tag: int) -> int:
+    return tag
+
+def cube_init_atomic_codon(tag: int) -> int:
+    return tag
+
+def prim_advance_init_codon(tag: int) -> int:
+    return tag
+
+def cam_initial_codon(tag: int) -> int:
+    return tag
+
+def global_dof_codon(tag: int) -> int:
+    return tag
+
+def spmd_readnl_codon(tag: int) -> int:
+    return tag
+
+def native_mapping_readnl_codon(tag: int) -> int:
+    return tag
+
+def hilbert_codon(tag: int) -> int:
+    return tag
+
+def init_restart_dynamics_codon(tag: int) -> int:
+    return tag
+
+def stepon_init_codon(tag: int) -> int:
+    return tag
+
+def dyn_init1_codon(tag: int) -> int:
+    return tag
+
+def biharmonic_wk_dp3d_codon(tag: int) -> int:
+    return tag
+
+def initmpi_codon(tag: int) -> int:
+    return tag

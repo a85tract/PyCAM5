@@ -7876,3 +7876,139 @@ def set_short_lived_species_codon(tag: int) -> int:
 @export
 def convert_dates_codon(tag: int) -> int:
     return tag
+
+@export
+def aerodep_flx_adv_codon(tag: int) -> int:
+    return tag
+
+@export
+def initialize_short_lived_species_codon(tag: int) -> int:
+    return tag
+
+@export
+def solar_parms_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def solar_parms_get_codon(tag: int) -> int:
+    return tag
+
+@export
+def solar_parms_timestep_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def aerodep_flx_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def sethet_inti_codon(tag: int) -> int:
+    return tag
+
+@export
+def write_trc_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def seasalt_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def get_fld_data_codon(tag: int) -> int:
+    return tag
+
+@export
+def sad_inti_codon(tag: int) -> int:
+    return tag
+
+@export
+def rate_diags_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def solar_parms_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def tracer_srcs_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def dust_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def modal_aero_bcscavcoef_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def advance_trcdata_codon(tag: int) -> int:
+    return tag
+
+@export
+def init_trc_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def get_dimension_codon(tag: int) -> int:
+    return tag
+
+@export
+def ubc_defaultopts_codon(tag: int) -> int:
+    return tag
+
+@export
+def ubc_setopts_codon(tag: int) -> int:
+    return tag
+
+@export
+def modal_aero_wateruptake_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def specify_fields_codon(tag: int) -> int:
+    return tag
+
+@export
+def sslt_sections_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def modal_aero_newnuc_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def setext_inti_codon(tag: int) -> int:
+    return tag
+
+@export
+def solar_data_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def sulf_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def aerodep_flx_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def prescribed_ghg_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def prescribed_strataero_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def dust_set_params_codon(tag: int) -> int:
+    return tag
+
+@export
+def set_sim_dat_codon(tag: int) -> int:
+    return tag
+
+@export
+def soil_erod_init_codon(tag: int) -> int:
+    return tag

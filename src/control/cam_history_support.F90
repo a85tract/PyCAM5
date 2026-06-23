@@ -609,12 +609,33 @@ get_hist_coord_index = -1
     character(len=120)                           :: errormsg
     integer                                      :: i
 
-#define CAM_MISC_TAG 335
-#define CAM_MISC_LABEL 'check_hist_coord_all'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    interface
+       function check_hist_coord_all_codon(tag) result(tag_out) bind(c, name='check_hist_coord_all_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function check_hist_coord_all_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CHECK_HIST_COORD_ALL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = check_hist_coord_all_codon(int(335, c_int64_t))
+       if (rt_codon_tag_out /= int(335, c_int64_t)) then
+          write(iulog,*) 'check_hist_coord_all_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'check_hist_coord_all implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     i = get_hist_coord_index(trim(name))
     ! If i > 0, this mdim has already been registered
@@ -777,6 +798,7 @@ get_hist_coord_index = -1
 
   subroutine add_hist_coord_r8(name, vlen, long_name, units, values,         &
        bounds_name, bounds, positive, standard_name)
+    use iso_c_binding, only : c_int64_t
     implicit none
 
     ! Input variables
@@ -869,6 +891,7 @@ get_hist_coord_index = -1
 
   subroutine add_vert_coord(name, vlen, long_name, units, values,            &
        positive, standard_name, formula_terms)
+    use iso_c_binding, only : c_int64_t
     implicit none
 
     ! Input variables
@@ -1105,6 +1128,7 @@ get_hist_coord_index = -1
   end subroutine write_hist_coord_att
 
   subroutine write_hist_coord_attrs(File, boundsdim, mdimids, writemdims_in)
+    use iso_c_binding, only : c_int64_t
     use pio, only: file_desc_t, var_desc_t, pio_put_att, pio_def_var,         &
                    pio_bcast_error, pio_internal_error, pio_seterrorhandling, &
                    pio_char, pio_def_dim
@@ -1267,6 +1291,7 @@ if (present(mdimids)) then
   end subroutine write_hist_coord_var
 
   subroutine write_hist_coord_vars(File, writemdims_in)
+   use iso_c_binding, only : c_int64_t
    use pio, only: file_desc_t, var_desc_t, pio_put_var,                       &
                   pio_bcast_error, pio_internal_error,                        &
                   pio_seterrorhandling, pio_inq_varid

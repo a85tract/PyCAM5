@@ -37,12 +37,26 @@ contains
   !---------------------------------------------------------------
   !---------------------------------------------------------------
   subroutine solar_parms_readnl(nlfile)
+    use iso_c_binding, only : c_int64_t
 
     use namelist_utils, only: find_group_name
     use units,          only: getunit, freeunit
 #ifdef SPMD
     use mpishorthand,   only: mpichar, mpicom
 #endif
+
+    interface
+       function solar_parms_readnl_codon(tag) result(tag_out) bind(c, name='solar_parms_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function solar_parms_readnl_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
     ! arguments
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
@@ -72,10 +86,22 @@ contains
 #endif
 
     solar_parms_on = len_trim(solar_parms_file)>0
-    call chemistry_misc_codon_touch('solar_parms_readnl', 139)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SOLAR_PARMS_READNL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = solar_parms_readnl_codon(int(139, c_int64_t))
+       if (rt_codon_tag_out /= int(139, c_int64_t)) then
+          write(iulog,*) 'solar_parms_readnl_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'solar_parms_readnl implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
   end subroutine solar_parms_readnl
-
   subroutine solar_parms_init ()
     !---------------------------------------------------------------
     !	... initialize solar parmaters
@@ -87,6 +113,21 @@ contains
     use cam_pio_utils,  only: cam_pio_openfile
     use pio,            only: file_desc_t, var_desc_t, pio_get_var, pio_inq_dimid, &
                               pio_inq_varid, pio_closefile, pio_inq_dimlen, pio_nowrite
+    use iso_c_binding, only : c_int64_t
+
+    interface
+       function solar_parms_init_codon(tag) result(tag_out) bind(c, name='solar_parms_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function solar_parms_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     !---------------------------------------------------------------
     !	... local variables
@@ -104,7 +145,20 @@ contains
     character(len=256) :: locfn
     integer :: ierr
 
-    call chemistry_misc_codon_touch('solar_parms_init', 160)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SOLAR_PARMS_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = solar_parms_init_codon(int(160, c_int64_t))
+       if (rt_codon_tag_out /= int(160, c_int64_t)) then
+          write(iulog,*) 'solar_parms_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'solar_parms_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     if (.not.solar_parms_on) return
 
@@ -169,7 +223,6 @@ contains
     call pio_closefile( ncid )
 
 end subroutine solar_parms_init
-
 subroutine solar_parms_timestep_init
   !---------------------------------------------------------------
   !	... set solar parameters timing
@@ -177,8 +230,23 @@ subroutine solar_parms_timestep_init
 
  use time_manager,   only : get_curr_date, is_end_curr_day
  use spmd_utils,     only : masterproc
+    use iso_c_binding, only : c_int64_t
 
  implicit none
+
+    interface
+       function solar_parms_timestep_init_codon(tag) result(tag_out) bind(c, name='solar_parms_timestep_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function solar_parms_timestep_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
  !---------------------------------------------------------------
  !	... local variables
@@ -188,7 +256,20 @@ subroutine solar_parms_timestep_init
  integer  :: yr, mon, day, ncsec
  real(r8) :: wrk_time
 
- call chemistry_misc_codon_touch('solar_parms_timestep_init', 161)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SOLAR_PARMS_TIMESTEP_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = solar_parms_timestep_init_codon(int(161, c_int64_t))
+       if (rt_codon_tag_out /= int(161, c_int64_t)) then
+          write(iulog,*) 'solar_parms_timestep_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'solar_parms_timestep_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
  if (.not.solar_parms_on) return
 
@@ -213,13 +294,27 @@ subroutine solar_parms_timestep_init
 
 
 end subroutine solar_parms_timestep_init
-
 subroutine solar_parms_get( f107_s, f107a_s, ap_s, kp_s, hp_s )
+    use iso_c_binding, only : c_int64_t
   !---------------------------------------------------------------
   !	... set,retrieve solar parmaters
   !---------------------------------------------------------------
 
  implicit none
+
+    interface
+       function solar_parms_get_codon(tag) result(tag_out) bind(c, name='solar_parms_get_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function solar_parms_get_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
  !---------------------------------------------------------------
  !	... dummy arguments
@@ -236,7 +331,20 @@ subroutine solar_parms_get( f107_s, f107a_s, ap_s, kp_s, hp_s )
  integer  :: tnp
  real(r8) :: wkp                                             ! wrk solar mag factor
 
- call chemistry_misc_codon_touch('solar_parms_get', 162)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SOLAR_PARMS_GET_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = solar_parms_get_codon(int(162, c_int64_t))
+       if (rt_codon_tag_out /= int(162, c_int64_t)) then
+          write(iulog,*) 'solar_parms_get_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'solar_parms_get implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
  if (.not.solar_parms_on) return
 

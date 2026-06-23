@@ -41,10 +41,40 @@ contains
   !===========================================================================
   !===========================================================================
   subroutine sslt_sections_init()
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+
+    interface
+       function sslt_sections_init_codon(tag) result(tag_out) bind(c, name='sslt_sections_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function sslt_sections_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
 
     integer :: m
 
-    call chemistry_misc_codon_touch('sslt_sections', 129)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SSLT_SECTIONS_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = sslt_sections_init_codon(int(129, c_int64_t))
+       if (rt_codon_tag_out /= int(129, c_int64_t)) then
+          write(iulog,*) 'sslt_sections_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'sslt_sections_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+
     ! use Ekman's ss
     rdry(:)=Dg(:)/2._r8   ! meter
     ! multiply rm with 1.814 because it should be RH=80% and not dry particles
