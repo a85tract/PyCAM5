@@ -98,7 +98,7 @@ contains
 
     found = .false.
 
-    if(dycore_is('se')) then  
+    if(dycore_is('se')) then
        dim1name='ncol'
     else
        dim1name='lon'
@@ -119,9 +119,9 @@ contains
        endif
 
        call pbuf_set_field(pbuf2d, pbf_idx, tmpptr, start=(/1,1,m/),kount=(/pcols,pver,1/))
-       
+
        if (masterproc) write(iulog,*)  fieldname, ' is set to short-lived'
-  
+
     enddo
 
     deallocate(tmpptr)
@@ -134,7 +134,20 @@ contains
 
     use physics_buffer, only : physics_buffer_desc, pbuf_set_field
 
-    implicit none 
+    use iso_c_binding, only : c_int64_t
+    implicit none
+    interface
+       function set_short_lived_species_codon(tag) result(tag_out) bind(c, name='set_short_lived_species_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function set_short_lived_species_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
     real(r8), intent(in)               :: q(pcols,pver,gas_pcnst)
     integer,  intent(in)               :: lchnk, ncol
@@ -142,7 +155,20 @@ contains
 
     integer :: m,n
 
-    call chemistry_misc_codon_touch('set_short_lived_species', 164)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SET_SHORT_LIVED_SPECIES_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = set_short_lived_species_codon(int(164, c_int64_t))
+       if (rt_codon_tag_out /= int(164, c_int64_t)) then
+          write(iulog,*) 'set_short_lived_species_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'set_short_lived_species implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     if ( nslvd < 1 ) return
 
     do m=1,nslvd
@@ -157,7 +183,7 @@ contains
   subroutine get_short_lived_species( q, lchnk, ncol, pbuf )
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field
 
-    implicit none 
+    implicit none
 
     real(r8), intent(inout)            :: q(pcols,pver,gas_pcnst)
     integer,  intent(in)               :: lchnk, ncol
@@ -165,7 +191,7 @@ contains
     real(r8),pointer                   :: tmpptr(:,:)
 
 
-    integer :: m,n 
+    integer :: m,n
 
     if ( nslvd < 1 ) return
 
@@ -244,7 +270,7 @@ contains
     do m=1,nslvd
        if ( name == slvd_lst(m) ) then
           slvd_index = m
-          return 
+          return
        endif
     enddo
 

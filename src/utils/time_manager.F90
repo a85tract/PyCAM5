@@ -72,7 +72,7 @@ module time_manager
    ! compiler happy.  It shouldn't be there since this module has a global save.
 
    type(ESMF_Calendar), target, save :: tm_cal        ! calendar
-   type(ESMF_Clock),    save :: tm_clock      ! Model clock   
+   type(ESMF_Clock),    save :: tm_clock      ! Model clock
    type(ESMF_Time),     save :: tm_perp_date  ! perpetual date
 
    integer ::&                      ! Data required to restart time manager:
@@ -446,9 +446,9 @@ call ESMF_TimeSet( date, yy=year, mm=month, dd=day, s=sec, calendar=tm_cal, rc=r
         useday = 28
         call ESMF_TimeSet( date, yy=year, mm=month, dd=useday, s=sec, calendar=tm_cal, rc=rc)
      else  ! legitimate error, let the model quit
-        call chkrc(rc, sub//': error return from ESMF_TimeSet for set_time_float_from_date')        
-     endif 
-  endif  
+        call chkrc(rc, sub//': error return from ESMF_TimeSet for set_time_float_from_date')
+     endif
+  endif
 
   call ESMF_ClockGet(tm_clock, refTime=ref_date, rc=rc )
   call chkrc(rc, sub//': error return from ESMF_ClockGet for set_time_float_from_date')
@@ -607,7 +607,7 @@ subroutine timemgr_restart( stop_ymd, stop_tod )
    type(ESMF_Time) :: curr_date   ! date of data in restart file
 !-----------------------------------------------------------------------------------------
 
-#if ( defined SPMD ) 
+#if ( defined SPMD )
    call mpibcast(rst_calendar,  len(rst_calendar), mpichar, 0, mpicom)
    call mpibcast(rst_step_sec,  1, mpiint, 0, mpicom)
    call mpibcast(rst_start_ymd, 1, mpiint, 0, mpicom)
@@ -724,7 +724,7 @@ subroutine timemgr_check_restart( calendar_in, start_ymd, start_tod, ref_ymd, &
         call endrun( sub//': input perpetual date does not agree with restart' )
      end if
   end if
-  
+
 end subroutine timemgr_check_restart
 
 !=========================================================================================
@@ -824,15 +824,34 @@ subroutine timemgr_print()
    type(ESMF_Time) :: ref_date  ! reference date
    type(ESMF_TimeInterval) :: step ! Time-step
 !-----------------------------------------------------------------------------------------
+    interface
+       function timemgr_print_codon(tag) result(tag_out) bind(c, name='timemgr_print_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function timemgr_print_codon
+    end interface
 
-#define CAM_MISC_TAG 386
-#define CAM_MISC_LABEL 'timemgr_print'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-   call ESMF_ClockGet( tm_clock, startTime=start_date, currTime=curr_date, &
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('TIMEMGR_PRINT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = timemgr_print_codon(int(386, c_int64_t))
+       if (rt_codon_tag_out /= int(386, c_int64_t)) then
+          write(iulog,*) 'timemgr_print_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'timemgr_print implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+    call ESMF_ClockGet( tm_clock, startTime=start_date, currTime=curr_date, &
                        refTime=ref_date, stopTime=stop_date, timeStep=step, &
                        advanceCount=step_no, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
@@ -1015,7 +1034,7 @@ subroutine get_curr_date(yr, mon, day, tod, offset)
       tod     ! time of day (seconds past 0Z)
 
    integer, optional, intent(in) :: offset  ! Offset from current time in seconds.
-                                            ! Positive for future times, negative 
+                                            ! Positive for future times, negative
                                             ! for previous times.
 
 ! Local variables
@@ -1088,7 +1107,7 @@ subroutine get_perp_date(yr, mon, day, tod, offset)
       tod     ! time of day (seconds past 0Z)
 
    integer, optional, intent(in) :: offset  ! Offset from current time in seconds.
-                                            ! Positive for future times, negative 
+                                            ! Positive for future times, negative
                                             ! for previous times.
 
 ! Local variables
@@ -1328,7 +1347,7 @@ function get_curr_calday(offset)
 
 ! Arguments
    integer, optional, intent(in) :: offset  ! Offset from current time in seconds.
-                                            ! Positive for future times, negative 
+                                            ! Positive for future times, negative
                                             ! for previous times.
 ! Return value
    real(r8) :: get_curr_calday
@@ -1405,7 +1424,7 @@ call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
 !
 ! The zenith angle calculation is only capable of using a 365-day calendar.
 ! If a Gregorian calendar is being used, the last day of a leap year (day 366)
-! is sent to the model as a repetition of the previous day (day 365). 
+! is sent to the model as a repetition of the previous day (day 365).
 ! This is done by decrementing calday by 1 immediately below.
 ! bundy, July 2008
 !
@@ -1463,7 +1482,7 @@ function get_calday(ymd, tod)
 !
 ! The zenith angle calculation is only capable of using a 365-day calendar.
 ! If a Gregorian calendar is being used, the last day of a leap year (day 366)
-! is sent to the model as a repetition of the previous day (day 365). 
+! is sent to the model as a repetition of the previous day (day 365).
 ! This is done by decrementing calday by 1 immediately below.
 ! bundy, July 2008
 !
@@ -1553,7 +1572,7 @@ character(len=SHR_KIND_CS) function timemgr_get_calendar_cf()
 
 end function timemgr_get_calendar_cf
 !=========================================================================================
- 
+
 function timemgr_is_caltype( cal_in )
 
 ! Return true if incoming calendar type string matches actual calendar type in use
@@ -1609,7 +1628,7 @@ function timemgr_is_caltype( cal_in )
 
 end function timemgr_is_caltype
 !=========================================================================================
- 
+
 function is_end_curr_day()
 
 ! Return true if current timestep is last timestep in current day.
@@ -1840,21 +1859,40 @@ subroutine timemgr_write_restart(File)
   type(ESMF_Time) :: stop_date             ! stop date for run
   type(ESMF_Time) :: curr_date             ! temporary date used in logic
   type(ESMF_Time) :: ref_date              ! reference date for time coordinate
+    interface
+       function timemgr_write_restart_codon(tag) result(tag_out) bind(c, name='timemgr_write_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function timemgr_write_restart_codon
+    end interface
 
-#define CAM_MISC_TAG 387
-#define CAM_MISC_LABEL 'timemgr_write_restart'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-  if ( tm_perp_calendar ) then
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('TIMEMGR_WRITE_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = timemgr_write_restart_codon(int(387, c_int64_t))
+       if (rt_codon_tag_out /= int(387, c_int64_t)) then
+          write(iulog,*) 'timemgr_write_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'timemgr_write_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+    if ( tm_perp_calendar ) then
      rst_perp_ymd = TimeGetymd( tm_perp_date )
      rst_perp_cal = tm_perp_calendar
   else
      rst_perp_cal = .false.
   end if
-  
+
   call ESMF_ClockGet( tm_clock, startTime=start_date, stopTime=stop_date, &
        currTime=curr_date, refTime=ref_date, rc=ret )
   call chkrc(ret, sub//': error return from ESMF_ClockGet')
@@ -1864,7 +1902,7 @@ subroutine timemgr_write_restart(File)
   rst_stop_ymd  = TimeGetymd( stop_date,  tod=rst_stop_tod  )
   rst_ref_ymd   = TimeGetymd( ref_date,   tod=rst_ref_tod   )
   rst_curr_ymd  = TimeGetymd( curr_date,  tod=rst_curr_tod  )
-  
+
   if ( rst_perp_cal ) then
      rst_perp_cal_int = 1
   else
@@ -1917,11 +1955,11 @@ subroutine timemgr_read_restart(File)
   integer :: rst_perp_cal_int
 
   call timevars_set_names()
-  
+
   do i=1,varcnt
      ret = PIO_inq_varid(File, timevars(i)%name, timevars(i)%vardesc)
   end do
-  
+
   do i=1,varcnt
      timevar => timevars(i)
      if(timevar%name == 'rst_calendar') then

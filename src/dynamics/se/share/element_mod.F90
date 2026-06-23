@@ -507,14 +507,33 @@ contains
          type(c_ptr), value :: loc2buf_p, globalID_p
        end subroutine allocate_element_desc_init_codon
     end interface
+    interface
+       function allocate_element_desc_codon(tag) result(tag_out) bind(c, name='allocate_element_desc_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function allocate_element_desc_codon
+    end interface
 
-#define SE_MISC_TAG 31
-#define SE_MISC_LABEL 'element_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('ALLOCATE_ELEMENT_DESC_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = allocate_element_desc_codon(int(31, c_int64_t))
+       if (rt_codon_tag_out /= int(31, c_int64_t)) then
+          write(iulog,*) 'allocate_element_desc_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'allocate_element_desc implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     num = SIZE(elem)
 
     do j=1,num

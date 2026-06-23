@@ -1,17 +1,17 @@
 module nctopo_util_mod
-  !----------------------------------------------------------------------- 
-  ! 
+  !-----------------------------------------------------------------------
+  !
   ! Purpose: Driver for SE's hyper-viscsoity smoothing procedure
   !          used to create smoothed PHIS, SGH, SGH30 fields
   !
   !          This utility is not used during normal CAM simulations.
   !          It will be run if the user sets smooth_phis_numcycle>0 in the
   !          atm_in namelist, and adds PHIS_SM, SGH_SM and SGH30_SM to
-  !          on of the history files. 
+  !          on of the history files.
   !
-  ! 
+  !
   ! Author:  M. Taylor (3/2011)
-  ! 
+  !
   !-----------------------------------------------------------------------
   use cam_logfile, only : iulog
   use element_mod, only : element_t
@@ -54,14 +54,33 @@ contains
     integer :: kptr
     type(EdgeBuffer_t) :: edge
     integer :: lsize, nets,nete
+    interface
+       function nctopo_util_inidat_codon(tag) result(tag_out) bind(c, name='nctopo_util_inidat_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function nctopo_util_inidat_codon
+    end interface
 
-#define SE_MISC_TAG 38
-#define SE_MISC_LABEL 'nctopo_util_inidat'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('NCTOPO_UTIL_INIDAT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = nctopo_util_inidat_codon(int(38, c_int64_t))
+       if (rt_codon_tag_out /= int(38, c_int64_t)) then
+          write(iulog,*) 'nctopo_util_inidat_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'nctopo_util_inidat implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     if (smooth_phis_numcycle==0) return
 
     if(iam > par%nprocs) then
@@ -69,7 +88,7 @@ contains
        call endrun('PHIS topo generation code code requires npes_se==npes_cam')
     end if
 
-    tlncols = pio_get_local_array_size(iodesc)	
+    tlncols = pio_get_local_array_size(iodesc)
     allocate(tmp(tlncols,1))
 
     allocate(PHISdyn(np,np,nelemd))
@@ -100,7 +119,7 @@ contains
        call putUniquePoints(elem(ie)%idxP, tmp(start:,1),SGHdyn(:,:,ie))
        start=start+elem(ie)%idxP%numUniquePts
     end do
-    
+
     fieldname = 'SGH30'
     if(par%masterproc  ) write(iulog,*) 'nctopo utility: reading SGH30:'
     call infld(fieldname, ncid_topo, iodesc, tmp(:,1), found)
@@ -112,7 +131,7 @@ contains
        call putUniquePoints(elem(ie)%idxP, tmp(start:,1),SGH30dyn(:,:,ie))
        start=start+elem(ie)%idxP%numUniquePts
     end do
-    
+
     ! update non-unique points:
     call initEdgeBuffer(par, edge, elem, 3)
     do ie=1,nelemd
@@ -133,12 +152,12 @@ contains
        call edgeVunpack(edge, PHISdyn(:,:,ie),1,kptr,ie)
     end do
     call FreeEdgeBuffer(edge)
-     
-    
+
+
     deallocate(tmp)
 
 
-  end subroutine 
+  end subroutine
 
 
 
@@ -186,8 +205,8 @@ if (smooth_phis_numcycle==0) return
     call smooth_topo_datasets(phisdyn,sghdyn,sgh30dyn,elem,hybrid,nets,nete)
 
 
-  end subroutine 
+  end subroutine
 
 
 
-end module nctopo_util_mod 
+end module nctopo_util_mod

@@ -3,7 +3,7 @@ module atm_comp_mct
   use pio              , only: file_desc_t, io_desc_t, var_desc_t, pio_double, pio_def_dim, &
                                pio_put_att, pio_enddef, pio_initdecomp, pio_read_darray, pio_freedecomp, &
                                pio_closefile, pio_write_darray, pio_def_var, pio_inq_varid, &
-	                       pio_noerr, pio_bcast_error, pio_internal_error, pio_seterrorhandling 
+	                       pio_noerr, pio_bcast_error, pio_internal_error, pio_seterrorhandling
   use mct_mod
   use seq_cdata_mod
   use esmf
@@ -28,9 +28,9 @@ module atm_comp_mct
   use radiation        , only: radiation_do, radiation_nextsw_cday
   use phys_grid        , only: get_ncols_p, ngcols, get_gcol_p, get_rlat_all_p, &
 	                       get_rlon_all_p, get_area_all_p
-  use ppgrid           , only: pcols, begchunk, endchunk       
+  use ppgrid           , only: pcols, begchunk, endchunk
   use dyn_grid         , only: get_horiz_grid_dim_d
-  use camsrfexch       , only: cam_out_t, cam_in_t     
+  use camsrfexch       , only: cam_out_t, cam_in_t
   use cam_restart      , only: get_restcase, get_restartdir
   use cam_history      , only: outfld, ctitle
   use cam_abortutils   , only: endrun
@@ -43,7 +43,7 @@ module atm_comp_mct
 #endif
   use time_manager     , only: get_curr_calday, advance_timestep, get_curr_date, get_nstep, &
                                get_step_size, timemgr_init, timemgr_check_restart
-  use ioFileMod             
+  use ioFileMod
   use perf_mod
   use cam_logfile      , only: iulog
   use co2_cycle        , only: co2_readFlux_ocn, co2_readFlux_fuel
@@ -87,7 +87,7 @@ module atm_comp_mct
   ! Filename specifier for restart surface file
   character(len=cx) :: rsfilename_spec_cam
 
-  ! Are all surface types present   
+  ! Are all surface types present
   logical :: lnd_present ! if true => land is present
   logical :: ocn_present ! if true => ocean is present
 
@@ -107,7 +107,7 @@ CONTAINS
     type(ESMF_Clock),intent(inout)              :: EClock
     type(seq_cdata), intent(inout)              :: cdata_a
     type(mct_aVect), intent(inout)              :: x2a_a
-    type(mct_aVect), intent(inout)              :: a2x_a   
+    type(mct_aVect), intent(inout)              :: a2x_a
     character(len=*), optional,   intent(IN)    :: NLFilename ! Namelist filename
     !
     ! Locals
@@ -120,11 +120,11 @@ CONTAINS
     integer :: iradsw
     logical :: exists           ! true if file exists
     real(r8):: nextsw_cday      ! calendar of next atm shortwave
-    integer :: stepno           ! time step			 
+    integer :: stepno           ! time step
     integer :: dtime_sync       ! integer timestep size
     integer :: currentymd       ! current year-month-day
     integer :: dtime            ! time step increment (sec)
-    integer :: atm_cpl_dt       ! driver atm coupling time step 
+    integer :: atm_cpl_dt       ! driver atm coupling time step
     integer :: nstep            ! CAM nstep
     real(r8):: caldayp1         ! CAM calendar day for for next cam time step
     integer :: dtime_cam        ! Time-step increment (sec)
@@ -159,28 +159,28 @@ CONTAINS
     if(masterproc) then
       lbnum=1
       call memmon_dump_fort('memmon.out','atm_init_mct:start::',lbnum)
-    endif                      
-#endif                         
+    endif
+#endif
 
     call seq_cdata_setptrs(cdata_a, ID=ATMID, mpicom=mpicom_atm, &
          gsMap=gsMap_atm, dom=dom_a, infodata=infodata)
 
     if (first_time) then
-       
+
        call cam_instance_init(ATMID)
 
        ! Set filename specifier for restart surface file
        ! (%c=caseid, $y=year, $m=month, $d=day, $s=seconds in day)
-       rsfilename_spec_cam = '%c.cam' // trim(inst_suffix) // '.rs.%y-%m-%d-%s.nc' 
+       rsfilename_spec_cam = '%c.cam' // trim(inst_suffix) // '.rs.%y-%m-%d-%s.nc'
 
        ! Determine attribute vector indices
 
        call cam_cpl_indices_set()
 
        ! Redirect share output to cam log
-       
+
        call spmdinit(mpicom_atm)
-       
+
        if (masterproc) then
           inquire(file='atm_modelio.nml'//trim(inst_suffix), exist=exists)
           if (exists) then
@@ -189,7 +189,7 @@ CONTAINS
           endif
           write(iulog,*) "CAM atmosphere model initialization"
        endif
-       
+
        call shr_file_getLogUnit (shrlogunit)
        call shr_file_getLogLevel(shrloglev)
        call shr_file_setLogUnit (iulog)
@@ -201,7 +201,7 @@ CONTAINS
           write(iulog,*)'error co2_readFlux_ocn and index_x2a_Faoo_fco2_ocn cannot both be active'
           call shr_sys_abort()
        end if
-       ! 
+       !
        ! Get data from infodata object
        !
        call seq_infodata_GetData( infodata,                                           &
@@ -213,7 +213,7 @@ CONTAINS
             brnch_retain_casename=brnch_retain_casename,                              &
             single_column=single_column, scmlat=scmlat, scmlon=scmlon,                &
             orb_eccen=eccen, orb_mvelpp=mvelpp, orb_lambm0=lambm0, orb_obliqr=obliqr, &
-            lnd_present=lnd_present, ocn_present=ocn_present,                         & 
+            lnd_present=lnd_present, ocn_present=ocn_present,                         &
             perpetual=perpetual_run, perpetual_ymd=perpetual_ymd)
        !
        ! Get nsrest from startup type methods
@@ -254,11 +254,11 @@ CONTAINS
                perpetual_ymd=perpetual_ymd )
        end if
        !
-       ! First phase of cam initialization 
-       ! Initialize mpicom_atm, allocate cam_in and cam_out and determine 
-       ! atm decomposition (needed to initialize gsmap) 
+       ! First phase of cam initialization
+       ! Initialize mpicom_atm, allocate cam_in and cam_out and determine
+       ! atm decomposition (needed to initialize gsmap)
        ! for an initial run, cam_in and cam_out are allocated in cam_initial
-       ! for a restart/branch run, cam_in and cam_out are allocated in restart 
+       ! for a restart/branch run, cam_in and cam_out are allocated in restart
        ! Set defaults then override with user-specified input and initialize time manager
        ! Note that the following arguments are needed to cam_init for timemgr_restart only
        !
@@ -282,7 +282,7 @@ CONTAINS
        ! Set dof (module variable, needed for pio for restarts)
        call mct_gsmap_orderedpoints(gsmap_atm, iam, dof)
        !
-       ! Initialize MCT domain 
+       ! Initialize MCT domain
        !
        call atm_domain_mct( lsize, gsMap_atm, dom_a )
        !
@@ -290,8 +290,8 @@ CONTAINS
        !
        call mct_aVect_init(a2x_a, rList=seq_flds_a2x_fields, lsize=lsize)
        call mct_aVect_zero(a2x_a)
-       
-       call mct_aVect_init(x2a_a, rList=seq_flds_x2a_fields, lsize=lsize) 
+
+       call mct_aVect_init(x2a_a, rList=seq_flds_x2a_fields, lsize=lsize)
        call mct_aVect_zero(x2a_a)
        !
        ! Create initial atm export state
@@ -317,21 +317,21 @@ CONTAINS
           nextsw_cday = get_curr_calday()
           call seq_infodata_PutData( infodata, nextsw_cday=nextsw_cday )
        end if
-       
+
        ! End redirection of share output to cam log
-       
+
        call shr_file_setLogUnit (shrlogunit)
        call shr_file_setLogLevel(shrloglev)
 
        first_time = .false.
 
     else
-       
+
        ! For initial run, run cam radiation/clouds and return
        ! For restart run, read restart x2a_a
        ! Note - a2x_a is computed upon the completion of the previous run - cam_run1 is called
        ! only for the purposes of finishing the flux averaged calculation to compute a2x_a
-       ! Note - cam_run1 is called on restart only to have cam internal state consistent with the 
+       ! Note - cam_run1 is called on restart only to have cam internal state consistent with the
        ! a2x_a state sent to the coupler
 
        ! Redirect share output to cam log
@@ -343,35 +343,35 @@ CONTAINS
        call seq_timemgr_EClockGetData(EClock,curr_ymd=CurrentYMD, StepNo=StepNo, dtime=DTime_Sync )
        if (StepNo == 0) then
           call atm_import( x2a_a%rattr, cam_in, cam_out )
-          call cam_run1 ( cam_in, cam_out ) 
+          call cam_run1 ( cam_in, cam_out )
           call atm_export( cam_out, a2x_a%rattr )
        else
           call atm_read_srfrest_mct( EClock, x2a_a, a2x_a )
           call atm_import( x2a_a%rattr, cam_in, cam_out )
-          call cam_run1 ( cam_in, cam_out ) 
+          call cam_run1 ( cam_in, cam_out )
        end if
 
        ! Compute time of next radiation computation, like in run method for exact restart
 
        call seq_timemgr_EClockGetData(Eclock,dtime=atm_cpl_dt)
-       dtime = get_step_size()          
+       dtime = get_step_size()
        nstep = get_nstep()
        if (nstep < 1 .or. dtime < atm_cpl_dt) then
-          nextsw_cday = radiation_nextsw_cday() 
+          nextsw_cday = radiation_nextsw_cday()
        else if (dtime == atm_cpl_dt) then
           caldayp1 = get_curr_calday(offset=int(dtime))
-          nextsw_cday = radiation_nextsw_cday() 
+          nextsw_cday = radiation_nextsw_cday()
           if (caldayp1 /= nextsw_cday) nextsw_cday = -1._r8
        else
           call shr_sys_abort('dtime must be less than or equal to atm_cpl_dt')
        end if
-       call seq_infodata_PutData( infodata, nextsw_cday=nextsw_cday ) 
+       call seq_infodata_PutData( infodata, nextsw_cday=nextsw_cday )
 
        ! End redirection of share output to cam log
-       
+
        call shr_file_setLogUnit (shrlogunit)
        call shr_file_setLogLevel(shrloglev)
-       
+
     end if
 
 #if (defined _MEMTRACE )
@@ -381,7 +381,7 @@ CONTAINS
       call memmon_reset_addr()
     endif
 #endif
-    
+
     call shr_sys_flush(iulog)
 
  end subroutine atm_init_mct
@@ -398,7 +398,7 @@ CONTAINS
     use constituents,    only: pcnst
     use shr_sys_mod,     only: shr_sys_flush
 
-    ! 
+    !
     ! Arguments
     !
     type(ESMF_Clock)            ,intent(inout) :: EClock
@@ -409,13 +409,13 @@ CONTAINS
     ! Local variables
     !
     integer :: lsize           ! size of attribute vector
-    integer :: StepNo          ! time step			 
+    integer :: StepNo          ! time step
     integer :: DTime_Sync      ! integer timestep size
     integer :: CurrentYMD      ! current year-month-day
-    integer :: iradsw          ! shortwave radation frequency (time steps) 
+    integer :: iradsw          ! shortwave radation frequency (time steps)
     logical :: dosend          ! true => send data back to driver
     integer :: dtime           ! time step increment (sec)
-    integer :: atm_cpl_dt      ! driver atm coupling time step 
+    integer :: atm_cpl_dt      ! driver atm coupling time step
     integer :: ymd_sync        ! Sync date (YYYYMMDD)
     integer :: yr_sync         ! Sync current year
     integer :: mon_sync        ! Sync current month
@@ -454,18 +454,18 @@ CONTAINS
 #endif
 
     ! Redirect share output to cam log
-    
+
     call shr_file_getLogUnit (shrlogunit)
     call shr_file_getLogLevel(shrloglev)
     call shr_file_setLogUnit (iulog)
     call cam_cpl_indices_misc_touch()
 
     ! Note that sync clock time should match cam time at end of time step/loop not beginning
-    
+
     call seq_timemgr_EClockGetData(EClock,curr_ymd=ymd_sync,curr_tod=tod_sync, &
        curr_yr=yr_sync,curr_mon=mon_sync,curr_day=day_sync)
 
-    !load orbital parameters 
+    !load orbital parameters
 
     call seq_infodata_GetData( infodata,                                           &
        orb_eccen=eccen, orb_mvelpp=mvelpp, orb_lambm0=lambm0, orb_obliqr=obliqr)
@@ -478,36 +478,36 @@ CONTAINS
     call t_startf ('CAM_import')
     call atm_import( x2a_a%rattr, cam_in, cam_out )
     call t_stopf  ('CAM_import')
-    
+
     ! Cycle over all time steps in the atm coupling interval
-    
+
     dosend = .false.
     do while (.not. dosend)
 
        ! Determine if dosend
        ! When time is not updated at the beginning of the loop - then return only if
        ! are in sync with clock before time is updated
-       
+
        call get_curr_date( yr, mon, day, tod )
        ymd = yr*10000 + mon*100 + day
        tod = tod
        dosend = (seq_timemgr_EClockDateInSync( EClock, ymd, tod))
-       
+
        ! Determine if time to write cam restart and stop
-       
+
        rstwr = .false.
        if (rstwr_sync .and. dosend) rstwr = .true.
        nlend = .false.
        if (nlend_sync .and. dosend) nlend = .true.
-       
-       ! Single column specific input 
-       
+
+       ! Single column specific input
+
        if (single_column) then
           call scam_use_iop_srf( cam_in )
        endif
 
        ! Run CAM (run2, run3, run4)
-       
+
        call t_startf ('CAM_run2')
        call cam_run2( cam_out, cam_in )
        call t_stopf  ('CAM_run2')
@@ -515,58 +515,58 @@ CONTAINS
        call t_startf ('CAM_run3')
        call cam_run3( cam_out )
        call t_stopf  ('CAM_run3')
-       
+
        call t_startf ('CAM_run4')
        call cam_run4( cam_out, cam_in, rstwr, nlend, &
             yr_spec=yr_sync, mon_spec=mon_sync, day_spec=day_sync, sec_spec=tod_sync)
        call t_stopf  ('CAM_run4')
-       
-       ! Advance cam time step 
-       
+
+       ! Advance cam time step
+
        call t_startf ('CAM_adv_timestep')
        call advance_timestep()
        call t_stopf  ('CAM_adv_timestep')
-       
+
        ! Run cam radiation/clouds (run1)
-          
+
        call t_startf ('CAM_run1')
-       call cam_run1 ( cam_in, cam_out ) 
+       call cam_run1 ( cam_in, cam_out )
        call t_stopf  ('CAM_run1')
-       
+
        ! Map output from cam to mct data structures
-       
+
        call t_startf ('CAM_export')
        call atm_export( cam_out, a2x_a%rattr )
        call t_stopf ('CAM_export')
-       
+
     end do
 
-    ! Get time of next radiation calculation - albedos will need to be 
+    ! Get time of next radiation calculation - albedos will need to be
     ! calculated by each surface model at this time
-    
+
     call seq_timemgr_EClockGetData(Eclock,dtime=atm_cpl_dt)
-    dtime = get_step_size()          
+    dtime = get_step_size()
     if (dtime < atm_cpl_dt) then
-       nextsw_cday = radiation_nextsw_cday() 
+       nextsw_cday = radiation_nextsw_cday()
     else if (dtime == atm_cpl_dt) then
        caldayp1 = get_curr_calday(offset=int(dtime))
-       nextsw_cday = radiation_nextsw_cday() 
+       nextsw_cday = radiation_nextsw_cday()
        if (caldayp1 /= nextsw_cday) nextsw_cday = -1._r8
     else
        call shr_sys_abort('dtime must be less than or equal to atm_cpl_dt')
     end if
 
-    call seq_infodata_PutData( infodata, nextsw_cday=nextsw_cday ) 
-    
+    call seq_infodata_PutData( infodata, nextsw_cday=nextsw_cday )
+
     ! Write merged surface data restart file if appropriate
-    
+
     if (rstwr_sync) then
        call atm_write_srfrest_mct( x2a_a, a2x_a, &
             yr_spec=yr_sync, mon_spec=mon_sync, day_spec=day_sync, sec_spec=tod_sync)
     end if
-    
-    ! Check for consistency of internal cam clock with master sync clock 
-    
+
+    ! Check for consistency of internal cam clock with master sync clock
+
     dtime = get_step_size()
     call get_curr_date( yr, mon, day, tod, offset=-dtime )
     ymd = yr*10000 + mon*100 + day
@@ -577,7 +577,7 @@ CONTAINS
        write(iulog,*)'sync ymd=',ymd_sync,' sync tod= ',tod_sync
        call shr_sys_abort( subname//': CAM clock is not in sync with master Sync Clock' )
     end if
-    
+
     ! End redirection of share output to cam log
 
     call shr_file_setLogUnit (shrlogunit)
@@ -687,7 +687,7 @@ call cam_final( cam_out, cam_in )
 ! Build the atmosphere grid numbering for MCT
     ! NOTE:  Numbering scheme is: West to East and South to North
     ! starting at south pole.  Should be the same as what's used in SCRIP
-    
+
     ! Determine global seg map
 
     sizebuf=0
@@ -726,11 +726,11 @@ call cam_final( cam_out, cam_in )
     !
     integer        , intent(in)   :: lsize
     type(mct_gsMap), intent(in)   :: gsMap_a
-    type(mct_ggrid), intent(inout):: dom_a  
+    type(mct_ggrid), intent(inout):: dom_a
     !
     ! Local Variables
     !
-    integer  :: n,i,c,ncols           ! indices	
+    integer  :: n,i,c,ncols           ! indices
     real(r8) :: lats(pcols)           ! array of chunk latitudes
     real(r8) :: lons(pcols)           ! array of chunk longitude
     real(r8) :: area(pcols)           ! area in radians squared for each grid point
@@ -738,14 +738,33 @@ call cam_final( cam_out, cam_in )
     integer , pointer  :: idata(:)    ! temporary
     real(r8), parameter:: radtodeg = 180.0_r8/SHR_CONST_PI
     !-------------------------------------------------------------------
+    interface
+       function atm_domain_mct_codon(tag) result(tag_out) bind(c, name='atm_domain_mct_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function atm_domain_mct_codon
+    end interface
 
-#define CAM_MISC_TAG 395
-#define CAM_MISC_LABEL 'atm_domain_mct'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('ATM_DOMAIN_MCT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = atm_domain_mct_codon(int(395, c_int64_t))
+       if (rt_codon_tag_out /= int(395, c_int64_t)) then
+          write(iulog,*) 'atm_domain_mct_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'atm_domain_mct implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     !
     ! Initialize mct atm domain
     !
@@ -763,13 +782,13 @@ call cam_final( cam_out, cam_in )
     ! Determine domain (numbering scheme is: West to East and South to North to South pole)
     ! Initialize attribute vector with special value
     !
-    data(:) = -9999.0_R8 
-    call mct_gGrid_importRAttr(dom_a,"lat"  ,data,lsize) 
-    call mct_gGrid_importRAttr(dom_a,"lon"  ,data,lsize) 
-    call mct_gGrid_importRAttr(dom_a,"area" ,data,lsize) 
-    call mct_gGrid_importRAttr(dom_a,"aream",data,lsize) 
-    data(:) = 0.0_R8     
-    call mct_gGrid_importRAttr(dom_a,"mask" ,data,lsize) 
+    data(:) = -9999.0_R8
+    call mct_gGrid_importRAttr(dom_a,"lat"  ,data,lsize)
+    call mct_gGrid_importRAttr(dom_a,"lon"  ,data,lsize)
+    call mct_gGrid_importRAttr(dom_a,"area" ,data,lsize)
+    call mct_gGrid_importRAttr(dom_a,"aream",data,lsize)
+    data(:) = 0.0_R8
+    call mct_gGrid_importRAttr(dom_a,"mask" ,data,lsize)
     data(:) = 1.0_R8
     call mct_gGrid_importRAttr(dom_a,"frac" ,data,lsize)
     !
@@ -784,7 +803,7 @@ call cam_final( cam_out, cam_in )
           data(n) = lats(i)*radtodeg
        end do
     end do
-    call mct_gGrid_importRAttr(dom_a,"lat",data,lsize) 
+    call mct_gGrid_importRAttr(dom_a,"lat",data,lsize)
 
     n=0
     do c = begchunk, endchunk
@@ -795,7 +814,7 @@ call cam_final( cam_out, cam_in )
           data(n) = lons(i)*radtodeg
        end do
     end do
-    call mct_gGrid_importRAttr(dom_a,"lon",data,lsize) 
+    call mct_gGrid_importRAttr(dom_a,"lon",data,lsize)
 
     n=0
     do c = begchunk, endchunk
@@ -803,10 +822,10 @@ call cam_final( cam_out, cam_in )
        call get_area_all_p(c, ncols, area)
        do i=1,ncols
           n = n+1
-          data(n) = area(i) 
+          data(n) = area(i)
        end do
     end do
-    call mct_gGrid_importRAttr(dom_a,"area",data,lsize) 
+    call mct_gGrid_importRAttr(dom_a,"area",data,lsize)
 
     n=0
     do c = begchunk, endchunk
@@ -816,7 +835,7 @@ call cam_final( cam_out, cam_in )
           data(n) = 1._r8 ! mask
        end do
     end do
-    call mct_gGrid_importRAttr(dom_a,"mask"   ,data,lsize) 
+    call mct_gGrid_importRAttr(dom_a,"mask"   ,data,lsize)
     deallocate(data)
 
   end subroutine atm_domain_mct
@@ -833,7 +852,7 @@ call cam_final( cam_out, cam_in )
     type(ESMF_Clock),intent(inout) :: EClock
     type(mct_aVect), intent(inout) :: x2a_a
     type(mct_aVect), intent(inout) :: a2x_a
-    ! 
+    !
     ! Local variables
     !
     integer               :: rcode        ! return error code
@@ -853,16 +872,16 @@ call cam_final( cam_out, cam_in )
     ! Determine and open surface restart dataset
 
     call seq_timemgr_EClockGetData( EClock, curr_yr=yr_spec,curr_mon=mon_spec, &
-         curr_day=day_spec, curr_tod=sec_spec ) 
+         curr_day=day_spec, curr_tod=sec_spec )
     fname_srf_cam = interpret_filename_spec( rsfilename_spec_cam, case=get_restcase(), &
          yr_spec=yr_spec, mon_spec=mon_spec, day_spec=day_spec, sec_spec= sec_spec )
     pname_srf_cam = trim(get_restartdir() )//fname_srf_cam
     call getfil(pname_srf_cam, fname_srf_cam)
-    
+
     call cam_pio_openfile(File, fname_srf_cam, 0)
     call pio_initdecomp(pio_subsystem, pio_double, (/ngcols/), dof, iodesc)
     allocate(tmp(size(dof)))
-    
+
     nf_x2a = mct_aVect_nRattr(x2a_a)
     do k=1,nf_x2a
        call mct_aVect_getRList(mstring,k,x2a_a)
@@ -903,7 +922,7 @@ call cam_final( cam_out, cam_in )
 
   !===========================================================================================
 
-  subroutine atm_write_srfrest_mct( x2a_a, a2x_a, & 
+  subroutine atm_write_srfrest_mct( x2a_a, a2x_a, &
        yr_spec, mon_spec, day_spec, sec_spec)
 
     !-----------------------------------------------------------------------
@@ -968,7 +987,7 @@ call cam_final( cam_out, cam_in )
 
     nf_x2a = mct_aVect_nRattr(x2a_a)
     allocate(varid_x2a(nf_x2a))
-    
+
     rcode = pio_def_dim(File,'x2a_nx',ngcols,dimid(1))
     do k = 1,nf_x2a
        call mct_aVect_getRList(mstring,k,x2a_a)
@@ -980,7 +999,7 @@ call cam_final( cam_out, cam_in )
 
     nf_a2x = mct_aVect_nRattr(a2x_a)
     allocate(varid_a2x(nf_a2x))
-    
+
     rcode = pio_def_dim(File,'a2x_nx',ngcols,dimid(1))
     do k = 1,nf_a2x
        call mct_aVect_getRList(mstring,k,a2x_a)
@@ -998,7 +1017,7 @@ call cam_final( cam_out, cam_in )
     end do
 
     do k=1,nf_a2x
-       call pio_write_darray(File, varid_a2x(k), iodesc, a2x_a%rattr(k,:), rcode)       
+       call pio_write_darray(File, varid_a2x(k), iodesc, a2x_a%rattr(k,:), rcode)
     end do
 
     deallocate(varid_x2a, varid_a2x)

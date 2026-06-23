@@ -85,16 +85,16 @@ contains
 pio_subsystem => shr_pio_getiosys(atm_id)
     pio_iotype =  shr_pio_getiotype(atm_id)
     pio_ioformat =  shr_pio_getioformat(atm_id)
-    
+
   end subroutine init_pio_subsystem
 
-  subroutine get_decomp (iodesc, field, dtype,  numlev_in, column) 
+  subroutine get_decomp (iodesc, field, dtype,  numlev_in, column)
     use dyn_grid,   only : get_horiz_grid_dim_d
     use dycore, only : dycore_is
 
     type(field_info), intent(in) :: field
     integer, intent(in) :: dtype
-    
+
     type(column_info), intent(in), optional :: column
     integer, optional, intent(in) :: numlev_in
 
@@ -243,23 +243,42 @@ if(present(fileorder_in)) then
     character(len=3),optional, intent(in) :: fileorder_in
     character(len=3) :: fileorder
 
-    integer :: dimlens(8)    
+    integer :: dimlens(8)
     integer :: dimcnt
     integer :: hdim1_d, hdim2_d
     integer(kind=pio_offset_kind), pointer :: ldof(:)
     integer :: ierr, ldecomp
     logical :: twodhorizontal, found, oldcolumns
     integer :: mdimsize, mdimprod, i
+    interface
+       function get_phys_decomp_mdnd_codon(tag) result(tag_out) bind(c, name='get_phys_decomp_mdnd_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_phys_decomp_mdnd_codon
+    end interface
 
-#define CAM_MISC_TAG 208
-#define CAM_MISC_LABEL 'get_phys_decomp_mdnd'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('GET_PHYS_DECOMP_MDND_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_phys_decomp_mdnd_codon(int(208, c_int64_t))
+       if (rt_codon_tag_out /= int(208, c_int64_t)) then
+          write(iulog,*) 'get_phys_decomp_mdnd_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'get_phys_decomp_mdnd implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call t_startf('get_phys_decomp')
-    
+
     oldcolumns=.false.
     twodhorizontal = .true.
     if(dycore_is('UNSTRUCTURED')) twodhorizontal = .false.
@@ -284,7 +303,7 @@ if(present(fileorder_in)) then
           hdim1_d=column%num_lons
           hdim2_d=column%num_lats
        end if
-    else 
+    else
        call get_horiz_grid_dim_d(hdim1_d, hdim2_d)
     end if
     dimlens(1)=hdim1_d
@@ -314,7 +333,7 @@ if(present(fileorder_in)) then
           dimlens(dimcnt:dimcnt+mdimsize-1)=mdim(1:mdimsize)
           dimcnt=dimcnt+mdimsize-1
        end if
-       
+
        if(twodhorizontal) then
           dimcnt=dimcnt+1
           dimlens(dimcnt)=hdim2_d
@@ -335,9 +354,9 @@ if(present(fileorder_in)) then
        if(oldcolumns) then
           ldof => get_column_ldof(phys_decomp, column, mdimprod, fileorder_in=fileorder)
        else if(present(column)) then
-          ldof => get_phys_ldof(hdim1_d, hdim2_d, fdim, mdimprod,ldim, fileorder, column%hmask)           
+          ldof => get_phys_ldof(hdim1_d, hdim2_d, fdim, mdimprod,ldim, fileorder, column%hmask)
        else
-          ldof => get_phys_ldof(hdim1_d, hdim2_d, fdim, mdimprod,ldim, fileorder)           
+          ldof => get_phys_ldof(hdim1_d, hdim2_d, fdim, mdimprod,ldim, fileorder)
        end if
        call pio_initdecomp(pio_subsystem, dtype,dimlens(1:dimcnt), ldof, iodesc,rearr=pio_rearranger)
        deallocate(ldof)
@@ -427,7 +446,7 @@ found = .false.
        nullify(this%next)
     end if
 !    if(masterproc) write(iulog,*) 'Using decomp: ',this%tag
-    
+
   end subroutine find_iodesc
 
 
@@ -474,7 +493,7 @@ if(associated(iodesc_list_top%iodesc)) then
        nullify(this%iodesc)
        this => this%next
        nullify(iodesc_list_top%next)
-       
+
        do while(associated(this))
           call pio_freedecomp(pio_subsystem, this%iodesc)
           deallocate(this%iodesc)
@@ -587,7 +606,7 @@ if(associated(iodesc_list_top%iodesc)) then
     if(.not.oldcolumns) then
        call find_iodesc(dimcnt, dimlens(1:dimcnt), dtype, tdecomp, iodesc, found)
     end if
-    if(.not. found) then       
+    if(.not. found) then
        if(oldcolumns) then
           ldof => get_column_ldof(dyn_decomp, column_in, nlev, fileorder, memorder)
        else if(present(column_in)) then
@@ -606,7 +625,7 @@ if(associated(iodesc_list_top%iodesc)) then
   end subroutine get_dyn_decomp
 
   !
-  ! Get the integer mapping of a variable in the dynamics decomp in memory.  
+  ! Get the integer mapping of a variable in the dynamics decomp in memory.
   ! The canonical ordering is as on the file. A 0 value indicates that the
   ! variable is not on the file (eg halo or boundary values)
   !
@@ -630,7 +649,7 @@ if(associated(iodesc_list_top%iodesc)) then
 
     integer :: beglatxy, beglonxy, endlatxy, endlonxy, plat
     integer :: nelemd, npsq
-     
+
     logical, allocatable :: myblock(:)
     integer, pointer :: hmask(:,:)
     logical :: newcolumns
@@ -654,7 +673,7 @@ if(associated(iodesc_list_top%iodesc)) then
 
     if(present(fileorder_in)) then
        fileorder=fileorder_in
-    else		
+    else
        fileorder='xyz'
     end if
 
@@ -679,7 +698,7 @@ if(associated(iodesc_list_top%iodesc)) then
        lcnt=(endlatxy-beglatxy+1)*nlev*(endlonxy-beglonxy+1)
        allocate(ldof(lcnt))
        lcnt=0
-       ldof(:)=0	
+       ldof(:)=0
        if(newcolumns) then
           if(memorder.eq.'xzy') then
              do j=1,endlatxy-beglatxy+1
@@ -732,7 +751,7 @@ if(associated(iodesc_list_top%iodesc)) then
                       else if(hdim2_d>1) then
                          if(fileorder.eq.'xyz') then
                             ldof(lcnt)=i+(j-(plat-hdim2_d+1))*hdim1_d+(k-1)*hdim1_d*hdim2_d
-                         else 
+                         else
                             ldof(lcnt)=i+(j-(plat-hdim2_d+1))*hdim1_d*nlev+(k-1)*hdim1_d
                          end if
                       else  ! lon, lev decomp used for history nacs
@@ -796,7 +815,7 @@ ierr = pio_openfile(pio_subsystem, file, pio_iotype, fname, mode)
 
     if(ierr/= PIO_NOERR) then
        call endrun('Failed to open file: '//trim(fname))
-    else if(pio_iotask_rank(pio_subsystem)==0) then  
+    else if(pio_iotask_rank(pio_subsystem)==0) then
        write(iulog,*) 'Opened existing file ', trim(fname), file%fh
     end if
 
@@ -855,10 +874,10 @@ lmode = ior(mode, pio_ioformat)
   end subroutine cam_pio_createfile
 
   !
-  ! Get the integer mapping of a variable in the physics decomp in memory.  
+  ! Get the integer mapping of a variable in the physics decomp in memory.
   ! The canonical ordering is as on the file. A 0 value indicates that the
-  ! variable is not on the file (eg halo or boundary values) hmask can be used 
-  ! to define a specific subset of global size hsize 
+  ! variable is not on the file (eg halo or boundary values) hmask can be used
+  ! to define a specific subset of global size hsize
   !
 
   function get_phys_ldof(hdim1_d,hdim2_d,fdim,mdim,ldim , fileorder_in, hmask) result(ldof)
@@ -880,14 +899,33 @@ lmode = ior(mode, pio_ioformat)
     character(len=3) :: fileorder
     integer :: ierr
     logical, allocatable :: localhmask(:,:)
+    interface
+       function get_phys_ldof_codon(tag) result(tag_out) bind(c, name='get_phys_ldof_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_phys_ldof_codon
+    end interface
 
-#define CAM_MISC_TAG 343
-#define CAM_MISC_LABEL 'get_phys_ldof'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('GET_PHYS_LDOF_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_phys_ldof_codon(int(343, c_int64_t))
+       if (rt_codon_tag_out /= int(343, c_int64_t)) then
+          write(iulog,*) 'get_phys_ldof_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'get_phys_ldof implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     allocate(localhmask(pcols,begchunk:endchunk))
 
     if(present(hmask)) then
@@ -900,12 +938,12 @@ lmode = ior(mode, pio_ioformat)
        end do
     end if
     hsize= hdim1_d*hdim2_d
-    
+
 
 
     if(present(fileorder_in)) then
        fileorder=fileorder_in
-    else		
+    else
        fileorder='xyz'
     end if
 
@@ -985,12 +1023,12 @@ lmode = ior(mode, pio_ioformat)
 
     if(present(fileorder_in)) then
        fileorder=fileorder_in
-    else		
+    else
        fileorder='xyz'
     end if
     if(present(memorder_in)) then
        memorder=memorder_in
-    else		
+    else
        memorder='xzy'
     end if
 
@@ -1002,7 +1040,7 @@ lmode = ior(mode, pio_ioformat)
     lon2=column%columnlon(2)
     hsize= num_lats*num_lons
 
-    
+
     lcnt=0
 
     if(decomp_type==phys_decomp) then
@@ -1074,7 +1112,7 @@ lmode = ior(mode, pio_ioformat)
              end do
           end do
        else
-       
+
          do k=0,nlev-1
              do j=beglatxy,endlatxy
                 do i=beglonxy, endlonxy
@@ -1085,7 +1123,7 @@ lmode = ior(mode, pio_ioformat)
                         i<=lon2) then
                       if(fileorder.eq.'xyz') then
                          ldof(lcnt)=1+(i-lon1)+(j-lat1)*num_lons+k*hsize
-                      else 
+                      else
                          ldof(lcnt)=1+(i-lon1)+(j-lat1)*num_lons*nlev+k*num_lons
                       end if
                    end if
@@ -1094,7 +1132,7 @@ lmode = ior(mode, pio_ioformat)
           end do
        end if
     end if
-    
+
 !    print *,__FILE__,__LINE__,hsize,nlev,sum(ldof),maxval(ldof)
 
   end function get_column_ldof

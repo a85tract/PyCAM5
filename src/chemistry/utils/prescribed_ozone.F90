@@ -14,7 +14,7 @@ module prescribed_ozone
 
   implicit none
   private
-  save 
+  save
 
   type(trfld), pointer :: fields(:)
   type(trfile)         :: file
@@ -99,9 +99,35 @@ end function prescribed_ozone_use_native
     use ppgrid,         only: pver, pcols
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
+    use iso_c_binding, only : c_int64_t
+    interface
+       function prescribed_ozone_register_codon(tag) result(tag_out) bind(c, name='prescribed_ozone_register_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function prescribed_ozone_register_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
     integer :: oz_idx
 
-    call chemistry_misc_codon_touch('prescribed_ozone_register', 123)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('PRESCRIBED_OZONE_REGISTER_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = prescribed_ozone_register_codon(int(123, c_int64_t))
+       if (rt_codon_tag_out /= int(123, c_int64_t)) then
+          write(iulog,*) 'prescribed_ozone_register_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'prescribed_ozone_register implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     if (.not. prescribed_ozone_register_logged) then
        prescribed_ozone_register_logged = .true.
        if (masterproc) then
@@ -142,7 +168,7 @@ end function prescribed_ozone_use_native
          integer(c_int64_t) :: out_c
        end function prescribed_ozone_init_codon
     end interface
-    
+
     if (.not. prescribed_ozone_use_native('PRESCRIBED_OZONE_INIT_IMPL')) then
        active_c = prescribed_ozone_init_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_ozone))
        if (active_c == 0_c_int64_t) then
@@ -213,7 +239,7 @@ subroutine prescribed_ozone_readnl(nlfile)
       prescribed_ozone_rmfile,    &
       prescribed_ozone_cycle_yr,  &
       prescribed_ozone_fixed_ymd, &
-      prescribed_ozone_fixed_tod      
+      prescribed_ozone_fixed_tod
    !-----------------------------------------------------------------------------
 
    ! Initialize namelist variables from local module variables.
@@ -343,13 +369,13 @@ end subroutine prescribed_ozone_unpack_char
     use phys_control, only : cam_physpkg_is
     use physconst,    only : mwdry                ! molecular weight dry air ~ kg/kmole
     use physconst,    only : boltz                ! J/K/molecule
-    
+
     use physics_buffer, only : physics_buffer_desc, pbuf_get_chunk, pbuf_get_field, pbuf_set_field
 
     implicit none
 
-    type(physics_state), intent(in)    :: state(begchunk:endchunk)                 
-    
+    type(physics_state), intent(in)    :: state(begchunk:endchunk)
+
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
@@ -396,7 +422,7 @@ end subroutine prescribed_ozone_unpack_char
 !$OMP PARALLEL DO PRIVATE (C, NCOL, OUTDATA, TO_MMR, TMPPTR, PBUF_CHNK)
     do c = begchunk,endchunk
        ncol = state(c)%ncol
-     
+
        select case ( units_str )
        case ("molec/cm3","/cm3","molecules/cm3","cm^-3","cm**-3")
           to_mmr(:ncol,:) = (molmass*1.e6_r8*boltz*state(c)%t(:ncol,:))/(amass*state(c)%pmiddry(:ncol,:))
@@ -474,7 +500,7 @@ end subroutine prescribed_ozone_unpack_char
     implicit none
 
     type(file_desc_t) :: piofile
-    
+
     call read_trc_restart( 'prescribed_ozone', piofile, file )
 
   end subroutine read_prescribed_ozone_restart

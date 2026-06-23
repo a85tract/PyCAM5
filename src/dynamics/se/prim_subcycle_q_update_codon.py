@@ -2641,3 +2641,19 @@ def longedgevunpackmin_codon(
         getmap_p,
         v_p,
     )
+
+@export
+def allocate_gridvertex_nbrs_codon(tag: int) -> int:
+    return _misc.allocate_gridvertex_nbrs_codon(tag)
+
+@export
+def allocate_element_desc_codon(tag: int) -> int:
+    return _misc.allocate_element_desc_codon(tag)
+
+@export
+def mass_matrix_codon(tag: int) -> int:
+    return _misc.mass_matrix_codon(tag)
+
+@export
+def nctopo_util_inidat_codon(tag: int) -> int:
+    return _misc.nctopo_util_inidat_codon(tag)

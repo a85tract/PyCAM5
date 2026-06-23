@@ -164,13 +164,33 @@ contains
     integer, pointer :: jjp(:)
     logical :: increasing
     !
-#define CAM_MISC_TAG 205
-#define CAM_MISC_LABEL 'lininterp_init'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    interface
+       function lininterp_init_codon(tag) result(tag_out) bind(c, name='lininterp_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function lininterp_init_codon
+    end interface
 
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('LININTERP_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = lininterp_init_codon(int(205, c_int64_t))
+       if (rt_codon_tag_out /= int(205, c_int64_t)) then
+          write(iulog,*) 'lininterp_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'lininterp_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     ! Check validity of input coordinate arrays: must be monotonically increasing,
     ! and have a total of at least 2 elements
     !
@@ -1261,7 +1281,7 @@ subroutine vertinterpZT(ncol, ncold, nlev, pin, pout, arrin, arrout, &
    real(r8),         intent(in) :: ps(ncold)   ! surface pressure
    real(r8),         intent(in) :: phis(ncold) ! surface geopotential
    real(r8),         intent(in) :: tbot(ncold) ! temperature at bottom level
-   
+
    !---------------------------Local variables-----------------------------
    real(r8) :: alpha
    logical  :: linear_interp

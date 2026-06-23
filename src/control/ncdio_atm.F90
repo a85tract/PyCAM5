@@ -201,13 +201,33 @@ contains
     !
     !-----------------------------------------------------------------------
     !
-#define CAM_MISC_TAG 398
-#define CAM_MISC_LABEL 'infld_real_2d'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    interface
+       function infld_real_2d_codon(tag) result(tag_out) bind(c, name='infld_real_2d_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function infld_real_2d_codon
+    end interface
 
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('INFLD_REAL_2D_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = infld_real_2d_codon(int(398, c_int64_t))
+       if (rt_codon_tag_out /= int(398, c_int64_t)) then
+          write(iulog,*) 'infld_real_2d_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'infld_real_2d implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     grid_map_tmp = trim( to_upper(trim(grid_map)) )
 
     !
@@ -472,15 +492,33 @@ contains
     integer :: gcols(dim1b:dim1e), ncols_d, ncols, j, ii, ierr
     integer :: hdim1_d, hdim2_d
     character(len=3) :: array_order
+    interface
+       function infld_real_3d_codon(tag) result(tag_out) bind(c, name='infld_real_3d_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function infld_real_3d_codon
+    end interface
 
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-#define CAM_MISC_TAG 399
-#define CAM_MISC_LABEL 'infld_real_3d'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
-
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('INFLD_REAL_3D_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = infld_real_3d_codon(int(399, c_int64_t))
+       if (rt_codon_tag_out /= int(399, c_int64_t)) then
+          write(iulog,*) 'infld_real_3d_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'infld_real_3d implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     nullify(iodesc)
 
     if(present(array_order_in)) then

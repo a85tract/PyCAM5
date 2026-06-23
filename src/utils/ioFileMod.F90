@@ -9,7 +9,7 @@ module ioFileMod
 ! Author: Mariana Vertenstein
 !
 !---------------------------------------------------------------------
- 
+
    use shr_kind_mod,     only: r8 => shr_kind_r8
    use cam_abortutils,   only: endrun
    use spmd_utils,       only: masterproc
@@ -34,9 +34,9 @@ module ioFileMod
 !=======================================================================
    contains
 !=======================================================================
- 
+
 subroutine getfil(fulpath, locfn, iflag, lexist)
- 
+
    ! --------------------------------------------------------------------
    ! Determine whether file is on local disk.
    ! . first check current working directory
@@ -45,7 +45,7 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    !   to 1 overrides this behavior, and in that case the optional lexist
    !   arg is used to return status of whether the file was found or not.
    ! --------------------------------------------------------------------
- 
+
    ! ------------------------ arguments -----------------------------------
    character(len=*), intent(in)   :: fulpath ! full pathname on local disk
    character(len=*), intent(out)  :: locfn   ! local file name if found in working directory,
@@ -55,7 +55,7 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    logical, optional, intent(out) :: lexist  ! When iflag=1 then getfil will return whether the
                                              ! file is found or not.  This flag is set .true.
                                              ! if the file is found, otherwise .false.
- 
+
    ! ------------------------ local variables ---------------------------
    integer :: i               ! loop index
    integer :: klen            ! length of fulpath character string
@@ -64,15 +64,34 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    logical :: lexist_in       ! true if local file exists
    logical :: abort_on_failure
    ! --------------------------------------------------------------------
+    interface
+       function getfil_codon(tag) result(tag_out) bind(c, name='getfil_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function getfil_codon
+    end interface
 
-#define CAM_MISC_TAG 220
-#define CAM_MISC_LABEL 'getfil'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-   abort_on_failure = .true.
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('GETFIL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = getfil_codon(int(220, c_int64_t))
+       if (rt_codon_tag_out /= int(220, c_int64_t)) then
+          write(iulog,*) 'getfil_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'getfil implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+    abort_on_failure = .true.
    if (present(iflag)) then
       if (iflag==1) abort_on_failure = .false.
    end if
@@ -81,7 +100,7 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    ! first check if file is in current working directory.
 
    ! get local file name from full name: start at end. look for first "/"
- 
+
    klen = len_trim(fulpath)
    i = index(fulpath, '/', back=.true.)
 
@@ -101,16 +120,16 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    else if (masterproc) then
       write(iulog,*)'(GETFIL): attempting to find local file ', trim(locfn)
    end if
- 
+
    inquire(file=locfn, exist=lexist_in)
    if (present(lexist)) lexist = lexist_in
    if (lexist_in) then
       if (masterproc) write(iulog,*) '(GETFIL): using ',trim(locfn), ' in current working directory'
       return
    end if
- 
+
    ! second check for full pathname on disk
- 
+
    if (klen > maxlen) then
       if (abort_on_failure) then
          call endrun('(GETFIL): local filename variable is too short for path length')
@@ -137,23 +156,23 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    endif
 
 end subroutine getfil
- 
+
 !=======================================================================
- 
- 
+
+
    subroutine opnfil (locfn, iun, form, status)
- 
+
 !-----------------------------------------------------------------------
 ! open file locfn in unformatted or formatted form on unit iun
 !-----------------------------------------------------------------------
- 
+
 ! ------------------------ input variables ---------------------------
    character(len=*), intent(in):: locfn  !file name
    integer, intent(in):: iun             !fortran unit number
    character(len=1), intent(in):: form   !file format: u = unformatted. f = formatted
    character(len=*), optional, intent(in):: status !file status
 ! --------------------------------------------------------------------
- 
+
 ! ------------------------ local variables ---------------------------
    integer ioe             !error return from fortran open
    character(len=11) ft    !format type: formatted. unformatted
@@ -205,15 +224,15 @@ if (len_trim(locfn) == 0) then
    open (unit=iun,file=locfn,status=st, form=ft,iostat=ioe)
    if (ioe /= 0) then
       if(masterproc) write(iulog,*)'(OPNFIL): failed to open file ',trim(locfn), ' on unit ',iun,' ierr=',ioe
-      call endrun ('opnfil') 
+      call endrun ('opnfil')
    else
       if(masterproc) write(iulog,*)'(OPNFIL): Successfully opened file ',trim(locfn), ' on unit= ',iun
    end if
- 
+
    return
    end subroutine opnfil
- 
+
 !=======================================================================
- 
- 
+
+
 end module ioFileMod

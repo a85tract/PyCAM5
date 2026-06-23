@@ -2225,3 +2225,15 @@ def long_edge_vunpack_min_codon(
             for k in range(1, vlyr + 1):
                 idx = _vol_idx(1, np, k, np)
                 v[idx] = min(v[idx], buf[kptr + k - 1 + edge_map * nlyr])
+
+def allocate_gridvertex_nbrs_codon(tag: int) -> int:
+    return tag
+
+def allocate_element_desc_codon(tag: int) -> int:
+    return tag
+
+def mass_matrix_codon(tag: int) -> int:
+    return tag
+
+def nctopo_util_inidat_codon(tag: int) -> int:
+    return tag

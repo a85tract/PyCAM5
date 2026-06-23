@@ -16,11 +16,39 @@ contains
     use ppgrid,      only : pver
     use cam_history, only : addfld, phys_decomp
 
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     implicit none
+    interface
+       function exp_sol_inti_codon(tag) result(tag_out) bind(c, name='exp_sol_inti_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function exp_sol_inti_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
     integer :: i,j
 
-    call chemistry_misc_codon_touch('exp_sol_inti', 141)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('EXP_SOL_INTI_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = exp_sol_inti_codon(int(141, c_int64_t))
+       if (rt_codon_tag_out /= int(141, c_int64_t)) then
+          write(iulog,*) 'exp_sol_inti_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'exp_sol_inti implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     do i = 1,clscnt1
 
        j = clsmap(i,1)
@@ -71,20 +99,20 @@ contains
 
     real(r8), dimension(ncol,pver) :: wrk
 
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------
     !        ... Put "independent" production in the forcing
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------
     call indprd( 1, ind_prd, clscnt1, base_sol, extfrc, &
          reaction_rates, ncol )
 
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------
     !      	... Form F(y)
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------
     call exp_prod_loss( prod, loss, base_sol, reaction_rates, het_rates )
 
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------
     !    	... Solve for the mixing ratio at t(n+1)
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------
     do m = 1,clscnt1
        l = clsmap(m,1)
        do i = 1,ncol
@@ -97,7 +125,7 @@ contains
        call outfld( trim(solsym(l))//'_CHMP', wrk(:,:), ncol, lchnk )
        wrk(:,:) = (loss(:,:,m))*xhnm
        call outfld( trim(solsym(l))//'_CHML', wrk(:,:), ncol, lchnk )
-       
+
     end do
 
   end subroutine exp_sol

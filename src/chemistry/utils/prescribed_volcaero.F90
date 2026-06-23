@@ -14,7 +14,7 @@ module prescribed_volcaero
 
   implicit none
   private
-  save 
+  save
 
   type(trfld), pointer :: fields(:)
   type(trfile)         :: file
@@ -142,7 +142,7 @@ subroutine prescribed_volcaero_readnl(nlfile)
       prescribed_volcaero_rmfile,    &
       prescribed_volcaero_cycle_yr,  &
       prescribed_volcaero_fixed_ymd, &
-      prescribed_volcaero_fixed_tod      
+      prescribed_volcaero_fixed_tod
    !-----------------------------------------------------------------------------
 
    ! Initialize namelist variables from local module variables.
@@ -264,9 +264,35 @@ end subroutine prescribed_volcaero_unpack_char
     use ppgrid,         only: pver,pcols
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
+    use iso_c_binding, only : c_int64_t
+    interface
+       function prescribed_volcaero_register_codon(tag) result(tag_out) bind(c, name='prescribed_volcaero_register_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function prescribed_volcaero_register_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
     integer :: idx
 
-    call chemistry_misc_codon_touch('prescribed_volcaero_register', 122)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('PRESCRIBED_VOLCAERO_REGISTER_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = prescribed_volcaero_register_codon(int(122, c_int64_t))
+       if (rt_codon_tag_out /= int(122, c_int64_t)) then
+          write(iulog,*) 'prescribed_volcaero_register_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'prescribed_volcaero_register implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     if (.not. prescribed_volcaero_register_logged) then
        prescribed_volcaero_register_logged = .true.
        if (masterproc) then
@@ -293,7 +319,7 @@ end subroutine prescribed_volcaero_unpack_char
     use ppgrid,      only : pver
     use error_messages, only: handle_err
     use ppgrid,         only: pcols, pver, begchunk, endchunk
-    
+
     use physics_buffer, only : physics_buffer_desc, pbuf_get_index
 
     implicit none
@@ -310,7 +336,7 @@ end subroutine prescribed_volcaero_unpack_char
          integer(c_int64_t) :: out_c
        end function prescribed_volcaero_init_codon
     end interface
-    
+
     if (.not. prescribed_volcaero_use_native('PRESCRIBED_VOLCAERO_INIT_IMPL')) then
        active_c = prescribed_volcaero_init_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_volcaero))
        if (active_c == 0_c_int64_t) then
@@ -361,13 +387,13 @@ end subroutine prescribed_volcaero_unpack_char
     use physconst,    only : mwdry                ! molecular weight dry air ~ kg/kmole
     use physconst,    only : boltz, gravit        ! J/K/molecule
     use tropopause,   only : tropopause_find, TROP_ALG_TWMO, TROP_ALG_CLIMATE
-    
+
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_chunk
-    
+
     implicit none
 
-    type(physics_state), intent(in)    :: state(begchunk:endchunk)                 
-    
+    type(physics_state), intent(in)    :: state(begchunk:endchunk)
+
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)

@@ -14,7 +14,7 @@ module tracer_cnst
   implicit none
 
   private  ! all unless made public
-  save 
+  save
 
   public :: tracer_cnst_init
   public :: num_tracer_cnst
@@ -140,7 +140,7 @@ contains
 
        call addfld(trim(fields(i)%fldnam),'mol/mol ', pver, &
                    'I', 'prescribed tracer constituent', phys_decomp )
-    enddo 
+    enddo
 
     allocate(data_q(pcols,pver,num_tracer_cnst,begchunk:endchunk), stat=istat)
     call handle_err(istat, 'tracer_cnst_init: ERROR allocating data_q')
@@ -228,7 +228,7 @@ contains
        tracer_cnst_cycle_yr_out, &
        tracer_cnst_fixed_ymd_out,&
        tracer_cnst_fixed_tod_out &
-       ) 
+       )
 
     use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
@@ -427,7 +427,7 @@ contains
 
     implicit none
 
-    type(physics_state), intent(in):: state(begchunk:endchunk)                 
+    type(physics_state), intent(in):: state(begchunk:endchunk)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     integer :: i,ind,c,ncol,status,n,code
@@ -546,7 +546,7 @@ contains
     ncol  = state%ncol
 
     ! make sure the requested constituent can be provided
-    inv_id = get_inv_ndx(name) 
+    inv_id = get_inv_ndx(name)
     if (.not. inv_id > 0) then
        if (masterproc) then
           write(iulog,*) 'get_cnst_data_ptr: '//name//' is not a prescribed tracer constituent'
@@ -568,10 +568,36 @@ contains
   subroutine init_tracer_cnst_restart( piofile )
     use pio, only : file_desc_t
     use tracer_data, only : init_trc_restart
+    use iso_c_binding, only : c_int64_t
     implicit none
+    interface
+       function init_tracer_cnst_restart_codon(tag) result(tag_out) bind(c, name='init_tracer_cnst_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function init_tracer_cnst_restart_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
     type(file_desc_t),intent(inout) :: pioFile     ! pio File pointer
 
-    call chemistry_misc_codon_touch('init_tracer_cnst_restart', 403)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('INIT_TRACER_CNST_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = init_tracer_cnst_restart_codon(int(403, c_int64_t))
+       if (rt_codon_tag_out /= int(403, c_int64_t)) then
+          write(iulog,*) 'init_tracer_cnst_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'init_tracer_cnst_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call init_trc_restart( 'tracer_cnst', piofile, file )
 
   end subroutine init_tracer_cnst_restart
@@ -579,11 +605,37 @@ contains
   subroutine write_tracer_cnst_restart( piofile )
     use tracer_data, only : write_trc_restart
     use pio, only : file_desc_t
+    use iso_c_binding, only : c_int64_t
     implicit none
+    interface
+       function write_tracer_cnst_restart_codon(tag) result(tag_out) bind(c, name='write_tracer_cnst_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function write_tracer_cnst_restart_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
     type(file_desc_t) :: piofile
 
-    call chemistry_misc_codon_touch('write_tracer_cnst_restart', 404)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('WRITE_TRACER_CNST_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = write_tracer_cnst_restart_codon(int(404, c_int64_t))
+       if (rt_codon_tag_out /= int(404, c_int64_t)) then
+          write(iulog,*) 'write_tracer_cnst_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'write_tracer_cnst_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call write_trc_restart( piofile, file )
 
   end subroutine write_tracer_cnst_restart

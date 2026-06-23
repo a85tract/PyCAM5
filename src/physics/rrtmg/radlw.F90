@@ -1,7 +1,7 @@
 
 module radlw
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Longwave radiation calculations.
 !
 !-----------------------------------------------------------------------
@@ -28,7 +28,7 @@ save
 public ::&
    radlw_init,   &! initialize constants
    rad_rrtmg_lw   ! driver for longwave radiation code
-   
+
 ! Private data
 integer :: ntoplw    ! top level to solve for longwave cooling
 logical :: use_native_rrtmg_lw_driver_impl = .false.
@@ -91,7 +91,7 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 
    real(r8), pointer, dimension(:,:,:) :: lu ! longwave spectral flux up
    real(r8), pointer, dimension(:,:,:) :: ld ! longwave spectral flux down
-   
+
 !
 !---------------------------Local variables-----------------------------
 !
@@ -115,7 +115,7 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 
    real(r8), parameter :: dps = 1._r8/86400._r8 ! Inverse of seconds per day
 
-   ! Cloud arrays for McICA 
+   ! Cloud arrays for McICA
    integer, parameter :: nsubclw = ngptlw       ! rrtmg_lw g-point (quadrature point) dimension
    integer :: permuteseed                       ! permute seed for sub-column generator
 
@@ -170,10 +170,10 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    ! mji/rrtmg
 
    ! Calculate cloud optical properties here if using CAM method, or if using one of the
-   ! methods in RRTMG_LW, then pass in cloud physical properties and zero out cloud optical 
+   ! methods in RRTMG_LW, then pass in cloud physical properties and zero out cloud optical
    ! properties here
-   
-   ! Zero optional cloud optical depth input array tauc_lw, 
+
+   ! Zero optional cloud optical depth input array tauc_lw,
    ! if inputting cloud physical properties into RRTMG_LW
    !          tauc_lw(:,:,:) = 0.
    ! Or, pass in CAM cloud longwave optical depth to RRTMG_LW
@@ -188,7 +188,7 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 
    ! Select cloud overlap approach (1=random, 2=maximum-random, 3=maximum)
    icld = 2
-   ! Set permute seed (must be offset between LW and SW by at least 140 to insure 
+   ! Set permute seed (must be offset between LW and SW by at least 140 to insure
    ! effective randomization)
    permuteseed = 150
 
@@ -213,7 +213,7 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 
    call t_stopf('mcica_subcol_lw')
 
-   
+
    call t_startf('rrtmg_lw')
 
    !
@@ -221,14 +221,14 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    !
    ! Set input flags for cloud parameterizations
    ! Use separate specification of ice and liquid cloud optical depth.
-   ! Use either Ebert and Curry ice parameterization (iceflglw = 0 or 1), 
+   ! Use either Ebert and Curry ice parameterization (iceflglw = 0 or 1),
    ! or use Key (Streamer) approach (iceflglw = 2), or use Fu method
    ! (iceflglw = 3), and Hu/Stamnes for liquid (liqflglw = 1).
    ! For use in Fu method (iceflglw = 3), rei is converted in RRTMG_LW
    ! from effective radius to generalized effective size using the
    ! conversion of D. Mitchell, JAS, 2002.  For ice particles outside
-   ! the effective range of either the Key or Fu approaches, the 
-   ! Ebert and Curry method is applied. 
+   ! the effective range of either the Key or Fu approaches, the
+   ! Ebert and Curry method is applied.
 
    ! Input CAM cloud optical depth directly
    inflglw = 0
@@ -345,12 +345,12 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
       lu(:ncol,pverp-rrtmg_levs+1:pverp,:) = reshape(lwuflxs(:,:ncol,rrtmg_levs:1:-1), &
            (/ncol,rrtmg_levs,nbndlw/), order=(/3,1,2/))
    end if
-   
+
    if (associated(ld)) then
       ld(:ncol,pverp-rrtmg_levs+1:pverp,:) = reshape(lwdflxs(:,:ncol,rrtmg_levs:1:-1), &
            (/ncol,rrtmg_levs,nbndlw/), order=(/3,1,2/))
    end if
-   
+
    call t_stopf('rrtmg_lw')
 
 end subroutine rad_rrtmg_lw
@@ -358,9 +358,9 @@ end subroutine rad_rrtmg_lw
 !-------------------------------------------------------------------------------
 
 subroutine radlw_init()
-!----------------------------------------------------------------------- 
-! 
-! Purpose: 
+!-----------------------------------------------------------------------
+!
+! Purpose:
 ! Initialize various constants for radiation scheme.
 !
 !-----------------------------------------------------------------------
@@ -368,15 +368,34 @@ subroutine radlw_init()
    use ref_pres, only : pref_mid
 
    integer :: k
+    interface
+       function radlw_init_codon(tag) result(tag_out) bind(c, name='radlw_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function radlw_init_codon
+    end interface
 
-#define CAM_MISC_TAG 348
-#define CAM_MISC_LABEL 'radlw_init'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-   ! If the top model level is above ~90 km (0.1 Pa), set the top level to compute
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('RADLW_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = radlw_init_codon(int(348, c_int64_t))
+       if (rt_codon_tag_out /= int(348, c_int64_t)) then
+          write(iulog,*) 'radlw_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'radlw_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+    ! If the top model level is above ~90 km (0.1 Pa), set the top level to compute
    ! longwave cooling to about 80 km (1 Pa)
    if (pref_mid(1) .lt. 0.1_r8) then
       do k = 1, pver

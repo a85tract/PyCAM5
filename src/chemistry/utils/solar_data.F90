@@ -95,7 +95,7 @@ contains
          solar_htng_spctrl_scl
 
     call chemistry_misc_codon_touch('solar_data_readnl', 106)
-    
+
     if (masterproc) then
        unitn = getunit()
        open( unitn, file=trim(nlfile), status='old' )
@@ -121,7 +121,7 @@ contains
 #endif
 
     if ( (len_trim(solar_data_file) > 0) .and. (solar_const>0._r8) ) then
-       call endrun('solar_data_readnl: ERROR cannot specify both solar_data_file and solar_const')      
+       call endrun('solar_data_readnl: ERROR cannot specify both solar_data_file and solar_const')
     endif
 
     if ( len_trim(solar_data_file) > 0 ) then
@@ -159,7 +159,7 @@ contains
     use physconst, only : c0, planck
 
     integer :: astat, dimid, vid
-    character(len=256) :: filen   
+    character(len=256) :: filen
     real(r8), allocatable :: lambda(:)
     integer,  allocatable :: dates(:)
     integer,  allocatable :: datesecs(:)
@@ -199,7 +199,7 @@ contains
        call pio_seterrorhandling(file_id, pio_bcast_error)
        ierr = pio_inq_varid( file_id, 'wavelength', wvl_vid )
        call pio_seterrorhandling(file_id, pio_internal_error)
-       
+
        if ( ierr==PIO_NOERR ) then
           ierr = pio_inq_dimid( file_id, 'wavelength', dimid )
        else ! for backwards compatibility
@@ -274,7 +274,7 @@ contains
     else
        datesecs(:) = 0
     endif
-       
+
     if (has_spectrum) then
        ierr = pio_get_var( file_id, wvl_vid, lambda )
        ierr = pio_inq_varid( file_id, 'band_width', vid  )
@@ -340,7 +340,7 @@ contains
   end subroutine solar_data_init
 
 !-----------------------------------------------------------------------
-! Reads in the ETF data for the current date.  
+! Reads in the ETF data for the current date.
 !-----------------------------------------------------------------------
   subroutine solar_data_advance( )
 
@@ -383,7 +383,7 @@ contains
        offset = (/ 1, index /)
        count =  (/ nbins, nt /)
 
-   
+
        if (has_spectrum) then
           ierr = pio_get_var( file_id, ssi_vid, offset, count, irradi )
        endif
@@ -408,7 +408,7 @@ contains
        data(:) = irradi(:,1) + delt*( irradi(:,2) - irradi(:,1) )
        do i = 1,nbins
           sol_irrad(i) = data(i)*irrad_fac(i) ! W/m2/nm
-          sol_etf(i)   = data(i)*etf_fac(i)   ! photons/cm2/sec/nm 
+          sol_etf(i)   = data(i)*etf_fac(i)   ! photons/cm2/sec/nm
        enddo
     endif
     if (has_tsi .and. (.not.do_spctrl_scaling)) then
@@ -424,7 +424,7 @@ contains
  102 FORMAT('solar_data_advance: not able to find data for : ',i4.4,'-',i2.2,'-',i2.2,'-',i5.5)
 
   end subroutine solar_data_advance
-  
+
   !---------------------------------------------------------------------------
   ! private methods
   !---------------------------------------------------------------------------
@@ -432,6 +432,19 @@ contains
 
     use time_manager, only: set_time_float_from_date
 
+    use iso_c_binding, only : c_int64_t
+    interface
+       function convert_dates_codon(tag) result(tag_out) bind(c, name='convert_dates_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function convert_dates_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
     integer,  intent(in)  :: dates(:)
     integer,  intent(in)  :: secs(:)
 
@@ -439,9 +452,22 @@ contains
 
     integer :: year, month, day, sec,n ,i
 
-    call chemistry_misc_codon_touch('solar_data::convert_dates', 301)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CONVERT_DATES_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = convert_dates_codon(int(301, c_int64_t))
+       if (rt_codon_tag_out /= int(301, c_int64_t)) then
+          write(iulog,*) 'convert_dates_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'convert_dates implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
-    n = size( dates ) 
+    n = size( dates )
 
     do i=1,n
        year = dates(i)/10000
@@ -457,6 +483,19 @@ contains
   !---------------------------------------------------------------------------
   subroutine convert_date( date, sec, time )
 
+    use iso_c_binding, only : c_int64_t
+    interface
+       function convert_date_codon(tag) result(tag_out) bind(c, name='convert_date_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function convert_date_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
     integer,  intent(in)  :: date
     integer,  intent(in)  :: sec
     real(r8), intent(out) :: time
@@ -464,7 +503,20 @@ contains
     integer :: dates(1), secs(1)
     real(r8) :: times(1)
 
-    call chemistry_misc_codon_touch('solar_data::convert_date', 302)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CONVERT_DATE_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = convert_date_codon(int(302, c_int64_t))
+       if (rt_codon_tag_out /= int(302, c_int64_t)) then
+          write(iulog,*) 'convert_date_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'convert_date implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
 
     dates(1) = date
     secs(1) = sec

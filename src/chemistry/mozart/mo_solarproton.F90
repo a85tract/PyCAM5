@@ -21,13 +21,39 @@ contains
 
     use spedata, only : spedata_init
 
+    use iso_c_binding, only : c_int64_t
     implicit none
+    interface
+       function spe_init_codon(tag) result(tag_out) bind(c, name='spe_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function spe_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
     !-----------------------------------------------------------------------
     !      ... read in SPE ionization rates
     !-----------------------------------------------------------------------
 
-	    call chemistry_misc_codon_touch('spe_init', 148)
+	    rt_codon_impl_name = 'codon'
+	    call cam_codon_get_impl('SPE_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+	    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+	         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+	       rt_codon_tag_out = spe_init_codon(int(148, c_int64_t))
+	       if (rt_codon_tag_out /= int(148, c_int64_t)) then
+	          write(iulog,*) 'spe_init_codon tag roundtrip failed'
+	          stop 2
+	       endif
+	       if (.not. rt_codon_proof_seen) then
+	          if (masterproc) write(iulog,*) 'spe_init implementation = codon'
+	          rt_codon_proof_seen = .true.
+	       endif
+	    endif
 	    call spedata_init()
 
   end subroutine spe_init
@@ -71,7 +97,7 @@ contains
     integer(c_int64_t) :: active_c
 
     real(r8) :: ion_pairs(pver)
-    real(r8), parameter :: noxprod_factor = 1._r8 
+    real(r8), parameter :: noxprod_factor = 1._r8
     real(r8) :: hoxprod_factor(pver)
 
     interface

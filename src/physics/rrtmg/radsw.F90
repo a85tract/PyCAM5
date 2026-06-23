@@ -1,7 +1,7 @@
 
 module radsw
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Solar radiation calculations.
 !
 !-----------------------------------------------------------------------
@@ -62,33 +62,33 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
 
 !-----------------------------------------------------------------------
-! 
-! Purpose: 
+!
+! Purpose:
 ! Solar radiation code
-! 
-! Method: 
+!
+! Method:
 ! mji/rrtmg
 ! RRTMG, two-stream, with McICA
-! 
+!
 ! Divides solar spectrum into 14 intervals from 0.2-12.2 micro-meters.
 ! solar flux fractions specified for each interval. allows for
 ! seasonally and diurnally varying solar input.  Includes molecular,
-! cloud, aerosol, and surface scattering, along with h2o,o3,co2,o2,cloud, 
+! cloud, aerosol, and surface scattering, along with h2o,o3,co2,o2,cloud,
 ! and surface absorption. Computes delta-eddington reflections and
-! transmissions assuming homogeneously mixed layers. Adds the layers 
-! assuming scattering between layers to be isotropic, and distinguishes 
+! transmissions assuming homogeneously mixed layers. Adds the layers
+! assuming scattering between layers to be isotropic, and distinguishes
 ! direct solar beam from scattered radiation.
-! 
+!
 ! Longitude loops are broken into 1 or 2 sections, so that only daylight
 ! (i.e. coszrs > 0) computations are done.
-! 
+!
 ! Note that an extra layer above the model top layer is added.
-! 
+!
 ! mks units are used.
-! 
+!
 ! Special diagnostic calculation of the clear sky surface and total column
 ! absorbed flux is also done for cloud forcing diagnostics.
-! 
+!
 !-----------------------------------------------------------------------
 
    use cmparray_mod,        only: CmpDayNite, ExpDayNite
@@ -97,8 +97,8 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    use physconst,           only: cpair
    use rrtmg_state,         only: rrtmg_state_t
    use iso_c_binding,       only: c_double, c_int64_t, c_loc, c_ptr
-   
-   ! Minimum cloud amount (as a fraction of the grid-box area) to 
+
+   ! Minimum cloud amount (as a fraction of the grid-box area) to
    ! distinguish from clear sky
    real(r8), parameter :: cldmin = 1.0e-80_r8
 
@@ -220,7 +220,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), target :: asm_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer asymmetry parameter
 
    real(r8) :: cld_stosw(nsubcsw, pcols, rrtmg_levs-1)      ! stochastic cloud fraction
-   real(r8) :: rei_stosw(pcols, rrtmg_levs-1)               ! stochastic ice particle size 
+   real(r8) :: rei_stosw(pcols, rrtmg_levs-1)               ! stochastic ice particle size
    real(r8) :: rel_stosw(pcols, rrtmg_levs-1)               ! stochastic liquid particle size
    real(r8) :: cicewp_stosw(nsubcsw, pcols, rrtmg_levs-1)   ! stochastic cloud ice water path
    real(r8) :: cliqwp_stosw(nsubcsw, pcols, rrtmg_levs-1)   ! stochastic cloud liquid wter path
@@ -230,7 +230,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: fsfc_stosw(nsubcsw, pcols, rrtmg_levs-1)     ! stochastic cloud forward scattering fraction (optional)
 
    real(r8), parameter :: dps = 1._r8/86400._r8 ! Inverse of seconds per day
- 
+
    real(r8), target :: swuflx(pcols,rrtmg_levs+1)       ! Total sky shortwave upward flux (W/m2)
    real(r8), target :: swdflx(pcols,rrtmg_levs+1)       ! Total sky shortwave downward flux (W/m2)
    real(r8), target :: swhr(pcols,rrtmg_levs)           ! Total sky shortwave radiative heating rate (K/d)
@@ -415,7 +415,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
            c_loc(sols(1)), c_loc(soll(1)), c_loc(solsd(1)), c_loc(solld(1)) &
       )
    endif
-   if (single_column.and.scm_crm_mode) then 
+   if (single_column.and.scm_crm_mode) then
       fus(1:ncol,1:pverp) = 0.0_r8
       fds(1:ncol,1:pverp) = 0.0_r8
       fusc(:ncol,:pverp) = 0.0_r8
@@ -551,10 +551,10 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    end if
 
    ! Calculate cloud optical properties here if using CAM method, or if using one of the
-   ! methods in RRTMG_SW, then pass in cloud physical properties and zero out cloud optical 
+   ! methods in RRTMG_SW, then pass in cloud physical properties and zero out cloud optical
    ! properties here
 
-   ! Zero optional cloud optical property input arrays tauc_sw, ssac_sw, asmc_sw, 
+   ! Zero optional cloud optical property input arrays tauc_sw, ssac_sw, asmc_sw,
    ! if inputting cloud physical properties to RRTMG_SW
    !tauc_sw(:,:,:) = 0.0_r8
    !ssac_sw(:,:,:) = 1.0_r8
@@ -666,7 +666,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    ! Select cloud overlap approach (1=random, 2=maximum-random, 3=maximum)
    icld = 2
-   ! Set permute seed (must be offset between LW and SW by at least 140 to insure 
+   ! Set permute seed (must be offset between LW and SW by at least 140 to insure
    ! effective randomization)
    permuteseed = 1
 
@@ -684,15 +684,15 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    ! Select parameterization of cloud ice and liquid optical depths
    ! Use CAM shortwave cloud optical properties directly
-   inflgsw = 0 
+   inflgsw = 0
    iceflgsw = 0
    liqflgsw = 0
    ! Use E&C param for ice to mimic CAM3 for now
-   !   inflgsw = 2 
+   !   inflgsw = 2
    !   iceflgsw = 1
    !   liqflgsw = 1
-   ! Use merged Fu and E&C params for ice 
-   !   inflgsw = 2 
+   ! Use merged Fu and E&C params for ice
+   !   inflgsw = 2
    !   iceflgsw = 3
    !   liqflgsw = 1
 
@@ -843,7 +843,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    end if
 
    !  these outfld calls don't work for spmd only outfield in scm mode (nonspmd)
-   if (single_column .and. scm_crm_mode) then 
+   if (single_column .and. scm_crm_mode) then
       ! Following outputs added for CRM
       call ExpDayNite(fus,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
       call ExpDayNite(fds,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
@@ -860,21 +860,40 @@ end subroutine rad_rrtmg_sw
 !-------------------------------------------------------------------------------
 
 subroutine radsw_init()
-!----------------------------------------------------------------------- 
-! 
-! Purpose: 
+!-----------------------------------------------------------------------
+!
+! Purpose:
 ! Initialize various constants for radiation scheme.
 !
 !-----------------------------------------------------------------------
     use radconstants,  only: get_solar_band_fraction_irrad, get_ref_solar_band_irrad
+    interface
+       function radsw_init_codon(tag) result(tag_out) bind(c, name='radsw_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function radsw_init_codon
+    end interface
 
-#define CAM_MISC_TAG 349
-#define CAM_MISC_LABEL 'radsw_init'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('RADSW_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = radsw_init_codon(int(349, c_int64_t))
+       if (rt_codon_tag_out /= int(349, c_int64_t)) then
+          write(iulog,*) 'radsw_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'radsw_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     ! get the reference fractional solar irradiance in each band
     call get_solar_band_fraction_irrad(fractional_solar_irradiance)
     call get_ref_solar_band_irrad( solar_band_irrad )
@@ -882,7 +901,7 @@ subroutine radsw_init()
 
    ! Initialize rrtmg_sw
    call rrtmg_sw_ini
- 
+
 end subroutine radsw_init
 
 

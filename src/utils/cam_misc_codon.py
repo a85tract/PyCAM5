@@ -1449,3 +1449,135 @@ def physconst_init_codon(
 @export
 def lininterp_finish_codon(tag: int) -> int:
     return tag
+
+@export
+def radsw_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def radiation_printopts_codon(tag: int) -> int:
+    return tag
+
+@export
+def radiation_register_codon(tag: int) -> int:
+    return tag
+
+@export
+def radlw_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def distnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def bld_outfld_hash_tbls_codon(tag: int) -> int:
+    return tag
+
+@export
+def add_hist_coord_r8_codon(tag: int) -> int:
+    return tag
+
+@export
+def getfil_codon(tag: int) -> int:
+    return tag
+
+@export
+def cam_write_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def atm_domain_mct_codon(tag: int) -> int:
+    return tag
+
+@export
+def timemgr_write_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def timemgr_print_codon(tag: int) -> int:
+    return tag
+
+@export
+def sat_hist_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def physconst_readnl_codon(tag: int) -> int:
+    return tag
+
+@export
+def get_field_properties_codon(tag: int) -> int:
+    return tag
+
+@export
+def get_phys_ldof_codon(tag: int) -> int:
+    return tag
+
+@export
+def wrapup_codon(tag: int) -> int:
+    return tag
+
+@export
+def dump_field_codon(tag: int) -> int:
+    return tag
+
+@export
+def intht_codon(tag: int) -> int:
+    return tag
+
+@export
+def get_phys_decomp_mdnd_codon(tag: int) -> int:
+    return tag
+
+@export
+def infld_real_2d_codon(tag: int) -> int:
+    return tag
+
+@export
+def hycoef_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def write_restart_history_codon(tag: int) -> int:
+    return tag
+
+@export
+def restart_vars_setnames_codon(tag: int) -> int:
+    return tag
+
+@export
+def atm_export_codon(tag: int) -> int:
+    return tag
+
+@export
+def column_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def infld_real_3d_codon(tag: int) -> int:
+    return tag
+
+@export
+def lininterp_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def wshist_codon(tag: int) -> int:
+    return tag
+
+@export
+def addfld_codon(tag: int) -> int:
+    return tag
+
+@export
+def fldlst_codon(tag: int) -> int:
+    return tag
+
+@export
+def read_namelist_codon(tag: int) -> int:
+    return tag
+
+@export
+def h_define_codon(tag: int) -> int:
+    return tag

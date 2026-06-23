@@ -15,7 +15,7 @@ module tracer_srcs
   implicit none
 
   private  ! all unless made public
-  save 
+  save
 
   public :: tracer_srcs_init
   public :: num_tracer_srcs
@@ -71,7 +71,7 @@ contains
     if (associated(fields)) num_tracer_srcs = size( fields )
 
     if( num_tracer_srcs < 1 ) then
-       
+
        if (masterproc) then
           write(iulog,*) 'There are no offline tracer sources'
           write(iulog,*) ' '
@@ -91,10 +91,10 @@ contains
        endif
 
        tracer_src_flds(i) = fields(i)%fldnam
- 
+
        call addfld(trim(fields(i)%fldnam)//'_trsrc','/cm3/s ', pver, 'I', 'tracer source rate', phys_decomp )
 
-    enddo 
+    enddo
 
   end subroutine tracer_srcs_init
 
@@ -179,7 +179,7 @@ contains
        tracer_srcs_cycle_yr_out, &
        tracer_srcs_fixed_ymd_out,&
        tracer_srcs_fixed_tod_out &
-       ) 
+       )
 
     use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
@@ -372,7 +372,7 @@ contains
 
     implicit none
 
-    type(physics_state), intent(in):: state(begchunk:endchunk)                 
+    type(physics_state), intent(in):: state(begchunk:endchunk)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     integer :: i,c,ncol,status,n,code
@@ -450,10 +450,36 @@ contains
   subroutine init_tracer_srcs_restart( piofile )
     use pio, only : file_desc_t
     use tracer_data, only : init_trc_restart
+    use iso_c_binding, only : c_int64_t
     implicit none
+    interface
+       function init_tracer_srcs_restart_codon(tag) result(tag_out) bind(c, name='init_tracer_srcs_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function init_tracer_srcs_restart_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
     type(file_desc_t),intent(inout) :: pioFile     ! pio File pointer
 
-    call chemistry_misc_codon_touch('init_tracer_srcs_restart', 405)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('INIT_TRACER_SRCS_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = init_tracer_srcs_restart_codon(int(405, c_int64_t))
+       if (rt_codon_tag_out /= int(405, c_int64_t)) then
+          write(iulog,*) 'init_tracer_srcs_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'init_tracer_srcs_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call init_trc_restart( 'tracer_srcs', piofile, file )
 
   end subroutine init_tracer_srcs_restart
@@ -461,11 +487,37 @@ contains
   subroutine write_tracer_srcs_restart( piofile )
     use tracer_data, only : write_trc_restart
     use pio, only : file_desc_t
+    use iso_c_binding, only : c_int64_t
     implicit none
+    interface
+       function write_tracer_srcs_restart_codon(tag) result(tag_out) bind(c, name='write_tracer_srcs_restart_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function write_tracer_srcs_restart_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
     type(file_desc_t) :: piofile
 
-    call chemistry_misc_codon_touch('write_tracer_srcs_restart', 406)
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('WRITE_TRACER_SRCS_RESTART_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = write_tracer_srcs_restart_codon(int(406, c_int64_t))
+       if (rt_codon_tag_out /= int(406, c_int64_t)) then
+          write(iulog,*) 'write_tracer_srcs_restart_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          if (masterproc) write(iulog,*) 'write_tracer_srcs_restart implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call write_trc_restart( piofile, file )
 
   end subroutine write_tracer_srcs_restart

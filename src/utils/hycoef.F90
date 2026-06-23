@@ -15,12 +15,12 @@ implicit none
 private
 save
 
-!----------------------------------------------------------------------- 
-! 
+!-----------------------------------------------------------------------
+!
 ! Purpose: Hybrid level definitions: p = a*p0 + b*ps
 !          interfaces   p(k) = hyai(k)*ps0 + hybi(k)*ps
 !          midpoints    p(k) = hyam(k)*ps0 + hybm(k)*ps
-! 
+!
 !-----------------------------------------------------------------------
 
 real(r8), public, target :: hyai(plevp) ! ps0 component of hybrid coordinate - interfaces
@@ -55,14 +55,14 @@ contains
 subroutine hycoef_init(file)
    use cam_history_support, only: add_vert_coord, formula_terms_t
 
-   !----------------------------------------------------------------------- 
-   ! 
-   ! Purpose: 
+   !-----------------------------------------------------------------------
+   !
+   ! Purpose:
    ! Defines the locations of model interfaces from input data in the
    ! hybrid coordinate scheme.  Actual pressure values of model level
    ! interfaces are determined elsewhere from the fields set here.
-   ! 
-   ! Method: 
+   !
+   ! Method:
    ! the following fields are set:
    ! hyai     fraction of reference pressure used for interface pressures
    ! hyam     fraction of reference pressure used for midpoint pressures
@@ -75,9 +75,9 @@ subroutine hycoef_init(file)
    ! hypdln   reference state layer thicknesses (log p)
    ! hyalph   distance from interface to level (used in integrals)
    ! prsfac   log pressure extrapolation factor (used to compute psl)
-   ! 
+   !
    ! Author: B. Boville
-   ! 
+   !
    !-----------------------------------------------------------------------
 
    ! arguments
@@ -88,33 +88,52 @@ subroutine hycoef_init(file)
    real(r8) :: amean, bmean, atest, btest, eps
    type(formula_terms_t) :: formula_terms ! For the 'lev' and 'ilev' coords
    !-----------------------------------------------------------------------
+    interface
+       function hycoef_init_codon(tag) result(tag_out) bind(c, name='hycoef_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function hycoef_init_codon
+    end interface
 
-#define CAM_MISC_TAG 213
-#define CAM_MISC_LABEL 'hycoef_init'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-   ! read hybrid coeficients
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('HYCOEF_INIT_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = hycoef_init_codon(int(213, c_int64_t))
+       if (rt_codon_tag_out /= int(213, c_int64_t)) then
+          write(iulog,*) 'hycoef_init_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'hycoef_init implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+    ! read hybrid coeficients
    call hycoef_read(file)
 
    ! Set layer locations
    nprlev = 0
    do k=1,plev
 
-      ! Interfaces. Set nprlev to the interface above, the first time a 
-      ! nonzero surface pressure contribution is found. "nprlev" 
+      ! Interfaces. Set nprlev to the interface above, the first time a
+      ! nonzero surface pressure contribution is found. "nprlev"
       ! identifies the lowest pure pressure interface.
 
       if (nprlev==0 .and. hybi(k).ne.0.0_r8) nprlev = k - 1
    end do
 
-   ! Set nprlev if no nonzero b's have been found. All interfaces are 
-   ! pure pressure. A pure pressure model requires other changes as well. 
+   ! Set nprlev if no nonzero b's have been found. All interfaces are
+   ! pure pressure. A pure pressure model requires other changes as well.
    if (nprlev==0) nprlev = plev + 2
 
-   ! Set delta sigma part of layer thickness and reference state midpoint 
+   ! Set delta sigma part of layer thickness and reference state midpoint
    ! pressures
    do k=1,plev
       hybd(k) = hybi(k+1) - hybi(k)
@@ -154,7 +173,7 @@ subroutine hycoef_init(file)
             write(iulog,*)'k,atest,eps=',k,atest,eps
          end if
       end if
-      
+
       if (btest > eps) then
          if (masterproc) then
             write(iulog,9850)
@@ -235,8 +254,8 @@ end subroutine hycoef_init
 
 !=======================================================================
 
-subroutine init_restart_hycoef(File, vdimids)    
-    
+subroutine init_restart_hycoef(File, vdimids)
+
    type(file_desc_t), intent(inout) :: File
    integer,           intent(out)   :: vdimids(:)
 
@@ -275,7 +294,7 @@ subroutine init_restart_hycoef(File, vdimids)
 #undef CAM_MISC_TAG
 ierr = PIO_Def_Dim(File, 'lev',  plev,  vdimids(1))
    ierr = PIO_Def_Dim(File, 'ilev', plevp, vdimids(2))
-    
+
    ierr = pio_def_var(File, 'hyai', pio_double, vdimids(2:2), hyai_desc)
    ierr = pio_def_var(File, 'hyam', pio_double, vdimids(1:1), hyam_desc)
    ierr = pio_def_var(File, 'hybi', pio_double, vdimids(2:2), hybi_desc)

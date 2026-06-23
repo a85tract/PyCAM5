@@ -9,7 +9,7 @@ module mass_matrix_mod
   use element_mod, only : element_t
   use parallel_mod, only : parallel_t
   use edgetype_mod, only : edgebuffer_t
-  use edge_mod, only : edgevpack,edgevunpack, freeedgebuffer,initedgebuffer  
+  use edge_mod, only : edgevpack,edgevunpack, freeedgebuffer,initedgebuffer
   use bndry_mod, only : bndry_exchangev
 implicit none
 private
@@ -70,14 +70,33 @@ contains
     ! ===================
     ! begin code
     ! ===================
+    interface
+       function mass_matrix_codon(tag) result(tag_out) bind(c, name='mass_matrix_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function mass_matrix_codon
+    end interface
 
-#define SE_MISC_TAG 27
-#define SE_MISC_LABEL 'mass_matrix_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('MASS_MATRIX_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = mass_matrix_codon(int(27, c_int64_t))
+       if (rt_codon_tag_out /= int(27, c_int64_t)) then
+          write(iulog,*) 'mass_matrix_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'mass_matrix implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call initEdgeBuffer(par,edge,elem,1,nthreads=1)
 
     impl_name = 'codon'
@@ -87,10 +106,10 @@ contains
 
     ! =================================================
     ! mass matrix on the velocity grid
-    ! =================================================    
+    ! =================================================
 
     gp=gausslobatto(np)
- 
+
     do ii=1,nelemd
        if (use_codon_impl) then
           call mass_matrix_vgrid_init_codon(int(np, c_int64_t), c_loc(elem(ii)%mp(1,1)), &
@@ -177,7 +196,7 @@ contains
 #endif
 
     ! =============================================
-    ! compute the mass matrix 
+    ! compute the mass matrix
     ! =============================================
     ! Jose Garcia: Not sure but I think this code is just dead code
     !do ii=1,nelemd
@@ -196,7 +215,7 @@ contains
        write(iulog,*) 'mass_matrix implementation = codon'
        proof_seen = .true.
     endif
-       
+
   end subroutine mass_matrix
 
 end module mass_matrix_mod

@@ -50,14 +50,14 @@ integer,public, allocatable :: cosp_cnt(:)       ! counter for cosp
 integer,public              :: cosp_cnt_init = 0 !initial value for cosp counter
 
 ! Private module data
-integer :: qrs_idx      = 0 
-integer :: qrl_idx      = 0 
-integer :: su_idx       = 0 
-integer :: sd_idx       = 0 
-integer :: lu_idx       = 0 
-integer :: ld_idx       = 0 
-integer :: cldfsnow_idx = 0 
-integer :: cld_idx      = 0 
+integer :: qrs_idx      = 0
+integer :: qrl_idx      = 0
+integer :: su_idx       = 0
+integer :: sd_idx       = 0
+integer :: lu_idx       = 0
+integer :: ld_idx       = 0
+integer :: cldfsnow_idx = 0
+integer :: cld_idx      = 0
 
 ! Default values for namelist variables
 
@@ -75,7 +75,7 @@ logical :: spectralflux  = .false. ! calculate fluxes (up and down) per band.
 character(len=4) :: diag(0:N_DIAG) =(/'    ','_d1 ','_d2 ','_d3 ','_d4 ','_d5 ','_d6 ','_d7 ','_d8 ','_d9 ','_d10'/)
 
 logical :: dohirs = .false. ! diagnostic  brightness temperatures at the top of the
-                            ! atmosphere for 7 TOVS/HIRS channels (2,4,6,8,10,11,12) and 4 TOVS/MSU 
+                            ! atmosphere for 7 TOVS/HIRS channels (2,4,6,8,10,11,12) and 4 TOVS/MSU
                             ! channels (1,2,3,4).
 integer :: ihirsfq = 1      ! frequency (timesteps) of brightness temperature calcs
 
@@ -137,23 +137,42 @@ contains
 
   subroutine radiation_register
 !-----------------------------------------------------------------------
-! 
+!
 ! Register radiation fields in the physics buffer
 !
 !-----------------------------------------------------------------------
 
     use physics_buffer, only: pbuf_add_field, dtype_r8
     use radiation_data, only: rad_data_register
+    interface
+       function radiation_register_codon(tag) result(tag_out) bind(c, name='radiation_register_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function radiation_register_codon
+    end interface
 
-#define CAM_MISC_TAG 346
-#define CAM_MISC_LABEL 'radiation_register'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('RADIATION_REGISTER_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = radiation_register_codon(int(346, c_int64_t))
+       if (rt_codon_tag_out /= int(346, c_int64_t)) then
+          write(iulog,*) 'radiation_register_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'radiation_register implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     call pbuf_add_field('QRS' , 'global',dtype_r8,(/pcols,pver/), qrs_idx) ! shortwave radiative heating rate 
-    call pbuf_add_field('QRL' , 'global',dtype_r8,(/pcols,pver/), qrl_idx) ! longwave  radiative heating rate 
+    call pbuf_add_field('QRL' , 'global',dtype_r8,(/pcols,pver/), qrl_idx) ! longwave  radiative heating rate
 
     ! If the namelist has been configured for preserving the spectral fluxes, then create
     ! physics buffer variables to store the results.
@@ -171,7 +190,7 @@ contains
 !================================================================================================
 
 subroutine radiation_defaultopts(iradsw_out, iradlw_out, iradae_out, irad_always_out, spectralflux_out)
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 ! Purpose: Return default runtime options
 !-----------------------------------------------------------------------
 
@@ -208,9 +227,9 @@ end subroutine radiation_defaultopts
 
 subroutine radiation_setopts(dtime, nhtfrq, iradsw_in, iradlw_in, iradae_in, &
    irad_always_in, spectralflux_in)
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 ! Purpose: Set runtime options
-! *** NOTE *** This routine needs information about dtime (init by dycore) 
+! *** NOTE *** This routine needs information about dtime (init by dycore)
 !              and nhtfrq (init by history) to do its checking.  Being called
 !              from runtime_opts provides these values possibly before they
 !              have been set in the modules responsible for them.
@@ -280,7 +299,7 @@ end subroutine radiation_setopts
 !===============================================================================
 
 subroutine radiation_get(iradsw_out, iradlw_out, iradae_out, irad_always_out, spectralflux_out)
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 ! Purpose: Provide access to private module data.  (This should be eliminated.)
 !-----------------------------------------------------------------------
 
@@ -302,19 +321,37 @@ end subroutine radiation_get
 !================================================================================================
 
 subroutine radiation_printopts
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 ! Purpose: Print runtime options to log.
 !-----------------------------------------------------------------------
+    interface
+       function radiation_printopts_codon(tag) result(tag_out) bind(c, name='radiation_printopts_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function radiation_printopts_codon
+    end interface
 
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
-#define CAM_MISC_TAG 347
-#define CAM_MISC_LABEL 'radiation_printopts'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
-
-   if(irad_always /= 0) write(iulog,10) irad_always
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('RADIATION_PRINTOPTS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = radiation_printopts_codon(int(347, c_int64_t))
+       if (rt_codon_tag_out /= int(347, c_int64_t)) then
+          write(iulog,*) 'radiation_printopts_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'radiation_printopts implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
+    if(irad_always /= 0) write(iulog,10) irad_always
    write(iulog,20) iradsw,iradlw
 10 format(' Execute SW/LW radiation continuously for the first ',i5, ' timestep(s) of this run')
 20 format(' Frequency of Shortwave Radiation calc. (IRADSW)     ',i5/, &
@@ -325,7 +362,7 @@ end subroutine radiation_printopts
 !================================================================================================
 
 function radiation_do(op, timestep)
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
 ! Purpose: Returns true if the specified operation is done this timestep.
 !-----------------------------------------------------------------------
 
@@ -372,7 +409,7 @@ function radiation_do(op, timestep)
    case ('aeres') ! write absorptivity/emissivity to restart file this timestep?
       ! for RRTMG there is no abs/ems restart file
       radiation_do = .false.
-         
+
    case default
       call endrun('radiation_do: unknown operation:'//op)
 
@@ -382,8 +419,8 @@ end function radiation_do
 !================================================================================================
 
 real(r8) function radiation_nextsw_cday()
-  
-!----------------------------------------------------------------------- 
+
+!-----------------------------------------------------------------------
 ! Purpose: Returns calendar day of next sw radiation calculation
 !-----------------------------------------------------------------------
 
@@ -391,10 +428,10 @@ real(r8) function radiation_nextsw_cday()
 
    ! Local variables
    integer :: nstep      ! timestep counter
-   logical :: dosw       ! true => do shosrtwave calc   
+   logical :: dosw       ! true => do shosrtwave calc
    integer :: offset     ! offset for calendar day calculation
    integer :: dTime      ! integer timestep size
-   real(r8):: calday     ! calendar day of 
+   real(r8):: calday     ! calendar day of
    !-----------------------------------------------------------------------
 
    radiation_nextsw_cday = -1._r8
@@ -423,7 +460,7 @@ real(r8) function radiation_nextsw_cday()
    if(radiation_nextsw_cday == -1._r8) then
       call endrun('error in radiation_nextsw_cday')
    end if
-        
+
 end function radiation_nextsw_cday
 
 !================================================================================================
@@ -432,7 +469,7 @@ end function radiation_nextsw_cday
 !-----------------------------------------------------------------------
 !
 ! Initialize the radiation parameterization, add fields to the history buffer
-! 
+!
 !-----------------------------------------------------------------------
     use physics_buffer, only: pbuf_get_index
     use cam_history,    only: addfld, add_default, phys_decomp
@@ -461,7 +498,7 @@ end function radiation_nextsw_cday
     integer :: history_budget_histfile_num ! output history file number for budget fields
     integer :: err
     !-----------------------------------------------------------------------
-    
+
     call rrtmg_state_init()
 
     call rad_data_init() ! initialize output fields for offline driver
@@ -493,12 +530,12 @@ end function radiation_nextsw_cday
 
     if (docosp) call cospsimulator_intr_init
 
-    
+
     allocate(cosp_cnt(begchunk:endchunk))
     if (is_first_restart_step()) then
       cosp_cnt(begchunk:endchunk)=cosp_cnt_init
     else
-      cosp_cnt(begchunk:endchunk)=0     
+      cosp_cnt(begchunk:endchunk)=0
     end if
 
 
@@ -1818,19 +1855,19 @@ end function radiation_nextsw_cday
   end subroutine radiation_diag_prep_visible_tau
 
 !===============================================================================
-  
+
   subroutine radiation_tend(state,ptend, pbuf, &
        cam_out, cam_in, &
        landfrac, icefrac,snowh, &
        fsns,    fsnt, flns,    flnt,  &
        fsds, net_flx)
 
-    !----------------------------------------------------------------------- 
-    ! 
-    ! Purpose: 
+    !-----------------------------------------------------------------------
+    !
+    ! Purpose:
     ! Driver for radiation computation.
-    ! 
-    ! Method: 
+    !
+    ! Method:
     ! Radiation uses cgs units, so conversions must be done from
     ! model fields to radiation fields.
     !
@@ -1846,7 +1883,7 @@ end function radiation_nextsw_cday
 
     use iso_c_binding,  only: c_int64_t, c_loc
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
-    
+
     use phys_grid,       only: get_rlat_all_p, get_rlon_all_p
     use physics_types,   only: physics_state, physics_ptend
     use cospsimulator_intr, only: docosp, cospsimulator_intr_run, cosp_nradsteps
@@ -1891,7 +1928,7 @@ end function radiation_nextsw_cday
 
     type(physics_state), intent(in), target :: state
     type(physics_ptend), intent(out)        :: ptend
-    
+
     type(physics_buffer_desc), pointer      :: pbuf(:)
     type(cam_out_t),     target, intent(inout) :: cam_out
     type(cam_in_t),      target, intent(in) :: cam_in
@@ -2039,7 +2076,7 @@ end function radiation_nextsw_cday
     real(r8) :: aer_tau_w_f(pcols,0:pver,nbndsw) ! aerosol forward scattered fraction * w * tau
     real(r8) :: aer_lw_abs (pcols,pver,nbndlw)   ! aerosol absorption optics depth (LW)
 
-    ! Gathered indicies of day and night columns 
+    ! Gathered indicies of day and night columns
     !  chunk_column_index = IdxDay(daylight_column_index)
     integer :: Nday                      ! Number of daylight columns
     integer :: Nnite                     ! Number of night columns
@@ -2086,7 +2123,7 @@ end function radiation_nextsw_cday
       call pbuf_get_field(pbuf, lu_idx, lu)
       call pbuf_get_field(pbuf, ld_idx, ld)
     end if
-    
+
 !  For CRM, make cloud equal to input observations:
     if (single_column.and.scm_crm_mode.and.have_cld) then
        do k = 1,pver
@@ -2121,7 +2158,7 @@ end function radiation_nextsw_cday
 
     dosw     = radiation_do('sw')      ! do shortwave heating calc this timestep?
     dolw     = radiation_do('lw')      ! do longwave heating calc this timestep?
-    
+
     if (hist_fld_active('FSNR').or.hist_fld_active('FLNR')) then
        call tropopause_find(state, troplev, tropP=p_trop, primary=TROP_ALG_HYBSTOB, backup=TROP_ALG_CLIMATE)
     endif
@@ -2169,7 +2206,7 @@ end function radiation_nextsw_cday
                c_loc(ice_tau(1,1,1)), c_loc(ice_tau_w(1,1,1)), c_loc(ice_tau_w_g(1,1,1)), &
                c_loc(ice_tau_w_f(1,1,1)), c_loc(cld_tau(1,1,1)), c_loc(cld_tau_w(1,1,1)), &
                c_loc(cld_tau_w_g(1,1,1)), c_loc(cld_tau_w_f(1,1,1)), c_loc(radiation_diag_dummy(1)))
- 
+
           if (cldfsnow_idx > 0) then
             ! add in snow
              call get_snow_optics_sw(state, pbuf, snow_tau, snow_tau_w, snow_tau_w_g, snow_tau_w_f)
@@ -2331,7 +2368,7 @@ end function radiation_nextsw_cday
                c_loc(tot_icld_vistau(1,1)), c_loc(liq_icld_vistau(1,1)), c_loc(ice_icld_vistau(1,1)), &
                c_loc(snow_icld_vistau(1,1)), c_loc(IdxNite64(1)), c_loc(radiation_diag_dummy(1)))
 
-          call outfld('TOT_CLD_VISTAU', tot_cld_vistau, pcols, lchnk)       
+          call outfld('TOT_CLD_VISTAU', tot_cld_vistau, pcols, lchnk)
           call outfld('TOT_ICLD_VISTAU', tot_icld_vistau, pcols, lchnk)
           call outfld('LIQ_ICLD_VISTAU', liq_icld_vistau, pcols, lchnk)
           call outfld('ICE_ICLD_VISTAU', ice_icld_vistau, pcols, lchnk)
@@ -2369,7 +2406,7 @@ end function radiation_nextsw_cday
                   call  rrtmg_state_update( state, pbuf, icall, r_state)
 
                   call aer_rad_props_lw(icall, state, pbuf,  aer_lw_abs)
-                  
+
                   call rad_rrtmg_lw( &
                        lchnk,        ncol,         num_rrtmg_levs,  r_state,                     &
                        state%pmid,   aer_lw_abs,   cldfprime,       c_cld_lw_abs,                &
@@ -2402,7 +2439,7 @@ end function radiation_nextsw_cday
                   call outfld('FLUTC'//diag(icall),flutc ,pcols,lchnk)
                   call outfld('FLNTC'//diag(icall),flntc ,pcols,lchnk)
                   call outfld('FLNS'//diag(icall),flns  ,pcols,lchnk)
-                  
+
                   call outfld('FLDSC'//diag(icall),fldsc ,pcols,lchnk)
                   call outfld('FLNSC'//diag(icall),flnsc ,pcols,lchnk)
                   call outfld('LWCF'//diag(icall),lwcf  ,pcols,lchnk)
@@ -2431,7 +2468,7 @@ end function radiation_nextsw_cday
           call radiation_diag_prep_hirs(ncol, c_loc(cam_in%lwup(1)), c_loc(landfrac(1)), &
                c_loc(state%pint(1,1)), c_loc(ts(1)), c_loc(oro(1)), c_loc(pintmb(1,1)), &
                c_loc(radiation_diag_dummy(1)))
-          
+
           ! Get specific humidity
           call rad_cnst_get_gas(0,'H2O', state, pbuf, sp_hum)
           ! Get ozone mass mixing ratio.
@@ -2520,7 +2557,7 @@ end function radiation_nextsw_cday
     call radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
                       fsnt, flns, flnt, cam_in%asdir, net_flx)
 
-    ! Compute heating rate for dtheta/dt 
+    ! Compute heating rate for dtheta/dt
     do k=1,pver
        do i=1,ncol
           hr_factor(i,k) = (1.e5_r8/state%pmid(i,k))**cappa
@@ -2547,7 +2584,7 @@ end function radiation_nextsw_cday
                c_loc(radiation_diag_dummy))
        end if
     end if
- 
+
     call radiation_diag_prep_netsw_copy(ncol, c_loc(fsns(1)), c_loc(cam_out%netsw(1)), &
          c_loc(radiation_diag_dummy(1)))
 
@@ -2556,13 +2593,13 @@ end function radiation_nextsw_cday
 !===============================================================================
 
 subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
-!----------------------------------------------------------------------- 
-! 
-! Purpose: 
+!-----------------------------------------------------------------------
+!
+! Purpose:
 ! Set latitude and time dependent arrays for input to solar
 ! and longwave radiation.
 ! Convert model pressures to cgs.
-! 
+!
 ! Author: CCM1, CMS Contact J. Kiehl
 !-----------------------------------------------------------------------
    use shr_orb_mod
@@ -2625,9 +2662,9 @@ end subroutine radinp
 !===============================================================================
 
 subroutine calc_col_mean(state, mmr_pointer, mean_value)
-!----------------------------------------------------------------------- 
-! 
-! Compute the column mean mass mixing ratio.  
+!-----------------------------------------------------------------------
+!
+! Compute the column mean mass mixing ratio.
 !
 !-----------------------------------------------------------------------
 

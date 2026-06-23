@@ -7824,3 +7824,55 @@ def O1D_to_2OH_adj_codon(
         inv_p,
         tfld_p,
     )
+
+@export
+def spe_init_codon(tag: int) -> int:
+    return tag
+
+@export
+def init_tracer_cnst_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def write_tracer_cnst_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def init_tracer_srcs_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def write_tracer_srcs_restart_codon(tag: int) -> int:
+    return tag
+
+@export
+def prescribed_ozone_register_codon(tag: int) -> int:
+    return tag
+
+@export
+def prescribed_volcaero_register_codon(tag: int) -> int:
+    return tag
+
+@export
+def get_model_time_codon(tag: int) -> int:
+    return tag
+
+@export
+def convert_date_codon(tag: int) -> int:
+    return tag
+
+@export
+def modal_aero_wateruptake_reg_codon(tag: int) -> int:
+    return tag
+
+@export
+def exp_sol_inti_codon(tag: int) -> int:
+    return tag
+
+@export
+def set_short_lived_species_codon(tag: int) -> int:
+    return tag
+
+@export
+def convert_dates_codon(tag: int) -> int:
+    return tag

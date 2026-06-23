@@ -24,8 +24,8 @@ module sat_hist
 #ifdef SPMD
   use mpishorthand,        only: mpichar, mpiint
 #endif
-   use physconst,          only: pi 
-  
+   use physconst,          only: pi
+
   implicit none
 
   private
@@ -61,7 +61,7 @@ module sat_hist
   logical :: is_satfile_codon_logged = .false.
   logical :: sat_hist_init_codon_logged = .false.
 
-  
+
   ! input file
   integer :: n_profiles
   integer :: time_vid, date_vid, lat_vid, lon_vid, instr_vid, orbit_vid, prof_vid, zenith_vid
@@ -88,7 +88,7 @@ module sat_hist
   real(r8), parameter :: rad2deg = 180._r8/pi            ! degrees per radian
 
 contains
-  
+
 !-------------------------------------------------------------------------------
 
   logical function is_satfile (file_index)
@@ -143,7 +143,7 @@ contains
 
 !-------------------------------------------------------------------------------
   subroutine sat_hist_readnl(nlfile, hfilename_spec, mfilt, fincl, nhtfrq, avgflag_pertape)
-    
+
     use namelist_utils,      only: find_group_name
     use units,               only: getunit, freeunit
     use cam_history_support, only: pflds
@@ -156,7 +156,7 @@ contains
     character(len=*), intent(inout) :: fincl(:,:)
     character(len=1), intent(inout) :: avgflag_pertape(:)
     integer,          intent(inout) :: mfilt(:), nhtfrq(:)
-    
+
     ! Local variables
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'sat_hist_readnl'
@@ -168,14 +168,33 @@ contains
 
     namelist /satellite_options_nl/ sathist_track_infile, sathist_hfilename_spec, sathist_fincl, &
          sathist_mfilt, sathist_nclosest, sathist_ntimestep
+    interface
+       function sat_hist_readnl_codon(tag) result(tag_out) bind(c, name='sat_hist_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function sat_hist_readnl_codon
+    end interface
 
-#define CAM_MISC_TAG 344
-#define CAM_MISC_LABEL 'sat_hist_readnl'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SAT_HIST_READNL_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = sat_hist_readnl_codon(int(344, c_int64_t))
+       if (rt_codon_tag_out /= int(344, c_int64_t)) then
+          write(iulog,*) 'sat_hist_readnl_codon tag roundtrip failed'
+          stop 2
+       endif
+       if (.not. rt_codon_proof_seen) then
+          write(iulog,*) 'sat_hist_readnl implementation = codon'
+          rt_codon_proof_seen = .true.
+       endif
+    endif
     ! set defaults
 
     sathist_track_infile = ' '
@@ -225,7 +244,7 @@ contains
            fcnt=fcnt+1
         end if
      enddo
-     
+
      nhtfrq(sat_tape_num) = 1
      avgflag_pertape(sat_tape_num) = 'I'
 
@@ -240,7 +259,7 @@ contains
 
    end subroutine sat_hist_readnl
 
-  
+
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
   subroutine sat_hist_init
@@ -364,7 +383,7 @@ contains
 
     ierr = pio_get_var( infile, time_vid, start, cnt, time )
     ierr = pio_get_var( infile, date_vid, start, cnt, date )
-    
+
     datetime = convert_date_time( date(1),time(1) )
 
   end subroutine read_datetime
@@ -382,14 +401,14 @@ contains
     integer :: cnt
     integer :: start
     integer :: date, time
-    
+
     ! If the request is outside of the buffer then reload the buffer.
     if ((last_start_index == -1) .or. (index < last_start_index) &
          .or. (index >= (last_start_index + t_buffer_size))) then
 
        start = (index - 1) / t_buffer_size * t_buffer_size + 1
        if ( start+t_buffer_size-1 <= n_profiles ) then
-          cnt = t_buffer_size 
+          cnt = t_buffer_size
        else
           cnt = n_profiles-start+1
        endif
@@ -421,7 +440,7 @@ contains
        yr = date/1000
        doy = date - yr*1000
        call set_time_float_from_date( datetime, yr, 1, doy, time )
-    else 
+    else
        yr = date/10000
        mon = (date - yr*10000)/100
        dom = date - yr*10000 - mon*100
@@ -437,7 +456,7 @@ contains
 
     integer :: coldim
     integer :: ierr
-    
+
     ierr = pio_inquire(outfile, unlimitedDimId=coldim)
 
     call pio_seterrorhandling(outfile, PIO_BCAST_ERROR)
@@ -496,7 +515,7 @@ contains
     integer, intent(in) :: nflds
     integer, intent(inout) :: nfils
 
-    integer :: t, f, i, ncols, nocols    
+    integer :: t, f, i, ncols, nocols
     integer :: ierr
 
     integer, allocatable :: col_ndxs(:)
@@ -552,7 +571,7 @@ contains
     endif
 
     ierr = pio_inq_dimid(tape%File,'ncol',coldim )
-    
+
     ierr = pio_inq_varid(tape%File, 'lat', out_latid )
     ierr = pio_inq_varid(tape%File, 'lon', out_lonid )
     ierr = pio_inq_varid(tape%File, 'distance', out_dstid )
@@ -625,7 +644,7 @@ contains
     else if(field%numlev>1) then
        dimlens(1) = field%numlev
     end if
-   
+
     cnt = 0
 
     do i = 1,ncols
@@ -645,7 +664,7 @@ contains
           if ( iam == owners(i) ) then
              cnt = cnt+1
              buf(cnt) = hitem%hbuf( fdims(i), k, ldims(i) )
-             dof(cnt) = k + (i-1)*field%numlev 
+             dof(cnt) = k + (i-1)*field%numlev
           endif
        enddo
     enddo
@@ -670,7 +689,7 @@ contains
   subroutine read_next_position( ncols )
     use time_manager, only: get_curr_date, get_prev_date
     use time_manager, only: set_time_float_from_date
-   
+
     implicit none
 
     integer,  intent(out) :: ncols
@@ -735,7 +754,7 @@ contains
 
     call t_stopf ('sat_hist::read_next_position')
   end subroutine read_next_position
-  
+
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
   subroutine write_record_coord( tape, mod_lats, mod_lons, mod_dists, ncols, nfils )
@@ -776,14 +795,14 @@ contains
 
     allocate( itmp(ncols * sathist_nclosest) )
     allocate( rtmp(ncols * sathist_nclosest) )
-    
+
     itmp(:) = ncdate
     ierr = pio_put_var(tape%File, tape%dateid,(/nfils/), (/ncols * sathist_nclosest/),itmp)
     itmp(:) = ncsec
     ierr = pio_put_var(tape%File, tape%datesecid,(/nfils/),(/ncols * sathist_nclosest/),itmp)
     rtmp(:) = time
     ierr = pio_put_var(tape%File, tape%timeid, (/nfils/),(/ncols * sathist_nclosest/),rtmp)
-    
+
     deallocate(itmp)
     deallocate(rtmp)
 
@@ -791,11 +810,11 @@ contains
     ierr = pio_put_var(tape%File, out_latid, (/nfils/),(/ncols * sathist_nclosest/), mod_lats)
     ierr = pio_put_var(tape%File, out_lonid, (/nfils/),(/ncols * sathist_nclosest/), mod_lons)
     ierr = pio_put_var(tape%File, out_dstid, (/nfils/),(/ncols * sathist_nclosest/), mod_dists / 1000._r8)
-    
+
     ! output instrument location
     allocate( out_lats(ncols * sathist_nclosest) )
     allocate( out_lons(ncols * sathist_nclosest) )
-    
+
     do i = 1, ncols
       out_lats(((i-1)*sathist_nclosest)+1 : (i*sathist_nclosest)) = obs_lats(i)
       out_lons(((i-1)*sathist_nclosest)+1 : (i*sathist_nclosest)) = obs_lons(i)
@@ -806,11 +825,11 @@ contains
 
     deallocate(out_lats)
     deallocate(out_lons)
-    
-    
+
+
     ierr = copy_data( infile, date_vid, tape%File, out_obs_date_vid, in_start_col, nfils, ncols )
     ierr = copy_data( infile, time_vid, tape%File, out_obs_time_vid, in_start_col, nfils, ncols )
-    
+
     ! output observation identifiers
     if (instr_vid>0) then
        ierr = copy_data( infile, instr_vid, tape%File, out_instrid, in_start_col, nfils, ncols )
@@ -866,7 +885,7 @@ contains
 
     integer :: i, j, ndx
     real(r8) :: lat, lon
-    
+
     integer,  allocatable :: ichks(:),icols(:),idyn1s(:),idyn2s(:), iphs_owners(:), idyn_owners(:)
     real(r8), allocatable :: rlats(:), rlons(:), plats(:), plons(:), iphs_dists(:)
 
@@ -907,7 +926,7 @@ contains
           write(iulog,*) 'sat_hist::get_indices lon = ',lon
           call endrun('sat_hist::get_indices : lon must be between 0 and 360 degrees (0<=lon<360)')
        endif
-       
+
        call find_cols( lat, lon, sathist_nclosest, iphs_owners, ichks, icols, &
                        gcols, iphs_dists, plats, plons )
 
@@ -916,7 +935,7 @@ contains
        endif
 
        do j = 1, sathist_nclosest
-          
+
           if (debug .and. iam==iphs_owners(j) ) then
              if ( abs(plats(j)-rlats(j))>1.e-3_r8 ) then
                 write(*,'(a,3f20.12)') ' lat, plat, rlat = ', lat, plats(j), rlats(j)
@@ -929,9 +948,9 @@ contains
                 call endrun('sat_hist::get_indices: dyn lon is different than phys lon ')
              endif
           endif
-          
+
           ndx = ndx+1
-          
+
           chk_ndxs(ndx)   = ichks(j)
           col_ndxs(ndx)   = icols(j)
           fdyn_ndxs(ndx)  = idyn1s(j)
@@ -1000,11 +1019,11 @@ contains
     res = pio_get_var( infile,  in_vid, (/instart/),  (/ncols/), data )
 
     allocate( outdata(ncols * sathist_nclosest) )
-    
+
     do i = 1, ncols
       outdata(((i-1)*sathist_nclosest)+1 : (i*sathist_nclosest)) = data(i)
     enddo
-  
+
     res = pio_put_var( outfile, out_id, (/outstart/), (/ncols * sathist_nclosest/), outdata )
 
     deallocate(outdata)
@@ -1025,7 +1044,7 @@ contains
     type(var_desc_t), intent(in) :: out_id
 
     character(len=1024) :: att
-    
+
 
     res = pio_get_att( infile, in_vid, trim(att_name), att )
     if (res==PIO_NOERR) then
@@ -1034,7 +1053,7 @@ contains
 
 
   end function copy_att
-  
+
   !-------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------
   subroutine find_cols(lat, lon, nclosest, owner, lcid, icol, gcol, distmin, mlats, mlons)
@@ -1047,7 +1066,7 @@ contains
     integer, intent(out) :: owner(nclosest)     ! rank of chunk owner
     integer, intent(out) :: lcid(nclosest)      ! local chunk index
     integer, intent(out) :: icol(nclosest)      ! column index within the chunk
-    integer, intent(out) :: gcol(nclosest)      ! global column index 
+    integer, intent(out) :: gcol(nclosest)      ! global column index
     real(r8),intent(out) :: distmin(nclosest)   ! the distance (m) of the closest column(s)
     real(r8),intent(out) :: mlats(nclosest)     ! the latitude of the closest column(s)
     real(r8),intent(out) :: mlons(nclosest)     ! the longitude of the closest column(s)
@@ -1074,7 +1093,7 @@ contains
 
     latr = lat/rad2deg              ! to radians
     lonr = lon/rad2deg              ! to radians
-    
+
     my_owner(:)   = -999
     my_lcid(:)    = -999
     my_icol(:)    = -999
@@ -1090,7 +1109,7 @@ contains
 
        col_loop: do i = 1,ncols
           ! Use the Spherical Law of Cosines to find the great-circle distance.
-          dist = acos(sin(latr) * sin(rlats(i)) + cos(latr) * cos(rlats(i)) * cos(rlons(i) - lonr)) * rearth       
+          dist = acos(sin(latr) * sin(rlats(i)) + cos(latr) * cos(rlats(i)) * cos(rlons(i) - lonr)) * rearth
 
           closest_loop: do j = nclosest, 1, -1
              if (dist < my_distmin(j)) then
@@ -1113,7 +1132,7 @@ contains
                 my_mlats(j)   = rlats(i) * rad2deg
                 my_mlons(j)   = rlons(i) * rad2deg
              else
-                exit 
+                exit
              end if
           enddo closest_loop
 
