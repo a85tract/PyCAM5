@@ -2658,6 +2658,7 @@ contains
 !
   function ref2sphere_double(a,b, corners3D, ref_map, corners, facenum) result(sphere)
     use cam_logfile, only : iulog
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
     real(kind=real_kind)    :: a,b
     type (spherical_polar_t)      :: sphere
     type (cartesian3d_t)            :: corners3D(4)
@@ -2666,6 +2667,17 @@ contains
     type (cartesian2d_t), optional  :: corners(4)  
     integer, optional               :: facenum    
     logical, save :: proof_seen = .false.
+    real(c_double), target :: r_c, lon_c, lat_c
+    interface
+       subroutine ref2sphere_double_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
+            r_p, lon_p, lat_p) bind(c, name='ref2sphere_double_codon')
+         import :: c_double, c_int64_t, c_ptr
+         real(c_double), value :: a_c, b_c
+         integer(c_int64_t), value :: face_no_c
+         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
+         type(c_ptr), value :: r_p, lon_p, lat_p
+       end subroutine ref2sphere_double_codon
+    end interface
 
 
     if (ref_map==0) then
@@ -2673,7 +2685,15 @@ contains
             call abortmp('ref2sphere_double(): missing arguments for equiangular map')
        if (.not. present(facenum) ) &
             call abortmp('ref2sphere_double(): missing face number for equiangular map')
-       sphere = ref2sphere_equiangular_double(a,b,corners,facenum)
+       call ref2sphere_double_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
+            real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
+            real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
+            real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
+            real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
+            c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
+       sphere%r = real(r_c, real_kind)
+       sphere%lon = real(lon_c, real_kind)
+       sphere%lat = real(lat_c, real_kind)
        if (.not. proof_seen) then
           write(iulog,*) 'ref2sphere_double implementation = codon'
           proof_seen = .true.

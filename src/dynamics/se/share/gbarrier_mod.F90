@@ -116,20 +116,20 @@ module gbarrier_mod
         end subroutine gbarrier_synchronize
       end interface
       interface
-        subroutine gbarrier_synchronize_codon(c_barrier, thread) bind(C, name="gbarrier_synchronize_codon")
+        subroutine gbarrier_codon(c_barrier, thread) bind(C, name="gbarrier_codon")
           use, intrinsic :: ISO_C_Binding, only: C_ptr, c_int64_t
           implicit none
 
           type (C_ptr), intent(in), value :: c_barrier
           integer (c_int64_t), intent(in), value :: thread
-        end subroutine gbarrier_synchronize_codon
+        end subroutine gbarrier_codon
       end interface
 
       call gbarrier_select_impl()
       if (gbarrier_use_native_impl) then
         call gbarrier_synchronize(barrier%c_barrier, threadID)
       else
-        call gbarrier_synchronize_codon(barrier%c_barrier, int(threadID, c_int64_t))
+        call gbarrier_codon(barrier%c_barrier, int(threadID, c_int64_t))
         if (threadID == 0) then
           call gbarrier_write_proof('gbarrier', gbarrier_proof_seen)
         endif

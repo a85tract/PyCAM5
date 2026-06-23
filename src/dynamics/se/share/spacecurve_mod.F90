@@ -924,11 +924,11 @@ contains
     integer, target     :: numfact
     logical, save       :: proof_seen = .false.
     interface
-       subroutine se_factor_fill_codon(num_c, factors_p, numfact_p) bind(c, name='se_factor_fill_codon')
+       subroutine factor_codon(num_c, factors_p, numfact_p) bind(c, name='factor_codon')
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: num_c
          type(c_ptr), value :: factors_p, numfact_p
-       end subroutine se_factor_fill_codon
+       end subroutine factor_codon
     end interface
 
     ! --------------------------------------
@@ -937,7 +937,7 @@ contains
     tmp2 = log2(num)
     allocate(res%factors(tmp2))
 
-    call se_factor_fill_codon(int(num, c_int64_t), c_loc(res%factors(1)), c_loc(numfact))
+    call factor_codon(int(num, c_int64_t), c_loc(res%factors(1)), c_loc(numfact))
     res%numfact = numfact
     if (.not. proof_seen) then
        write(iulog,*) 'factor implementation = codon'

@@ -119,12 +119,12 @@ contains
     use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
     interface
-      subroutine copy_buffer_codon(nthreads_c, ithr_c, len_move_ptr_c, buf_p, receive_p, &
-           move_ptr_p, move_length_p) bind(c, name='copy_buffer_codon')
+      subroutine copybuffer_codon(nthreads_c, ithr_c, len_move_ptr_c, buf_p, receive_p, &
+           move_ptr_p, move_length_p) bind(c, name='copybuffer_codon')
         import :: c_int64_t, c_ptr
         integer(c_int64_t), value :: nthreads_c, ithr_c, len_move_ptr_c
         type(c_ptr), value :: buf_p, receive_p, move_ptr_p, move_length_p
-      end subroutine copy_buffer_codon
+      end subroutine copybuffer_codon
     end interface
     integer :: nthreads
     integer :: ithr
@@ -148,7 +148,7 @@ contains
       write(*,30) TRIM(location), lenMoveptr, nthreads
     endif
 
-    call copy_buffer_codon(int(nthreads, c_int64_t), int(ithr, c_int64_t), int(lenMovePtr, c_int64_t), &
+    call copybuffer_codon(int(nthreads, c_int64_t), int(ithr, c_int64_t), int(lenMovePtr, c_int64_t), &
          c_loc(buffer%buf(1)), c_loc(buffer%receive(1)), c_loc(buffer%moveptr(1)), c_loc(buffer%moveLength(1)))
     if (.not. proof_seen) then
        write(iulog,*) 'copybuffer implementation = codon'

@@ -660,12 +660,12 @@ contains
     use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
     interface
-      subroutine find_buffer_slot_codon(inbr_c, length_c, tmp_p, n_c, ptr_p) &
-           bind(c, name='find_buffer_slot_codon')
+      subroutine findbufferslot_codon(inbr_c, length_c, tmp_p, n_c, ptr_p) &
+           bind(c, name='findbufferslot_codon')
         import :: c_int64_t, c_ptr
         integer(c_int64_t), value :: inbr_c, length_c, n_c
         type(c_ptr), value :: tmp_p, ptr_p
-      end subroutine find_buffer_slot_codon
+      end subroutine findbufferslot_codon
     end interface
 
     integer, target        :: ptr
@@ -673,7 +673,7 @@ contains
     integer, intent(inout), target :: tmp(:,:)
     logical, save :: proof_seen = .false.
 
-    call find_buffer_slot_codon(int(inbr, c_int64_t), int(length, c_int64_t), &
+    call findbufferslot_codon(int(inbr, c_int64_t), int(length, c_int64_t), &
          c_loc(tmp(1,1)), int(size(tmp, 2), c_int64_t), c_loc(ptr))
     if (.not. proof_seen) then
        write(iulog,*) 'findbufferslot implementation = codon'

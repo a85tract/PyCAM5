@@ -292,15 +292,29 @@ contains
 
     integer, intent(in) :: npts
     type (quadrature_t) :: gll
-#define SE_MISC_TAG 15
-#define SE_MISC_LABEL 'quadrature_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    integer(c_int64_t) :: codon_status
+    interface
+       function gausslobatto_codon(npts_c, points_p, weights_p) result(status_c) &
+            bind(c, name='gausslobatto_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: npts_c
+         type(c_ptr), value :: points_p, weights_p
+         integer(c_int64_t) :: status_c
+       end function gausslobatto_codon
+    end interface
 
     allocate(gll%points(npts))
     allocate(gll%weights(npts))
+
+    codon_status = gausslobatto_codon(int(npts, c_int64_t), c_loc(gll%points(1)), c_loc(gll%weights(1)))
+    if (codon_status == 1_c_int64_t) then
+       if (masterproc .and. .not. gausslobatto_codon_logged) then
+          write(iulog,*) 'gausslobatto implementation = codon'
+          gausslobatto_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     gll%points=gausslobatto_pts(npts)
     gll%weights=gausslobatto_wts(npts,gll%points)

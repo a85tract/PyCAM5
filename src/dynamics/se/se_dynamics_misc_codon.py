@@ -5,6 +5,14 @@ def se_misc_touch_codon(tag: int) -> int:
     return tag
 
 
+def trunc_codon():
+    pass
+
+
+def stepon_final_codon():
+    pass
+
+
 def mass_matrix_vgrid_init_codon(np: int, mp_p: cobj, rmp_p: cobj, weights_p: cobj):
     mp = Ptr[float](mp_p)
     rmp = Ptr[float](rmp_p)
@@ -1219,6 +1227,16 @@ def find_buffer_slot_codon(
             return
 
 
+def findbufferslot_codon(
+    inbr: int,
+    length: int,
+    tmp_p: cobj,
+    n: int,
+    ptr_p: cobj,
+):
+    find_buffer_slot_codon(inbr, length, tmp_p, n, ptr_p)
+
+
 def cubesetupedgeindex_codon(
     s_face: int,
     d_face: int,
@@ -1269,6 +1287,18 @@ def copy_buffer_codon(
                 receive[iptr + i - 1] = buf[iptr + i - 1]
 
 
+def copybuffer_codon(
+    nthreads: int,
+    ithr: int,
+    len_move_ptr: int,
+    buf_p: cobj,
+    receive_p: cobj,
+    move_ptr_p: cobj,
+    move_length_p: cobj,
+):
+    copy_buffer_codon(nthreads, ithr, len_move_ptr, buf_p, receive_p, move_ptr_p, move_length_p)
+
+
 def var_is_vector_codon(
     name_len: int,
     name_ascii_p: cobj,
@@ -1298,6 +1328,26 @@ def var_is_vector_codon(
             if match:
                 return entry
     return 0
+
+
+def var_is_vector_uvar_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    entry_len: int,
+    entries_ascii_p: cobj,
+    nentries: int,
+) -> int:
+    return var_is_vector_codon(name_len, name_ascii_p, entry_len, entries_ascii_p, nentries)
+
+
+def var_is_vector_vvar_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    entry_len: int,
+    entries_ascii_p: cobj,
+    nentries: int,
+) -> int:
+    return var_is_vector_codon(name_len, name_ascii_p, entry_len, entries_ascii_p, nentries)
 
 
 def reduction_max_r_local_codon(
@@ -1430,6 +1480,10 @@ def gbarrier_synchronize_codon(c_barrier: cobj, thread: int):
     gbarrier_synchronize(c_barrier, i32(thread))
 
 
+def gbarrier_codon(c_barrier: cobj, thread: int):
+    gbarrier_synchronize(c_barrier, i32(thread))
+
+
 def legendre_codon(x: float, n: int, leg_p: cobj):
     leg = Ptr[float](leg_p)
 
@@ -1463,6 +1517,10 @@ def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> in
     weights[2] = 0.8333333333333334
     weights[3] = 0.16666666666666666
     return 1
+
+
+def gausslobatto_codon(npts: int, points_p: cobj, weights_p: cobj) -> int:
+    return se_gausslobatto_fill_codon(npts, points_p, weights_p)
 
 
 def gausslobatto_pts_codon(npts: int, points_p: cobj) -> int:
@@ -1524,6 +1582,10 @@ def se_factor_fill_codon(num: int, factors_p: cobj, numfact_p: cobj):
         numfact[0] = i32(n)
     else:
         numfact[0] = i32(-1)
+
+
+def factor_codon(num: int, factors_p: cobj, numfact_p: cobj):
+    se_factor_fill_codon(num, factors_p, numfact_p)
 
 
 def calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:

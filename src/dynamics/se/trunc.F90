@@ -10,12 +10,24 @@ subroutine trunc
    use cam_logfile, only : iulog
    implicit none
 
-#define SE_MISC_TAG 42
-#define SE_MISC_LABEL 'trunc'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+   interface
+      subroutine trunc_codon() bind(c, name='trunc_codon')
+      end subroutine trunc_codon
+   end interface
+   character(len=32) :: impl_name
+   integer :: impl_n, impl_status
+   logical, save :: proof_seen = .false.
+
+   impl_name = 'codon'
+   call cam_codon_get_impl('TRUNC_IMPL', impl_name, impl_n, impl_status)
+   if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
+      call trunc_codon()
+      if (.not. proof_seen) then
+         write(iulog,*) 'trunc implementation = codon'
+         proof_seen = .true.
+      endif
+      return
+   endif
 
 !
 ! !DESCRIPTION:

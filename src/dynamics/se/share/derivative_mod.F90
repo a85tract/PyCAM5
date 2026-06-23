@@ -2639,6 +2639,7 @@ end do
 
   subroutine vlaplace_sphere_wk_contra(v,deriv,elem,laplace,var_coef,nu_ratio)
     use cam_logfile, only : iulog
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
 !
 !   input:  v = vector in lat-lon coordinates
 !   ouput:  weak laplacian of v, in lat-lon coordinates
@@ -2649,11 +2650,46 @@ end do
     type (element_t), intent(in), target :: elem
     real(kind=real_kind), target :: laplace(np,np,2)
     real(kind=real_kind), optional :: nu_ratio
+    real(kind=real_kind), target :: dum_cart(np,np,3), dum_tmp(np,np), div(np,np), vor(np,np)
+    real(kind=real_kind), target :: lap_tmp(np,np,2), lap_tmp2(np,np,2), work1(np,np,2), work2(np,np,2)
+    real(kind=real_kind), target :: v1(np,np), v2(np,np)
+    integer(c_int64_t) :: var_coef_c, has_nu_ratio_c
+    real(c_double) :: nu_ratio_c
     logical, save :: proof_seen = .false.
+    interface
+       subroutine vlaplace_sphere_wk_contra_codon(np_c, rrearth_c, hypervis_power_c, hypervis_scaling_c, &
+            var_coef_c, has_nu_ratio_c, nu_ratio_c, v_p, dvv_p, mp_p, spheremp_p, metinv_p, metdet_p, &
+            rmetdet_p, d_p, dinv_p, variable_hyperviscosity_p, tensorvisc_p, vec_sphere2cart_p, dum_cart_p, &
+            dum_tmp_p, div_p, vor_p, lap_tmp_p, lap_tmp2_p, work1_p, work2_p, v1_p, v2_p, laplace_p) &
+            bind(c, name='vlaplace_sphere_wk_contra_codon')
+         import :: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, hypervis_power_c, hypervis_scaling_c, var_coef_c, has_nu_ratio_c
+         real(c_double), value :: rrearth_c, nu_ratio_c
+         type(c_ptr), value :: v_p, dvv_p, mp_p, spheremp_p, metinv_p, metdet_p, rmetdet_p, d_p, dinv_p
+         type(c_ptr), value :: variable_hyperviscosity_p, tensorvisc_p, vec_sphere2cart_p, dum_cart_p
+         type(c_ptr), value :: dum_tmp_p, div_p, vor_p, lap_tmp_p, lap_tmp2_p, work1_p, work2_p, v1_p, v2_p
+         type(c_ptr), value :: laplace_p
+       end subroutine vlaplace_sphere_wk_contra_codon
+    end interface
 
-    call vlaplace_sphere_wk_apply_codon(v, deriv%Dvv, elem%mp, elem%spheremp, elem%metinv, elem%metdet, &
-         elem%rmetdet, elem%D, elem%Dinv, elem%variable_hyperviscosity, elem%tensorVisc, elem%vec_sphere2cart, &
-         laplace, var_coef, nu_ratio)
+    var_coef_c = 0_c_int64_t
+    if (var_coef) var_coef_c = 1_c_int64_t
+
+    has_nu_ratio_c = 0_c_int64_t
+    nu_ratio_c = 1.0_c_double
+    if (present(nu_ratio)) then
+       has_nu_ratio_c = 1_c_int64_t
+       nu_ratio_c = real(nu_ratio, c_double)
+    endif
+
+    call vlaplace_sphere_wk_contra_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), int(hypervis_power, c_int64_t), &
+         int(hypervis_scaling, c_int64_t), var_coef_c, has_nu_ratio_c, nu_ratio_c, c_loc(v), c_loc(deriv%Dvv), &
+         c_loc(elem%mp), c_loc(elem%spheremp), c_loc(elem%metinv), c_loc(elem%metdet), c_loc(elem%rmetdet), &
+         c_loc(elem%D), c_loc(elem%Dinv), c_loc(elem%variable_hyperviscosity), c_loc(elem%tensorVisc), &
+         c_loc(elem%vec_sphere2cart), c_loc(dum_cart), c_loc(dum_tmp), c_loc(div), c_loc(vor), c_loc(lap_tmp), &
+         c_loc(lap_tmp2), c_loc(work1), c_loc(work2), c_loc(v1), c_loc(v2), c_loc(laplace) &
+    )
     if (.not. proof_seen) then
        write(iulog,*) 'vlaplace_sphere_wk_contra implementation = codon'
        proof_seen = .true.

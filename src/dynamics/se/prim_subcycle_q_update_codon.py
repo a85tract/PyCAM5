@@ -121,8 +121,20 @@ def log2_codon(n: int) -> int:
     return _misc.log2_codon(n)
 
 @export
+def trunc_codon():
+    return _misc.trunc_codon()
+
+@export
+def stepon_final_codon():
+    return _misc.stepon_final_codon()
+
+@export
 def se_factor_fill_codon(num: int, factors_p: cobj, numfact_p: cobj):
     return _misc.se_factor_fill_codon(num, factors_p, numfact_p)
+
+@export
+def factor_codon(num: int, factors_p: cobj, numfact_p: cobj):
+    return _misc.factor_codon(num, factors_p, numfact_p)
 
 @export
 def calcsegmentlength_codon(lenp: int, lens: int, mpattern: int, nlyr: int, hme_mpattern_s: int, hme_mpattern_p: int) -> int:
@@ -624,6 +636,72 @@ def vlaplace_sphere_wk_codon(
     laplace_p: cobj,
 ):
     return _sphere.vlaplace_sphere_wk_codon(
+        np,
+        rrearth,
+        hypervis_power,
+        hypervis_scaling,
+        var_coef,
+        has_nu_ratio,
+        nu_ratio,
+        v_p,
+        dvv_p,
+        mp_p,
+        spheremp_p,
+        metinv_p,
+        metdet_p,
+        rmetdet_p,
+        d_p,
+        dinv_p,
+        variable_hyperviscosity_p,
+        tensorvisc_p,
+        vec_sphere2cart_p,
+        dum_cart_p,
+        dum_tmp_p,
+        div_p,
+        vor_p,
+        lap_tmp_p,
+        lap_tmp2_p,
+        work1_p,
+        work2_p,
+        v1_p,
+        v2_p,
+        laplace_p,
+    )
+
+@export
+def vlaplace_sphere_wk_contra_codon(
+    np: int,
+    rrearth: float,
+    hypervis_power: int,
+    hypervis_scaling: int,
+    var_coef: int,
+    has_nu_ratio: int,
+    nu_ratio: float,
+    v_p: cobj,
+    dvv_p: cobj,
+    mp_p: cobj,
+    spheremp_p: cobj,
+    metinv_p: cobj,
+    metdet_p: cobj,
+    rmetdet_p: cobj,
+    d_p: cobj,
+    dinv_p: cobj,
+    variable_hyperviscosity_p: cobj,
+    tensorvisc_p: cobj,
+    vec_sphere2cart_p: cobj,
+    dum_cart_p: cobj,
+    dum_tmp_p: cobj,
+    div_p: cobj,
+    vor_p: cobj,
+    lap_tmp_p: cobj,
+    lap_tmp2_p: cobj,
+    work1_p: cobj,
+    work2_p: cobj,
+    v1_p: cobj,
+    v2_p: cobj,
+    laplace_p: cobj,
+):
+    return _sphere.vlaplace_sphere_wk_contra_codon(
         np,
         rrearth,
         hypervis_power,
@@ -1357,6 +1435,26 @@ def copy_buffer_codon(
     )
 
 @export
+def copybuffer_codon(
+    nthreads: int,
+    ithr: int,
+    len_move_ptr: int,
+    buf_p: cobj,
+    receive_p: cobj,
+    move_ptr_p: cobj,
+    move_length_p: cobj,
+):
+    return _misc.copybuffer_codon(
+        nthreads,
+        ithr,
+        len_move_ptr,
+        buf_p,
+        receive_p,
+        move_ptr_p,
+        move_length_p,
+    )
+
+@export
 def var_is_vector_codon(
     name_len: int,
     name_ascii_p: cobj,
@@ -1365,6 +1463,38 @@ def var_is_vector_codon(
     nentries: int,
 ) -> int:
     return _misc.var_is_vector_codon(
+        name_len,
+        name_ascii_p,
+        entry_len,
+        entries_ascii_p,
+        nentries,
+    )
+
+@export
+def var_is_vector_uvar_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    entry_len: int,
+    entries_ascii_p: cobj,
+    nentries: int,
+) -> int:
+    return _misc.var_is_vector_uvar_codon(
+        name_len,
+        name_ascii_p,
+        entry_len,
+        entries_ascii_p,
+        nentries,
+    )
+
+@export
+def var_is_vector_vvar_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    entry_len: int,
+    entries_ascii_p: cobj,
+    nentries: int,
+) -> int:
+    return _misc.var_is_vector_vvar_codon(
         name_len,
         name_ascii_p,
         entry_len,
@@ -1832,6 +1962,22 @@ def find_buffer_slot_codon(
     )
 
 @export
+def findbufferslot_codon(
+    inbr: int,
+    length: int,
+    tmp_p: cobj,
+    n: int,
+    ptr_p: cobj,
+):
+    return _misc.findbufferslot_codon(
+        inbr,
+        length,
+        tmp_p,
+        n,
+        ptr_p,
+    )
+
+@export
 def cubesetupedgeindex_codon(
     s_face: int,
     d_face: int,
@@ -2028,6 +2174,16 @@ def gbarrier_synchronize_codon(
     )
 
 @export
+def gbarrier_codon(
+    c_barrier: cobj,
+    thread: int,
+):
+    return _misc.gbarrier_codon(
+        c_barrier,
+        thread,
+    )
+
+@export
 def legendre_codon(
     x: float,
     n: int,
@@ -2046,6 +2202,18 @@ def se_gausslobatto_fill_codon(
     weights_p: cobj,
 ) -> int:
     return _misc.se_gausslobatto_fill_codon(
+        npts,
+        points_p,
+        weights_p,
+    )
+
+@export
+def gausslobatto_codon(
+    npts: int,
+    points_p: cobj,
+    weights_p: cobj,
+) -> int:
+    return _misc.gausslobatto_codon(
         npts,
         points_p,
         weights_p,

@@ -554,6 +554,13 @@ subroutine stepon_final(dyn_in, dyn_out)
   ! These currently seem to point to dyn_grid global data.
   type (dyn_import_t), intent(out) :: dyn_in  ! Dynamics import container
   type (dyn_export_t), intent(out) :: dyn_out ! Dynamics export container
+  interface
+     subroutine stepon_final_codon() bind(c, name='stepon_final_codon')
+     end subroutine stepon_final_codon
+  end interface
+  character(len=32) :: impl_name
+  integer :: impl_n, impl_status
+  logical, save :: proof_seen = .false.
 !
 ! !DESCRIPTION:
 !
@@ -564,12 +571,16 @@ subroutine stepon_final(dyn_in, dyn_out)
 !-----------------------------------------------------------------------
 !BOC
 
-#define SE_MISC_TAG 20
-#define SE_MISC_LABEL 'stepon_final'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+  impl_name = 'codon'
+  call cam_codon_get_impl('STEPON_FINAL_IMPL', impl_name, impl_n, impl_status)
+  if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
+     call stepon_final_codon()
+     if (.not. proof_seen) then
+        write(iulog,*) 'stepon_final implementation = codon'
+        proof_seen = .true.
+     endif
+     return
+  endif
 
 !EOC
 end subroutine stepon_final
