@@ -2276,3 +2276,48 @@ def biharmonic_wk_dp3d_codon(tag: int) -> int:
 
 def initmpi_codon(tag: int) -> int:
     return tag
+
+def cubedsphere2cart_codon(cart_x: float, cart_y: float, face_no: int, x_p: cobj, y_p: cobj, z_p: cobj):
+    x_out = Ptr[float](x_p)
+    y_out = Ptr[float](y_p)
+    z_out = Ptr[float](z_p)
+    x = tan(cart_x)
+    y = tan(cart_y)
+    one = 1.0
+    two_pi = 6.2831853071795864769252867665590057683943387987502
+    threshold = 1.0e-9
+    r = sqrt(one + x**2.0 + y**2.0)
+    lon = 0.0
+    lat = 0.0
+    if face_no == 1:
+        lat = asin(y / r)
+        lon = atan2(x, one)
+    elif face_no == 2:
+        lat = asin(y / r)
+        lon = atan2(one, -x)
+    elif face_no == 3:
+        lat = asin(y / r)
+        lon = atan2(-x, -one)
+    elif face_no == 4:
+        lat = asin(y / r)
+        lon = atan2(-one, x)
+    elif face_no == 5:
+        if abs(y) > threshold or abs(x) > threshold:
+            lon = atan2(x, y)
+        else:
+            lon = 0.0
+        lat = asin(-one / r)
+    elif face_no == 6:
+        if abs(y) > threshold or abs(x) > threshold:
+            lon = atan2(x, -y)
+        else:
+            lon = 0.0
+        lat = asin(one / r)
+    else:
+        lon = 0.0
+        lat = 0.0
+    if lon < 0.0:
+        lon = lon + two_pi
+    x_out[0] = one * cos(lat) * cos(lon)
+    y_out[0] = one * cos(lat) * sin(lon)
+    z_out[0] = one * sin(lat)

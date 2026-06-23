@@ -571,7 +571,7 @@ contains
   ! takes a 2D point on a face of the cube of size [-\pi/4, \pi/4] and projects it 
   ! onto a 3D point on a cube of size [-1,1] in R^3
   function cubedsphere2cart(cartin, face_no) result(cart)
-    use iso_c_binding, only : c_double, c_int64_t, c_loc
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
     implicit none
     type (cartesian2d_t), intent(in)    :: cartin   ! assumed to be cartesian coordinates of cube
@@ -579,22 +579,22 @@ contains
 
     type(cartesian3D_t)                 :: cart
     type(spherical_polar_t)             :: sphere
-    real(c_double), target              :: r_c, lon_c, lat_c
+    real(c_double), target              :: x_c, y_c, z_c
     character(len=32)                   :: impl_name
     integer                             :: impl_n, impl_status
     logical, save                       :: proof_seen = .false.
     interface
-       subroutine projectpoint_codon(cart_x_c, cart_y_c, face_no_c, r_p, lon_p, lat_p) &
-            bind(c, name='projectpoint_codon')
-         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       subroutine cubedsphere2cart_codon(cart_x_c, cart_y_c, face_no_c, x_p, y_p, z_p) &
+            bind(c, name='cubedsphere2cart_codon')
+         import :: c_double, c_int64_t, c_ptr
          real(c_double), value :: cart_x_c, cart_y_c
          integer(c_int64_t), value :: face_no_c
-         type(c_ptr), value :: r_p, lon_p, lat_p
-       end subroutine projectpoint_codon
+         type(c_ptr), value :: x_p, y_p, z_p
+       end subroutine cubedsphere2cart_codon
     end interface
 
     impl_name = 'codon'
-    call cam_codon_get_impl('PROJECTPOINT_IMPL', impl_name, impl_n, impl_status)
+    call cam_codon_get_impl('CUBEDSPHERE2CART_IMPL', impl_name, impl_n, impl_status)
     if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native') then
        sphere = cart2spherical(TAN(cartin%x), TAN(cartin%y), face_no)
        cart = spherical_to_cart(sphere)
@@ -605,17 +605,16 @@ contains
        return
     end if
 
-    call projectpoint_codon(real(cartin%x, c_double), real(cartin%y, c_double), &
-         int(face_no, c_int64_t), c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
-    sphere%r = r_c
-    sphere%lon = lon_c
-    sphere%lat = lat_c
-
-    cart = spherical_to_cart(sphere)
+    call cubedsphere2cart_codon(real(cartin%x, c_double), real(cartin%y, c_double), &
+         int(face_no, c_int64_t), c_loc(x_c), c_loc(y_c), c_loc(z_c))
+    cart%x = x_c
+    cart%y = y_c
+    cart%z = z_c
     if (.not. proof_seen) then
-       write(iulog,*) 'cubedsphere2cart implementation = codon; spherical_to_cart native trig island'
+       write(iulog,*) 'cubedsphere2cart implementation = codon'
        proof_seen = .true.
     endif
+    return
 
   end function cubedsphere2cart
 

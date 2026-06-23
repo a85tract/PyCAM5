@@ -2709,3 +2709,7 @@ def biharmonic_wk_dp3d_codon(tag: int) -> int:
 @export
 def initmpi_codon(tag: int) -> int:
     return _misc.initmpi_codon(tag)
+
+@export
+def cubedsphere2cart_codon(cart_x: float, cart_y: float, face_no: int, x_p: cobj, y_p: cobj, z_p: cobj):
+    return _misc.cubedsphere2cart_codon(cart_x, cart_y, face_no, x_p, y_p, z_p)
