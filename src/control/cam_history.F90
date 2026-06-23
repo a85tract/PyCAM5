@@ -50,7 +50,7 @@ module cam_history
    use scamMod,             only: scmlon,single_column
    use perf_mod,            only: t_startf, t_stopf
    use cam_logfile,         only: iulog
-   use iso_c_binding,       only: c_int64_t
+   use iso_c_binding,       only: c_int64_t, c_loc, c_ptr
    use cam_pio_utils,       only: phys_decomp, dyn_decomp, dyn_stagger_decomp
    use cam_history_buffers, only : dim_index_3d,hbuf_accum_inst,                                         &
                                    hbuf_accum_add, hbuf_accum_min, hbuf_accum_max,                       &
@@ -336,6 +336,27 @@ module cam_history
 
 
 CONTAINS
+
+  logical function cam_history_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call cam_codon_get_impl(selector, impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       cam_history_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       cam_history_use_native = .false.
+    end if
+  end function cam_history_use_native
 
   subroutine init_masterlinkedlist()
 
@@ -2283,15 +2304,40 @@ CONTAINS
 ! Local workspace
 !
       integer :: n
+      integer(c_int64_t), target :: name_codes(len(name)), out_codes(max_fieldname_len)
+      logical, save :: strip_suffix_codon_logged = .false.
+      logical, save :: strip_suffix_native_logged = .false.
+      interface
+         subroutine strip_suffix_codon(name_p, name_len, out_p, out_len, field_len) &
+              bind(c, name='strip_suffix_codon')
+            import :: c_int64_t, c_ptr
+            type(c_ptr), value :: name_p, out_p
+            integer(c_int64_t), value :: name_len, out_len, field_len
+         end subroutine strip_suffix_codon
+      end interface
 !
 !-----------------------------------------------------------------------
 !
-#define CAM_MISC_TAG 308
-#define CAM_MISC_LABEL 'strip_suffix'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+      if (.not. cam_history_use_native('STRIP_SUFFIX_IMPL')) then
+         do n = 1, len(name)
+            name_codes(n) = int(iachar(name(n:n)), c_int64_t)
+         end do
+         call strip_suffix_codon(c_loc(name_codes(1)), int(len(name), c_int64_t), &
+              c_loc(out_codes(1)), int(max_fieldname_len, c_int64_t), int(fieldname_len, c_int64_t))
+         do n = 1, max_fieldname_len
+            strip_suffix(n:n) = achar(int(out_codes(n)))
+         end do
+         if (.not. strip_suffix_codon_logged) then
+            write(iulog,*) 'strip_suffix implementation = codon'
+            strip_suffix_codon_logged = .true.
+         endif
+         return
+      endif
+
+      if (.not. strip_suffix_native_logged) then
+         write(iulog,*) 'strip_suffix implementation = native'
+         strip_suffix_native_logged = .true.
+      endif
 
       strip_suffix = ' '
 
@@ -2712,13 +2758,45 @@ CONTAINS
 !
       character(len=fieldname_len) :: listname    ! input name with ":" stripped off.
       integer f                       ! field index
+      integer :: i, list_len, list_pos
+      integer(c_int64_t), target :: list_codes(len(list(1))*pflds), name_codes(len(name))
+      logical, save :: list_index_codon_logged = .false.
+      logical, save :: list_index_native_logged = .false.
+      interface
+         function list_index_codon(list_p, list_len, name_p, name_len, pflds_in, field_len) result(idx) &
+              bind(c, name='list_index_codon')
+            import :: c_int64_t, c_ptr
+            type(c_ptr), value :: list_p, name_p
+            integer(c_int64_t), value :: list_len, name_len, pflds_in, field_len
+            integer(c_int64_t) :: idx
+         end function list_index_codon
+      end interface
 
-#define CAM_MISC_TAG 310
-#define CAM_MISC_LABEL 'list_index'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+      if (.not. cam_history_use_native('LIST_INDEX_IMPL')) then
+         list_len = len(list(1))
+         do f = 1, pflds
+            do i = 1, list_len
+               list_pos = (f - 1)*list_len + i
+               list_codes(list_pos) = int(iachar(list(f)(i:i)), c_int64_t)
+            end do
+         end do
+         do i = 1, len(name)
+            name_codes(i) = int(iachar(name(i:i)), c_int64_t)
+         end do
+         index = int(list_index_codon(c_loc(list_codes(1)), int(list_len, c_int64_t), &
+              c_loc(name_codes(1)), int(len(name), c_int64_t), int(pflds, c_int64_t), &
+              int(fieldname_len, c_int64_t)))
+         if (.not. list_index_codon_logged) then
+            write(iulog,*) 'list_index implementation = codon'
+            list_index_codon_logged = .true.
+         endif
+         return
+      endif
+
+      if (.not. list_index_native_logged) then
+         write(iulog,*) 'list_index implementation = native'
+         list_index_native_logged = .true.
+      endif
 
       index = 0
       do f=1,pflds
@@ -3127,13 +3205,40 @@ CONTAINS
 ! Arguments
 !
       integer, intent(in), optional :: file_index ! index of file in question
+      integer :: i, file_index_local
+      integer(c_int64_t), target :: inithist_codes(len(inithist))
+      logical, save :: is_initfile_codon_logged = .false.
+      logical, save :: is_initfile_native_logged = .false.
+      interface
+         function is_initfile_codon(inithist_p, inithist_len, has_file, file_index_in, ptapes_in) result(flag) &
+              bind(c, name='is_initfile_codon')
+            import :: c_int64_t, c_ptr
+            type(c_ptr), value :: inithist_p
+            integer(c_int64_t), value :: inithist_len, has_file, file_index_in, ptapes_in
+            integer(c_int64_t) :: flag
+         end function is_initfile_codon
+      end interface
 
-#define CAM_MISC_TAG 313
-#define CAM_MISC_LABEL 'is_initfile'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+      if (.not. cam_history_use_native('IS_INITFILE_IMPL')) then
+         do i = 1, len(inithist)
+            inithist_codes(i) = int(iachar(inithist(i:i)), c_int64_t)
+         end do
+         file_index_local = 0
+         if (present(file_index)) file_index_local = file_index
+         is_initfile = (is_initfile_codon(c_loc(inithist_codes(1)), int(len(inithist), c_int64_t), &
+              merge(1_c_int64_t, 0_c_int64_t, present(file_index)), int(file_index_local, c_int64_t), &
+              int(ptapes, c_int64_t)) /= 0_c_int64_t)
+         if (.not. is_initfile_codon_logged) then
+            write(iulog,*) 'is_initfile implementation = codon'
+            is_initfile_codon_logged = .true.
+         endif
+         return
+      endif
+
+      if (.not. is_initfile_native_logged) then
+         write(iulog,*) 'is_initfile implementation = native'
+         is_initfile_native_logged = .true.
+      endif
 
       is_initfile = .false.
 
@@ -5445,13 +5550,34 @@ CONTAINS
 !
    integer :: hash
    integer :: i
+   integer(c_int64_t), target :: string_codes(len(string))
+   logical, save :: gen_hash_key_codon_logged = .false.
+   logical, save :: gen_hash_key_native_logged = .false.
+   interface
+      function gen_hash_key_codon(string_p, string_len) result(hash_out) bind(c, name='gen_hash_key_codon')
+         import :: c_int64_t, c_ptr
+         type(c_ptr), value :: string_p
+         integer(c_int64_t), value :: string_len
+         integer(c_int64_t) :: hash_out
+      end function gen_hash_key_codon
+   end interface
 
-#define CAM_MISC_TAG 322
-#define CAM_MISC_LABEL 'gen_hash_key'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   if (.not. cam_history_use_native('GEN_HASH_KEY_IMPL')) then
+      do i = 1, len(string)
+         string_codes(i) = int(iachar(string(i:i)), c_int64_t)
+      end do
+      gen_hash_key = int(gen_hash_key_codon(c_loc(string_codes(1)), int(len(string), c_int64_t)))
+      if (.not. gen_hash_key_codon_logged) then
+         write(iulog,*) 'gen_hash_key implementation = codon'
+         gen_hash_key_codon_logged = .true.
+      endif
+      return
+   endif
+
+   if (.not. gen_hash_key_native_logged) then
+      write(iulog,*) 'gen_hash_key implementation = native'
+      gen_hash_key_native_logged = .true.
+   endif
 
    hash = gen_hash_key_offset
 

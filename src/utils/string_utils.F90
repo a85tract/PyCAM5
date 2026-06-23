@@ -1,6 +1,6 @@
 module string_utils
 
-   use iso_c_binding, only: c_int64_t
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
    use cam_logfile,   only: iulog
 
    implicit none
@@ -26,6 +26,27 @@ subroutine string_utils_misc_touch()
 #undef CAM_MISC_TAG
 end subroutine string_utils_misc_touch
 
+logical function string_utils_use_native(selector)
+   character(len=*), intent(in) :: selector
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   impl_name = 'codon'
+   call cam_codon_get_impl(selector, impl_name, n, status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      string_utils_use_native = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      string_utils_use_native = .false.
+   end if
+end function string_utils_use_native
+
 function to_upper(str)
 
 !----------------------------------------------------------------------- 
@@ -50,13 +71,36 @@ function to_upper(str)
    integer :: aseq             ! ascii collating sequence
    integer :: lower_to_upper   ! integer to convert case
    character(len=1) :: ctmp    ! Character temporary
+   integer(c_int64_t), target :: in_codes(len(str)), out_codes(len(str))
+   logical, save :: to_upper_codon_logged = .false.
+   logical, save :: to_upper_native_logged = .false.
+   interface
+      subroutine to_upper_codon(in_p, out_p, n) bind(c, name='to_upper_codon')
+         import :: c_int64_t, c_ptr
+         type(c_ptr), value :: in_p, out_p
+         integer(c_int64_t), value :: n
+      end subroutine to_upper_codon
+   end interface
 !-----------------------------------------------------------------------
-#define CAM_MISC_TAG 335
-#define CAM_MISC_LABEL 'to_upper'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   if (.not. string_utils_use_native('TO_UPPER_IMPL')) then
+      do i = 1, len(str)
+         in_codes(i) = int(iachar(str(i:i)), c_int64_t)
+      end do
+      call to_upper_codon(c_loc(in_codes(1)), c_loc(out_codes(1)), int(len(str), c_int64_t))
+      do i = 1, len(str)
+         to_upper(i:i) = achar(int(out_codes(i)))
+      end do
+      if (.not. to_upper_codon_logged) then
+         write(iulog,*) 'to_upper implementation = codon'
+         to_upper_codon_logged = .true.
+      endif
+      return
+   endif
+
+   if (.not. to_upper_native_logged) then
+      write(iulog,*) 'to_upper implementation = native'
+      to_upper_native_logged = .true.
+   endif
 
    lower_to_upper = iachar("A") - iachar("a")
 
@@ -94,13 +138,36 @@ function to_lower(str)
    integer :: aseq             ! ascii collating sequence
    integer :: upper_to_lower   ! integer to convert case
    character(len=1) :: ctmp    ! Character temporary
+   integer(c_int64_t), target :: in_codes(len(str)), out_codes(len(str))
+   logical, save :: to_lower_codon_logged = .false.
+   logical, save :: to_lower_native_logged = .false.
+   interface
+      subroutine to_lower_codon(in_p, out_p, n) bind(c, name='to_lower_codon')
+         import :: c_int64_t, c_ptr
+         type(c_ptr), value :: in_p, out_p
+         integer(c_int64_t), value :: n
+      end subroutine to_lower_codon
+   end interface
 !-----------------------------------------------------------------------
-#define CAM_MISC_TAG 336
-#define CAM_MISC_LABEL 'to_lower'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   if (.not. string_utils_use_native('TO_LOWER_IMPL')) then
+      do i = 1, len(str)
+         in_codes(i) = int(iachar(str(i:i)), c_int64_t)
+      end do
+      call to_lower_codon(c_loc(in_codes(1)), c_loc(out_codes(1)), int(len(str), c_int64_t))
+      do i = 1, len(str)
+         to_lower(i:i) = achar(int(out_codes(i)))
+      end do
+      if (.not. to_lower_codon_logged) then
+         write(iulog,*) 'to_lower implementation = codon'
+         to_lower_codon_logged = .true.
+      endif
+      return
+   endif
+
+   if (.not. to_lower_native_logged) then
+      write(iulog,*) 'to_lower implementation = native'
+      to_lower_native_logged = .true.
+   endif
 
    upper_to_lower = iachar("a") - iachar("A")
 
@@ -250,13 +317,34 @@ integer function GLC( cs )
   ! 	... Local variables
   !-----------------------------------------------------------------------
   integer :: l, n
+  integer(c_int64_t), target :: cs_codes(len(cs))
+  logical, save :: glc_codon_logged = .false.
+  logical, save :: glc_native_logged = .false.
+  interface
+     function glc_codon(chars_p, n) result(last_pos) bind(c, name='glc_codon')
+        import :: c_int64_t, c_ptr
+        type(c_ptr), value :: chars_p
+        integer(c_int64_t), value :: n
+        integer(c_int64_t) :: last_pos
+     end function glc_codon
+  end interface
 
-#define CAM_MISC_TAG 337
-#define CAM_MISC_LABEL 'glc'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+  if (.not. string_utils_use_native('GLC_IMPL')) then
+     do n = 1, len(cs)
+        cs_codes(n) = int(iachar(cs(n:n)), c_int64_t)
+     end do
+     GLC = int(glc_codon(c_loc(cs_codes(1)), int(len(cs), c_int64_t)))
+     if (.not. glc_codon_logged) then
+        write(iulog,*) 'glc implementation = codon'
+        glc_codon_logged = .true.
+     endif
+     return
+  endif
+
+  if (.not. glc_native_logged) then
+     write(iulog,*) 'glc implementation = native'
+     glc_native_logged = .true.
+  endif
 
   l = LEN( cs )
   if( l == 0 ) then

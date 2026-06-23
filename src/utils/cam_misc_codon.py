@@ -8,6 +8,187 @@ def cam_misc_touch_codon(tag: int) -> int:
 
 
 @inline
+def _cam_char_is_none(chars: Ptr[int], n: int) -> int:
+    if n < 4:
+        return 0
+    if chars[0] != 78 or chars[1] != 79 or chars[2] != 78 or chars[3] != 69:
+        return 0
+    for i in range(4, n):
+        if chars[i] != 32:
+            return 0
+    return 1
+
+
+@inline
+def _cam_blank_fill(out: Ptr[int], n: int):
+    for i in range(n):
+        out[i] = 32
+
+
+@export
+def glc_codon(chars_p: cobj, n: int) -> int:
+    chars = Ptr[int](chars_p)
+    if n == 0:
+        return 0
+    for i in range(n - 1, -1, -1):
+        if chars[i] != 32 and chars[i] != 0:
+            return i + 1
+    return 0
+
+
+@export
+def to_upper_codon(in_p: cobj, out_p: cobj, n: int):
+    inp = Ptr[int](in_p)
+    out = Ptr[int](out_p)
+    for i in range(n):
+        ch = inp[i]
+        if ch >= 97 and ch <= 122:
+            ch -= 32
+        out[i] = ch
+
+
+@export
+def to_lower_codon(in_p: cobj, out_p: cobj, n: int):
+    inp = Ptr[int](in_p)
+    out = Ptr[int](out_p)
+    for i in range(n):
+        ch = inp[i]
+        if ch >= 65 and ch <= 90:
+            ch += 32
+        out[i] = ch
+
+
+@export
+def strip_suffix_codon(name_p: cobj, name_len: int, out_p: cobj, out_len: int, field_len: int):
+    name = Ptr[int](name_p)
+    out = Ptr[int](out_p)
+    _cam_blank_fill(out, out_len)
+    limit = field_len
+    if limit > out_len:
+        limit = out_len
+
+    for i in range(limit):
+        out[i] = name[i] if i < name_len else 32
+        next_i = i + 1
+        if next_i >= name_len:
+            return
+        if name[next_i] == 32:
+            return
+        if next_i + 2 < name_len and name[next_i] == 38 and name[next_i + 1] == 73 and name[next_i + 2] == 67:
+            return
+
+    for i in range(field_len, out_len):
+        out[i] = name[i] if i < name_len else 32
+
+
+@export
+def is_initfile_codon(inithist_p: cobj, inithist_len: int, has_file: int, file_index: int, ptapes: int) -> int:
+    inithist = Ptr[int](inithist_p)
+    if _cam_char_is_none(inithist, inithist_len) != 0:
+        return 0
+    if has_file != 0:
+        return 1 if file_index == ptapes else 0
+    return 1
+
+
+@export
+def gen_hash_key_codon(chars_p: cobj, n: int) -> int:
+    chars = Ptr[int](chars_p)
+    keys = (61, 59, 53, 47, 43, 41, 37, 31, 29, 23, 17, 13, 11, 7, 3, 1)
+    hash_value = 0x000053DB
+    if n != 19:
+        for i in range(n):
+            hash_value = hash_value ^ (chars[i] * keys[i & 15])
+    else:
+        hash_value = hash_value ^ (chars[0] * 61)
+        hash_value = hash_value ^ (chars[1] * 59)
+        hash_value = hash_value ^ (chars[2] * 53)
+        hash_value = hash_value ^ (chars[3] * 47)
+        hash_value = hash_value ^ (chars[4] * 43)
+        hash_value = hash_value ^ (chars[5] * 41)
+        hash_value = hash_value ^ (chars[6] * 37)
+        hash_value = hash_value ^ (chars[7] * 31)
+        hash_value = hash_value ^ (chars[8] * 29)
+        hash_value = hash_value ^ (chars[9] * 23)
+        hash_value = hash_value ^ (chars[10] * 17)
+        hash_value = hash_value ^ (chars[11] * 13)
+        hash_value = hash_value ^ (chars[12] * 11)
+        hash_value = hash_value ^ (chars[13] * 7)
+        hash_value = hash_value ^ (chars[14] * 3)
+        hash_value = hash_value ^ chars[15]
+        hash_value = hash_value ^ (chars[16] * 61)
+        hash_value = hash_value ^ (chars[17] * 59)
+        hash_value = hash_value ^ (chars[18] * 53)
+    return hash_value & 65535
+
+
+@inline
+def _cam_list_name_is_blank(list_chars: Ptr[int], offset: int, field_len: int) -> int:
+    for i in range(field_len):
+        ch = list_chars[offset + i]
+        if ch == 58:
+            return 1
+        if ch != 32:
+            return 0
+    return 1
+
+
+@inline
+def _cam_list_name_matches(list_chars: Ptr[int], offset: int, name: Ptr[int], name_len: int, field_len: int) -> int:
+    for i in range(field_len):
+        list_ch = list_chars[offset + i]
+        if list_ch == 58:
+            list_ch = 32
+        name_ch = name[i] if i < name_len else 32
+        if list_ch != name_ch:
+            return 0
+        if list_chars[offset + i] == 58:
+            for j in range(i + 1, field_len):
+                name_tail = name[j] if j < name_len else 32
+                if name_tail != 32:
+                    return 0
+            return 1
+    for i in range(field_len, name_len):
+        if name[i] != 32:
+            return 0
+    return 1
+
+
+@export
+def list_index_codon(list_p: cobj, list_len: int, name_p: cobj, name_len: int, pflds: int, field_len: int) -> int:
+    list_chars = Ptr[int](list_p)
+    name = Ptr[int](name_p)
+    for f in range(pflds):
+        offset = f * list_len
+        if _cam_list_name_is_blank(list_chars, offset, field_len) != 0:
+            return 0
+        if _cam_list_name_matches(list_chars, offset, name, name_len, field_len) != 0:
+            return f + 1
+    return 0
+
+
+@export
+def date2yyyymmdd_codon(date: int, out_p: cobj) -> int:
+    if date < 0:
+        return 0
+    out = Ptr[int](out_p)
+    year = date // 10000
+    month = (date - year * 10000) // 100
+    day = date - year * 10000 - month * 100
+    out[0] = 48 + (year // 1000) % 10
+    out[1] = 48 + (year // 100) % 10
+    out[2] = 48 + (year // 10) % 10
+    out[3] = 48 + year % 10
+    out[4] = 45
+    out[5] = 48 + (month // 10) % 10
+    out[6] = 48 + month % 10
+    out[7] = 45
+    out[8] = 48 + (day // 10) % 10
+    out[9] = 48 + day % 10
+    return 1
+
+
+@inline
 def _write_two_digits(out: Ptr[int], off: int, value: int):
     out[off] = 48 + value // 10
     out[off + 1] = 48 + value % 10

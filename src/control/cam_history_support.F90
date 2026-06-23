@@ -1,6 +1,6 @@
 module cam_history_support
   use shr_kind_mod,     only: r8=>shr_kind_r8, i8=>shr_kind_i8, shr_kind_cl
-  use iso_c_binding,    only: c_int64_t
+  use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
   use pio,              only: var_desc_t, file_desc_t
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
@@ -226,6 +226,27 @@ module cam_history_support
 
 
 contains
+
+  logical function cam_history_support_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call cam_codon_get_impl(selector, impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      cam_history_support_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      cam_history_support_use_native = .false.
+    end if
+  end function cam_history_support_use_native
 
 
   subroutine field_copy(f_out, f_in)
@@ -1321,13 +1342,37 @@ contains
     integer :: year    ! year of yyyy-mm-dd
     integer :: month   ! month of yyyy-mm-dd
     integer :: day     ! day of yyyy-mm-dd
+    integer :: i
+    integer(c_int64_t), target :: out_codes(10)
+    logical, save :: date2yyyymmdd_codon_logged = .false.
+    logical, save :: date2yyyymmdd_native_logged = .false.
+    interface
+      function date2yyyymmdd_codon(date_in, out_p) result(ok) bind(c, name='date2yyyymmdd_codon')
+        import :: c_int64_t, c_ptr
+        integer(c_int64_t), value :: date_in
+        type(c_ptr), value :: out_p
+        integer(c_int64_t) :: ok
+      end function date2yyyymmdd_codon
+    end interface
 
-#define CAM_MISC_TAG 344
-#define CAM_MISC_LABEL 'date2yyyymmdd'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+    if (.not. cam_history_support_use_native('DATE2YYYYMMDD_IMPL')) then
+      if (date2yyyymmdd_codon(int(date, c_int64_t), c_loc(out_codes(1))) == 0_c_int64_t) then
+        call endrun ('DATE2YYYYMMDD: negative date not allowed')
+      end if
+      do i = 1, 10
+        date2yyyymmdd(i:i) = achar(int(out_codes(i)))
+      end do
+      if (.not. date2yyyymmdd_codon_logged) then
+        write(iulog,*) 'date2yyyymmdd implementation = codon'
+        date2yyyymmdd_codon_logged = .true.
+      endif
+      return
+    endif
+
+    if (.not. date2yyyymmdd_native_logged) then
+      write(iulog,*) 'date2yyyymmdd implementation = native'
+      date2yyyymmdd_native_logged = .true.
+    endif
 
     if (date < 0) then
       call endrun ('DATE2YYYYMMDD: negative date not allowed')
