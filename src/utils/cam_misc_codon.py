@@ -7,6 +7,226 @@ def cam_misc_touch_codon(tag: int) -> int:
     return tag
 
 
+@export
+def get_hist_restart_filepath_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_ptapes_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def init_masterlinkedlist_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def hist_fld_active_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def add_entry_to_master_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_entry_by_name_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def restartvar_getdesc_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def restart_dims_setnames_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def atm_final_mct_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def atm_setgsmap_mct_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def atm_write_srfrest_mct_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def getunit_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def freeunit_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def restart_defaultopts_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def restart_printopts_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_rest_pfile_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def init_pio_subsystem_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def cam_pio_openfile_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def cam_pio_createfile_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_phys_decomp_md1d_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def clean_iodesc_list_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def find_iodesc_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_decomp_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_restart_hycoef_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def init_restart_hycoef_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def hycoef_read_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_hist_coord_index_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def add_vert_coord_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_hist_coord_vars_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_hist_coord_attrs_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def initial_conds_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def allocate_coords_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def finalize_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_curr_time_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def timevars_set_names_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def timemgr_init_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_curr_date_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def set_time_float_from_date_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_curr_calday_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def initialize_clock_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def bldfld_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def opnfil_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def hub2atm_deallocate_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def spmd_utils_readnl_codon(tag: int) -> int:
+    return tag
+
+
 @inline
 def _cam_char_is_none(chars: Ptr[int], n: int) -> int:
     if n < 4:

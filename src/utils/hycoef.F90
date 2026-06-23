@@ -243,15 +243,37 @@ subroutine init_restart_hycoef(File, vdimids)
    ! PIO traps errors internally, no need to check ierr
 
    integer :: ierr
-
 #define CAM_MISC_TAG 341
 #define CAM_MISC_LABEL 'init_restart_hycoef'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function init_restart_hycoef_codon(tag) result(tag_out) bind(c, name='init_restart_hycoef_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function init_restart_hycoef_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = init_restart_hycoef_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   ierr = PIO_Def_Dim(File, 'lev',  plev,  vdimids(1))
+ierr = PIO_Def_Dim(File, 'lev',  plev,  vdimids(1))
    ierr = PIO_Def_Dim(File, 'ilev', plevp, vdimids(2))
     
    ierr = pio_def_var(File, 'hyai', pio_double, vdimids(2:2), hyai_desc)
@@ -270,15 +292,37 @@ subroutine write_restart_hycoef(file)
    ! PIO traps errors internally, no need to check ierr
 
    integer :: ierr
-
 #define CAM_MISC_TAG 342
 #define CAM_MISC_LABEL 'write_restart_hycoef'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function write_restart_hycoef_codon(tag) result(tag_out) bind(c, name='write_restart_hycoef_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function write_restart_hycoef_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = write_restart_hycoef_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-    
-   ierr = pio_put_var(File, hyai_desc, hyai)
+ierr = pio_put_var(File, hyai_desc, hyai)
    ierr = pio_put_var(File, hyam_desc, hyam)
    ierr = pio_put_var(File, hybi_desc, hybi)
    ierr = pio_put_var(File, hybm_desc, hybm)
@@ -295,15 +339,37 @@ subroutine hycoef_read(File)
 
    integer :: flev, filev, lev_dimid, ierr
    character(len=*), parameter :: routine = 'hycoef_read'
-
 #define CAM_MISC_TAG 334
 #define CAM_MISC_LABEL 'hycoef_read'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function hycoef_read_codon(tag) result(tag_out) bind(c, name='hycoef_read_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function hycoef_read_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = hycoef_read_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   ! PIO traps errors internally, no need to check ierr
+! PIO traps errors internally, no need to check ierr
 
    ierr = PIO_Inq_DimID(File, 'lev', lev_dimid)
    ierr = PIO_Inq_dimlen(File, lev_dimid, flev)

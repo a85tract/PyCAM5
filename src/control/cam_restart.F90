@@ -81,15 +81,37 @@ subroutine restart_defaultopts( &
 
   character(len=nlen), intent(out), optional :: cam_branch_file_out
   !-----------------------------------------------------------------------
-
 #define CAM_MISC_TAG 350
 #define CAM_MISC_LABEL 'restart_defaultopts'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function restart_defaultopts_codon(tag) result(tag_out) bind(c, name='restart_defaultopts_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function restart_defaultopts_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = restart_defaultopts_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-  if ( present(cam_branch_file_out) ) then
+if ( present(cam_branch_file_out) ) then
      cam_branch_file_out = cam_branch_file
   endif
 
@@ -148,15 +170,37 @@ end subroutine restart_setopts
 !=========================================================================================
 
 subroutine restart_printopts
-
 #define CAM_MISC_TAG 352
 #define CAM_MISC_LABEL 'restart_printopts'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function restart_printopts_codon(tag) result(tag_out) bind(c, name='restart_printopts_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function restart_printopts_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = restart_printopts_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   write(iulog,*)'Summary of restart module options:'
+write(iulog,*)'Summary of restart module options:'
    write(iulog,*)'  Restart pointer file is: ',trim(rest_pfile)
    if (lbrnch) then
       write(iulog,*)'  Branch run will start from: ',trim(cam_branch_file)
@@ -461,15 +505,37 @@ end subroutine restart_printopts
 !-----------------------------------------------------------------------
    integer t      ! Tape number
    integer mtapes ! Number of tapes that are active
-
 #define CAM_MISC_TAG 384
 #define CAM_MISC_LABEL 'write_rest_pfile'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function write_rest_pfile_codon(tag) result(tag_out) bind(c, name='write_rest_pfile_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function write_rest_pfile_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = write_rest_pfile_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   if ( nsds == -1 ) nsds = getunit()
+if ( nsds == -1 ) nsds = getunit()
    call opnfil(rest_pfile, nsds, 'f')
    rewind nsds
    write (nsds,'(a)') trim(pname)

@@ -1063,6 +1063,30 @@ def se_misc_touch_codon(
     )
 
 @export
+def dyn_grid_init_codon(tag: int) -> int:
+    return _misc.dyn_grid_init_codon(tag)
+
+@export
+def get_resolution_codon(tag: int) -> int:
+    return _misc.get_resolution_codon(tag)
+
+@export
+def nctopo_util_driver_codon(tag: int) -> int:
+    return _misc.nctopo_util_driver_codon(tag)
+
+@export
+def diffusion_init_codon(tag: int) -> int:
+    return _misc.diffusion_init_codon(tag)
+
+@export
+def prim_printstate_init_codon(tag: int) -> int:
+    return _misc.prim_printstate_init_codon(tag)
+
+@export
+def setup_history_interpolation_codon(tag: int) -> int:
+    return _misc.setup_history_interpolation_codon(tag)
+
+@export
 def mass_matrix_vgrid_init_codon(np: int, mp_p: cobj, rmp_p: cobj, weights_p: cobj):
     return _misc.mass_matrix_vgrid_init_codon(np, mp_p, rmp_p, weights_p)
 

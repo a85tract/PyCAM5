@@ -52,15 +52,37 @@ contains
     use shr_pio_mod,   only: shr_pio_getiosys, shr_pio_getiotype, shr_pio_getioformat
     use cam_instance, only: atm_id
     character(len=*) nlfilename
-
 #define CAM_MISC_TAG 240
 #define CAM_MISC_LABEL 'init_pio_subsystem'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function init_pio_subsystem_codon(tag) result(tag_out) bind(c, name='init_pio_subsystem_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function init_pio_subsystem_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = init_pio_subsystem_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    pio_subsystem => shr_pio_getiosys(atm_id)
+pio_subsystem => shr_pio_getiosys(atm_id)
     pio_iotype =  shr_pio_getiotype(atm_id)
     pio_ioformat =  shr_pio_getioformat(atm_id)
     
@@ -81,15 +103,37 @@ contains
 
     integer :: hdim1_d, hdim2_d
     integer :: mdims(8), mdimcnt, i
-
 #define CAM_MISC_TAG 391
 #define CAM_MISC_LABEL 'get_decomp'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function get_decomp_codon(tag) result(tag_out) bind(c, name='get_decomp_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_decomp_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_decomp_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    if(present(numlev_in)) then
+if(present(numlev_in)) then
        mdimcnt=1
        mdims(1)=numlev_in
     else if(associated(field%mdims)) then
@@ -141,15 +185,37 @@ contains
     character(len=3),optional, intent(in) :: fileorder_in
     integer, intent(in) :: dtype
     character(len=3) :: fileorder
-
 #define CAM_MISC_TAG 392
 #define CAM_MISC_LABEL 'get_phys_decomp_md1d'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function get_phys_decomp_md1d_codon(tag) result(tag_out) bind(c, name='get_phys_decomp_md1d_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_phys_decomp_md1d_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_phys_decomp_md1d_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    if(present(fileorder_in)) then
+if(present(fileorder_in)) then
        fileorder=fileorder_in
     else
        fileorder='xyz'
@@ -295,15 +361,37 @@ contains
     integer :: i
     integer(i8) :: tag, j
     integer :: multiplier = 1000
-
 #define CAM_MISC_TAG 342
 #define CAM_MISC_LABEL 'find_iodesc'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function find_iodesc_codon(tag) result(tag_out) bind(c, name='find_iodesc_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function find_iodesc_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = find_iodesc_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    found = .false.
+found = .false.
     this => iodesc_list_top
 
     if(dycore_is('UNSTRUCTURED')) multiplier = 10000
@@ -347,15 +435,37 @@ contains
 
   subroutine clean_iodesc_list()
     type(iodesc_list), pointer :: this, prev
-
 #define CAM_MISC_TAG 241
 #define CAM_MISC_LABEL 'clean_iodesc_list'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function clean_iodesc_list_codon(tag) result(tag_out) bind(c, name='clean_iodesc_list_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function clean_iodesc_list_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = clean_iodesc_list_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    if(associated(iodesc_list_top%iodesc)) then
+if(associated(iodesc_list_top%iodesc)) then
 
        this => iodesc_list_top
        iodesc_list_top%tag = -1
@@ -652,15 +762,37 @@ contains
     logical, optional, intent(in) :: is_init
 
     integer :: ierr
-
 #define CAM_MISC_TAG 344
 #define CAM_MISC_LABEL 'cam_pio_openfile'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function cam_pio_openfile_codon(tag) result(tag_out) bind(c, name='cam_pio_openfile_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function cam_pio_openfile_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = cam_pio_openfile_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    ierr = pio_openfile(pio_subsystem, file, pio_iotype, fname, mode)
+ierr = pio_openfile(pio_subsystem, file, pio_iotype, fname, mode)
 
     if(ierr/= PIO_NOERR) then
        call endrun('Failed to open file: '//trim(fname))
@@ -680,15 +812,37 @@ contains
     integer, intent(in) :: mode
     integer :: ierr
     integer :: lmode
-
 #define CAM_MISC_TAG 345
 #define CAM_MISC_LABEL 'cam_pio_createfile'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function cam_pio_createfile_codon(tag) result(tag_out) bind(c, name='cam_pio_createfile_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function cam_pio_createfile_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = cam_pio_createfile_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    lmode = ior(mode, pio_ioformat)
+lmode = ior(mode, pio_ioformat)
     ierr = pio_createfile(pio_subsystem, file, pio_iotype, fname, lmode)
 
     if(ierr/= PIO_NOERR) then

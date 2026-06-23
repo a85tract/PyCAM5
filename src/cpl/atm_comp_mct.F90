@@ -601,15 +601,37 @@ CONTAINS
     type(seq_cdata)             ,intent(inout) :: cdata_a
     type(mct_aVect)             ,intent(inout) :: x2a_a
     type(mct_aVect)             ,intent(inout) :: a2x_a
-
 #define CAM_MISC_TAG 338
 #define CAM_MISC_LABEL 'atm_final_mct'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function atm_final_mct_codon(tag) result(tag_out) bind(c, name='atm_final_mct_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function atm_final_mct_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = atm_final_mct_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    call cam_final( cam_out, cam_in )
+call cam_final( cam_out, cam_in )
 
   end subroutine atm_final_mct
 
@@ -632,15 +654,37 @@ CONTAINS
     integer :: i, n, c, ncols, sizebuf, nlcols
     integer :: ier            ! error status
     !-------------------------------------------------------------------
-
 #define CAM_MISC_TAG 394
 #define CAM_MISC_LABEL 'atm_setgsmap_mct'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function atm_setgsmap_mct_codon(tag) result(tag_out) bind(c, name='atm_setgsmap_mct_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function atm_setgsmap_mct_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = atm_setgsmap_mct_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    ! Build the atmosphere grid numbering for MCT
+! Build the atmosphere grid numbering for MCT
     ! NOTE:  Numbering scheme is: West to East and South to North
     ! starting at south pole.  Should be the same as what's used in SCRIP
     
@@ -884,15 +928,37 @@ CONTAINS
     character(CL)             :: itemc       ! string converted to char
     type(mct_string)          :: mstring     ! mct char type
     !-----------------------------------------------------------------------
-
 #define CAM_MISC_TAG 397
 #define CAM_MISC_LABEL 'atm_write_srfrest_mct'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function atm_write_srfrest_mct_codon(tag) result(tag_out) bind(c, name='atm_write_srfrest_mct_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function atm_write_srfrest_mct_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = atm_write_srfrest_mct_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-    ! Determine and open surface restart dataset
+! Determine and open surface restart dataset
 
     fname_srf_cam = interpret_filename_spec( rsfilename_spec_cam, &
          yr_spec=yr_spec, mon_spec=mon_spec, day_spec=day_spec, sec_spec= sec_spec )

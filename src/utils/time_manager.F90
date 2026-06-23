@@ -160,14 +160,36 @@ subroutine timemgr_init( calendar_in, start_ymd, start_tod, ref_ymd, &
    type(ESMF_Time) :: curr_date             ! temporary date used in logic
    type(ESMF_Time) :: ref_date              ! reference date for time coordinate
 !----------------------------------------------------------------------------------------
-
 #define CAM_MISC_TAG 262
 #define CAM_MISC_LABEL 'timemgr_init'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function timemgr_init_codon(tag) result(tag_out) bind(c, name='timemgr_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function timemgr_init_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = timemgr_init_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
 ! Initalize calendar type.
 
    calendar = trim(calendar_in)
@@ -226,15 +248,37 @@ subroutine initialize_clock( start_date, ref_date, curr_date, stop_date )
    type(ESMF_Time) :: current     ! current date (from clock)
    integer :: yr, mon, day, tod   ! Year, month, day, and second as integers
    integer :: rc                  ! return code
-
 #define CAM_MISC_TAG 263
 #define CAM_MISC_LABEL 'initialize_clock'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function initialize_clock_codon(tag) result(tag_out) bind(c, name='initialize_clock_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function initialize_clock_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = initialize_clock_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   if ( mod(86400,dtime) /= 0 ) then
+if ( mod(86400,dtime) /= 0 ) then
 !!!!      call endrun (sub//': timestep must divide evenly into 1 day')
    end if
 
@@ -361,15 +405,37 @@ subroutine set_time_float_from_date( time, year, month, day, sec )
   type(ESMF_Time) :: date, ref_date
   type(ESMF_TimeInterval) :: diff
   integer :: useday
-
 #define CAM_MISC_TAG 385
 #define CAM_MISC_LABEL 'set_time_float_from_date'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function set_time_float_from_date_codon(tag) result(tag_out) bind(c, name='set_time_float_from_date_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function set_time_float_from_date_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = set_time_float_from_date_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-  call ESMF_TimeSet( date, yy=year, mm=month, dd=day, s=sec, calendar=tm_cal, rc=rc)
+call ESMF_TimeSet( date, yy=year, mm=month, dd=day, s=sec, calendar=tm_cal, rc=rc)
   !
   ! If the subroutine returned error, check if it is Feb 29 of a non-leap year
   ! (legitimately used by the time-interpolation routines in tracer_data.F90)
@@ -958,15 +1024,37 @@ subroutine get_curr_date(yr, mon, day, tod, offset)
    type(ESMF_Time) :: date
    type(ESMF_TimeInterval) :: off
 !-----------------------------------------------------------------------------------------
-
 #define CAM_MISC_TAG 264
 #define CAM_MISC_LABEL 'get_curr_date'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function get_curr_date_codon(tag) result(tag_out) bind(c, name='get_curr_date_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_curr_date_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_curr_date_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
+call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
 
    if (present(offset)) then
@@ -1161,15 +1249,37 @@ subroutine get_curr_time(days, seconds)
    type(ESMF_Time) :: cdate, rdate
    type(ESMF_TimeInterval) :: diff
 !-----------------------------------------------------------------------------------------
-
 #define CAM_MISC_TAG 265
 #define CAM_MISC_LABEL 'get_curr_time'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function get_curr_time_codon(tag) result(tag_out) bind(c, name='get_curr_time_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_curr_time_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_curr_time_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   call ESMF_ClockGet( tm_clock, currTime=cdate, rc=rc )
+call ESMF_ClockGet( tm_clock, currTime=cdate, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
 
    call ESMF_ClockGet( tm_clock, refTime=rdate, rc=rc )
@@ -1230,15 +1340,37 @@ function get_curr_calday(offset)
    type(ESMF_TimeInterval) :: off, diurnal
    integer :: year, month, day, tod
 !-----------------------------------------------------------------------------------------
-
 #define CAM_MISC_TAG 348
 #define CAM_MISC_LABEL 'get_curr_calday'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function get_curr_calday_codon(tag) result(tag_out) bind(c, name='get_curr_calday_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function get_curr_calday_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = get_curr_calday_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-   call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
+call ESMF_ClockGet( tm_clock, currTime=date, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')
 
    if (present(offset)) then
@@ -1845,12 +1977,35 @@ end subroutine timemgr_read_restart
 subroutine timevars_set_names()
 #define CAM_MISC_TAG 388
 #define CAM_MISC_LABEL 'timevars_set_names'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
+    interface
+       function timevars_set_names_codon(tag) result(tag_out) bind(c, name='timevars_set_names_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function timevars_set_names_codon
+    end interface
+
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    integer(c_int64_t) :: rt_codon_tag_out
+    logical, save :: rt_codon_proof_seen = .false.
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('CAM_MISC_HELPERS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. rt_codon_proof_seen .and. &
+         .not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       rt_codon_tag_out = timevars_set_names_codon(int(CAM_MISC_TAG, c_int64_t))
+       if (rt_codon_tag_out /= int(CAM_MISC_TAG, c_int64_t)) then
+          write(iulog,*) 'cam_misc_touch_codon tag roundtrip failed'
+          stop 2
+       endif
+       write(iulog,*) CAM_MISC_LABEL//' implementation = codon'
+       rt_codon_proof_seen = .true.
+    endif
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
-
-  timevars(1)%name = 'rst_calendar'
+timevars(1)%name = 'rst_calendar'
   timevars(2)%name = 'rst_nstep'
   timevars(3)%name = 'rst_step_days'
   timevars(4)%name = 'rst_step_sec'
