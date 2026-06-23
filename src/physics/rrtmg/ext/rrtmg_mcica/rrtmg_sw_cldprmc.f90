@@ -68,13 +68,13 @@
       integer(c_int64_t), target :: ngb64(ngptsw)
 
       interface
-         subroutine rrtmg_sw_cldprmc_codon(nlayers_c, inflag_c, iceflag_c, liqflag_c, &
+         subroutine cldprmc_sw_codon(nlayers_c, inflag_c, iceflag_c, liqflag_c, &
               ngptsw_c, jpb1_c, cldfmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, &
               relqmc_p, taormc_p, taucmc_p, ssacmc_p, asmcmc_p, fsfcmc_p, &
               extliq1_p, ssaliq1_p, asyliq1_p, extice2_p, ssaice2_p, asyice2_p, &
               extice3_p, ssaice3_p, asyice3_p, fdlice3_p, abari_p, bbari_p, &
               cbari_p, dbari_p, ebari_p, fbari_p, wavenum2_p, ngb_p) &
-              bind(c, name="rrtmg_sw_cldprmc_codon")
+              bind(c, name="cldprmc_sw_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, inflag_c, iceflag_c, liqflag_c
             integer(c_int64_t), value :: ngptsw_c, jpb1_c
@@ -85,7 +85,7 @@
             type(c_ptr), value :: extice3_p, ssaice3_p, asyice3_p, fdlice3_p
             type(c_ptr), value :: abari_p, bbari_p, cbari_p, dbari_p, ebari_p, fbari_p
             type(c_ptr), value :: wavenum2_p, ngb_p
-         end subroutine rrtmg_sw_cldprmc_codon
+         end subroutine cldprmc_sw_codon
       end interface
 
       hvrclc = '$Revision: 1.4 $'
@@ -100,7 +100,7 @@
          enddo
 
          call cldprmc_sw_log_entered()
-         call rrtmg_sw_cldprmc_codon( &
+         call cldprmc_sw_codon( &
               int(nlayers, c_int64_t), int(inflag, c_int64_t), int(iceflag, c_int64_t), &
               int(liqflag, c_int64_t), int(ngptsw, c_int64_t), int(jpb1, c_int64_t), &
               c_loc(cldfmc(1,1)), c_loc(ciwpmc(1,1)), c_loc(clwpmc(1,1)), &

@@ -121,11 +121,11 @@ module radiation_data
       integer(c_int64_t), value :: output_c, fdh_c
       integer(c_int64_t) :: out_c
     end function rad_data_readnl_codon
-    function radiation_data_flag_codon(flag_c) result(out_c) bind(c, name="radiation_data_flag_codon")
+    function rad_data_write_codon(flag_c) result(out_c) bind(c, name="rad_data_write_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
-    end function radiation_data_flag_codon
+    end function rad_data_write_codon
     function rad_data_init_codon(flag_c) result(out_c) bind(c, name="rad_data_init_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -226,7 +226,7 @@ contains
     else
        flag_c = 0_c_int64_t
     end if
-    out_c = radiation_data_flag_codon(flag_c)
+    out_c = rad_data_write_codon(flag_c)
     radiation_data_flag = out_c /= 0_c_int64_t
 
   end function radiation_data_flag
@@ -329,7 +329,7 @@ contains
        do_fdh = rad_data_fdh
     else
        call radiation_data_flags_proof_once()
-       do_fdh = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_fdh)) /= 0_c_int64_t
+       do_fdh = rad_data_write_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_fdh)) /= 0_c_int64_t
        call radiation_data_flags_log_direct(rad_data_readnl_logged, 'rad_data_readnl direct = codon')
     end if
 
@@ -423,7 +423,7 @@ contains
     if (use_native_radiation_data_flags_impl) then
        if (.not. rad_data_output) return
     else
-       active_c = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output))
+       active_c = rad_data_write_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output))
        if (active_c == 0_c_int64_t) return
     end if
 
@@ -706,7 +706,7 @@ contains
        if (.not. rad_data_output) return
     else
        call radiation_data_flags_proof_once()
-       active_c = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output))
+       active_c = rad_data_write_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output))
        call radiation_data_flags_log_direct(rad_data_write_logged, 'rad_data_write direct = codon')
        if (active_c == 0_c_int64_t) return
     end if

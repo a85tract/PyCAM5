@@ -244,11 +244,11 @@
         integer(c_int64_t) :: stage_out
      end function compute_uwshcu_codon
 
-     function uwshcu_readnl_param_codon(value_c) result(out_c) bind(c, name="uwshcu_readnl_param_codon")
+     function uwshcu_readnl_codon(value_c) result(out_c) bind(c, name="uwshcu_readnl_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: value_c
         real(c_double) :: out_c
-     end function uwshcu_readnl_param_codon
+     end function uwshcu_readnl_codon
 
      subroutine uwshcu_compute_parent_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, dt_c, &
           ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p, &
@@ -3059,7 +3059,7 @@ subroutine uwshcu_readnl(nlfile)
         trim(adjustl(impl_name(:env_len))) == 'native') then
       rpen = uwshcu_rpen
    else
-      rpen = uwshcu_readnl_param_codon(real(uwshcu_rpen, c_double))
+      rpen = uwshcu_readnl_codon(real(uwshcu_rpen, c_double))
       call uwshcu_log_readnl_direct()
    end if
 

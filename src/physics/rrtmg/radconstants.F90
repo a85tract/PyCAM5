@@ -179,10 +179,10 @@ interface
       real(c_double), value :: c08, c09, c10, c11, c12, c13, c14
    end subroutine get_solar_band_fraction_irrad_codon
 
-   subroutine rrtmg_sw_spectral_boundaries_codon(nbands_c, mode_c, low_p, high_p, &
+   subroutine get_sw_spectral_boundaries_codon(nbands_c, mode_c, low_p, high_p, &
         l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, &
         h01, h02, h03, h04, h05, h06, h07, h08, h09, h10, h11, h12, h13, h14) &
-        bind(c, name="rrtmg_sw_spectral_boundaries_codon")
+        bind(c, name="get_sw_spectral_boundaries_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: nbands_c, mode_c
       type(c_ptr), value :: low_p, high_p
@@ -190,7 +190,7 @@ interface
       real(c_double), value :: l08, l09, l10, l11, l12, l13, l14
       real(c_double), value :: h01, h02, h03, h04, h05, h06, h07
       real(c_double), value :: h08, h09, h10, h11, h12, h13, h14
-   end subroutine rrtmg_sw_spectral_boundaries_codon
+   end subroutine get_sw_spectral_boundaries_codon
 end interface
 
 contains
@@ -353,7 +353,7 @@ subroutine get_sw_spectral_boundaries(low_boundaries, high_boundaries, units)
    endif
 
    call radconstants_log_get_sw_spectral_boundaries()
-   call rrtmg_sw_spectral_boundaries_codon( &
+   call get_sw_spectral_boundaries_codon( &
         int(nswbands, c_int64_t), mode, c_loc(low_boundaries(1)), c_loc(high_boundaries(1)), &
         real(wavenum_low(1), c_double), real(wavenum_low(2), c_double), &
         real(wavenum_low(3), c_double), real(wavenum_low(4), c_double), &

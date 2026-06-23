@@ -63,16 +63,16 @@ module comsrf
   logical :: comsrf_init_proof_written = .false.
 
   interface
-     subroutine comsrf_initialize_fields_codon(total_len_c, nan_value_c, landm_p, sgh_p, sgh30_p, &
+     subroutine initialize_comsrf_codon(total_len_c, nan_value_c, landm_p, sgh_p, sgh30_p, &
           fsns_p, fsds_p, fsnt_p, flns_p, flnt_p, srfrpdel_p, psm1_p, prcsnw_p, &
-          trefmxav_p, trefmnav_p) bind(c, name="comsrf_initialize_fields_codon")
+          trefmxav_p, trefmnav_p) bind(c, name="initialize_comsrf_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: total_len_c
        real(c_double), value :: nan_value_c
        type(c_ptr), value :: landm_p, sgh_p, sgh30_p, fsns_p, fsds_p, fsnt_p
        type(c_ptr), value :: flns_p, flnt_p, srfrpdel_p, psm1_p, prcsnw_p
        type(c_ptr), value :: trefmxav_p, trefmnav_p
-     end subroutine comsrf_initialize_fields_codon
+     end subroutine initialize_comsrf_codon
   end interface
 
 !===============================================================================
@@ -201,7 +201,7 @@ CONTAINS
        else
           real_nan = nan
           call comsrf_init_proof_once()
-          call comsrf_initialize_fields_codon(int(pcols*(endchunk-begchunk+1), c_int64_t), &
+          call initialize_comsrf_codon(int(pcols*(endchunk-begchunk+1), c_int64_t), &
                real(real_nan, c_double), c_loc(landm(1,begchunk)), c_loc(sgh(1,begchunk)), &
                c_loc(sgh30(1,begchunk)), c_loc(fsns(1,begchunk)), c_loc(fsds(1,begchunk)), &
                c_loc(fsnt(1,begchunk)), c_loc(flns(1,begchunk)), c_loc(flnt(1,begchunk)), &

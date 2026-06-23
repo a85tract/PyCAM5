@@ -43,11 +43,11 @@ module sox_cldaero_mod
   logical :: sox_cldaero_create_obj_proof_written = .false.
 
   interface
-     function sox_cldaero_init_active_codon(active_c) result(out_c) bind(c, name="sox_cldaero_init_active_codon")
+     function sox_cldaero_init_codon(active_c) result(out_c) bind(c, name="sox_cldaero_init_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: active_c
        integer(c_int64_t) :: out_c
-     end function sox_cldaero_init_active_codon
+     end function sox_cldaero_init_codon
   end interface
 
 contains
@@ -204,7 +204,7 @@ contains
     logical :: history_aerosol      ! Output the MAM aerosol tendencies
     integer(c_int64_t) :: init_active_c
 
-    init_active_c = sox_cldaero_init_active_codon(1_c_int64_t)
+    init_active_c = sox_cldaero_init_codon(1_c_int64_t)
     if (init_active_c == 0_c_int64_t) return
 
     if (masterproc .and. .not. sox_cldaero_init_proof_written) then

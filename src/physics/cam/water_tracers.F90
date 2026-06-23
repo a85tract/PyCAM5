@@ -301,20 +301,20 @@ module water_tracers
       integer(c_int64_t), value :: kin_present_c, kin_c, wtrc_alpha_kinetic_c, wisotope_c
       real(c_double) :: result_c
     end function wtrc_get_alpha_codon
-    subroutine wtrc_cnst_add_state_codon(ind_c, iwt_c, isp_c, iwater_p, iwater_is_water_p, &
-         iwspec_p) bind(c, name="wtrc_cnst_add_state_codon")
+    subroutine wtrc_cnst_add_codon(ind_c, iwt_c, isp_c, iwater_p, iwater_is_water_p, &
+         iwspec_p) bind(c, name="wtrc_cnst_add_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: ind_c, iwt_c, isp_c
       type(c_ptr), value :: iwater_p, iwater_is_water_p, iwspec_p
-    end subroutine wtrc_cnst_add_state_codon
-    subroutine wtrc_init_cnst_fill_codon(nrow_c, nlev_c, trace_water_c, iwater_value_c, iwtvap_c, &
-         iwtliq_c, iwtice_c, rat_c, q_p, qq_p, ql_p, qi_p) bind(c, name="wtrc_init_cnst_fill_codon")
+    end subroutine wtrc_cnst_add_codon
+    subroutine wtrc_init_cnst_codon(nrow_c, nlev_c, trace_water_c, iwater_value_c, iwtvap_c, &
+         iwtliq_c, iwtice_c, rat_c, q_p, qq_p, ql_p, qi_p) bind(c, name="wtrc_init_cnst_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: nrow_c, nlev_c, trace_water_c, iwater_value_c
       integer(c_int64_t), value :: iwtvap_c, iwtliq_c, iwtice_c
       real(c_double), value :: rat_c
       type(c_ptr), value :: q_p, qq_p, ql_p, qi_p
-    end subroutine wtrc_init_cnst_fill_codon
+    end subroutine wtrc_init_cnst_codon
     function wtrc_ratio_scalar_codon(qtrc_c, qtot_c, qmin_c, rstd_c) result(result_c) &
          bind(c, name="wtrc_ratio_scalar_codon")
       use iso_c_binding, only: c_double
@@ -1994,7 +1994,7 @@ end subroutine wtrc_register
     call wtrc_scalar_helpers_select_impl()
     if (.not. use_native_wtrc_scalar_helpers_impl) then
       call wtrc_scalar_helpers_log_entered()
-      call wtrc_cnst_add_state_codon(int(ind, c_int64_t), int(iwt, c_int64_t), int(isp, c_int64_t), &
+      call wtrc_cnst_add_codon(int(ind, c_int64_t), int(iwt, c_int64_t), int(isp, c_int64_t), &
            c_loc(iwater(1)), c_loc(iwater_is_water(1)), c_loc(iwspec(1)))
       iwistag(ind) = is_tag
       call wtrc_scalar_helpers_log_direct(wtrc_cnst_add_logged, &
@@ -2118,7 +2118,7 @@ end subroutine wtrc_register
       if (.not. use_native_wtrc_scalar_helpers_impl) then
         call wtrc_scalar_helpers_log_entered()
         trace_water_c = merge(1_c_int64_t, 0_c_int64_t, trace_water)
-        call wtrc_init_cnst_fill_codon(int(size(q, 1), c_int64_t), int(size(q, 2), c_int64_t), &
+        call wtrc_init_cnst_codon(int(size(q, 1), c_int64_t), int(size(q, 2), c_int64_t), &
              trace_water_c, int(iwater(ixwtrc), c_int64_t), int(iwtvap, c_int64_t), &
              int(iwtliq, c_int64_t), int(iwtice, c_int64_t), real(rat, c_double), &
              c_loc(q(1, 1)), c_loc(qq(1, 1)), c_loc(ql(1, 1)), c_loc(qi(1, 1)))

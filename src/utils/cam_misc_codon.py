@@ -14,7 +14,7 @@ def _write_two_digits(out: Ptr[int], off: int, value: int):
 
 
 @export
-def datetime_format_codon(values_p: cobj, cdate_p: cobj, ctime_p: cobj):
+def datetime_codon(values_p: cobj, cdate_p: cobj, ctime_p: cobj):
     values = Ptr[int](values_p)
     cdate = Ptr[int](cdate_p)
     ctime = Ptr[int](ctime_p)
@@ -378,7 +378,7 @@ def hbuf_accum_inst_codon(
 
 
 @export
-def handle_pio_error_ok_codon(ierr: int, pio_noerr: int) -> int:
+def handle_pio_error_codon(ierr: int, pio_noerr: int) -> int:
     return 1 if ierr == pio_noerr else 0
 
 
@@ -488,7 +488,7 @@ def init_restart_history_codon(tag: int) -> int:
 
 
 @export
-def sat_hist_init_noop_codon(has_sat_hist: int) -> int:
+def sat_hist_init_codon(has_sat_hist: int) -> int:
     return 1 if has_sat_hist == 0 else 0
 
 

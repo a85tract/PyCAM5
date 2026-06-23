@@ -213,12 +213,12 @@ module radae
   logical :: initialize_radbuffer_logged = .false.
 
   interface
-     function radae_ntoplw_codon(pref_mid_p, nlev_c) result(out_c) bind(c, name="radae_ntoplw_codon")
+     function initialize_radbuffer_codon(pref_mid_p, nlev_c) result(out_c) bind(c, name="initialize_radbuffer_codon")
         use iso_c_binding, only: c_int64_t, c_ptr
         type(c_ptr), value :: pref_mid_p
         integer(c_int64_t), value :: nlev_c
         integer(c_int64_t) :: out_c
-     end function radae_ntoplw_codon
+     end function initialize_radbuffer_codon
   end interface
 
 ! Public Interfaces
@@ -321,7 +321,7 @@ integer function radae_ntoplw_from_pref_mid(pref_mid_values, nlev)
    end if
 
    call radae_radbuffer_proof_once()
-   out_c = radae_ntoplw_codon(c_loc(pref_mid_values(1)), int(nlev, c_int64_t))
+   out_c = initialize_radbuffer_codon(c_loc(pref_mid_values(1)), int(nlev, c_int64_t))
    radae_ntoplw_from_pref_mid = int(out_c)
 
 end function radae_ntoplw_from_pref_mid
@@ -3079,7 +3079,7 @@ subroutine initialize_radbuffer
       ntoplw = radae_ntoplw_native(pref_mid, plev)
    else
       call radae_radbuffer_proof_once()
-      ntoplw_c = radae_ntoplw_codon(c_loc(pref_mid(1)), int(plev, c_int64_t))
+      ntoplw_c = initialize_radbuffer_codon(c_loc(pref_mid(1)), int(plev, c_int64_t))
       ntoplw = int(ntoplw_c)
       call radae_radbuffer_log_direct()
    end if

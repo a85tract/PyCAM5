@@ -203,14 +203,14 @@ subroutine gw_drag_readnl(nlfile)
        taubgnd_igw, gw_polar_taper
 
   interface
-     subroutine gw_drag_readnl_status_codon(fcrit2_set_c, pgwv_nonnegative_c, gw_dc_set_c, &
+     subroutine gw_drag_readnl_codon(fcrit2_set_c, pgwv_nonnegative_c, gw_dc_set_c, &
           pgwv_long_nonnegative_c, gw_dc_long_set_c, status_mask_p) &
-          bind(c, name="gw_drag_readnl_status_codon")
+          bind(c, name="gw_drag_readnl_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: fcrit2_set_c, pgwv_nonnegative_c, gw_dc_set_c
        integer(c_int64_t), value :: pgwv_long_nonnegative_c, gw_dc_long_set_c
        type(c_ptr), value :: status_mask_p
-     end subroutine gw_drag_readnl_status_codon
+     end subroutine gw_drag_readnl_codon
   end interface
   !----------------------------------------------------------------------
 
@@ -254,7 +254,7 @@ subroutine gw_drag_readnl(nlfile)
   ! Check if fcrit2 was set.
   if (.not. use_native_readnl_impl) then
      readnl_status_mask = 0_c_int64_t
-     call gw_drag_readnl_status_codon( &
+     call gw_drag_readnl_codon( &
           merge(1_c_int64_t, 0_c_int64_t, fcrit2 /= unset_r8), &
           merge(1_c_int64_t, 0_c_int64_t, pgwv >= 0), &
           merge(1_c_int64_t, 0_c_int64_t, gw_dc /= unset_r8), &

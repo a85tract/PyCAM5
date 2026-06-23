@@ -91,11 +91,11 @@
       integer(c_int64_t), target :: indfor64(nlayers)
 
       interface
-         subroutine rrtmg_sw_setcoef_codon(nlayers_c, mxmol_c, pavel_p, tavel_p, coldry_p, wkl_p, &
+         subroutine setcoef_sw_codon(nlayers_c, mxmol_c, pavel_p, tavel_p, coldry_p, wkl_p, &
               laytrop_p, layswtch_p, laylow_p, jp_p, jt_p, jt1_p, co2mult_p, colch4_p, &
               colco2_p, colh2o_p, colmol_p, coln2o_p, colo2_p, colo3_p, fac00_p, fac01_p, &
               fac10_p, fac11_p, selffac_p, selffrac_p, indself_p, forfac_p, forfrac_p, &
-              indfor_p, preflog_p, tref_p) bind(c, name="rrtmg_sw_setcoef_codon")
+              indfor_p, preflog_p, tref_p) bind(c, name="setcoef_sw_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c, mxmol_c
             type(c_ptr), value :: pavel_p, tavel_p, coldry_p, wkl_p
@@ -105,7 +105,7 @@
             type(c_ptr), value :: colo2_p, colo3_p, fac00_p, fac01_p, fac10_p, fac11_p
             type(c_ptr), value :: selffac_p, selffrac_p, indself_p, forfac_p, forfrac_p, indfor_p
             type(c_ptr), value :: preflog_p, tref_p
-         end subroutine rrtmg_sw_setcoef_codon
+         end subroutine setcoef_sw_codon
       end interface
 
       call setcoef_sw_select_impl()
@@ -116,7 +116,7 @@
               selffac, selffrac, indself, forfac, forfrac, indfor)
       else
          call setcoef_sw_log_entered()
-         call rrtmg_sw_setcoef_codon( &
+         call setcoef_sw_codon( &
               int(nlayers, c_int64_t), int(mxmol, c_int64_t), &
               c_loc(pavel(1)), c_loc(tavel(1)), c_loc(coldry(1)), c_loc(wkl(1,1)), &
               c_loc(laytrop64), c_loc(layswtch64), c_loc(laylow64), c_loc(jp64(1)), &

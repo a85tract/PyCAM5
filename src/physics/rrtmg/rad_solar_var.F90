@@ -36,13 +36,13 @@ module rad_solar_var
   logical :: rrtmg_solar_variability_impl_selected = .false.
   logical :: rrtmg_solar_variability_entered_logged = .false.
   interface
-     function rad_solar_var_init_far_ir_codon(nradbins_c, radbinmax_p) result(radmax_loc_c) &
-          bind(c, name="rad_solar_var_init_far_ir_codon")
+     function rad_solar_var_init_codon(nradbins_c, radbinmax_p) result(radmax_loc_c) &
+          bind(c, name="rad_solar_var_init_codon")
        import :: c_int64_t, c_ptr
        integer(c_int64_t), value :: nradbins_c
        type(c_ptr), value :: radbinmax_p
        integer(c_int64_t) :: radmax_loc_c
-     end function rad_solar_var_init_far_ir_codon
+     end function rad_solar_var_init_codon
      subroutine get_variability_codon(do_scaling_c, nsrc_c, ntrg_c, sol_tsi_c, tsi_ref_c, &
           src_x_p, min_trg_p, max_trg_p, src_p, trg_p, ref_irrad_p, sfac_p) &
           bind(c, name="get_variability_codon")
@@ -107,7 +107,7 @@ contains
          radbinmax(radmax_loc) = max(100000._r8,radbinmax(radmax_loc))
       else
          call rad_solar_var_init_log()
-         radmax_loc = int(rad_solar_var_init_far_ir_codon(int(nradbins, c_int64_t), c_loc(radbinmax(1))))
+         radmax_loc = int(rad_solar_var_init_codon(int(nradbins, c_int64_t), c_loc(radbinmax(1))))
       end if
 
        ! for rrtmg, reference spectrum from rrtmg

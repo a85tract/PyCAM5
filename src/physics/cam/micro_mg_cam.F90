@@ -312,14 +312,14 @@ interface
       integer(c_int64_t) :: out_c
    end function micro_mg_cam_implements_cnst_codon
 
-   subroutine micro_mg_cam_register_plan_codon(micro_mg_version_c, micro_mg_sub_version_c, prog_modal_aero_c, &
+   subroutine micro_mg_cam_register_codon(micro_mg_version_c, micro_mg_sub_version_c, prog_modal_aero_c, &
         use_subcol_microp_c, do_cldice_c, subcol_silhs_c, cnst_count_p, cnst_codes_p, pbuf_count_p, pbuf_codes_p, &
-        subcol_count_p, subcol_codes_p) bind(c, name="micro_mg_cam_register_plan_codon")
+        subcol_count_p, subcol_codes_p) bind(c, name="micro_mg_cam_register_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: micro_mg_version_c, micro_mg_sub_version_c, prog_modal_aero_c
       integer(c_int64_t), value :: use_subcol_microp_c, do_cldice_c, subcol_silhs_c
       type(c_ptr), value :: cnst_count_p, cnst_codes_p, pbuf_count_p, pbuf_codes_p, subcol_count_p, subcol_codes_p
-   end subroutine micro_mg_cam_register_plan_codon
+   end subroutine micro_mg_cam_register_codon
 
    subroutine micro_mg_cam_init_plan_codon(micro_mg_version_c, micro_mg_sub_version_c, init_plan_p) &
         bind(c, name="micro_mg_cam_init_plan_codon")
@@ -937,7 +937,7 @@ subroutine micro_mg_cam_register
    call micro_mg_cam_register_select_impl()
 
    if (.not. use_native_micro_mg_cam_register_impl) then
-      call micro_mg_cam_register_plan_codon(int(micro_mg_version, c_int64_t), &
+      call micro_mg_cam_register_codon(int(micro_mg_version, c_int64_t), &
            int(micro_mg_sub_version, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &
            merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp), merge(1_c_int64_t, 0_c_int64_t, do_cldice), &
            merge(1_c_int64_t, 0_c_int64_t, subcol_silhs), c_loc(cnst_count), c_loc(cnst_codes(1)), &

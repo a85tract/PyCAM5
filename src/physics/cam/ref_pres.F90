@@ -56,17 +56,17 @@ logical :: ref_pres_init_proof_written = .false.
 logical :: ref_pres_readnl_logged = .false.
 
 interface
-   subroutine ref_pres_init_finalize_codon(pver_c, pverp_c, trop_cloud_top_press_c, &
+   subroutine ref_pres_init_codon(pver_c, pverp_c, trop_cloud_top_press_c, &
         clim_modal_aero_top_press_c, do_molec_press_c, molec_diff_bot_press_c, pref_edge_p, &
         pref_mid_p, pref_mid_norm_p, scalar_out_p, int_out_p, flag_out_p) &
-        bind(c, name="ref_pres_init_finalize_codon")
+        bind(c, name="ref_pres_init_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: pver_c, pverp_c
       real(c_double), value :: trop_cloud_top_press_c, clim_modal_aero_top_press_c
       real(c_double), value :: do_molec_press_c, molec_diff_bot_press_c
       type(c_ptr), value :: pref_edge_p, pref_mid_p, pref_mid_norm_p
       type(c_ptr), value :: scalar_out_p, int_out_p, flag_out_p
-   end subroutine ref_pres_init_finalize_codon
+   end subroutine ref_pres_init_codon
    function press_lim_idx_codon(p_c, top_c, pver_c, pref_mid_p) result(k_lim_c) &
         bind(c, name="press_lim_idx_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -237,7 +237,7 @@ subroutine ref_pres_init
      end if
   else
      call ref_pres_init_proof_once()
-     call ref_pres_init_finalize_codon(int(pver, c_int64_t), int(pverp, c_int64_t), &
+     call ref_pres_init_codon(int(pver, c_int64_t), int(pverp, c_int64_t), &
           real(trop_cloud_top_press, c_double), real(clim_modal_aero_top_press, c_double), &
           real(do_molec_press, c_double), real(molec_diff_bot_press, c_double), &
           c_loc(pref_edge(1)), c_loc(pref_mid(1)), c_loc(pref_mid_norm(1)), &

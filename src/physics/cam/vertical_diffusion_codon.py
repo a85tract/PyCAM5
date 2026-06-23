@@ -126,7 +126,7 @@ def vertical_diffusion_ts_init_codon():
 
 
 @export
-def vd_register_plan_codon(shallow_unicon: int, count_p: cobj, codes_p: cobj):
+def vd_register_codon(shallow_unicon: int, count_p: cobj, codes_p: cobj):
     count = Ptr[int](count_p)
     codes = Ptr[int](codes_p)
 

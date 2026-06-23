@@ -3456,7 +3456,7 @@ def aero_model_drydep_init_shell_codon(
 
 
 @export
-def aero_model_drydep_init_shell_stage_dispatch_codon(
+def aero_model_drydep_codon(
     apply_srf_drydep: int,
     branch_mask_p: cobj,
     ncol: int,

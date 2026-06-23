@@ -126,12 +126,12 @@ interface
       integer(c_int64_t) :: flag_out_c
    end function phys_control_bool_flag_codon
 
-   function phys_control_index_positive_codon(index_c) &
-        result(flag_out_c) bind(c, name="phys_control_index_positive_codon")
+   function phys_ctl_readnl_codon(index_c) &
+        result(flag_out_c) bind(c, name="phys_ctl_readnl_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: index_c
       integer(c_int64_t) :: flag_out_c
-   end function phys_control_index_positive_codon
+   end function phys_ctl_readnl_codon
 
    function phys_control_int_value_codon(value_c) &
         result(value_out_c) bind(c, name="phys_control_int_value_codon")
@@ -370,7 +370,7 @@ subroutine phys_ctl_readnl(nlfile)
       prog_modal_aero = index(cam_chempkg,'_mam')>0
    else
       call phys_control_bool_helpers_proof_once()
-      prog_modal_aero = (phys_control_index_positive_codon(int(index(cam_chempkg,'_mam'), c_int64_t)) /= 0_c_int64_t)
+      prog_modal_aero = (phys_ctl_readnl_codon(int(index(cam_chempkg,'_mam'), c_int64_t)) /= 0_c_int64_t)
       call phys_control_log_direct(phys_ctl_readnl_logged, &
            'phys_ctl_readnl direct = codon; namelist/MPI/compatibility native islands')
    end if

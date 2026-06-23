@@ -67,14 +67,14 @@ interface
       real(c_double), value :: rga_c
       type(c_ptr), value :: pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p
    end subroutine aer_rad_props_lw_setup_codon
-   subroutine aer_rad_props_init_plan_codon(history_amwg_c, history_aero_optics_c, prog_modal_aero_c, &
+   subroutine aer_rad_props_init_codon(history_amwg_c, history_aero_optics_c, prog_modal_aero_c, &
         clim_modal_aero_top_lev_c, top_lev_p, add_amwg_default_p, add_aero_optics_default_p) &
-        bind(c, name="aer_rad_props_init_plan_codon")
+        bind(c, name="aer_rad_props_init_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: history_amwg_c, history_aero_optics_c, prog_modal_aero_c
       integer(c_int64_t), value :: clim_modal_aero_top_lev_c
       type(c_ptr), value :: top_lev_p, add_amwg_default_p, add_aero_optics_default_p
-   end subroutine aer_rad_props_init_plan_codon
+   end subroutine aer_rad_props_init_codon
    function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: stage_c
@@ -187,7 +187,7 @@ subroutine aer_rad_props_init()
       add_aero_optics_default_c = merge(1_c_int64_t, 0_c_int64_t, history_aero_optics)
    else
       planned_top_lev_c = int(top_lev, c_int64_t)
-      call aer_rad_props_init_plan_codon( &
+      call aer_rad_props_init_codon( &
            merge(1_c_int64_t, 0_c_int64_t, history_amwg), &
            merge(1_c_int64_t, 0_c_int64_t, history_aero_optics), &
            merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &

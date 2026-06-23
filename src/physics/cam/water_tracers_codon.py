@@ -388,7 +388,7 @@ def wtrc_init_rates_codon(pcols: int, pver: int, pwtype: int, top_lev: int, proc
 
 
 @export
-def wtrc_cnst_add_state_codon(
+def wtrc_cnst_add_codon(
     ind: int,
     iwt: int,
     isp: int,
@@ -407,7 +407,7 @@ def wtrc_cnst_add_state_codon(
 
 
 @export
-def wtrc_init_cnst_fill_codon(
+def wtrc_init_cnst_codon(
     nrow: int,
     nlev: int,
     trace_water: int,

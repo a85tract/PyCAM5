@@ -100,7 +100,7 @@ end subroutine dyn_grid_init
   !
   Subroutine get_block_bounds_d(block_first,block_last)
     use dimensions_mod, only: nelem
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     !----------------------------------------------------------------------- 
     ! 
     !                          
@@ -114,22 +114,16 @@ end subroutine dyn_grid_init
     !------------------------------Arguments--------------------------------
     integer, intent(out) :: block_first  ! first (global) index used for blocks
     integer, intent(out) :: block_last   ! last (global) index used for blocks
-    integer(c_int64_t) :: block_first_c, block_last_c
+    integer(c_int64_t), target :: block_first_c, block_last_c
     logical, save :: proof_seen = .false.
 
     interface
-       function get_block_bounds_d_first_codon(nelem_c) result(first_c) &
-            bind(c, name='get_block_bounds_d_first_codon')
-         import :: c_int64_t
+       subroutine get_block_bounds_d_codon(nelem_c, first_p, last_p) &
+            bind(c, name='get_block_bounds_d_codon')
+         import :: c_int64_t, c_ptr
          integer(c_int64_t), value :: nelem_c
-         integer(c_int64_t) :: first_c
-       end function get_block_bounds_d_first_codon
-       function get_block_bounds_d_last_codon(nelem_c) result(last_c) &
-            bind(c, name='get_block_bounds_d_last_codon')
-         import :: c_int64_t
-         integer(c_int64_t), value :: nelem_c
-         integer(c_int64_t) :: last_c
-       end function get_block_bounds_d_last_codon
+         type(c_ptr), value :: first_p, last_p
+       end subroutine get_block_bounds_d_codon
     end interface
 
     !-----------------------------------------------------------------------
@@ -143,8 +137,7 @@ end subroutine dyn_grid_init
        return
     endif
 
-    block_first_c = get_block_bounds_d_first_codon(int(nelem, c_int64_t))
-    block_last_c = get_block_bounds_d_last_codon(int(nelem, c_int64_t))
+    call get_block_bounds_d_codon(int(nelem, c_int64_t), c_loc(block_first_c), c_loc(block_last_c))
     block_first = int(block_first_c)
     block_last = int(block_last_c)
     if (.not. proof_seen) then
@@ -673,7 +666,7 @@ end function get_block_owner_d
 !========================================================================
 !
 subroutine get_horiz_grid_dim_d(hdim1_d,hdim2_d)
-  use iso_c_binding, only : c_int64_t
+  use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
   !----------------------------------------------------------------------- 
   ! 
@@ -691,22 +684,16 @@ subroutine get_horiz_grid_dim_d(hdim1_d,hdim2_d)
   !------------------------------Arguments--------------------------------
  integer, intent(out) :: hdim1_d           ! first horizontal dimension
  integer, intent(out), optional :: hdim2_d           ! second horizontal dimension
- integer(c_int64_t) :: hdim_c
+ integer(c_int64_t), target :: hdim1_c, hdim2_c
  logical, save :: proof_seen = .false.
  interface
-    function get_horiz_grid_dim_d_first_codon(ngcols_c) result(hdim_c) &
-         bind(c, name='get_horiz_grid_dim_d_first_codon')
-      import :: c_int64_t
-      integer(c_int64_t), value :: ngcols_c
-      integer(c_int64_t) :: hdim_c
-    end function get_horiz_grid_dim_d_first_codon
-    function get_horiz_grid_dim_d_second_codon(ngcols_c) result(hdim_c) &
-         bind(c, name='get_horiz_grid_dim_d_second_codon')
-      import :: c_int64_t
-      integer(c_int64_t), value :: ngcols_c
-      integer(c_int64_t) :: hdim_c
-    end function get_horiz_grid_dim_d_second_codon
-	 end interface
+    subroutine get_horiz_grid_dim_d_codon(ngcols_c, has_hdim2_c, hdim1_p, hdim2_p) &
+         bind(c, name='get_horiz_grid_dim_d_codon')
+      import :: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ngcols_c, has_hdim2_c
+      type(c_ptr), value :: hdim1_p, hdim2_p
+    end subroutine get_horiz_grid_dim_d_codon
+		 end interface
 	 !-----------------------------------------------------------------------
 	 if (dyn_grid_use_native_impl()) then
 	    hdim1_d = ngcols_d
@@ -718,12 +705,13 @@ subroutine get_horiz_grid_dim_d(hdim1_d,hdim2_d)
 	    return
 	 endif
 
-	 hdim_c = get_horiz_grid_dim_d_first_codon(int(ngcols_d, c_int64_t))
-	 hdim1_d = int(hdim_c)
- if(present(hdim2_d)) then
-    hdim_c = get_horiz_grid_dim_d_second_codon(int(ngcols_d, c_int64_t))
-    hdim2_d = int(hdim_c)
- endif
+	 hdim2_c = 0_c_int64_t
+	 call get_horiz_grid_dim_d_codon(int(ngcols_d, c_int64_t), &
+        merge(1_c_int64_t, 0_c_int64_t, present(hdim2_d)), c_loc(hdim1_c), c_loc(hdim2_c))
+	 hdim1_d = int(hdim1_c)
+	 if(present(hdim2_d)) then
+	    hdim2_d = int(hdim2_c)
+	 endif
  if (.not. proof_seen) then
     write(iulog,*) 'get_horiz_grid_dim_d implementation = codon'
     proof_seen = .true.

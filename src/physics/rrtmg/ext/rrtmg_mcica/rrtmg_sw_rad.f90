@@ -1165,7 +1165,7 @@
       integer(c_int64_t), target :: inflag64, iceflag64, liqflag64
 
       interface
-         subroutine rrtmg_sw_inatm_codon(iplon_c, nlay_c, ldcol_c, icld_c, iaer_c, &
+         subroutine inatm_sw_codon(iplon_c, nlay_c, ldcol_c, icld_c, iaer_c, &
               nbndsw_c, ngptsw_c, nmol_c, mxmol_c, jpband_c, jpb1_c, jpb2_c, &
               grav_c, avogad_c, adjflx_c, play_p, plev_p, tlay_p, tlev_p, &
               tsfc_p, h2ovmr_p, o3vmr_p, co2vmr_p, ch4vmr_p, o2vmr_p, n2ovmr_p, &
@@ -1175,7 +1175,7 @@
               tavel_p, tz_p, tbound_p, coldry_p, wkl_p, adjflux_p, inflag_p, &
               iceflag_p, liqflag_p, cldfmc_p, taucmc_p, ssacmc_p, asmcmc_p, &
               fsfcmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, relqmc_p, &
-              taua_p, ssaa_p, asma_p) bind(c, name="rrtmg_sw_inatm_codon")
+              taua_p, ssaa_p, asma_p) bind(c, name="inatm_sw_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: iplon_c, nlay_c, ldcol_c, icld_c, iaer_c
             integer(c_int64_t), value :: nbndsw_c, ngptsw_c, nmol_c, mxmol_c
@@ -1192,7 +1192,7 @@
             type(c_ptr), value :: liqflag_p, cldfmc_p, taucmc_p, ssacmc_p, asmcmc_p
             type(c_ptr), value :: fsfcmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p
             type(c_ptr), value :: relqmc_p, taua_p, ssaa_p, asma_p
-         end subroutine rrtmg_sw_inatm_codon
+         end subroutine inatm_sw_codon
       end interface
 !      real(kind=r8) :: earth_sun                        ! function for Earth/Sun distance adjustment
 !      real(kind=r8) :: solar_band_irrad(jpb1:jpb2) ! rrtmg assumed-solar irradiance in each sw band
@@ -1207,7 +1207,7 @@
          inflag64 = 0_c_int64_t
          iceflag64 = 0_c_int64_t
          liqflag64 = 0_c_int64_t
-         call rrtmg_sw_inatm_codon( &
+         call inatm_sw_codon( &
               int(iplon, c_int64_t), int(nlay, c_int64_t), int(size(play,1), c_int64_t), &
               int(icld, c_int64_t), int(iaer, c_int64_t), int(nbndsw, c_int64_t), &
               int(ngptsw, c_int64_t), int(nmol, c_int64_t), int(mxmol, c_int64_t), &

@@ -42,11 +42,11 @@ module MO_SETSOX
   logical :: sox_inti_proof_written = .false.
 
   interface
-     function sox_inti_active_codon(active_c) result(out_c) bind(c, name="sox_inti_active_codon")
+     function sox_inti_codon(active_c) result(out_c) bind(c, name="sox_inti_codon")
        use iso_c_binding, only : c_int64_t
        integer(c_int64_t), value :: active_c
        integer(c_int64_t) :: out_c
-     end function sox_inti_active_codon
+     end function sox_inti_codon
   end interface
 
 contains
@@ -618,7 +618,7 @@ contains
     logical :: history_aerosol   ! Output aerosol diagnostics
     integer(c_int64_t) :: init_active_c
 
-    init_active_c = sox_inti_active_codon(1_c_int64_t)
+    init_active_c = sox_inti_codon(1_c_int64_t)
     if (init_active_c == 0_c_int64_t) return
 
     if (masterproc .and. .not. sox_inti_proof_written) then

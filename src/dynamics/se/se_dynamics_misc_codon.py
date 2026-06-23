@@ -165,11 +165,11 @@ def get_block_gcol_d_codon(size: int, unique_pt_offset: int, cdex_p: cobj):
         cdex[ic] = i32(unique_pt_offset + ic)
 
 
-def get_block_bounds_d_first_codon(nelem: int) -> int:
+def dyn_grid_block_first(nelem: int) -> int:
     return 1
 
 
-def get_block_bounds_d_last_codon(nelem: int) -> int:
+def dyn_grid_block_last(nelem: int) -> int:
     return nelem
 
 
@@ -210,11 +210,11 @@ def get_block_owner_d_codon(owner: int) -> int:
     return owner
 
 
-def get_horiz_grid_dim_d_first_codon(ngcols: int) -> int:
+def dyn_grid_hdim1(ngcols: int) -> int:
     return ngcols
 
 
-def get_horiz_grid_dim_d_second_codon(ngcols: int) -> int:
+def dyn_grid_hdim2(ngcols: int) -> int:
     return 1
 
 

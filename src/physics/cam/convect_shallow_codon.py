@@ -37,7 +37,7 @@ def convect_shallow_use_shfrc_codon(scheme_len: int, scheme_ascii_p: cobj) -> in
 
 
 @export
-def convect_shallow_register_decision_codon(scheme_len: int, scheme_ascii_p: cobj, use_gw_convect_sh: int) -> int:
+def convect_shallow_register_codon(scheme_len: int, scheme_ascii_p: cobj, use_gw_convect_sh: int) -> int:
     scheme_ascii = Ptr[int](scheme_ascii_p)
 
     n = scheme_len
@@ -145,7 +145,7 @@ def convect_shallow_init_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
 
 
 @export
-def uwshcu_readnl_param_codon(value: float) -> float:
+def uwshcu_readnl_codon(value: float) -> float:
     return value
 
 

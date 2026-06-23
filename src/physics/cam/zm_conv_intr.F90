@@ -846,12 +846,12 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    logical  :: lq(pcnst)
 
    interface
-      function zm_conv_tend_mask_codon(ncol_c, trace_water_c, zmconv_org_c, non_cam3_c) result(mask_c) &
-           bind(c, name="zm_conv_tend_mask_codon")
+      function zm_conv_tend_codon(ncol_c, trace_water_c, zmconv_org_c, non_cam3_c) result(mask_c) &
+           bind(c, name="zm_conv_tend_codon")
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t), value :: ncol_c, trace_water_c, zmconv_org_c, non_cam3_c
          integer(c_int64_t) :: mask_c
-      end function zm_conv_tend_mask_codon
+      end function zm_conv_tend_codon
    end interface
 
    !----------------------------------------------------------------------
@@ -863,7 +863,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
 
    call zm_conv_tend_select_impl()
    if (.not. use_native_zm_conv_tend) then
-      zm_tend_mask_c = zm_conv_tend_mask_codon(int(ncol, c_int64_t), &
+      zm_tend_mask_c = zm_conv_tend_codon(int(ncol, c_int64_t), &
            merge(1_c_int64_t, 0_c_int64_t, trace_water), &
            merge(1_c_int64_t, 0_c_int64_t, zmconv_org), &
            merge(1_c_int64_t, 0_c_int64_t, .not. cam_physpkg_is('cam3')))

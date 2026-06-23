@@ -94,13 +94,13 @@
 	        type(c_ptr), value :: scheme_ascii_p
 	        integer(c_int64_t) :: out_c
 	     end function convect_shallow_use_shfrc_codon
-	     function convect_shallow_register_decision_codon(scheme_len_c, scheme_ascii_p, use_gw_convect_sh_c) &
-	          result(mask_c) bind(c, name="convect_shallow_register_decision_codon")
+	     function convect_shallow_register_codon(scheme_len_c, scheme_ascii_p, use_gw_convect_sh_c) &
+	          result(mask_c) bind(c, name="convect_shallow_register_codon")
 	        use iso_c_binding, only: c_int64_t, c_ptr
 	        integer(c_int64_t), value :: scheme_len_c, use_gw_convect_sh_c
 	        type(c_ptr), value :: scheme_ascii_p
 	        integer(c_int64_t) :: mask_c
-	     end function convect_shallow_register_decision_codon
+	     end function convect_shallow_register_codon
 	     subroutine convect_shallow_select_scheme_codon(scheme_len_c, scheme_ascii_p, scheme_code_p, status_p) &
 	          bind(c, name="convect_shallow_select_scheme_codon")
 	        use iso_c_binding, only: c_int64_t, c_ptr
@@ -150,7 +150,7 @@
 	  do i = 1, len(shallow_scheme)
 	     scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
 	  end do
-	  register_mask = convect_shallow_register_decision_codon( &
+	  register_mask = convect_shallow_register_codon( &
 	       int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)), &
 	       merge(1_c_int64_t, 0_c_int64_t, use_gw_convect_sh))
 

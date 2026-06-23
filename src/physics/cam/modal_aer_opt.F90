@@ -96,14 +96,14 @@ interface
       integer(c_int64_t) :: mismatch_c
    end function modal_aer_opt_init_mode_dims_mismatch_codon
 
-   subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
+   subroutine modal_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
         sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, radsurf_p, logradsurf_p, cheb_p) &
-        bind(c, name="modal_aer_opt_size_parameters_codon")
+        bind(c, name="modal_size_parameters_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
       integer(c_int64_t), value :: pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c
       real(c_double), value :: sigma_logr_aer_c, xrmin_c, xrmax_c
       type(c_ptr), value :: dgnumwet_p, radsurf_p, logradsurf_p, cheb_p
-   end subroutine modal_aer_opt_size_parameters_codon
+   end subroutine modal_size_parameters_codon
 
    subroutine modal_aer_opt_lw_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
         sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, cheby_p) &
@@ -2178,7 +2178,7 @@ subroutine modal_size_parameters(ncol, sigma_logr_aer, dgnumwet, radsurf, lograd
    end if
 
    call modal_aer_opt_helpers_proof_once()
-   call modal_aer_opt_size_parameters_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+   call modal_size_parameters_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(top_lev, c_int64_t), int(ncol, c_int64_t), int(ncoef, c_int64_t), &
         sigma_logr_aer, xrmin, xrmax, c_loc(dgnumwet(1,1)), c_loc(radsurf(1,1)), &
         c_loc(logradsurf(1,1)), c_loc(cheb(1,1,1)))

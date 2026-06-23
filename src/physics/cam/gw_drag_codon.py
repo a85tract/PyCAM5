@@ -2,7 +2,7 @@ from math import exp, sqrt
 
 
 @export
-def gw_drag_readnl_status_codon(
+def gw_drag_readnl_codon(
     fcrit2_set: int,
     pgwv_nonnegative: int,
     gw_dc_set: int,
@@ -103,7 +103,7 @@ def gw_init_codon(stage: int) -> int:
 
 
 @export
-def gw_drag_prof_shell_mask_codon(
+def gw_drag_prof_codon(
     ncol: int,
     pver: int,
     ngwv: int,

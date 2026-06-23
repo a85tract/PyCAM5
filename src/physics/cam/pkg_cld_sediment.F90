@@ -56,11 +56,11 @@ module pkg_cld_sediment
   logical :: cld_sediment_readnl_logged = .false.
 
   interface
-     function cld_sediment_param_codon(value_c) result(out_c) bind(c, name="cld_sediment_param_codon")
+     function cld_sediment_readnl_codon(value_c) result(out_c) bind(c, name="cld_sediment_readnl_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: value_c
         real(c_double) :: out_c
-     end function cld_sediment_param_codon
+     end function cld_sediment_readnl_codon
   end interface
 
 !===============================================================================
@@ -144,7 +144,7 @@ real(r8) function cld_sediment_param(value_in)
    end if
 
    call cld_sediment_proof_once()
-   out_c = cld_sediment_param_codon(real(value_in, c_double))
+   out_c = cld_sediment_readnl_codon(real(value_in, c_double))
    cld_sediment_param = real(out_c, r8)
 
 end function cld_sediment_param
@@ -201,7 +201,7 @@ subroutine cld_sediment_readnl(nlfile)
       call cld_sediment_finalize_params()
    else
       call cld_sediment_proof_once()
-      cldsed_ice_stokes_fac = real(cld_sediment_param_codon(real(cldsed_ice_stokes_fac, c_double)), r8)
+      cldsed_ice_stokes_fac = real(cld_sediment_readnl_codon(real(cldsed_ice_stokes_fac, c_double)), r8)
       call cld_sediment_log_direct('cld_sediment_readnl direct = codon')
    end if
 

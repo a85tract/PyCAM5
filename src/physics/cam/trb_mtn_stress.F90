@@ -44,15 +44,15 @@ module trb_mtn_stress
        type(c_ptr), value :: orocnst_p, z0fac_p, karman_p, gravit_p, rair_p
      end subroutine init_tms_codon
 
-     subroutine trb_mtn_stress_compute_codon(pcols_c, pver_c, ncol_c, orocnst_c, z0fac_c, karman_c, gravit_c, rair_c, &
+     subroutine compute_tms_codon(pcols_c, pver_c, ncol_c, orocnst_c, z0fac_c, karman_c, gravit_c, rair_c, &
           u_p, v_p, t_p, pmid_p, exner_p, zm_p, sgh_p, landfrac_p, ksrf_p, taux_p, tauy_p) &
-          bind(c, name="trb_mtn_stress_compute_codon")
+          bind(c, name="compute_tms_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
        real(c_double), value :: orocnst_c, z0fac_c, karman_c, gravit_c, rair_c
        type(c_ptr), value :: u_p, v_p, t_p, pmid_p, exner_p, zm_p
        type(c_ptr), value :: sgh_p, landfrac_p, ksrf_p, taux_p, tauy_p
-     end subroutine trb_mtn_stress_compute_codon
+     end subroutine compute_tms_codon
   end interface
 
 contains
@@ -241,7 +241,7 @@ contains
     end if
 
     call tms_proof_once()
-    call trb_mtn_stress_compute_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+    call compute_tms_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
          real(orocnst, c_double), real(z0fac, c_double), real(karman, c_double), real(gravit, c_double), &
          real(rair, c_double), c_loc(u(1,1)), c_loc(v(1,1)), c_loc(t(1,1)), c_loc(pmid(1,1)), c_loc(exner(1,1)), &
          c_loc(zm(1,1)), c_loc(sgh(1)), c_loc(landfrac(1)), c_loc(ksrf(1)), c_loc(taux(1)), c_loc(tauy(1)))

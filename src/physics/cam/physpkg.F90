@@ -178,12 +178,12 @@ module physpkg
   integer ::  snow_sh_idx        = 0
 
   interface
-     function physpkg_orch_stage_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
-          bind(c, name="physpkg_orch_stage_codon")
+     function phys_final_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
+          bind(c, name="phys_final_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: stage_c, flag1_c, flag2_c, flag3_c
        integer(c_int64_t) :: mask_c
-     end function physpkg_orch_stage_codon
+     end function phys_final_codon
      function phys_register_codon(stage_c, flag1_c, flag2_c, flag3_c) result(mask_c) &
           bind(c, name="phys_register_codon")
        use iso_c_binding, only: c_int64_t
@@ -1451,7 +1451,7 @@ subroutine phys_final( phys_state, phys_tend, pbuf2d )
 
     call physpkg_orch_select_impl()
     if (.not. use_native_phys_orch_impl) then
-       orch_mask_c = physpkg_orch_stage_codon( &
+       orch_mask_c = phys_final_codon( &
             5_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, associated(pbuf2d)), 0_c_int64_t, 0_c_int64_t)
        call physpkg_orch_log_phys_final(orch_mask_c)
     end if

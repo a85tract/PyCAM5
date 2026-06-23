@@ -260,18 +260,18 @@ contains
     integer :: n, status
 
     interface
-       function sat_hist_init_noop_codon(has_sat_hist_c) result(done_c) bind(c, name="sat_hist_init_noop_codon")
+       function sat_hist_init_codon(has_sat_hist_c) result(done_c) bind(c, name="sat_hist_init_codon")
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t), value :: has_sat_hist_c
          integer(c_int64_t) :: done_c
-       end function sat_hist_init_noop_codon
+       end function sat_hist_init_codon
     end interface
 
     if (.not.has_sat_hist) then
        impl_name = 'codon'
        call cam_codon_get_impl('SAT_HIST_INIT_IMPL', impl_name, n, status)
        if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
-          if (sat_hist_init_noop_codon(0_c_int64_t) /= 0_c_int64_t) then
+          if (sat_hist_init_codon(0_c_int64_t) /= 0_c_int64_t) then
              if (masterproc .and. .not. sat_hist_init_codon_logged) then
                 write(iulog,'(A)') 'sat_hist_init implementation = codon'
                 sat_hist_init_codon_logged = .true.

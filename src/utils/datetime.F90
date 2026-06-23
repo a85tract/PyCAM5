@@ -52,10 +52,10 @@ contains
    logical, save :: datetime_codon_logged = .false.
    logical, save :: datetime_native_logged = .false.
    interface
-      subroutine datetime_format_codon(values_p, cdate_p, ctime_p) bind(c, name='datetime_format_codon')
+      subroutine datetime_codon(values_p, cdate_p, ctime_p) bind(c, name='datetime_codon')
          import :: c_ptr
          type(c_ptr), value :: values_p, cdate_p, ctime_p
-      end subroutine datetime_format_codon
+      end subroutine datetime_codon
    end interface
 !-----------------------------------------------------------------------
  
@@ -89,7 +89,7 @@ contains
    end if
 
    values_c = int(values, c_int64_t)
-   call datetime_format_codon(c_loc(values_c(1)), c_loc(cdate_codes(1)), c_loc(ctime_codes(1)))
+   call datetime_codon(c_loc(values_c(1)), c_loc(cdate_codes(1)), c_loc(ctime_codes(1)))
    if (.not. datetime_codon_logged) then
       write(iulog,*) 'datetime implementation = codon'
       datetime_codon_logged = .true.

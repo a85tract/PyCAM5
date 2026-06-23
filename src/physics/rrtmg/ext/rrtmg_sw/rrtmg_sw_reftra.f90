@@ -58,15 +58,15 @@
       integer(c_int64_t), target :: lrtchk_mask(nlayers)
 
       interface
-         subroutine rrtmg_sw_reftra_codon(nlayers_c, prmuz_c, tblint_c, bpade_c, od_lo_c, &
+         subroutine reftra_sw_codon(nlayers_c, prmuz_c, tblint_c, bpade_c, od_lo_c, &
               lrtchk_mask_p, pgg_p, ptau_p, pw_p, pref_p, prefd_p, ptra_p, ptrad_p, &
-              exp_tbl_p) bind(c, name="rrtmg_sw_reftra_codon")
+              exp_tbl_p) bind(c, name="reftra_sw_codon")
             use iso_c_binding, only: c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nlayers_c
             real(c_double), value :: prmuz_c, tblint_c, bpade_c, od_lo_c
             type(c_ptr), value :: lrtchk_mask_p, pgg_p, ptau_p, pw_p
             type(c_ptr), value :: pref_p, prefd_p, ptra_p, ptrad_p, exp_tbl_p
-         end subroutine rrtmg_sw_reftra_codon
+         end subroutine reftra_sw_codon
       end interface
 
       hvrrft = '$Revision: 1.2 $'
@@ -84,7 +84,7 @@
          enddo
 
          call reftra_sw_log_entered()
-         call rrtmg_sw_reftra_codon( &
+         call reftra_sw_codon( &
               int(nlayers, c_int64_t), real(prmuz, c_double), real(tblint, c_double), &
               real(bpade, c_double), real(od_lo, c_double), c_loc(lrtchk_mask(1)), &
               c_loc(pgg(1)), c_loc(ptau(1)), c_loc(pw(1)), c_loc(pref(1)), &

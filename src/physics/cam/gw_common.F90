@@ -135,13 +135,13 @@ interface
      type(c_ptr), value :: pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p
      type(c_ptr), value :: alpha_in_p, alpha_p
    end subroutine gw_common_init_codon
-   function gw_drag_prof_shell_mask_codon(ncol_c, pver_c, ngwv_c, kbot_tend_c, kbot_src_c, &
-        ro_adjust_present_c, tau_0_ubc_enabled_c) result(mask_c) bind(c, name="gw_drag_prof_shell_mask_codon")
+   function gw_drag_prof_codon(ncol_c, pver_c, ngwv_c, kbot_tend_c, kbot_src_c, &
+        ro_adjust_present_c, tau_0_ubc_enabled_c) result(mask_c) bind(c, name="gw_drag_prof_codon")
      use iso_c_binding, only: c_int64_t
      integer(c_int64_t), value :: ncol_c, pver_c, ngwv_c, kbot_tend_c, kbot_src_c
      integer(c_int64_t), value :: ro_adjust_present_c, tau_0_ubc_enabled_c
      integer(c_int64_t) :: mask_c
-   end function gw_drag_prof_shell_mask_codon
+   end function gw_drag_prof_codon
 end interface
 
 ! Type describing a band of wavelengths into which gravity waves can be
@@ -727,7 +727,7 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
 
   call gw_drag_prof_select_impl()
   if (.not. use_native_gw_drag_prof_impl) then
-     shell_mask_c = gw_drag_prof_shell_mask_codon( &
+     shell_mask_c = gw_drag_prof_codon( &
           int(ncol, c_int64_t), int(pver, c_int64_t), int(band%ngwv, c_int64_t), &
           int(kbot_tend, c_int64_t), int(kbot_src, c_int64_t), &
           merge(1_c_int64_t, 0_c_int64_t, present(ro_adjust)), &

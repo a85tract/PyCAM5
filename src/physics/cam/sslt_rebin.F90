@@ -37,12 +37,12 @@ module sslt_rebin
   logical :: sslt_rebin_adv_logged = .false.
 
   interface
-     function sslt_rebin_has_four_codon(i1_c, i2_c, i3_c, i4_c) result(has_c) &
-          bind(c, name="sslt_rebin_has_four_codon")
+     function sslt_rebin_init_codon(i1_c, i2_c, i3_c, i4_c) result(has_c) &
+          bind(c, name="sslt_rebin_init_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: i1_c, i2_c, i3_c, i4_c
        integer(c_int64_t) :: has_c
-     end function sslt_rebin_has_four_codon
+     end function sslt_rebin_init_codon
      function sslt_rebin_active_codon(has_sslt_c) result(active_c) &
           bind(c, name="sslt_rebin_active_codon")
        use iso_c_binding, only: c_int64_t
@@ -126,7 +126,7 @@ contains
     end if
 
     call sslt_rebin_proof_once()
-    has_four = sslt_rebin_has_four_codon(int(i1, c_int64_t), &
+    has_four = sslt_rebin_init_codon(int(i1, c_int64_t), &
          int(i2, c_int64_t), int(i3, c_int64_t), int(i4, c_int64_t)) /= 0_c_int64_t
 
   end function sslt_rebin_has_four
@@ -197,7 +197,7 @@ contains
        has_sslt = indices(1) > 0 .and. indices(2) > 0 .and. indices(3) > 0 .and. indices(4) > 0
     else
        call sslt_rebin_proof_once()
-       has_c = sslt_rebin_has_four_codon(int(indices(1), c_int64_t), int(indices(2), c_int64_t), &
+       has_c = sslt_rebin_init_codon(int(indices(1), c_int64_t), int(indices(2), c_int64_t), &
             int(indices(3), c_int64_t), int(indices(4), c_int64_t))
        has_sslt = has_c /= 0_c_int64_t
        call sslt_rebin_log_direct(sslt_rebin_init_logged, 'sslt_rebin_init direct = codon')
@@ -212,7 +212,7 @@ contains
        if (use_native_sslt_rebin_impl) then
           has_sslt = indices(1) > 0 .and. indices(2) > 0 .and. indices(3) > 0 .and. indices(4) > 0
        else
-          has_c = sslt_rebin_has_four_codon(int(indices(1), c_int64_t), int(indices(2), c_int64_t), &
+          has_c = sslt_rebin_init_codon(int(indices(1), c_int64_t), int(indices(2), c_int64_t), &
                int(indices(3), c_int64_t), int(indices(4), c_int64_t))
           has_sslt = has_c /= 0_c_int64_t
        end if

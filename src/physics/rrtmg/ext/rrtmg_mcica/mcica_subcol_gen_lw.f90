@@ -147,12 +147,12 @@
 !      real(kind=r8) :: ql(ncol, nlay)                ! liq water (specific humidity)
 
       interface
-         subroutine rrtmg_lw_subcol_prep_codon(ncol_c, nlay_c, ld_play_c, ld_size_c, ld_pmid_c, ld_out_c, &
-              play_p, rei_p, rel_p, pmid_p, reicmcl_p, relqmcl_p) bind(c, name="rrtmg_lw_subcol_prep_codon")
+         subroutine mcica_subcol_lw_codon(ncol_c, nlay_c, ld_play_c, ld_size_c, ld_pmid_c, ld_out_c, &
+              play_p, rei_p, rel_p, pmid_p, reicmcl_p, relqmcl_p) bind(c, name="mcica_subcol_lw_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: ncol_c, nlay_c, ld_play_c, ld_size_c, ld_pmid_c, ld_out_c
             type(c_ptr), value :: play_p, rei_p, rel_p, pmid_p, reicmcl_p, relqmcl_p
-         end subroutine rrtmg_lw_subcol_prep_codon
+         end subroutine mcica_subcol_lw_codon
       end interface
 
 
@@ -175,7 +175,7 @@
          pmid(:ncol,:nlay)    = play(:ncol,:nlay)*1.e2_r8
       else
          call subcol_fill_lw_log_entered()
-         call rrtmg_lw_subcol_prep_codon( &
+         call mcica_subcol_lw_codon( &
               int(ncol, c_int64_t), int(nlay, c_int64_t), int(size(play,1), c_int64_t), &
               int(size(rei,1), c_int64_t), int(ncol, c_int64_t), int(size(reicmcl,1), c_int64_t), &
               c_loc(play(1,1)), c_loc(rei(1,1)), c_loc(rel(1,1)), c_loc(pmid(1,1)), &

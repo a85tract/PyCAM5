@@ -236,15 +236,15 @@ real(r8) arg
 real(r8), target :: init_scalars(55)
 
 interface
-   subroutine micro_mg1_0_init_scalars_codon(gravit_c, rair_c, rh2o_c, &
+   subroutine micro_mg_init_codon(gravit_c, rair_c, rh2o_c, &
         cpair_c, rhoh2o_c, tmelt_c, rhmini_c, berg_eff_c, latvap_c, &
-        latice_c, micro_mg_dcs_c, scalars_p) bind(c, name="micro_mg1_0_init_scalars_codon")
+        latice_c, micro_mg_dcs_c, scalars_p) bind(c, name="micro_mg_init_codon")
       use iso_c_binding, only: c_double, c_ptr
       real(c_double), value :: gravit_c, rair_c, rh2o_c, cpair_c
       real(c_double), value :: rhoh2o_c, tmelt_c, rhmini_c, berg_eff_c
       real(c_double), value :: latvap_c, latice_c, micro_mg_dcs_c
       type(c_ptr), value :: scalars_p
-   end subroutine micro_mg1_0_init_scalars_codon
+   end subroutine micro_mg_init_codon
 end interface
 !-----------------------------------------------------------------------
 
@@ -328,7 +328,7 @@ if (micro_mg1_0_init_use_native_impl) then
         (10.e-6_r8)*(10.e-6_r8)*(10.e-6_r8)
 else
    call micro_mg1_0_log_init_scalars_entered()
-   call micro_mg1_0_init_scalars_codon(gravit, rair, rh2o, cpair, rhoh2o, &
+   call micro_mg_init_codon(gravit, rair, rh2o, cpair, rhoh2o, &
         tmelt_in, rhmini_in, micro_mg_berg_eff_factor_in, latvap, latice, &
         micro_mg_dcs, c_loc(init_scalars(1)))
    g= init_scalars(1)         !gravity

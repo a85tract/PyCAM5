@@ -170,7 +170,7 @@ def micro_mg_cam_implements_cnst_codon(name_len: int, name_ascii_p: cobj) -> int
 
 
 @export
-def micro_mg_cam_register_plan_codon(
+def micro_mg_cam_register_codon(
     micro_mg_version: int,
     micro_mg_sub_version: int,
     prog_modal_aero: int,
@@ -712,7 +712,7 @@ def _micro_mg_data_accumulate_1d(n: int, src: Ptr[float], dst: Ptr[float]):
 
 
 @export
-def micro_mg1_0_init_scalars_codon(
+def micro_mg_init_codon(
     gravit: float,
     rair: float,
     rh2o: float,

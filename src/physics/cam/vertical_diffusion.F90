@@ -199,12 +199,12 @@ module vertical_diffusion
        integer(c_int64_t) :: out_c
      end function vertical_diffusion_init_codon
 
-     subroutine vd_register_plan_codon(shallow_unicon_c, count_p, codes_p) &
-          bind(c, name="vd_register_plan_codon")
+     subroutine vd_register_codon(shallow_unicon_c, count_p, codes_p) &
+          bind(c, name="vd_register_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: shallow_unicon_c
        type(c_ptr), value :: count_p, codes_p
-     end subroutine vd_register_plan_codon
+     end subroutine vd_register_codon
 
      subroutine vertical_diffusion_init_plan_codon(pver_c, pcnst_c, waccmx_mode_c, ntop_molec_c, &
           nbot_molec_c, ntop_eddy_pres_c, pref_mid_p, prog_modal_aero_c, ixnumliq_c, pmam_ncnst_c, &
@@ -462,7 +462,7 @@ contains
     call vd_register_select_impl()
 
     if (.not. use_native_vd_register_impl) then
-       call vd_register_plan_codon(merge(1_c_int64_t, 0_c_int64_t, trim(shallow_scheme) == 'UNICON'), &
+       call vd_register_codon(merge(1_c_int64_t, 0_c_int64_t, trim(shallow_scheme) == 'UNICON'), &
             c_loc(vd_register_count), c_loc(vd_register_codes(1)))
        do ifield = 1, int(vd_register_count)
           select case (int(vd_register_codes(ifield)))

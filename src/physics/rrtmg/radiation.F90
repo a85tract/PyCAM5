@@ -123,12 +123,12 @@ interface
       type(c_ptr), value :: op_ascii_p
       logical(c_bool) :: do_rad_c
    end function radiation_do_codon
-   function radiation_nextsw_offset_codon(nstep_c, dtime_c, iradsw_c, irad_always_c) &
-        result(offset_c) bind(c, name="radiation_nextsw_offset_codon")
+   function radiation_nextsw_cday_codon(nstep_c, dtime_c, iradsw_c, irad_always_c) &
+        result(offset_c) bind(c, name="radiation_nextsw_cday_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: nstep_c, dtime_c, iradsw_c, irad_always_c
       integer(c_int64_t) :: offset_c
-   end function radiation_nextsw_offset_codon
+   end function radiation_nextsw_cday_codon
 end interface
 
 !===============================================================================
@@ -414,7 +414,7 @@ real(r8) function radiation_nextsw_cday()
          end if
       end do
    else
-      offset = int(radiation_nextsw_offset_codon(int(nstep, c_int64_t), int(dtime, c_int64_t), &
+      offset = int(radiation_nextsw_cday_codon(int(nstep, c_int64_t), int(dtime, c_int64_t), &
            int(iradsw, c_int64_t), int(irad_always, c_int64_t)))
       call radiation_nextsw_cday_log()
       radiation_nextsw_cday = get_curr_calday(offset=offset)

@@ -20,7 +20,7 @@ from C import zm_entropy_expr_native_cb(float, float, float, float, float, float
 from math import acos, cos, exp, floor, log, sin, sqrt
 
 @export
-def physpkg_orch_stage_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
+def phys_final_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
     mask = stage
     if flag1 != 0:
         mask |= 16
@@ -33,22 +33,22 @@ def physpkg_orch_stage_codon(stage: int, flag1: int, flag2: int, flag3: int) -> 
 
 @export
 def phys_register_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
-    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+    return phys_final_codon(stage, flag1, flag2, flag3)
 
 
 @export
 def phys_init_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
-    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+    return phys_final_codon(stage, flag1, flag2, flag3)
 
 
 @export
 def phys_run1_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
-    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+    return phys_final_codon(stage, flag1, flag2, flag3)
 
 
 @export
 def phys_run2_codon(stage: int, flag1: int, flag2: int, flag3: int) -> int:
-    return physpkg_orch_stage_codon(stage, flag1, flag2, flag3)
+    return phys_final_codon(stage, flag1, flag2, flag3)
 
 
 @export
@@ -5256,7 +5256,7 @@ def geopotential_t_codon(
 
 
 @export
-def comsrf_initialize_fields_codon(
+def initialize_comsrf_codon(
     total_len: int,
     nan_value: float,
     landm_p: cobj,
@@ -5324,7 +5324,7 @@ def _ref_pres_press_lim_idx_bottom(pver: int, p: float, pref_mid: Ptr[float]) ->
 
 
 @export
-def ref_pres_init_finalize_codon(
+def ref_pres_init_codon(
     pver: int,
     pverp: int,
     trop_cloud_top_press: float,
@@ -5425,7 +5425,7 @@ def init_tms_codon(
 
 
 @export
-def trb_mtn_stress_compute_codon(
+def compute_tms_codon(
     pcols: int,
     pver: int,
     ncol: int,
@@ -8282,7 +8282,7 @@ def _modal_aer_opt_out_idx(i: int, k: int, pcols: int) -> int:
 
 
 @export
-def modal_aer_opt_size_parameters_codon(
+def modal_size_parameters_codon(
     pcols: int,
     pver: int,
     top_lev: int,
@@ -10768,7 +10768,7 @@ def phys_control_bool_flag_codon(flag: int) -> int:
 
 
 @export
-def phys_control_index_positive_codon(index_value: int) -> int:
+def phys_ctl_readnl_codon(index_value: int) -> int:
     if index_value > 0:
         return 1
     return 0
@@ -11053,7 +11053,7 @@ def aer_rad_props_lw_setup_codon(
 
 
 @export
-def aer_rad_props_init_plan_codon(
+def aer_rad_props_init_codon(
     history_amwg: int,
     history_aero_optics: int,
     prog_modal_aero: int,
@@ -11460,7 +11460,7 @@ def avg_diameter_codon(q: float, n: float, rho_air: float, rho_sub: float) -> fl
 
 
 @export
-def radiation_data_flag_codon(flag: int) -> int:
+def rad_data_write_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
@@ -11468,7 +11468,7 @@ def radiation_data_flag_codon(flag: int) -> int:
 
 @export
 def rad_data_init_codon(flag: int) -> int:
-    return radiation_data_flag_codon(flag)
+    return rad_data_write_codon(flag)
 
 
 @export
@@ -11528,7 +11528,7 @@ def _idx2(r: int, c: int, ld1: int) -> int:
 
 
 @export
-def cosp_set_values_tables_codon(
+def setcospvalues_codon(
     nht: int,
     nhtml: int,
     nscol: int,
@@ -12173,7 +12173,7 @@ def iondrag_calc_ghg_codon() -> int:
 
 
 @export
-def cld_sediment_param_codon(value: float) -> float:
+def cld_sediment_readnl_codon(value: float) -> float:
     return value
 
 
@@ -12275,7 +12275,7 @@ def clubb_readnl_codon() -> int:
 
 
 @export
-def radae_ntoplw_codon(pref_mid_p: cobj, nlev: int) -> int:
+def initialize_radbuffer_codon(pref_mid_p: cobj, nlev: int) -> int:
     pref_mid = Ptr[float](pref_mid_p)
     ntoplw = 1
     if pref_mid[0] < 0.1:
@@ -12401,7 +12401,7 @@ def cpslec_codon(
 
 
 @export
-def sslt_rebin_has_four_codon(i1: int, i2: int, i3: int, i4: int) -> int:
+def sslt_rebin_init_codon(i1: int, i2: int, i3: int, i4: int) -> int:
     if i1 > 0 and i2 > 0 and i3 > 0 and i4 > 0:
         return 1
     return 0
@@ -12560,7 +12560,7 @@ def gmean_fixed_repro_preweight_chunk_codon(
 
 
 @export
-def gmean_arr_recompute_flags_codon(
+def gmean_arr_codon(
     rel_diff_p: cobj,
     nflds: int,
     reldiffmax: float,
@@ -13994,7 +13994,7 @@ def _cmparray_idx3(i: int, j: int, k: int, il1: int, il2: int, il3: int, ld1: in
 
 
 @export
-def cmparray_daynite_copy_real_codon(
+def cmpdaynite_3d_r_copy_codon(
     in_array_p: cobj,
     out_array_p: cobj,
     idxday_p: cobj,
@@ -14046,7 +14046,7 @@ def cmpdaynite_1d_r_copy_codon(
     il3: int,
     iu3: int,
 ):
-    cmparray_daynite_copy_real_codon(
+    cmpdaynite_3d_r_copy_codon(
         in_array_p, out_array_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
     )
 
@@ -14066,13 +14066,13 @@ def cmpdaynite_2d_r_copy_codon(
     il3: int,
     iu3: int,
 ):
-    cmparray_daynite_copy_real_codon(
+    cmpdaynite_3d_r_copy_codon(
         in_array_p, out_array_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
     )
 
 
 @export
-def cmparray_exp_daynite_real_codon(
+def expdaynite_3d_r_codon(
     array_p: cobj,
     tmp_p: cobj,
     idxday_p: cobj,
@@ -14124,7 +14124,7 @@ def expdaynite_1d_r_codon(
     il3: int,
     iu3: int,
 ):
-    cmparray_exp_daynite_real_codon(
+    expdaynite_3d_r_codon(
         array_p, tmp_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
     )
 
@@ -14144,6 +14144,6 @@ def expdaynite_2d_r_codon(
     il3: int,
     iu3: int,
 ):
-    cmparray_exp_daynite_real_codon(
+    expdaynite_3d_r_codon(
         array_p, tmp_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
     )

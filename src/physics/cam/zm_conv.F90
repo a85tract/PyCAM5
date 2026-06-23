@@ -2313,11 +2313,11 @@ subroutine convtran(lchnk   , &
    integer ispec
 
    interface
-      subroutine zm_convtran_main_codon(pcols_c, pver_c, ncnst_c, il1g_c, il2g_c, &
+      subroutine convtran_codon(pcols_c, pver_c, ncnst_c, il1g_c, il2g_c, &
            doconvtran_p, is_dry_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p, fracis_p, dpdry_p, &
            jt_p, mx_p, ideep_p, dqdt_p, chat_p, cond_p, const_p, fisg_p, conu_p, dcondt_p, &
            dutmp_p, eutmp_p, edtmp_p, dptmp_p, trace_water_c, nwt_liq_c, nwt_ice_c, wtrc_qmin_c, &
-           wtrc_liq_iatype_p, wtrc_ice_iatype_p, iwspec_p, rstd_p, Rwt_p) bind(c, name="zm_convtran_main_codon")
+           wtrc_liq_iatype_p, wtrc_ice_iatype_p, iwspec_p, rstd_p, Rwt_p) bind(c, name="convtran_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: pcols_c, pver_c, ncnst_c, il1g_c, il2g_c
          integer(c_int64_t), value :: trace_water_c, nwt_liq_c, nwt_ice_c
@@ -2326,7 +2326,7 @@ subroutine convtran(lchnk   , &
          type(c_ptr), value :: fracis_p, dpdry_p, jt_p, mx_p, ideep_p, dqdt_p, chat_p, cond_p, const_p
          type(c_ptr), value :: fisg_p, conu_p, dcondt_p, dutmp_p, eutmp_p, edtmp_p, dptmp_p
          type(c_ptr), value :: wtrc_liq_iatype_p, wtrc_ice_iatype_p, iwspec_p, rstd_p, Rwt_p
-      end subroutine zm_convtran_main_codon
+      end subroutine convtran_codon
    end interface
 
 !NOTE:  ixcldice = 3  - JN
@@ -2381,7 +2381,7 @@ subroutine convtran(lchnk   , &
          zm_convtran_main_logged = .true.
       end if
 
-      call zm_convtran_main_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncnst, c_int64_t), &
+      call convtran_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncnst, c_int64_t), &
            int(il1g, c_int64_t), int(il2g, c_int64_t), c_loc(doconvtran64), c_loc(is_dry64), c_loc(q), &
            c_loc(mu), c_loc(md), c_loc(du), c_loc(eu), c_loc(ed), c_loc(dp), c_loc(fracis), c_loc(dpdry), &
            c_loc(jt64), c_loc(mx64), c_loc(ideep64), c_loc(dqdt), c_loc(chat), c_loc(cond), c_loc(const), &
@@ -2741,10 +2741,10 @@ subroutine momtran(lchnk, ncol, &
    integer(c_int64_t), target :: domomtran64(ncnst), jt64(pcols), mx64(pcols), ideep64(pcols)
 
    interface
-      subroutine zm_momtran_main_codon(ncol_c, pcols_c, pver_c, pverp_c, ncnst_c, il1g_c, il2g_c, dt_c, &
+      subroutine momtran_codon(ncol_c, pcols_c, pver_c, pverp_c, ncnst_c, il1g_c, il2g_c, dt_c, &
            domomtran_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p, dsubcld_p, jt_p, mx_p, ideep_p, dqdt_p, &
            pguall_p, pgdall_p, icwu_p, icwd_p, seten_p, chat_p, cond_p, const_p, conu_p, dcondt_p, mududp_p, &
-           mddudp_p, pgu_p, pgd_p, gseten_p, mflux_p, wind0_p, windf_p) bind(c, name="zm_momtran_main_codon")
+           mddudp_p, pgu_p, pgd_p, gseten_p, mflux_p, wind0_p, windf_p) bind(c, name="momtran_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, ncnst_c, il1g_c, il2g_c
          real(c_double), value :: dt_c
@@ -2752,7 +2752,7 @@ subroutine momtran(lchnk, ncol, &
          type(c_ptr), value :: jt_p, mx_p, ideep_p, dqdt_p, pguall_p, pgdall_p, icwu_p, icwd_p, seten_p
          type(c_ptr), value :: chat_p, cond_p, const_p, conu_p, dcondt_p, mududp_p, mddudp_p, pgu_p, pgd_p
          type(c_ptr), value :: gseten_p, mflux_p, wind0_p, windf_p
-      end subroutine zm_momtran_main_codon
+      end subroutine momtran_codon
    end interface
 
 
@@ -2783,7 +2783,7 @@ subroutine momtran(lchnk, ncol, &
          zm_momtran_main_logged = .true.
       end if
 
-      call zm_momtran_main_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+      call momtran_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
            int(pverp, c_int64_t), int(ncnst, c_int64_t), int(il1g, c_int64_t), int(il2g, c_int64_t), &
            real(dt, c_double), c_loc(domomtran64), c_loc(q), c_loc(mu), c_loc(md), c_loc(du), c_loc(eu), &
            c_loc(ed), c_loc(dp), c_loc(dsubcld), c_loc(jt64), c_loc(mx64), c_loc(ideep64), c_loc(dqdt), &

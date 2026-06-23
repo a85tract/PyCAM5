@@ -347,7 +347,7 @@ module cospsimulator_intr
          integer(c_int64_t), value :: nradsteps_c, nht_current_c
          type(c_ptr), value :: nht_p, nscol_p, nradsteps_p, zstep_p
       end subroutine cosp_set_values_basic_codon
-      subroutine cosp_set_values_tables_codon(nht_c, nhtml_c, nscol_c, nprs_c, ntau_c, ntau_modis_c, &
+      subroutine setcospvalues_codon(nht_c, nhtml_c, nscol_c, nprs_c, ntau_c, ntau_modis_c, &
            ndbze_c, nsr_c, nhtmisr_c, zstep_c, use_vgrid_c, prslim_1d_p, taulim_1d_p, &
            taulim_modis_1d_p, dbzelim_1d_p, srlim_1d_p, htmisrlim_1d_p, htlim_1d_p, &
            prsmid_p, prslim_p, taumid_p, taulim_p, taumid_modis_p, taulim_modis_p, &
@@ -357,7 +357,7 @@ module cospsimulator_intr
            prstau_prsmid_modis_p, prstau_taumid_modis_p, htdbze_htmid_p, &
            htdbze_dbzemid_p, htsr_htmid_p, htsr_srmid_p, htmlscol_htmlmid_p, &
            htmlscol_scol_p, htmisrtau_htmisrmid_p, htmisrtau_taumid_p) &
-           bind(c, name="cosp_set_values_tables_codon")
+           bind(c, name="setcospvalues_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: nht_c, nhtml_c, nscol_c, nprs_c, ntau_c, ntau_modis_c
          integer(c_int64_t), value :: ndbze_c, nsr_c, nhtmisr_c, use_vgrid_c
@@ -376,7 +376,7 @@ module cospsimulator_intr
          type(c_ptr), value :: htsr_htmid_p, htsr_srmid_p
          type(c_ptr), value :: htmlscol_htmlmid_p, htmlscol_scol_p
          type(c_ptr), value :: htmisrtau_htmisrmid_p, htmisrtau_taumid_p
-      end subroutine cosp_set_values_tables_codon
+      end subroutine setcospvalues_codon
       function final_cam_cleanup_touch_codon(stage_c) result(stage_out) bind(c, name="final_cam_cleanup_touch_codon")
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t), value :: stage_c
@@ -582,7 +582,7 @@ subroutine setcospvalues(Nlr_in,use_vgrid_in,csat_vgrid_in,Ncolumns_in,docosp_in
       srlim_cosp_1d_work = srlim_cosp_1d
       htmisrlim_cosp_1d_work = htmisrlim_cosp_1d
       call cosp_set_values_table_proof_once()
-      call cosp_set_values_tables_codon(int(nht_cosp, c_int64_t), int(nhtml_cosp, c_int64_t), &
+      call setcospvalues_codon(int(nht_cosp, c_int64_t), int(nhtml_cosp, c_int64_t), &
            int(nscol_cosp, c_int64_t), int(nprs_cosp, c_int64_t), int(ntau_cosp, c_int64_t), &
            int(ntau_cosp_modis, c_int64_t), int(ndbze_cosp, c_int64_t), int(nsr_cosp, c_int64_t), &
            int(nhtmisr_cosp, c_int64_t), real(zstep, c_double), use_vgrid_c, &

@@ -722,11 +722,11 @@ def sulf_inti_codon(active: int) -> int:
     return sulf_inti_active_codon(active)
 
 @export
-def sox_inti_active_codon(active: int) -> int:
+def sox_inti_codon(active: int) -> int:
     return active
 
 @export
-def sox_cldaero_init_active_codon(active: int) -> int:
+def sox_cldaero_init_codon(active: int) -> int:
     return active
 
 @export

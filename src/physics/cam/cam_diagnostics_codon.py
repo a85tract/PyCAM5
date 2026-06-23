@@ -844,7 +844,7 @@ def hub2atm_alloc_init_codon(
 
 
 @export
-def hub2atm_alloc_init_stage_dispatch_codon(
+def hub2atm_alloc_codon(
     pcols: int,
     pcnst: int,
     n_drydep: int,
@@ -1101,7 +1101,7 @@ def atm2hub_alloc_init_codon(
 
 
 @export
-def atm2hub_alloc_init_stage_dispatch_codon(
+def atm2hub_alloc_codon(
     pcols: int,
     pcnst: int,
     tbot_p: cobj,
@@ -1421,7 +1421,7 @@ def cam_export_core_codon(
 
 
 @export
-def cam_export_core_stage_dispatch_codon(
+def cam_export_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -1754,61 +1754,6 @@ def diag_phys_tend_update_batch_codon(
 
 
 @export
-def diag_phys_tend_update_batch_stage_dispatch_codon(
-    stage: int,
-    ncol: int,
-    pcols: int,
-    pver: int,
-    pcnst: int,
-    ixcldliq: int,
-    ixcldice: int,
-    ztodt: float,
-    rtdt: float,
-    heat_glob: float,
-    cpair: float,
-    state_t_p: cobj,
-    state_q_p: cobj,
-    tend_dtdt_p: cobj,
-    tmp_t_p: cobj,
-    tmp_q_p: cobj,
-    tmp_cldliq_p: cobj,
-    tmp_cldice_p: cobj,
-    qini_p: cobj,
-    cldliqini_p: cobj,
-    cldiceini_p: cobj,
-    ftem2_p: cobj,
-    ftem3_p: cobj,
-    t_ttend_p: cobj,
-):
-    diag_phys_tend_update_batch_codon(
-        stage,
-        ncol,
-        pcols,
-        pver,
-        pcnst,
-        ixcldliq,
-        ixcldice,
-        ztodt,
-        rtdt,
-        heat_glob,
-        cpair,
-        state_t_p,
-        state_q_p,
-        tend_dtdt_p,
-        tmp_t_p,
-        tmp_q_p,
-        tmp_cldliq_p,
-        tmp_cldice_p,
-        qini_p,
-        cldliqini_p,
-        cldiceini_p,
-        ftem2_p,
-        ftem3_p,
-        t_ttend_p,
-    )
-
-
-@export
 def diag_phys_tend_writeout_codon(
     stage: int,
     ncol: int,
@@ -1861,7 +1806,6 @@ def diag_phys_tend_writeout_codon(
         ftem3_p,
         t_ttend_p,
     )
-
 
 @export
 def diag_phys_writeout_codon(stage: int) -> int:

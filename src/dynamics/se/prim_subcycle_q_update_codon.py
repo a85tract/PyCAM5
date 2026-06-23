@@ -1050,16 +1050,15 @@ def get_block_gcol_d_codon(
     return _misc.get_block_gcol_d_codon(size, unique_pt_offset, cdex_p)
 
 @export
-def get_block_bounds_d_first_codon(
+def get_block_bounds_d_codon(
     nelem: int,
-) -> int:
-    return _misc.get_block_bounds_d_first_codon(nelem)
-
-@export
-def get_block_bounds_d_last_codon(
-    nelem: int,
-) -> int:
-    return _misc.get_block_bounds_d_last_codon(nelem)
+    first_p: cobj,
+    last_p: cobj,
+):
+    first = Ptr[int](first_p)
+    last = Ptr[int](last_p)
+    first[0] = _misc.dyn_grid_block_first(nelem)
+    last[0] = _misc.dyn_grid_block_last(nelem)
 
 @export
 def get_block_gcol_cnt_d_codon(
@@ -1102,16 +1101,17 @@ def get_block_owner_d_codon(
     return _misc.get_block_owner_d_codon(owner)
 
 @export
-def get_horiz_grid_dim_d_first_codon(
+def get_horiz_grid_dim_d_codon(
     ngcols: int,
-) -> int:
-    return _misc.get_horiz_grid_dim_d_first_codon(ngcols)
-
-@export
-def get_horiz_grid_dim_d_second_codon(
-    ngcols: int,
-) -> int:
-    return _misc.get_horiz_grid_dim_d_second_codon(ngcols)
+    has_hdim2: int,
+    hdim1_p: cobj,
+    hdim2_p: cobj,
+):
+    hdim1 = Ptr[int](hdim1_p)
+    hdim2 = Ptr[int](hdim2_p)
+    hdim1[0] = _misc.dyn_grid_hdim1(ngcols)
+    if has_hdim2 != 0:
+        hdim2[0] = _misc.dyn_grid_hdim2(ngcols)
 
 @export
 def set_horiz_grid_cnt_d_codon(

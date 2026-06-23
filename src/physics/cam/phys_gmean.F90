@@ -55,13 +55,13 @@ module phys_gmean
    logical :: gmean_fixed_repro_logged = .false.
 
    interface
-      subroutine gmean_arr_recompute_flags_codon(rel_diff_p, nflds_c, reldiffmax_c, &
-           recompute_c, recompute_flags_p) bind(c, name="gmean_arr_recompute_flags_codon")
+      subroutine gmean_arr_codon(rel_diff_p, nflds_c, reldiffmax_c, &
+           recompute_c, recompute_flags_p) bind(c, name="gmean_arr_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
         type(c_ptr), value :: rel_diff_p, recompute_flags_p
         integer(c_int64_t), value :: nflds_c, recompute_c
         real(c_double), value :: reldiffmax_c
-      end subroutine gmean_arr_recompute_flags_codon
+      end subroutine gmean_arr_codon
 
       subroutine gmean_fixed_repro_codon(arr_p, nflds_c, pi_c) &
            bind(c, name="gmean_fixed_repro_codon")
@@ -218,7 +218,7 @@ module phys_gmean
             endif
          endif
       else
-         call gmean_arr_recompute_flags_codon(c_loc(rel_diff(1,1)), int(nflds, c_int64_t), &
+         call gmean_arr_codon(c_loc(rel_diff(1,1)), int(nflds, c_int64_t), &
               real(shr_reprosum_reldiffmax, c_double), &
               int(merge(1, 0, tol_exceeded .and. shr_reprosum_recompute), c_int64_t), &
               c_loc(recompute_flags(1)))

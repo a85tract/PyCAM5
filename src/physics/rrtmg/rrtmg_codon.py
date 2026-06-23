@@ -379,7 +379,7 @@ def get_solar_band_fraction_irrad_codon(
 
 
 @export
-def rrtmg_sw_spectral_boundaries_codon(
+def get_sw_spectral_boundaries_codon(
     nbands: int,
     mode: int,
     low_p: cobj,
@@ -524,7 +524,7 @@ def radiation_do_codon(op_len: int, op_ascii_p: cobj, nstep: int, iradsw: int, i
 
 
 @export
-def radiation_nextsw_offset_codon(nstep: int, dtime: int, iradsw: int, irad_always: int) -> int:
+def radiation_nextsw_cday_codon(nstep: int, dtime: int, iradsw: int, irad_always: int) -> int:
     offset = 0
     current = nstep
     while True:
@@ -3959,7 +3959,7 @@ def rrtmg_sw_cloud_optics_codon(
 
 
 @export
-def rrtmg_cloud_ice_optics_sw_codon(
+def interpolate_ice_optics_sw_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -4011,7 +4011,7 @@ def rrtmg_cloud_ice_optics_sw_codon(
 
 
 @export
-def rrtmg_cloud_ice_optics_lw_codon(
+def interpolate_ice_optics_lw_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -4176,7 +4176,7 @@ def get_ice_optics_sw_codon(
     iciwpth_p: cobj, dei_p: cobj, gd_p: cobj, ext_p: cobj, ssa_p: cobj,
     asm_p: cobj, tau_p: cobj, tau_w_p: cobj, tau_w_g_p: cobj, tau_w_f_p: cobj,
 ):
-    rrtmg_cloud_ice_optics_sw_codon(
+    interpolate_ice_optics_sw_codon(
         ncol, pcols, pver, nswbands, ngd, iciwpth_p, dei_p, gd_p, ext_p, ssa_p,
         asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p,
     )
@@ -4188,7 +4188,7 @@ def get_snow_optics_sw_codon(
     icswpth_p: cobj, des_p: cobj, gd_p: cobj, ext_p: cobj, ssa_p: cobj,
     asm_p: cobj, tau_p: cobj, tau_w_p: cobj, tau_w_g_p: cobj, tau_w_f_p: cobj,
 ):
-    rrtmg_cloud_ice_optics_sw_codon(
+    interpolate_ice_optics_sw_codon(
         ncol, pcols, pver, nswbands, ngd, icswpth_p, des_p, gd_p, ext_p, ssa_p,
         asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p,
     )
@@ -4199,7 +4199,7 @@ def ice_cloud_get_rad_props_lw_codon(
     ncol: int, pcols: int, pver: int, nlwbands: int, ngd: int,
     iciwpth_p: cobj, dei_p: cobj, gd_p: cobj, absor_p: cobj, abs_od_p: cobj,
 ):
-    rrtmg_cloud_ice_optics_lw_codon(
+    interpolate_ice_optics_lw_codon(
         ncol, pcols, pver, nlwbands, ngd, iciwpth_p, dei_p, gd_p, absor_p, abs_od_p,
     )
 
@@ -4209,7 +4209,7 @@ def snow_cloud_get_rad_props_lw_codon(
     ncol: int, pcols: int, pver: int, nlwbands: int, ngd: int,
     icswpth_p: cobj, des_p: cobj, gd_p: cobj, absor_p: cobj, abs_od_p: cobj,
 ):
-    rrtmg_cloud_ice_optics_lw_codon(
+    interpolate_ice_optics_lw_codon(
         ncol, pcols, pver, nlwbands, ngd, icswpth_p, des_p, gd_p, absor_p, abs_od_p,
     )
 
@@ -4670,7 +4670,7 @@ def rrtmg_solar_variability_codon(
 
 
 @export
-def rad_solar_var_init_far_ir_codon(nradbins: int, radbinmax_p: cobj) -> int:
+def rad_solar_var_init_codon(nradbins: int, radbinmax_p: cobj) -> int:
     radbinmax = Ptr[float](radbinmax_p)
     maxloc = 1
     maxval = radbinmax[0]
@@ -4767,7 +4767,7 @@ def sw_kgb26_codon(sfluxrefo_p: cobj, raylo_p: cobj):
 
 
 @export
-def rrtmg_sw_setcoef_codon(
+def setcoef_sw_codon(
     nlayers: int,
     mxmol: int,
     pavel_p: cobj,
@@ -6817,7 +6817,7 @@ def taumol22_codon(
 
 
 @export
-def rrtmg_sw_subcol_prep_codon(
+def mcica_subcol_sw_codon(
     ncol: int,
     nlay: int,
     ld_play: int,
@@ -7115,7 +7115,7 @@ def rrtmg_sw_subcol_fill_codon(
 
 
 @export
-def rrtmg_lw_subcol_prep_codon(
+def mcica_subcol_lw_codon(
     ncol: int,
     nlay: int,
     ld_play: int,
@@ -11213,7 +11213,7 @@ def _rrtmg_sw_ec_icx(wavenum2: float) -> int:
 
 
 @export
-def rrtmg_sw_cldprmc_codon(
+def cldprmc_sw_codon(
     nlayers: int,
     inflag: int,
     iceflag: int,
@@ -12376,7 +12376,7 @@ def _rrtmg_sw_reftra_lookup(
 
 
 @export
-def rrtmg_sw_reftra_codon(
+def reftra_sw_codon(
     nlayers: int,
     prmuz: float,
     tblint: float,
@@ -12964,7 +12964,7 @@ def rrtmg_lw_rad_store_flux_codon(
 
 
 @export
-def rrtmg_sw_inatm_codon(
+def inatm_sw_codon(
     iplon: int,
     nlay: int,
     ldcol: int,

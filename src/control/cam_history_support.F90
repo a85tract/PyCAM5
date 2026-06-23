@@ -304,18 +304,18 @@ contains
     logical, save :: logged = .false.
 
     interface
-      function handle_pio_error_ok_codon(ierr_c, pio_noerr_c) result(ok_c) bind(c, name="handle_pio_error_ok_codon")
+      function handle_pio_error_codon(ierr_c, pio_noerr_c) result(ok_c) bind(c, name="handle_pio_error_codon")
         use iso_c_binding, only: c_int64_t
         integer(c_int64_t), value :: ierr_c
         integer(c_int64_t), value :: pio_noerr_c
         integer(c_int64_t) :: ok_c
-      end function handle_pio_error_ok_codon
+      end function handle_pio_error_codon
     end interface
 
     impl_name = 'codon'
     call cam_codon_get_impl('HANDLE_PIO_ERROR_IMPL', impl_name, n, status)
     if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
-      if (handle_pio_error_ok_codon(int(ierr, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t) then
+      if (handle_pio_error_codon(int(ierr, c_int64_t), int(PIO_NOERR, c_int64_t)) /= 0_c_int64_t) then
         if (masterproc .and. .not. logged) then
           write(iulog,'(A)') 'handle_pio_error implementation = codon'
           logged = .true.

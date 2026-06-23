@@ -4427,7 +4427,7 @@ def zm_momtran_main_stage_dispatch_codon(
         k += 1
 
 @export
-def zm_momtran_main_codon(
+def momtran_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -4814,7 +4814,7 @@ def zm_convtran_main_stage_dispatch_codon(
                 m += 1
 
 @export
-def zm_convtran_main_codon(
+def convtran_codon(
     pcols: int,
     pver: int,
     ncnst: int,
@@ -5707,7 +5707,7 @@ def zm_conv_tend_2_codon(
 
 
 @export
-def zm_conv_tend_mask_codon(ncol: int, trace_water: int, zmconv_org: int, non_cam3: int) -> int:
+def zm_conv_tend_codon(ncol: int, trace_water: int, zmconv_org: int, non_cam3: int) -> int:
     mask = 1
     if ncol > 0:
         mask |= 2

@@ -581,20 +581,20 @@ subroutine interpolate_ice_optics_sw(ncol, iciwpth, dei, tau, tau_w, &
   real(r8) :: ext(nswbands), ssa(nswbands), asm(nswbands)
 
   interface
-     subroutine rrtmg_cloud_ice_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, ngd_c, &
+     subroutine interpolate_ice_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, ngd_c, &
           iciwpth_p, dei_p, gd_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
-          bind(c, name="rrtmg_cloud_ice_optics_sw_codon")
+          bind(c, name="interpolate_ice_optics_sw_codon")
         use iso_c_binding, only: c_int64_t, c_ptr
         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, ngd_c
         type(c_ptr), value :: iciwpth_p, dei_p, gd_p, ext_p, ssa_p, asm_p
         type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
-     end subroutine rrtmg_cloud_ice_optics_sw_codon
+     end subroutine interpolate_ice_optics_sw_codon
   end interface
 
   call cloud_ice_optics_select_impl()
   if (.not. use_native_cloud_ice_optics_impl) then
      call cloud_ice_optics_sw_log_entered()
-     call rrtmg_cloud_ice_optics_sw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+     call interpolate_ice_optics_sw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
           int(pver, c_int64_t), int(nswbands, c_int64_t), int(n_g_d, c_int64_t), &
           c_loc(iciwpth(1,1)), c_loc(dei(1,1)), c_loc(g_d_eff(1)), c_loc(ext_sw_ice(1,1)), &
           c_loc(ssa_sw_ice(1,1)), c_loc(asm_sw_ice(1,1)), c_loc(tau(1,1,1)), &
@@ -861,18 +861,18 @@ subroutine interpolate_ice_optics_lw(ncol, iciwpth, dei, abs_od)
   real(r8) :: absor(nlwbands)
 
   interface
-     subroutine rrtmg_cloud_ice_optics_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c, &
-          iciwpth_p, dei_p, gd_p, absor_p, abs_od_p) bind(c, name="rrtmg_cloud_ice_optics_lw_codon")
+     subroutine interpolate_ice_optics_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c, &
+          iciwpth_p, dei_p, gd_p, absor_p, abs_od_p) bind(c, name="interpolate_ice_optics_lw_codon")
         use iso_c_binding, only: c_int64_t, c_ptr
         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c
         type(c_ptr), value :: iciwpth_p, dei_p, gd_p, absor_p, abs_od_p
-     end subroutine rrtmg_cloud_ice_optics_lw_codon
+     end subroutine interpolate_ice_optics_lw_codon
   end interface
 
   call cloud_ice_optics_select_impl()
   if (.not. use_native_cloud_ice_optics_impl) then
      call cloud_ice_optics_lw_log_entered()
-     call rrtmg_cloud_ice_optics_lw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+     call interpolate_ice_optics_lw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
           int(pver, c_int64_t), int(nlwbands, c_int64_t), int(n_g_d, c_int64_t), &
           c_loc(iciwpth(1,1)), c_loc(dei(1,1)), c_loc(g_d_eff(1)), c_loc(abs_lw_ice(1,1)), &
           c_loc(abs_od(1,1,1)))
