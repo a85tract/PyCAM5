@@ -55,6 +55,9 @@
   logical :: use_native_gas_aer_uptkrates_impl = .false.
   logical :: gas_aer_uptkrates_impl_selected = .false.
   logical :: gas_aer_uptkrates_direct_logged = .false.
+  logical :: use_native_modal_aero_soaexch_impl = .false.
+  logical :: modal_aero_soaexch_impl_selected = .false.
+  logical :: modal_aero_soaexch_direct_logged = .false.
 
 
 ! !DESCRIPTION: This module implements ...
@@ -1151,6 +1154,9 @@ implicit none
 !         g_soa_tend, a_soa_tend, g0_soa, idiagss )
 
         use mo_constants, only: rgas ! Gas constant (J/K/mol)
+        use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+        use cam_logfile, only: iulog
+        use spmd_utils, only: masterproc
 !-----------------------------------------------------------------------
 !
 ! Purpose:
@@ -1179,11 +1185,11 @@ implicit none
       integer,  intent(in)  :: niter_max  ! max allowed number of iterations
       integer,  intent(in)  :: ntot_soamode             ! number of modes having soa
       real(r8), intent(in)  :: g_soa_in                 ! initial soa gas mixrat (mol/mol)
-      real(r8), intent(in)  :: a_soa_in(ntot_soamode)   ! initial soa aerosol mixrat (mol/mol)
-      real(r8), intent(in)  :: a_poa_in(ntot_soamode)   ! initial poa aerosol mixrat (mol/mol)
-      real(r8), intent(in)  :: xferrate(ntot_soamode)   ! gas-aerosol mass transfer rate (1/s)
+      real(r8), target, intent(in)  :: a_soa_in(ntot_soamode)   ! initial soa aerosol mixrat (mol/mol)
+      real(r8), target, intent(in)  :: a_poa_in(ntot_soamode)   ! initial poa aerosol mixrat (mol/mol)
+      real(r8), target, intent(in)  :: xferrate(ntot_soamode)   ! gas-aerosol mass transfer rate (1/s)
       real(r8), intent(out) :: g_soa_tend               ! soa gas mixrat tendency (mol/mol/s)
-      real(r8), intent(out) :: a_soa_tend(ntot_soamode) ! soa aerosol mixrat tendency (mol/mol/s)
+      real(r8), target, intent(out) :: a_soa_tend(ntot_soamode) ! soa aerosol mixrat tendency (mol/mol/s)
 !     real(r8), intent(out) :: g0_soa   ! ambient soa gas equilib mixrat (mol/mol)
 !     integer,  intent(in)  :: idiagss
 
@@ -1197,22 +1203,59 @@ implicit none
       ! delh_vap_soa = heat of vaporization for gas soa (J/mol)
       real(r8), parameter :: p0_soa_298 = 1.0e-10_r8
 
-      real(r8) :: a_opoa(ntot_soamode)    ! oxidized-poa aerosol mixrat (mol/mol)
-      real(r8) :: a_soa(ntot_soamode)     ! soa aerosol mixrat (mol/mol)
+      real(r8), target :: a_opoa(ntot_soamode)    ! oxidized-poa aerosol mixrat (mol/mol)
+      real(r8), target :: a_soa(ntot_soamode)     ! soa aerosol mixrat (mol/mol)
       real(r8) :: a_soa_tmp               ! temporary soa aerosol mixrat (mol/mol)
-      real(r8) :: beta(ntot_soamode)      ! dtcur*xferrate
+      real(r8), target :: beta(ntot_soamode)      ! dtcur*xferrate
       real(r8) :: dtcur    ! current time step (s)
       real(r8) :: dtmax    ! = (dtfull-tcur)
       real(r8) :: g_soa    ! soa gas mixrat (mol/mol)
       real(r8) :: g0_soa   ! ambient soa gas equilib mixrat (mol/mol)
-      real(r8) :: g_star(ntot_soamode)    ! soa gas mixrat that is in equilib
+      real(r8), target :: g_star(ntot_soamode)    ! soa gas mixrat that is in equilib
                                           ! with each aerosol mode (mol/mol)
-      real(r8) :: phi(ntot_soamode)       ! "relative driving force"
+      real(r8), target :: phi(ntot_soamode)       ! "relative driving force"
       real(r8) :: p0_soa   ! soa gas equilib vapor presssure (atm)
-      real(r8) :: sat(ntot_soamode)
+      real(r8), target :: sat(ntot_soamode)
       real(r8) :: tcur     ! current integration time (from 0 s)
       real(r8) :: tmpa, tmpb
       real(r8) :: tot_soa  ! g_soa + sum( a_soa(:) )
+      integer(c_int64_t), target :: niter_c
+      real(c_double), target :: g_soa_tend_c
+
+      interface
+         subroutine modal_aero_soaexch_codon(dtfull_c, temp_c, pres_c, niter_max_c, &
+              ntot_soamode_c, g_soa_in_c, a_soa_in_p, a_poa_in_p, xferrate_p, rgas_c, &
+              a_opoa_p, a_soa_p, beta_p, g_star_p, phi_p, sat_p, niter_p, &
+              g_soa_tend_p, a_soa_tend_p) bind(c, name="modal_aero_soaexch_codon")
+           use iso_c_binding, only: c_double, c_int64_t, c_ptr
+           real(c_double), value :: dtfull_c, temp_c, pres_c, g_soa_in_c, rgas_c
+           integer(c_int64_t), value :: niter_max_c, ntot_soamode_c
+           type(c_ptr), value :: a_soa_in_p, a_poa_in_p, xferrate_p
+           type(c_ptr), value :: a_opoa_p, a_soa_p, beta_p, g_star_p, phi_p, sat_p
+           type(c_ptr), value :: niter_p, g_soa_tend_p, a_soa_tend_p
+         end subroutine modal_aero_soaexch_codon
+      end interface
+
+      call modal_aero_soaexch_select_impl()
+      if (.not. use_native_modal_aero_soaexch_impl) then
+         call modal_aero_soaexch_codon(real(dtfull, c_double), real(temp, c_double), &
+              real(pres, c_double), int(niter_max, c_int64_t), int(ntot_soamode, c_int64_t), &
+              real(g_soa_in, c_double), c_loc(a_soa_in(1)), c_loc(a_poa_in(1)), &
+              c_loc(xferrate(1)), real(rgas, c_double), c_loc(a_opoa(1)), c_loc(a_soa(1)), &
+              c_loc(beta(1)), c_loc(g_star(1)), c_loc(phi(1)), c_loc(sat(1)), &
+              c_loc(niter_c), c_loc(g_soa_tend_c), c_loc(a_soa_tend(1)))
+         niter = int(niter_c)
+         g_soa_tend = real(g_soa_tend_c, r8)
+         if (.not. modal_aero_soaexch_direct_logged) then
+            modal_aero_soaexch_direct_logged = .true.
+            if (masterproc) then
+               write(iulog,'(A)') 'modal_aero_soaexch direct = codon'
+               write(*,'(A)') 'modal_aero_soaexch direct = codon'
+               call flush(iulog)
+            end if
+         end if
+         return
+      end if
 
 
 ! force things to be non-negative and calc tot_soa
@@ -1340,6 +1383,46 @@ timeloop: do while (tcur < dtfull-1.0e-3_r8 )
 
       return
       end subroutine modal_aero_soaexch
+
+!----------------------------------------------------------------------
+
+   subroutine modal_aero_soaexch_select_impl()
+
+     use cam_logfile, only: iulog
+     use spmd_utils, only: masterproc
+
+     character(len=32) :: impl_name
+     integer :: status, n, i, code
+
+     if (modal_aero_soaexch_impl_selected) return
+
+     impl_name = 'codon'
+     call cam_codon_get_impl('MODAL_AERO_SOAEXCH_IMPL', impl_name, n, status)
+
+     if (status == 0 .and. n > 0) then
+        do i = 1, n
+           code = iachar(impl_name(i:i))
+           if (code >= iachar('A') .and. code <= iachar('Z')) then
+              impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+           end if
+        end do
+        use_native_modal_aero_soaexch_impl = trim(adjustl(impl_name(:n))) == 'native'
+     else
+        use_native_modal_aero_soaexch_impl = .false.
+     end if
+
+     modal_aero_soaexch_impl_selected = .true.
+
+     if (masterproc) then
+        if (use_native_modal_aero_soaexch_impl) then
+           write(iulog,*) 'modal_aero_soaexch implementation = native'
+        else
+           write(iulog,*) 'modal_aero_soaexch implementation = codon'
+        end if
+        call flush(iulog)
+     end if
+
+   end subroutine modal_aero_soaexch_select_impl
 
 !----------------------------------------------------------------------
 
