@@ -56,6 +56,11 @@ module prescribed_ozone
        integer(c_int64_t), value :: stage_c
        integer(c_int64_t) :: out_c
      end function write_prescribed_ozone_restart_codon
+     function prescribed_ozone_adv_codon(active_c) result(out_c) bind(c, name="prescribed_ozone_adv_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function prescribed_ozone_adv_codon
      subroutine prescribed_ozone_readnl_codon(name_len_c, name_p, file_len_c, file_p, &
           filelist_len_c, filelist_p, datapath_len_c, datapath_p, type_len_c, type_p, &
           rmfile_c, cycle_yr_c, fixed_ymd_c, fixed_tod_c, name_out_p, file_out_p, &
@@ -387,9 +392,14 @@ end subroutine prescribed_ozone_unpack_char
     real(r8),pointer :: tmpptr(:,:)
 
     character(len=32) :: units_str
+    integer(c_int64_t) :: adv_active_c
 
     if (.not. prescribed_ozone_use_native('PRESCRIBED_OZONE_ADV_IMPL')) then
-       call chemistry_misc_codon_touch('prescribed_ozone_adv', 124)
+       adv_active_c = prescribed_ozone_adv_codon(merge(1_c_int64_t, 0_c_int64_t, has_prescribed_ozone))
+       if (adv_active_c /= merge(1_c_int64_t, 0_c_int64_t, has_prescribed_ozone)) then
+          write(iulog,*) 'prescribed_ozone_adv_codon active roundtrip failed'
+          call endrun('prescribed_ozone_adv_codon active roundtrip failed')
+       end if
     end if
     if (.not. prescribed_ozone_adv_logged) then
        prescribed_ozone_adv_logged = .true.

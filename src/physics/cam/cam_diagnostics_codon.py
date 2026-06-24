@@ -13,6 +13,36 @@ def cam_diagnostics_touch_codon(stage: int) -> int:
 
 
 @export
+def diag_register_codon(stage: int) -> int:
+    return cam_diagnostics_touch_codon(stage)
+
+
+@export
+def diag_allocate_codon(stage: int) -> int:
+    return cam_diagnostics_touch_codon(stage)
+
+
+@export
+def diag_deallocate_codon(stage: int) -> int:
+    return cam_diagnostics_touch_codon(stage)
+
+
+@export
+def diag_export_codon(stage: int) -> int:
+    return cam_diagnostics_touch_codon(stage)
+
+
+@export
+def diag_state_b4_phys_write_codon(stage: int) -> int:
+    return cam_diagnostics_touch_codon(stage)
+
+
+@export
+def diag_conv_codon(stage: int) -> int:
+    return cam_diagnostics_touch_codon(stage)
+
+
+@export
 def cloud_diagnostics_register_codon(flag: int) -> int:
     if flag != 0:
         return 1

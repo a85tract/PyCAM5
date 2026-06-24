@@ -347,6 +347,10 @@ def prescribed_ozone_init_codon(active: int) -> int:
     return active
 
 @export
+def prescribed_ozone_adv_codon(active: int) -> int:
+    return active
+
+@export
 def prescribed_ozone_readnl_codon(
     name_len: int,
     name_p: cobj,

@@ -31,6 +31,11 @@ def _mam_idx(m: int, l: int, ntot_amode: int) -> int:
     return (m - 1) + l * ntot_amode
 
 
+@export
+def ndrop_init_codon(stage: int) -> int:
+    return stage
+
+
 def ndrop_init_scalars_codon(
     mwh2o: float,
     r_universal: float,

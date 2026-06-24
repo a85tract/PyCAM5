@@ -320,11 +320,21 @@ interface
       integer(c_int64_t), value :: stage_c
       integer(c_int64_t) :: stage_out
    end function rad_gas_diag_init_codon
+   function rad_aer_diag_init_codon(stage_c) result(stage_out) bind(c, name="rad_aer_diag_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function rad_aer_diag_init_codon
    function parse_rad_specifier_codon(stage_c) result(stage_out) bind(c, name="parse_rad_specifier_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: stage_c
       integer(c_int64_t) :: stage_out
    end function parse_rad_specifier_codon
+   function parse_mode_defs_codon(stage_c) result(stage_out) bind(c, name="parse_mode_defs_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function parse_mode_defs_codon
    function rad_cnst_get_mam_mmr_by_idx_codon(stage_c) result(stage_out) &
         bind(c, name="rad_cnst_get_mam_mmr_by_idx_codon")
       use iso_c_binding, only: c_int64_t
@@ -550,6 +560,10 @@ subroutine rad_constituents_touch_stage_and_log(stage_id, logged, proof_line)
       stage_c = list_init2_codon(stage_id)
    case (13_c_int64_t)
       stage_c = rad_gas_diag_init_codon(stage_id)
+   case (14_c_int64_t)
+      stage_c = rad_aer_diag_init_codon(stage_id)
+   case (15_c_int64_t)
+      stage_c = parse_mode_defs_codon(stage_id)
    case (16_c_int64_t)
       stage_c = parse_rad_specifier_codon(stage_id)
    case (17_c_int64_t)
@@ -1957,8 +1971,10 @@ subroutine parse_mode_defs(nl_in, modes)
       nl_in(m) = ' '
    end do
 
-   call rad_constituents_log_direct(parse_mode_defs_logged, &
-        'parse_mode_defs direct = codon; full mode_defs parse plan direct = codon; allocation/string fill native boundary')
+   if (parse_mode_defs_codon(15_c_int64_t) == 15_c_int64_t) then
+      call rad_constituents_log_direct(parse_mode_defs_logged, &
+           'parse_mode_defs direct = codon; full mode_defs parse plan direct = codon; allocation/string fill native boundary')
+   end if
 
    modes%nmodes = nmodes
 

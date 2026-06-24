@@ -109,6 +109,7 @@
   logical :: modal_aero_rename_acc_crs_sub_impl_selected = .false.
   logical :: modal_aero_rename_sub_use_native_impl = .false.
   logical :: modal_aero_rename_sub_impl_selected = .false.
+  logical :: modal_aero_rename_sub_direct_logged = .false.
   logical :: modal_aero_rename_set_dotend_flags_use_native_impl = .false.
   logical :: modal_aero_rename_set_dotend_flags_impl_selected = .false.
   logical :: modal_aero_rename_init_proof_written = .false.
@@ -120,6 +121,11 @@
        integer(c_int64_t), value :: active_c
        integer(c_int64_t) :: out_c
      end function modal_aero_rename_init_codon
+     function modal_aero_rename_sub_codon(branch_c) result(out_c) bind(c, name="modal_aero_rename_sub_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: branch_c
+       integer(c_int64_t) :: out_c
+     end function modal_aero_rename_sub_codon
   end interface
 
 ! !DESCRIPTION: This module implements ...
@@ -661,10 +667,22 @@ contains
     real(r8), optional, intent(out) &
          :: dqdt_rnpos(ncol,pver,pcnstxx)
     ! the positive (production) part of the renaming tendency
+    integer(c_int64_t) :: branch_c
 
     call modal_aero_rename_sub_select_impl()
 
     if (.not. modal_aero_rename_sub_use_native_impl) then
+       branch_c = modal_aero_rename_sub_codon(merge(1_c_int64_t, 0_c_int64_t, modal_accum_coarse_exch))
+       if (branch_c /= merge(1_c_int64_t, 0_c_int64_t, modal_accum_coarse_exch)) then
+          call endrun('modal_aero_rename_sub_codon branch roundtrip failed')
+       end if
+       if (.not. modal_aero_rename_sub_direct_logged) then
+          modal_aero_rename_sub_direct_logged = .true.
+          if (masterproc) then
+             write(iulog,'(A)') 'modal_aero_rename_sub direct = codon; branch dispatch direct, rename kernels remain native islands'
+             call flush(iulog)
+          end if
+       end if
        if (modal_accum_coarse_exch) then
           call modal_aero_rename_sub_acc_crs_codon_impl( &
                fromwhere,         lchnk,               &

@@ -112,6 +112,11 @@ def wtrc_init_codon(stage: int) -> int:
 
 
 @export
+def wtrc_readnl_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def wtrc_register_codon(stage: int) -> int:
     return stage
 

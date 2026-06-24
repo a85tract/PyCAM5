@@ -116,6 +116,12 @@ logical :: ndrop_maxsat_impl_selected = .false.
 logical :: ndrop_maxsat_proof_written = .false.
 
 interface
+   function ndrop_init_codon(stage_c) result(out_c) bind(c, name="ndrop_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: out_c
+   end function ndrop_init_codon
+
    subroutine ndrop_init_scalars_codon(mwh2o_c, r_universal_c, rhoh2o_c, pi_c, scalars_p) &
         bind(c, name="ndrop_init_scalars_codon")
       use iso_c_binding, only: c_double, c_ptr
@@ -952,6 +958,7 @@ subroutine ndrop_init
    integer  :: ii, l, lptr, m, mm
    integer  :: nspec_max            ! max number of species in a mode
    integer(c_int64_t), target :: nspec_max_c, ncnst_tot_c
+   integer(c_int64_t) :: init_stage_c
    real(r8), target :: init_scalars(12)
    character(len=32)   :: tmpname
    character(len=32)   :: tmpname_cw
@@ -962,6 +969,13 @@ subroutine ndrop_init
    !-------------------------------------------------------------------------------
 
    call ndrop_init_select_impl()
+   if (.not. use_native_ndrop_init_impl) then
+      init_stage_c = ndrop_init_codon(1_c_int64_t)
+      if (init_stage_c /= 1_c_int64_t) then
+         write(iulog,*) 'ndrop_init_codon stage roundtrip failed'
+         call endrun('ndrop_init_codon stage roundtrip failed')
+      end if
+   end if
 
    ! get indices into state%q and pbuf structures
    call cnst_get_ind('NUMLIQ', numliq_idx)

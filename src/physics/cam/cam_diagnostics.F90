@@ -134,6 +134,7 @@ logical :: diag_phys_writeout_logged = .false.
 logical :: diag_surf_logged = .false.
 logical :: diag_export_logged = .false.
 logical :: diag_state_b4_phys_write_logged = .false.
+logical :: diag_conv_logged = .false.
 
 interface
    function diag_readnl_codon() result(out_c) bind(c, name="diag_readnl_codon")
@@ -145,6 +146,36 @@ interface
       integer(c_int64_t), value :: stage_c
       integer(c_int64_t) :: stage_out
    end function cam_diagnostics_touch_codon
+   function diag_register_codon(stage_c) result(stage_out) bind(c, name="diag_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_register_codon
+   function diag_allocate_codon(stage_c) result(stage_out) bind(c, name="diag_allocate_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_allocate_codon
+   function diag_deallocate_codon(stage_c) result(stage_out) bind(c, name="diag_deallocate_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_deallocate_codon
+   function diag_export_codon(stage_c) result(stage_out) bind(c, name="diag_export_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_export_codon
+   function diag_state_b4_phys_write_codon(stage_c) result(stage_out) bind(c, name="diag_state_b4_phys_write_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_state_b4_phys_write_codon
+   function diag_conv_codon(stage_c) result(stage_out) bind(c, name="diag_conv_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function diag_conv_codon
    function diag_phys_writeout_codon(stage_c) result(stage_out) bind(c, name="diag_phys_writeout_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: stage_c
@@ -378,11 +409,27 @@ subroutine cam_diag_touch_and_log(stage_c, logged, proof_line)
    integer(c_int64_t), intent(in) :: stage_c
    logical, intent(inout) :: logged
    character(len=*), intent(in) :: proof_line
+   integer(c_int64_t) :: exact_stage_c
 
    call cam_diag_parent_select_impl()
    if (cam_diag_parent_use_native_impl) return
 
-   if (cam_diagnostics_touch_codon(stage_c) == stage_c) then
+   select case (stage_c)
+   case (1_c_int64_t)
+      exact_stage_c = diag_register_codon(stage_c)
+   case (3_c_int64_t)
+      exact_stage_c = diag_allocate_codon(stage_c)
+   case (4_c_int64_t)
+      exact_stage_c = diag_deallocate_codon(stage_c)
+   case (5_c_int64_t)
+      exact_stage_c = diag_export_codon(stage_c)
+   case (6_c_int64_t)
+      exact_stage_c = diag_state_b4_phys_write_codon(stage_c)
+   case default
+      exact_stage_c = cam_diagnostics_touch_codon(stage_c)
+   end select
+
+   if (exact_stage_c == stage_c) then
       call cam_diag_log_direct(logged, proof_line)
    end if
 
@@ -2472,6 +2519,12 @@ subroutine diag_conv(state, ztodt, pbuf)
    rtdt = 1._r8/ztodt
 
    call cam_diag_conv_batch_select_impl()
+   if (.not. cam_diag_conv_batch_use_native_impl) then
+      if (diag_conv_codon(7_c_int64_t) == 7_c_int64_t) then
+         call cam_diag_log_direct(diag_conv_logged, &
+              'diag_conv direct = codon; convective diagnostic arithmetic direct = codon; outfld/pbuf native CAM API islands')
+      end if
+   end if
 
    call pbuf_get_field(pbuf, prec_dp_idx, prec_dp)
    call pbuf_get_field(pbuf, snow_dp_idx, snow_dp)

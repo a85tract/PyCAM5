@@ -20,7 +20,7 @@ module cldwat
    use cam_abortutils, only: endrun
    use cam_logfile,    only: iulog
    use ref_pres,       only: top_lev => trop_cloud_top_lev
-   use iso_c_binding,  only: c_double
+   use iso_c_binding,  only: c_double, c_int64_t
 
    implicit none
 
@@ -105,6 +105,11 @@ module cldwat
         real(c_double), value :: value_c
         real(c_double) :: out_c
      end function cldwat_param_codon
+     function cldwat_readnl_codon(stage_c) result(stage_out) bind(c, name="cldwat_readnl_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: stage_c
+        integer(c_int64_t) :: stage_out
+     end function cldwat_readnl_codon
   end interface
 
 contains
@@ -148,6 +153,8 @@ subroutine cldwat_readnl_proof_once()
 
    if (cldwat_readnl_proof_written) return
    cldwat_readnl_proof_written = .true.
+
+   if (cldwat_readnl_codon(1_c_int64_t) /= 1_c_int64_t) return
 
    if (masterproc) then
       write(iulog,'(A)') 'cldwat_readnl direct = codon; namelist I/O and MPI broadcast native islands'

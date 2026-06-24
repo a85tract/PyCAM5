@@ -7,7 +7,7 @@ module hk_conv
 ! $Id$
 !
    use shr_kind_mod,     only: r8 => shr_kind_r8
-   use iso_c_binding,    only: c_double
+   use iso_c_binding,    only: c_double, c_int64_t
    use cam_logfile,      only: iulog
    use spmd_utils,       only: masterproc
    use cam_abortutils,   only: endrun
@@ -66,6 +66,11 @@ module hk_conv
          real(c_double), value :: value_c
          real(c_double) :: out_c
       end function hkconv_param_codon
+      function hkconv_readnl_codon(stage_c) result(stage_out) bind(c, name="hkconv_readnl_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+      end function hkconv_readnl_codon
    end interface
 
 
@@ -110,6 +115,8 @@ subroutine hkconv_readnl_proof_once()
 
    if (hkconv_readnl_proof_written) return
    hkconv_readnl_proof_written = .true.
+
+   if (hkconv_readnl_codon(1_c_int64_t) /= 1_c_int64_t) return
 
    if (masterproc) then
       write(iulog,'(A)') 'hkconv_readnl direct = codon; namelist I/O and MPI broadcast native islands'

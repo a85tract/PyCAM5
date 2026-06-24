@@ -1689,7 +1689,7 @@ contains
     call t_startf("phys_grid_init")
     call phys_grid_init_helpers_select_impl()
     if (.not. use_native_init_helpers_impl) then
-       if (phys_grid_init_codon(1_c_int64_t) == 1_c_int64_t) call phys_grid_init_helpers_proof_once()
+       call phys_grid_init_log_direct()
     end if
 
     !-----------------------------------------------------------------------

@@ -242,6 +242,11 @@ module water_tracers
       integer(c_int64_t), value :: stage_c
       integer(c_int64_t) :: stage_out
     end function wtrc_init_codon
+    function wtrc_readnl_codon(stage_c) result(stage_out) bind(c, name="wtrc_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+    end function wtrc_readnl_codon
     function wtrc_register_codon(stage_c) result(stage_out) bind(c, name="wtrc_register_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: stage_c
@@ -581,6 +586,8 @@ subroutine wtrc_control_enter_stage(stage_id, enabled, logged, proof_line)
   if (use_native_wtrc_control_impl) return
 
   select case (stage_id)
+  case (1)
+    stage = int(wtrc_readnl_codon(1_c_int64_t))
   case (2)
     stage = int(wtrc_init_codon(2_c_int64_t))
   case (3)
@@ -1279,7 +1286,7 @@ subroutine wtrc_readnl(nlfile)
       wtrc_fixed_alpha, wtrc_fixed_rstd, wtrc_lzmlin, wtrc_srf_bucket_mode, &
       wtrc_limiter_18O_hgh, wtrc_limiter_18O_low, wtrc_limiter_HDO_hgh, wtrc_limiter_HDO_low, wtrc_limiter_phis_crit
 
-     call wtrc_control_enter(1, .true., wtrc_readnl_logged, &
+     call wtrc_control_enter_stage(1, .true., wtrc_readnl_logged, &
           'wtrc_readnl direct = codon; namelist I/O and MPI broadcast native islands')
 
      if (masterproc) then

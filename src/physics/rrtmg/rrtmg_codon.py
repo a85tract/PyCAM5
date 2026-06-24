@@ -14,6 +14,45 @@ def rrtmg_init_int_passthrough_codon(value: int) -> int:
 
 
 @export
+def oldcloud_init_codon(
+    iciwp_idx: int,
+    iclwp_idx: int,
+    cld_idx: int,
+    rel_idx: int,
+    rei_idx: int,
+    ixcldice: int,
+    ixcldliq: int,
+    out_p: cobj,
+):
+    out = Ptr[int](out_p)
+    out[0] = iciwp_idx
+    out[1] = iclwp_idx
+    out[2] = cld_idx
+    out[3] = rel_idx
+    out[4] = rei_idx
+    out[5] = ixcldice
+    out[6] = ixcldliq
+
+
+@export
+def m_codon(k: int, n: int) -> int:
+    kk = i32(k)
+    if n >= 0:
+        shifted = i32(u32(kk) << u32(n))
+    else:
+        shifted = i32(u32(kk) >> u32(-n))
+    return int(i32(u32(kk) ^ u32(shifted)))
+
+
+@export
+def low_byte_codon(i: int, big_endian: int) -> int:
+    ii = i64(i)
+    if big_endian != 0:
+        return int(i32(ii << i64(32)))
+    return int(i32(ii))
+
+
+@export
 def get_number_sw_bands_codon(value: int) -> int:
     return rrtmg_init_int_passthrough_codon(value)
 

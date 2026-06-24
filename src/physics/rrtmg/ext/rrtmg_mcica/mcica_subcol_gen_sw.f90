@@ -45,6 +45,12 @@
       logical :: subcol_fill_sw_impl_selected = .false.
       logical :: subcol_fill_sw_entered_logged = .false.
       logical :: kissvec_sw_entered_logged = .false.
+      logical :: use_native_mcica_sw_m_impl = .false.
+      logical :: mcica_sw_m_impl_selected = .false.
+      logical :: mcica_sw_m_logged = .false.
+      logical :: use_native_mcica_sw_low_byte_impl = .false.
+      logical :: mcica_sw_low_byte_impl_selected = .false.
+      logical :: mcica_sw_low_byte_logged = .false.
 
 ! public interfaces/functions/subroutines
       public :: mcica_subcol_sw, generate_stochastic_clouds_sw
@@ -71,6 +77,44 @@
            mcica_sw_use_native = .false.
         end if
       end function mcica_sw_use_native
+
+      subroutine mcica_sw_m_select_impl()
+        if (mcica_sw_m_impl_selected) return
+        use_native_mcica_sw_m_impl = mcica_sw_use_native('MCICA_M_IMPL')
+        mcica_sw_m_impl_selected = .true.
+      end subroutine mcica_sw_m_select_impl
+
+      subroutine mcica_sw_low_byte_select_impl()
+        if (mcica_sw_low_byte_impl_selected) return
+        use_native_mcica_sw_low_byte_impl = mcica_sw_use_native('MCICA_LOW_BYTE_IMPL')
+        mcica_sw_low_byte_impl_selected = .true.
+      end subroutine mcica_sw_low_byte_select_impl
+
+      subroutine mcica_sw_log_m_impl()
+        if (mcica_sw_m_logged) return
+        mcica_sw_m_logged = .true.
+        if (masterproc) then
+           if (use_native_mcica_sw_m_impl) then
+              write(iulog,*) 'm implementation = native'
+           else
+              write(iulog,*) 'm implementation = codon'
+           endif
+           call flush(iulog)
+        endif
+      end subroutine mcica_sw_log_m_impl
+
+      subroutine mcica_sw_log_low_byte_impl()
+        if (mcica_sw_low_byte_logged) return
+        mcica_sw_low_byte_logged = .true.
+        if (masterproc) then
+           if (use_native_mcica_sw_low_byte_impl) then
+              write(iulog,*) 'low_byte implementation = native'
+           else
+              write(iulog,*) 'low_byte implementation = codon'
+           endif
+           call flush(iulog)
+        endif
+      end subroutine mcica_sw_log_low_byte_impl
 
 !------------------------------------------------------------------
 ! Public subroutines
@@ -821,8 +865,6 @@
             kissvec_sw_entered_logged = .true.
             if (masterproc) then
                write(iulog,*) 'kissvec implementation = native'
-               write(iulog,*) 'm implementation = native'
-               write(iulog,*) 'low_byte implementation = native'
                call flush(iulog)
             endif
          endif
@@ -833,8 +875,6 @@
             kissvec_sw_entered_logged = .true.
             if (masterproc) then
                write(iulog,*) 'kissvec implementation = codon'
-               write(iulog,*) 'm implementation = codon'
-               write(iulog,*) 'low_byte implementation = codon'
                call flush(iulog)
             endif
          endif
@@ -855,22 +895,51 @@
     
       contains
 
-        pure integer function m(k, n)
+        integer function m(k, n)
           integer, intent(in) :: k
           integer, intent(in) :: n
 
-          m = ieor (k, ishft (k, n) )
+          interface
+             function m_codon(k_c, n_c) result(out_c) bind(c, name="m_codon")
+               use iso_c_binding, only: c_int64_t
+               integer(c_int64_t), value :: k_c, n_c
+               integer(c_int64_t) :: out_c
+             end function m_codon
+          end interface
+
+          call mcica_sw_m_select_impl()
+          if (use_native_mcica_sw_m_impl) then
+             m = ieor (k, ishft (k, n) )
+          else
+             m = int(m_codon(int(k, c_int64_t), int(n, c_int64_t)))
+          endif
+          call mcica_sw_log_m_impl()
 
         end function m
 
-        pure integer function low_byte(i)
+        integer function low_byte(i)
           integer(i8), intent(in) :: i
 
-          if (big_endian) then
-             low_byte = transfer(ishft(i,bit_size(1)),1)
+          interface
+             function low_byte_codon(i_c, big_endian_c) result(out_c) bind(c, name="low_byte_codon")
+               use iso_c_binding, only: c_int64_t
+               integer(c_int64_t), value :: i_c, big_endian_c
+               integer(c_int64_t) :: out_c
+             end function low_byte_codon
+          end interface
+
+          call mcica_sw_low_byte_select_impl()
+          if (use_native_mcica_sw_low_byte_impl) then
+             if (big_endian) then
+                low_byte = transfer(ishft(i,bit_size(1)),1)
+             else
+                low_byte = transfer(i,1)
+             end if
           else
-             low_byte = transfer(i,1)
+             low_byte = int(low_byte_codon(int(i, c_int64_t), &
+                  int(merge(1, 0, big_endian), c_int64_t)))
           end if
+          call mcica_sw_log_low_byte_impl()
 
         end function low_byte
 

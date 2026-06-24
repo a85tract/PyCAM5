@@ -70,6 +70,11 @@ def sox_cldaero_destroy_obj_codon(stage: int) -> int:
 
 
 @export
+def modal_aero_rename_sub_codon(branch: int) -> int:
+    return branch
+
+
+@export
 def sox_cldaero_create_obj_codon(
     ncol: int,
     pcols: int,

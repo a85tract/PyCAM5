@@ -275,7 +275,7 @@
          )
          if (masterproc) then
             if (.not. jlong_init_solar_batch_proof_written) then
-               write(iulog,'(A)') 'jlong_init solar batch entered (unified jlong-prep solar stage dispatch = codon)'
+               write(iulog,'(A)') 'jlong_init direct = codon; solar table prep direct, file I/O and rebin native islands'
                jlong_init_solar_batch_proof_written = .true.
             end if
             write(iulog,*) ' '

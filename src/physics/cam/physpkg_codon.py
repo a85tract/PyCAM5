@@ -10202,7 +10202,17 @@ def rad_gas_diag_init_codon(stage: int) -> int:
 
 
 @export
+def rad_aer_diag_init_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
 def parse_rad_specifier_codon(stage: int) -> int:
+    return rad_constituents_touch_codon(stage)
+
+
+@export
+def parse_mode_defs_codon(stage: int) -> int:
     return rad_constituents_touch_codon(stage)
 
 
@@ -11956,6 +11966,11 @@ def cldwat_param_codon(value: float) -> float:
     return value
 
 
+@export
+def cldwat_readnl_codon(stage: int) -> int:
+    return stage
+
+
 @inline
 def _cldwat_gaussj_idx(row: int, col: int, ld1: int) -> int:
     """gaussj a(np,np) and b(np,mp) use Fortran column-major order."""
@@ -12073,6 +12088,11 @@ def cldwat2m_gaussj_codon(
 @export
 def hkconv_param_codon(value: float) -> float:
     return value
+
+
+@export
+def hkconv_readnl_codon(stage: int) -> int:
+    return stage
 
 
 @export

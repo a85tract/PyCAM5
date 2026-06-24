@@ -12,7 +12,7 @@ use cam_abortutils,   only: endrun
 use cam_history,      only: outfld
 use rad_constituents, only: iceopticsfile, liqopticsfile
 use ebert_curry,      only: scalefactor
-use iso_c_binding,    only: c_int64_t
+use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
 
 implicit none
 private
@@ -67,12 +67,13 @@ logical :: oldcloud_init_impl_selected = .false.
 logical :: oldcloud_init_entered_logged = .false.
 
 interface
-   function rrtmg_init_int_passthrough_codon(value_c) result(result_c) &
-        bind(c, name="rrtmg_init_int_passthrough_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: value_c
-      integer(c_int64_t) :: result_c
-   end function rrtmg_init_int_passthrough_codon
+   subroutine oldcloud_init_codon(iciwp_idx_c, iclwp_idx_c, cld_idx_c, rel_idx_c, rei_idx_c, &
+        ixcldice_c, ixcldliq_c, out_p) bind(c, name="oldcloud_init_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: iciwp_idx_c, iclwp_idx_c, cld_idx_c, rel_idx_c, rei_idx_c
+      integer(c_int64_t), value :: ixcldice_c, ixcldliq_c
+      type(c_ptr), value :: out_p
+   end subroutine oldcloud_init_codon
 end interface
 
 
@@ -85,6 +86,7 @@ subroutine oldcloud_init()
    use constituents,   only: cnst_get_ind
 
    integer :: err
+   integer(c_int64_t), target :: init_out(7)
 
    iciwp_idx  = pbuf_get_index('ICIWP',errcode=err)
    iclwp_idx  = pbuf_get_index('ICLWP',errcode=err)
@@ -99,13 +101,16 @@ subroutine oldcloud_init()
    call oldcloud_init_select_impl()
    if (.not. use_native_oldcloud_init_impl) then
       call oldcloud_init_log_entered()
-      iciwp_idx = rrtmg_init_int_passthrough_codon(int(iciwp_idx, c_int64_t))
-      iclwp_idx = rrtmg_init_int_passthrough_codon(int(iclwp_idx, c_int64_t))
-      cld_idx = rrtmg_init_int_passthrough_codon(int(cld_idx, c_int64_t))
-      rel_idx = rrtmg_init_int_passthrough_codon(int(rel_idx, c_int64_t))
-      rei_idx = rrtmg_init_int_passthrough_codon(int(rei_idx, c_int64_t))
-      ixcldice = rrtmg_init_int_passthrough_codon(int(ixcldice, c_int64_t))
-      ixcldliq = rrtmg_init_int_passthrough_codon(int(ixcldliq, c_int64_t))
+      call oldcloud_init_codon(int(iciwp_idx, c_int64_t), int(iclwp_idx, c_int64_t), &
+           int(cld_idx, c_int64_t), int(rel_idx, c_int64_t), int(rei_idx, c_int64_t), &
+           int(ixcldice, c_int64_t), int(ixcldliq, c_int64_t), c_loc(init_out(1)))
+      iciwp_idx = int(init_out(1))
+      iclwp_idx = int(init_out(2))
+      cld_idx = int(init_out(3))
+      rel_idx = int(init_out(4))
+      rei_idx = int(init_out(5))
+      ixcldice = int(init_out(6))
+      ixcldliq = int(init_out(7))
    endif
 
    return
@@ -677,7 +682,7 @@ subroutine oldcloud_init_select_impl()
    if (oldcloud_init_impl_selected) return
 
    impl_name = ''
-   call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('OLDCLOUD_INIT_IMPL', impl_name, n, status)
    if (status == 0 .and. n > 0) then
       use_native_oldcloud_init_impl = trim(adjustl(impl_name(:n))) == 'native'
    else
@@ -708,7 +713,7 @@ subroutine oldcloud_init_log_entered()
    oldcloud_init_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'oldcloud_init entered (index passthrough = codon)'
+      write(iulog,*) 'oldcloud_init direct = codon; pbuf/cnst index lookup native CAM API island'
       call flush(iulog)
    endif
 
