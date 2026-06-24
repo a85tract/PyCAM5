@@ -226,6 +226,7 @@
   logical                     :: wstar_pbl_impl_selected = .false.
   logical                     :: use_native_exacol_impl = .false.
   logical                     :: exacol_impl_selected = .false.
+  logical                     :: exacol_direct_logged = .false.
   logical                     :: use_native_zisocl_impl = .false.
   logical                     :: zisocl_impl_selected = .false.
   logical                     :: zisocl_direct_path_traced = .false.
@@ -11453,6 +11454,8 @@
     !          Sungsu Park       08/2006, 11/2008                                  !
     !----------------------------------------------------------------------------- !
 
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
     implicit none
 
     ! --------------- !
@@ -11463,8 +11466,8 @@
     integer,  intent(in) :: pver                   ! Number of atmospheric vertical layers   
     integer,  intent(in) :: ncol                   ! Number of atmospheric columns   
 
-    real(r8), intent(in) :: ri(pcols,pver)         ! Moist gradient Richardson no.
-    real(r8), intent(in) :: bflxs(pcols)           ! Buoyancy flux at surface
+    real(r8), target, intent(in) :: ri(pcols,pver) ! Moist gradient Richardson no.
+    real(r8), target, intent(in) :: bflxs(pcols)   ! Buoyancy flux at surface
     real(r8), intent(in) :: minpblh(pcols)         ! Minimum PBL height based on surface stress
     real(r8), intent(in) :: zi(pcols,pver+1)       ! Interface heights
 
@@ -11472,9 +11475,9 @@
     ! Output variables !      
     ! ---------------- !
 
-    integer, intent(out) :: kbase(pcols,ncvmax)    ! External interface index of CL base
-    integer, intent(out) :: ktop(pcols,ncvmax)     ! External interface index of CL top
-    integer, intent(out) :: ncvfin(pcols)          ! Total number of CLs
+    integer, target, intent(out) :: kbase(pcols,ncvmax) ! External interface index of CL base
+    integer, target, intent(out) :: ktop(pcols,ncvmax)  ! External interface index of CL top
+    integer, target, intent(out) :: ncvfin(pcols)       ! Total number of CLs
 
     ! --------------- !
     ! Local variables !
@@ -11486,9 +11489,36 @@
     real(r8)             :: rimaxentr
     real(r8)             :: riex(pver+1)           ! Column Ri profile extended to surface
 
+    interface
+       subroutine eddy_diff_exacol_codon(ncol_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, &
+            ri_p, bflxs_p, ktop_p, kbase_p, ncvfin_p) bind(c, name="eddy_diff_exacol_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c
+         type(c_ptr), value :: ri_p, bflxs_p, ktop_p, kbase_p, ncvfin_p
+       end subroutine eddy_diff_exacol_codon
+    end interface
+
     ! ----------------------- !
     ! Main Computation Begins !
     ! ----------------------- !
+
+    call exacol_select_impl()
+    if (.not. use_native_exacol_impl) then
+       if (.not. exacol_direct_logged) then
+          exacol_direct_logged = .true.
+          if (masterproc) then
+             write(iulog,'(A)') 'exacol direct = codon'
+             write(*,'(A)') 'exacol direct = codon'
+             call eddy_diff_append_impl_trace('exacol direct = codon')
+             call flush(iulog)
+          end if
+       end if
+       call eddy_diff_exacol_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+            int(pver, c_int64_t), int(ncvmax, c_int64_t), int(ntop_turb, c_int64_t), &
+            c_loc(ri(1,1)), c_loc(bflxs(1)), c_loc(ktop(1,1)), c_loc(kbase(1,1)), &
+            c_loc(ncvfin(1)))
+       return
+    end if
 
     do i = 1, ncol
        ncvfin(i) = 0
