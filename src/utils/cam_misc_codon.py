@@ -1494,6 +1494,35 @@ def distnl_codon(tag: int) -> int:
 def bld_outfld_hash_tbls_codon(tag: int) -> int:
     return tag
 
+
+@export
+def radinp_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pmid_p: cobj,
+    pint_p: cobj,
+    pmidrd_p: cobj,
+    pintrd_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    pint = Ptr[float](pint_p)
+    pmidrd = Ptr[float](pmidrd_p)
+    pintrd = Ptr[float](pintrd_p)
+
+    for k in range(pver):
+        for i in range(ncol):
+            idx_mid = i + k * pcols
+            pmidrd[idx_mid] = pmid[idx_mid] * 10.0
+            pintrd[idx_mid] = pint[idx_mid] * 10.0
+
+    k = pverp - 1
+    for i in range(ncol):
+        idx_int = i + k * pcols
+        pintrd[idx_int] = pint[idx_int] * 10.0
+
+
 @export
 def add_hist_coord_r8_codon(tag: int) -> int:
     return tag

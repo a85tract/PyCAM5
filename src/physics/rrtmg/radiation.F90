@@ -890,7 +890,7 @@ end function radiation_nextsw_cday
     radinp_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radinp implementation = codon'
+       write(iulog,*) 'radinp direct = codon; orbital API native boundary'
        call flush(iulog)
     end if
 
@@ -2603,7 +2603,7 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
 ! Author: CCM1, CMS Contact J. Kiehl
 !-----------------------------------------------------------------------
    use shr_orb_mod
-   use iso_c_binding, only: c_loc
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
    use time_manager, only: get_curr_calday
 
 !------------------------------Arguments--------------------------------
@@ -2629,18 +2629,25 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
 
    real(r8) :: calday       ! current calendar day
    real(r8) :: delta        ! Solar declination angle
+   interface
+      subroutine radinp_codon(ncol_c, pcols_c, pver_c, pverp_c, &
+           pmid_p, pint_p, pmidrd_p, pintrd_p) bind(c, name="radinp_codon")
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+         type(c_ptr), value :: pmid_p, pint_p, pmidrd_p, pintrd_p
+      end subroutine radinp_codon
+   end interface
 !-----------------------------------------------------------------------
 !
    calday = get_curr_calday()
    call shr_orb_decl (calday  ,eccen     ,mvelpp  ,lambm0  ,obliqr  , &
                       delta   ,eccf)
 
-   call radiation_diag_prep_select_impl()
-   if (use_native_radiation_diag_prep_impl .or. radinp_native_enabled()) then
+   if (radinp_native_enabled()) then
 !
 ! Convert pressure from pascals to dynes/cm2
 !
-      if (.not. use_native_radiation_diag_prep_impl) call radinp_log_native()
+      call radinp_log_native()
       do k=1,pver
          do i=1,ncol
             pmidrd(i,k) = pmid(i,k)*10.0_r8
@@ -2651,10 +2658,10 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
          pintrd(i,pverp) = pint(i,pverp)*10.0_r8
       end do
    else
-      call radiation_diag_prep_log_entered()
       call radinp_log()
-      call radiation_diag_prep_pressure(ncol, c_loc(pmid(1,1)), c_loc(pint(1,1)), &
-           c_loc(pmidrd(1,1)), c_loc(pintrd(1,1)), c_loc(pmidrd(1,1)))
+      call radinp_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(pmid(1,1)), &
+           c_loc(pint(1,1)), c_loc(pmidrd(1,1)), c_loc(pintrd(1,1)))
    end if
 
 end subroutine radinp
