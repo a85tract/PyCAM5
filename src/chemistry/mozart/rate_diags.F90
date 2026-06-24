@@ -38,6 +38,7 @@ module rate_diags
   logical :: rate_diags_batch_use_native_impl = .false.
   logical :: rate_diags_batch_impl_selected = .false.
   logical :: rate_diags_batch_entered_logged = .false.
+  logical :: rate_diags_calc_entered_logged = .false.
   logical :: rate_diags_init_proof_written = .false.
   logical :: parse_rate_sums_proof_written = .false.
 
@@ -134,6 +135,24 @@ contains
     end if
 
   end subroutine rate_diags_batch_log_entered
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine rate_diags_calc_log_entered()
+
+    use cam_logfile, only : iulog
+
+    if (rate_diags_calc_entered_logged) return
+    rate_diags_calc_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'rate_diags_calc direct = codon; set-rates, tagged conversion, and group rates = codon'
+       call rate_diags_batch_append_proof( &
+            'rate_diags_calc direct = codon; set-rates, tagged conversion, and group rates = codon')
+       call flush(iulog)
+    end if
+
+  end subroutine rate_diags_calc_log_entered
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
@@ -259,18 +278,28 @@ contains
     real(r8), target, intent(in)    :: m(:,:)           ! air density (molecules/cm3)
     integer,  intent(in)    :: ncol, lchnk
 
-    integer :: i, j
+    integer :: i, j, max_group_members
+    logical :: used_codon_calc
     integer(c_int64_t), target :: rxt_tag_map_i64(max(1,rxt_tag_cnt))
+    integer(c_int64_t), allocatable, target :: grp_nm_i64(:)
+    integer(c_int64_t), allocatable, target :: grp_map_i64(:,:)
+    real(r8), allocatable, target :: grp_mult(:,:)
+    real(r8), allocatable, target :: group_rates(:,:,:)
     real(r8) :: group_rate(ncol,pver)
 
     interface
        subroutine rate_diags_calc_codon(ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c, &
-            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p) bind(c, name="rate_diags_calc_codon")
+            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p, ngrps_c, max_group_members_c, &
+            grp_nm_p, grp_map_p, grp_mult_p, group_rates_p) bind(c, name="rate_diags_calc_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c
+         integer(c_int64_t), value :: ngrps_c, max_group_members_c
          type(c_ptr), value :: rxt_rates_p, vmr_p, m_p, rxt_tag_map_p
+         type(c_ptr), value :: grp_nm_p, grp_map_p, grp_mult_p, group_rates_p
        end subroutine rate_diags_calc_codon
     end interface
+
+    used_codon_calc = .false.
 
     call rate_diags_batch_select_impl()
 
@@ -287,8 +316,31 @@ contains
        do i = 1, rxt_tag_cnt
           rxt_tag_map_i64(i) = int(rxt_tag_map(i), c_int64_t)
        end do
+       max_group_members = 1
+       do i = 1, ngrps
+          max_group_members = max(max_group_members, grps(i)%nmembers)
+       end do
+       allocate(grp_nm_i64(max(1, ngrps)))
+       allocate(grp_map_i64(max_group_members, max(1, ngrps)))
+       allocate(grp_mult(max_group_members, max(1, ngrps)))
+       allocate(group_rates(ncol, pver, max(1, ngrps)))
+       grp_nm_i64(:) = 0_c_int64_t
+       grp_map_i64(:,:) = 0_c_int64_t
+       grp_mult(:,:) = 0._r8
+       group_rates(:,:,:) = 0._r8
+       do i = 1, ngrps
+          grp_nm_i64(i) = int(grps(i)%nmembers, c_int64_t)
+          do j = 1, grps(i)%nmembers
+             grp_map_i64(j,i) = int(grps(i)%map(j), c_int64_t)
+             grp_mult(j,i) = grps(i)%multipler(j)
+          end do
+       end do
+       call rate_diags_calc_log_entered()
        call rate_diags_calc_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot, c_int64_t), &
-            int(rxt_tag_cnt, c_int64_t), c_loc(rxt_rates), c_loc(vmr), c_loc(m), c_loc(rxt_tag_map_i64))
+            int(rxt_tag_cnt, c_int64_t), c_loc(rxt_rates), c_loc(vmr), c_loc(m), c_loc(rxt_tag_map_i64), &
+            int(ngrps, c_int64_t), int(max_group_members, c_int64_t), c_loc(grp_nm_i64(1)), &
+            c_loc(grp_map_i64(1,1)), c_loc(grp_mult(1,1)), c_loc(group_rates(1,1,1)))
+       used_codon_calc = .true.
     end if
 
     do i = 1, rxt_tag_cnt
@@ -297,12 +349,21 @@ contains
 
     ! output rate groups ( or families )
     do i = 1, ngrps
-       group_rate(:,:) = 0._r8
-       do j = 1, grps(i)%nmembers
-         group_rate(:ncol,:) = group_rate(:ncol,:) + grps(i)%multipler(j)*rxt_rates(:ncol,:,grps(i)%map(j))
-       enddo 
-       call outfld( grps(i)%name, group_rate(:ncol,:), ncol, lchnk )       
+       if (used_codon_calc) then
+          call outfld( grps(i)%name, group_rates(:,:,i), ncol, lchnk )
+       else
+          group_rate(:,:) = 0._r8
+          do j = 1, grps(i)%nmembers
+            group_rate(:ncol,:) = group_rate(:ncol,:) + grps(i)%multipler(j)*rxt_rates(:ncol,:,grps(i)%map(j))
+          enddo
+          call outfld( grps(i)%name, group_rate(:ncol,:), ncol, lchnk )
+       end if
     end do
+
+    if (allocated(group_rates)) deallocate(group_rates)
+    if (allocated(grp_mult)) deallocate(grp_mult)
+    if (allocated(grp_map_i64)) deallocate(grp_map_i64)
+    if (allocated(grp_nm_i64)) deallocate(grp_nm_i64)
 
   end subroutine rate_diags_calc
 

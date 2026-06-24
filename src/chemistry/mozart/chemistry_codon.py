@@ -6332,8 +6332,14 @@ def rate_diags_calc_codon(
     vmr_p: cobj,
     m_p: cobj,
     rxt_tag_map_p: cobj,
+    ngrps: int,
+    max_group_members: int,
+    grp_nm_p: cobj,
+    grp_map_p: cobj,
+    grp_mult_p: cobj,
+    group_rates_p: cobj,
 ):
-    return rate_diags_batch_stage_dispatch_codon(
+    return _gas_phase.rate_diags_calc_codon(
         ncol,
         pver,
         rxntot,
@@ -6342,6 +6348,12 @@ def rate_diags_calc_codon(
         vmr_p,
         m_p,
         rxt_tag_map_p,
+        ngrps,
+        max_group_members,
+        grp_nm_p,
+        grp_map_p,
+        grp_mult_p,
+        group_rates_p,
     )
 
 @export

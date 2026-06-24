@@ -21,6 +21,7 @@ public :: midpoint_interp
 logical :: use_native_gw_utils_impl = .false.
 logical :: gw_utils_impl_selected = .false.
 logical :: gw_utils_proof_written = .false.
+logical :: gw_utils_get_unit_vector_logged = .false.
 logical :: gw_utils_dot_2d_logged = .false.
 logical :: gw_utils_midpoint_interp_logged = .false.
 
@@ -134,6 +135,7 @@ subroutine get_unit_vector(u, v, u_n, v_n, mag)
      call gw_utils_proof_once()
      call get_unit_vector_codon(c_loc(u), c_loc(v), c_loc(u_n), c_loc(v_n), c_loc(mag), &
           int(size(mag), c_int64_t))
+     call gw_utils_log_direct(gw_utils_get_unit_vector_logged, 'get_unit_vector direct = codon')
      return
   end if
 

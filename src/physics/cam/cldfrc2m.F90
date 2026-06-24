@@ -66,6 +66,7 @@ logical :: cldfrc2m_aist_single_proof_written = .false.
 logical :: use_native_cldfrc2m_astg_pdf_impl = .false.
 logical :: cldfrc2m_astg_pdf_impl_selected = .false.
 logical :: cldfrc2m_astg_pdf_proof_written = .false.
+logical :: cldfrc2m_astg_pdf_single_proof_written = .false.
 logical :: use_native_cldfrc2m_readnl_impl = .false.
 logical :: cldfrc2m_readnl_impl_selected = .false.
 logical :: use_native_cldfrc2m_init_impl = .false.
@@ -334,6 +335,19 @@ end subroutine cldfrc2m_astg_pdf_proof_once
 
 !================================================================================================
 
+subroutine cldfrc2m_astg_pdf_single_proof_once()
+
+   if (cldfrc2m_astg_pdf_single_proof_written) return
+   cldfrc2m_astg_pdf_single_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'astg_pdf_single direct = codon; PDF formula body = codon'
+   end if
+
+end subroutine cldfrc2m_astg_pdf_single_proof_once
+
+!================================================================================================
+
 subroutine cldfrc2m_readnl(nlfile)
 
    use namelist_utils,  only: find_group_name
@@ -530,6 +544,7 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
    call cldfrc2m_astg_pdf_select_impl()
    if (.not. use_native_cldfrc2m_astg_pdf_impl) then
       call cldfrc2m_astg_pdf_proof_once()
+      call cldfrc2m_astg_pdf_single_proof_once()
       call astg_pdf_single_codon(real(U, c_double), real(p, c_double), &
            real(qv, c_double), real(landfrac, c_double), real(snowh, c_double), &
            real(rhminl, c_double), real(rhminl_adj_land, c_double), real(rhminh, c_double), &

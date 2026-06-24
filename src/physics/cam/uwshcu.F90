@@ -151,6 +151,7 @@
   logical :: use_native_small_kernels_impl = .false.
   logical :: small_kernels_impl_selected = .false.
   logical :: small_kernels_entered_logged = .false.
+  logical :: compute_alpha_entered_logged = .false.
   logical :: compute_mumin2_entered_logged = .false.
   logical :: use_native_positive_moisture_single_impl = .false.
   logical :: positive_moisture_single_impl_selected = .false.
@@ -748,6 +749,21 @@ contains
     end if
 
   end subroutine uwshcu_log_small_kernels_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_alpha_entered()
+
+    if (compute_alpha_entered_logged) return
+    compute_alpha_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu compute_alpha entered (critical alpha solve direct = codon)'
+       call uwshcu_append_proof('uwshcu compute_alpha entered (critical alpha solve direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_alpha_entered
 
 !===============================================================================
 
@@ -9291,6 +9307,7 @@ end subroutine uwshcu_readnl
        compute_alpha = x0
     else
        call uwshcu_log_small_kernels_entered()
+       call uwshcu_log_compute_alpha_entered()
        compute_alpha = compute_alpha_codon(del_CIN, ke)
     end if
 

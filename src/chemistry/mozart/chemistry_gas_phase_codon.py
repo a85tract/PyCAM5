@@ -955,6 +955,53 @@ def rate_diags_batch_codon(
                 idx = _idx3(i, k, rxt_idx, ncol, pver)
                 rxt_rates[idx] = rxt_rates[idx] * air_density[_idx2(i, k, ncol)]
 
+def rate_diags_calc_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    rxt_tag_cnt: int,
+    rxt_rates_p: cobj,
+    vmr_p: cobj,
+    m_p: cobj,
+    rxt_tag_map_p: cobj,
+    ngrps: int,
+    max_group_members: int,
+    grp_nm_p: cobj,
+    grp_map_p: cobj,
+    grp_mult_p: cobj,
+    group_rates_p: cobj,
+):
+    rate_diags_batch_codon(
+        ncol,
+        pver,
+        rxntot,
+        rxt_tag_cnt,
+        rxt_rates_p,
+        vmr_p,
+        m_p,
+        rxt_tag_map_p,
+    )
+
+    if ngrps <= 0:
+        return
+
+    rxt_rates = Ptr[float](rxt_rates_p)
+    grp_nm = Ptr[int](grp_nm_p)
+    grp_map = Ptr[int](grp_map_p)
+    grp_mult = Ptr[float](grp_mult_p)
+    group_rates = Ptr[float](group_rates_p)
+
+    for g in range(1, ngrps + 1):
+        nmembers = grp_nm[g - 1]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                acc = 0.0
+                for j in range(1, nmembers + 1):
+                    rid = grp_map[_idx2(j, g, max_group_members)]
+                    mult = grp_mult[_idx2(j, g, max_group_members)]
+                    acc = acc + mult * rxt_rates[_idx3(i, k, rid, ncol, pver)]
+                group_rates[_idx3(i, k, g, ncol, pver)] = acc
+
 def gas_phase_chemdr_init_reaction_rates_codon(
     ncol: int,
     pver: int,
