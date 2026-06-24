@@ -354,6 +354,8 @@ end subroutine prescribed_strataero_readnl
        if (masterproc) then
           if (prescribed_strataero_use_native('PRESCRIBED_STRATAERO_ADV_IMPL')) then
              write(iulog,'(A)') 'prescribed_strataero_adv direct = native'
+          else if (active_c == 0_c_int64_t) then
+             write(iulog,'(A)') 'prescribed_strataero_adv direct = codon no-prescribed-strataero no-op'
           else
              write(iulog,'(A)') &
                   'prescribed_strataero_adv direct = codon; active branch selected in Codon; tracer-data/tropopause/native body remains'

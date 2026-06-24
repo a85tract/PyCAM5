@@ -77,14 +77,14 @@ contains
     use cam_logfile, only : iulog
     implicit none
     interface
-      function parallelmin1d_local_codon(data_p, len_c) result(pmin_c) &
-           bind(c, name='parallelmin1d_local_codon')
-        import :: c_double, c_int64_t, c_ptr
-        type(c_ptr), value :: data_p
-        integer(c_int64_t), value :: len_c
-        real(c_double) :: pmin_c
-      end function parallelmin1d_local_codon
-    end interface
+	      function parallelmin1d_codon(data_p, len_c) result(pmin_c) &
+	           bind(c, name='parallelmin1d_codon')
+	        import :: c_double, c_int64_t, c_ptr
+	        type(c_ptr), value :: data_p
+	        integer(c_int64_t), value :: len_c
+	        real(c_double) :: pmin_c
+	      end function parallelmin1d_codon
+	    end interface
     real(kind=real_kind), intent(in), target :: data(:)
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmin
@@ -93,7 +93,7 @@ contains
     logical, save :: proof_seen = .false.
 
 
-    tmp(1) = parallelmin1d_local_codon(c_loc(data(1)), int(size(data), c_int64_t))
+	    tmp(1) = parallelmin1d_codon(c_loc(data(1)), int(size(data), c_int64_t))
     call pmin_mt(red_min,tmp,1,hybrid)
     pmin = red_min%buf(1)
     if (.not. proof_seen) then
@@ -109,19 +109,19 @@ contains
     use cam_logfile, only : iulog
     implicit none
     interface
-      function parallelmin0d_local_codon(data_c) result(pmin_c) &
-           bind(c, name='parallelmin0d_local_codon')
-        import :: c_double
-        real(c_double), value :: data_c
-        real(c_double) :: pmin_c
-      end function parallelmin0d_local_codon
-    end interface
+	      function parallelmin0d_codon(data_c) result(pmin_c) &
+	           bind(c, name='parallelmin0d_codon')
+	        import :: c_double
+	        real(c_double), value :: data_c
+	        real(c_double) :: pmin_c
+	      end function parallelmin0d_codon
+	    end interface
     real(kind=real_kind), intent(in)    :: data
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmin
     real(kind=real_kind)                :: tmp(1)
     logical, save :: proof_seen = .false.
-    tmp(1) = parallelmin0d_local_codon(data)
+	    tmp(1) = parallelmin0d_codon(data)
     call pmin_mt(red_min,tmp,1,hybrid)
     pmin = red_min%buf(1)
     if (.not. proof_seen) then
@@ -173,14 +173,14 @@ contains
     use cam_logfile, only : iulog
     implicit none
     interface
-      function parallelmax1d_local_codon(data_p, len_c) result(pmax_c) &
-           bind(c, name='parallelmax1d_local_codon')
-        import :: c_double, c_int64_t, c_ptr
-        type(c_ptr), value :: data_p
-        integer(c_int64_t), value :: len_c
-        real(c_double) :: pmax_c
-      end function parallelmax1d_local_codon
-    end interface
+	      function parallelmax1d_codon(data_p, len_c) result(pmax_c) &
+	           bind(c, name='parallelmax1d_codon')
+	        import :: c_double, c_int64_t, c_ptr
+	        type(c_ptr), value :: data_p
+	        integer(c_int64_t), value :: len_c
+	        real(c_double) :: pmax_c
+	      end function parallelmax1d_codon
+	    end interface
     real(kind=real_kind), intent(in), target :: data(:)
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmax
@@ -189,7 +189,7 @@ contains
     logical, save :: proof_seen = .false.
 
 
-    tmp(1) = parallelmax1d_local_codon(c_loc(data(1)), int(size(data), c_int64_t))
+	    tmp(1) = parallelmax1d_codon(c_loc(data(1)), int(size(data), c_int64_t))
     call pmax_mt(red_max,tmp,1,hybrid)
     pmax = red_max%buf(1)
     if (.not. proof_seen) then
@@ -204,20 +204,20 @@ contains
     use cam_logfile, only : iulog
     implicit none
     interface
-      function parallelmax0d_local_codon(data_c) result(pmax_c) &
-           bind(c, name='parallelmax0d_local_codon')
-        import :: c_double
-        real(c_double), value :: data_c
-        real(c_double) :: pmax_c
-      end function parallelmax0d_local_codon
-    end interface
+	      function parallelmax0d_codon(data_c) result(pmax_c) &
+	           bind(c, name='parallelmax0d_codon')
+	        import :: c_double
+	        real(c_double), value :: data_c
+	        real(c_double) :: pmax_c
+	      end function parallelmax0d_codon
+	    end interface
     real(kind=real_kind), intent(in)    :: data
     type (hybrid_t),      intent(in)    :: hybrid
     real(kind=real_kind)                :: pmax
     real(kind=real_kind)                :: tmp(1)
     logical, save :: proof_seen = .false.
 
-    tmp(1)=parallelmax0d_local_codon(data)
+	    tmp(1)=parallelmax0d_codon(data)
 
     call pmax_mt(red_max,tmp,1,hybrid)
     pmax = red_max%buf(1)
@@ -451,13 +451,13 @@ contains
 #endif
     use cam_logfile, only : iulog
     interface
-      subroutine reduction_max_r_local_codon(buf_p, ctr_p, redp_p, len_c, nthreads_c) &
-           bind(c, name='reduction_max_r_local_codon')
-        import :: c_int64_t, c_ptr
-        type(c_ptr), value :: buf_p, ctr_p, redp_p
-        integer(c_int64_t), value :: len_c, nthreads_c
-      end subroutine reduction_max_r_local_codon
-    end interface
+	      subroutine pmax_mt_r_1d_codon(buf_p, ctr_p, redp_p, len_c, nthreads_c) &
+	           bind(c, name='pmax_mt_r_1d_codon')
+	        import :: c_int64_t, c_ptr
+	        type(c_ptr), value :: buf_p, ctr_p, redp_p
+	        integer(c_int64_t), value :: len_c, nthreads_c
+	      end subroutine pmax_mt_r_1d_codon
+	    end interface
 
     type (ReductionBuffer_r_1d_t), target :: red ! shared memory reduction buffer struct
     real (kind=real_kind), intent(inout), target :: redp(:) ! thread private vector of partial sum
@@ -476,8 +476,8 @@ contains
     !$OMP BARRIER
     !$OMP CRITICAL (CRITMAX)
 #endif
-    call reduction_max_r_local_codon(c_loc(red%buf(1)), c_loc(red%ctr), c_loc(redp(1)), &
-         int(len, c_int64_t), int(hybrid%NThreads, c_int64_t))
+	    call pmax_mt_r_1d_codon(c_loc(red%buf(1)), c_loc(red%ctr), c_loc(redp(1)), &
+	         int(len, c_int64_t), int(hybrid%NThreads, c_int64_t))
     if (.not. proof_seen) then
        write(iulog,*) 'pmax_mt_r_1d implementation = codon'
        proof_seen = .true.
@@ -522,13 +522,13 @@ contains
 #endif
     use cam_logfile, only : iulog
     interface
-      subroutine reduction_min_r_local_codon(buf_p, ctr_p, redp_p, len_c, nthreads_c) &
-           bind(c, name='reduction_min_r_local_codon')
-        import :: c_int64_t, c_ptr
-        type(c_ptr), value :: buf_p, ctr_p, redp_p
-        integer(c_int64_t), value :: len_c, nthreads_c
-      end subroutine reduction_min_r_local_codon
-    end interface
+	      subroutine pmin_mt_r_1d_codon(buf_p, ctr_p, redp_p, len_c, nthreads_c) &
+	           bind(c, name='pmin_mt_r_1d_codon')
+	        import :: c_int64_t, c_ptr
+	        type(c_ptr), value :: buf_p, ctr_p, redp_p
+	        integer(c_int64_t), value :: len_c, nthreads_c
+	      end subroutine pmin_mt_r_1d_codon
+	    end interface
 
     type (ReductionBuffer_r_1d_t), target :: red ! shared memory reduction buffer struct
     real (kind=real_kind), intent(inout), target :: redp(:) ! thread private vector of partial sum
@@ -548,8 +548,8 @@ contains
     !$OMP BARRIER
     !$OMP CRITICAL (CRITMAX)
 #endif
-    call reduction_min_r_local_codon(c_loc(red%buf(1)), c_loc(red%ctr), c_loc(redp(1)), &
-         int(len, c_int64_t), int(hybrid%NThreads, c_int64_t))
+	    call pmin_mt_r_1d_codon(c_loc(red%buf(1)), c_loc(red%ctr), c_loc(redp(1)), &
+	         int(len, c_int64_t), int(hybrid%NThreads, c_int64_t))
     if (.not. proof_seen) then
        write(iulog,*) 'pmin_mt_r_1d implementation = codon'
        proof_seen = .true.

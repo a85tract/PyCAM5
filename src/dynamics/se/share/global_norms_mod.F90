@@ -68,16 +68,16 @@ contains
     logical, save :: global_integral_codon_logged = .false.
 
     interface
-       function global_integral_local_codon(npts_c, mp_p, metdet_p, h_p) result(local_sum) &
-            bind(c, name='global_integral_local_codon')
-         import :: c_int64_t, c_double, c_ptr
-         integer(c_int64_t), value :: npts_c
-         type(c_ptr), value :: mp_p
-         type(c_ptr), value :: metdet_p
-         type(c_ptr), value :: h_p
-         real(c_double) :: local_sum
-       end function global_integral_local_codon
-    end interface
+	       function global_integral_codon(npts_c, mp_p, metdet_p, h_p) result(local_sum) &
+	            bind(c, name='global_integral_codon')
+	         import :: c_int64_t, c_double, c_ptr
+	         integer(c_int64_t), value :: npts_c
+	         type(c_ptr), value :: mp_p
+	         type(c_ptr), value :: metdet_p
+	         type(c_ptr), value :: h_p
+	         real(c_double) :: local_sum
+	       end function global_integral_codon
+	    end interface
 !
 ! This algorythm is independent of thread count and task count.
 ! This is a requirement of consistancy checking in cam.
@@ -99,8 +99,8 @@ contains
        end do       
     else
        do ie=nets,nete
-          J_tmp(ie) = global_integral_local_codon(int(npts, c_int64_t), &
-               c_loc(elem(ie)%mp(1,1)), c_loc(elem(ie)%metdet(1,1)), c_loc(h(1,1,ie)))
+	          J_tmp(ie) = global_integral_codon(int(npts, c_int64_t), &
+	               c_loc(elem(ie)%mp(1,1)), c_loc(elem(ie)%metdet(1,1)), c_loc(h(1,1,ie)))
        end do
        if (.not. global_integral_codon_logged) then
           write(iulog,'(A)') 'global_integral implementation = codon'

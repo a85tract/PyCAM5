@@ -624,16 +624,16 @@ contains
     integer,optional  :: facenum
     logical, save :: proof_seen = .false.
     interface
-       subroutine dmap_equiangular_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
-            u11, u12, u21, u22, u31, u32, u41, u42, d_p) bind(c, name='dmap_equiangular_codon')
-         use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         real(c_double), value :: a_c, b_c
-         integer(c_int64_t), value :: face_no_c
-         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
-         real(c_double), value :: u11, u12, u21, u22, u31, u32, u41, u42
-         type(c_ptr), value :: d_p
-       end subroutine dmap_equiangular_codon
-    end interface
+	       subroutine dmap_codon(a_c, b_c, face_no_c, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y, &
+	            u11, u12, u21, u22, u31, u32, u41, u42, d_p) bind(c, name='dmap_codon')
+	         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+	         real(c_double), value :: a_c, b_c
+	         integer(c_int64_t), value :: face_no_c
+	         real(c_double), value :: c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y
+	         real(c_double), value :: u11, u12, u21, u22, u31, u32, u41, u42
+	         type(c_ptr), value :: d_p
+	       end subroutine dmap_codon
+	    end interface
 
 
 
@@ -642,7 +642,15 @@ contains
             call abortmp('Dmap(): missing arguments for equiangular map')
        if (.not. present ( u2qmap ) .or. .not. present ( facenum ) ) &
             call abortmp('Dmap(): missing arguments for equiangular map')
-      call dmap_equiangular(D, a, b, corners, u2qmap, facenum)
+	      call dmap_codon(real(a, c_double), real(b, c_double), int(facenum, c_int64_t), &
+	           real(corners(1)%x, c_double), real(corners(1)%y, c_double), &
+	           real(corners(2)%x, c_double), real(corners(2)%y, c_double), &
+	           real(corners(3)%x, c_double), real(corners(3)%y, c_double), &
+	           real(corners(4)%x, c_double), real(corners(4)%y, c_double), &
+	           real(u2qmap(1,1), c_double), real(u2qmap(1,2), c_double), &
+	           real(u2qmap(2,1), c_double), real(u2qmap(2,2), c_double), &
+	           real(u2qmap(3,1), c_double), real(u2qmap(3,2), c_double), &
+	           real(u2qmap(4,1), c_double), real(u2qmap(4,2), c_double), c_loc(D(1,1)))
        if (.not. proof_seen) then
           write(iulog,*) 'dmap implementation = codon'
           proof_seen = .true.

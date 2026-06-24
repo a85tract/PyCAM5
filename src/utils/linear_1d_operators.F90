@@ -927,10 +927,10 @@ subroutine tridiag_finalize(self)
   class(TriDiagOp), intent(inout) :: self
   integer(c_int64_t) :: dims(2)
   interface
-     subroutine finalize_dims_codon(dims_p) bind(c, name='finalize_dims_codon')
+     subroutine tridiag_finalize_codon(dims_p) bind(c, name='tridiag_finalize_codon')
        import :: c_int64_t
        integer(c_int64_t), intent(inout) :: dims_p(*)
-     end subroutine finalize_dims_codon
+     end subroutine tridiag_finalize_codon
   end interface
   logical, save :: tridiag_finalize_codon_logged = .false.
   logical, save :: tridiag_finalize_native_logged = .false.
@@ -952,7 +952,7 @@ subroutine tridiag_finalize(self)
   end if
 
   dims = [int(self%nsys, c_int64_t), int(self%ncel, c_int64_t)]
-  call finalize_dims_codon(dims)
+  call tridiag_finalize_codon(dims)
   self%nsys = int(dims(1))
   self%ncel = int(dims(2))
   if (.not. tridiag_finalize_codon_logged) then
@@ -1563,10 +1563,10 @@ subroutine decomp_finalize(decomp)
   class(TriDiagDecomp), intent(inout) :: decomp
   integer(c_int64_t) :: dims(2)
   interface
-     subroutine finalize_dims_codon(dims_p) bind(c, name='finalize_dims_codon')
+     subroutine decomp_finalize_codon(dims_p) bind(c, name='decomp_finalize_codon')
        import :: c_int64_t
        integer(c_int64_t), intent(inout) :: dims_p(*)
-     end subroutine finalize_dims_codon
+     end subroutine decomp_finalize_codon
   end interface
   logical, save :: decomp_finalize_codon_logged = .false.
   logical, save :: decomp_finalize_native_logged = .false.
@@ -1586,7 +1586,7 @@ subroutine decomp_finalize(decomp)
   end if
 
   dims = [int(decomp%nsys, c_int64_t), int(decomp%ncel, c_int64_t)]
-  call finalize_dims_codon(dims)
+  call decomp_finalize_codon(dims)
   decomp%nsys = int(dims(1))
   decomp%ncel = int(dims(2))
   if (.not. decomp_finalize_codon_logged) then

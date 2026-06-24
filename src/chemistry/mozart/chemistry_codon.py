@@ -648,6 +648,10 @@ def aircraft_emit_adv_codon(active: int) -> int:
     return active
 
 @export
+def aircraft_emit_readnl_codon(active: int) -> int:
+    return active
+
+@export
 def flbc_chk_codon(active: int) -> int:
     return active
 
@@ -665,9 +669,12 @@ def noy_ubc_active_codon(active: int) -> int:
 def noy_ubc_advance_codon(active: int) -> int:
     return noy_ubc_active_codon(active)
 
-@export
 def spedata_active_codon(active: int) -> int:
     return _common.spedata_active_codon(active)
+
+@export
+def spedata_init_codon(active: int) -> int:
+    return spedata_active_codon(active)
 
 @export
 def advance_spedata_codon(active: int) -> int:
@@ -714,6 +721,10 @@ def airpl_set_zero_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_a
     return _common.airpl_set_zero_codon(active, ncol, pver, no_air_p, co_air_p)
 
 @export
+def airpl_set_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_air_p: cobj) -> int:
+    return _common.airpl_set_codon(active, ncol, pver, no_air_p, co_air_p)
+
+@export
 def sulf_inti_active_codon(active: int) -> int:
     return _common.sulf_inti_active_codon(active)
 
@@ -737,13 +748,19 @@ def fstrat_inti_active_codon(active: int) -> int:
 def fstrat_inti_codon(active: int) -> int:
     return fstrat_inti_active_codon(active)
 
-@export
 def set_fstrat_vals_active_codon(active: int) -> int:
     return _common.set_fstrat_vals_active_codon(active)
 
 @export
+def set_fstrat_vals_codon(active: int) -> int:
+    return set_fstrat_vals_active_codon(active)
+
 def set_fstrat_h2o_active_codon(active: int) -> int:
     return _common.set_fstrat_h2o_active_codon(active)
+
+@export
+def set_fstrat_h2o_codon(active: int) -> int:
+    return set_fstrat_h2o_active_codon(active)
 
 @export
 def jeuv_init_active_codon(active: int) -> int:
@@ -785,9 +802,12 @@ def register_cfc11star_active_codon(active: int) -> int:
 def register_cfc11star_codon(active: int) -> int:
     return register_cfc11star_active_codon(active)
 
-@export
 def update_cfc11star_active_codon(active: int) -> int:
     return _common.update_cfc11star_active_codon(active)
+
+@export
+def update_cfc11star_codon(active: int) -> int:
+    return update_cfc11star_active_codon(active)
 
 @export
 def chlorine_loading_init_active_codon(active: int) -> int:
@@ -1229,6 +1249,10 @@ def chm_diags_euv_codon(
         wrk_p,
     )
 @export
+def usrrxt_inti_codon(stage: int) -> int:
+    return stage
+
+@export
 def usrrxt_inti_has_ion_codon(
     ion1: int,
     ion2: int,
@@ -1242,6 +1266,10 @@ def usrrxt_inti_has_ion_codon(
 @export
 def comp_exp_codon(x_p: cobj, y_p: cobj, n: int):
     return _common.comp_exp_codon(x_p, y_p, n)
+
+@export
+def heatnirco2_init_codon(stage: int) -> int:
+    return stage
 
 @export
 def heatnirco2_init_xspara_codon(ndpara: int, zppara_p: cobj, xspara_p: cobj):
@@ -5216,6 +5244,11 @@ def sox_cldaero_finalize_codon(
     )
 
 @export
+def setsox_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def setsox_shell_codon(
     stage: int,
     ncol: int,
@@ -5750,6 +5783,10 @@ def setsox_shell_finalize_codon(
         sflx_aqo3rxn_p,
         adv_mass_p,
     )
+
+@export
+def aero_model_emissions_codon(stage: int) -> int:
+    return stage
 
 @export
 def aero_model_emissions_accumulate_sflx_codon(

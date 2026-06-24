@@ -37,6 +37,16 @@ module tidal_diag
       integer(c_int64_t), value :: value_c, force_one_c
       integer(c_int64_t) :: out_c
     end function tidal_diag_int_codon
+    function tidal_diag_init_codon(value_c, force_one_c) result(out_c) bind(c, name="tidal_diag_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c, force_one_c
+      integer(c_int64_t) :: out_c
+    end function tidal_diag_init_codon
+    function tidal_diag_write_codon(value_c, force_one_c) result(out_c) bind(c, name="tidal_diag_write_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c, force_one_c
+      integer(c_int64_t) :: out_c
+    end function tidal_diag_write_codon
     subroutine get_tidal_coeffs_codon(tod_c, pi_c, cday_c, dcoef_p) bind(c, name="get_tidal_coeffs_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
       integer(c_int64_t), value :: tod_c
@@ -174,9 +184,9 @@ contains
        levs = 1
     else
        call tidal_diag_proof_once()
-       out_c = tidal_diag_int_codon(int(pver, c_int64_t), 0_c_int64_t)
+       out_c = tidal_diag_init_codon(int(pver, c_int64_t), 0_c_int64_t)
        lev3d = int(out_c)
-       out_c = tidal_diag_int_codon(int(pver, c_int64_t), 1_c_int64_t)
+       out_c = tidal_diag_init_codon(int(pver, c_int64_t), 1_c_int64_t)
        levs = int(out_c)
        call tidal_diag_log_direct(tidal_diag_init_logged, 'tidal_diag_init direct = codon')
     end if
@@ -246,9 +256,9 @@ contains
        ncol = state%ncol
     else
        call tidal_diag_proof_once()
-       out_c = tidal_diag_int_codon(int(state%lchnk, c_int64_t), 0_c_int64_t)
+       out_c = tidal_diag_write_codon(int(state%lchnk, c_int64_t), 0_c_int64_t)
        lchnk = int(out_c)
-       out_c = tidal_diag_int_codon(int(state%ncol, c_int64_t), 0_c_int64_t)
+       out_c = tidal_diag_write_codon(int(state%ncol, c_int64_t), 0_c_int64_t)
        ncol = int(out_c)
        call tidal_diag_log_direct(tidal_diag_write_logged, 'tidal_diag_write direct = codon')
     end if

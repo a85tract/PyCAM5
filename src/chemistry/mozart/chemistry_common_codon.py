@@ -467,6 +467,9 @@ def airpl_set_zero_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_a
             co_air[idx] = 0.0
     return active
 
+def airpl_set_codon(active: int, ncol: int, pver: int, no_air_p: cobj, co_air_p: cobj) -> int:
+    return airpl_set_zero_codon(active, ncol, pver, no_air_p, co_air_p)
+
 def sulf_inti_active_codon(active: int) -> int:
     return active
 

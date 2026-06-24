@@ -163,6 +163,12 @@ loop1:      do icolm = 1,ncolgr-1
 !	... local variables
 !-----------------------------------------------------------------------
       interface
+         function heatnirco2_init_codon(stage_c) result(stage_out) bind(c, name="heatnirco2_init_codon")
+           import :: c_int64_t
+           integer(c_int64_t), value :: stage_c
+           integer(c_int64_t) :: stage_out
+         end function heatnirco2_init_codon
+
          subroutine heatnirco2_init_xspara_codon(ndpara_c, zppara_p, xspara_p) &
               bind(c, name="heatnirco2_init_xspara_codon")
            import :: c_int64_t, c_ptr
@@ -172,6 +178,12 @@ loop1:      do icolm = 1,ncolgr-1
       end interface
 
       call chemistry_misc_codon_touch('mo_heatnirco2', 107)
+      if (heatnirco2_init_codon(1_c_int64_t) /= 1_c_int64_t) then
+         if (masterproc) then
+            write(iulog,'(A)') 'heatnirco2_init Codon entry token failed'
+            call flush(iulog)
+         end if
+      end if
 
       call heatnirco2_init_xspara_codon(int(ndpara, c_int64_t), c_loc(zppara(1)), c_loc(xspara(1)))
       if (masterproc) then

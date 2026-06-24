@@ -2998,6 +2998,8 @@ end do
   end subroutine allocate_subcell_integration_matrix
 
   subroutine divergence_sphere_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -3019,9 +3021,19 @@ end do
     end if
 
     divergence_sphere_impl_selected = .true.
+    if (masterproc) then
+      if (divergence_sphere_use_native_impl) then
+        write(iulog,*) 'divergence_sphere implementation = native'
+      else
+        write(iulog,*) 'divergence_sphere implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine divergence_sphere_select_impl
 
   subroutine divergence_sphere_wk_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -3043,9 +3055,19 @@ end do
     end if
 
     divergence_sphere_wk_impl_selected = .true.
+    if (masterproc) then
+      if (divergence_sphere_wk_use_native_impl) then
+        write(iulog,*) 'divergence_sphere_wk implementation = native'
+      else
+        write(iulog,*) 'divergence_sphere_wk implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine divergence_sphere_wk_select_impl
 
   subroutine laplace_sphere_wk_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -3067,9 +3089,19 @@ end do
     end if
 
     laplace_sphere_wk_impl_selected = .true.
+    if (masterproc) then
+      if (laplace_sphere_wk_use_native_impl) then
+        write(iulog,*) 'laplace_sphere_wk implementation = native'
+      else
+        write(iulog,*) 'laplace_sphere_wk implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine laplace_sphere_wk_select_impl
 
   subroutine vlaplace_sphere_wk_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -3091,9 +3123,19 @@ end do
     end if
 
     vlaplace_sphere_wk_impl_selected = .true.
+    if (masterproc) then
+      if (vlaplace_sphere_wk_use_native_impl) then
+        write(iulog,*) 'vlaplace_sphere_wk implementation = native'
+      else
+        write(iulog,*) 'vlaplace_sphere_wk implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine vlaplace_sphere_wk_select_impl
 
   subroutine vorticity_sphere_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -3115,9 +3157,19 @@ end do
     end if
 
     vorticity_sphere_impl_selected = .true.
+    if (masterproc) then
+      if (vorticity_sphere_use_native_impl) then
+        write(iulog,*) 'vorticity_sphere implementation = native'
+      else
+        write(iulog,*) 'vorticity_sphere implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine vorticity_sphere_select_impl
 
   subroutine gradient_sphere_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -3139,6 +3191,14 @@ end do
     end if
 
     gradient_sphere_impl_selected = .true.
+    if (masterproc) then
+      if (gradient_sphere_use_native_impl) then
+        write(iulog,*) 'gradient_sphere implementation = native'
+      else
+        write(iulog,*) 'gradient_sphere implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine gradient_sphere_select_impl
 
   subroutine curl_sphere_select_impl()

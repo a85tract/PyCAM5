@@ -1,9 +1,14 @@
 interface
-   function cam_initfile_getter_touch_codon(tag) result(tag_result) bind(c, name="cam_initfile_getter_touch_codon")
+   function initial_file_get_id_codon(tag) result(tag_result) bind(c, name="initial_file_get_id_codon")
      use iso_c_binding, only: c_int64_t
      integer(c_int64_t), value :: tag
      integer(c_int64_t) :: tag_result
-   end function cam_initfile_getter_touch_codon
+   end function initial_file_get_id_codon
+   function topo_file_get_id_codon(tag) result(tag_result) bind(c, name="topo_file_get_id_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: tag
+     integer(c_int64_t) :: tag_result
+   end function topo_file_get_id_codon
    function getname_codon(tag) result(tag_out) bind(c, name="getname_codon")
      use iso_c_binding, only: c_int64_t
      integer(c_int64_t), value :: tag

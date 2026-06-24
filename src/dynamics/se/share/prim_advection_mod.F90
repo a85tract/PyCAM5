@@ -4309,6 +4309,8 @@ end subroutine ALE_parametric_coords
   end subroutine vertical_remap_ps_v_update_select_impl
 
   subroutine qdp_time_avg_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -4330,6 +4332,14 @@ end subroutine ALE_parametric_coords
     end if
 
     qdp_time_avg_impl_selected = .true.
+    if (masterproc) then
+      if (qdp_time_avg_use_native_impl) then
+        write(iulog,*) 'qdp_time_avg implementation = native'
+      else
+        write(iulog,*) 'qdp_time_avg implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine qdp_time_avg_select_impl
 
   subroutine euler_step_vstar_prepare_select_impl()
@@ -4669,6 +4679,8 @@ end subroutine ALE_parametric_coords
   end subroutine limiter2d_zero_select_impl
 
   subroutine limiter_optim_iter_full_select_impl()
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
     character(len=32) :: impl_name
     integer :: status, n, i, code
 
@@ -4690,6 +4702,14 @@ end subroutine ALE_parametric_coords
     end if
 
     limiter_optim_iter_full_impl_selected = .true.
+    if (masterproc) then
+      if (limiter_optim_iter_full_use_native_impl) then
+        write(iulog,*) 'limiter_optim_iter_full implementation = native'
+      else
+        write(iulog,*) 'limiter_optim_iter_full implementation = codon'
+      end if
+      call flush(iulog)
+    end if
   end subroutine limiter_optim_iter_full_select_impl
 
   subroutine advance_hypervis_qtens_prepare_select_impl()

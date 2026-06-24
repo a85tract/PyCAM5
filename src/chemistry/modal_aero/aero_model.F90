@@ -2886,7 +2886,7 @@ contains
        aero_model_strat_surfarea_codon_logged = .true.
        if (masterproc) then
           write(iulog,'(A)') &
-               'aero_model_strat_surfarea direct = native; inactive/default branch selected'
+               'aero_model_strat_surfarea direct = codon; inactive/default branch selected'
           call flush(iulog)
        end if
     end if
@@ -3875,11 +3875,23 @@ contains
     real (r8), parameter :: z0=0.0001_r8  ! m roughness length over oceans--from ocean model
     real(r8), parameter :: soil_erod_threshold = 0.1_r8
 
+    interface
+       function aero_model_emissions_codon(stage_c) result(stage_out) bind(c, name="aero_model_emissions_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function aero_model_emissions_codon
+    end interface
+
     call aero_model_emissions_select_impl()
 
     if (aero_model_emissions_use_native_impl) then
        call aero_model_emissions_native(state, cam_in)
        return
+    end if
+
+    if (aero_model_emissions_codon(1_c_int64_t) /= 1_c_int64_t) then
+       call endrun('aero_model_emissions :: Codon entry token failed')
     end if
 
     lchnk = state%lchnk

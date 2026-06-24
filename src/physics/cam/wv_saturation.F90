@@ -125,11 +125,17 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double) :: enthalpy_out
      end function tq_enthalpy_codon
 
-     function wv_saturation_touch_codon(stage_c) result(stage_out) bind(c, name="wv_saturation_touch_codon")
+     function wv_sat_final_codon(stage_c) result(stage_out) bind(c, name="wv_sat_final_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: stage_c
        integer(c_int64_t) :: stage_out
-     end function wv_saturation_touch_codon
+     end function wv_sat_final_codon
+
+     function wv_sat_init_codon(stage_c) result(stage_out) bind(c, name="wv_sat_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t) :: stage_out
+     end function wv_sat_init_codon
 
      pure function no_ip_hltalt_codon(t_c, tmelt_c, latvap_c) result(hltalt_out) &
           bind(c, name="no_ip_hltalt_codon")
@@ -450,6 +456,9 @@ subroutine wv_sat_init
      omeps = 1.0_r8 - epsilo
   else
      call wv_saturation_proof_once()
+     if (wv_sat_init_codon(1_c_int64_t) /= 1_c_int64_t) then
+        call endrun('wv_sat_init :: Codon entry token failed')
+     end if
      omeps = real(wv_saturation_value_codon(real(1.0_r8 - epsilo, c_double)), r8)
      call wv_saturation_log_direct(wv_sat_init_logged, 'wv_sat_init direct = codon')
   end if
@@ -512,7 +521,7 @@ subroutine wv_sat_final
   call wv_saturation_select_impl()
   if (.not. use_native_wv_saturation_impl) then
      call wv_saturation_proof_once()
-     touch_c = wv_saturation_touch_codon(3_c_int64_t)
+     touch_c = wv_sat_final_codon(3_c_int64_t)
      if (touch_c == 3_c_int64_t) then
         call wv_saturation_log_direct(wv_sat_final_logged, &
              'wv_sat_final direct = codon; finalization selector/touch direct = codon; native deallocate/error island')

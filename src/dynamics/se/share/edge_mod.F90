@@ -778,12 +778,12 @@ contains
     use cam_logfile, only : iulog
     implicit none
     interface
-      subroutine init_edge_buffer_i8_header_codon(np_c, max_corner_elem_c, nelemd_c, nlyr_c, nlyr_p, nbuf_p) &
-           bind(c, name='init_edge_buffer_i8_header_codon')
-        import :: c_int64_t, c_ptr
-        integer(c_int64_t), value :: np_c, max_corner_elem_c, nelemd_c, nlyr_c
-        type(c_ptr), value :: nlyr_p, nbuf_p
-      end subroutine init_edge_buffer_i8_header_codon
+	      subroutine initedgebuffer_i8_codon(np_c, max_corner_elem_c, nelemd_c, nlyr_c, nlyr_p, nbuf_p) &
+	           bind(c, name='initedgebuffer_i8_codon')
+	        import :: c_int64_t, c_ptr
+	        integer(c_int64_t), value :: np_c, max_corner_elem_c, nelemd_c, nlyr_c
+	        type(c_ptr), value :: nlyr_p, nbuf_p
+	      end subroutine initedgebuffer_i8_codon
       subroutine zero_i32_buffer_codon(n_c, buf_p) bind(c, name='zero_i32_buffer_codon')
         import :: c_int64_t, c_ptr
         integer(c_int64_t), value :: n_c
@@ -803,8 +803,8 @@ contains
        call haltmp('ERROR: initLongEdgeBuffer must be called before threaded reagion')
     endif
 
-    call init_edge_buffer_i8_header_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
-         int(nelemd, c_int64_t), int(nlyr, c_int64_t), c_loc(nlyr_tmp), c_loc(nbuf_tmp))
+	    call initedgebuffer_i8_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
+	         int(nelemd, c_int64_t), int(nlyr, c_int64_t), c_loc(nlyr_tmp), c_loc(nbuf_tmp))
     edge%nlyr=nlyr_tmp
     edge%nbuf=nbuf_tmp
     allocate(edge%buf(edge%nlyr,edge%nbuf))
@@ -916,18 +916,18 @@ contains
     type (LongEdgeBuffer_t),intent(inout) :: edge
     logical, save :: proof_seen = .false.
     interface
-       function se_misc_touch_codon(tag) result(tag_out) bind(c, name='se_misc_touch_codon')
-         import :: c_int64_t
-         integer(c_int64_t), value :: tag
-         integer(c_int64_t) :: tag_out
-       end function se_misc_touch_codon
-    end interface
+	       function freeedgebuffer_i8_codon(tag) result(tag_out) bind(c, name='freeedgebuffer_i8_codon')
+	         import :: c_int64_t
+	         integer(c_int64_t), value :: tag
+	         integer(c_int64_t) :: tag_out
+	       end function freeedgebuffer_i8_codon
+	    end interface
 
-    if (.not. proof_seen) then
-       if (se_misc_touch_codon(40_c_int64_t) /= 40_c_int64_t) then
-          write(iulog,*) 'freeedgebuffer_i8 codon tag roundtrip failed'
-          stop 2
-       endif
+	    if (.not. proof_seen) then
+	       if (freeedgebuffer_i8_codon(40_c_int64_t) /= 40_c_int64_t) then
+	          write(iulog,*) 'freeedgebuffer_i8 codon tag roundtrip failed'
+	          stop 2
+	       endif
        write(iulog,*) 'freeedgebuffer_i8 implementation = codon'
        proof_seen = .true.
     endif

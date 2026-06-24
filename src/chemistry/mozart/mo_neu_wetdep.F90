@@ -2507,6 +2507,7 @@ upper_level : &
 !---------------------------------------------------------------------
       subroutine DISGAS (CLWX,CFX,MOLMASS,HSTAR,TM,PR,QM,QT,QTDIS)
 !---------------------------------------------------------------------
+      use iso_c_binding, only : c_double, c_loc, c_ptr
       implicit none
       real(r8), intent(in) :: CLWX,CFX    !cloud water,cloud fraction 
       real(r8), intent(in) :: MOLMASS     !molecular mass of tracer
@@ -2515,12 +2516,20 @@ upper_level : &
       real(r8), intent(in) :: PR          !pressure of box (hPa)
       real(r8), intent(in) :: QM          !air mass in box (kg)
       real(r8), intent(in) :: QT          !tracer in box (kg)
-      real(r8), intent(out) :: QTDIS      !tracer dissolved in aqueous phase 
+      real(r8), target, intent(out) :: QTDIS      !tracer dissolved in aqueous phase
  
       real(r8)  MUEMP
       real(r8), parameter :: INV298 = 1._r8/298._r8
       real(r8), parameter  :: TMIX=258._r8
       real(r8), parameter  :: RETEFF=0.5_r8
+      interface
+         subroutine disgas_codon(clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c, &
+              qtdis_p) bind(c, name="disgas_codon")
+            import :: c_double, c_ptr
+            real(c_double), value :: clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c
+            type(c_ptr), value :: qtdis_p
+         end subroutine disgas_codon
+      end interface
 
       if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
       if (.not. neu_wetdep_gas_micro_use_native_impl) then
@@ -2530,7 +2539,9 @@ upper_level : &
             neu_wetdep_disgas_proof_written = .true.
             call flush(iulog)
          end if
-         call neu_wetdep_disgas_codon_wrap(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
+         call disgas_codon(real(CLWX, c_double), real(CFX, c_double), real(MOLMASS, c_double), &
+              real(HSTAR, c_double), real(TM, c_double), real(PR, c_double), real(QM, c_double), &
+              real(QT, c_double), c_loc(QTDIS))
          return
       end if
 !---Next calculate rate of uptake of tracer
@@ -2568,6 +2579,7 @@ upper_level : &
 !---
 !---Does NOT now use RMC (moist conv rain) but could, assuming 30% coverage
 !-----------------------------------------------------------------------
+      use iso_c_binding, only : c_double, c_loc, c_ptr
       implicit none
       real(r8), intent(in) :: RRAIN       !new rain formation in box (kg/s)
       real(r8), intent(in) :: DTSCAV      !time step (s)
@@ -2575,9 +2587,17 @@ upper_level : &
       real(r8), intent(in) :: QM          !air mass in box (kg)
       real(r8), intent(in) :: QT          !tracer in box (kg) 
       real(r8), intent(in) :: QTDIS          !tracer in aqueous phase (kg) 
-      real(r8), intent(out) :: QTRAIN      !tracer picked up by new rain  
+      real(r8), target, intent(out) :: QTRAIN      !tracer picked up by new rain
 
       real(r8)   QTLF,QTDISSTAR
+      interface
+         subroutine raingas_codon(rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c, &
+              qtrain_p) bind(c, name="raingas_codon")
+            import :: c_double, c_ptr
+            real(c_double), value :: rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c
+            type(c_ptr), value :: qtrain_p
+         end subroutine raingas_codon
+      end interface
 
 
       if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
@@ -2588,7 +2608,9 @@ upper_level : &
             neu_wetdep_raingas_proof_written = .true.
             call flush(iulog)
          end if
-         call neu_wetdep_raingas_codon_wrap(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
+         call raingas_codon(real(RRAIN, c_double), real(DTSCAV, c_double), real(CLWX, c_double), &
+              real(CFX, c_double), real(QM, c_double), real(QT, c_double), real(QTDIS, c_double), &
+              c_loc(QTRAIN))
          return
       end if
 

@@ -221,9 +221,9 @@ contains
        noy_ubc_advance_codon_logged = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'noy_ubc_advance direct = native flag-off no-op'
+             write(iulog,'(A)') 'noy_ubc_advance direct = codon flag-off no-op'
           else
-             write(iulog,'(A)') 'noy_ubc_advance selector = native; active data-file body = native'
+             write(iulog,'(A)') 'noy_ubc_advance selector = codon; active data-file body = native island'
           end if
           call flush(iulog)
        end if

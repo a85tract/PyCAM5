@@ -862,6 +862,14 @@ contains
     real(r8), pointer :: xno3c(:,:)
     type(cldaero_conc_t), pointer :: cldconc
 
+    interface
+       function setsox_codon(stage_c) result(stage_out) bind(c, name="setsox_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function setsox_codon
+    end interface
+
     real(r8) :: fact1_hno3, fact2_hno3, fact3_hno3
     real(r8) :: fact1_so2, fact2_so2, fact3_so2, fact4_so2
     real(r8) :: fact1_nh3, fact2_nh3, fact3_nh3
@@ -875,6 +883,10 @@ contains
     !       ... NOTE: The press array is in pascals and must be
     !                 mutiplied by 10 to yield dynes/cm**2.
     !-----------------------------------------------------------------
+    if (setsox_codon(1_c_int64_t) /= 1_c_int64_t) then
+       call setsox_append_impl_proof('setsox Codon entry token failed')
+    end if
+
     !==================================================================
     !       ... First set the PH
     !==================================================================

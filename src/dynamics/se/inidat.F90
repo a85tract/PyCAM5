@@ -408,15 +408,15 @@ contains
     integer, allocatable, target :: num_unique_pts(:), unique_pt_offsets(:)
     logical, save :: proof_seen = .false.
     interface
-       function get_ldof_fill_codon(nlev_c, nelemd_c, hdim_c, num_unique_pts_p, &
-            unique_pt_offsets_p, ldof_p) result(filled_count_c) &
-            bind(c, name='get_ldof_fill_codon')
-         import :: c_int64_t, c_ptr
-         integer(c_int64_t), value :: nlev_c, nelemd_c, hdim_c
-         type(c_ptr), value :: num_unique_pts_p, unique_pt_offsets_p, ldof_p
-         integer(c_int64_t) :: filled_count_c
-       end function get_ldof_fill_codon
-    end interface
+	       function get_ldof_codon(nlev_c, nelemd_c, hdim_c, num_unique_pts_p, &
+	            unique_pt_offsets_p, ldof_p) result(filled_count_c) &
+	            bind(c, name='get_ldof_codon')
+	         import :: c_int64_t, c_ptr
+	         integer(c_int64_t), value :: nlev_c, nelemd_c, hdim_c
+	         type(c_ptr), value :: num_unique_pts_p, unique_pt_offsets_p, ldof_p
+	         integer(c_int64_t) :: filled_count_c
+	       end function get_ldof_codon
+	    end interface
 
 
     call get_horiz_grid_dim_d(hdim)
@@ -430,9 +430,9 @@ contains
     end do
     allocate(ldof(lcnt))
     ldof(:) = 0
-    filled_count = get_ldof_fill_codon(int(nlev, c_int64_t), int(nelemd, c_int64_t), &
-         int(hdim, c_int64_t), c_loc(num_unique_pts(1)), &
-         c_loc(unique_pt_offsets(1)), c_loc(ldof(1)))
+	    filled_count = get_ldof_codon(int(nlev, c_int64_t), int(nelemd, c_int64_t), &
+	         int(hdim, c_int64_t), c_loc(num_unique_pts(1)), &
+	         c_loc(unique_pt_offsets(1)), c_loc(ldof(1)))
     if (filled_count /= int(lcnt, c_int64_t)) then
        call endrun('get_ldof Codon fill count mismatch')
     endif

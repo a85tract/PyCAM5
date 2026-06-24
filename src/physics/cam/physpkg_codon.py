@@ -11746,6 +11746,16 @@ def tidal_diag_int_codon(value: int, force_one: int) -> int:
 
 
 @export
+def tidal_diag_init_codon(value: int, force_one: int) -> int:
+    return tidal_diag_int_codon(value, force_one)
+
+
+@export
+def tidal_diag_write_codon(value: int, force_one: int) -> int:
+    return tidal_diag_int_codon(value, force_one)
+
+
+@export
 def get_tidal_coeffs_codon(tod: int, pi: float, cday: float, dcoef_p: cobj):
     dcoef = Ptr[float](dcoef_p)
     gmtfrac = tod / cday
@@ -13003,6 +13013,11 @@ def wv_sat_init_table_codon(plenest: int, tmin: float, tmelt: float, ttrice: flo
 
 
 @export
+def wv_sat_init_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def svp_water_codon(t: float, idx: int) -> float:
     return wv_sat_svp_water_codon(t, idx)
 
@@ -13369,6 +13384,11 @@ def wv_sat_readnl_codon() -> int:
 @export
 def wv_saturation_touch_codon(stage: int) -> int:
     return stage
+
+
+@export
+def wv_sat_final_codon(stage: int) -> int:
+    return wv_saturation_touch_codon(stage)
 
 
 @export

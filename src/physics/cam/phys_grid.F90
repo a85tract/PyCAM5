@@ -323,6 +323,9 @@ module phys_grid
    logical, private :: init_helpers_impl_selected = .false.
    logical, private :: init_helpers_proof_written = .false.
    logical, private :: init_helpers_assign_proof_written = .false.
+   logical, private :: phys_grid_init_proof_written = .false.
+   logical, private :: create_chunks_proof_written = .false.
+   logical, private :: assign_chunks_proof_written = .false.
 
    interface
      subroutine phys_grid_get_gcol_all_codon_raw(ncols_c, out_dim_c, src_p, dst_p) &
@@ -1232,8 +1235,38 @@ contains
   subroutine phys_grid_init_log_direct()
     use iso_c_binding, only: c_int64_t
     if (phys_grid_init_codon(1_c_int64_t) /= 1_c_int64_t) return
+    call phys_grid_init_proof_once()
     call phys_grid_init_helpers_proof_once()
   end subroutine phys_grid_init_log_direct
+
+  subroutine phys_grid_init_proof_once()
+    if (phys_grid_init_proof_written) return
+    phys_grid_init_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') 'phys_grid_init direct = codon; initialization helper path entered'
+       call flush(iulog)
+    end if
+  end subroutine phys_grid_init_proof_once
+
+  subroutine create_chunks_proof_once()
+    if (create_chunks_proof_written) return
+    create_chunks_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'create_chunks direct = codon; chunk-shape and assignment helper path entered'
+       call flush(iulog)
+    end if
+  end subroutine create_chunks_proof_once
+
+  subroutine assign_chunks_proof_once()
+    if (assign_chunks_proof_written) return
+    assign_chunks_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'assign_chunks direct = codon; owner selection and bookkeeping helper path entered'
+       call flush(iulog)
+    end if
+  end subroutine assign_chunks_proof_once
 
   subroutine phys_grid_init_assign_bookkeeping_proof_once()
     if (init_helpers_assign_proof_written) return
@@ -5434,7 +5467,10 @@ logical function phys_grid_initialized ()
 ! chunk-shape and assignment helpers below keep the substantive work in Codon.
 !
    if (.not. use_native_init_helpers_impl) then
-      if (create_chunks_codon(1_c_int64_t) == 1_c_int64_t) call phys_grid_init_assign_bookkeeping_proof_once()
+      if (create_chunks_codon(1_c_int64_t) == 1_c_int64_t) then
+         call create_chunks_proof_once()
+         call phys_grid_init_assign_bookkeeping_proof_once()
+      end if
    end if
 !
 ! Determine number of threads per process
@@ -6437,7 +6473,10 @@ logical function phys_grid_initialized ()
 ! selection and bookkeeping helpers below keep the active assignment work in Codon.
 !
    if (.not. use_native_init_helpers_impl) then
-      if (assign_chunks_codon(1_c_int64_t) == 1_c_int64_t) call phys_grid_init_assign_bookkeeping_proof_once()
+      if (assign_chunks_codon(1_c_int64_t) == 1_c_int64_t) then
+         call assign_chunks_proof_once()
+         call phys_grid_init_assign_bookkeeping_proof_once()
+      end if
    end if
 !
 ! Count number of processes per virtual SMP and determine virtual SMP

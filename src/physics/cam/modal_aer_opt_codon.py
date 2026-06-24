@@ -89,6 +89,11 @@ def modal_aer_opt_readnl_codon(
 
 
 @export
+def modal_aer_opt_init_codon(stage: int) -> int:
+    return stage
+
+
+@export
 def modal_aer_opt_init_mode_dims_mismatch_codon(
     m_ncoef: int,
     m_prefr: int,

@@ -1128,7 +1128,15 @@ def parallelmax0d_local_codon(data: float) -> float:
     return _misc.parallelmax0d_local_codon(data)
 
 @export
+def parallelmax0d_codon(data: float) -> float:
+    return _misc.parallelmax0d_local_codon(data)
+
+@export
 def parallelmin0d_local_codon(data: float) -> float:
+    return _misc.parallelmin0d_local_codon(data)
+
+@export
+def parallelmin0d_codon(data: float) -> float:
     return _misc.parallelmin0d_local_codon(data)
 
 @export
@@ -1136,11 +1144,23 @@ def parallelmax1d_local_codon(data_p: cobj, length: int) -> float:
     return _misc.parallelmax1d_local_codon(data_p, length)
 
 @export
+def parallelmax1d_codon(data_p: cobj, length: int) -> float:
+    return _misc.parallelmax1d_local_codon(data_p, length)
+
+@export
 def parallelmin1d_local_codon(data_p: cobj, length: int) -> float:
     return _misc.parallelmin1d_local_codon(data_p, length)
 
 @export
+def parallelmin1d_codon(data_p: cobj, length: int) -> float:
+    return _misc.parallelmin1d_local_codon(data_p, length)
+
+@export
 def global_integral_local_codon(npts: int, mp_p: cobj, metdet_p: cobj, h_p: cobj) -> float:
+    return _misc.global_integral_local_codon(npts, mp_p, metdet_p, h_p)
+
+@export
+def global_integral_codon(npts: int, mp_p: cobj, metdet_p: cobj, h_p: cobj) -> float:
     return _misc.global_integral_local_codon(npts, mp_p, metdet_p, h_p)
 
 @export
@@ -1267,6 +1287,24 @@ def get_dyn_grid_parm_codon(
 
 @export
 def get_ldof_fill_codon(
+    nlev: int,
+    nelemd: int,
+    hdim: int,
+    num_unique_pts_p: cobj,
+    unique_pt_offsets_p: cobj,
+    ldof_p: cobj,
+) -> int:
+    return _misc.get_ldof_fill_codon(
+        nlev,
+        nelemd,
+        hdim,
+        num_unique_pts_p,
+        unique_pt_offsets_p,
+        ldof_p,
+    )
+
+@export
+def get_ldof_codon(
     nlev: int,
     nelemd: int,
     hdim: int,
@@ -1543,7 +1581,39 @@ def reduction_max_r_local_codon(
     )
 
 @export
+def pmax_mt_r_1d_codon(
+    buf_p: cobj,
+    ctr_p: cobj,
+    redp_p: cobj,
+    length: int,
+    nthreads: int,
+):
+    return _misc.reduction_max_r_local_codon(
+        buf_p,
+        ctr_p,
+        redp_p,
+        length,
+        nthreads,
+    )
+
+@export
 def reduction_min_r_local_codon(
+    buf_p: cobj,
+    ctr_p: cobj,
+    redp_p: cobj,
+    length: int,
+    nthreads: int,
+):
+    return _misc.reduction_min_r_local_codon(
+        buf_p,
+        ctr_p,
+        redp_p,
+        length,
+        nthreads,
+    )
+
+@export
+def pmin_mt_r_1d_codon(
     buf_p: cobj,
     ctr_p: cobj,
     redp_p: cobj,
@@ -1679,6 +1749,24 @@ def init_edge_buffer_i8_header_codon(
     )
 
 @export
+def initedgebuffer_i8_codon(
+    np: int,
+    max_corner_elem: int,
+    nelemd: int,
+    nlyr: int,
+    nlyr_p: cobj,
+    nbuf_p: cobj,
+):
+    return _misc.init_edge_buffer_i8_header_codon(
+        np,
+        max_corner_elem,
+        nelemd,
+        nlyr,
+        nlyr_p,
+        nbuf_p,
+    )
+
+@export
 def zero_i32_buffer_codon(n: int, buf_p: cobj):
     return _misc.zero_i32_buffer_codon(n, buf_p)
 
@@ -1745,6 +1833,34 @@ def ref2sphere_equiangular_double_codon(
 
 @export
 def dmap_equiangular_codon(
+    a: float,
+    b: float,
+    face_no: int,
+    c1x: float,
+    c1y: float,
+    c2x: float,
+    c2y: float,
+    c3x: float,
+    c3y: float,
+    c4x: float,
+    c4y: float,
+    u11: float,
+    u12: float,
+    u21: float,
+    u22: float,
+    u31: float,
+    u32: float,
+    u41: float,
+    u42: float,
+    d_p: cobj,
+):
+    return _misc.dmap_equiangular_codon(
+        a, b, face_no, c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y,
+        u11, u12, u21, u22, u31, u32, u41, u42, d_p
+    )
+
+@export
+def dmap_codon(
     a: float,
     b: float,
     face_no: int,
@@ -2270,6 +2386,18 @@ def deallocate_gridvertex_nbrs_touch_codon(
     tag: int,
 ) -> int:
     return _misc.deallocate_gridvertex_nbrs_touch_codon(tag)
+
+@export
+def deallocate_gridvertex_nbrs_codon(
+    tag: int,
+) -> int:
+    return _misc.deallocate_gridvertex_nbrs_touch_codon(tag)
+
+@export
+def freeedgebuffer_i8_codon(
+    tag: int,
+) -> int:
+    return _misc.se_misc_touch_codon(tag)
 
 @export
 def applycamforcing_dynamics_codon(

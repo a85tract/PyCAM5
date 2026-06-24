@@ -161,15 +161,15 @@ contains
     integer(c_int64_t)                   :: touched
 
     interface
-       function deallocate_gridvertex_nbrs_touch_codon(tag_c) result(tag_out_c) &
-            bind(c, name="deallocate_gridvertex_nbrs_touch_codon")
-         use iso_c_binding, only : c_int64_t
-         integer(c_int64_t), value :: tag_c
-         integer(c_int64_t) :: tag_out_c
-       end function deallocate_gridvertex_nbrs_touch_codon
-    end interface
+	       function deallocate_gridvertex_nbrs_codon(tag_c) result(tag_out_c) &
+	            bind(c, name="deallocate_gridvertex_nbrs_codon")
+	         use iso_c_binding, only : c_int64_t
+	         integer(c_int64_t), value :: tag_c
+	         integer(c_int64_t) :: tag_out_c
+	       end function deallocate_gridvertex_nbrs_codon
+	    end interface
 
-    touched = deallocate_gridvertex_nbrs_touch_codon(507_c_int64_t)
+	    touched = deallocate_gridvertex_nbrs_codon(507_c_int64_t)
     if (touched /= 507_c_int64_t) then
        write(iulog,*) 'deallocate_gridvertex_nbrs Codon tag roundtrip failed'
        stop 2

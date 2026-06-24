@@ -91,6 +91,11 @@ module aircraft_emit
        integer(c_int64_t), value :: active_c
        integer(c_int64_t) :: out_c
      end function aircraft_emit_adv_codon
+     function aircraft_emit_readnl_codon(active_c) result(out_c) bind(c, name="aircraft_emit_readnl_codon")
+       import :: c_int64_t
+       integer(c_int64_t), value :: active_c
+       integer(c_int64_t) :: out_c
+     end function aircraft_emit_readnl_codon
   end interface
 
 contains
@@ -470,7 +475,9 @@ contains
    namelist /aircraft_emit_nl/  aircraft_specifier, aircraft_type
    !-----------------------------------------------------------------------------
 
-   call chemistry_misc_codon_touch('aircraft_emit_readnl', 126)
+   if (aircraft_emit_readnl_codon(1_c_int64_t) /= 1_c_int64_t) then
+      call endrun('aircraft_emit_readnl :: Codon entry token failed')
+   end if
    if (.not. aircraft_emit_readnl_logged) then
       aircraft_emit_readnl_logged = .true.
       if (masterproc) then

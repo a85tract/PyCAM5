@@ -150,6 +150,12 @@ contains
     implicit none
     integer(c_int64_t) :: has_ion_c
     interface
+       function usrrxt_inti_codon(stage_c) result(stage_out) bind(c, name="usrrxt_inti_codon")
+         import :: c_int64_t
+         integer(c_int64_t), value :: stage_c
+         integer(c_int64_t) :: stage_out
+       end function usrrxt_inti_codon
+
        function usrrxt_inti_has_ion_codon(ion1_c, ion2_c, ion3_c, elec1_c, elec2_c, elec3_c) &
             result(has_ion_out) bind(c, name="usrrxt_inti_has_ion_codon")
          import :: c_int64_t
@@ -161,6 +167,9 @@ contains
 ! full tropospheric chemistry
 !
     call chemistry_misc_codon_touch('mo_usrrxt', 105)
+    if (usrrxt_inti_codon(1_c_int64_t) /= 1_c_int64_t) then
+       call endrun('usrrxt_inti :: Codon entry token failed')
+    end if
 
     usr_O_O2_ndx         = get_rxt_ndx( 'usr_O_O2' )
     usr_HO2_HO2_ndx      = get_rxt_ndx( 'usr_HO2_HO2' )

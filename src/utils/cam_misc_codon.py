@@ -789,6 +789,16 @@ def cam_initfile_getter_touch_codon(tag: int) -> int:
 
 
 @export
+def initial_file_get_id_codon(tag: int) -> int:
+    return cam_initfile_getter_touch_codon(tag)
+
+
+@export
+def topo_file_get_id_codon(tag: int) -> int:
+    return cam_initfile_getter_touch_codon(tag)
+
+
+@export
 def getname_codon(tag: int) -> int:
     return tag
 
@@ -1182,6 +1192,16 @@ def scalar_lmult_tridiag_codon(
 def finalize_dims_codon(dims_p: Ptr[int]):
     dims_p[0] = 0
     dims_p[1] = 0
+
+
+@export
+def tridiag_finalize_codon(dims_p: Ptr[int]):
+    finalize_dims_codon(dims_p)
+
+
+@export
+def decomp_finalize_codon(dims_p: Ptr[int]):
+    finalize_dims_codon(dims_p)
 
 
 @export

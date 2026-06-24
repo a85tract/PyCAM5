@@ -96,6 +96,12 @@ interface
       integer(c_int64_t) :: mismatch_c
    end function modal_aer_opt_init_mode_dims_mismatch_codon
 
+   function modal_aer_opt_init_codon(stage_c) result(stage_out) bind(c, name="modal_aer_opt_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: stage_c
+      integer(c_int64_t) :: stage_out
+   end function modal_aer_opt_init_codon
+
    subroutine modal_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
         sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, radsurf_p, logradsurf_p, cheb_p) &
         bind(c, name="modal_size_parameters_codon")
@@ -768,6 +774,11 @@ subroutine modal_aer_opt_init()
    !----------------------------------------------------------------------------
 
    call modal_aer_opt_init_select_impl()
+   if (.not. use_native_modal_aer_opt_init_impl) then
+      if (modal_aer_opt_init_codon(1_c_int64_t) /= 1_c_int64_t) then
+         call endrun(routine//': ERROR - Codon entry token failed')
+      end if
+   end if
 
    rmmin = 0.01e-6_r8
    rmmax = 25.e-6_r8

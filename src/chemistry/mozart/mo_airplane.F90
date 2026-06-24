@@ -38,13 +38,13 @@ module mo_airplane
        integer(c_int64_t) :: out_c
      end function airpl_src_codon
 
-     function airpl_set_zero_codon(active, ncol_c, pver_c, no_air_p, co_air_p) result(out_c) &
-          bind(c, name="airpl_set_zero_codon")
+     function airpl_set_codon(active, ncol_c, pver_c, no_air_p, co_air_p) result(out_c) &
+          bind(c, name="airpl_set_codon")
        use iso_c_binding, only : c_int64_t, c_ptr
        integer(c_int64_t), value :: active, ncol_c, pver_c
        type(c_ptr), value :: no_air_p, co_air_p
        integer(c_int64_t) :: out_c
-     end function airpl_set_zero_codon
+     end function airpl_set_codon
   end interface
 
 contains
@@ -70,13 +70,15 @@ contains
     no_air(:ncol,:) = 0._r8
     co_air(:ncol,:) = 0._r8
     active_c = merge(1_c_int64_t, 0_c_int64_t, has_airpl_src)
+    active_c = airpl_set_codon(active_c, int(ncol, c_int64_t), int(pver, c_int64_t), &
+         c_loc(no_air(1,1)), c_loc(co_air(1,1)))
     if (.not. airpl_set_proof_written) then
        airpl_set_proof_written = .true.
        if (masterproc) then
           if (active_c == 0_c_int64_t) then
-             write(iulog,'(A)') 'airpl_set direct = native no-aircraft zero stage; outfld native boundary'
+             write(iulog,'(A)') 'airpl_set direct = codon no-aircraft zero stage; outfld native boundary'
           else
-             write(iulog,'(A)') 'airpl_set selector = native; active aircraft interpolation body = native'
+             write(iulog,'(A)') 'airpl_set selector = codon; active aircraft interpolation body = native island'
           end if
           call flush(iulog)
        end if
