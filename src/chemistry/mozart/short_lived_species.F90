@@ -212,6 +212,7 @@ contains
 !---------------------------------------------------------------------
   subroutine get_short_lived_species( q, lchnk, ncol, pbuf )
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -221,7 +222,41 @@ contains
     real(r8),pointer                   :: tmpptr(:,:)
 
 
-    integer :: m,n
+    integer :: m,n,status,i,code
+    integer(c_int64_t) :: active_c
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+
+    interface
+       function get_short_lived_species_codon(active) result(out_c) bind(c, name="get_short_lived_species_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function get_short_lived_species_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('GET_SHORT_LIVED_SPECIES_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = get_short_lived_species_codon(merge(1_c_int64_t, 0_c_int64_t, nslvd >= 1))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'get_short_lived_species direct = codon no-short-lived no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if ( nslvd < 1 ) return
 

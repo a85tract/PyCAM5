@@ -12,6 +12,9 @@
 
       logical :: nlnmat_use_native_impl = .false.
       logical :: nlnmat_impl_selected = .false.
+      logical :: nlnmat_finit_use_native_impl = .false.
+      logical :: nlnmat_finit_impl_selected = .false.
+      logical :: nlnmat_finit_logged = .false.
 
       contains
 
@@ -50,19 +53,40 @@
       end subroutine nlnmat
       subroutine nlnmat_finit( mat, lmat, dti )
       use chem_mods, only : gas_pcnst, rxntot, nzcnt
+      use cam_logfile, only : iulog
+      use iso_c_binding, only : c_double, c_loc, c_ptr
+      use spmd_utils, only : masterproc
       implicit none
 !----------------------------------------------
 ! ... dummy arguments
 !----------------------------------------------
       real(r8), intent(in) :: dti
-      real(r8), intent(in) :: lmat(nzcnt)
-      real(r8), intent(inout) :: mat(nzcnt)
+      real(r8), target, intent(in) :: lmat(nzcnt)
+      real(r8), target, intent(inout) :: mat(nzcnt)
 !----------------------------------------------
 ! ... local variables
 !----------------------------------------------
+      interface
+         subroutine nlnmat_finit_codon(mat_p, lmat_p, dti_c) bind(c, name="nlnmat_finit_codon")
+            use iso_c_binding, only : c_double, c_ptr
+            type(c_ptr), value :: mat_p, lmat_p
+            real(c_double), value :: dti_c
+         end subroutine nlnmat_finit_codon
+      end interface
 !----------------------------------------------
 ! ... complete matrix entries implicit species
 !----------------------------------------------
+         call nlnmat_finit_select_impl()
+         if (.not. nlnmat_finit_use_native_impl) then
+            call nlnmat_finit_codon(c_loc(mat), c_loc(lmat), real(dti, c_double))
+            if (masterproc .and. .not. nlnmat_finit_logged) then
+               write(iulog,'(A)') 'nlnmat_finit direct = codon'
+               call flush(iulog)
+               nlnmat_finit_logged = .true.
+            end if
+            return
+         end if
+
          mat( 1) = lmat( 1)
          mat( 2) = lmat( 2)
          mat( 3) = lmat( 3)
@@ -106,6 +130,34 @@
          mat( 21) = mat( 21) - dti
          mat( 22) = mat( 22) - dti
       end subroutine nlnmat_finit
+
+      subroutine nlnmat_finit_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (nlnmat_finit_impl_selected) return
+
+      impl_name = 'codon'
+      call cam_codon_get_impl('NLNMAT_FINIT_IMPL', impl_name, n, status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         nlnmat_finit_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         nlnmat_finit_use_native_impl = .false.
+      end if
+
+      nlnmat_finit_impl_selected = .true.
+
+      end subroutine nlnmat_finit_select_impl
 
       subroutine nlnmat_select_impl()
 

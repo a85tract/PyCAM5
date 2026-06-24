@@ -105,6 +105,10 @@ def tracer_cnst_adv_codon(active: int) -> int:
     return active
 
 @export
+def get_cnst_data_codon(active: int) -> int:
+    return active
+
+@export
 def tracer_srcs_adv_codon(active: int) -> int:
     return active
 
@@ -122,6 +126,10 @@ def noy_ubc_set_codon(active: int) -> int:
 
 @export
 def register_short_lived_species_codon(active: int) -> int:
+    return active
+
+@export
+def get_short_lived_species_codon(active: int) -> int:
     return active
 
 @export
@@ -452,6 +460,10 @@ def prescribed_volcaero_readnl_codon(
 
 @export
 def clybry_fam_set_codon(active: int) -> int:
+    return active
+
+@export
+def clybry_fam_adj_codon(active: int) -> int:
     return active
 
 @export
@@ -7638,6 +7650,18 @@ def exp_prod_loss_codon():
 
 @export
 def nlnmat_codon(
+    mat_p: cobj,
+    lmat_p: cobj,
+    dti: float,
+):
+    return _gas_phase.nlnmat_codon(
+        mat_p,
+        lmat_p,
+        dti,
+    )
+
+@export
+def nlnmat_finit_codon(
     mat_p: cobj,
     lmat_p: cobj,
     dti: float,

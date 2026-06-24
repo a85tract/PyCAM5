@@ -215,6 +215,9 @@ contains
 
     use time_manager,  only : is_first_step
     use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
 
     implicit none
 
@@ -233,7 +236,41 @@ contains
     real(r8) :: wrk(ncol,pver)
     real(r8) :: mmr(pcols,pver,gas_pcnst)
 
-    integer  :: n, m
+    integer  :: n, m, status, i, code
+    integer(c_int64_t) :: active_c
+    character(len=32) :: impl_name
+    logical :: use_native_impl
+
+    interface
+       function clybry_fam_adj_codon(active) result(out_c) bind(c, name="clybry_fam_adj_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function clybry_fam_adj_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('CLYBRY_FAM_ADJ_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = clybry_fam_adj_codon(merge(1_c_int64_t, 0_c_int64_t, has_clybry .and. .not. is_first_step()))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc) then
+             write(iulog,'(A)') 'clybry_fam_adj direct = codon no-clybry/no-adjust no-op'
+             call flush(iulog)
+          end if
+          return
+       end if
+    end if
 
     if (.not. has_clybry) return
 
