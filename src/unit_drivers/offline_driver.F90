@@ -104,6 +104,42 @@ contains
     use infnan,         only: nan, assignment(=)
 
     type(drv_input_data_t) :: next_indata
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+    logical :: use_native_impl
+    logical, save :: proof_logged = .false.
+    integer(c_int64_t) :: active_c
+
+    interface
+       function offline_driver_init_codon(active) result(out_c) bind(c, name='offline_driver_init_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function offline_driver_init_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('OFFLINE_DRIVER_INIT_IMPL', impl_name, n, status)
+    use_native_impl = .false.
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = offline_driver_init_codon(merge(1_c_int64_t, 0_c_int64_t, offline_driver_dorun))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc .and. .not. proof_logged) then
+             write(iulog,'(A)') 'offline_driver_init direct = codon offline-driver disabled no-op'
+             call flush(iulog)
+             proof_logged = .true.
+          end if
+          return
+       end if
+    end if
 
     if (.not.offline_driver_dorun) return
 

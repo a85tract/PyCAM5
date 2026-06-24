@@ -101,6 +101,7 @@ contains
 
 
   subroutine create_native_mapping_files(par, elem, maptype)
+    use iso_c_binding, only : c_int64_t
     use parallel_mod, only : parallel_t, global_shared_buf, global_shared_sum
     use global_norms_mod, only: wrap_repro_sum
     use cam_pio_utils, only : cam_pio_openfile, cam_pio_createfile
@@ -163,7 +164,42 @@ contains
     type(interpdata_t), pointer :: mapping_interpolate(:)
     character(len=8) :: cdate, ctime
     integer :: olditype, oldnlat, oldnlon, itype
+    character(len=32) :: impl_name
+    integer :: sel_status, sel_n, sel_i, sel_code
+    logical :: use_native_impl
+    logical, save :: proof_logged = .false.
+    integer(c_int64_t) :: active_c
 
+    interface
+       function create_native_mapping_files_codon(active) result(out_c) bind(c, name='create_native_mapping_files_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: active
+         integer(c_int64_t) :: out_c
+       end function create_native_mapping_files_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('CREATE_NATIVE_MAPPING_FILES_IMPL', impl_name, sel_n, sel_status)
+    use_native_impl = .false.
+    if (sel_status == 0 .and. sel_n > 0) then
+       do sel_i = 1, sel_n
+          sel_code = iachar(impl_name(sel_i:sel_i))
+          if (sel_code >= iachar('A') .and. sel_code <= iachar('Z')) impl_name(sel_i:sel_i) = achar(sel_code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:sel_n))) == 'native'
+    end if
+
+    if (.not. use_native_impl) then
+       active_c = create_native_mapping_files_codon(merge(1_c_int64_t, 0_c_int64_t, do_native_mapping))
+       if (active_c == 0_c_int64_t) then
+          if (masterproc .and. .not. proof_logged) then
+             write(iulog,'(A)') 'create_native_mapping_files direct = codon native-mapping disabled no-op'
+             call flush(iulog)
+             proof_logged = .true.
+          end if
+          return
+       end if
+    end if
 
 
     if(.not. do_native_mapping) return

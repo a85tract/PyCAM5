@@ -245,6 +245,28 @@ contains
      character(len=*), intent(in), optional :: subname
      ! Additional message from the procedure calling this one.
      character(len=*), intent(in), optional :: extra_msg
+     integer(c_int64_t) :: active_c
+     logical, save :: proof_logged = .false.
+
+     interface
+        function handle_errmsg_codon(active) result(out_c) bind(c, name='handle_errmsg_codon')
+          import :: c_int64_t
+          integer(c_int64_t), value :: active
+          integer(c_int64_t) :: out_c
+        end function handle_errmsg_codon
+     end interface
+
+     if (.not. error_messages_use_native('HANDLE_ERRMSG_IMPL')) then
+        active_c = handle_errmsg_codon(merge(1_c_int64_t, 0_c_int64_t, len_trim(errmsg) /= 0))
+        if (active_c == 0_c_int64_t) then
+           if (.not. proof_logged) then
+              write(iulog,'(A)') 'handle_errmsg direct = codon empty-message no-op'
+              call flush(iulog)
+              proof_logged = .true.
+           end if
+           return
+        end if
+     end if
 
      if (trim(errmsg) /= "") then
 

@@ -63,6 +63,16 @@ def atm_write_srfrest_mct_codon(tag: int) -> int:
 
 
 @export
+def handle_errmsg_codon(active: int) -> int:
+    return active
+
+
+@export
+def offline_driver_init_codon(active: int) -> int:
+    return active
+
+
+@export
 def getunit_codon(tag: int) -> int:
     return tag
 

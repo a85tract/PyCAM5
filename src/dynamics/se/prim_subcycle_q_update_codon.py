@@ -2815,6 +2815,10 @@ def native_mapping_readnl_codon(tag: int) -> int:
     return _misc.native_mapping_readnl_codon(tag)
 
 @export
+def create_native_mapping_files_codon(active: int) -> int:
+    return _misc.create_native_mapping_files_codon(active)
+
+@export
 def hilbert_codon(tag: int) -> int:
     return _misc.hilbert_codon(tag)
 
