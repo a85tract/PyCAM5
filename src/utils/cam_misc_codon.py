@@ -779,6 +779,147 @@ def hbuf_accum_inst_codon(
 
 
 @export
+def check_accum_codon(field_p: cobj, idim: int, ieu: int, jeu: int, fillvalue: float) -> int:
+    field = Ptr[float](field_p)
+    bad = 0
+    for k in range(1, jeu):
+        for i in range(ieu):
+            first_is_fill = field[_field_idx(i, 0, idim)] == fillvalue
+            this_is_fill = field[_field_idx(i, k, idim)] == fillvalue
+            if (first_is_fill and not this_is_fill) or ((not first_is_fill) and this_is_fill):
+                bad = 1
+    return bad
+
+
+@export
+def hbuf_accum_add_codon(
+    buf8_p: cobj,
+    field_p: cobj,
+    nacs_p: cobj,
+    buf8_ld: int,
+    idim: int,
+    ieu: int,
+    jeu: int,
+    flag_xyfill: int,
+    fillvalue: float,
+) -> int:
+    buf8 = Ptr[float](buf8_p)
+    field = Ptr[float](field_p)
+    nacs = Ptr[int](nacs_p)
+
+    if flag_xyfill != 0:
+        for k in range(jeu):
+            for i in range(ieu):
+                fval = field[_field_idx(i, k, idim)]
+                if fval != fillvalue:
+                    bidx = _hbuf_idx(i, k, buf8_ld)
+                    buf8[bidx] = buf8[bidx] + fval
+        bad = check_accum_codon(field_p, idim, ieu, jeu, fillvalue)
+        if bad != 0:
+            return bad
+        for i in range(ieu):
+            if field[_field_idx(i, 0, idim)] != fillvalue:
+                nacs[i] = nacs[i] + 1
+    else:
+        for k in range(jeu):
+            for i in range(ieu):
+                bidx = _hbuf_idx(i, k, buf8_ld)
+                buf8[bidx] = buf8[bidx] + field[_field_idx(i, k, idim)]
+        nacs[0] = nacs[0] + 1
+    return 0
+
+
+@export
+def hbuf_accum_max_codon(
+    buf8_p: cobj,
+    field_p: cobj,
+    nacs_p: cobj,
+    buf8_ld: int,
+    idim: int,
+    ieu: int,
+    jeu: int,
+    flag_xyfill: int,
+    fillvalue: float,
+):
+    buf8 = Ptr[float](buf8_p)
+    field = Ptr[float](field_p)
+    nacs = Ptr[int](nacs_p)
+    huge = 1.7976931348623157e308
+
+    if flag_xyfill != 0:
+        for k in range(jeu):
+            for i in range(ieu):
+                bidx = _hbuf_idx(i, k, buf8_ld)
+                if nacs[i] == 0:
+                    buf8[bidx] = -huge
+                fval = field[_field_idx(i, k, idim)]
+                if fval > buf8[bidx] and fval != fillvalue:
+                    buf8[bidx] = fval
+        bad = check_accum_codon(field_p, idim, ieu, jeu, fillvalue)
+        if bad != 0:
+            return bad
+        for i in range(ieu):
+            if field[_field_idx(i, 0, idim)] != fillvalue:
+                nacs[i] = 1
+    else:
+        for k in range(jeu):
+            for i in range(ieu):
+                bidx = _hbuf_idx(i, k, buf8_ld)
+                if nacs[0] == 0:
+                    buf8[bidx] = -huge
+                fval = field[_field_idx(i, k, idim)]
+                if fval > buf8[bidx]:
+                    buf8[bidx] = fval
+        nacs[0] = 1
+    return 0
+
+
+@export
+def hbuf_accum_min_codon(
+    buf8_p: cobj,
+    field_p: cobj,
+    nacs_p: cobj,
+    buf8_ld: int,
+    idim: int,
+    ieu: int,
+    jeu: int,
+    flag_xyfill: int,
+    fillvalue: float,
+):
+    buf8 = Ptr[float](buf8_p)
+    field = Ptr[float](field_p)
+    nacs = Ptr[int](nacs_p)
+    huge = 1.7976931348623157e308
+
+    if flag_xyfill != 0:
+        for k in range(jeu):
+            for i in range(ieu):
+                bidx = _hbuf_idx(i, k, buf8_ld)
+                if nacs[i] == 0:
+                    buf8[bidx] = huge
+                fval = field[_field_idx(i, k, idim)]
+                if fval < buf8[bidx] and fval != fillvalue:
+                    buf8[bidx] = fval
+        bad = check_accum_codon(field_p, idim, ieu, jeu, fillvalue)
+        if bad != 0:
+            return bad
+        for i in range(ieu):
+            if field[_field_idx(i, 0, idim)] != fillvalue:
+                nacs[i] = 1
+    else:
+        for k in range(jeu):
+            for i in range(ieu):
+                bidx = _hbuf_idx(i, k, buf8_ld)
+                if nacs[0] == 0:
+                    buf8[bidx] = huge
+                fval = field[_field_idx(i, k, idim)]
+                if fval < buf8[bidx]:
+                    buf8[bidx] = fval
+        nacs[0] = 1
+    return 0
+
+
+@export
 def handle_pio_error_codon(ierr: int, pio_noerr: int) -> int:
     return 1 if ierr == pio_noerr else 0
 

@@ -34,6 +34,17 @@ contains
          trim(adjustl(impl_name(:impl_len))) == 'native')
   end function cam_history_buffers_use_codon
 
+  logical function cam_history_buffers_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: impl_len, impl_status
+
+    impl_name = 'codon'
+    call cam_codon_get_impl(selector, impl_name, impl_len, impl_status)
+    cam_history_buffers_use_native = impl_status == 0 .and. impl_len > 0 .and. &
+         trim(adjustl(impl_name(:impl_len))) == 'native'
+  end function cam_history_buffers_use_native
+
   subroutine hbuf_accum_inst (buf8, field, nacs, dimind, idim, flag_xyfill, fillvalue)
     !
     !-----------------------------------------------------------------------
@@ -144,6 +155,23 @@ contains
     integer :: jb, je    ! beginning and ending indices of second dimension
     integer :: ieu, jeu  ! number of elements in each dimension
     integer :: i,k       ! indices
+    integer :: nacs_len
+    integer(c_int64_t), target :: nacs_c(idim)
+    integer(c_int64_t) :: bad_c
+    logical, save :: hbuf_accum_add_codon_logged = .false.
+
+    interface
+       function hbuf_accum_add_codon(buf8, field, nacs_c, buf8_ld, idim_c, ieu_c, jeu_c, &
+            flag_xyfill_c, fillvalue_c) result(bad_c) bind(c, name='hbuf_accum_add_codon')
+         import :: c_int64_t, r8
+         real(r8), intent(inout) :: buf8(*)
+         real(r8), intent(in) :: field(*)
+         integer(c_int64_t), intent(inout) :: nacs_c(*)
+         integer(c_int64_t), value :: buf8_ld, idim_c, ieu_c, jeu_c, flag_xyfill_c
+         real(r8), value :: fillvalue_c
+         integer(c_int64_t) :: bad_c
+       end function hbuf_accum_add_codon
+    end interface
 
     ib = dimind%beg1
     ie = dimind%end1
@@ -153,6 +181,27 @@ contains
     ieu = ie-ib+1
     jeu = je-jb+1
 
+    if (.not. cam_history_buffers_use_native('HBUF_ACCUM_ADD_IMPL')) then
+       nacs_len = 1
+       if (flag_xyfill) nacs_len = ieu
+       do i=1,nacs_len
+          nacs_c(i) = int(nacs(i), c_int64_t)
+       end do
+       bad_c = hbuf_accum_add_codon(buf8, field, nacs_c, int(size(buf8,1), c_int64_t), &
+            int(idim, c_int64_t), int(ieu, c_int64_t), int(jeu, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, flag_xyfill), fillvalue)
+       if (bad_c /= 0_c_int64_t) then
+          call endrun ('CHECK_ACCUM: inconsistent level values')
+       end if
+       do i=1,nacs_len
+          nacs(i) = int(nacs_c(i))
+       end do
+       if (.not. hbuf_accum_add_codon_logged) then
+          write(iulog,*) 'hbuf_accum_add direct = codon'
+          hbuf_accum_add_codon_logged = .true.
+       end if
+       return
+    end if
 
     if (flag_xyfill) then
        do k=1,jeu
@@ -279,6 +328,23 @@ contains
     integer :: jb, je    ! beginning and ending indices of second dimension
     integer :: ieu, jeu  ! number of elements in each dimension
     integer :: i, k
+    integer :: nacs_len
+    integer(c_int64_t), target :: nacs_c(idim)
+    integer(c_int64_t) :: bad_c
+    logical, save :: hbuf_accum_max_codon_logged = .false.
+
+    interface
+       function hbuf_accum_max_codon(buf8, field, nacs_c, buf8_ld, idim_c, ieu_c, jeu_c, &
+            flag_xyfill_c, fillvalue_c) result(bad_c) bind(c, name='hbuf_accum_max_codon')
+         import :: c_int64_t, r8
+         real(r8), intent(inout) :: buf8(*)
+         real(r8), intent(in) :: field(*)
+         integer(c_int64_t), intent(inout) :: nacs_c(*)
+         integer(c_int64_t), value :: buf8_ld, idim_c, ieu_c, jeu_c, flag_xyfill_c
+         real(r8), value :: fillvalue_c
+         integer(c_int64_t) :: bad_c
+       end function hbuf_accum_max_codon
+    end interface
 
     ib = dimind%beg1
     ie = dimind%end1
@@ -287,6 +353,28 @@ contains
 
     ieu = ie-ib+1
     jeu = je-jb+1
+
+    if (.not. cam_history_buffers_use_native('HBUF_ACCUM_MAX_IMPL')) then
+       nacs_len = 1
+       if (flag_xyfill) nacs_len = ieu
+       do i=1,nacs_len
+          nacs_c(i) = int(nacs(i), c_int64_t)
+       end do
+       bad_c = hbuf_accum_max_codon(buf8, field, nacs_c, int(size(buf8,1), c_int64_t), &
+            int(idim, c_int64_t), int(ieu, c_int64_t), int(jeu, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, flag_xyfill), fillvalue)
+       if (bad_c /= 0_c_int64_t) then
+          call endrun ('CHECK_ACCUM: inconsistent level values')
+       end if
+       do i=1,nacs_len
+          nacs(i) = int(nacs_c(i))
+       end do
+       if (.not. hbuf_accum_max_codon_logged) then
+          write(iulog,*) 'hbuf_accum_max direct = codon'
+          hbuf_accum_max_codon_logged = .true.
+       end if
+       return
+    end if
 
     if (flag_xyfill) then
        do k=1,jeu
@@ -351,6 +439,23 @@ contains
     integer :: jb, je    ! beginning and ending indices of second dimension
     integer :: ieu, jeu  ! number of elements in each dimension
     integer :: i, k
+    integer :: nacs_len
+    integer(c_int64_t), target :: nacs_c(idim)
+    integer(c_int64_t) :: bad_c
+    logical, save :: hbuf_accum_min_codon_logged = .false.
+
+    interface
+       function hbuf_accum_min_codon(buf8, field, nacs_c, buf8_ld, idim_c, ieu_c, jeu_c, &
+            flag_xyfill_c, fillvalue_c) result(bad_c) bind(c, name='hbuf_accum_min_codon')
+         import :: c_int64_t, r8
+         real(r8), intent(inout) :: buf8(*)
+         real(r8), intent(in) :: field(*)
+         integer(c_int64_t), intent(inout) :: nacs_c(*)
+         integer(c_int64_t), value :: buf8_ld, idim_c, ieu_c, jeu_c, flag_xyfill_c
+         real(r8), value :: fillvalue_c
+         integer(c_int64_t) :: bad_c
+       end function hbuf_accum_min_codon
+    end interface
 
     ib = dimind%beg1
     ie = dimind%end1
@@ -359,6 +464,28 @@ contains
 
     ieu = ie-ib+1
     jeu = je-jb+1
+
+    if (.not. cam_history_buffers_use_native('HBUF_ACCUM_MIN_IMPL')) then
+       nacs_len = 1
+       if (flag_xyfill) nacs_len = ieu
+       do i=1,nacs_len
+          nacs_c(i) = int(nacs(i), c_int64_t)
+       end do
+       bad_c = hbuf_accum_min_codon(buf8, field, nacs_c, int(size(buf8,1), c_int64_t), &
+            int(idim, c_int64_t), int(ieu, c_int64_t), int(jeu, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, flag_xyfill), fillvalue)
+       if (bad_c /= 0_c_int64_t) then
+          call endrun ('CHECK_ACCUM: inconsistent level values')
+       end if
+       do i=1,nacs_len
+          nacs(i) = int(nacs_c(i))
+       end do
+       if (.not. hbuf_accum_min_codon_logged) then
+          write(iulog,*) 'hbuf_accum_min direct = codon'
+          hbuf_accum_min_codon_logged = .true.
+       end if
+       return
+    end if
 
     if (flag_xyfill) then
        do k=1,jeu
@@ -549,9 +676,34 @@ contains
     logical :: bad
     integer :: i,k
     real(r8), intent(in) :: fillvalue
+    integer(c_int64_t) :: bad_c
+    logical, save :: check_accum_codon_logged = .false.
+    interface
+       function check_accum_codon(field, idim_c, ieu_c, jeu_c, fillvalue_c) result(bad_c) &
+            bind(c, name='check_accum_codon')
+         import :: c_int64_t, r8
+         real(r8), intent(in) :: field(*)
+         integer(c_int64_t), value :: idim_c, ieu_c, jeu_c
+         real(r8), value :: fillvalue_c
+         integer(c_int64_t) :: bad_c
+       end function check_accum_codon
+    end interface
     !
     ! For multilevel fields ensure that all levels have fillvalue applied consistently
     !
+    if (.not. cam_history_buffers_use_native('CHECK_ACCUM_IMPL')) then
+       bad_c = check_accum_codon(field, int(idim, c_int64_t), int(ieu, c_int64_t), &
+            int(jeu, c_int64_t), fillvalue)
+       if (bad_c /= 0_c_int64_t) then
+          call endrun ('CHECK_ACCUM: inconsistent level values')
+       end if
+       if (.not. check_accum_codon_logged) then
+          write(iulog,*) 'check_accum direct = codon'
+          check_accum_codon_logged = .true.
+       end if
+       return
+    end if
+
     bad = .false.
     do k=2,jeu
        do i=1,ieu
