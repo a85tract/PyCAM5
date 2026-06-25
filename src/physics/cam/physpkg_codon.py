@@ -12703,6 +12703,9 @@ wv_calc_hltalt_hits = 0
 wv_sat_qsat_water_hits = 0
 mg_size_dist_param_liq_hits = 0
 mg_size_dist_param_basic_hits = 0
+wv_qsat_hits = 0
+wv_deriv_outputs_hits = 0
+wv_qsat_water_full_hits = 0
 
 
 @export
@@ -12725,6 +12728,12 @@ def physpkg_pure_counter_codon(which: int) -> int:
         return mg_size_dist_param_liq_hits
     if which == 9:
         return mg_size_dist_param_basic_hits
+    if which == 10:
+        return wv_qsat_hits
+    if which == 11:
+        return wv_deriv_outputs_hits
+    if which == 12:
+        return wv_qsat_water_full_hits
     return 0
 
 
@@ -13756,6 +13765,146 @@ def _wv_saturation_qsat_gam_enthalpy_codon(
     enthalpy_p[0] = cpair * t + hltalt * qs_p[0]
     dqsdt = wv_saturation_deriv_dqsdt_codon(t, p, es_p[0], qs_p[0], hltalt, tterm, rh2o, omeps)
     gam_p[0] = dqsdt * (hltalt / cpair)
+
+
+@export
+def wv_saturation_deriv_outputs_codon(
+    t: float,
+    p: float,
+    es: float,
+    qs: float,
+    hltalt: float,
+    tterm: float,
+    rh2o: float,
+    omeps: float,
+    cpair: float,
+    has_gam: int,
+    has_dqsdt: int,
+    gam_p: cobj,
+    dqsdt_p: cobj,
+):
+    global wv_deriv_outputs_hits
+    wv_deriv_outputs_hits += 1
+    gam_out = Ptr[float](gam_p)
+    dqsdt_out = Ptr[float](dqsdt_p)
+    dqsdt = wv_saturation_deriv_dqsdt_codon(t, p, es, qs, hltalt, tterm, rh2o, omeps)
+    if has_dqsdt != 0:
+        dqsdt_out[0] = dqsdt
+    if has_gam != 0:
+        gam_out[0] = dqsdt * (hltalt / cpair)
+
+
+@export
+def wv_saturation_qsat_codon(
+    t: float,
+    p: float,
+    epsilo: float,
+    omeps: float,
+    cpair: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    rh2o: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    tmin: float,
+    tmax: float,
+    estbl_p: cobj,
+    plenest: int,
+    has_gam: int,
+    has_dqsdt: int,
+    has_enthalpy: int,
+    es_p: cobj,
+    qs_p: cobj,
+    gam_p: cobj,
+    dqsdt_p: cobj,
+    enthalpy_p: cobj,
+):
+    global wv_qsat_hits
+    global wv_deriv_outputs_hits
+    wv_qsat_hits += 1
+    es_out = Ptr[float](es_p)
+    qs_out = Ptr[float](qs_p)
+    gam_out = Ptr[float](gam_p)
+    dqsdt_out = Ptr[float](dqsdt_p)
+    enthalpy_out = Ptr[float](enthalpy_p)
+
+    _wv_saturation_qsat_ptr_codon(t, p, epsilo, omeps, tmin, tmax, estbl_p, plenest, es_out, qs_out)
+
+    if has_gam != 0 or has_dqsdt != 0 or has_enthalpy != 0:
+        hltalt = 0.0
+        tterm = 0.0
+        _wv_saturation_calc_hltalt_vals_codon(
+            t,
+            tmelt,
+            ttrice,
+            latvap,
+            latice,
+            pcf1,
+            pcf2,
+            pcf3,
+            pcf4,
+            pcf5,
+            __ptr__(hltalt),
+            __ptr__(tterm),
+        )
+        if has_enthalpy != 0:
+            enthalpy_out[0] = cpair * t + hltalt * qs_out[0]
+
+        wv_deriv_outputs_hits += 1
+        dqsdt = wv_saturation_deriv_dqsdt_codon(t, p, es_out[0], qs_out[0], hltalt, tterm, rh2o, omeps)
+        if has_dqsdt != 0:
+            dqsdt_out[0] = dqsdt
+        if has_gam != 0:
+            gam_out[0] = dqsdt * (hltalt / cpair)
+
+
+@export
+def wv_saturation_qsat_water_codon(
+    t: float,
+    p: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    cpair: float,
+    tmelt: float,
+    latvap: float,
+    rh2o: float,
+    has_gam: int,
+    has_dqsdt: int,
+    has_enthalpy: int,
+    es_p: cobj,
+    qs_p: cobj,
+    gam_p: cobj,
+    dqsdt_p: cobj,
+    enthalpy_p: cobj,
+):
+    global wv_qsat_water_full_hits
+    global wv_deriv_outputs_hits
+    wv_qsat_water_full_hits += 1
+    es_out = Ptr[float](es_p)
+    qs_out = Ptr[float](qs_p)
+    gam_out = Ptr[float](gam_p)
+    dqsdt_out = Ptr[float](dqsdt_p)
+    enthalpy_out = Ptr[float](enthalpy_p)
+
+    _wv_saturation_qsat_water_ptr_codon(t, p, idx, epsilo, omeps, es_out, qs_out)
+
+    if has_gam != 0 or has_dqsdt != 0 or has_enthalpy != 0:
+        hltalt = _wv_saturation_no_ip_hltalt_val_codon(t, tmelt, latvap)
+        if has_enthalpy != 0:
+            enthalpy_out[0] = cpair * t + hltalt * qs_out[0]
+
+        wv_deriv_outputs_hits += 1
+        dqsdt = wv_saturation_deriv_dqsdt_codon(t, p, es_out[0], qs_out[0], hltalt, 0.0, rh2o, omeps)
+        if has_dqsdt != 0:
+            dqsdt_out[0] = dqsdt
+        if has_gam != 0:
+            gam_out[0] = dqsdt * (hltalt / cpair)
 
 
 @inline

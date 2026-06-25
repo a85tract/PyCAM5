@@ -98,6 +98,9 @@ real(r8), parameter :: tboil = 373.16_r8
   logical :: tq_enthalpy_logged = .false.
   logical :: no_ip_hltalt_logged = .false.
   logical :: calc_hltalt_logged = .false.
+  logical :: qsat_logged = .false.
+  logical :: deriv_outputs_logged = .false.
+  logical :: qsat_water_logged = .false.
   logical :: findsp_logged = .false.
   logical :: findsp_vc_logged = .false.
 
@@ -169,6 +172,41 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), intent(in), value :: t_c, p_c, es_c, qs_c, hltalt_c, tterm_c, rh2o_c, omeps_c
        real(c_double) :: dqsdt_out
      end function wv_saturation_deriv_dqsdt_codon
+
+     pure subroutine wv_saturation_deriv_outputs_codon(t_c, p_c, es_c, qs_c, hltalt_c, tterm_c, &
+          rh2o_c, omeps_c, cpair_c, has_gam_c, has_dqsdt_c, gam_c, dqsdt_c) &
+          bind(c, name="wv_saturation_deriv_outputs_codon")
+       use iso_c_binding, only: c_double, c_int64_t
+       real(c_double), intent(in), value :: t_c, p_c, es_c, qs_c, hltalt_c, tterm_c
+       real(c_double), intent(in), value :: rh2o_c, omeps_c, cpair_c
+       integer(c_int64_t), intent(in), value :: has_gam_c, has_dqsdt_c
+       real(c_double), intent(out) :: gam_c, dqsdt_c
+     end subroutine wv_saturation_deriv_outputs_codon
+
+     pure subroutine wv_saturation_qsat_codon(t_c, p_c, epsilo_c, omeps_c, cpair_c, &
+          tmelt_c, ttrice_c, latvap_c, latice_c, rh2o_c, pcf1_c, pcf2_c, pcf3_c, &
+          pcf4_c, pcf5_c, tmin_c, tmax_c, estbl_p, plenest_c, has_gam_c, has_dqsdt_c, &
+          has_enthalpy_c, es_c, qs_c, gam_c, dqsdt_c, enthalpy_c) &
+          bind(c, name="wv_saturation_qsat_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       real(c_double), intent(in), value :: t_c, p_c, epsilo_c, omeps_c, cpair_c
+       real(c_double), intent(in), value :: tmelt_c, ttrice_c, latvap_c, latice_c, rh2o_c
+       real(c_double), intent(in), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, tmin_c, tmax_c
+       type(c_ptr), intent(in), value :: estbl_p
+       integer(c_int64_t), intent(in), value :: plenest_c, has_gam_c, has_dqsdt_c, has_enthalpy_c
+       real(c_double), intent(out) :: es_c, qs_c, gam_c, dqsdt_c, enthalpy_c
+     end subroutine wv_saturation_qsat_codon
+
+     pure subroutine wv_saturation_qsat_water_codon(t_c, p_c, idx_c, epsilo_c, omeps_c, &
+          cpair_c, tmelt_c, latvap_c, rh2o_c, has_gam_c, has_dqsdt_c, has_enthalpy_c, &
+          es_c, qs_c, gam_c, dqsdt_c, enthalpy_c) &
+          bind(c, name="wv_saturation_qsat_water_codon")
+       use iso_c_binding, only: c_double, c_int64_t
+       real(c_double), intent(in), value :: t_c, p_c, epsilo_c, omeps_c, cpair_c
+       real(c_double), intent(in), value :: tmelt_c, latvap_c, rh2o_c
+       integer(c_int64_t), intent(in), value :: idx_c, has_gam_c, has_dqsdt_c, has_enthalpy_c
+       real(c_double), intent(out) :: es_c, qs_c, gam_c, dqsdt_c, enthalpy_c
+     end subroutine wv_saturation_qsat_water_codon
 
      pure function svp_water_codon(t_c, idx_c) result(es_c) bind(c, name="svp_water_codon")
        use iso_c_binding, only: c_double, c_int64_t
@@ -367,6 +405,21 @@ subroutine wv_saturation_log_pure_codon_counts()
   hits = physpkg_pure_counter_codon(6_c_int64_t)
   if (hits > 0_c_int64_t) then
      call wv_saturation_log_direct(calc_hltalt_logged, 'calc_hltalt direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(10_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_saturation_log_direct(qsat_logged, 'qsat direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(11_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_saturation_log_direct(deriv_outputs_logged, 'deriv_outputs direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(12_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_saturation_log_direct(qsat_water_logged, 'qsat_water direct = codon; pure counter proof')
   end if
 
 end subroutine wv_saturation_log_pure_codon_counts
@@ -800,6 +853,7 @@ elemental subroutine deriv_outputs(t, p, es, qs, hltalt, tterm, &
   ! Local variables
   real(r8) :: desdt        ! d(es)/dt
   real(r8) :: dqsdt_loc    ! local copy of dqsdt
+  real(r8) :: gam_loc      ! local copy of gam
 
   if (use_native_wv_saturation_impl) then
      if (qs == 1.0_r8) then
@@ -814,12 +868,14 @@ elemental subroutine deriv_outputs(t, p, es, qs, hltalt, tterm, &
      return
   end if
 
-  dqsdt_loc = real(wv_saturation_deriv_dqsdt_codon(real(t, c_double), real(p, c_double), &
+  call wv_saturation_deriv_outputs_codon(real(t, c_double), real(p, c_double), &
        real(es, c_double), real(qs, c_double), real(hltalt, c_double), real(tterm, c_double), &
-       real(rh2o, c_double), real(omeps, c_double)), r8)
+       real(rh2o, c_double), real(omeps, c_double), real(cpair, c_double), &
+       merge(1_c_int64_t, 0_c_int64_t, present(gam)), &
+       merge(1_c_int64_t, 0_c_int64_t, present(dqsdt)), gam_loc, dqsdt_loc)
 
   if (present(dqsdt)) dqsdt = dqsdt_loc
-  if (present(gam))   gam   = dqsdt_loc * (hltalt/cpair)
+  if (present(gam))   gam   = gam_loc
 
 end subroutine deriv_outputs
 
@@ -850,6 +906,28 @@ elemental subroutine qsat(t, p, es, qs, gam, dqsdt, enthalpy)
   ! Local variables
   real(r8) :: hltalt       ! Modified latent heat for T derivatives
   real(r8) :: tterm        ! Account for d(es)/dT in transition region
+  real(r8) :: gam_loc
+  real(r8) :: dqsdt_loc
+  real(r8) :: enthalpy_loc
+
+  if (.not. use_native_wv_saturation_impl) then
+     call wv_saturation_qsat_codon(real(t, c_double), real(p, c_double), &
+          real(epsilo, c_double), real(omeps, c_double), real(cpair, c_double), &
+          real(tmelt, c_double), real(ttrice, c_double), real(latvap, c_double), &
+          real(latice, c_double), real(rh2o, c_double), real(pcf(1), c_double), &
+          real(pcf(2), c_double), real(pcf(3), c_double), real(pcf(4), c_double), &
+          real(pcf(5), c_double), real(tmin, c_double), real(tmax, c_double), &
+          c_loc(estbl(1)), int(plenest, c_int64_t), &
+          merge(1_c_int64_t, 0_c_int64_t, present(gam)), &
+          merge(1_c_int64_t, 0_c_int64_t, present(dqsdt)), &
+          merge(1_c_int64_t, 0_c_int64_t, present(enthalpy)), &
+          es, qs, gam_loc, dqsdt_loc, enthalpy_loc)
+
+     if (present(gam)) gam = gam_loc
+     if (present(dqsdt)) dqsdt = dqsdt_loc
+     if (present(enthalpy)) enthalpy = enthalpy_loc
+     return
+  end if
 
   es = estblf(t)
 
@@ -887,7 +965,7 @@ elemental subroutine qsat_water(t, p, es, qs, gam, dqsdt, enthalpy)
   !   at saturation.                                                 !
   !------------------------------------------------------------------!
 
-  use wv_sat_methods, only: wv_sat_qsat_water
+  use wv_sat_methods, only: wv_sat_get_default_idx, wv_sat_qsat_water
 
   ! Inputs
   real(r8), intent(in) :: t    ! Temperature
@@ -902,6 +980,26 @@ elemental subroutine qsat_water(t, p, es, qs, gam, dqsdt, enthalpy)
 
   ! Local variables
   real(r8) :: hltalt       ! Modified latent heat for T derivatives
+  real(r8) :: gam_loc
+  real(r8) :: dqsdt_loc
+  real(r8) :: enthalpy_loc
+  integer :: use_idx
+
+  if (.not. use_native_wv_saturation_impl) then
+     use_idx = wv_sat_get_default_idx()
+     call wv_saturation_qsat_water_codon(real(t, c_double), real(p, c_double), &
+          int(use_idx, c_int64_t), real(epsilo, c_double), real(omeps, c_double), &
+          real(cpair, c_double), real(tmelt, c_double), real(latvap, c_double), &
+          real(rh2o, c_double), merge(1_c_int64_t, 0_c_int64_t, present(gam)), &
+          merge(1_c_int64_t, 0_c_int64_t, present(dqsdt)), &
+          merge(1_c_int64_t, 0_c_int64_t, present(enthalpy)), &
+          es, qs, gam_loc, dqsdt_loc, enthalpy_loc)
+
+     if (present(gam)) gam = gam_loc
+     if (present(dqsdt)) dqsdt = dqsdt_loc
+     if (present(enthalpy)) enthalpy = enthalpy_loc
+     return
+  end if
 
   call wv_sat_qsat_water(t, p, es, qs)
   if (.not. use_native_wv_saturation_impl) then
