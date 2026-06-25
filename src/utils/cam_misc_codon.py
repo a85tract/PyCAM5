@@ -1237,6 +1237,49 @@ def new_boundaryfixedlayer_codon(
 
 
 @export
+def new_tridiagop_codon(nsys_in: int, ncel_in: int, nsys_out: Ptr[int], ncel_out: Ptr[int]):
+    nsys_out[0] = nsys_in
+    ncel_out[0] = ncel_in
+
+
+@export
+def new_boundarydata_codon(
+    cond_type: Ptr[int],
+    edge_data: Ptr[float],
+    data: Ptr[float],
+    n: int,
+):
+    cond_type[0] = 1
+    for i in range(n):
+        edge_data[i] = data[i]
+
+
+@export
+def apply_left_codon(
+    cond_type: int,
+    bound_term: Ptr[float],
+    array: Ptr[float],
+    edge_data: Ptr[float],
+    delta_edge: Ptr[float],
+    nsys: int,
+    ncel: int,
+):
+    no_data_cond = 0
+    data_cond = 1
+    flux_cond = 2
+    if cond_type == no_data_cond:
+        third_col = 2 * nsys
+        for i in range(nsys):
+            delta_edge[i] = bound_term[i] * array[i + third_col]
+    elif cond_type == data_cond:
+        for i in range(nsys):
+            delta_edge[i] = bound_term[i] * edge_data[i]
+    elif cond_type == flux_cond:
+        for i in range(nsys):
+            delta_edge[i] = edge_data[i]
+
+
+@export
 def advance_timestep_codon() -> int:
     return 0
 

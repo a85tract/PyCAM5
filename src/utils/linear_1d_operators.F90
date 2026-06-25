@@ -281,13 +281,17 @@ end interface TriDiagDecomp
 
 contains
 
-logical function linear_1d_use_native()
+logical function linear_1d_use_native_selector(selector)
 
+  character(len=*), intent(in) :: selector
   character(len=32) :: impl_name
   integer :: status, n, i, code
 
   impl_name = 'codon'
-  call cam_codon_get_impl('LINEAR_1D_OPERATORS_IMPL', impl_name, n, status)
+  call cam_codon_get_impl(selector, impl_name, n, status)
+  if (status /= 0 .or. n <= 0) then
+     call cam_codon_get_impl('LINEAR_1D_OPERATORS_IMPL', impl_name, n, status)
+  end if
   if (status /= 0 .or. n <= 0) then
      call cam_codon_get_impl('DIFFUSION_SOLVER_TRIDIAG_IMPL', impl_name, n, status)
   end if
@@ -299,10 +303,16 @@ logical function linear_1d_use_native()
            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
         end if
      end do
-     linear_1d_use_native = trim(adjustl(impl_name(:n))) == 'native'
+     linear_1d_use_native_selector = trim(adjustl(impl_name(:n))) == 'native'
   else
-     linear_1d_use_native = .false.
+     linear_1d_use_native_selector = .false.
   end if
+
+end function linear_1d_use_native_selector
+
+logical function linear_1d_use_native()
+
+  linear_1d_use_native = linear_1d_use_native_selector('LINEAR_1D_OPERATORS_IMPL')
 
 end function linear_1d_use_native
 
@@ -903,22 +913,49 @@ end subroutine boundary_type_finalize
 type(TriDiagOp) function new_TriDiagOp(nsys, ncel)
 
   integer, intent(in) :: nsys, ncel
+  integer(c_int64_t) :: nsys_c, ncel_c
+  interface
+     subroutine new_tridiagop_codon(nsys_in, ncel_in, nsys_out, ncel_out) &
+          bind(c, name='new_tridiagop_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: nsys_in, ncel_in
+       integer(c_int64_t), intent(out) :: nsys_out, ncel_out
+     end subroutine new_tridiagop_codon
+  end interface
+  logical, save :: new_tridiagop_codon_logged = .false.
+  logical, save :: new_tridiagop_native_logged = .false.
 
-#define CAM_MISC_TAG 243
-#define CAM_MISC_LABEL 'new_TriDiagOp'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+  if (linear_1d_use_native_selector('NEW_TRIDIAGOP_IMPL')) then
+     new_TriDiagOp%nsys = nsys
+     new_TriDiagOp%ncel = ncel
 
-  new_TriDiagOp%nsys = nsys
-  new_TriDiagOp%ncel = ncel
+     allocate(new_TriDiagOp%spr(nsys,ncel-1), &
+          new_TriDiagOp%sub(nsys,ncel-1), &
+          new_TriDiagOp%diag(nsys,ncel), &
+          new_TriDiagOp%left_bound(nsys), &
+          new_TriDiagOp%right_bound(nsys))
 
-  allocate(new_TriDiagOp%spr(nsys,ncel-1), &
-       new_TriDiagOp%sub(nsys,ncel-1), &
-       new_TriDiagOp%diag(nsys,ncel), &
-       new_TriDiagOp%left_bound(nsys), &
-       new_TriDiagOp%right_bound(nsys))
+     if (masterproc .and. .not. new_tridiagop_native_logged) then
+        write(iulog,*) 'new_tridiagop implementation = native'
+        new_tridiagop_native_logged = .true.
+     end if
+     return
+  end if
+
+  call new_tridiagop_codon(int(nsys, c_int64_t), int(ncel, c_int64_t), nsys_c, ncel_c)
+  new_TriDiagOp%nsys = int(nsys_c)
+  new_TriDiagOp%ncel = int(ncel_c)
+
+  allocate(new_TriDiagOp%spr(new_TriDiagOp%nsys,new_TriDiagOp%ncel-1), &
+       new_TriDiagOp%sub(new_TriDiagOp%nsys,new_TriDiagOp%ncel-1), &
+       new_TriDiagOp%diag(new_TriDiagOp%nsys,new_TriDiagOp%ncel), &
+       new_TriDiagOp%left_bound(new_TriDiagOp%nsys), &
+       new_TriDiagOp%right_bound(new_TriDiagOp%nsys))
+
+  if (masterproc .and. .not. new_tridiagop_codon_logged) then
+     write(iulog,*) 'new_tridiagop direct = codon; allocatable derived-type allocation native boundary'
+     new_tridiagop_codon_logged = .true.
+  end if
 
 end function new_TriDiagOp
 
@@ -981,16 +1018,37 @@ end function new_BoundaryNoData
 function new_BoundaryData(data) result(new_cond)
   real(r8), USE_CONTIGUOUS intent(in) :: data(:)
   type(BoundaryCond) :: new_cond
+  integer(c_int64_t) :: cond_type_c
+  interface
+     subroutine new_boundarydata_codon(cond_type, edge_data, data, n) &
+          bind(c, name='new_boundarydata_codon')
+       import :: c_int64_t, r8
+       integer(c_int64_t), intent(out) :: cond_type
+       real(r8), intent(out) :: edge_data(*)
+       real(r8), intent(in) :: data(*)
+       integer(c_int64_t), value :: n
+     end subroutine new_boundarydata_codon
+  end interface
+  logical, save :: new_boundarydata_codon_logged = .false.
+  logical, save :: new_boundarydata_native_logged = .false.
 
-#define CAM_MISC_TAG 244
-#define CAM_MISC_LABEL 'new_BoundaryData'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+  if (linear_1d_use_native_selector('NEW_BOUNDARYDATA_IMPL')) then
+     new_cond%cond_type = data_cond
+     new_cond%edge_data = data
+     if (masterproc .and. .not. new_boundarydata_native_logged) then
+        write(iulog,*) 'new_boundarydata implementation = native'
+        new_boundarydata_native_logged = .true.
+     end if
+     return
+  end if
 
-  new_cond%cond_type = data_cond
-  new_cond%edge_data = data
+  allocate(new_cond%edge_data(size(data)))
+  call new_boundarydata_codon(cond_type_c, new_cond%edge_data, data, int(size(data), c_int64_t))
+  new_cond%cond_type = int(cond_type_c)
+  if (masterproc .and. .not. new_boundarydata_codon_logged) then
+     write(iulog,*) 'new_boundarydata direct = codon; allocatable derived-type allocation native boundary'
+     new_boundarydata_codon_logged = .true.
+  end if
 
 end function new_BoundaryData
 
@@ -1017,13 +1075,68 @@ function apply_left(self, bound_term, array) result(delta_edge)
   real(r8), USE_CONTIGUOUS intent(in) :: bound_term(:)
   real(r8), USE_CONTIGUOUS intent(in) :: array(:,:)
   real(r8) :: delta_edge(size(array, 1))
+  real(r8) :: zero_edge(size(array, 1))
+  interface
+     subroutine apply_left_codon(cond_type, bound_term, array, edge_data, delta_edge, nsys, ncel) &
+          bind(c, name='apply_left_codon')
+       import :: c_int64_t, r8
+       integer(c_int64_t), value :: cond_type, nsys, ncel
+       real(r8), intent(in) :: bound_term(*), array(*), edge_data(*)
+       real(r8), intent(out) :: delta_edge(*)
+     end subroutine apply_left_codon
+  end interface
+  logical, save :: apply_left_codon_logged = .false.
+  logical, save :: apply_left_native_logged = .false.
 
-#define CAM_MISC_TAG 245
-#define CAM_MISC_LABEL 'apply_left'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+  if (linear_1d_use_native_selector('APPLY_LEFT_IMPL')) then
+     select case (self%cond_type)
+     case (no_data_cond)
+        delta_edge = bound_term*array(:,3)
+     case (data_cond)
+        delta_edge = bound_term*self%edge_data
+     case (flux_cond)
+        delta_edge = self%edge_data
+     case default
+        call shr_sys_abort("Invalid boundary condition at "// &
+             errMsg(__FILE__, __LINE__))
+     end select
+     if (masterproc .and. .not. apply_left_native_logged) then
+        write(iulog,*) 'apply_left implementation = native'
+        apply_left_native_logged = .true.
+     end if
+     return
+  end if
+
+  select case (self%cond_type)
+  case (no_data_cond, data_cond, flux_cond)
+     zero_edge = 0._r8
+  case default
+     call shr_sys_abort("Invalid boundary condition at "// &
+          errMsg(__FILE__, __LINE__))
+  end select
+
+  if (allocated(self%edge_data)) then
+     call apply_left_codon(int(self%cond_type, c_int64_t), bound_term, array, &
+          self%edge_data, delta_edge, int(size(array, 1), c_int64_t), &
+          int(size(array, 2), c_int64_t))
+  else
+     call apply_left_codon(int(self%cond_type, c_int64_t), bound_term, array, &
+          zero_edge, delta_edge, int(size(array, 1), c_int64_t), &
+          int(size(array, 2), c_int64_t))
+  end if
+
+  if (masterproc .and. .not. apply_left_codon_logged) then
+     write(iulog,*) 'apply_left direct = codon'
+     apply_left_codon_logged = .true.
+  end if
+
+end function apply_left
+
+function apply_left_native(self, bound_term, array) result(delta_edge)
+  class(BoundaryCond), intent(in) :: self
+  real(r8), USE_CONTIGUOUS intent(in) :: bound_term(:)
+  real(r8), USE_CONTIGUOUS intent(in) :: array(:,:)
+  real(r8) :: delta_edge(size(array, 1))
 
   select case (self%cond_type)
   case (no_data_cond)
@@ -1037,7 +1150,7 @@ function apply_left(self, bound_term, array) result(delta_edge)
           errMsg(__FILE__, __LINE__))
   end select
 
-end function apply_left
+end function apply_left_native
 
 function apply_right(self, bound_term, array) result(delta_edge)
   class(BoundaryCond), intent(in) :: self
