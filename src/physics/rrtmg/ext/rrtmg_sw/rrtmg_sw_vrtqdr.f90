@@ -20,6 +20,7 @@
       use shr_kind_mod, only: r8 => shr_kind_r8
       use cam_logfile, only: iulog
       use spmd_utils, only: masterproc
+      use iso_c_binding, only: c_int64_t, c_ptr, c_null_ptr
 
 !      use parkind, only: jpim, jprb
 !      use parrrsw, only: ngptsw
@@ -94,6 +95,18 @@
       real(kind=r8) :: zreflect
       real(kind=r8) :: ztdn(klev+1)
 
+      interface
+         subroutine vrtqdr_sw_codon(klev_c, kw_c, pref_p, prefd_p, ptra_p, ptrad_p, &
+              pdbt_p, prdnd_p, prup_p, prupd_p, ptdbt_p, pfd_p, pfu_p, ztdn_p) &
+              bind(c, name="vrtqdr_sw_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: klev_c, kw_c
+            type(c_ptr), value :: pref_p, prefd_p, ptra_p, ptrad_p
+            type(c_ptr), value :: pdbt_p, prdnd_p, prup_p, prupd_p, ptdbt_p
+            type(c_ptr), value :: pfd_p, pfu_p, ztdn_p
+         end subroutine vrtqdr_sw_codon
+      end interface
+
 ! Definitions
 !
 ! pref(jk)   direct reflectance
@@ -105,6 +118,19 @@
 ! ptdbt(jk)  total direct beam transmittance at levels
 !
 !-----------------------------------------------------------------------------
+
+      call vrtqdr_sw_select_impl()
+      if (.not. use_native_vrtqdr_sw_impl) then
+         call vrtqdr_sw_log_entered()
+         call vrtqdr_sw_codon(int(klev, c_int64_t), int(kw, c_int64_t), &
+              transfer(loc(pref(1)), c_null_ptr), transfer(loc(prefd(1)), c_null_ptr), &
+              transfer(loc(ptra(1)), c_null_ptr), transfer(loc(ptrad(1)), c_null_ptr), &
+              transfer(loc(pdbt(1)), c_null_ptr), transfer(loc(prdnd(1)), c_null_ptr), &
+              transfer(loc(prup(1)), c_null_ptr), transfer(loc(prupd(1)), c_null_ptr), &
+              transfer(loc(ptdbt(1)), c_null_ptr), transfer(loc(pfd(1,1)), c_null_ptr), &
+              transfer(loc(pfu(1,1)), c_null_ptr), transfer(loc(ztdn(1)), c_null_ptr))
+         return
+      end if
 
 ! Link lowest layer with surface
 

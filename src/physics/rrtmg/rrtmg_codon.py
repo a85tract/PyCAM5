@@ -4385,6 +4385,83 @@ def gam_liquid_lw_codon(
 
 
 @export
+def vrtqdr_sw_codon(
+    klev: int,
+    kw: int,
+    pref_p: cobj,
+    prefd_p: cobj,
+    ptra_p: cobj,
+    ptrad_p: cobj,
+    pdbt_p: cobj,
+    prdnd_p: cobj,
+    prup_p: cobj,
+    prupd_p: cobj,
+    ptdbt_p: cobj,
+    pfd_p: cobj,
+    pfu_p: cobj,
+    ztdn_p: cobj,
+):
+    # Mirrors rrtmg_sw_vrtqdr.f90: vrtqdr_sw.
+    pref = Ptr[float](pref_p)
+    prefd = Ptr[float](prefd_p)
+    ptra = Ptr[float](ptra_p)
+    ptrad = Ptr[float](ptrad_p)
+    pdbt = Ptr[float](pdbt_p)
+    prdnd = Ptr[float](prdnd_p)
+    prup = Ptr[float](prup_p)
+    prupd = Ptr[float](prupd_p)
+    ptdbt = Ptr[float](ptdbt_p)
+    pfd = Ptr[float](pfd_p)
+    pfu = Ptr[float](pfu_p)
+    ztdn = Ptr[float](ztdn_p)
+
+    klevp1 = klev + 1
+    col_offset = (kw - 1) * klevp1
+
+    zreflect = 1.0 / (1.0 - prefd[klev] * prefd[klev - 1])
+    prup[klev - 1] = pref[klev - 1] + (ptrad[klev - 1] * (
+        (ptra[klev - 1] - pdbt[klev - 1]) * prefd[klev] +
+        pdbt[klev - 1] * pref[klev]
+    )) * zreflect
+    prupd[klev - 1] = prefd[klev - 1] + ptrad[klev - 1] * ptrad[klev - 1] * prefd[klev] * zreflect
+
+    for jk in range(1, klev):
+        ikp = klev + 1 - jk
+        ikx = ikp - 1
+        ikp0 = ikp - 1
+        ikx0 = ikx - 1
+        zreflect = 1.0 / (1.0 - prupd[ikp0] * prefd[ikx0])
+        prup[ikx0] = pref[ikx0] + (ptrad[ikx0] * (
+            (ptra[ikx0] - pdbt[ikx0]) * prupd[ikp0] +
+            pdbt[ikx0] * prup[ikp0]
+        )) * zreflect
+        prupd[ikx0] = prefd[ikx0] + ptrad[ikx0] * ptrad[ikx0] * prupd[ikp0] * zreflect
+
+    ztdn[0] = 1.0
+    prdnd[0] = 0.0
+    ztdn[1] = ptra[0]
+    prdnd[1] = prefd[0]
+
+    for jk in range(2, klev + 1):
+        ikp = jk + 1
+        jk0 = jk - 1
+        ikp0 = ikp - 1
+        zreflect = 1.0 / (1.0 - prefd[jk0] * prdnd[jk0])
+        ztdn[ikp0] = ptdbt[jk0] * ptra[jk0] + (
+            ptrad[jk0] * ((ztdn[jk0] - ptdbt[jk0]) +
+            ptdbt[jk0] * pref[jk0] * prdnd[jk0])
+        ) * zreflect
+        prdnd[ikp0] = prefd[jk0] + ptrad[jk0] * ptrad[jk0] * prdnd[jk0] * zreflect
+
+    for jk in range(1, klev + 2):
+        jk0 = jk - 1
+        out_idx = col_offset + jk0
+        zreflect = 1.0 / (1.0 - prdnd[jk0] * prupd[jk0])
+        pfu[out_idx] = (ptdbt[jk0] * prup[jk0] + (ztdn[jk0] - ptdbt[jk0]) * prupd[jk0]) * zreflect
+        pfd[out_idx] = ptdbt[jk0] + (ztdn[jk0] - ptdbt[jk0] + ptdbt[jk0] * prup[jk0] * prdnd[jk0]) * zreflect
+
+
+@export
 def rrtmg_sw_post_codon(
     nday: int,
     pcols: int,
