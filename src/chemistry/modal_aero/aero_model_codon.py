@@ -3845,6 +3845,195 @@ def _dust_getflx(
 
 
 @export
+def cfint2_codon(
+    ncol: int,
+    pcols: int,
+    pverp: int,
+    x_p: cobj,
+    f_p: cobj,
+    fdot_p: cobj,
+    xin_p: cobj,
+    fxdot_p: cobj,
+    fxdd_p: cobj,
+    psistar_p: cobj,
+    xins_p: cobj,
+    intz_p: cobj,
+    status_p: cobj,
+    fail_i_p: cobj,
+):
+    x = Ptr[float](x_p)
+    f = Ptr[float](f_p)
+    fdot = Ptr[float](fdot_p)
+    xin = Ptr[float](xin_p)
+    fxdot = Ptr[float](fxdot_p)
+    fxdd = Ptr[float](fxdd_p)
+    psistar = Ptr[float](psistar_p)
+    xins = Ptr[float](xins_p)
+    intz = Ptr[int](intz_p)
+    status = Ptr[int](status_p)
+    fail_i = Ptr[int](fail_i_p)
+
+    for i in range(1, ncol + 1):
+        xins[i - 1] = _medan(x[_idx2(i, 1, pcols)], xin[i - 1], x[_idx2(i, pverp, pcols)])
+        intz[i - 1] = 0
+
+    for k in range(1, pverp):
+        for i in range(1, ncol + 1):
+            if (
+                (xins[i - 1] - x[_idx2(i, k, pcols)])
+                * (x[_idx2(i, k + 1, pcols)] - xins[i - 1])
+            ) >= 0.0:
+                intz[i - 1] = k
+
+    for i in range(1, ncol + 1):
+        if intz[i - 1] == 0:
+            status[0] = 1
+            fail_i[0] = i
+            return
+
+    for i in range(1, ncol + 1):
+        k = int(intz[i - 1])
+        dx = x[_idx2(i, k + 1, pcols)] - x[_idx2(i, k, pcols)]
+        s = (f[_idx2(i, k + 1, pcols)] - f[_idx2(i, k, pcols)]) / dx
+        c2 = (3.0 * s - 2.0 * fdot[_idx2(i, k, pcols)] - fdot[_idx2(i, k + 1, pcols)]) / dx
+        c3 = (
+            fdot[_idx2(i, k, pcols)] + fdot[_idx2(i, k + 1, pcols)] - 2.0 * s
+        ) / (dx * dx)
+        xx = xins[i - 1] - x[_idx2(i, k, pcols)]
+        fxdot[i - 1] = (3.0 * c3 * xx + 2.0 * c2) * xx + fdot[_idx2(i, k, pcols)]
+        fxdd[i - 1] = 6.0 * c3 * xx + 2.0 * c2
+        cfint = ((c3 * xx + c2) * xx + fdot[_idx2(i, k, pcols)]) * xx + f[_idx2(i, k, pcols)]
+
+        psi1 = f[_idx2(i, k, pcols)] + (
+            (f[_idx2(i, k + 1, pcols)] - f[_idx2(i, k, pcols)]) * xx / dx
+        )
+        if k == 1:
+            psi2 = f[_idx2(i, 1, pcols)]
+        else:
+            psi2 = f[_idx2(i, k, pcols)] + (
+                (f[_idx2(i, k, pcols)] - f[_idx2(i, k - 1, pcols)])
+                * xx
+                / (x[_idx2(i, k, pcols)] - x[_idx2(i, k - 1, pcols)])
+            )
+
+        if (k + 1) == pverp:
+            psi3 = f[_idx2(i, pverp, pcols)]
+        else:
+            psi3 = f[_idx2(i, k + 1, pcols)] - (
+                (f[_idx2(i, k + 2, pcols)] - f[_idx2(i, k + 1, pcols)])
+                * (dx - xx)
+                / (x[_idx2(i, k + 2, pcols)] - x[_idx2(i, k + 1, pcols)])
+            )
+
+        psim = _medan(psi1, psi2, psi3)
+        psistar[i - 1] = _medan(cfint, psi1, psim)
+
+
+@export
+def cfdotmc_pro_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    x_p: cobj,
+    f_p: cobj,
+    fdot_p: cobj,
+    s_p: cobj,
+    sh_p: cobj,
+    d_p: cobj,
+    dh_p: cobj,
+    e_p: cobj,
+    eh_p: cobj,
+    ppl_p: cobj,
+    ppr_p: cobj,
+    delxh_p: cobj,
+):
+    _dust_cfdotmc_pro(
+        ncol,
+        pcols,
+        pver,
+        pverp,
+        x_p,
+        f_p,
+        fdot_p,
+        s_p,
+        sh_p,
+        d_p,
+        dh_p,
+        e_p,
+        eh_p,
+        ppl_p,
+        ppr_p,
+        delxh_p,
+    )
+
+
+@export
+def getflx_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    deltat: float,
+    xw_p: cobj,
+    phi_p: cobj,
+    vel_p: cobj,
+    flux_p: cobj,
+    psi_p: cobj,
+    fdot_p: cobj,
+    xxk_p: cobj,
+    fxdot_p: cobj,
+    fxdd_p: cobj,
+    psistar_p: cobj,
+    xins_p: cobj,
+    intz_p: cobj,
+    status_p: cobj,
+    fail_i_p: cobj,
+    fail_k_p: cobj,
+    s_p: cobj,
+    sh_p: cobj,
+    d_p: cobj,
+    dh_p: cobj,
+    e_p: cobj,
+    eh_p: cobj,
+    ppl_p: cobj,
+    ppr_p: cobj,
+    delxh_p: cobj,
+):
+    _dust_getflx(
+        ncol,
+        pcols,
+        pver,
+        pverp,
+        deltat,
+        xw_p,
+        phi_p,
+        vel_p,
+        flux_p,
+        psi_p,
+        fdot_p,
+        xxk_p,
+        fxdot_p,
+        fxdd_p,
+        psistar_p,
+        xins_p,
+        intz_p,
+        status_p,
+        fail_i_p,
+        fail_k_p,
+        s_p,
+        sh_p,
+        d_p,
+        dh_p,
+        e_p,
+        eh_p,
+        ppl_p,
+        ppr_p,
+        delxh_p,
+    )
+
+
+@export
 def dust_sediment_tend_codon(
     ncol: int,
     pcols: int,

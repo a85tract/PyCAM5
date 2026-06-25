@@ -263,6 +263,54 @@ def _gradient_sphere_wk_testcov(
             )
 
 
+def curl_sphere_wk_testcov_codon(
+    np: int,
+    rrearth: float,
+    s_p: cobj,
+    dvv_p: cobj,
+    mp_p: cobj,
+    d_p: cobj,
+    dscontra_p: cobj,
+    ds_p: cobj,
+):
+    _curl_sphere_wk_testcov(
+        np,
+        rrearth,
+        Ptr[float](s_p),
+        Ptr[float](dvv_p),
+        Ptr[float](mp_p),
+        Ptr[float](d_p),
+        Ptr[float](dscontra_p),
+        Ptr[float](ds_p),
+    )
+
+
+def gradient_sphere_wk_testcov_codon(
+    np: int,
+    rrearth: float,
+    s_p: cobj,
+    dvv_p: cobj,
+    mp_p: cobj,
+    metinv_p: cobj,
+    metdet_p: cobj,
+    d_p: cobj,
+    dscontra_p: cobj,
+    ds_p: cobj,
+):
+    _gradient_sphere_wk_testcov(
+        np,
+        rrearth,
+        Ptr[float](s_p),
+        Ptr[float](dvv_p),
+        Ptr[float](mp_p),
+        Ptr[float](metinv_p),
+        Ptr[float](metdet_p),
+        Ptr[float](d_p),
+        Ptr[float](dscontra_p),
+        Ptr[float](ds_p),
+    )
+
+
 def divergence_sphere_wk_codon(
     np: int,
     rrearth: float,

@@ -565,6 +565,54 @@ def divergence_sphere_wk_codon(
     )
 
 @export
+def curl_sphere_wk_testcov_codon(
+    np: int,
+    rrearth: float,
+    s_p: cobj,
+    dvv_p: cobj,
+    mp_p: cobj,
+    d_p: cobj,
+    dscontra_p: cobj,
+    ds_p: cobj,
+):
+    return _sphere.curl_sphere_wk_testcov_codon(
+        np,
+        rrearth,
+        s_p,
+        dvv_p,
+        mp_p,
+        d_p,
+        dscontra_p,
+        ds_p,
+    )
+
+@export
+def gradient_sphere_wk_testcov_codon(
+    np: int,
+    rrearth: float,
+    s_p: cobj,
+    dvv_p: cobj,
+    mp_p: cobj,
+    metinv_p: cobj,
+    metdet_p: cobj,
+    d_p: cobj,
+    dscontra_p: cobj,
+    ds_p: cobj,
+):
+    return _sphere.gradient_sphere_wk_testcov_codon(
+        np,
+        rrearth,
+        s_p,
+        dvv_p,
+        mp_p,
+        metinv_p,
+        metdet_p,
+        d_p,
+        dscontra_p,
+        ds_p,
+    )
+
+@export
 def laplace_sphere_wk_codon(
     np: int,
     rrearth: float,

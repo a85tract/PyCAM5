@@ -25,6 +25,12 @@ module dust_sediment_mod
   real (r8), parameter :: mxsedfac   = 0.99_r8       ! maximum sedimentation flux factor
   logical, save :: dust_sediment_tend_use_native_impl = .false.
   logical, save :: dust_sediment_tend_impl_selected = .false.
+  logical, save :: getflx_use_native_impl = .false.
+  logical, save :: getflx_impl_selected = .false.
+  logical, save :: cfint2_use_native_impl = .false.
+  logical, save :: cfint2_impl_selected = .false.
+  logical, save :: cfdotmc_pro_use_native_impl = .false.
+  logical, save :: cfdotmc_pro_impl_selected = .false.
 
 contains
 
@@ -215,6 +221,120 @@ contains
   end subroutine dust_sediment_tend_select_impl
 
 !===============================================================================
+  subroutine getflx_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (getflx_impl_selected) return
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('DUST_GETFLX_IMPL', impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       getflx_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       getflx_use_native_impl = .false.
+    end if
+
+    getflx_impl_selected = .true.
+
+    if (masterproc) then
+       if (getflx_use_native_impl) then
+          write(iulog,*) 'getflx implementation = native'
+       else
+          write(iulog,*) 'getflx implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine getflx_select_impl
+
+!===============================================================================
+  subroutine cfint2_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (cfint2_impl_selected) return
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('DUST_CFINT2_IMPL', impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       cfint2_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       cfint2_use_native_impl = .false.
+    end if
+
+    cfint2_impl_selected = .true.
+
+    if (masterproc) then
+       if (cfint2_use_native_impl) then
+          write(iulog,*) 'cfint2 implementation = native'
+       else
+          write(iulog,*) 'cfint2 implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine cfint2_select_impl
+
+!===============================================================================
+  subroutine cfdotmc_pro_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (cfdotmc_pro_impl_selected) return
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('DUST_CFDOTMC_PRO_IMPL', impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       cfdotmc_pro_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       cfdotmc_pro_use_native_impl = .false.
+    end if
+
+    cfdotmc_pro_impl_selected = .true.
+
+    if (masterproc) then
+       if (cfdotmc_pro_use_native_impl) then
+          write(iulog,*) 'cfdotmc_pro implementation = native'
+       else
+          write(iulog,*) 'cfdotmc_pro implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine cfdotmc_pro_select_impl
+
+!===============================================================================
   subroutine dust_sediment_tend_native ( &
        ncol,   dtime,  pint,     pmid,    pdel,  t,   &
        dustmr ,pvdust, dusttend, sfdust )
@@ -294,6 +414,7 @@ contains
 
 !===============================================================================
   subroutine getflx(ncol, xw, phi, vel, deltat, flux)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
 !.....xw1.......xw2.......xw3.......xw4.......xw5.......xw6
 !....psiw1.....psiw2.....psiw3.....psiw4.....psiw5.....psiw6
@@ -308,20 +429,66 @@ contains
     integer i
     integer k
 
-    real (r8) vel(pcols,pverp)
-    real (r8) flux(pcols,pverp)
-    real (r8) xw(pcols,pverp)
-    real (r8) psi(pcols,pverp)
-    real (r8) phi(pcols,pverp-1)
-    real (r8) fdot(pcols,pverp)
-    real (r8) xx(pcols)
-    real (r8) fxdot(pcols)
-    real (r8) fxdd(pcols)
+    real (r8), target :: vel(pcols,pverp)
+    real (r8), target :: flux(pcols,pverp)
+    real (r8), target :: xw(pcols,pverp)
+    real (r8), target :: psi(pcols,pverp)
+    real (r8), target :: phi(pcols,pverp-1)
+    real (r8), target :: fdot(pcols,pverp)
+    real (r8) :: xx(pcols)
+    real (r8), target :: fxdot(pcols)
+    real (r8), target :: fxdd(pcols)
 
-    real (r8) psistar(pcols)
+    real (r8), target :: psistar(pcols)
     real (r8) deltat
 
-    real (r8) xxk(pcols,pver)
+    real (r8), target :: xxk(pcols,pver)
+    real (r8), target :: xins(pcols)
+    real (r8), target :: s(pcols,pverp)
+    real (r8), target :: sh(pcols,pverp)
+    real (r8), target :: d(pcols,pverp)
+    real (r8), target :: dh(pcols,pverp)
+    real (r8), target :: e(pcols,pverp)
+    real (r8), target :: eh(pcols,pverp)
+    real (r8), target :: ppl(pcols,pverp)
+    real (r8), target :: ppr(pcols,pverp)
+    real (r8), target :: delxh(pcols,pverp)
+    integer(c_int64_t), target :: intz(pcols)
+    integer(c_int64_t), target :: status_code
+    integer(c_int64_t), target :: fail_i
+    integer(c_int64_t), target :: fail_k
+
+    interface
+       subroutine getflx_codon(ncol_c, pcols_c, pver_c, pverp_c, deltat_c, xw_p, phi_p, vel_p, flux_p, &
+            psi_p, fdot_p, xxk_p, fxdot_p, fxdd_p, psistar_p, xins_p, intz_p, status_p, fail_i_p, fail_k_p, &
+            s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p) bind(c, name="getflx_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+         real(c_double), value :: deltat_c
+         type(c_ptr), value :: xw_p, phi_p, vel_p, flux_p, psi_p, fdot_p, xxk_p, fxdot_p, fxdd_p, psistar_p
+         type(c_ptr), value :: xins_p, intz_p, status_p, fail_i_p, fail_k_p
+         type(c_ptr), value :: s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p
+       end subroutine getflx_codon
+    end interface
+
+    call getflx_select_impl()
+    if (.not. getflx_use_native_impl) then
+       status_code = 0_c_int64_t
+       fail_i = 0_c_int64_t
+       fail_k = 0_c_int64_t
+       call getflx_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+            real(deltat, c_double), c_loc(xw), c_loc(phi), c_loc(vel), c_loc(flux), c_loc(psi), c_loc(fdot), &
+            c_loc(xxk), c_loc(fxdot), c_loc(fxdd), c_loc(psistar), c_loc(xins), c_loc(intz), c_loc(status_code), &
+            c_loc(fail_i), c_loc(fail_k), c_loc(s), c_loc(sh), c_loc(d), c_loc(dh), c_loc(e), c_loc(eh), &
+            c_loc(ppl), c_loc(ppr), c_loc(delxh) &
+       )
+       if (status_code /= 0_c_int64_t) then
+          write(iulog,*) 'DUST_SEDIMENT_MOD:getflx -- interval was not found ', int(fail_i), int(fail_k)
+          call endrun('DUST_SEDIMENT_MOD:getflx -- interval was not found ')
+       end if
+       return
+    end if
 
     do i = 1,ncol
 !        integral of phi
@@ -365,6 +532,7 @@ contains
 !##############################################################################
 
   subroutine cfint2 (ncol, x, f, fdot, xin, fxdot, fxdd, psistar)
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
 
     implicit none
@@ -372,19 +540,21 @@ contains
 ! input
     integer ncol                      ! number of colums to process
 
-    real (r8) x(pcols, pverp)
-    real (r8) f(pcols, pverp)
-    real (r8) fdot(pcols, pverp)
-    real (r8) xin(pcols)
+    real (r8), target :: x(pcols, pverp)
+    real (r8), target :: f(pcols, pverp)
+    real (r8), target :: fdot(pcols, pverp)
+    real (r8), target :: xin(pcols)
 
 ! output
-    real (r8) fxdot(pcols)
-    real (r8) fxdd(pcols)
-    real (r8) psistar(pcols)
+    real (r8), target :: fxdot(pcols)
+    real (r8), target :: fxdd(pcols)
+    real (r8), target :: psistar(pcols)
 
     integer i
     integer k
-    integer intz(pcols)
+    integer(c_int64_t), target :: intz(pcols)
+    integer(c_int64_t), target :: status_code
+    integer(c_int64_t), target :: fail_i
     real (r8) dx
     real (r8) s
     real (r8) c2
@@ -394,7 +564,17 @@ contains
     real (r8) psi1, psi2, psi3, psim
     real (r8) cfint
     real (r8) cfnew
-    real (r8) xins(pcols)
+    real (r8), target :: xins(pcols)
+
+    interface
+       subroutine cfint2_codon(ncol_c, pcols_c, pverp_c, x_p, f_p, fdot_p, xin_p, fxdot_p, fxdd_p, &
+            psistar_p, xins_p, intz_p, status_p, fail_i_p) bind(c, name="cfint2_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pverp_c
+         type(c_ptr), value :: x_p, f_p, fdot_p, xin_p, fxdot_p, fxdd_p, psistar_p, xins_p, intz_p
+         type(c_ptr), value :: status_p, fail_i_p
+       end subroutine cfint2_codon
+    end interface
 
 !     the minmod function 
     real (r8) a, b, c
@@ -402,6 +582,22 @@ contains
     real (r8) medan
     minmod(a,b) = 0.5_r8*(sign(1._r8,a) + sign(1._r8,b))*min(abs(a),abs(b))
     medan(a,b,c) = a + minmod(b-a,c-a)
+
+    call cfint2_select_impl()
+    if (.not. cfint2_use_native_impl) then
+       status_code = 0_c_int64_t
+       fail_i = 0_c_int64_t
+       call cfint2_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pverp, c_int64_t), &
+            c_loc(x), c_loc(f), c_loc(fdot), c_loc(xin), c_loc(fxdot), c_loc(fxdd), c_loc(psistar), &
+            c_loc(xins), c_loc(intz), c_loc(status_code), c_loc(fail_i) &
+       )
+       if (status_code /= 0_c_int64_t) then
+          write(iulog,*) 'DUST_SEDIMENT_MOD:cfint2 -- interval was not found ', int(fail_i)
+          call endrun('DUST_SEDIMENT_MOD:cfint2 -- interval was not found ')
+       end if
+       return
+    end if
 
     do i = 1,ncol
        xins(i) = medan(x(i,1), xin(i), x(i,pverp))
@@ -471,6 +667,7 @@ contains
 !##############################################################################
 
   subroutine cfdotmc_pro (ncol, x, f, fdot)
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
 !     prototype version; eventually replace with final SPITFIRE scheme
 
@@ -483,10 +680,10 @@ contains
 ! input
     integer ncol                      ! number of colums to process
 
-    real (r8) x(pcols, pverp)
-    real (r8) f(pcols, pverp)
+    real (r8), target :: x(pcols, pverp)
+    real (r8), target :: f(pcols, pverp)
 ! output
-    real (r8) fdot(pcols, pverp)          ! derivative at nodes
+    real (r8), target :: fdot(pcols, pverp)          ! derivative at nodes
 
 ! assumed variable distribution
 !     x1.......x2.......x3.......x4.......x5.......x6     1,pverp points
@@ -512,22 +709,31 @@ contains
     real (r8) a                    ! work var
     real (r8) b                    ! work var
     real (r8) c                    ! work var
-    real (r8) s(pcols,pverp)             ! first divided differences at nodes
-    real (r8) sh(pcols,pverp)            ! first divided differences between nodes
-    real (r8) d(pcols,pverp)             ! second divided differences at nodes
-    real (r8) dh(pcols,pverp)            ! second divided differences between nodes
-    real (r8) e(pcols,pverp)             ! third divided differences at nodes
-    real (r8) eh(pcols,pverp)            ! third divided differences between nodes
+    real (r8), target :: s(pcols,pverp)             ! first divided differences at nodes
+    real (r8), target :: sh(pcols,pverp)            ! first divided differences between nodes
+    real (r8), target :: d(pcols,pverp)             ! second divided differences at nodes
+    real (r8), target :: dh(pcols,pverp)            ! second divided differences between nodes
+    real (r8), target :: e(pcols,pverp)             ! third divided differences at nodes
+    real (r8), target :: eh(pcols,pverp)            ! third divided differences between nodes
     real (r8) pp                   ! p prime
-    real (r8) ppl(pcols,pverp)           ! p prime on left
-    real (r8) ppr(pcols,pverp)           ! p prime on right
+    real (r8), target :: ppl(pcols,pverp)           ! p prime on left
+    real (r8), target :: ppr(pcols,pverp)           ! p prime on right
     real (r8) qpl
     real (r8) qpr
     real (r8) ttt
     real (r8) t
     real (r8) tmin
     real (r8) tmax
-    real (r8) delxh(pcols,pverp)
+    real (r8), target :: delxh(pcols,pverp)
+
+    interface
+       subroutine cfdotmc_pro_codon(ncol_c, pcols_c, pver_c, pverp_c, x_p, f_p, fdot_p, &
+            s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p) bind(c, name="cfdotmc_pro_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+         type(c_ptr), value :: x_p, f_p, fdot_p, s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p
+       end subroutine cfdotmc_pro_codon
+    end interface
 
 
 !     the minmod function 
@@ -535,6 +741,16 @@ contains
     real (r8) medan
     minmod(a,b) = 0.5_r8*(sign(1._r8,a) + sign(1._r8,b))*min(abs(a),abs(b))
     medan(a,b,c) = a + minmod(b-a,c-a)
+
+    call cfdotmc_pro_select_impl()
+    if (.not. cfdotmc_pro_use_native_impl) then
+       call cfdotmc_pro_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+            c_loc(x), c_loc(f), c_loc(fdot), c_loc(s), c_loc(sh), c_loc(d), c_loc(dh), c_loc(e), c_loc(eh), &
+            c_loc(ppl), c_loc(ppr), c_loc(delxh) &
+       )
+       return
+    end if
 
     do k = 1,pver
 

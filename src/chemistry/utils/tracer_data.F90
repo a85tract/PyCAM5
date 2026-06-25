@@ -2408,19 +2408,28 @@ contains
    end subroutine vert_interp_mixrat
 !------------------------------------------------------------------------------
   subroutine vert_interp( ncol, levsiz, pin, pmid, datain, dataout )
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     !--------------------------------------------------------------------------
     !
     ! Interpolate data from current time-interpolated values to model levels
     !--------------------------------------------------------------------------
     implicit none
+    interface
+       subroutine vert_interp_codon(ncol_c, pcols_c, pver_c, levsiz_c, pin_p, pmid_p, datain_p, dataout_p, &
+            kupper_p) bind(c, name='vert_interp_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, levsiz_c
+         type(c_ptr), value :: pin_p, pmid_p, datain_p, dataout_p, kupper_p
+       end subroutine vert_interp_codon
+    end interface
     ! Arguments
     !
     integer,  intent(in)  :: ncol                ! number of atmospheric columns
     integer,  intent(in)  :: levsiz
-    real(r8), intent(in)  :: pin(pcols,levsiz)
-    real(r8), intent(in)  :: pmid(pcols,pver)          ! level pressures
-    real(r8), intent(in)  :: datain(pcols,levsiz)
-    real(r8), intent(out) :: dataout(pcols,pver)
+    real(r8), target, intent(in)  :: pin(pcols,levsiz)
+    real(r8), target, intent(in)  :: pmid(pcols,pver)          ! level pressures
+    real(r8), target, intent(in)  :: datain(pcols,levsiz)
+    real(r8), target, intent(out) :: dataout(pcols,pver)
 
     !
     ! local storage
@@ -2429,10 +2438,29 @@ contains
     integer ::  i                   ! longitude index
     integer ::  k, kk, kkstart      ! level indices
     integer ::  kupper(pcols)       ! Level indices for interpolation
+    integer(c_int64_t), target :: kupper_c(pcols)
     real(r8) :: dpu                ! upper level pressure difference
     real(r8) :: dpl                ! lower level pressure difference
 
+    character(len=32) :: rt_codon_impl_name
+    integer :: rt_codon_n, rt_codon_status
+    logical, save :: rt_codon_proof_seen = .false.
 
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('VERT_INTERP_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    if (.not. (rt_codon_status == 0 .and. rt_codon_n > 0 .and. &
+         trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native')) then
+       call vert_interp_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(levsiz, c_int64_t), &
+            c_loc(pin), c_loc(pmid), c_loc(datain), c_loc(dataout), c_loc(kupper_c) &
+       )
+       if (masterproc .and. .not. rt_codon_proof_seen) then
+          write(iulog,*) 'vert_interp implementation = codon'
+          call flush(iulog)
+          rt_codon_proof_seen = .true.
+       endif
+       return
+    endif
 
     !--------------------------------------------------------------------------
     !

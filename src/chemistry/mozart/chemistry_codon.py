@@ -8026,6 +8026,63 @@ def advance_trcdata_codon(tag: int) -> int:
 def init_trc_restart_codon(tag: int) -> int:
     return tag
 
+@inline
+def _tracer_idx2(i: int, k: int, ld1: int) -> int:
+    return (i - 1) + (k - 1) * ld1
+
+@export
+def vert_interp_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    levsiz: int,
+    pin_p: cobj,
+    pmid_p: cobj,
+    datain_p: cobj,
+    dataout_p: cobj,
+    kupper_p: cobj,
+):
+    pin = Ptr[float](pin_p)
+    pmid = Ptr[float](pmid_p)
+    datain = Ptr[float](datain_p)
+    dataout = Ptr[float](dataout_p)
+    kupper = Ptr[int](kupper_p)
+
+    for i in range(1, ncol + 1):
+        kupper[i - 1] = 1
+
+    for k in range(1, pver + 1):
+        kkstart = levsiz
+        for i in range(1, ncol + 1):
+            if kupper[i - 1] < kkstart:
+                kkstart = kupper[i - 1]
+
+        for kk in range(kkstart, levsiz):
+            for i in range(1, ncol + 1):
+                if (
+                    pin[_tracer_idx2(i, kk, pcols)] < pmid[_tracer_idx2(i, k, pcols)]
+                    and pmid[_tracer_idx2(i, k, pcols)] <= pin[_tracer_idx2(i, kk + 1, pcols)]
+                ):
+                    kupper[i - 1] = kk
+
+        for i in range(1, ncol + 1):
+            if pmid[_tracer_idx2(i, k, pcols)] < pin[_tracer_idx2(i, 1, pcols)]:
+                dataout[_tracer_idx2(i, k, pcols)] = (
+                    datain[_tracer_idx2(i, 1, pcols)]
+                    * pmid[_tracer_idx2(i, k, pcols)]
+                    / pin[_tracer_idx2(i, 1, pcols)]
+                )
+            elif pmid[_tracer_idx2(i, k, pcols)] > pin[_tracer_idx2(i, levsiz, pcols)]:
+                dataout[_tracer_idx2(i, k, pcols)] = datain[_tracer_idx2(i, levsiz, pcols)]
+            else:
+                kup = int(kupper[i - 1])
+                dpu = pmid[_tracer_idx2(i, k, pcols)] - pin[_tracer_idx2(i, kup, pcols)]
+                dpl = pin[_tracer_idx2(i, kup + 1, pcols)] - pmid[_tracer_idx2(i, k, pcols)]
+                dataout[_tracer_idx2(i, k, pcols)] = (
+                    datain[_tracer_idx2(i, kup, pcols)] * dpl
+                    + datain[_tracer_idx2(i, kup + 1, pcols)] * dpu
+                ) / (dpl + dpu)
+
 @export
 def get_dimension_codon(tag: int) -> int:
     return tag

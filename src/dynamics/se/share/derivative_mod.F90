@@ -1478,6 +1478,9 @@ end do
 
 
   subroutine curl_sphere_wk_testcov(s,deriv,elem,ds)
+    use iso_c_binding, only : c_int64_t, c_double, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
 !
 !   integrated-by-parts gradient, w.r.t. COVARIANT test functions
 !   input s:  scalar  (assumed to be s*khat)
@@ -1508,14 +1511,38 @@ end do
 !       = +sum  w_in s_in  d( PHI^m)(i)
 !           i
 !
-    type (derivative_t), intent(in) :: deriv
-    type (element_t), intent(in) :: elem
-    real(kind=real_kind), intent(in) :: s(np,np)
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), intent(in), target :: s(np,np)
 
-    real(kind=real_kind) :: ds(np,np,2)
+    real(kind=real_kind), target :: ds(np,np,2)
 
     integer i,j,l,m,n
-    real(kind=real_kind) ::  dscontra(np,np,2)
+    real(kind=real_kind), target ::  dscontra(np,np,2)
+    logical, save :: proof_seen = .false.
+
+    interface
+       subroutine curl_sphere_wk_testcov_codon(np_c, rrearth_c, s_p, dvv_p, mp_p, d_p, dscontra_p, ds_p) &
+            bind(c, name='curl_sphere_wk_testcov_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: s_p, dvv_p, mp_p, d_p, dscontra_p, ds_p
+       end subroutine curl_sphere_wk_testcov_codon
+    end interface
+
+    if (.not. derivative_use_native('CURL_SPHERE_WK_TESTCOV_IMPL')) then
+       call curl_sphere_wk_testcov_codon( &
+            int(np, c_int64_t), real(rrearth, c_double), c_loc(s), c_loc(deriv%Dvv), &
+            c_loc(elem%mp), c_loc(elem%D), c_loc(dscontra), c_loc(ds) &
+       )
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,*) 'curl_sphere_wk_testcov implementation = codon'
+          call flush(iulog)
+          proof_seen = .true.
+       end if
+       return
+    end if
 
     dscontra=0
     do n=1,np
@@ -1541,6 +1568,9 @@ end do
 
 
   subroutine gradient_sphere_wk_testcov(s,deriv,elem,ds)
+    use iso_c_binding, only : c_int64_t, c_double, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
 !
 !   integrated-by-parts gradient, w.r.t. COVARIANT test functions
 !   input s:  scalar
@@ -1569,15 +1599,39 @@ end do
 !  and we have two terms for each componet of ds 
 !
 !
-    type (derivative_t), intent(in) :: deriv
-    type (element_t), intent(in) :: elem
-    real(kind=real_kind), intent(in) :: s(np,np)
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), intent(in), target :: s(np,np)
 
-    real(kind=real_kind) :: ds(np,np,2)
+    real(kind=real_kind), target :: ds(np,np,2)
 
     integer i,j,l,m,n
-    real(kind=real_kind) ::  dscontra(np,np,2)
+    real(kind=real_kind), target ::  dscontra(np,np,2)
+    logical, save :: proof_seen = .false.
 
+    interface
+       subroutine gradient_sphere_wk_testcov_codon(np_c, rrearth_c, s_p, dvv_p, mp_p, metinv_p, metdet_p, d_p, &
+            dscontra_p, ds_p) bind(c, name='gradient_sphere_wk_testcov_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: s_p, dvv_p, mp_p, metinv_p, metdet_p, d_p, dscontra_p, ds_p
+       end subroutine gradient_sphere_wk_testcov_codon
+    end interface
+
+    if (.not. derivative_use_native('GRADIENT_SPHERE_WK_TESTCOV_IMPL')) then
+       call gradient_sphere_wk_testcov_codon( &
+            int(np, c_int64_t), real(rrearth, c_double), c_loc(s), c_loc(deriv%Dvv), &
+            c_loc(elem%mp), c_loc(elem%metinv), c_loc(elem%metdet), c_loc(elem%D), &
+            c_loc(dscontra), c_loc(ds) &
+       )
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,*) 'gradient_sphere_wk_testcov implementation = codon'
+          call flush(iulog)
+          proof_seen = .true.
+       end if
+       return
+    end if
 
     dscontra=0
     do n=1,np
