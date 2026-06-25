@@ -278,6 +278,147 @@ def _cam_blank_fill(out: Ptr[int], n: int):
         out[i] = 32
 
 
+@inline
+def _ascii_trim_len(chars: Ptr[int], n: int) -> int:
+    for i in range(n - 1, -1, -1):
+        if chars[i] != 32 and chars[i] != 0:
+            return i + 1
+    return 0
+
+
+@inline
+def _append_ascii_trim(src: Ptr[int], n: int, out: Ptr[int], out_len: int, pos: int) -> int:
+    trim_n = _ascii_trim_len(src, n)
+    if trim_n == 0:
+        return pos
+    if pos > 0:
+        if pos + trim_n >= out_len:
+            return -1
+    elif trim_n > out_len:
+        return -1
+    for i in range(trim_n):
+        out[pos + i] = src[i]
+    return pos + trim_n
+
+
+@inline
+def _append_ascii_slice(src: Ptr[int], start: int, n: int, out: Ptr[int], out_len: int, pos: int) -> int:
+    if n == 0:
+        return pos
+    if pos > 0:
+        if pos + n >= out_len:
+            return -1
+    elif n > out_len:
+        return -1
+    for i in range(n):
+        out[pos + i] = src[start + i]
+    return pos + n
+
+
+@inline
+def _append_int_zero(value: int, width: int, out: Ptr[int], out_len: int, pos: int) -> int:
+    if value < 0:
+        return -1
+    if pos > 0:
+        if pos + width >= out_len:
+            return -1
+    elif width > out_len:
+        return -1
+    scale = 1
+    for _ in range(width - 1):
+        scale *= 10
+    for i in range(width):
+        out[pos + i] = 48 + (value // scale) % 10
+        if scale > 1:
+            scale //= 10
+    return pos + width
+
+
+@export
+def interpret_filename_spec_codon(
+    spec_len: int,
+    spec_ascii_p: cobj,
+    has_number: int,
+    number: int,
+    year: int,
+    month: int,
+    day: int,
+    ncsec: int,
+    case_len: int,
+    case_ascii_p: cobj,
+    out_len: int,
+    out_ascii_p: cobj,
+    status_p: cobj,
+):
+    spec = Ptr[int](spec_ascii_p)
+    case_ascii = Ptr[int](case_ascii_p)
+    out = Ptr[int](out_ascii_p)
+    status = Ptr[int](status_p)
+    _cam_blank_fill(out, out_len)
+    status[0] = 0
+
+    pos = 0
+    i = 0
+    while i < spec_len:
+        if spec[i] == 37:
+            i += 1
+            if i >= spec_len:
+                status[0] = 3
+                return
+            code = spec[i]
+            if code == 99:
+                pos = _append_ascii_trim(case_ascii, case_len, out, out_len, pos)
+            elif code == 116:
+                if has_number == 0:
+                    status[0] = 1
+                    return
+                if number > 9999:
+                    status[0] = 2
+                    return
+                width = 1
+                if number > 999:
+                    width = 4
+                elif number > 99:
+                    width = 3
+                elif number > 9:
+                    width = 2
+                pos = _append_int_zero(number, width, out, out_len, pos)
+            elif code == 121:
+                width = 4
+                if year > 99999:
+                    width = 6
+                elif year > 9999:
+                    width = 5
+                pos = _append_int_zero(year, width, out, out_len, pos)
+            elif code == 109:
+                pos = _append_int_zero(month, 2, out, out_len, pos)
+            elif code == 100:
+                pos = _append_int_zero(day, 2, out, out_len, pos)
+            elif code == 115:
+                pos = _append_int_zero(ncsec, 5, out, out_len, pos)
+            elif code == 37:
+                pos = _append_ascii_slice(spec, i, 1, out, out_len, pos)
+            else:
+                status[0] = 3
+                return
+            if pos < 0:
+                status[0] = 4
+                return
+            i += 1
+        else:
+            j = i
+            while j < spec_len and spec[j] != 37:
+                j += 1
+            pos = _append_ascii_slice(spec, i, j - i, out, out_len, pos)
+            if pos < 0:
+                status[0] = 4
+                return
+            i = j
+
+    if pos == 0:
+        status[0] = 5
+
+
 @export
 def glc_codon(chars_p: cobj, n: int) -> int:
     chars = Ptr[int](chars_p)

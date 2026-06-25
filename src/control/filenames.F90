@@ -11,7 +11,8 @@ use time_manager,     only: get_curr_date, get_prev_date
 use shr_kind_mod,     only: shr_kind_cm, shr_kind_cl
 use cam_abortutils,   only: endrun
 use cam_logfile,      only: iulog
-use iso_c_binding,    only: c_int64_t
+use spmd_utils,       only: masterproc
+use iso_c_binding,    only: c_int64_t, c_loc
 
 implicit none
 private
@@ -30,8 +31,89 @@ logical, public :: brnch_retain_casename = .false.
 
 integer, parameter :: nlen = shr_kind_cl                ! String length
 
+logical :: use_native_interpret_filename_spec_impl = .false.
+logical :: interpret_filename_spec_impl_selected = .false.
+logical :: interpret_filename_spec_logged = .false.
+
+interface
+   subroutine interpret_filename_spec_codon(spec_len_c, spec_ascii_p, has_number_c, number_c, &
+        year_c, month_c, day_c, ncsec_c, case_len_c, case_ascii_p, out_len_c, out_ascii_p, &
+        status_p) bind(c, name="interpret_filename_spec_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: spec_len_c, has_number_c, number_c
+      integer(c_int64_t), value :: year_c, month_c, day_c, ncsec_c
+      integer(c_int64_t), value :: case_len_c, out_len_c
+      type(c_ptr), value :: spec_ascii_p, case_ascii_p, out_ascii_p, status_p
+   end subroutine interpret_filename_spec_codon
+end interface
+
 !===============================================================================
 CONTAINS
+!===============================================================================
+
+subroutine interpret_filename_spec_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (interpret_filename_spec_impl_selected) return
+
+   impl_name = 'codon'
+   call cam_codon_get_impl('INTERPRET_FILENAME_SPEC_IMPL', impl_name, n, status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_interpret_filename_spec_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_interpret_filename_spec_impl = .false.
+   end if
+
+   interpret_filename_spec_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_interpret_filename_spec_impl) then
+         write(iulog,*) 'interpret_filename_spec implementation = native'
+      else
+         write(iulog,*) 'interpret_filename_spec implementation = codon'
+      end if
+   end if
+
+end subroutine interpret_filename_spec_select_impl
+
+!===============================================================================
+
+subroutine interpret_filename_spec_log_direct()
+
+   if (interpret_filename_spec_logged) return
+   interpret_filename_spec_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'interpret_filename_spec direct = codon; time-manager/endrun native boundary'
+      call flush(iulog)
+   end if
+
+end subroutine interpret_filename_spec_log_direct
+
+!===============================================================================
+
+subroutine filenames_pack_ascii(text, ascii, n)
+
+   character(len=*), intent(in) :: text
+   integer(c_int64_t), intent(out) :: ascii(:)
+   integer, intent(in) :: n
+   integer :: i
+
+   do i = 1, n
+      ascii(i) = int(iachar(text(i:i)), c_int64_t)
+   end do
+
+end subroutine filenames_pack_ascii
+
 !===============================================================================
 
 character(len=nlen) function get_dir( filepath )
@@ -98,14 +180,14 @@ character(len=nlen) function interpret_filename_spec( filename_spec, number, pre
    integer :: i, n  ! Loop variables
    logical :: previous              ! If should label with previous time-step
    logical :: done
+   integer :: spec_n, case_n
+   integer(c_int64_t), target :: spec_codes(len(filename_spec)), case_codes(nlen)
+   integer(c_int64_t), target :: out_codes(nlen), status_c
+   integer(c_int64_t) :: has_number_c, number_c
+   character(len=nlen) :: case_work
    !-----------------------------------------------------------------------------
 
-#define CAM_MISC_TAG 217
-#define CAM_MISC_LABEL 'interpret_filename_spec'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   call interpret_filename_spec_select_impl()
 
    if ( len_trim(filename_spec) == 0 )then
       call endrun ('INTERPRET_FILENAME_SPEC: filename specifier is empty')
@@ -132,6 +214,56 @@ character(len=nlen) function interpret_filename_spec( filename_spec, number, pre
       else
          call get_curr_date(year, month, day, ncsec)
       end if
+   end if
+
+   if (.not. use_native_interpret_filename_spec_impl) then
+      spec_n = len_trim(filename_spec)
+      case_work = ''
+      if (present(case)) then
+         case_work = case
+      else
+         case_work = caseid
+      end if
+      case_n = len_trim(case_work)
+      call filenames_pack_ascii(filename_spec, spec_codes, spec_n)
+      if (case_n > 0) then
+         call filenames_pack_ascii(case_work, case_codes, case_n)
+      else
+         case_codes(1) = int(iachar(' '), c_int64_t)
+      end if
+      if (present(number)) then
+         has_number_c = 1_c_int64_t
+         number_c = int(number, c_int64_t)
+      else
+         has_number_c = 0_c_int64_t
+         number_c = 0_c_int64_t
+      end if
+      status_c = -1_c_int64_t
+      call interpret_filename_spec_log_direct()
+      call interpret_filename_spec_codon(int(spec_n, c_int64_t), c_loc(spec_codes(1)), &
+         has_number_c, number_c, int(year, c_int64_t), int(month, c_int64_t), &
+         int(day, c_int64_t), int(ncsec, c_int64_t), int(case_n, c_int64_t), &
+         c_loc(case_codes(1)), int(nlen, c_int64_t), c_loc(out_codes(1)), c_loc(status_c))
+      select case (int(status_c))
+      case (0)
+         interpret_filename_spec = ''
+         do i = 1, nlen
+            interpret_filename_spec(i:i) = achar(int(out_codes(i)))
+         end do
+         return
+      case (1)
+         call endrun ('INTERPRET_FILENAME_SPEC: number needed in filename_spec')
+      case (2)
+         call endrun ('INTERPRET_FILENAME_SPEC: number is too large')
+      case (3)
+         call endrun ('INTERPRET_FILENAME_SPEC: Invalid expansion character')
+      case (4)
+         call endrun ('INTERPRET_FILENAME_SPEC: Resultant filename too long')
+      case (5)
+         call endrun ('INTERPRET_FILENAME_SPEC: Resulting filename is empty')
+      case default
+         call endrun ('INTERPRET_FILENAME_SPEC: Codon expansion failed')
+      end select
    end if
    !
    ! Go through each character in the filename specifyer and interpret if special string
