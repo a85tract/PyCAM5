@@ -1627,14 +1627,14 @@ main_ipair2: do ipair = 1, npair_acoag
 	use cam_abortutils,  only: endrun
 	use cam_history,     only: addfld, add_default, fieldname_len, phys_decomp
 	use constituents,    only: pcnst, cnst_name
-	use mo_util,         only: chemistry_misc_codon_touch
-	use spmd_utils,      only: masterproc
-        use phys_control,    only: phys_getopts
+		use spmd_utils,      only: masterproc
+	        use phys_control,    only: phys_getopts
+	        use iso_c_binding,   only: c_int64_t, c_loc
 
-	implicit none
+		implicit none
 
-!   local variables
-	integer :: ipair, iq, iqfrm, iqfrm_aa, iqtoo, iqtoo_aa
+	!   local variables
+		integer :: ipair, iq, iqfrm, iqfrm_aa, iqtoo, iqtoo_aa
 	integer :: l, lsfrm, lstoo, lunout
 	integer :: m, mfrm, mtoo, mtef
 	integer :: nsamefrm, nsametoo, nspec
@@ -1644,17 +1644,172 @@ main_ipair2: do ipair = 1, npair_acoag
 	character(128)                 :: long_name
 	character(8)                   :: unit
 
-	logical :: dotend(pcnst)
-        logical :: history_aerosol      ! Output the MAM aerosol tendencies
- 
-        !-----------------------------------------------------------------------     
-        call chemistry_misc_codon_touch('modal_aero_coag_init', 171)
-    
-        call phys_getopts( history_aerosol_out        = history_aerosol   )
+		logical :: dotend(pcnst)
+	        logical :: history_aerosol      ! Output the MAM aerosol tendencies
+	        character(len=32) :: impl_name
+	        integer :: status, n, code
+	        logical :: use_native_impl
+	        integer(c_int64_t) :: status_c
+	        integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+	        integer(c_int64_t), target :: lspectype_amode_c(maxd_aspectype,ntot_amode)
+	        integer(c_int64_t), target :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+	        integer(c_int64_t), target :: numptr_amode_c(ntot_amode)
+	        integer(c_int64_t), target :: lspecfrm_pcage_c(maxd_aspectype)
+	        integer(c_int64_t), target :: lspectoo_pcage_c(maxd_aspectype)
+	        integer(c_int64_t), target :: npair_acoag_c(1)
+	        integer(c_int64_t), target :: modefrm_acoag_c(maxpair_acoag)
+	        integer(c_int64_t), target :: modetoo_acoag_c(maxpair_acoag)
+	        integer(c_int64_t), target :: modetooeff_acoag_c(maxpair_acoag)
+	        integer(c_int64_t), target :: nspecfrm_acoag_c(maxpair_acoag)
+	        integer(c_int64_t), target :: lspecfrm_acoag_c(maxspec_acoag,maxpair_acoag)
+	        integer(c_int64_t), target :: lspectoo_acoag_c(maxspec_acoag,maxpair_acoag)
+	        integer(c_int64_t), target :: dotend_c(pcnst)
 
-	lunout = 6
-!
-!   define "from mode" and "to mode" for each coagulation pairing
+	        interface
+	           function modal_aero_coag_init_codon(pair_option_acoag_c, ntot_amode_c, &
+	                maxd_aspectype_c, maxpair_acoag_c, maxspec_acoag_c, pcnst_c, &
+	                modeptr_aitken_c, modeptr_accum_c, modeptr_pcarbon_c, modefrm_pcage_c, &
+	                nspecfrm_pcage_c, nspec_amode_p, lspectype_amode_p, lmassptr_amode_p, &
+	                numptr_amode_p, lspecfrm_pcage_p, lspectoo_pcage_p, npair_acoag_p, &
+	                modefrm_acoag_p, modetoo_acoag_p, modetooeff_acoag_p, nspecfrm_acoag_p, &
+	                lspecfrm_acoag_p, lspectoo_acoag_p, dotend_p) result(out_c) &
+	                bind(c, name="modal_aero_coag_init_codon")
+	             use iso_c_binding, only: c_int64_t, c_ptr
+	             integer(c_int64_t), value :: pair_option_acoag_c, ntot_amode_c
+	             integer(c_int64_t), value :: maxd_aspectype_c, maxpair_acoag_c, maxspec_acoag_c, pcnst_c
+	             integer(c_int64_t), value :: modeptr_aitken_c, modeptr_accum_c, modeptr_pcarbon_c
+	             integer(c_int64_t), value :: modefrm_pcage_c, nspecfrm_pcage_c
+	             type(c_ptr), value :: nspec_amode_p, lspectype_amode_p, lmassptr_amode_p
+	             type(c_ptr), value :: numptr_amode_p, lspecfrm_pcage_p, lspectoo_pcage_p
+	             type(c_ptr), value :: npair_acoag_p, modefrm_acoag_p, modetoo_acoag_p
+	             type(c_ptr), value :: modetooeff_acoag_p, nspecfrm_acoag_p, lspecfrm_acoag_p
+	             type(c_ptr), value :: lspectoo_acoag_p, dotend_p
+	             integer(c_int64_t) :: out_c
+	           end function modal_aero_coag_init_codon
+	        end interface
+
+	        !-----------------------------------------------------------------------
+	        call phys_getopts( history_aerosol_out        = history_aerosol   )
+
+		lunout = 6
+
+	        impl_name = 'codon'
+	        call cam_codon_get_impl('MODAL_AERO_COAG_INIT_IMPL', impl_name, n, status)
+	        use_native_impl = .false.
+	        if (status == 0 .and. n > 0) then
+	           do l = 1, n
+	              code = iachar(impl_name(l:l))
+	              if (code >= iachar('A') .and. code <= iachar('Z')) then
+	                 impl_name(l:l) = achar(code + iachar('a') - iachar('A'))
+	              end if
+	           end do
+	           use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+	        end if
+
+	        if (.not. use_native_impl) then
+	           do m = 1, ntot_amode
+	              nspec_amode_c(m) = int(nspec_amode(m), c_int64_t)
+	              numptr_amode_c(m) = int(numptr_amode(m), c_int64_t)
+	              do l = 1, maxd_aspectype
+	                 lspectype_amode_c(l,m) = int(lspectype_amode(l,m), c_int64_t)
+	                 lmassptr_amode_c(l,m) = int(lmassptr_amode(l,m), c_int64_t)
+	              end do
+	           end do
+	           lspecfrm_pcage_c(:) = 0_c_int64_t
+	           lspectoo_pcage_c(:) = 0_c_int64_t
+	           do iq = 1, min(nspecfrm_pcage, maxd_aspectype)
+	              lspecfrm_pcage_c(iq) = int(lspecfrm_pcage(iq), c_int64_t)
+	              lspectoo_pcage_c(iq) = int(lspectoo_pcage(iq), c_int64_t)
+	           end do
+
+	           status_c = modal_aero_coag_init_codon( &
+	                int(pair_option_acoag, c_int64_t), int(ntot_amode, c_int64_t), &
+	                int(maxd_aspectype, c_int64_t), int(maxpair_acoag, c_int64_t), &
+	                int(maxspec_acoag, c_int64_t), int(pcnst, c_int64_t), &
+	                int(modeptr_aitken, c_int64_t), int(modeptr_accum, c_int64_t), &
+	                int(modeptr_pcarbon, c_int64_t), int(modefrm_pcage, c_int64_t), &
+	                int(nspecfrm_pcage, c_int64_t), c_loc(nspec_amode_c(1)), &
+	                c_loc(lspectype_amode_c(1,1)), c_loc(lmassptr_amode_c(1,1)), &
+	                c_loc(numptr_amode_c(1)), c_loc(lspecfrm_pcage_c(1)), &
+	                c_loc(lspectoo_pcage_c(1)), c_loc(npair_acoag_c(1)), &
+	                c_loc(modefrm_acoag_c(1)), c_loc(modetoo_acoag_c(1)), &
+	                c_loc(modetooeff_acoag_c(1)), c_loc(nspecfrm_acoag_c(1)), &
+	                c_loc(lspecfrm_acoag_c(1,1)), c_loc(lspectoo_acoag_c(1,1)), &
+	                c_loc(dotend_c(1)) )
+
+	           if (status_c == -1_c_int64_t) then
+	              write(*,*) '*** modal_aero_coag_init error'
+	              write(*,*) '    pair_option_acoag, modefrm_pcage mismatch'
+	              write(*,*) '    pair_option_acoag, modefrm_pcage =', &
+	                   pair_option_acoag, modefrm_pcage
+	              call endrun( 'modal_aero_coag_init error' )
+	           else if (status_c /= 1_c_int64_t) then
+	              call endrun( 'modal_aero_coag_init_codon failed' )
+	           end if
+
+	           npair_acoag = int(npair_acoag_c(1))
+	           do ipair = 1, maxpair_acoag
+	              modefrm_acoag(ipair) = int(modefrm_acoag_c(ipair))
+	              modetoo_acoag(ipair) = int(modetoo_acoag_c(ipair))
+	              modetooeff_acoag(ipair) = int(modetooeff_acoag_c(ipair))
+	              nspecfrm_acoag(ipair) = int(nspecfrm_acoag_c(ipair))
+	              do iq = 1, maxspec_acoag
+	                 lspecfrm_acoag(iq,ipair) = int(lspecfrm_acoag_c(iq,ipair))
+	                 lspectoo_acoag(iq,ipair) = int(lspectoo_acoag_c(iq,ipair))
+	              end do
+	           end do
+	           do l = 1, pcnst
+	              dotend(l) = dotend_c(l) /= 0_c_int64_t
+	           end do
+
+	           if (masterproc) then
+	              write(iulog,'(A)') 'modal_aero_coag_init implementation = codon'
+	              write(iulog,'(A)') 'modal_aero_coag_init direct = codon; native logging/history boundary'
+	              call flush(iulog)
+	           end if
+
+	           if ( masterproc ) then
+	              write(lunout,9310)
+	              do ipair = 1, npair_acoag
+	                 mfrm = modefrm_acoag(ipair)
+	                 mtoo = modetoo_acoag(ipair)
+	                 mtef = modetooeff_acoag(ipair)
+	                 write(lunout,9320) ipair, mfrm, mtoo, mtef
+	                 do iq = 1, nspecfrm_acoag(ipair)
+	                    lsfrm = lspecfrm_acoag(iq,ipair)
+	                    lstoo = lspectoo_acoag(iq,ipair)
+	                    if (lstoo .gt. 0) then
+	                       write(lunout,9330) lsfrm, cnst_name(lsfrm),   &
+	                            lstoo, cnst_name(lstoo)
+	                    else
+	                       write(lunout,9340) lsfrm, cnst_name(lsfrm)
+	                    end if
+	                 end do
+	              end do
+	              write(lunout,*)
+	           end if
+
+	           do l = 1, pcnst
+	              if ( .not. dotend(l) ) cycle
+	              tmpname = cnst_name(l)
+	              unit = 'kg/m2/s'
+	              do m = 1, ntot_amode
+	                 if (l == numptr_amode(m)) unit = '#/m2/s'
+	              end do
+	              fieldname = trim(tmpname) // '_sfcoag1'
+	              long_name = trim(tmpname) // ' modal_aero coagulation column tendency'
+	              call addfld( fieldname, unit, 1, 'A', long_name, phys_decomp )
+	              if ( history_aerosol ) then
+	                 call add_default( fieldname, 1, ' ' )
+	              endif
+	              if ( masterproc ) write(*,'(3(a,2x))') &
+	                   'modal_aero_coag_init addfld', fieldname, unit
+	           end do
+
+	           return
+	        end if
+	!
+	!   define "from mode" and "to mode" for each coagulation pairing
 !	currently just a2-->a1 coagulation
 !
 	if (pair_option_acoag == 1) then

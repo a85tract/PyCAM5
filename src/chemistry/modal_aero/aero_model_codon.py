@@ -444,6 +444,169 @@ def initaermodes_setspecptrs_codon(
     return 1
 
 
+@export
+def modal_aero_coag_init_codon(
+    pair_option_acoag: int,
+    ntot_amode: int,
+    maxd_aspectype: int,
+    maxpair_acoag: int,
+    maxspec_acoag: int,
+    pcnst: int,
+    modeptr_aitken: int,
+    modeptr_accum: int,
+    modeptr_pcarbon: int,
+    modefrm_pcage: int,
+    nspecfrm_pcage: int,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    numptr_amode_p: cobj,
+    lspecfrm_pcage_p: cobj,
+    lspectoo_pcage_p: cobj,
+    npair_acoag_p: cobj,
+    modefrm_acoag_p: cobj,
+    modetoo_acoag_p: cobj,
+    modetooeff_acoag_p: cobj,
+    nspecfrm_acoag_p: cobj,
+    lspecfrm_acoag_p: cobj,
+    lspectoo_acoag_p: cobj,
+    dotend_p: cobj,
+) -> int:
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lspectype_amode = Ptr[int](lspectype_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    lspecfrm_pcage = Ptr[int](lspecfrm_pcage_p)
+    lspectoo_pcage = Ptr[int](lspectoo_pcage_p)
+    npair_acoag = Ptr[int](npair_acoag_p)
+    modefrm_acoag = Ptr[int](modefrm_acoag_p)
+    modetoo_acoag = Ptr[int](modetoo_acoag_p)
+    modetooeff_acoag = Ptr[int](modetooeff_acoag_p)
+    nspecfrm_acoag = Ptr[int](nspecfrm_acoag_p)
+    lspecfrm_acoag = Ptr[int](lspecfrm_acoag_p)
+    lspectoo_acoag = Ptr[int](lspectoo_acoag_p)
+    dotend = Ptr[int](dotend_p)
+
+    npair_acoag[0] = 0
+    for ipair0 in range(maxpair_acoag):
+        modefrm_acoag[ipair0] = 0
+        modetoo_acoag[ipair0] = 0
+        modetooeff_acoag[ipair0] = 0
+        nspecfrm_acoag[ipair0] = 0
+    for ipair0 in range(maxpair_acoag):
+        for iq0 in range(maxspec_acoag):
+            idx = iq0 + ipair0 * maxspec_acoag
+            lspecfrm_acoag[idx] = 0
+            lspectoo_acoag[idx] = 0
+    for l0 in range(pcnst):
+        dotend[l0] = 0
+
+    if pair_option_acoag == 1:
+        npair_acoag[0] = 1
+        modefrm_acoag[0] = modeptr_aitken
+        modetoo_acoag[0] = modeptr_accum
+        modetooeff_acoag[0] = modeptr_accum
+    elif pair_option_acoag == 2:
+        npair_acoag[0] = 2
+        modefrm_acoag[0] = modeptr_aitken
+        modetoo_acoag[0] = modeptr_accum
+        modetooeff_acoag[0] = modeptr_accum
+        modefrm_acoag[1] = modeptr_pcarbon
+        modetoo_acoag[1] = modeptr_accum
+        modetooeff_acoag[1] = modeptr_accum
+    elif pair_option_acoag == 3:
+        if modefrm_pcage <= 0:
+            return -1
+        npair_acoag[0] = 3
+        modefrm_acoag[0] = modeptr_aitken
+        modetoo_acoag[0] = modeptr_accum
+        modetooeff_acoag[0] = modeptr_accum
+        modefrm_acoag[1] = modeptr_pcarbon
+        modetoo_acoag[1] = modeptr_accum
+        modetooeff_acoag[1] = modeptr_accum
+        modefrm_acoag[2] = modeptr_aitken
+        modetoo_acoag[2] = modeptr_pcarbon
+        modetooeff_acoag[2] = modeptr_accum
+    else:
+        return 1
+
+    for ipair in range(1, npair_acoag[0] + 1):
+        mfrm = modefrm_acoag[ipair - 1]
+        mtoo = modetoo_acoag[ipair - 1]
+        mtef = modetooeff_acoag[ipair - 1]
+        if mfrm < 1 or mfrm > ntot_amode or mtoo < 1 or mtoo > ntot_amode or mtef < 1 or mtef > ntot_amode:
+            return -2
+
+        mtoo = mtef
+        nspec = 0
+        for iqfrm in range(1, nspec_amode[mfrm - 1] + 1):
+            frm_idx = _idx2(iqfrm, mfrm, maxd_aspectype)
+            lsfrm = lmassptr_amode[frm_idx]
+            if lsfrm < 1 or lsfrm > pcnst:
+                continue
+
+            iqfrm_aa = 1
+            iqtoo_aa = 1
+            if iqfrm > nspec_amode[mfrm - 1]:
+                iqfrm_aa = nspec_amode[mfrm - 1] + 1
+                iqtoo_aa = nspec_amode[mtoo - 1] + 1
+
+            nsamefrm = 0
+            for iq in range(iqfrm_aa, iqfrm + 1):
+                if lspectype_amode[_idx2(iq, mfrm, maxd_aspectype)] == lspectype_amode[frm_idx]:
+                    nsamefrm += 1
+
+            nsametoo = 0
+            lstoo = 0
+            for iqtoo in range(iqtoo_aa, nspec_amode[mtoo - 1] + 1):
+                if lspectype_amode[_idx2(iqtoo, mtoo, maxd_aspectype)] == lspectype_amode[frm_idx]:
+                    nsametoo += 1
+                    if nsametoo == nsamefrm:
+                        lstoo = lmassptr_amode[_idx2(iqtoo, mtoo, maxd_aspectype)]
+                        break
+
+            nspec += 1
+            if nspec > maxspec_acoag:
+                return -3
+            out_idx = _idx2(nspec, ipair, maxspec_acoag)
+            lspecfrm_acoag[out_idx] = lsfrm
+            lspectoo_acoag[out_idx] = lstoo
+
+        nspecfrm_acoag[ipair - 1] = nspec
+
+    for ipair in range(1, npair_acoag[0] + 1):
+        for iq in range(1, nspecfrm_acoag[ipair - 1] + 1):
+            idx = _idx2(iq, ipair, maxspec_acoag)
+            l = lspecfrm_acoag[idx]
+            if l > 0 and l <= pcnst:
+                dotend[l - 1] = 1
+            l = lspectoo_acoag[idx]
+            if l > 0 and l <= pcnst:
+                dotend[l - 1] = 1
+
+        m = modefrm_acoag[ipair - 1]
+        if m > 0 and m <= ntot_amode:
+            l = numptr_amode[m - 1]
+            if l > 0 and l <= pcnst:
+                dotend[l - 1] = 1
+        m = modetoo_acoag[ipair - 1]
+        if m > 0 and m <= ntot_amode:
+            l = numptr_amode[m - 1]
+            if l > 0 and l <= pcnst:
+                dotend[l - 1] = 1
+
+    if pair_option_acoag == 3:
+        for iq in range(1, nspecfrm_pcage + 1):
+            lsfrm = lspecfrm_pcage[iq - 1]
+            lstoo = lspectoo_pcage[iq - 1]
+            if lsfrm > 0 and lsfrm <= pcnst:
+                dotend[lsfrm - 1] = 1
+                if lstoo > 0 and lstoo <= pcnst:
+                    dotend[lstoo - 1] = 1
+
+    return 1
+
+
 @inline
 def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
     return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))
