@@ -61,6 +61,7 @@ logical :: wv_sat_methods_impl_selected = .false.
 logical :: wv_sat_methods_proof_written = .false.
 logical :: wv_sat_methods_init_logged = .false.
 logical :: wv_sat_set_default_logged = .false.
+logical :: wv_sat_qsat_water_logged = .false.
 
 interface
   function wv_sat_methods_value_codon(value_c) result(value_out) &
@@ -76,6 +77,13 @@ interface
     real(c_double), value :: epsilo_c
     real(c_double) :: omeps_c
   end function wv_sat_methods_omeps_codon
+
+  function physpkg_pure_counter_codon(which_c) result(count_c) &
+       bind(c, name="physpkg_pure_counter_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: which_c
+    integer(c_int64_t) :: count_c
+  end function physpkg_pure_counter_codon
 
   subroutine wv_sat_methods_init_codon(tmelt_in_c, h2otrip_in_c, tboil_in_c, &
        ttrice_in_c, epsilo_in_c, tmelt_p, h2otrip_p, tboil_p, ttrice_p, epsilo_p, omeps_p) &
@@ -199,6 +207,7 @@ interface
 end interface
 
 public wv_sat_methods_init
+public wv_sat_methods_log_pure_codon_counts
 public wv_sat_get_scheme_idx
 public wv_sat_valid_idx
 public wv_sat_get_default_idx
@@ -283,6 +292,20 @@ subroutine wv_sat_methods_log_direct(logged, proof_line)
   end if
 
 end subroutine wv_sat_methods_log_direct
+
+subroutine wv_sat_methods_log_pure_codon_counts()
+
+  integer(c_int64_t) :: hits
+
+  call wv_sat_methods_select_impl()
+  if (use_native_wv_sat_methods_impl) return
+
+  hits = physpkg_pure_counter_codon(7_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_sat_methods_log_direct(wv_sat_qsat_water_logged, 'wv_sat_qsat_water direct = codon; pure counter proof')
+  end if
+
+end subroutine wv_sat_methods_log_pure_codon_counts
 
 real(r8) function wv_sat_methods_value(value) result(out)
   real(r8), intent(in) :: value

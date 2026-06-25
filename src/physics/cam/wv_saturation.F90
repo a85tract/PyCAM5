@@ -45,6 +45,7 @@ save
 public wv_sat_readnl
 public wv_sat_init
 public wv_sat_final
+public wv_saturation_log_pure_codon_counts
 
 ! Saturation vapor pressure calculations
 public svp_water
@@ -95,6 +96,8 @@ real(r8), parameter :: tboil = 373.16_r8
   logical :: wv_sat_init_logged = .false.
   logical :: wv_sat_final_logged = .false.
   logical :: tq_enthalpy_logged = .false.
+  logical :: no_ip_hltalt_logged = .false.
+  logical :: calc_hltalt_logged = .false.
   logical :: findsp_logged = .false.
   logical :: findsp_vc_logged = .false.
 
@@ -110,6 +113,13 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), value :: value_c
        real(c_double) :: value_out
      end function wv_saturation_value_codon
+
+     function physpkg_pure_counter_codon(which_c) result(count_c) &
+          bind(c, name="physpkg_pure_counter_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: which_c
+       integer(c_int64_t) :: count_c
+     end function physpkg_pure_counter_codon
 
      pure function wv_saturation_limit_es_codon(es_c, p_c) result(es_out) &
           bind(c, name="wv_saturation_limit_es_codon")
@@ -336,6 +346,30 @@ subroutine wv_saturation_log_direct(logged, proof_line)
   end if
 
 end subroutine wv_saturation_log_direct
+
+subroutine wv_saturation_log_pure_codon_counts()
+
+  integer(c_int64_t) :: hits
+
+  call wv_saturation_select_impl()
+  if (use_native_wv_saturation_impl) return
+
+  hits = physpkg_pure_counter_codon(4_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_saturation_log_direct(tq_enthalpy_logged, 'tq_enthalpy direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(5_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_saturation_log_direct(no_ip_hltalt_logged, 'no_ip_hltalt direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(6_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call wv_saturation_log_direct(calc_hltalt_logged, 'calc_hltalt direct = codon; pure counter proof')
+  end if
+
+end subroutine wv_saturation_log_pure_codon_counts
 
 subroutine wv_sat_readnl(nlfile)
   !------------------------------------------------------------------!

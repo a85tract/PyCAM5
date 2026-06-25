@@ -48,6 +48,7 @@ save
 
 public :: &
      micro_mg_utils_init, &
+     micro_mg_utils_log_pure_codon_counts, &
      size_dist_param_liq, &
      size_dist_param_basic, &
      avg_diameter, &
@@ -201,6 +202,8 @@ logical :: use_native_micro_mg_utils_init_impl = .false.
 logical :: micro_mg_utils_init_impl_selected = .false.
 logical :: micro_mg_utils_init_proof_written = .false.
 logical :: newmghydrometeorprops_proof_written = .false.
+logical :: size_dist_param_liq_logged = .false.
+logical :: size_dist_param_basic_logged = .false.
 
 interface
   subroutine micro_mg_utils_init_scalars_codon(rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c, &
@@ -209,6 +212,12 @@ interface
     real(c_double), value :: rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c
     type(c_ptr), value :: rv_p, cpp_p, tmelt_p, xxlv_p, xlf_p, xxls_p
   end subroutine micro_mg_utils_init_scalars_codon
+  function physpkg_pure_counter_codon(which_c) result(count_c) &
+       bind(c, name="physpkg_pure_counter_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: which_c
+    integer(c_int64_t) :: count_c
+  end function physpkg_pure_counter_codon
   subroutine micro_mg_utils_init_codon(kind_c, expected_kind_c, rh2o_c, cpair_c, tmelt_c, &
        latvap_c, latice_c, dcs_c, pi_c, dsph_c, bs_c, br_c, rhow_c, rhoi_c, rhosn_c, &
        min_mean_mass_liq_c, min_mean_mass_ice_c, no_limiter_bits_c, lam_bnd_rain1_c, &
@@ -354,6 +363,46 @@ subroutine newmghydrometeorprops_proof_once()
   end if
 
 end subroutine newmghydrometeorprops_proof_once
+
+!==========================================================================
+
+subroutine micro_mg_utils_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_utils_log_direct
+
+!==========================================================================
+
+subroutine micro_mg_utils_log_pure_codon_counts()
+
+  integer(c_int64_t) :: hits
+
+  call micro_mg_utils_init_select_impl()
+  if (use_native_micro_mg_utils_init_impl) return
+
+  hits = physpkg_pure_counter_codon(8_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call micro_mg_utils_log_direct(size_dist_param_liq_logged, &
+          'size_dist_param_liq direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(9_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call micro_mg_utils_log_direct(size_dist_param_basic_logged, &
+          'size_dist_param_basic direct = codon; pure counter proof')
+  end if
+
+end subroutine micro_mg_utils_log_pure_codon_counts
 
 !==========================================================================
 

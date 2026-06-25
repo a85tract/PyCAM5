@@ -11459,6 +11459,8 @@ def size_dist_param_basic_codon(
     lam_c: cobj,
     n0_c: cobj,
 ):
+    global mg_size_dist_param_basic_hits
+    mg_size_dist_param_basic_hits += 1
     nic_out = Ptr[float](nic_out_c)
     lam_out = Ptr[float](lam_c)
     n0_out = Ptr[float](n0_c)
@@ -11500,6 +11502,8 @@ def size_dist_param_liq_codon(
     pgam_c: cobj,
     lamc_c: cobj,
 ):
+    global mg_size_dist_param_liq_hits
+    mg_size_dist_param_liq_hits += 1
     ncic_out = Ptr[float](ncic_out_c)
     pgam_out = Ptr[float](pgam_c)
     lamc_out = Ptr[float](lamc_c)
@@ -12690,6 +12694,40 @@ def pbl_utils_init_codon(value: float) -> float:
     return value
 
 
+pbl_calc_ustar_hits = 0
+pbl_calc_obklen_hits = 0
+pbl_virtem_hits = 0
+wv_tq_enthalpy_hits = 0
+wv_no_ip_hltalt_hits = 0
+wv_calc_hltalt_hits = 0
+wv_sat_qsat_water_hits = 0
+mg_size_dist_param_liq_hits = 0
+mg_size_dist_param_basic_hits = 0
+
+
+@export
+def physpkg_pure_counter_codon(which: int) -> int:
+    if which == 1:
+        return pbl_calc_ustar_hits
+    if which == 2:
+        return pbl_calc_obklen_hits
+    if which == 3:
+        return pbl_virtem_hits
+    if which == 4:
+        return wv_tq_enthalpy_hits
+    if which == 5:
+        return wv_no_ip_hltalt_hits
+    if which == 6:
+        return wv_calc_hltalt_hits
+    if which == 7:
+        return wv_sat_qsat_water_hits
+    if which == 8:
+        return mg_size_dist_param_liq_hits
+    if which == 9:
+        return mg_size_dist_param_basic_hits
+    return 0
+
+
 @export
 def calc_ustar_rrho_codon(rair: float, t: float, pmid: float) -> float:
     return rair * t / pmid
@@ -12697,6 +12735,8 @@ def calc_ustar_rrho_codon(rair: float, t: float, pmid: float) -> float:
 
 @export
 def calc_ustar_codon(taux: float, tauy: float, rrho: float, ustar_min: float) -> float:
+    global pbl_calc_ustar_hits
+    pbl_calc_ustar_hits += 1
     return max(sqrt(sqrt(taux**2 + tauy**2) * rrho), ustar_min)
 
 
@@ -12717,6 +12757,8 @@ def calc_obklen_kbfs_codon(khfs: float, zvir: float, ths: float, kqfs: float) ->
 
 @export
 def calc_obklen_codon(thvs: float, ustar: float, g: float, vk: float, kbfs: float) -> float:
+    global pbl_calc_obklen_hits
+    pbl_calc_obklen_hits += 1
     sign_eps = 1.0e-10
     if kbfs < 0.0:
         sign_eps = -1.0e-10
@@ -12725,6 +12767,8 @@ def calc_obklen_codon(thvs: float, ustar: float, g: float, vk: float, kbfs: floa
 
 @export
 def virtem_codon(t: float, q: float, zvir: float) -> float:
+    global pbl_virtem_hits
+    pbl_virtem_hits += 1
     return t * (1.0 + zvir * q)
 
 
@@ -13152,6 +13196,8 @@ def wv_sat_qsat_water_codon(
     es_p: cobj,
     qs_p: cobj,
 ):
+    global wv_sat_qsat_water_hits
+    wv_sat_qsat_water_hits += 1
     es_out = Ptr[float](es_p)
     qs_out = Ptr[float](qs_p)
 
@@ -13488,11 +13534,15 @@ def wv_saturation_limit_es_codon(es: float, p: float) -> float:
 
 @export
 def tq_enthalpy_codon(cpair: float, t: float, q: float, hltalt: float) -> float:
+    global wv_tq_enthalpy_hits
+    wv_tq_enthalpy_hits += 1
     return cpair * t + hltalt * q
 
 
 @export
 def no_ip_hltalt_codon(t: float, tmelt: float, latvap: float) -> float:
+    global wv_no_ip_hltalt_hits
+    wv_no_ip_hltalt_hits += 1
     hltalt = latvap
     if t >= tmelt:
         hltalt = hltalt - 2369.0 * (t - tmelt)
@@ -13514,6 +13564,8 @@ def calc_hltalt_codon(
     hltalt_p: cobj,
     tterm_p: cobj,
 ):
+    global wv_calc_hltalt_hits
+    wv_calc_hltalt_hits += 1
     hltalt_out = Ptr[float](hltalt_p)
     tterm_out = Ptr[float](tterm_p)
 

@@ -1436,7 +1436,10 @@ subroutine phys_final( phys_state, phys_tend, pbuf2d )
     use physics_buffer, only : physics_buffer_desc, pbuf_deallocate
     use chemistry, only : chem_final
     use carma_intr, only : carma_final
-    use wv_saturation, only : wv_sat_final
+    use pbl_utils, only : pbl_utils_log_pure_codon_counts
+    use wv_saturation, only : wv_sat_final, wv_saturation_log_pure_codon_counts
+    use wv_sat_methods, only : wv_sat_methods_log_pure_codon_counts
+    use micro_mg_utils, only : micro_mg_utils_log_pure_codon_counts
     !----------------------------------------------------------------------- 
     ! 
     ! Purpose: 
@@ -1464,6 +1467,10 @@ subroutine phys_final( phys_state, phys_tend, pbuf2d )
     deallocate(phys_tend)
     call chem_final
     call carma_final
+    call pbl_utils_log_pure_codon_counts()
+    call wv_saturation_log_pure_codon_counts()
+    call wv_sat_methods_log_pure_codon_counts()
+    call micro_mg_utils_log_pure_codon_counts()
     call wv_sat_final
 
 end subroutine phys_final

@@ -26,6 +26,7 @@ private
 ! arguments, as long as all arguments have the same number of
 ! elements.
 public pbl_utils_init
+public pbl_utils_log_pure_codon_counts
 public calc_ustar
 public calc_obklen
 public virtem
@@ -42,6 +43,9 @@ logical :: use_native_pbl_utils_impl = .false.
 logical :: pbl_utils_impl_selected = .false.
 logical :: pbl_utils_proof_written = .false.
 logical :: pbl_utils_init_logged = .false.
+logical :: calc_ustar_logged = .false.
+logical :: calc_obklen_logged = .false.
+logical :: virtem_logged = .false.
 logical :: use_native_compute_radf_impl = .false.
 logical :: compute_radf_impl_selected = .false.
 logical :: compute_radf_logged = .false.
@@ -59,6 +63,12 @@ interface
     real(c_double), value :: value_c
     real(c_double) :: value_out
   end function pbl_utils_init_codon
+  function physpkg_pure_counter_codon(which_c) result(count_c) &
+       bind(c, name="physpkg_pure_counter_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: which_c
+    integer(c_int64_t) :: count_c
+  end function physpkg_pure_counter_codon
   pure function calc_ustar_rrho_codon(rair_c, t_c, pmid_c) result(rrho_out) &
        bind(c, name="calc_ustar_rrho_codon")
     use iso_c_binding, only: c_double
@@ -173,6 +183,30 @@ subroutine pbl_utils_log_direct(logged, proof_line)
 
 end subroutine pbl_utils_log_direct
 
+subroutine pbl_utils_log_pure_codon_counts()
+
+  integer(c_int64_t) :: hits
+
+  call pbl_utils_select_impl()
+  if (use_native_pbl_utils_impl) return
+
+  hits = physpkg_pure_counter_codon(1_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call pbl_utils_log_direct(calc_ustar_logged, 'calc_ustar direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(2_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call pbl_utils_log_direct(calc_obklen_logged, 'calc_obklen direct = codon; pure counter proof')
+  end if
+
+  hits = physpkg_pure_counter_codon(3_c_int64_t)
+  if (hits > 0_c_int64_t) then
+     call pbl_utils_log_direct(virtem_logged, 'virtem direct = codon; pure counter proof')
+  end if
+
+end subroutine pbl_utils_log_pure_codon_counts
+
 subroutine pbl_utils_compute_radf_select_impl()
 
   character(len=32) :: impl_name
@@ -285,9 +319,16 @@ elemental subroutine calc_ustar( t,    pmid, taux, tauy, &
   real(r8), intent(out) :: rrho     ! 1./bottom level density
   real(r8), intent(out) :: ustar    ! surface friction velocity [m/s]
 
+  if (use_native_pbl_utils_impl) then
+     rrho = rair * t / pmid
+     ustar = max( sqrt( sqrt(taux**2 + tauy**2)*rrho ), ustar_min )
+     return
+  end if
+
   rrho = real(calc_ustar_rrho_codon(real(rair, c_double), real(t, c_double), &
        real(pmid, c_double)), r8)
-  ustar = max( sqrt( sqrt(taux**2 + tauy**2)*rrho ), ustar_min )
+  ustar = real(calc_ustar_codon(real(taux, c_double), real(tauy, c_double), &
+       real(rrho, c_double), real(ustar_min, c_double)), r8)
 
 end subroutine calc_ustar
 
@@ -311,14 +352,21 @@ elemental subroutine calc_obklen( ths,  thvs, qflx, shflx, rrho, ustar, &
   real(r8), intent(out) :: kbfs          ! sfc kinematic buoyancy flux [m^2/s^3]
   real(r8), intent(out) :: obklen        ! Obukhov length
 
-  ! Need kinematic fluxes for Obukhov:
+  if (use_native_pbl_utils_impl) then
+     khfs = shflx*rrho/cpair
+     kqfs = qflx*rrho
+     kbfs = khfs + zvir*ths*kqfs
+     obklen = -thvs * ustar**3 / (g*vk*(kbfs + sign(1.e-10_r8,kbfs)))
+     return
+  end if
+
   khfs = real(calc_obklen_khfs_codon(real(shflx, c_double), real(rrho, c_double), &
        real(cpair, c_double)), r8)
   kqfs = real(calc_obklen_kqfs_codon(real(qflx, c_double), real(rrho, c_double)), r8)
-  kbfs = khfs + zvir*ths*kqfs
-
-  ! Compute Obukhov length:
-  obklen = -thvs * ustar**3 / (g*vk*(kbfs + sign(1.e-10_r8,kbfs)))
+  kbfs = real(calc_obklen_kbfs_codon(real(khfs, c_double), real(zvir, c_double), &
+       real(ths, c_double), real(kqfs, c_double)), r8)
+  obklen = real(calc_obklen_codon(real(thvs, c_double), real(ustar, c_double), &
+       real(g, c_double), real(vk, c_double), real(kbfs, c_double)), r8)
 
 end subroutine calc_obklen
 
@@ -331,7 +379,12 @@ elemental real(r8) function virtem(t,q)
 
   real(r8), intent(in) :: t, q
 
-  virtem = t * (1.0_r8 + zvir*q)
+  if (use_native_pbl_utils_impl) then
+     virtem = t * (1.0_r8 + zvir*q)
+     return
+  end if
+
+  virtem = real(virtem_codon(real(t, c_double), real(q, c_double), real(zvir, c_double)), r8)
 
 end function virtem
 
