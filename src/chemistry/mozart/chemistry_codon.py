@@ -7935,6 +7935,39 @@ def get_model_time_codon(tag: int) -> int:
     return tag
 
 @export
+def solar_data_get_model_time_codon(
+    time_value: float,
+    yr: int,
+    mn: int,
+    dy: int,
+    sc: int,
+    has_year: int,
+    has_month: int,
+    has_day: int,
+    has_seconds: int,
+    time_p: cobj,
+    year_p: cobj,
+    month_p: cobj,
+    day_p: cobj,
+    seconds_p: cobj,
+):
+    time_out = Ptr[float](time_p)
+    time_out[0] = time_value
+
+    if has_year != 0:
+        year_out = Ptr[int](year_p)
+        year_out[0] = yr
+    if has_month != 0:
+        month_out = Ptr[int](month_p)
+        month_out[0] = mn
+    if has_day != 0:
+        day_out = Ptr[int](day_p)
+        day_out[0] = dy
+    if has_seconds != 0:
+        seconds_out = Ptr[int](seconds_p)
+        seconds_out[0] = sc
+
+@export
 def convert_date_codon(tag: int) -> int:
     return tag
 

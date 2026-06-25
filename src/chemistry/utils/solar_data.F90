@@ -555,23 +555,92 @@ contains
 !-----------------------------------------------------------------------
   subroutine get_model_time( time, year, month, day, seconds )
 
-    use time_manager, only: get_curr_date
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
+    use time_manager, only: get_curr_date, set_time_float_from_date
 
     real(r8), intent(out) :: time
     integer, optional, intent(out) :: year, month, day, seconds
 
     integer  :: yr, mn, dy, sc, date
+    real(c_double), target :: time_work
+    integer(c_int64_t), target :: year_work, month_work, day_work, seconds_work
+    type(c_ptr) :: year_p, month_p, day_p, seconds_p
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+    logical :: use_native_impl
+    logical, save :: proof_seen = .false.
 
-    call chemistry_misc_codon_touch('solar_data::get_model_time', 303)
+    interface
+       subroutine solar_data_get_model_time_codon(time_value_c, yr_c, mn_c, dy_c, sc_c, &
+            has_year_c, has_month_c, has_day_c, has_seconds_c, &
+            time_p, year_p, month_p, day_p, seconds_p) bind(c, name='solar_data_get_model_time_codon')
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: time_value_c
+         integer(c_int64_t), value :: yr_c, mn_c, dy_c, sc_c
+         integer(c_int64_t), value :: has_year_c, has_month_c, has_day_c, has_seconds_c
+         type(c_ptr), value :: time_p, year_p, month_p, day_p, seconds_p
+       end subroutine solar_data_get_model_time_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('SOLAR_DATA_GET_MODEL_TIME_IMPL', impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    if (use_native_impl) then
+       call chemistry_misc_codon_touch('solar_data::get_model_time', 303)
+       call get_curr_date(yr, mn, dy, sc)
+       date = yr*10000 + mn*100 + dy
+       call convert_date( date, sc, time )
+       if (present(year))    year = yr
+       if (present(month))   month = mn
+       if (present(day))     day = dy
+       if (present(seconds)) seconds = sc
+       return
+    end if
 
     call get_curr_date(yr, mn, dy, sc)
-    date = yr*10000 + mn*100 + dy
-    call convert_date( date, sc, time )
+    call set_time_float_from_date(time_work, yr, mn, dy, sc)
 
-    if (present(year))    year = yr
-    if (present(month))   month = mn
-    if (present(day))     day = dy
-    if (present(seconds)) seconds = sc
+    year_work = 0_c_int64_t
+    month_work = 0_c_int64_t
+    day_work = 0_c_int64_t
+    seconds_work = 0_c_int64_t
+    year_p = c_null_ptr
+    month_p = c_null_ptr
+    day_p = c_null_ptr
+    seconds_p = c_null_ptr
+
+    if (present(year)) year_p = c_loc(year_work)
+    if (present(month)) month_p = c_loc(month_work)
+    if (present(day)) day_p = c_loc(day_work)
+    if (present(seconds)) seconds_p = c_loc(seconds_work)
+
+    call solar_data_get_model_time_codon(real(time_work, c_double), int(yr, c_int64_t), &
+         int(mn, c_int64_t), int(dy, c_int64_t), int(sc, c_int64_t), &
+         merge(1_c_int64_t, 0_c_int64_t, present(year)), &
+         merge(1_c_int64_t, 0_c_int64_t, present(month)), &
+         merge(1_c_int64_t, 0_c_int64_t, present(day)), &
+         merge(1_c_int64_t, 0_c_int64_t, present(seconds)), &
+         c_loc(time_work), year_p, month_p, day_p, seconds_p)
+
+    time = real(time_work, r8)
+    if (present(year))    year = int(year_work)
+    if (present(month))   month = int(month_work)
+    if (present(day))     day = int(day_work)
+    if (present(seconds)) seconds = int(seconds_work)
+
+    if (.not. proof_seen) then
+       if (masterproc) write(iulog,*) 'get_model_time direct = codon; time-manager native boundary'
+       proof_seen = .true.
+    end if
 
   end subroutine get_model_time
 
