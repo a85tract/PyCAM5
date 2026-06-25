@@ -1260,10 +1260,12 @@ contains
   subroutine LongEdgeVpack(edge,v,vlyr,kptr,desc)
     use control_mod, only : north, south, east, west, neast, nwest, seast, swest
     use dimensions_mod, only : np, max_corner_elem
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
 
-    type (LongEdgeBuffer_t)            :: edge
+    type (LongEdgeBuffer_t), target    :: edge
     integer,              intent(in)   :: vlyr
-    integer (kind=int_kind),intent(in)   :: v(np,np,vlyr)
+    integer (kind=int_kind),intent(in), target :: v(np,np,vlyr)
     integer,              intent(in)   :: kptr
     type (EdgeDescriptor_t),intent(in) :: desc
 
@@ -1273,11 +1275,45 @@ contains
     integer :: i,k,ir,l
 
     integer :: is,ie,in,iw
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine longedgevpack_codon(np_c, max_corner_elem_c, nlyr_c, &
+            vlyr_c, kptr_c, south_c, east_c, north_c, west_c, swest_c, &
+            buf_p, putmap_p, reverse_p, v_p) bind(c, name='longedgevpack_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, max_corner_elem_c, nlyr_c
+         integer(c_int64_t), value :: vlyr_c, kptr_c
+         integer(c_int64_t), value :: south_c, east_c, north_c, west_c, swest_c
+         type(c_ptr), value :: buf_p, putmap_p, reverse_p, v_p
+       end subroutine longedgevpack_codon
+    end interface
 
     if(.not. threadsafe) then
 !$OMP BARRIER
        threadsafe=.true.
     end if
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('LONGEDGEVPACK_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       call longedgevpack_codon(int(np, c_int64_t), int(max_corner_elem, c_int64_t), &
+            int(edge%nlyr, c_int64_t), int(vlyr, c_int64_t), int(kptr, c_int64_t), &
+            int(south, c_int64_t), int(east, c_int64_t), int(north, c_int64_t), &
+            int(west, c_int64_t), int(swest, c_int64_t), c_loc(edge%buf(1,1)), &
+            c_loc(desc%putmapP(1)), c_loc(desc%reverse(1)), c_loc(v(1,1,1)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'longedgevpack implementation = codon'
+          write(iulog,*) 'longedgevpack direct = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
+    if (.not. proof_seen) then
+       write(iulog,*) 'longedgevpack implementation = native'
+       proof_seen = .true.
+    endif
 
     is = desc%putmapP(south)
     ie = desc%putmapP(east)

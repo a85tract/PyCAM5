@@ -2583,6 +2583,40 @@ def edgevpack_codon(
     )
 
 @export
+def longedgevpack_codon(
+    np: int,
+    max_corner_elem: int,
+    nlyr: int,
+    vlyr: int,
+    kptr: int,
+    south: int,
+    east: int,
+    north: int,
+    west: int,
+    swest: int,
+    buf_p: cobj,
+    putmap_p: cobj,
+    reverse_p: cobj,
+    v_p: cobj,
+):
+    return _misc.long_edge_vpack_codon(
+        np,
+        max_corner_elem,
+        nlyr,
+        vlyr,
+        kptr,
+        south,
+        east,
+        north,
+        west,
+        swest,
+        buf_p,
+        putmap_p,
+        reverse_p,
+        v_p,
+    )
+
+@export
 def edgespack_r8_codon(
     np: int,
     max_neigh_edges: int,
