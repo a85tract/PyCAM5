@@ -152,16 +152,36 @@ contains
     use namelist_utils,  only: find_group_name
     use units,           only: getunit, freeunit
     use mpishorthand
+    use iso_c_binding,   only: c_int64_t, c_loc
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
     ! Local variables
-    integer :: unitn, ierr
+    integer :: unitn, ierr, n, status, l, j, code
     character(len=*), parameter :: subname = 'aero_model_readnl'
+    character(len=32) :: impl_name
+    logical :: use_native
+    integer(c_int64_t) :: status_c
+    integer(c_int64_t), target :: aer_wetdep_ascii(16,pcnst)
+    integer(c_int64_t), target :: aer_drydep_ascii(16,pcnst)
+    integer(c_int64_t), target :: wetdep_ascii(16,pcnst)
+    integer(c_int64_t), target :: drydep_ascii(16,pcnst)
 
     ! Namelist variables
     character(len=16) :: aer_wetdep_list(pcnst) = ' '
     character(len=16) :: aer_drydep_list(pcnst) = ' '
+
+    interface
+       function aero_model_readnl_codon(pcnst_c, name_len_c, aer_wetdep_list_p, &
+            aer_drydep_list_p, wetdep_list_p, drydep_list_p) result(out_c) &
+            bind(c, name="aero_model_readnl_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnst_c, name_len_c
+         type(c_ptr), value :: aer_wetdep_list_p, aer_drydep_list_p
+         type(c_ptr), value :: wetdep_list_p, drydep_list_p
+         integer(c_int64_t) :: out_c
+       end function aero_model_readnl_codon
+    end interface
 
     namelist /aerosol_nl/ aer_wetdep_list, aer_drydep_list, sol_facti_cloud_borne, &
        sol_factb_interstitial, sol_factic_interstitial, modal_strat_sulfate, modal_accum_coarse_exch
@@ -193,6 +213,51 @@ contains
     call mpibcast(modal_strat_sulfate,     1,                       mpilog,  0, mpicom)
     call mpibcast(modal_accum_coarse_exch, 1,                       mpilog,  0, mpicom)
 #endif
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('AERO_MODEL_READNL_IMPL', impl_name, n, status)
+    use_native = .false.
+    if (status == 0 .and. n > 0) then
+       do l = 1, n
+          code = iachar(impl_name(l:l))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(l:l) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native = trim(adjustl(impl_name(:n))) == 'native'
+    end if
+
+    if (.not. use_native) then
+       do l = 1, pcnst
+          do j = 1, len(aer_wetdep_list(1))
+             aer_wetdep_ascii(j,l) = int(iachar(aer_wetdep_list(l)(j:j)), c_int64_t)
+             aer_drydep_ascii(j,l) = int(iachar(aer_drydep_list(l)(j:j)), c_int64_t)
+          end do
+       end do
+
+       status_c = aero_model_readnl_codon(int(pcnst, c_int64_t), &
+            int(len(aer_wetdep_list(1)), c_int64_t), c_loc(aer_wetdep_ascii(1,1)), &
+            c_loc(aer_drydep_ascii(1,1)), c_loc(wetdep_ascii(1,1)), c_loc(drydep_ascii(1,1)))
+       if (status_c /= 1_c_int64_t) then
+          call endrun('aero_model_readnl_codon failed')
+       end if
+
+       do l = 1, pcnst
+          wetdep_list(l) = ' '
+          drydep_list(l) = ' '
+          do j = 1, len(wetdep_list(1))
+             wetdep_list(l)(j:j) = achar(int(wetdep_ascii(j,l)))
+             drydep_list(l)(j:j) = achar(int(drydep_ascii(j,l)))
+          end do
+       end do
+
+       if (masterproc) then
+          write(iulog,'(A)') 'aero_model_readnl implementation = codon'
+          write(iulog,'(A)') 'aero_model_readnl direct = codon; namelist I/O and MPI broadcast native boundary'
+          call flush(iulog)
+       end if
+       return
+    end if
 
     wetdep_list = aer_wetdep_list
     drydep_list = aer_drydep_list

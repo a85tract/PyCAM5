@@ -60,6 +60,27 @@ def aero_model_register_codon(stage: int) -> int:
 
 
 @export
+def aero_model_readnl_codon(
+    pcnst: int,
+    name_len: int,
+    aer_wetdep_list_p: cobj,
+    aer_drydep_list_p: cobj,
+    wetdep_list_p: cobj,
+    drydep_list_p: cobj,
+) -> int:
+    aer_wetdep_list = Ptr[int](aer_wetdep_list_p)
+    aer_drydep_list = Ptr[int](aer_drydep_list_p)
+    wetdep_list = Ptr[int](wetdep_list_p)
+    drydep_list = Ptr[int](drydep_list_p)
+
+    for i in range(pcnst * name_len):
+        wetdep_list[i] = aer_wetdep_list[i]
+        drydep_list[i] = aer_drydep_list[i]
+
+    return 1
+
+
+@export
 def aero_model_strat_surfarea_codon(active: int) -> int:
     return active
 
