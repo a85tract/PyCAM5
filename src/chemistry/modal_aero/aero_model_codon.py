@@ -334,6 +334,116 @@ def initaermodes_setspecptrs_write2_codon(
     return 1
 
 
+@export
+def initaermodes_setspecptrs_codon(
+    ntot_amode: int,
+    maxd_aspectype: int,
+    ntot_aspectype: int,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    specmw_amode_p: cobj,
+    modeptr_p: cobj,
+    lptr_p: cobj,
+    spec_scalar_p: cobj,
+) -> int:
+    init_val = -999888777
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lspectype_amode = Ptr[int](lspectype_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lmassptrcw_amode = Ptr[int](lmassptrcw_amode_p)
+    specdens_amode = Ptr[float](specdens_amode_p)
+    specmw_amode = Ptr[float](specmw_amode_p)
+    modeptr = Ptr[int](modeptr_p)
+    lptr = Ptr[int](lptr_p)
+    spec_scalar = Ptr[float](spec_scalar_p)
+
+    for i in range(9):
+        modeptr[i] = init_val
+
+    if ntot_amode == 7:
+        modeptr[0] = 1
+        modeptr[1] = 2
+        modeptr[4] = 3
+        modeptr[5] = 4
+        modeptr[6] = 5
+        modeptr[7] = 6
+        modeptr[8] = 7
+    elif ntot_amode == 4:
+        modeptr[0] = 1
+        modeptr[1] = 2
+        modeptr[3] = 3
+        modeptr[4] = 4
+    elif ntot_amode == 3:
+        modeptr[0] = 1
+        modeptr[1] = 2
+        modeptr[3] = 3
+    else:
+        return 0
+
+    for m0 in range(ntot_amode):
+        for slot in range(18):
+            lptr[slot + m0 * 18] = init_val
+
+        for l0 in range(nspec_amode[m0]):
+            idx = l0 + m0 * maxd_aspectype
+            l2 = lspectype_amode[idx]
+            massptr = lmassptr_amode[idx]
+            massptrcw = lmassptrcw_amode[idx]
+
+            if l2 == 1 and lptr[0 + m0 * 18] <= 0:
+                lptr[0 + m0 * 18] = massptr
+                lptr[1 + m0 * 18] = massptrcw
+            if l2 == 2 and lptr[4 + m0 * 18] <= 0:
+                lptr[4 + m0 * 18] = massptr
+                lptr[5 + m0 * 18] = massptrcw
+            if l2 == 3 and lptr[6 + m0 * 18] <= 0:
+                lptr[6 + m0 * 18] = massptr
+                lptr[7 + m0 * 18] = massptrcw
+            if l2 == 4 and lptr[8 + m0 * 18] <= 0:
+                lptr[8 + m0 * 18] = massptr
+                lptr[9 + m0 * 18] = massptrcw
+            if l2 == 5 and lptr[10 + m0 * 18] <= 0:
+                lptr[10 + m0 * 18] = massptr
+                lptr[11 + m0 * 18] = massptrcw
+            if l2 == 6 and lptr[12 + m0 * 18] <= 0:
+                lptr[12 + m0 * 18] = massptr
+                lptr[13 + m0 * 18] = massptrcw
+            if l2 == 7 and lptr[14 + m0 * 18] <= 0:
+                lptr[14 + m0 * 18] = massptr
+                lptr[15 + m0 * 18] = massptrcw
+            if l2 == 8 and lptr[16 + m0 * 18] <= 0:
+                lptr[16 + m0 * 18] = massptr
+                lptr[17 + m0 * 18] = massptrcw
+
+    for i in range(16):
+        spec_scalar[i] = 0.0
+
+    if ntot_aspectype >= 8:
+        spec_scalar[0] = specdens_amode[0]
+        spec_scalar[1] = specdens_amode[1]
+        spec_scalar[2] = specdens_amode[2]
+        spec_scalar[3] = specdens_amode[3]
+        spec_scalar[4] = specdens_amode[4]
+        spec_scalar[5] = specdens_amode[5]
+        spec_scalar[6] = specdens_amode[7]
+        spec_scalar[7] = specdens_amode[6]
+        spec_scalar[8] = specmw_amode[0]
+        spec_scalar[9] = specmw_amode[1]
+        spec_scalar[10] = specmw_amode[2]
+        spec_scalar[11] = specmw_amode[3]
+        spec_scalar[12] = specmw_amode[4]
+        spec_scalar[13] = specmw_amode[5]
+        spec_scalar[14] = specmw_amode[7]
+        spec_scalar[15] = specmw_amode[6]
+    else:
+        return 0
+
+    return 1
+
+
 @inline
 def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
     return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))

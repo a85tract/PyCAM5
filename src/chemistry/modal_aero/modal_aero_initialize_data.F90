@@ -603,14 +603,193 @@ contains
        !
        implicit none
 
-       !   local variables
-       integer l, l2, m
-       character*8 dumname
-       integer, parameter :: init_val=-999888777
+	     !   local variables
+	     integer l, l2, m
+	     character*8 dumname
+	     integer, parameter :: init_val=-999888777
+	     character(len=32) :: impl_name
+	     integer :: status, n, code
+	     logical :: use_native_impl
+	     integer(c_int64_t) :: status_c
+	     integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+	     integer(c_int64_t), target :: lspectype_amode_c(maxd_aspectype,ntot_amode)
+	     integer(c_int64_t), target :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+	     integer(c_int64_t), target :: lmassptrcw_amode_c(maxd_aspectype,ntot_amode)
+	     integer(c_int64_t), target :: modeptr_c(9)
+	     integer(c_int64_t), target :: lptr_c(18,ntot_amode)
+	     real(r8), target :: specdens_amode_c(ntot_aspectype)
+	     real(r8), target :: specmw_amode_c(ntot_aspectype)
+	     real(r8), target :: spec_scalar_c(16)
 
-       call chemistry_misc_codon_touch('initaermodes_setspecptrs', 177)
+	     interface
+	        function initaermodes_setspecptrs_codon(ntot_amode_c, maxd_aspectype_c, &
+	             ntot_aspectype_c, nspec_amode_p, lspectype_amode_p, &
+	             lmassptr_amode_p, lmassptrcw_amode_p, specdens_amode_p, &
+	             specmw_amode_p, modeptr_p, lptr_p, spec_scalar_p) result(out_c) &
+	             bind(c, name="initaermodes_setspecptrs_codon")
+	          use iso_c_binding, only: c_int64_t, c_ptr
+	          integer(c_int64_t), value :: ntot_amode_c, maxd_aspectype_c, ntot_aspectype_c
+	          type(c_ptr), value :: nspec_amode_p, lspectype_amode_p
+	          type(c_ptr), value :: lmassptr_amode_p, lmassptrcw_amode_p
+	          type(c_ptr), value :: specdens_amode_p, specmw_amode_p
+	          type(c_ptr), value :: modeptr_p, lptr_p, spec_scalar_p
+	          integer(c_int64_t) :: out_c
+	        end function initaermodes_setspecptrs_codon
+	     end interface
 
-       !   all processes set the pointers
+	     impl_name = 'codon'
+	     call cam_codon_get_impl('INITAERMODES_SETSPECPTRS_IMPL', impl_name, n, status)
+	     use_native_impl = .false.
+	     if (status == 0 .and. n > 0) then
+	        do l = 1, n
+	           code = iachar(impl_name(l:l))
+	           if (code >= iachar('A') .and. code <= iachar('Z')) then
+	              impl_name(l:l) = achar(code + iachar('a') - iachar('A'))
+	           end if
+	        end do
+	        use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+	     end if
+
+	     if (.not. use_native_impl) then
+	        do m = 1, ntot_amode
+	           nspec_amode_c(m) = int(nspec_amode(m), c_int64_t)
+	           do l = 1, maxd_aspectype
+	              lspectype_amode_c(l,m) = int(lspectype_amode(l,m), c_int64_t)
+	              lmassptr_amode_c(l,m) = int(lmassptr_amode(l,m), c_int64_t)
+	              lmassptrcw_amode_c(l,m) = int(lmassptrcw_amode(l,m), c_int64_t)
+	           end do
+	        end do
+	        do l = 1, ntot_aspectype
+	           specdens_amode_c(l) = specdens_amode(l)
+	           specmw_amode_c(l) = specmw_amode(l)
+	        end do
+
+	        status_c = initaermodes_setspecptrs_codon( &
+	             int(ntot_amode, c_int64_t), int(maxd_aspectype, c_int64_t), &
+	             int(ntot_aspectype, c_int64_t), c_loc(nspec_amode_c(1)), &
+	             c_loc(lspectype_amode_c(1,1)), c_loc(lmassptr_amode_c(1,1)), &
+	             c_loc(lmassptrcw_amode_c(1,1)), c_loc(specdens_amode_c(1)), &
+	             c_loc(specmw_amode_c(1)), c_loc(modeptr_c(1)), c_loc(lptr_c(1,1)), &
+	             c_loc(spec_scalar_c(1)) )
+	        if (status_c /= 1_c_int64_t) then
+	           call endrun('initaermodes_setspecptrs_codon failed')
+	        end if
+
+	        modeptr_accum = int(modeptr_c(1))
+	        modeptr_aitken = int(modeptr_c(2))
+	        modeptr_ufine = int(modeptr_c(3))
+	        modeptr_coarse = int(modeptr_c(4))
+	        modeptr_pcarbon = int(modeptr_c(5))
+	        modeptr_fineseas = int(modeptr_c(6))
+	        modeptr_finedust = int(modeptr_c(7))
+	        modeptr_coarseas = int(modeptr_c(8))
+	        modeptr_coardust = int(modeptr_c(9))
+	        do m = 1, ntot_amode
+	           lptr_so4_a_amode(m) = int(lptr_c(1,m))
+	           lptr_so4_cw_amode(m) = int(lptr_c(2,m))
+	           lptr_msa_a_amode(m) = int(lptr_c(3,m))
+	           lptr_msa_cw_amode(m) = int(lptr_c(4,m))
+	           lptr_nh4_a_amode(m) = int(lptr_c(5,m))
+	           lptr_nh4_cw_amode(m) = int(lptr_c(6,m))
+	           lptr_no3_a_amode(m) = int(lptr_c(7,m))
+	           lptr_no3_cw_amode(m) = int(lptr_c(8,m))
+	           lptr_pom_a_amode(m) = int(lptr_c(9,m))
+	           lptr_pom_cw_amode(m) = int(lptr_c(10,m))
+	           lptr_soa_a_amode(m) = int(lptr_c(11,m))
+	           lptr_soa_cw_amode(m) = int(lptr_c(12,m))
+	           lptr_bc_a_amode(m) = int(lptr_c(13,m))
+	           lptr_bc_cw_amode(m) = int(lptr_c(14,m))
+	           lptr_nacl_a_amode(m) = int(lptr_c(15,m))
+	           lptr_nacl_cw_amode(m) = int(lptr_c(16,m))
+	           lptr_dust_a_amode(m) = int(lptr_c(17,m))
+	           lptr_dust_cw_amode(m) = int(lptr_c(18,m))
+	        end do
+	        specdens_so4_amode = spec_scalar_c(1)
+	        specdens_nh4_amode = spec_scalar_c(2)
+	        specdens_no3_amode = spec_scalar_c(3)
+	        specdens_pom_amode = spec_scalar_c(4)
+	        specdens_soa_amode = spec_scalar_c(5)
+	        specdens_bc_amode = spec_scalar_c(6)
+	        specdens_dust_amode = spec_scalar_c(7)
+	        specdens_seasalt_amode = spec_scalar_c(8)
+	        specmw_so4_amode = spec_scalar_c(9)
+	        specmw_nh4_amode = spec_scalar_c(10)
+	        specmw_no3_amode = spec_scalar_c(11)
+	        specmw_pom_amode = spec_scalar_c(12)
+	        specmw_soa_amode = spec_scalar_c(13)
+	        specmw_bc_amode = spec_scalar_c(14)
+	        specmw_dust_amode = spec_scalar_c(15)
+	        specmw_seasalt_amode = spec_scalar_c(16)
+
+	        if (masterproc) then
+	           write(iulog,'(A)') 'initaermodes_setspecptrs implementation = codon'
+	           write(iulog,'(A)') 'initaermodes_setspecptrs direct = codon; native logging boundary'
+	           call flush(iulog)
+	        end if
+
+	        if ( .not. ( masterproc ) ) return
+
+	        write(iulog,9230)
+	        write(iulog,*) 'modeptr_accum    =', modeptr_accum
+	        write(iulog,*) 'modeptr_aitken   =', modeptr_aitken
+	        write(iulog,*) 'modeptr_ufine    =', modeptr_ufine
+	        write(iulog,*) 'modeptr_coarse   =', modeptr_coarse
+	        write(iulog,*) 'modeptr_pcarbon  =', modeptr_pcarbon
+	        write(iulog,*) 'modeptr_fineseas =', modeptr_fineseas
+	        write(iulog,*) 'modeptr_finedust =', modeptr_finedust
+	        write(iulog,*) 'modeptr_coarseas =', modeptr_coarseas
+	        write(iulog,*) 'modeptr_coardust =', modeptr_coardust
+
+	        write(iulog,9240)
+	        write(iulog,9000) 'sulfate    '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_so4_a_amode(m), lptr_so4_cw_amode(m),  'so4' )
+	        end do
+	        write(iulog,9000) 'msa        '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_msa_a_amode(m), lptr_msa_cw_amode(m),  'msa' )
+	        end do
+	        write(iulog,9000) 'ammonium   '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_nh4_a_amode(m), lptr_nh4_cw_amode(m),  'nh4' )
+	        end do
+	        write(iulog,9000) 'nitrate    '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_no3_a_amode(m), lptr_no3_cw_amode(m),  'no3' )
+	        end do
+	        write(iulog,9000) 'p-organic  '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_pom_a_amode(m), lptr_pom_cw_amode(m),  'pom' )
+	        end do
+	        write(iulog,9000) 's-organic  '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_soa_a_amode(m), lptr_soa_cw_amode(m),  'soa' )
+	        end do
+	        write(iulog,9000) 'black-c    '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_bc_a_amode(m), lptr_bc_cw_amode(m),  'bc' )
+	        end do
+	        write(iulog,9000) 'seasalt   '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_nacl_a_amode(m), lptr_nacl_cw_amode(m),  'nacl' )
+	        end do
+	        write(iulog,9000) 'dust       '
+	        do m = 1, ntot_amode
+	           call initaermodes_setspecptrs_write2( m,                    &
+	                lptr_dust_a_amode(m), lptr_dust_cw_amode(m),  'dust' )
+	        end do
+	        return
+	     end if
+
+	     !   all processes set the pointers
 
        modeptr_accum = init_val
        modeptr_aitken = init_val
