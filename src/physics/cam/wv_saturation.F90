@@ -90,6 +90,7 @@ real(r8), parameter :: tboil = 373.16_r8
 
   real(r8) :: c3         ! parameter used by findsp
   logical :: use_native_wv_saturation_impl = .false.
+  logical :: use_native_tq_enthalpy_impl = .false.
   logical :: wv_saturation_impl_selected = .false.
   logical :: wv_saturation_proof_written = .false.
   logical :: wv_sat_readnl_logged = .false.
@@ -306,6 +307,7 @@ subroutine wv_saturation_select_impl()
 
   character(len=32) :: impl_name
   integer :: status, n, i, code
+  integer :: selector_len, selector_status
 
   if (wv_saturation_impl_selected) return
 
@@ -322,6 +324,22 @@ subroutine wv_saturation_select_impl()
      use_native_wv_saturation_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
      use_native_wv_saturation_impl = .false.
+  end if
+
+  use_native_tq_enthalpy_impl = use_native_wv_saturation_impl
+  call get_environment_variable('TQ_ENTHALPY_IMPL', length=selector_len, status=selector_status)
+  if (selector_status == 0 .and. selector_len > 0) then
+     impl_name = 'codon'
+     call cam_codon_get_impl('TQ_ENTHALPY_IMPL', impl_name, n, status)
+     if (status == 0 .and. n > 0) then
+        do i = 1, n
+           code = iachar(impl_name(i:i))
+           if (code >= iachar('A') .and. code <= iachar('Z')) then
+              impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+           end if
+        end do
+        use_native_tq_enthalpy_impl = trim(adjustl(impl_name(:n))) == 'native'
+     end if
   end if
 
   wv_saturation_impl_selected = .true.
@@ -390,11 +408,11 @@ subroutine wv_saturation_log_pure_codon_counts()
   integer(c_int64_t) :: hits
 
   call wv_saturation_select_impl()
-  if (use_native_wv_saturation_impl) return
+  if (use_native_wv_saturation_impl .and. use_native_tq_enthalpy_impl) return
 
   hits = physpkg_pure_counter_codon(4_c_int64_t)
   if (hits > 0_c_int64_t) then
-     call wv_saturation_log_direct(tq_enthalpy_logged, 'tq_enthalpy direct = codon; pure counter proof')
+     call wv_saturation_log_direct(tq_enthalpy_logged, 'tq_enthalpy implementation = codon; pure counter proof')
   end if
 
   hits = physpkg_pure_counter_codon(5_c_int64_t)
@@ -730,7 +748,7 @@ elemental function tq_enthalpy(t, q, hltalt) result(enthalpy)
 
   real(r8) :: enthalpy
 
-  if (use_native_wv_saturation_impl) then
+  if (use_native_tq_enthalpy_impl) then
      enthalpy = cpair * t + hltalt * q
      return
   end if
