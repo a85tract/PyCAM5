@@ -10789,6 +10789,74 @@ def phys_control_int_value_codon(value: int) -> int:
     return value
 
 
+@export
+def phys_getopts_codon(
+    use_subcol_microp: int,
+    atm_dep_flux: int,
+    history_amwg: int,
+    history_vdiag: int,
+    history_aerosol: int,
+    history_aero_optics: int,
+    history_eddy: int,
+    history_budget: int,
+    history_waccm: int,
+    history_waccmx: int,
+    history_chemistry: int,
+    history_carma: int,
+    history_clubb: int,
+    do_clubb_sgs: int,
+    micro_do_icesupersat: int,
+    prog_modal_aero: int,
+    do_tms: int,
+    state_debug_checks: int,
+    offline_driver: int,
+    history_budget_histfile_num: int,
+    cld_macmic_num_steps: int,
+    use_subcol_microp_p: cobj,
+    atm_dep_flux_p: cobj,
+    history_amwg_p: cobj,
+    history_vdiag_p: cobj,
+    history_aerosol_p: cobj,
+    history_aero_optics_p: cobj,
+    history_eddy_p: cobj,
+    history_budget_p: cobj,
+    history_waccm_p: cobj,
+    history_waccmx_p: cobj,
+    history_chemistry_p: cobj,
+    history_carma_p: cobj,
+    history_clubb_p: cobj,
+    do_clubb_sgs_p: cobj,
+    micro_do_icesupersat_p: cobj,
+    prog_modal_aero_p: cobj,
+    do_tms_p: cobj,
+    state_debug_checks_p: cobj,
+    offline_driver_p: cobj,
+    history_budget_histfile_num_p: cobj,
+    cld_macmic_num_steps_p: cobj,
+):
+    Ptr[int](use_subcol_microp_p)[0] = phys_control_bool_flag_codon(use_subcol_microp)
+    Ptr[int](atm_dep_flux_p)[0] = phys_control_bool_flag_codon(atm_dep_flux)
+    Ptr[int](history_amwg_p)[0] = phys_control_bool_flag_codon(history_amwg)
+    Ptr[int](history_vdiag_p)[0] = phys_control_bool_flag_codon(history_vdiag)
+    Ptr[int](history_aerosol_p)[0] = phys_control_bool_flag_codon(history_aerosol)
+    Ptr[int](history_aero_optics_p)[0] = phys_control_bool_flag_codon(history_aero_optics)
+    Ptr[int](history_eddy_p)[0] = phys_control_bool_flag_codon(history_eddy)
+    Ptr[int](history_budget_p)[0] = phys_control_bool_flag_codon(history_budget)
+    Ptr[int](history_waccm_p)[0] = phys_control_bool_flag_codon(history_waccm)
+    Ptr[int](history_waccmx_p)[0] = phys_control_bool_flag_codon(history_waccmx)
+    Ptr[int](history_chemistry_p)[0] = phys_control_bool_flag_codon(history_chemistry)
+    Ptr[int](history_carma_p)[0] = phys_control_bool_flag_codon(history_carma)
+    Ptr[int](history_clubb_p)[0] = phys_control_bool_flag_codon(history_clubb)
+    Ptr[int](do_clubb_sgs_p)[0] = phys_control_bool_flag_codon(do_clubb_sgs)
+    Ptr[int](micro_do_icesupersat_p)[0] = phys_control_bool_flag_codon(micro_do_icesupersat)
+    Ptr[int](prog_modal_aero_p)[0] = phys_control_bool_flag_codon(prog_modal_aero)
+    Ptr[int](do_tms_p)[0] = phys_control_bool_flag_codon(do_tms)
+    Ptr[int](state_debug_checks_p)[0] = phys_control_bool_flag_codon(state_debug_checks)
+    Ptr[int](offline_driver_p)[0] = phys_control_bool_flag_codon(offline_driver)
+    Ptr[int](history_budget_histfile_num_p)[0] = history_budget_histfile_num
+    Ptr[int](cld_macmic_num_steps_p)[0] = cld_macmic_num_steps
+
+
 @inline
 def _trimmed_ascii_len(text: Ptr[int], n: int) -> int:
     last = n

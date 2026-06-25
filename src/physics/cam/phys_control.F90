@@ -96,6 +96,8 @@ logical, public, protected :: use_gw_convect_sh = .false.
 logical :: use_native_phys_control_bool_helpers_impl = .false.
 logical :: phys_control_bool_helpers_impl_selected = .false.
 logical :: phys_control_bool_helpers_proof_written = .false.
+logical :: use_native_phys_getopts_impl = .false.
+logical :: phys_getopts_impl_selected = .false.
 logical :: cam_physpkg_is_logged = .false.
 logical :: cam_chempkg_is_logged = .false.
 logical :: waccmx_is_logged = .false.
@@ -139,6 +141,35 @@ interface
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: value_out_c
    end function phys_control_int_value_codon
+
+   subroutine phys_getopts_codon(use_subcol_microp_c, atm_dep_flux_c, history_amwg_c, &
+        history_vdiag_c, history_aerosol_c, history_aero_optics_c, history_eddy_c, &
+        history_budget_c, history_waccm_c, history_waccmx_c, history_chemistry_c, &
+        history_carma_c, history_clubb_c, do_clubb_sgs_c, micro_do_icesupersat_c, &
+        prog_modal_aero_c, do_tms_c, state_debug_checks_c, offline_driver_c, &
+        history_budget_histfile_num_c, cld_macmic_num_steps_c, &
+        use_subcol_microp_p, atm_dep_flux_p, history_amwg_p, history_vdiag_p, &
+        history_aerosol_p, history_aero_optics_p, history_eddy_p, history_budget_p, &
+        history_waccm_p, history_waccmx_p, history_chemistry_p, history_carma_p, &
+        history_clubb_p, do_clubb_sgs_p, micro_do_icesupersat_p, prog_modal_aero_p, &
+        do_tms_p, state_debug_checks_p, offline_driver_p, history_budget_histfile_num_p, &
+        cld_macmic_num_steps_p) bind(c, name="phys_getopts_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: use_subcol_microp_c, atm_dep_flux_c, history_amwg_c
+      integer(c_int64_t), value :: history_vdiag_c, history_aerosol_c, history_aero_optics_c
+      integer(c_int64_t), value :: history_eddy_c, history_budget_c, history_waccm_c
+      integer(c_int64_t), value :: history_waccmx_c, history_chemistry_c, history_carma_c
+      integer(c_int64_t), value :: history_clubb_c, do_clubb_sgs_c, micro_do_icesupersat_c
+      integer(c_int64_t), value :: prog_modal_aero_c, do_tms_c, state_debug_checks_c
+      integer(c_int64_t), value :: offline_driver_c, history_budget_histfile_num_c
+      integer(c_int64_t), value :: cld_macmic_num_steps_c
+      type(c_ptr), value :: use_subcol_microp_p, atm_dep_flux_p, history_amwg_p, history_vdiag_p
+      type(c_ptr), value :: history_aerosol_p, history_aero_optics_p, history_eddy_p, history_budget_p
+      type(c_ptr), value :: history_waccm_p, history_waccmx_p, history_chemistry_p, history_carma_p
+      type(c_ptr), value :: history_clubb_p, do_clubb_sgs_p, micro_do_icesupersat_p
+      type(c_ptr), value :: prog_modal_aero_p, do_tms_p, state_debug_checks_p, offline_driver_p
+      type(c_ptr), value :: history_budget_histfile_num_p, cld_macmic_num_steps_p
+   end subroutine phys_getopts_codon
 
    function cam_physpkg_is_codon(name_len_c, name_ascii_p, pkg_len_c, pkg_ascii_p) &
         result(match_c) bind(c, name="cam_physpkg_is_codon")
@@ -215,6 +246,42 @@ subroutine phys_control_bool_helpers_proof_once()
    end if
 
 end subroutine phys_control_bool_helpers_proof_once
+
+!===============================================================================
+
+subroutine phys_getopts_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (phys_getopts_impl_selected) return
+
+   impl_name = 'codon'
+   call cam_codon_get_impl('PHYS_GETOPTS_IMPL', impl_name, n, status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_phys_getopts_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_phys_getopts_impl = .false.
+   end if
+
+   phys_getopts_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_phys_getopts_impl) then
+         write(iulog,*) 'phys_getopts implementation = native'
+      else
+         write(iulog,*) 'phys_getopts implementation = codon'
+      end if
+   end if
+
+end subroutine phys_getopts_select_impl
 
 !===============================================================================
 
@@ -497,8 +564,16 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, mi
    logical,           intent(out), optional :: state_debug_checks_out
    integer,           intent(out), optional :: cld_macmic_num_steps_out
    logical,           intent(out), optional :: offline_driver_out
+   integer(c_int64_t), target :: use_subcol_microp_c, atm_dep_flux_c, history_amwg_c
+   integer(c_int64_t), target :: history_vdiag_c, history_aerosol_c, history_aero_optics_c
+   integer(c_int64_t), target :: history_eddy_c, history_budget_c, history_waccm_c
+   integer(c_int64_t), target :: history_waccmx_c, history_chemistry_c, history_carma_c
+   integer(c_int64_t), target :: history_clubb_c, do_clubb_sgs_c, micro_do_icesupersat_c
+   integer(c_int64_t), target :: prog_modal_aero_c, do_tms_c, state_debug_checks_c
+   integer(c_int64_t), target :: offline_driver_c, history_budget_histfile_num_c
+   integer(c_int64_t), target :: cld_macmic_num_steps_c
 
-   call phys_control_bool_helpers_select_impl()
+   call phys_getopts_select_impl()
 
    if ( present(deep_scheme_out         ) ) deep_scheme_out          = deep_scheme
    if ( present(shallow_scheme_out      ) ) shallow_scheme_out       = shallow_scheme
@@ -530,57 +605,58 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, mi
    if ( present(cld_macmic_num_steps_out) ) cld_macmic_num_steps_out = cld_macmic_num_steps
    if ( present(offline_driver_out      ) ) offline_driver_out       = offline_driver
 
-   if (.not. use_native_phys_control_bool_helpers_impl) then
-      call phys_control_bool_helpers_proof_once()
+   if (.not. use_native_phys_getopts_impl) then
       call phys_control_log_direct(phys_getopts_logged, &
            'phys_getopts direct = codon; optional output assignment native boundary')
-      if (present(use_subcol_microp_out)) &
-         use_subcol_microp_out = (phys_control_bool_flag_codon( &
-         merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp_out)) /= 0_c_int64_t)
-      if (present(atm_dep_flux_out)) &
-         atm_dep_flux_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, atm_dep_flux_out)) /= 0_c_int64_t)
-      if (present(history_amwg_out)) &
-         history_amwg_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_amwg_out)) /= 0_c_int64_t)
-      if (present(history_vdiag_out)) &
-         history_vdiag_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_vdiag_out)) /= 0_c_int64_t)
-      if (present(history_aerosol_out)) &
-         history_aerosol_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_aerosol_out)) /= 0_c_int64_t)
-      if (present(history_aero_optics_out)) &
-         history_aero_optics_out = (phys_control_bool_flag_codon( &
-         merge(1_c_int64_t, 0_c_int64_t, history_aero_optics_out)) /= 0_c_int64_t)
-      if (present(history_eddy_out)) &
-         history_eddy_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_eddy_out)) /= 0_c_int64_t)
-      if (present(history_budget_out)) &
-         history_budget_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_budget_out)) /= 0_c_int64_t)
-      if (present(history_waccm_out)) &
-         history_waccm_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_waccm_out)) /= 0_c_int64_t)
-      if (present(history_waccmx_out)) &
-         history_waccmx_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_waccmx_out)) /= 0_c_int64_t)
-      if (present(history_chemistry_out)) &
-         history_chemistry_out = (phys_control_bool_flag_codon( &
-         merge(1_c_int64_t, 0_c_int64_t, history_chemistry_out)) /= 0_c_int64_t)
-      if (present(history_carma_out)) &
-         history_carma_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_carma_out)) /= 0_c_int64_t)
-      if (present(history_clubb_out)) &
-         history_clubb_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_clubb_out)) /= 0_c_int64_t)
-      if (present(do_clubb_sgs_out)) &
-         do_clubb_sgs_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, do_clubb_sgs_out)) /= 0_c_int64_t)
-      if (present(micro_do_icesupersat_out)) &
-         micro_do_icesupersat_out = (phys_control_bool_flag_codon( &
-         merge(1_c_int64_t, 0_c_int64_t, micro_do_icesupersat_out)) /= 0_c_int64_t)
-      if (present(prog_modal_aero_out)) &
-         prog_modal_aero_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero_out)) /= 0_c_int64_t)
-      if (present(do_tms_out)) &
-         do_tms_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, do_tms_out)) /= 0_c_int64_t)
-      if (present(state_debug_checks_out)) &
-         state_debug_checks_out = (phys_control_bool_flag_codon( &
-         merge(1_c_int64_t, 0_c_int64_t, state_debug_checks_out)) /= 0_c_int64_t)
-      if (present(offline_driver_out)) &
-         offline_driver_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, offline_driver_out)) /= 0_c_int64_t)
-      if (present(history_budget_histfile_num_out)) &
-         history_budget_histfile_num_out = int(phys_control_int_value_codon(int(history_budget_histfile_num_out, c_int64_t)))
-      if (present(cld_macmic_num_steps_out)) &
-         cld_macmic_num_steps_out = int(phys_control_int_value_codon(int(cld_macmic_num_steps_out, c_int64_t)))
+      call phys_getopts_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp), &
+         merge(1_c_int64_t, 0_c_int64_t, atm_dep_flux), &
+         merge(1_c_int64_t, 0_c_int64_t, history_amwg), &
+         merge(1_c_int64_t, 0_c_int64_t, history_vdiag), &
+         merge(1_c_int64_t, 0_c_int64_t, history_aerosol), &
+         merge(1_c_int64_t, 0_c_int64_t, history_aero_optics), &
+         merge(1_c_int64_t, 0_c_int64_t, history_eddy), &
+         merge(1_c_int64_t, 0_c_int64_t, history_budget), &
+         merge(1_c_int64_t, 0_c_int64_t, history_waccm), &
+         merge(1_c_int64_t, 0_c_int64_t, history_waccmx), &
+         merge(1_c_int64_t, 0_c_int64_t, history_chemistry), &
+         merge(1_c_int64_t, 0_c_int64_t, history_carma), &
+         merge(1_c_int64_t, 0_c_int64_t, history_clubb), &
+         merge(1_c_int64_t, 0_c_int64_t, do_clubb_sgs), &
+         merge(1_c_int64_t, 0_c_int64_t, micro_do_icesupersat), &
+         merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &
+         merge(1_c_int64_t, 0_c_int64_t, do_tms), &
+         merge(1_c_int64_t, 0_c_int64_t, state_debug_checks), &
+         merge(1_c_int64_t, 0_c_int64_t, offline_driver), &
+         int(history_budget_histfile_num, c_int64_t), int(cld_macmic_num_steps, c_int64_t), &
+         c_loc(use_subcol_microp_c), c_loc(atm_dep_flux_c), c_loc(history_amwg_c), &
+         c_loc(history_vdiag_c), c_loc(history_aerosol_c), c_loc(history_aero_optics_c), &
+         c_loc(history_eddy_c), c_loc(history_budget_c), c_loc(history_waccm_c), &
+         c_loc(history_waccmx_c), c_loc(history_chemistry_c), c_loc(history_carma_c), &
+         c_loc(history_clubb_c), c_loc(do_clubb_sgs_c), c_loc(micro_do_icesupersat_c), &
+         c_loc(prog_modal_aero_c), c_loc(do_tms_c), c_loc(state_debug_checks_c), &
+         c_loc(offline_driver_c), c_loc(history_budget_histfile_num_c), c_loc(cld_macmic_num_steps_c))
+      if (present(use_subcol_microp_out)) use_subcol_microp_out = (use_subcol_microp_c /= 0_c_int64_t)
+      if (present(atm_dep_flux_out)) atm_dep_flux_out = (atm_dep_flux_c /= 0_c_int64_t)
+      if (present(history_amwg_out)) history_amwg_out = (history_amwg_c /= 0_c_int64_t)
+      if (present(history_vdiag_out)) history_vdiag_out = (history_vdiag_c /= 0_c_int64_t)
+      if (present(history_aerosol_out)) history_aerosol_out = (history_aerosol_c /= 0_c_int64_t)
+      if (present(history_aero_optics_out)) history_aero_optics_out = (history_aero_optics_c /= 0_c_int64_t)
+      if (present(history_eddy_out)) history_eddy_out = (history_eddy_c /= 0_c_int64_t)
+      if (present(history_budget_out)) history_budget_out = (history_budget_c /= 0_c_int64_t)
+      if (present(history_waccm_out)) history_waccm_out = (history_waccm_c /= 0_c_int64_t)
+      if (present(history_waccmx_out)) history_waccmx_out = (history_waccmx_c /= 0_c_int64_t)
+      if (present(history_chemistry_out)) history_chemistry_out = (history_chemistry_c /= 0_c_int64_t)
+      if (present(history_carma_out)) history_carma_out = (history_carma_c /= 0_c_int64_t)
+      if (present(history_clubb_out)) history_clubb_out = (history_clubb_c /= 0_c_int64_t)
+      if (present(do_clubb_sgs_out)) do_clubb_sgs_out = (do_clubb_sgs_c /= 0_c_int64_t)
+      if (present(micro_do_icesupersat_out)) micro_do_icesupersat_out = (micro_do_icesupersat_c /= 0_c_int64_t)
+      if (present(prog_modal_aero_out)) prog_modal_aero_out = (prog_modal_aero_c /= 0_c_int64_t)
+      if (present(do_tms_out)) do_tms_out = (do_tms_c /= 0_c_int64_t)
+      if (present(state_debug_checks_out)) state_debug_checks_out = (state_debug_checks_c /= 0_c_int64_t)
+      if (present(offline_driver_out)) offline_driver_out = (offline_driver_c /= 0_c_int64_t)
+      if (present(history_budget_histfile_num_out)) history_budget_histfile_num_out = int(history_budget_histfile_num_c)
+      if (present(cld_macmic_num_steps_out)) cld_macmic_num_steps_out = int(cld_macmic_num_steps_c)
    end if
 
 end subroutine phys_getopts
