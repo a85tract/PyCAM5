@@ -8,6 +8,29 @@ def cam_misc_touch_codon(tag: int) -> int:
 
 
 @export
+def cam_instance_init_codon(
+    in_atm_id: int,
+    inst_index_in: int,
+    name_in_p: cobj,
+    suffix_in_p: cobj,
+    atm_id_p: cobj,
+    inst_index_p: cobj,
+    inst_name_p: cobj,
+    inst_suffix_p: cobj,
+    name_len: int,
+):
+    Ptr[i32](atm_id_p)[0] = i32(in_atm_id)
+    Ptr[i32](inst_index_p)[0] = i32(inst_index_in)
+    name_in = Ptr[byte](name_in_p)
+    suffix_in = Ptr[byte](suffix_in_p)
+    inst_name = Ptr[byte](inst_name_p)
+    inst_suffix = Ptr[byte](inst_suffix_p)
+    for i in range(name_len):
+        inst_name[i] = name_in[i]
+        inst_suffix[i] = suffix_in[i]
+
+
+@export
 def get_hist_restart_filepath_codon(tag: int) -> int:
     return tag
 
