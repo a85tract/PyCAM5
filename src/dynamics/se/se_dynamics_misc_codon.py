@@ -407,6 +407,110 @@ def uniquepoints3d_codon(
             dest[(ii - 1) + (k - 1) * num_unique_pts] = src[(i - 1) + (j - 1) * ni + (k - 1) * ni * nj]
 
 
+def putuniquepoints2d_codon(
+    num_unique_pts: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    dest_n1: int,
+    dest_n2: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    ia = Ptr[i32](ia_p)
+    ja = Ptr[i32](ja_p)
+    src = Ptr[float](src_p)
+    dest = Ptr[float](dest_p)
+    for idx in range(dest_n1 * dest_n2):
+        dest[idx] = 0.0
+    for ii in range(1, num_unique_pts + 1):
+        i = int(ia[ii - 1])
+        j = int(ja[ii - 1])
+        dest[(i - 1) + (j - 1) * dest_n1] = src[ii - 1]
+
+
+def uniquepoints4d_codon(
+    num_unique_pts: int,
+    d3: int,
+    d4: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    src_n2: int,
+    dest_n1: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    ia = Ptr[i32](ia_p)
+    ja = Ptr[i32](ja_p)
+    src = Ptr[float](src_p)
+    dest = Ptr[float](dest_p)
+    for n in range(1, d4 + 1):
+        for k in range(1, d3 + 1):
+            for ii in range(1, num_unique_pts + 1):
+                i = int(ia[ii - 1])
+                j = int(ja[ii - 1])
+                dest[(ii - 1) + (k - 1) * dest_n1 + (n - 1) * dest_n1 * d3] = src[
+                    (i - 1) + (j - 1) * src_n1 + (k - 1) * src_n1 * src_n2 + (n - 1) * src_n1 * src_n2 * d3
+                ]
+
+
+def putuniquepoints3d_codon(
+    num_unique_pts: int,
+    nlyr: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    dest_n1: int,
+    dest_n2: int,
+    dest_len: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    ia = Ptr[i32](ia_p)
+    ja = Ptr[i32](ja_p)
+    src = Ptr[float](src_p)
+    dest = Ptr[float](dest_p)
+    for idx in range(dest_len):
+        dest[idx] = 0.0
+    for k in range(1, nlyr + 1):
+        for ii in range(1, num_unique_pts + 1):
+            i = int(ia[ii - 1])
+            j = int(ja[ii - 1])
+            dest[(i - 1) + (j - 1) * dest_n1 + (k - 1) * dest_n1 * dest_n2] = src[
+                (ii - 1) + (k - 1) * src_n1
+            ]
+
+
+def putuniquepoints4d_codon(
+    num_unique_pts: int,
+    d3: int,
+    d4: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    dest_n1: int,
+    dest_n2: int,
+    dest_len: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    ia = Ptr[i32](ia_p)
+    ja = Ptr[i32](ja_p)
+    src = Ptr[float](src_p)
+    dest = Ptr[float](dest_p)
+    for idx in range(dest_len):
+        dest[idx] = 0.0
+    for n in range(1, d4 + 1):
+        for k in range(1, d3 + 1):
+            for ii in range(1, num_unique_pts + 1):
+                i = int(ia[ii - 1])
+                j = int(ja[ii - 1])
+                dest[(i - 1) + (j - 1) * dest_n1 + (k - 1) * dest_n1 * dest_n2 + (n - 1) * dest_n1 * dest_n2 * d3] = src[
+                    (ii - 1) + (k - 1) * src_n1 + (n - 1) * src_n1 * d3
+                ]
+
+
 def convert_gbl_index_codon(number: int, ne: int, ie_p: cobj, je_p: cobj, face_no_p: cobj):
     ie = Ptr[i32](ie_p)
     je = Ptr[i32](je_p)

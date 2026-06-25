@@ -42,6 +42,33 @@ private
 
 contains
 
+  logical function dof_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call cam_codon_get_impl(selector, impl_name, n, status)
+    if (status /= 0 .or. n <= 0) then
+       call cam_codon_get_impl('SE_MISC_HELPERS_IMPL', impl_name, n, status)
+    end if
+    if (status /= 0 .or. n <= 0) then
+       call cam_codon_get_impl('CAM_CODON_IMPL', impl_name, n, status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       dof_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       dof_use_native = .false.
+    end if
+  end function dof_use_native
+
   subroutine genLocalDof(ig,npts,ldof)
     use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
@@ -193,11 +220,36 @@ contains
 ! redundent points of the array
 
   subroutine putUniquePoints2D(idxUnique,src,dest)
-    type (index_t) :: idxUnique
-    real (kind=real_kind),intent(in) :: src(:)
-    real (kind=real_kind),intent(out) :: dest(:,:)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
+    type (index_t), target :: idxUnique
+    real (kind=real_kind),intent(in), target, contiguous :: src(:)
+    real (kind=real_kind),intent(out), target, contiguous :: dest(:,:)
 
     integer(kind=int_kind) :: i,j,ii
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine putuniquepoints2d_codon(num_unique_pts_c, ia_p, ja_p, src_n1_c, &
+            dest_n1_c, dest_n2_c, src_p, dest_p) bind(c, name='putuniquepoints2d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_unique_pts_c, src_n1_c, dest_n1_c, dest_n2_c
+         type(c_ptr), value :: ia_p, ja_p, src_p, dest_p
+       end subroutine putuniquepoints2d_codon
+    end interface
+
+    if (.not. dof_use_native('PUTUNIQUEPOINTS2D_IMPL')) then
+       call putuniquepoints2d_codon(int(idxUnique%NumUniquePts, c_int64_t), &
+            c_loc(idxUnique%ia(1)), c_loc(idxUnique%ja(1)), int(size(src, 1), c_int64_t), &
+            int(size(dest, 1), c_int64_t), int(size(dest, 2), c_int64_t), &
+            c_loc(src(1)), c_loc(dest(1,1)))
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,*) 'putuniquepoints2d direct = codon'
+          proof_seen = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
     
     dest=0.0D0
     do ii=1,idxUnique%NumUniquePts
@@ -273,12 +325,37 @@ contains
 
   end subroutine UniquePoints3D
   subroutine UniquePoints4D(idxUnique,d3,d4,src,dest)
-    type (index_t) :: idxUnique
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
+    type (index_t), target :: idxUnique
     integer(kind=int_kind) :: d3,d4
-    real (kind=real_kind) :: src(:,:,:,:)
-    real (kind=real_kind) :: dest(:,:,:)
+    real (kind=real_kind), target, contiguous :: src(:,:,:,:)
+    real (kind=real_kind), target, contiguous :: dest(:,:,:)
     
     integer(kind=int_kind) :: i,j,k,n,ii
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine uniquepoints4d_codon(num_unique_pts_c, d3_c, d4_c, ia_p, ja_p, &
+            src_n1_c, src_n2_c, dest_n1_c, src_p, dest_p) bind(c, name='uniquepoints4d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_unique_pts_c, d3_c, d4_c, src_n1_c, src_n2_c, dest_n1_c
+         type(c_ptr), value :: ia_p, ja_p, src_p, dest_p
+       end subroutine uniquepoints4d_codon
+    end interface
+
+    if (.not. dof_use_native('UNIQUEPOINTS4D_IMPL')) then
+       call uniquepoints4d_codon(int(idxUnique%NumUniquePts, c_int64_t), int(d3, c_int64_t), &
+            int(d4, c_int64_t), c_loc(idxUnique%ia(1)), c_loc(idxUnique%ja(1)), &
+            int(size(src, 1), c_int64_t), int(size(src, 2), c_int64_t), &
+            int(size(dest, 1), c_int64_t), c_loc(src(1,1,1,1)), c_loc(dest(1,1,1)))
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,*) 'uniquepoints4d direct = codon'
+          proof_seen = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     do n=1,d4
        do k=1,d3
@@ -297,12 +374,39 @@ contains
 ! redundent points of the array
 
   subroutine putUniquePoints3D(idxUnique,nlyr,src,dest)
-    type (index_t) :: idxUnique
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
+    type (index_t), target :: idxUnique
     integer(kind=int_kind) :: nlyr
-    real (kind=real_kind),intent(in) :: src(:,:)
-    real (kind=real_kind),intent(out) :: dest(:,:,:)
+    real (kind=real_kind),intent(in), target, contiguous :: src(:,:)
+    real (kind=real_kind),intent(out), target, contiguous :: dest(:,:,:)
     
     integer(kind=int_kind) :: i,j,k,ii
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine putuniquepoints3d_codon(num_unique_pts_c, nlyr_c, ia_p, ja_p, &
+            src_n1_c, dest_n1_c, dest_n2_c, dest_p_len_c, src_p, dest_p) &
+            bind(c, name='putuniquepoints3d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_unique_pts_c, nlyr_c, src_n1_c, dest_n1_c, dest_n2_c, dest_p_len_c
+         type(c_ptr), value :: ia_p, ja_p, src_p, dest_p
+       end subroutine putuniquepoints3d_codon
+    end interface
+
+    if (.not. dof_use_native('PUTUNIQUEPOINTS3D_IMPL')) then
+       call putuniquepoints3d_codon(int(idxUnique%NumUniquePts, c_int64_t), int(nlyr, c_int64_t), &
+            c_loc(idxUnique%ia(1)), c_loc(idxUnique%ja(1)), int(size(src, 1), c_int64_t), &
+            int(size(dest, 1), c_int64_t), int(size(dest, 2), c_int64_t), &
+            int(size(dest, 1) * size(dest, 2) * size(dest, 3), c_int64_t), &
+            c_loc(src(1,1)), c_loc(dest(1,1,1)))
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,*) 'putuniquepoints3d direct = codon'
+          proof_seen = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     dest=0.0D0
     do k=1,nlyr
@@ -316,12 +420,39 @@ contains
   end subroutine putUniquePoints3D
 
   subroutine putUniquePoints4D(idxUnique,d3,d4,src,dest)
-    type (index_t) :: idxUnique
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
+    type (index_t), target :: idxUnique
     integer(kind=int_kind) :: d3,d4
-    real (kind=real_kind),intent(in) :: src(:,:,:)
-    real (kind=real_kind),intent(out) :: dest(:,:,:,:)
+    real (kind=real_kind),intent(in), target, contiguous :: src(:,:,:)
+    real (kind=real_kind),intent(out), target, contiguous :: dest(:,:,:,:)
     
     integer(kind=int_kind) :: i,j,k,n,ii
+    logical, save :: proof_seen = .false.
+    interface
+       subroutine putuniquepoints4d_codon(num_unique_pts_c, d3_c, d4_c, ia_p, ja_p, &
+            src_n1_c, dest_n1_c, dest_n2_c, dest_p_len_c, src_p, dest_p) &
+            bind(c, name='putuniquepoints4d_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: num_unique_pts_c, d3_c, d4_c, src_n1_c, dest_n1_c, dest_n2_c, dest_p_len_c
+         type(c_ptr), value :: ia_p, ja_p, src_p, dest_p
+       end subroutine putuniquepoints4d_codon
+    end interface
+
+    if (.not. dof_use_native('PUTUNIQUEPOINTS4D_IMPL')) then
+       call putuniquepoints4d_codon(int(idxUnique%NumUniquePts, c_int64_t), int(d3, c_int64_t), &
+            int(d4, c_int64_t), c_loc(idxUnique%ia(1)), c_loc(idxUnique%ja(1)), &
+            int(size(src, 1), c_int64_t), int(size(dest, 1), c_int64_t), &
+            int(size(dest, 2), c_int64_t), int(size(dest, 1) * size(dest, 2) * size(dest, 3) * size(dest, 4), c_int64_t), &
+            c_loc(src(1,1,1)), c_loc(dest(1,1,1,1)))
+       if (masterproc .and. .not. proof_seen) then
+          write(iulog,*) 'putuniquepoints4d direct = codon'
+          proof_seen = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     dest=0.0D0
     do n=1,d4

@@ -1422,6 +1422,108 @@ def uniquepoints3d_codon(
     return _misc.uniquepoints3d_codon(num_unique_pts, nlyr, ia_p, ja_p, ni, nj, src_p, dest_p)
 
 @export
+def putuniquepoints2d_codon(
+    num_unique_pts: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    dest_n1: int,
+    dest_n2: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    return _misc.putuniquepoints2d_codon(
+        num_unique_pts,
+        ia_p,
+        ja_p,
+        src_n1,
+        dest_n1,
+        dest_n2,
+        src_p,
+        dest_p,
+    )
+
+@export
+def uniquepoints4d_codon(
+    num_unique_pts: int,
+    d3: int,
+    d4: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    src_n2: int,
+    dest_n1: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    return _misc.uniquepoints4d_codon(
+        num_unique_pts,
+        d3,
+        d4,
+        ia_p,
+        ja_p,
+        src_n1,
+        src_n2,
+        dest_n1,
+        src_p,
+        dest_p,
+    )
+
+@export
+def putuniquepoints3d_codon(
+    num_unique_pts: int,
+    nlyr: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    dest_n1: int,
+    dest_n2: int,
+    dest_len: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    return _misc.putuniquepoints3d_codon(
+        num_unique_pts,
+        nlyr,
+        ia_p,
+        ja_p,
+        src_n1,
+        dest_n1,
+        dest_n2,
+        dest_len,
+        src_p,
+        dest_p,
+    )
+
+@export
+def putuniquepoints4d_codon(
+    num_unique_pts: int,
+    d3: int,
+    d4: int,
+    ia_p: cobj,
+    ja_p: cobj,
+    src_n1: int,
+    dest_n1: int,
+    dest_n2: int,
+    dest_len: int,
+    src_p: cobj,
+    dest_p: cobj,
+):
+    return _misc.putuniquepoints4d_codon(
+        num_unique_pts,
+        d3,
+        d4,
+        ia_p,
+        ja_p,
+        src_n1,
+        dest_n1,
+        dest_n2,
+        dest_len,
+        src_p,
+        dest_p,
+    )
+
+@export
 def convert_gbl_index_codon(
     number: int,
     ne: int,
