@@ -136,7 +136,77 @@ def chem_surfvals_co2_rad_codon(
 
 
 @export
-def chem_surfvals_set_all_codon(
+def chem_surfvals_set_codon(
+    do_ramp: int,
+    ramp_just_co2: int,
+    scenario_lbc: int,
+    arrays_ready: int,
+    daydiff: float,
+    co2_base: float,
+    co2_daily_factor: float,
+    co2_limit: float,
+    fixYear_ghg: int,
+    ghg_yearStart_model: int,
+    ghg_yearStart_data: int,
+    yr: int,
+    calday: float,
+    ntim: int,
+    yrdata_p: cobj,
+    co2_p: cobj,
+    ch4_p: cobj,
+    n2o_p: cobj,
+    f11_p: cobj,
+    f12_p: cobj,
+    adj_p: cobj,
+    co2vmr_p: cobj,
+    ch4vmr_p: cobj,
+    n2ovmr_p: cobj,
+    f11vmr_p: cobj,
+    f12vmr_p: cobj,
+    status_p: cobj,
+):
+    status = Ptr[int](status_p)
+    status[0] = 0
+
+    if do_ramp != 0:
+        if ramp_just_co2 != 0:
+            _chem_surfvals_set_co2(
+                daydiff,
+                co2_base,
+                co2_daily_factor,
+                co2_limit,
+                co2vmr_p,
+            )
+        else:
+            if arrays_ready == 0:
+                status[0] = 10
+                return
+            _chem_surfvals_set_all(
+                fixYear_ghg,
+                ghg_yearStart_model,
+                ghg_yearStart_data,
+                yr,
+                calday,
+                ntim,
+                yrdata_p,
+                co2_p,
+                ch4_p,
+                n2o_p,
+                f11_p,
+                f12_p,
+                adj_p,
+                co2vmr_p,
+                ch4vmr_p,
+                n2ovmr_p,
+                f11vmr_p,
+                f12vmr_p,
+                status_p,
+            )
+    elif scenario_lbc != 0:
+        status[0] = 11
+
+
+def _chem_surfvals_set_all(
     fixYear_ghg: int,
     ghg_yearStart_model: int,
     ghg_yearStart_data: int,
@@ -239,8 +309,7 @@ def chem_surfvals_set_all_codon(
     f12vmr[0] = (f12[nyrm - 1] * fact1 + f12[nyrp - 1] * fact2) * 1.0e-12
 
 
-@export
-def chem_surfvals_set_co2_codon(
+def _chem_surfvals_set_co2(
     daydiff: float,
     co2_base: float,
     co2_daily_factor: float,
