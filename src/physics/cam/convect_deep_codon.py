@@ -89,6 +89,41 @@ def _zm_entropy_codon(
     )
 
 
+@export
+def entropy_codon(
+    tk: float,
+    p_hpa: float,
+    qtot: float,
+    rl: float,
+    cpliq: float,
+    cpwv: float,
+    tfreez: float,
+    cpres: float,
+    rgas: float,
+    eps1: float,
+    rh2o: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+) -> float:
+    return _zm_entropy_codon(
+        tk,
+        p_hpa,
+        qtot,
+        rl,
+        cpliq,
+        cpwv,
+        tfreez,
+        cpres,
+        rgas,
+        eps1,
+        rh2o,
+        idx,
+        epsilo,
+        omeps,
+    )
+
+
 @inline
 def _zm_ientropy_codon(
     s: float,

@@ -5834,9 +5834,41 @@ real(r8) function entropy(TK,p,qtot)
 ! TK(K),p(mb),qtot(kg/kg)
 ! from Raymond and Blyth 1992
 !
+     use iso_c_binding, only: c_double, c_int64_t
+     use wv_sat_methods, only: wv_sat_get_default_idx
+
      real(r8), intent(in) :: p,qtot,TK
      real(r8) :: qv,qst,e,est,L
      real(r8), parameter :: pref = 1000._r8
+     logical, save :: entropy_direct_logged = .false.
+
+     interface
+        function entropy_codon(tk_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, &
+             tfreez_c, cpres_c, rgas_c, eps1_c, rh2o_c, wv_idx_c, epsilo_c, &
+             omeps_c) result(entropy_c) bind(c, name="entropy_codon")
+          use iso_c_binding, only: c_double, c_int64_t
+          real(c_double), value :: tk_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c
+          real(c_double), value :: tfreez_c, cpres_c, rgas_c, eps1_c, rh2o_c
+          real(c_double), value :: epsilo_c, omeps_c
+          integer(c_int64_t), value :: wv_idx_c
+          real(c_double) :: entropy_c
+        end function entropy_codon
+     end interface
+
+     call zm_entropy_select_impl()
+     if (.not. use_native_zm_entropy) then
+        entropy = real(entropy_codon(real(TK, c_double), real(p, c_double), &
+             real(qtot, c_double), real(rl, c_double), real(cpliq, c_double), &
+             real(cpwv, c_double), real(tfreez, c_double), real(cpres, c_double), &
+             real(rgas, c_double), real(eps1, c_double), real(rh2o, c_double), &
+             int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
+             real(1._r8 - epsilo, c_double)), r8)
+        if (.not. entropy_direct_logged) then
+           call zm_conv_log_direct(entropy_direct_logged, &
+                'entropy direct = codon; entropy expression native callback')
+        end if
+        return
+     end if
 
 L = rl - (cpliq - cpwv)*(TK-tfreez)         ! T IN CENTIGRADE
 
