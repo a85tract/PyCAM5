@@ -3750,7 +3750,7 @@ end subroutine rhcrit_calc
    if (instratus_condensate_entered_logged) return
    instratus_condensate_entered_logged = .true.
    if (masterproc) then
-      write(iulog,*) 'cldwat2m_instratus_condensate direct = codon with native qsat_water/astG_single/aist_single islands'
+      write(iulog,*) 'instratus_condensate direct = codon with native qsat_water/astG_single/aist_single islands'
    end if
    end subroutine instratus_condensate_log_entered
 
@@ -4212,7 +4212,7 @@ end subroutine rhcrit_calc
    if (positive_moisture_entered_logged) return
    positive_moisture_entered_logged = .true.
    if (masterproc) then
-      write(iulog,*) 'cldwat2m_positive_moisture entered (macrophysics positive moisture limiter = codon)'
+      write(iulog,*) 'positive_moisture direct = codon; macrophysics positive moisture limiter'
    end if
    end subroutine positive_moisture_log_entered
 

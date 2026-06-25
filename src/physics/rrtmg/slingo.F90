@@ -12,7 +12,7 @@ use physics_buffer,   only: physics_buffer_desc, pbuf_get_index, pbuf_get_field,
 use radconstants,     only: nswbands, nlwbands, idx_sw_diag, ot_length, idx_lw_diag, get_sw_spectral_boundaries
 use cam_abortutils,   only: endrun
 use cam_history,      only: outfld
-use iso_c_binding,    only: c_int64_t
+use iso_c_binding,    only: c_int64_t, c_loc
 
 implicit none
 private
@@ -56,12 +56,13 @@ logical :: slingo_init_impl_selected = .false.
 logical :: slingo_init_entered_logged = .false.
 
 interface
-   function rrtmg_init_int_passthrough_codon(value_c) result(result_c) &
-        bind(c, name="rrtmg_init_int_passthrough_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: value_c
-      integer(c_int64_t) :: result_c
-   end function rrtmg_init_int_passthrough_codon
+   subroutine slingo_rad_props_init_codon(iciwp_idx_c, iclwp_idx_c, cld_idx_c, rel_idx_c, &
+        rei_idx_c, ixcldliq_c, ixcldice_c, out_p) bind(c, name="slingo_rad_props_init_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: iciwp_idx_c, iclwp_idx_c, cld_idx_c, rel_idx_c
+      integer(c_int64_t), value :: rei_idx_c, ixcldliq_c, ixcldice_c
+      type(c_ptr), value :: out_p
+   end subroutine slingo_rad_props_init_codon
 end interface
 
 
@@ -83,6 +84,7 @@ subroutine slingo_rad_props_init()
    use constituents,   only: cnst_get_ind
 
    integer :: err
+   integer(c_int64_t), target :: codon_out(7)
 
    iciwp_idx  = pbuf_get_index('ICIWP',errcode=err)
    iclwp_idx  = pbuf_get_index('ICLWP',errcode=err)
@@ -97,13 +99,16 @@ subroutine slingo_rad_props_init()
    call slingo_init_select_impl()
    if (.not. use_native_slingo_init_impl) then
       call slingo_init_log_entered()
-      iciwp_idx = rrtmg_init_int_passthrough_codon(int(iciwp_idx, c_int64_t))
-      iclwp_idx = rrtmg_init_int_passthrough_codon(int(iclwp_idx, c_int64_t))
-      cld_idx = rrtmg_init_int_passthrough_codon(int(cld_idx, c_int64_t))
-      rel_idx = rrtmg_init_int_passthrough_codon(int(rel_idx, c_int64_t))
-      rei_idx = rrtmg_init_int_passthrough_codon(int(rei_idx, c_int64_t))
-      ixcldliq = rrtmg_init_int_passthrough_codon(int(ixcldliq, c_int64_t))
-      ixcldice = rrtmg_init_int_passthrough_codon(int(ixcldice, c_int64_t))
+      call slingo_rad_props_init_codon(int(iciwp_idx, c_int64_t), int(iclwp_idx, c_int64_t), &
+           int(cld_idx, c_int64_t), int(rel_idx, c_int64_t), int(rei_idx, c_int64_t), &
+           int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), c_loc(codon_out(1)))
+      iciwp_idx = int(codon_out(1))
+      iclwp_idx = int(codon_out(2))
+      cld_idx = int(codon_out(3))
+      rel_idx = int(codon_out(4))
+      rei_idx = int(codon_out(5))
+      ixcldliq = int(codon_out(6))
+      ixcldice = int(codon_out(7))
    endif
 
    !call addfld ('CLWPTH_OLD','Kg/m2   ',pver, 'I','old In Cloud Liquid Water Path',phys_decomp, sampling_seq='rad_lwsw')
@@ -445,7 +450,11 @@ subroutine slingo_init_select_impl()
    if (slingo_init_impl_selected) return
 
    impl_name = ''
-   call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('SLINGO_RAD_PROPS_INIT_IMPL', impl_name, n, status)
+   if (status /= 0 .or. n <= 0) then
+      impl_name = ''
+      call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
+   endif
    if (status == 0 .and. n > 0) then
       use_native_slingo_init_impl = trim(adjustl(impl_name(:n))) == 'native'
    else
@@ -456,9 +465,9 @@ subroutine slingo_init_select_impl()
 
    if (masterproc) then
       if (use_native_slingo_init_impl) then
-         write(iulog,*) 'slingo_init implementation = native'
+         write(iulog,*) 'slingo_rad_props_init implementation = native'
       else
-         write(iulog,*) 'slingo_init implementation = codon'
+         write(iulog,*) 'slingo_rad_props_init implementation = codon'
       endif
       call flush(iulog)
    endif
@@ -476,7 +485,7 @@ subroutine slingo_init_log_entered()
    slingo_init_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'slingo_init entered (index passthrough = codon)'
+      write(iulog,*) 'slingo_rad_props_init direct = codon; native pbuf/cnst index API boundary'
       call flush(iulog)
    endif
 

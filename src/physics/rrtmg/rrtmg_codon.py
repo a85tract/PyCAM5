@@ -35,6 +35,46 @@ def oldcloud_init_codon(
 
 
 @export
+def slingo_rad_props_init_codon(
+    iciwp_idx: int,
+    iclwp_idx: int,
+    cld_idx: int,
+    rel_idx: int,
+    rei_idx: int,
+    ixcldliq: int,
+    ixcldice: int,
+    out_p: cobj,
+):
+    out = Ptr[int](out_p)
+    out[0] = iciwp_idx
+    out[1] = iclwp_idx
+    out[2] = cld_idx
+    out[3] = rel_idx
+    out[4] = rei_idx
+    out[5] = ixcldliq
+    out[6] = ixcldice
+
+
+@export
+def ec_rad_props_init_codon(
+    iciwp_idx: int,
+    iclwp_idx: int,
+    cld_idx: int,
+    rei_idx: int,
+    ixcldice: int,
+    ixcldliq: int,
+    out_p: cobj,
+):
+    out = Ptr[int](out_p)
+    out[0] = iciwp_idx
+    out[1] = iclwp_idx
+    out[2] = cld_idx
+    out[3] = rei_idx
+    out[4] = ixcldice
+    out[5] = ixcldliq
+
+
+@export
 def m_codon(k: int, n: int) -> int:
     kk = i32(k)
     if n >= 0:

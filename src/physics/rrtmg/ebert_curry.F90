@@ -10,7 +10,7 @@ use physics_buffer,   only: physics_buffer_desc, pbuf_get_index, pbuf_get_field,
 use radconstants,     only: nswbands, nlwbands, idx_sw_diag, ot_length, idx_lw_diag, get_sw_spectral_boundaries
 use cam_abortutils,   only: endrun
 use cam_history,      only: outfld
-use iso_c_binding,    only: c_int64_t
+use iso_c_binding,    only: c_int64_t, c_loc
 
 implicit none
 private
@@ -59,12 +59,13 @@ logical :: ebert_curry_init_impl_selected = .false.
 logical :: ebert_curry_init_entered_logged = .false.
 
 interface
-   function rrtmg_init_int_passthrough_codon(value_c) result(result_c) &
-        bind(c, name="rrtmg_init_int_passthrough_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: value_c
-      integer(c_int64_t) :: result_c
-   end function rrtmg_init_int_passthrough_codon
+   subroutine ec_rad_props_init_codon(iciwp_idx_c, iclwp_idx_c, cld_idx_c, rei_idx_c, &
+        ixcldice_c, ixcldliq_c, out_p) bind(c, name="ec_rad_props_init_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: iciwp_idx_c, iclwp_idx_c, cld_idx_c, rei_idx_c
+      integer(c_int64_t), value :: ixcldice_c, ixcldliq_c
+      type(c_ptr), value :: out_p
+   end subroutine ec_rad_props_init_codon
 end interface
 
 
@@ -86,6 +87,7 @@ subroutine ec_rad_props_init()
    use constituents,   only: cnst_get_ind
 
    integer :: err
+   integer(c_int64_t), target :: codon_out(6)
 
    iciwp_idx  = pbuf_get_index('ICIWP',errcode=err)
    iclwp_idx  = pbuf_get_index('ICLWP',errcode=err)
@@ -99,12 +101,15 @@ subroutine ec_rad_props_init()
    call ebert_curry_init_select_impl()
    if (.not. use_native_ebert_curry_init_impl) then
       call ebert_curry_init_log_entered()
-      iciwp_idx = rrtmg_init_int_passthrough_codon(int(iciwp_idx, c_int64_t))
-      iclwp_idx = rrtmg_init_int_passthrough_codon(int(iclwp_idx, c_int64_t))
-      cld_idx = rrtmg_init_int_passthrough_codon(int(cld_idx, c_int64_t))
-      rei_idx = rrtmg_init_int_passthrough_codon(int(rei_idx, c_int64_t))
-      ixcldice = rrtmg_init_int_passthrough_codon(int(ixcldice, c_int64_t))
-      ixcldliq = rrtmg_init_int_passthrough_codon(int(ixcldliq, c_int64_t))
+      call ec_rad_props_init_codon(int(iciwp_idx, c_int64_t), int(iclwp_idx, c_int64_t), &
+           int(cld_idx, c_int64_t), int(rei_idx, c_int64_t), int(ixcldice, c_int64_t), &
+           int(ixcldliq, c_int64_t), c_loc(codon_out(1)))
+      iciwp_idx = int(codon_out(1))
+      iclwp_idx = int(codon_out(2))
+      cld_idx = int(codon_out(3))
+      rei_idx = int(codon_out(4))
+      ixcldice = int(codon_out(5))
+      ixcldliq = int(codon_out(6))
    endif
 
    !call addfld ('CLWPTH_OLD','Kg/m2   ',pver, 'I','old In Cloud Liquid Water Path',phys_decomp, sampling_seq='rad_lwsw')
@@ -441,7 +446,11 @@ subroutine ebert_curry_init_select_impl()
    if (ebert_curry_init_impl_selected) return
 
    impl_name = ''
-   call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
+   call cam_codon_get_impl('EC_RAD_PROPS_INIT_IMPL', impl_name, n, status)
+   if (status /= 0 .or. n <= 0) then
+      impl_name = ''
+      call cam_codon_get_impl('RRTMG_INIT_HELPERS_IMPL', impl_name, n, status)
+   endif
    if (status == 0 .and. n > 0) then
       use_native_ebert_curry_init_impl = trim(adjustl(impl_name(:n))) == 'native'
    else
@@ -452,9 +461,9 @@ subroutine ebert_curry_init_select_impl()
 
    if (masterproc) then
       if (use_native_ebert_curry_init_impl) then
-         write(iulog,*) 'ebert_curry_init implementation = native'
+         write(iulog,*) 'ec_rad_props_init implementation = native'
       else
-         write(iulog,*) 'ebert_curry_init implementation = codon'
+         write(iulog,*) 'ec_rad_props_init implementation = codon'
       endif
       call flush(iulog)
    endif
@@ -472,7 +481,7 @@ subroutine ebert_curry_init_log_entered()
    ebert_curry_init_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'ebert_curry_init entered (index passthrough = codon)'
+      write(iulog,*) 'ec_rad_props_init direct = codon; native pbuf/cnst index API boundary'
       call flush(iulog)
    endif
 
