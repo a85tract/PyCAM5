@@ -10,6 +10,7 @@ module quadrature_mod
   private
   logical, save :: gausslobatto_codon_logged = .false.
   logical, save :: legendre_codon_logged = .false.
+  logical, save :: jacobi_codon_logged = .false.
 
   type, public :: quadrature_t
 #ifdef IS_ACCELERATOR
@@ -293,6 +294,8 @@ contains
     integer, intent(in) :: npts
     type (quadrature_t) :: gll
     integer(c_int64_t) :: codon_status
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
     interface
        function gausslobatto_codon(npts_c, points_p, weights_p) result(status_c) &
             bind(c, name='gausslobatto_codon')
@@ -306,23 +309,23 @@ contains
     allocate(gll%points(npts))
     allocate(gll%weights(npts))
 
-    codon_status = gausslobatto_codon(int(npts, c_int64_t), c_loc(gll%points(1)), c_loc(gll%weights(1)))
-    if (codon_status == 1_c_int64_t) then
-       if (masterproc .and. .not. gausslobatto_codon_logged) then
-          write(iulog,*) 'gausslobatto implementation = codon'
-          gausslobatto_codon_logged = .true.
-          call flush(iulog)
+    impl_name = 'codon'
+    call cam_codon_get_impl('GAUSSLOBATTO_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       codon_status = gausslobatto_codon(int(npts, c_int64_t), c_loc(gll%points(1)), c_loc(gll%weights(1)))
+       if (codon_status == 1_c_int64_t) then
+          if (masterproc .and. .not. gausslobatto_codon_logged) then
+             write(iulog,*) 'gausslobatto implementation = codon'
+             gausslobatto_codon_logged = .true.
+             call flush(iulog)
+          end if
+          return
        end if
-       return
     end if
 
     gll%points=gausslobatto_pts(npts)
     gll%weights=gausslobatto_wts(npts,gll%points)
-    if (masterproc .and. .not. gausslobatto_codon_logged) then
-       write(iulog,*) 'gausslobatto implementation = codon'
-       gausslobatto_codon_logged = .true.
-       call flush(iulog)
-    end if
 
   end function gausslobatto
 
@@ -607,13 +610,15 @@ contains
   ! ================================================
 
   subroutine jacobi(n, x, alpha, beta, jac, djac)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use spmd_utils, only : masterproc
 
     integer, intent(in)                 :: n
     real (kind=longdouble_kind), intent(in) :: x
     real (kind=longdouble_kind), intent(in) :: alpha
     real (kind=longdouble_kind), intent(in) :: beta
-    real (kind=longdouble_kind)             :: jac(0:n)
-    real (kind=longdouble_kind)             :: djac(0:n)
+    real (kind=longdouble_kind), target     :: jac(0:n)
+    real (kind=longdouble_kind), target     :: djac(0:n)
 
     ! Local variables
 
@@ -625,6 +630,32 @@ contains
     real (kind=longdouble_kind) :: c2,c1,c0
 
     integer ::  k
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+
+    interface
+       subroutine jacobi_codon(n_c, x_c, alpha_c, beta_c, jac_p, djac_p) &
+            bind(c, name="jacobi_codon")
+         import :: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: n_c
+         real(c_double), value :: x_c, alpha_c, beta_c
+         type(c_ptr), value :: jac_p, djac_p
+       end subroutine jacobi_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('JACOBI_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       call jacobi_codon(int(n, c_int64_t), real(x, c_double), real(alpha, c_double), &
+            real(beta, c_double), c_loc(jac(0)), c_loc(djac(0)))
+       if (masterproc .and. .not. jacobi_codon_logged) then
+          write(iulog,*) 'jacobi implementation = codon'
+          jacobi_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     c0 = 0.0_longdouble_kind
     c1 = 1.0_longdouble_kind

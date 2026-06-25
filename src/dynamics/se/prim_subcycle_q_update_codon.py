@@ -2486,6 +2486,24 @@ def legendre_codon(
     )
 
 @export
+def jacobi_codon(
+    n: int,
+    x: float,
+    alpha: float,
+    beta: float,
+    jac_p: cobj,
+    djac_p: cobj,
+):
+    return _misc.jacobi_codon(
+        n,
+        x,
+        alpha,
+        beta,
+        jac_p,
+        djac_p,
+    )
+
+@export
 def se_gausslobatto_fill_codon(
     npts: int,
     points_p: cobj,

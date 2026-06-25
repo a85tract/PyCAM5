@@ -1628,6 +1628,30 @@ def legendre_codon(x: float, n: int, leg_p: cobj):
             leg[k] = p_3
 
 
+def jacobi_codon(n: int, x: float, alpha: float, beta: float, jac_p: cobj, djac_p: cobj):
+    jac = Ptr[float](jac_p)
+    djac = Ptr[float](djac_p)
+
+    c0 = 0.0
+    c1 = 1.0
+    c2 = 2.0
+
+    jac[0] = c1
+    jac[1] = (c1 + alpha) * x
+
+    djac[0] = c0
+    djac[1] = c1 + alpha
+
+    for k in range(1, n):
+        kf = float(k)
+        a1k = c2 * (kf + c1) * (kf + alpha + beta + c1) * (c2 * kf + alpha + beta)
+        da2kdx = (c2 * (kf + c1) + alpha + beta) * (c2 * kf + alpha + beta + c1) * (c2 * kf + alpha + beta)
+        a2k = (c2 * kf + alpha + beta + c1) * (alpha * alpha - beta * beta) + x * da2kdx
+        a3k = c2 * (kf + alpha) * (kf + beta) * (c2 * kf + alpha + beta + c2)
+        jac[k + 1] = (a2k * jac[k] - a3k * jac[k - 1]) / a1k
+        djac[k + 1] = (a2k * djac[k] + da2kdx * jac[k] - a3k * djac[k - 1]) / a1k
+
+
 def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> int:
     if npts != 4:
         return 0
