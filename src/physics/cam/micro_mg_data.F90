@@ -115,8 +115,6 @@ integer, parameter :: pack_mode_unpack_2D = 7
 integer, parameter :: pack_mode_unpack_2D_array_fill = 8
 integer, parameter :: pack_mode_unpack_3D = 9
 integer, parameter :: pack_mode_unpack_3D_array_fill = 10
-integer, parameter :: pack_mode_accumulate_1D = 11
-integer, parameter :: pack_mode_accumulate_2D = 12
 integer, parameter :: pack_mode_mean_1D = 13
 integer, parameter :: pack_mode_mean_2D = 14
 
@@ -129,8 +127,6 @@ logical :: micro_mg_data_pack_3d_direct_logged = .false.
 logical :: micro_mg_data_unpack_1d_direct_logged = .false.
 logical :: micro_mg_data_unpack_2d_direct_logged = .false.
 logical :: micro_mg_data_unpack_2d_array_fill_direct_logged = .false.
-logical :: micro_mg_data_accumulate_1d_direct_logged = .false.
-logical :: micro_mg_data_accumulate_2d_direct_logged = .false.
 logical :: micro_mg_data_new_mgpacker_direct_logged = .false.
 logical :: micro_mg_data_mgpacker_finalize_direct_logged = .false.
 logical :: micro_mg_data_mgfield_finalize_direct_logged = .false.
@@ -138,6 +134,9 @@ logical :: micro_mg_data_new_mgpostproc_direct_logged = .false.
 logical :: micro_mg_data_mgpostproc_finalize_direct_logged = .false.
 logical :: micro_mg_data_add_field_1d_direct_logged = .false.
 logical :: micro_mg_data_add_field_2d_direct_logged = .false.
+logical :: mgfieldpostproc_accumulate_use_native_impl = .false.
+logical :: mgfieldpostproc_accumulate_impl_selected = .false.
+logical :: mgfieldpostproc_accumulate_direct_logged = .false.
 
 interface
    subroutine micro_mg_data_pack_unpack_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
@@ -227,6 +226,12 @@ interface
       import c_ptr
       type(c_ptr), value :: plan_p
    end subroutine mgfieldpostproc_finalize_codon
+   subroutine mgfieldpostproc_accumulate_codon(accum_method_c, rank_c, n1_c, n2_c, &
+        plan_p, packed_p, buffer_p) bind(c, name="mgfieldpostproc_accumulate_codon")
+      import c_int64_t, c_ptr
+      integer(c_int64_t), value :: accum_method_c, rank_c, n1_c, n2_c
+      type(c_ptr), value :: plan_p, packed_p, buffer_p
+   end subroutine mgfieldpostproc_accumulate_codon
    function mgfieldpostproc_process_and_unpack_codon(flag_c) result(out_c) &
         bind(c, name="mgfieldpostproc_process_and_unpack_codon")
       import c_int64_t
@@ -409,6 +414,39 @@ subroutine micro_mg_data_select_packer_impl()
   micro_mg_data_packer_impl_selected = .true.
 end subroutine micro_mg_data_select_packer_impl
 
+subroutine mgfieldpostproc_accumulate_select_impl()
+  character(len=32) :: impl_name
+  integer :: n, status, i, code
+
+  if (mgfieldpostproc_accumulate_impl_selected) return
+
+  impl_name = 'codon'
+  call cam_codon_get_impl('MGFIELDPOSTPROC_ACCUMULATE_IMPL', impl_name, n, status)
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     mgfieldpostproc_accumulate_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     mgfieldpostproc_accumulate_use_native_impl = .false.
+  end if
+
+  mgfieldpostproc_accumulate_impl_selected = .true.
+
+  if (mgfieldpostproc_accumulate_use_native_impl) then
+     if (masterproc) write(iulog,*) 'MGFieldPostProc_accumulate implementation = native'
+     call mgfieldpostproc_accumulate_append_proof('MGFieldPostProc_accumulate implementation = native')
+  else
+     if (masterproc) write(iulog,*) 'MGFieldPostProc_accumulate implementation = codon'
+     call mgfieldpostproc_accumulate_append_proof('MGFieldPostProc_accumulate implementation = codon')
+  end if
+  if (masterproc) call flush(iulog)
+
+end subroutine mgfieldpostproc_accumulate_select_impl
+
 subroutine micro_mg_data_log_packer_entry()
   if (masterproc .and. .not. micro_mg_data_packer_entered_logged) then
      write(iulog,*) 'micro_mg_data_packer entered (pack/unpack helpers = codon)'
@@ -431,6 +469,23 @@ subroutine micro_mg_data_append_direct_proof(proof_line)
      close(unitno)
   end if
 end subroutine micro_mg_data_append_direct_proof
+
+subroutine mgfieldpostproc_accumulate_append_proof(proof_line)
+  character(len=*), intent(in) :: proof_line
+  character(len=512) :: proof_file
+  character(len=640) :: rank_proof_file
+  integer :: n, status, unitno
+
+  proof_file = ''
+  call get_environment_variable('MGFIELDPOSTPROC_ACCUMULATE_PROOF_FILE', &
+       value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     write(rank_proof_file,'(A,".",I0,".proof")') trim(proof_file(:n)), iam
+     open(newunit=unitno, file=trim(rank_proof_file), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+end subroutine mgfieldpostproc_accumulate_append_proof
 
 subroutine micro_mg_data_log_pack_2d_direct()
   if (.not. micro_mg_data_pack_2d_direct_logged) then
@@ -480,21 +535,15 @@ subroutine micro_mg_data_log_unpack_2d_array_fill_direct()
   end if
 end subroutine micro_mg_data_log_unpack_2d_array_fill_direct
 
-subroutine micro_mg_data_log_accumulate_1d_direct()
-  if (.not. micro_mg_data_accumulate_1d_direct_logged) then
-     call micro_mg_data_append_direct_proof('MGFieldPostProc_accumulate rank1 direct = codon; allocation native island')
-     if (masterproc) write(iulog,*) 'MGFieldPostProc_accumulate rank1 direct = codon; allocation native island'
-     micro_mg_data_accumulate_1d_direct_logged = .true.
+subroutine mgfieldpostproc_accumulate_log_direct()
+  if (.not. mgfieldpostproc_accumulate_direct_logged) then
+     call mgfieldpostproc_accumulate_append_proof( &
+          'MGFieldPostProc_accumulate direct = codon; allocation/assert native boundary')
+     if (masterproc) write(iulog,*) &
+          'MGFieldPostProc_accumulate direct = codon; allocation/assert native boundary'
+     mgfieldpostproc_accumulate_direct_logged = .true.
   end if
-end subroutine micro_mg_data_log_accumulate_1d_direct
-
-subroutine micro_mg_data_log_accumulate_2d_direct()
-  if (.not. micro_mg_data_accumulate_2d_direct_logged) then
-     call micro_mg_data_append_direct_proof('MGFieldPostProc_accumulate rank2 direct = codon; allocation native island')
-     if (masterproc) write(iulog,*) 'MGFieldPostProc_accumulate rank2 direct = codon; allocation native island'
-     micro_mg_data_accumulate_2d_direct_logged = .true.
-  end if
-end subroutine micro_mg_data_log_accumulate_2d_direct
+end subroutine mgfieldpostproc_accumulate_log_direct
 
 subroutine micro_mg_data_log_new_mgpacker_direct()
   if (.not. micro_mg_data_new_mgpacker_direct_logged) then
@@ -778,42 +827,6 @@ subroutine micro_mg_data_unpack_3D_array_fill_codon_wrap(self, packed, fill, unp
        int(extent3, c_int64_t), int(self%pcols, c_int64_t), 1_c_int64_t, 0.0_c_double, &
        c_loc(mgcols_c), src_p, fill_p, dst_p)
 end subroutine micro_mg_data_unpack_3D_array_fill_codon_wrap
-
-subroutine micro_mg_data_accumulate_1D_codon_wrap(packed, buffer)
-  real(r8), target, intent(in) :: packed(:)
-  real(r8), target, intent(inout) :: buffer(:)
-  type(c_ptr) :: src_p, dst_p
-
-  src_p = c_null_ptr
-  dst_p = c_null_ptr
-  if (size(packed) > 0) src_p = c_loc(packed)
-  if (size(buffer) > 0) dst_p = c_loc(buffer)
-
-  call micro_mg_data_log_packer_entry()
-  call micro_mg_data_log_accumulate_1d_direct()
-  call micro_mg_data_pack_unpack_codon(int(pack_mode_accumulate_1D, c_int64_t), &
-       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-       1_c_int64_t, 1_c_int64_t, int(size(packed), c_int64_t), 1_c_int64_t, &
-       0.0_c_double, c_null_ptr, src_p, c_null_ptr, dst_p)
-end subroutine micro_mg_data_accumulate_1D_codon_wrap
-
-subroutine micro_mg_data_accumulate_2D_codon_wrap(packed, buffer)
-  real(r8), target, intent(in) :: packed(:,:)
-  real(r8), target, intent(inout) :: buffer(:,:)
-  type(c_ptr) :: src_p, dst_p
-
-  src_p = c_null_ptr
-  dst_p = c_null_ptr
-  if (size(packed) > 0) src_p = c_loc(packed)
-  if (size(buffer) > 0) dst_p = c_loc(buffer)
-
-  call micro_mg_data_log_packer_entry()
-  call micro_mg_data_log_accumulate_2d_direct()
-  call micro_mg_data_pack_unpack_codon(int(pack_mode_accumulate_2D, c_int64_t), &
-       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-       int(size(packed, 2), c_int64_t), 1_c_int64_t, int(size(packed, 1), c_int64_t), &
-       1_c_int64_t, 0.0_c_double, c_null_ptr, src_p, c_null_ptr, dst_p)
-end subroutine micro_mg_data_accumulate_2D_codon_wrap
 
 function pack_1D(self, unpacked) result(packed)
   class(MGPacker), intent(in) :: self
@@ -1147,10 +1160,121 @@ subroutine MGFieldPostProc_finalize(self)
   if (plan(1) /= 0_c_int64_t) call micro_mg_data_log_mgfield_finalize_direct()
 end subroutine MGFieldPostProc_finalize
 
+subroutine mgfieldpostproc_accumulate_call_codon(accum_method, rank, num_steps, n1, n2, packed_p, buffer_p)
+  integer, intent(in) :: accum_method, rank, n1, n2
+  integer, intent(inout) :: num_steps
+  type(c_ptr), intent(in) :: packed_p, buffer_p
+  integer(c_int64_t), target :: plan(2)
+
+  plan(1) = int(num_steps, c_int64_t)
+  plan(2) = 0_c_int64_t
+
+  call mgfieldpostproc_accumulate_codon(int(accum_method, c_int64_t), int(rank, c_int64_t), &
+       int(n1, c_int64_t), int(n2, c_int64_t), c_loc(plan), packed_p, buffer_p)
+
+  num_steps = int(plan(1))
+  select case (plan(2))
+  case (0_c_int64_t)
+     call mgfieldpostproc_accumulate_log_direct()
+  case (1_c_int64_t)
+     call shr_sys_abort(errMsg(__FILE__, __LINE__) // &
+          " Unsupported rank for MGFieldPostProc accumulation.")
+  case (2_c_int64_t)
+     call shr_sys_abort(errMsg(__FILE__, __LINE__) // &
+          " Unrecognized MGFieldPostProc accumulation method.")
+  case default
+     call shr_sys_abort(errMsg(__FILE__, __LINE__) // &
+          " Unknown MGFieldPostProc_accumulate Codon status.")
+  end select
+
+end subroutine mgfieldpostproc_accumulate_call_codon
+
+subroutine mgfieldpostproc_accumulate_1D_call(accum_method, rank, num_steps, packed, buffer)
+  integer, intent(in) :: accum_method, rank
+  integer, intent(inout) :: num_steps
+  real(r8), target, intent(in) :: packed(:)
+  real(r8), target, intent(inout) :: buffer(:)
+  type(c_ptr) :: packed_p, buffer_p
+
+  packed_p = c_null_ptr
+  buffer_p = c_null_ptr
+  if (size(packed) > 0) packed_p = c_loc(packed)
+  if (size(buffer) > 0) buffer_p = c_loc(buffer)
+
+  call mgfieldpostproc_accumulate_call_codon(accum_method, rank, num_steps, &
+       size(packed), 1, packed_p, buffer_p)
+
+end subroutine mgfieldpostproc_accumulate_1D_call
+
+subroutine mgfieldpostproc_accumulate_2D_call(accum_method, rank, num_steps, packed, buffer)
+  integer, intent(in) :: accum_method, rank
+  integer, intent(inout) :: num_steps
+  real(r8), target, intent(in) :: packed(:,:)
+  real(r8), target, intent(inout) :: buffer(:,:)
+  type(c_ptr) :: packed_p, buffer_p
+
+  packed_p = c_null_ptr
+  buffer_p = c_null_ptr
+  if (size(packed) > 0) packed_p = c_loc(packed)
+  if (size(buffer) > 0) buffer_p = c_loc(buffer)
+
+  call mgfieldpostproc_accumulate_call_codon(accum_method, rank, num_steps, &
+       size(packed, 1), size(packed, 2), packed_p, buffer_p)
+
+end subroutine mgfieldpostproc_accumulate_2D_call
+
 subroutine MGFieldPostProc_accumulate(self)
   class(MGFieldPostProc), intent(inout) :: self
 
-  call micro_mg_data_select_packer_impl()
+  call mgfieldpostproc_accumulate_select_impl()
+  if (mgfieldpostproc_accumulate_use_native_impl) then
+     call MGFieldPostProc_accumulate_native(self)
+  else
+     call MGFieldPostProc_accumulate_codon_wrap(self)
+  end if
+
+end subroutine MGFieldPostProc_accumulate
+
+subroutine MGFieldPostProc_accumulate_codon_wrap(self)
+  class(MGFieldPostProc), intent(inout) :: self
+
+  select case (self%accum_method)
+  case (accum_null)
+     call mgfieldpostproc_accumulate_call_codon(self%accum_method, self%rank, self%num_steps, &
+          0, 0, c_null_ptr, c_null_ptr)
+  case (accum_mean)
+     select case (self%rank)
+     case (1)
+        SHR_ASSERT(associated(self%packed_1D), errMsg(__FILE__, __LINE__))
+        if (.not. allocated(self%buffer_1D)) then
+           allocate(self%buffer_1D(size(self%packed_1D)))
+           self%buffer_1D = 0._r8
+        end if
+        call mgfieldpostproc_accumulate_1D_call(self%accum_method, self%rank, &
+             self%num_steps, self%packed_1D, self%buffer_1D)
+     case (2)
+        SHR_ASSERT(associated(self%packed_2D), errMsg(__FILE__, __LINE__))
+        if (.not. allocated(self%buffer_2D)) then
+           ! Awkward; in F2008 can be replaced by source/mold.
+           allocate(self%buffer_2D(&
+                size(self%packed_2D, 1),size(self%packed_2D, 2)))
+           self%buffer_2D = 0._r8
+        end if
+        call mgfieldpostproc_accumulate_2D_call(self%accum_method, self%rank, &
+             self%num_steps, self%packed_2D, self%buffer_2D)
+     case default
+        call mgfieldpostproc_accumulate_call_codon(self%accum_method, self%rank, self%num_steps, &
+             0, 0, c_null_ptr, c_null_ptr)
+     end select
+  case default
+     call mgfieldpostproc_accumulate_call_codon(self%accum_method, self%rank, self%num_steps, &
+          0, 0, c_null_ptr, c_null_ptr)
+  end select
+
+end subroutine MGFieldPostProc_accumulate_codon_wrap
+
+subroutine MGFieldPostProc_accumulate_native(self)
+  class(MGFieldPostProc), intent(inout) :: self
 
   select case (self%accum_method)
   case (accum_null)
@@ -1167,11 +1291,7 @@ subroutine MGFieldPostProc_accumulate(self)
            allocate(self%buffer_1D(size(self%packed_1D)))
            self%buffer_1D = 0._r8
         end if
-        if (micro_mg_data_packer_use_native_impl) then
-           self%buffer_1D = self%buffer_1D + self%packed_1D
-        else
-           call micro_mg_data_accumulate_1D_codon_wrap(self%packed_1D, self%buffer_1D)
-        end if
+        self%buffer_1D = self%buffer_1D + self%packed_1D
      case (2)
         SHR_ASSERT(associated(self%packed_2D), errMsg(__FILE__, __LINE__))
         if (.not. allocated(self%buffer_2D)) then
@@ -1180,11 +1300,7 @@ subroutine MGFieldPostProc_accumulate(self)
                 size(self%packed_2D, 1),size(self%packed_2D, 2)))
            self%buffer_2D = 0._r8
         end if
-        if (micro_mg_data_packer_use_native_impl) then
-           self%buffer_2D = self%buffer_2D + self%packed_2D
-        else
-           call micro_mg_data_accumulate_2D_codon_wrap(self%packed_2D, self%buffer_2D)
-        end if
+        self%buffer_2D = self%buffer_2D + self%packed_2D
      case default
         call shr_sys_abort(errMsg(__FILE__, __LINE__) // &
              " Unsupported rank for MGFieldPostProc accumulation.")
@@ -1194,7 +1310,7 @@ subroutine MGFieldPostProc_accumulate(self)
           " Unrecognized MGFieldPostProc accumulation method.")
   end select
 
-end subroutine MGFieldPostProc_accumulate
+end subroutine MGFieldPostProc_accumulate_native
 
 subroutine MGFieldPostProc_process_and_unpack(self, packer)
   class(MGFieldPostProc), intent(inout) :: self

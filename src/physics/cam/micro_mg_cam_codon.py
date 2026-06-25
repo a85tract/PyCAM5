@@ -876,6 +876,39 @@ def _micro_mg_data_accumulate_2d(
             dst[idx] = dst[idx] + src[idx]
 
 
+@export
+def mgfieldpostproc_accumulate_codon(
+    accum_method: int,
+    rank: int,
+    n1: int,
+    n2: int,
+    plan_p: cobj,
+    packed_p: cobj,
+    buffer_p: cobj,
+):
+    plan = Ptr[int](plan_p)
+    plan[1] = 0
+
+    if accum_method == 0:
+        return
+
+    if accum_method == 1:
+        plan[0] = plan[0] + 1
+        if rank == 1:
+            _micro_mg_data_accumulate_1d(
+                n1, Ptr[float](packed_p), Ptr[float](buffer_p)
+            )
+        elif rank == 2:
+            _micro_mg_data_accumulate_2d(
+                n1, n2, Ptr[float](packed_p), Ptr[float](buffer_p)
+            )
+        else:
+            plan[1] = 1
+        return
+
+    plan[1] = 2
+
+
 @inline
 def _micro_mg_data_mean_1d(
     n: int,
