@@ -21,6 +21,7 @@ module cldaero_mod
 
   logical, save :: cldaero_allocate_codon_logged = .false.
   logical, save :: cldaero_deallocate_codon_logged = .false.
+  logical, save :: cldaero_uptakerate_codon_logged = .false.
 
   type cldaero_conc_t
      real(r8), pointer :: so4c(:,:)
@@ -159,6 +160,7 @@ contains
 !----------------------------------------------------------------------------------
 
   function cldaero_uptakerate( xl, cldnum, cfact, cldfrc, tfld,  press ) result( uptkrate )
+    use iso_c_binding, only : c_double
     use mo_constants, only : pi
 
     real(r8), intent(in) :: xl, cldnum, cfact, cldfrc, tfld,  press
@@ -169,6 +171,33 @@ contains
          rad_cd, radxnum_cd, num_cd, &
          gasdiffus, gasspeed, knudsen, &
          fuchs_sutugin, volx34pi_cd
+    character(len=32) :: impl_name
+    integer :: n, status
+
+    interface
+       function cldaero_uptakerate_codon(xl_c, cldnum_c, cfact_c, cldfrc_c, tfld_c, press_c, pi_c) &
+            result(uptkrate_c) bind(c, name='cldaero_uptakerate_codon')
+         import :: c_double
+         real(c_double), value :: xl_c, cldnum_c, cfact_c, cldfrc_c, tfld_c, press_c, pi_c
+         real(c_double) :: uptkrate_c
+       end function cldaero_uptakerate_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('CLDAERO_UPTAKERATE_IMPL', impl_name, n, status)
+    if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+       uptkrate = real(cldaero_uptakerate_codon(real(xl, c_double), real(cldnum, c_double), &
+            real(cfact, c_double), real(cldfrc, c_double), real(tfld, c_double), real(press, c_double), &
+            real(pi, c_double)), r8)
+       if (.not. cldaero_uptakerate_codon_logged) then
+          cldaero_uptakerate_codon_logged = .true.
+          if (masterproc) then
+             write(iulog,*) 'cldaero_uptakerate implementation = codon'
+             call flush(iulog)
+          end if
+       end if
+       return
+    end if
 
 !-----------------------------------------------------------------------
 ! compute uptake of h2so4 and msa to cloud water

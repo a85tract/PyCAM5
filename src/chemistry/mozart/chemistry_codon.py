@@ -8051,6 +8051,49 @@ def sslt_sections_init_codon(tag: int) -> int:
     return tag
 
 @export
+def cldaero_uptakerate_codon(
+    xl: float,
+    cldnum: float,
+    cfact: float,
+    cldfrc: float,
+    tfld: float,
+    press: float,
+    pi_val: float,
+) -> float:
+    return _wetchem._sox_cldaero_uptakerate(xl, cldnum, cfact, cldfrc, tfld, press, pi_val)
+
+@export
+def fluxes_codon(
+    ncol: int,
+    nsections: int,
+    sst_p: cobj,
+    u10cubed_p: cobj,
+    consta_p: cobj,
+    constb_p: cobj,
+    fi_p: cobj,
+):
+    sst = Ptr[float](sst_p)
+    u10cubed = Ptr[float](u10cubed_p)
+    consta = Ptr[float](consta_p)
+    constb = Ptr[float](constb_p)
+    fi = Ptr[float](fi_p)
+
+    for m0 in range(nsections):
+        row = 3
+        if m0 <= 8:
+            row = 0
+        elif m0 <= 12:
+            row = 1
+        elif m0 <= 20:
+            row = 2
+        for i in range(ncol):
+            if m0 <= 20:
+                w = (3.84e-6 * u10cubed[i]) * 0.1
+                fi[i + m0 * ncol] = w * ((sst[i] * consta[row + m0 * 4]) + constb[row + m0 * 4])
+            else:
+                fi[i + m0 * ncol] = consta[row + m0 * 4] * u10cubed[i]
+
+@export
 def modal_aero_newnuc_init_codon(tag: int) -> int:
     return tag
 

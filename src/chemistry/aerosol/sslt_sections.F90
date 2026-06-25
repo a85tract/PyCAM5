@@ -118,14 +118,41 @@ contains
   !===========================================================================
   function fluxes ( sst, u10cubed, ncol ) result(fi)
 
-    real (r8),intent(in) :: sst(:)
-    real (r8),intent(in) :: u10cubed(:)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only : iulog
+    use spmd_utils, only : masterproc
+
+    real (r8),target,intent(in) :: sst(:)
+    real (r8),target,intent(in) :: u10cubed(:)
     integer  ,intent(in) :: ncol
 
-    real (r8) :: fi(ncol,nsections)
+    real (r8),target :: fi(ncol,nsections)
 
     integer :: m
+    integer :: status, n
+    character(len=32) :: impl_name
     real (r8) :: W(ncol)
+
+    interface
+       subroutine fluxes_codon(ncol_c, nsections_c, sst_p, u10cubed_p, consta_p, constb_p, fi_p) &
+            bind(c, name='fluxes_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, nsections_c
+         type(c_ptr), value :: sst_p, u10cubed_p, consta_p, constb_p, fi_p
+       end subroutine fluxes_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('SSLT_FLUXES_IMPL', impl_name, n, status)
+    if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+       call fluxes_codon(int(ncol, c_int64_t), int(nsections, c_int64_t), &
+            c_loc(sst(1)), c_loc(u10cubed(1)), c_loc(consta(1,1)), c_loc(constb(1,1)), c_loc(fi(1,1)))
+       if (masterproc) then
+          write(iulog,*) 'fluxes implementation = codon'
+          call flush(iulog)
+       end if
+       return
+    end if
 
     ! Calculations of source strength and size distribution
     ! NB the 0.1 is the dlogDp we have to multiplie with to get the flux, but the value dependence
