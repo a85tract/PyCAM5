@@ -70,6 +70,9 @@ logical :: modal_aer_opt_readnl_impl_selected = .false.
 logical :: use_native_modal_aer_opt_init_impl = .false.
 logical :: modal_aer_opt_init_impl_selected = .false.
 logical :: modal_aer_opt_init_proof_written = .false.
+logical :: use_native_modal_aero_sw_impl = .false.
+logical :: modal_aero_sw_impl_selected = .false.
+logical :: modal_aero_sw_proof_written = .false.
 logical :: use_native_read_water_refindex_impl = .false.
 logical :: read_water_refindex_impl_selected = .false.
 logical :: read_water_refindex_proof_written = .false.
@@ -417,6 +420,49 @@ interface
       type(c_ptr), value :: refr_p, refi_p, pabs_p, dopaer_p, tauxar_p
    end subroutine modal_aero_lw_codon
 
+   function modal_aero_sw_codon(stage_c, ncol_c, pcols_c, pver_c, nswbands_c, ncoef_c, &
+        prefr_c, prefi_c, top_lev_c, k_c, isw_c, spectype_code_c, flag1_c, flag2_c, flag3_c, &
+        rga_c, rair_c, rhoh2o_c, xrmin_c, xrmax_c, sigma_logr_aer_c, cref_re_c, cref_im_c, &
+        specdens_c, specrefr_c, specrefi_c, hygro_aer_c, fillvalue_c, pdeldry_p, pmid_p, &
+        state_t_p, tauxar_p, wa_p, ga_p, fa_p, mass_p, air_density_p, extinct_p, absorb_p, &
+        extinctuv_p, extinctnir_p, aodvis_p, aodvisst_p, aodabs_p, aodabsbc_p, ssavis_p, &
+        burdendust_p, burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p, burdenseasalt_p, &
+        dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p, aoduv_p, aodnir_p, &
+        aoduvst_p, aodnirst_p, dgnumwet_p, radsurf_p, logradsurf_p, cheb_p, dryvol_p, &
+        dustvol_p, scatdust_p, absdust_p, hygrodust_p, scatso4_p, absso4_p, hygroso4_p, &
+        scatbc_p, absbc_p, hygrobc_p, scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, &
+        hygrosoa_p, scatseasalt_p, absseasalt_p, hygroseasalt_p, crefin_re_p, crefin_im_p, &
+        specmmr_p, vol_p, burden_p, aodmode_p, dustaodmode_p, qaerwat_p, watervol_p, wetvol_p, &
+        refr_p, refi_p, extpsw_p, abspsw_p, asmpsw_p, refrtabsw_p, refitabsw_p, itab_p, &
+        jtab_p, ttab_p, utab_p, cext_p, cabs_p, casm_p, pext_p, specpext_p, pabs_p, &
+        pasm_p, palb_p, dopaer_p, troplev_p, idxnite_p) result(status_c) &
+        bind(c, name="modal_aero_sw_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, nswbands_c, ncoef_c
+      integer(c_int64_t), value :: prefr_c, prefi_c, top_lev_c, k_c, isw_c, spectype_code_c
+      integer(c_int64_t), value :: flag1_c, flag2_c, flag3_c
+      real(c_double), value :: rga_c, rair_c, rhoh2o_c, xrmin_c, xrmax_c, sigma_logr_aer_c
+      real(c_double), value :: cref_re_c, cref_im_c, specdens_c, specrefr_c, specrefi_c
+      real(c_double), value :: hygro_aer_c, fillvalue_c
+      type(c_ptr), value :: pdeldry_p, pmid_p, state_t_p, tauxar_p, wa_p, ga_p, fa_p
+      type(c_ptr), value :: mass_p, air_density_p, extinct_p, absorb_p, extinctuv_p, extinctnir_p
+      type(c_ptr), value :: aodvis_p, aodvisst_p, aodabs_p, aodabsbc_p, ssavis_p
+      type(c_ptr), value :: burdendust_p, burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p
+      type(c_ptr), value :: burdenseasalt_p, dustaod_p, so4aod_p, pomaod_p, soaaod_p
+      type(c_ptr), value :: bcaod_p, seasaltaod_p, aoduv_p, aodnir_p, aoduvst_p, aodnirst_p
+      type(c_ptr), value :: dgnumwet_p, radsurf_p, logradsurf_p, cheb_p, dryvol_p, dustvol_p
+      type(c_ptr), value :: scatdust_p, absdust_p, hygrodust_p, scatso4_p, absso4_p, hygroso4_p
+      type(c_ptr), value :: scatbc_p, absbc_p, hygrobc_p, scatpom_p, abspom_p, hygropom_p
+      type(c_ptr), value :: scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, absseasalt_p
+      type(c_ptr), value :: hygroseasalt_p, crefin_re_p, crefin_im_p, specmmr_p, vol_p
+      type(c_ptr), value :: burden_p, aodmode_p, dustaodmode_p, qaerwat_p, watervol_p, wetvol_p
+      type(c_ptr), value :: refr_p, refi_p, extpsw_p, abspsw_p, asmpsw_p, refrtabsw_p, refitabsw_p
+      type(c_ptr), value :: itab_p, jtab_p, ttab_p, utab_p, cext_p, cabs_p, casm_p
+      type(c_ptr), value :: pext_p, specpext_p, pabs_p, pasm_p, palb_p, dopaer_p, troplev_p
+      type(c_ptr), value :: idxnite_p
+      integer(c_int64_t) :: status_c
+   end function modal_aero_sw_codon
+
    subroutine read_water_refindex_codon(nswbands_c, nlwbands_c, refrwsw_p, refiwsw_p, &
         refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p) bind(c, name="read_water_refindex_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -516,6 +562,386 @@ subroutine modal_aer_opt_init_proof_once()
    end if
 
 end subroutine modal_aer_opt_init_proof_once
+
+!===============================================================================
+
+subroutine modal_aero_sw_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_sw_impl_selected) return
+
+   impl_name = 'codon'
+   call cam_codon_get_impl('MODAL_AERO_SW_IMPL', impl_name, n, status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_modal_aero_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_modal_aero_sw_impl = .false.
+   end if
+
+   modal_aero_sw_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_modal_aero_sw_impl) then
+         write(iulog,*) 'modal_aero_sw implementation = native'
+      else
+         write(iulog,*) 'modal_aero_sw implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine modal_aero_sw_select_impl
+
+!===============================================================================
+
+subroutine modal_aero_sw_proof_once()
+
+   if (modal_aero_sw_proof_written) return
+   modal_aero_sw_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'modal_aero_sw direct = codon numeric body via modal_aero_sw_codon; native tropopause, ' // &
+           'rad_constituents, pbuf, diagnostic water uptake, history, and endrun API boundaries'
+      call flush(iulog)
+   end if
+
+end subroutine modal_aero_sw_proof_once
+
+!===============================================================================
+
+function modal_aero_sw_codon_dispatch(stage, ncol_arg, pcols_arg, pver_arg, nswbands_arg, ncoef_arg, &
+     prefr_arg, prefi_arg, top_lev_arg, k_arg, isw_arg, spectype_code_arg, flag1_arg, flag2_arg, &
+     flag3_arg, rga_arg, rair_arg, rhoh2o_arg, xrmin_arg, xrmax_arg, sigma_logr_aer_arg, &
+     cref_re_arg, cref_im_arg, specdens_arg, specrefr_arg, specrefi_arg, hygro_aer_arg, &
+     fillvalue_arg, pdeldry_p, pmid_p, state_t_p, tauxar_p, wa_p, ga_p, fa_p, mass_p, &
+     air_density_p, extinct_p, absorb_p, extinctuv_p, extinctnir_p, aodvis_p, aodvisst_p, &
+     aodabs_p, aodabsbc_p, ssavis_p, burdendust_p, burdenso4_p, burdenpom_p, burdensoa_p, &
+     burdenbc_p, burdenseasalt_p, dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, &
+     seasaltaod_p, aoduv_p, aodnir_p, aoduvst_p, aodnirst_p, dgnumwet_p, radsurf_p, &
+     logradsurf_p, cheb_p, dryvol_p, dustvol_p, scatdust_p, absdust_p, hygrodust_p, &
+     scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p, scatpom_p, abspom_p, &
+     hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, absseasalt_p, &
+     hygroseasalt_p, crefin_re_p, crefin_im_p, specmmr_p, vol_p, burden_p, aodmode_p, &
+     dustaodmode_p, qaerwat_p, watervol_p, wetvol_p, refr_p, refi_p, extpsw_p, abspsw_p, &
+     asmpsw_p, refrtabsw_p, refitabsw_p, itab_p, jtab_p, ttab_p, utab_p, cext_p, cabs_p, &
+     casm_p, pext_p, specpext_p, pabs_p, pasm_p, palb_p, dopaer_p, troplev_p, idxnite_p) &
+     result(status_c)
+
+   use iso_c_binding, only: c_int64_t, c_double, c_ptr, c_null_ptr
+
+   integer, intent(in) :: stage
+   integer, intent(in), optional :: ncol_arg, pcols_arg, pver_arg, nswbands_arg, ncoef_arg
+   integer, intent(in), optional :: prefr_arg, prefi_arg, top_lev_arg, k_arg, isw_arg
+   integer, intent(in), optional :: spectype_code_arg, flag1_arg, flag2_arg, flag3_arg
+   real(r8), intent(in), optional :: rga_arg, rair_arg, rhoh2o_arg, xrmin_arg, xrmax_arg
+   real(r8), intent(in), optional :: sigma_logr_aer_arg, cref_re_arg, cref_im_arg, specdens_arg
+   real(r8), intent(in), optional :: specrefr_arg, specrefi_arg, hygro_aer_arg, fillvalue_arg
+   type(c_ptr), intent(in), optional :: pdeldry_p, pmid_p, state_t_p, tauxar_p, wa_p, ga_p, fa_p
+   type(c_ptr), intent(in), optional :: mass_p, air_density_p, extinct_p, absorb_p
+   type(c_ptr), intent(in), optional :: extinctuv_p, extinctnir_p, aodvis_p, aodvisst_p
+   type(c_ptr), intent(in), optional :: aodabs_p, aodabsbc_p, ssavis_p, burdendust_p, burdenso4_p
+   type(c_ptr), intent(in), optional :: burdenpom_p, burdensoa_p, burdenbc_p, burdenseasalt_p
+   type(c_ptr), intent(in), optional :: dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p
+   type(c_ptr), intent(in), optional :: seasaltaod_p, aoduv_p, aodnir_p, aoduvst_p, aodnirst_p
+   type(c_ptr), intent(in), optional :: dgnumwet_p, radsurf_p, logradsurf_p, cheb_p, dryvol_p
+   type(c_ptr), intent(in), optional :: dustvol_p, scatdust_p, absdust_p, hygrodust_p, scatso4_p
+   type(c_ptr), intent(in), optional :: absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p
+   type(c_ptr), intent(in), optional :: scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p
+   type(c_ptr), intent(in), optional :: hygrosoa_p, scatseasalt_p, absseasalt_p, hygroseasalt_p
+   type(c_ptr), intent(in), optional :: crefin_re_p, crefin_im_p, specmmr_p, vol_p, burden_p
+   type(c_ptr), intent(in), optional :: aodmode_p, dustaodmode_p, qaerwat_p, watervol_p, wetvol_p
+   type(c_ptr), intent(in), optional :: refr_p, refi_p, extpsw_p, abspsw_p, asmpsw_p
+   type(c_ptr), intent(in), optional :: refrtabsw_p, refitabsw_p, itab_p, jtab_p, ttab_p, utab_p
+   type(c_ptr), intent(in), optional :: cext_p, cabs_p, casm_p, pext_p, specpext_p, pabs_p
+   type(c_ptr), intent(in), optional :: pasm_p, palb_p, dopaer_p, troplev_p, idxnite_p
+
+   integer(c_int64_t) :: status_c
+   integer(c_int64_t) :: ncol_c, pcols_c, pver_c, nswbands_c, ncoef_c, prefr_c, prefi_c
+   integer(c_int64_t) :: top_lev_c, k_c, isw_c, spectype_code_c, flag1_c, flag2_c, flag3_c
+   real(c_double) :: rga_c, rair_c, rhoh2o_c, xrmin_c, xrmax_c, sigma_logr_aer_c
+   real(c_double) :: cref_re_c, cref_im_c, specdens_c, specrefr_c, specrefi_c, hygro_aer_c
+   real(c_double) :: fillvalue_c
+   type(c_ptr) :: pdeldry_cp, pmid_cp, state_t_cp, tauxar_cp, wa_cp, ga_cp, fa_cp, mass_cp
+   type(c_ptr) :: air_density_cp, extinct_cp, absorb_cp, extinctuv_cp, extinctnir_cp, aodvis_cp
+   type(c_ptr) :: aodvisst_cp, aodabs_cp, aodabsbc_cp, ssavis_cp, burdendust_cp, burdenso4_cp
+   type(c_ptr) :: burdenpom_cp, burdensoa_cp, burdenbc_cp, burdenseasalt_cp, dustaod_cp
+   type(c_ptr) :: so4aod_cp, pomaod_cp, soaaod_cp, bcaod_cp, seasaltaod_cp, aoduv_cp, aodnir_cp
+   type(c_ptr) :: aoduvst_cp, aodnirst_cp, dgnumwet_cp, radsurf_cp, logradsurf_cp, cheb_cp
+   type(c_ptr) :: dryvol_cp, dustvol_cp, scatdust_cp, absdust_cp, hygrodust_cp, scatso4_cp
+   type(c_ptr) :: absso4_cp, hygroso4_cp, scatbc_cp, absbc_cp, hygrobc_cp, scatpom_cp
+   type(c_ptr) :: abspom_cp, hygropom_cp, scatsoa_cp, abssoa_cp, hygrosoa_cp, scatseasalt_cp
+   type(c_ptr) :: absseasalt_cp, hygroseasalt_cp, crefin_re_cp, crefin_im_cp, specmmr_cp, vol_cp
+   type(c_ptr) :: burden_cp, aodmode_cp, dustaodmode_cp, qaerwat_cp, watervol_cp, wetvol_cp
+   type(c_ptr) :: refr_cp, refi_cp, extpsw_cp, abspsw_cp, asmpsw_cp, refrtabsw_cp, refitabsw_cp
+   type(c_ptr) :: itab_cp, jtab_cp, ttab_cp, utab_cp, cext_cp, cabs_cp, casm_cp, pext_cp
+   type(c_ptr) :: specpext_cp, pabs_cp, pasm_cp, palb_cp, dopaer_cp, troplev_cp, idxnite_cp
+
+   ncol_c = 0_c_int64_t
+   pcols_c = 0_c_int64_t
+   pver_c = 0_c_int64_t
+   nswbands_c = 0_c_int64_t
+   ncoef_c = 0_c_int64_t
+   prefr_c = 0_c_int64_t
+   prefi_c = 0_c_int64_t
+   top_lev_c = 0_c_int64_t
+   k_c = 0_c_int64_t
+   isw_c = 0_c_int64_t
+   spectype_code_c = 0_c_int64_t
+   flag1_c = 0_c_int64_t
+   flag2_c = 0_c_int64_t
+   flag3_c = 0_c_int64_t
+   rga_c = 0.0_c_double
+   rair_c = 0.0_c_double
+   rhoh2o_c = 0.0_c_double
+   xrmin_c = 0.0_c_double
+   xrmax_c = 0.0_c_double
+   sigma_logr_aer_c = 0.0_c_double
+   cref_re_c = 0.0_c_double
+   cref_im_c = 0.0_c_double
+   specdens_c = 0.0_c_double
+   specrefr_c = 0.0_c_double
+   specrefi_c = 0.0_c_double
+   hygro_aer_c = 0.0_c_double
+   fillvalue_c = 0.0_c_double
+
+   pdeldry_cp = c_null_ptr
+   pmid_cp = c_null_ptr
+   state_t_cp = c_null_ptr
+   tauxar_cp = c_null_ptr
+   wa_cp = c_null_ptr
+   ga_cp = c_null_ptr
+   fa_cp = c_null_ptr
+   mass_cp = c_null_ptr
+   air_density_cp = c_null_ptr
+   extinct_cp = c_null_ptr
+   absorb_cp = c_null_ptr
+   extinctuv_cp = c_null_ptr
+   extinctnir_cp = c_null_ptr
+   aodvis_cp = c_null_ptr
+   aodvisst_cp = c_null_ptr
+   aodabs_cp = c_null_ptr
+   aodabsbc_cp = c_null_ptr
+   ssavis_cp = c_null_ptr
+   burdendust_cp = c_null_ptr
+   burdenso4_cp = c_null_ptr
+   burdenpom_cp = c_null_ptr
+   burdensoa_cp = c_null_ptr
+   burdenbc_cp = c_null_ptr
+   burdenseasalt_cp = c_null_ptr
+   dustaod_cp = c_null_ptr
+   so4aod_cp = c_null_ptr
+   pomaod_cp = c_null_ptr
+   soaaod_cp = c_null_ptr
+   bcaod_cp = c_null_ptr
+   seasaltaod_cp = c_null_ptr
+   aoduv_cp = c_null_ptr
+   aodnir_cp = c_null_ptr
+   aoduvst_cp = c_null_ptr
+   aodnirst_cp = c_null_ptr
+   dgnumwet_cp = c_null_ptr
+   radsurf_cp = c_null_ptr
+   logradsurf_cp = c_null_ptr
+   cheb_cp = c_null_ptr
+   dryvol_cp = c_null_ptr
+   dustvol_cp = c_null_ptr
+   scatdust_cp = c_null_ptr
+   absdust_cp = c_null_ptr
+   hygrodust_cp = c_null_ptr
+   scatso4_cp = c_null_ptr
+   absso4_cp = c_null_ptr
+   hygroso4_cp = c_null_ptr
+   scatbc_cp = c_null_ptr
+   absbc_cp = c_null_ptr
+   hygrobc_cp = c_null_ptr
+   scatpom_cp = c_null_ptr
+   abspom_cp = c_null_ptr
+   hygropom_cp = c_null_ptr
+   scatsoa_cp = c_null_ptr
+   abssoa_cp = c_null_ptr
+   hygrosoa_cp = c_null_ptr
+   scatseasalt_cp = c_null_ptr
+   absseasalt_cp = c_null_ptr
+   hygroseasalt_cp = c_null_ptr
+   crefin_re_cp = c_null_ptr
+   crefin_im_cp = c_null_ptr
+   specmmr_cp = c_null_ptr
+   vol_cp = c_null_ptr
+   burden_cp = c_null_ptr
+   aodmode_cp = c_null_ptr
+   dustaodmode_cp = c_null_ptr
+   qaerwat_cp = c_null_ptr
+   watervol_cp = c_null_ptr
+   wetvol_cp = c_null_ptr
+   refr_cp = c_null_ptr
+   refi_cp = c_null_ptr
+   extpsw_cp = c_null_ptr
+   abspsw_cp = c_null_ptr
+   asmpsw_cp = c_null_ptr
+   refrtabsw_cp = c_null_ptr
+   refitabsw_cp = c_null_ptr
+   itab_cp = c_null_ptr
+   jtab_cp = c_null_ptr
+   ttab_cp = c_null_ptr
+   utab_cp = c_null_ptr
+   cext_cp = c_null_ptr
+   cabs_cp = c_null_ptr
+   casm_cp = c_null_ptr
+   pext_cp = c_null_ptr
+   specpext_cp = c_null_ptr
+   pabs_cp = c_null_ptr
+   pasm_cp = c_null_ptr
+   palb_cp = c_null_ptr
+   dopaer_cp = c_null_ptr
+   troplev_cp = c_null_ptr
+   idxnite_cp = c_null_ptr
+
+   if (present(ncol_arg)) ncol_c = int(ncol_arg, c_int64_t)
+   if (present(pcols_arg)) pcols_c = int(pcols_arg, c_int64_t)
+   if (present(pver_arg)) pver_c = int(pver_arg, c_int64_t)
+   if (present(nswbands_arg)) nswbands_c = int(nswbands_arg, c_int64_t)
+   if (present(ncoef_arg)) ncoef_c = int(ncoef_arg, c_int64_t)
+   if (present(prefr_arg)) prefr_c = int(prefr_arg, c_int64_t)
+   if (present(prefi_arg)) prefi_c = int(prefi_arg, c_int64_t)
+   if (present(top_lev_arg)) top_lev_c = int(top_lev_arg, c_int64_t)
+   if (present(k_arg)) k_c = int(k_arg, c_int64_t)
+   if (present(isw_arg)) isw_c = int(isw_arg, c_int64_t)
+   if (present(spectype_code_arg)) spectype_code_c = int(spectype_code_arg, c_int64_t)
+   if (present(flag1_arg)) flag1_c = int(flag1_arg, c_int64_t)
+   if (present(flag2_arg)) flag2_c = int(flag2_arg, c_int64_t)
+   if (present(flag3_arg)) flag3_c = int(flag3_arg, c_int64_t)
+   if (present(rga_arg)) rga_c = real(rga_arg, c_double)
+   if (present(rair_arg)) rair_c = real(rair_arg, c_double)
+   if (present(rhoh2o_arg)) rhoh2o_c = real(rhoh2o_arg, c_double)
+   if (present(xrmin_arg)) xrmin_c = real(xrmin_arg, c_double)
+   if (present(xrmax_arg)) xrmax_c = real(xrmax_arg, c_double)
+   if (present(sigma_logr_aer_arg)) sigma_logr_aer_c = real(sigma_logr_aer_arg, c_double)
+   if (present(cref_re_arg)) cref_re_c = real(cref_re_arg, c_double)
+   if (present(cref_im_arg)) cref_im_c = real(cref_im_arg, c_double)
+   if (present(specdens_arg)) specdens_c = real(specdens_arg, c_double)
+   if (present(specrefr_arg)) specrefr_c = real(specrefr_arg, c_double)
+   if (present(specrefi_arg)) specrefi_c = real(specrefi_arg, c_double)
+   if (present(hygro_aer_arg)) hygro_aer_c = real(hygro_aer_arg, c_double)
+   if (present(fillvalue_arg)) fillvalue_c = real(fillvalue_arg, c_double)
+
+   if (present(pdeldry_p)) pdeldry_cp = pdeldry_p
+   if (present(pmid_p)) pmid_cp = pmid_p
+   if (present(state_t_p)) state_t_cp = state_t_p
+   if (present(tauxar_p)) tauxar_cp = tauxar_p
+   if (present(wa_p)) wa_cp = wa_p
+   if (present(ga_p)) ga_cp = ga_p
+   if (present(fa_p)) fa_cp = fa_p
+   if (present(mass_p)) mass_cp = mass_p
+   if (present(air_density_p)) air_density_cp = air_density_p
+   if (present(extinct_p)) extinct_cp = extinct_p
+   if (present(absorb_p)) absorb_cp = absorb_p
+   if (present(extinctuv_p)) extinctuv_cp = extinctuv_p
+   if (present(extinctnir_p)) extinctnir_cp = extinctnir_p
+   if (present(aodvis_p)) aodvis_cp = aodvis_p
+   if (present(aodvisst_p)) aodvisst_cp = aodvisst_p
+   if (present(aodabs_p)) aodabs_cp = aodabs_p
+   if (present(aodabsbc_p)) aodabsbc_cp = aodabsbc_p
+   if (present(ssavis_p)) ssavis_cp = ssavis_p
+   if (present(burdendust_p)) burdendust_cp = burdendust_p
+   if (present(burdenso4_p)) burdenso4_cp = burdenso4_p
+   if (present(burdenpom_p)) burdenpom_cp = burdenpom_p
+   if (present(burdensoa_p)) burdensoa_cp = burdensoa_p
+   if (present(burdenbc_p)) burdenbc_cp = burdenbc_p
+   if (present(burdenseasalt_p)) burdenseasalt_cp = burdenseasalt_p
+   if (present(dustaod_p)) dustaod_cp = dustaod_p
+   if (present(so4aod_p)) so4aod_cp = so4aod_p
+   if (present(pomaod_p)) pomaod_cp = pomaod_p
+   if (present(soaaod_p)) soaaod_cp = soaaod_p
+   if (present(bcaod_p)) bcaod_cp = bcaod_p
+   if (present(seasaltaod_p)) seasaltaod_cp = seasaltaod_p
+   if (present(aoduv_p)) aoduv_cp = aoduv_p
+   if (present(aodnir_p)) aodnir_cp = aodnir_p
+   if (present(aoduvst_p)) aoduvst_cp = aoduvst_p
+   if (present(aodnirst_p)) aodnirst_cp = aodnirst_p
+   if (present(dgnumwet_p)) dgnumwet_cp = dgnumwet_p
+   if (present(radsurf_p)) radsurf_cp = radsurf_p
+   if (present(logradsurf_p)) logradsurf_cp = logradsurf_p
+   if (present(cheb_p)) cheb_cp = cheb_p
+   if (present(dryvol_p)) dryvol_cp = dryvol_p
+   if (present(dustvol_p)) dustvol_cp = dustvol_p
+   if (present(scatdust_p)) scatdust_cp = scatdust_p
+   if (present(absdust_p)) absdust_cp = absdust_p
+   if (present(hygrodust_p)) hygrodust_cp = hygrodust_p
+   if (present(scatso4_p)) scatso4_cp = scatso4_p
+   if (present(absso4_p)) absso4_cp = absso4_p
+   if (present(hygroso4_p)) hygroso4_cp = hygroso4_p
+   if (present(scatbc_p)) scatbc_cp = scatbc_p
+   if (present(absbc_p)) absbc_cp = absbc_p
+   if (present(hygrobc_p)) hygrobc_cp = hygrobc_p
+   if (present(scatpom_p)) scatpom_cp = scatpom_p
+   if (present(abspom_p)) abspom_cp = abspom_p
+   if (present(hygropom_p)) hygropom_cp = hygropom_p
+   if (present(scatsoa_p)) scatsoa_cp = scatsoa_p
+   if (present(abssoa_p)) abssoa_cp = abssoa_p
+   if (present(hygrosoa_p)) hygrosoa_cp = hygrosoa_p
+   if (present(scatseasalt_p)) scatseasalt_cp = scatseasalt_p
+   if (present(absseasalt_p)) absseasalt_cp = absseasalt_p
+   if (present(hygroseasalt_p)) hygroseasalt_cp = hygroseasalt_p
+   if (present(crefin_re_p)) crefin_re_cp = crefin_re_p
+   if (present(crefin_im_p)) crefin_im_cp = crefin_im_p
+   if (present(specmmr_p)) specmmr_cp = specmmr_p
+   if (present(vol_p)) vol_cp = vol_p
+   if (present(burden_p)) burden_cp = burden_p
+   if (present(aodmode_p)) aodmode_cp = aodmode_p
+   if (present(dustaodmode_p)) dustaodmode_cp = dustaodmode_p
+   if (present(qaerwat_p)) qaerwat_cp = qaerwat_p
+   if (present(watervol_p)) watervol_cp = watervol_p
+   if (present(wetvol_p)) wetvol_cp = wetvol_p
+   if (present(refr_p)) refr_cp = refr_p
+   if (present(refi_p)) refi_cp = refi_p
+   if (present(extpsw_p)) extpsw_cp = extpsw_p
+   if (present(abspsw_p)) abspsw_cp = abspsw_p
+   if (present(asmpsw_p)) asmpsw_cp = asmpsw_p
+   if (present(refrtabsw_p)) refrtabsw_cp = refrtabsw_p
+   if (present(refitabsw_p)) refitabsw_cp = refitabsw_p
+   if (present(itab_p)) itab_cp = itab_p
+   if (present(jtab_p)) jtab_cp = jtab_p
+   if (present(ttab_p)) ttab_cp = ttab_p
+   if (present(utab_p)) utab_cp = utab_p
+   if (present(cext_p)) cext_cp = cext_p
+   if (present(cabs_p)) cabs_cp = cabs_p
+   if (present(casm_p)) casm_cp = casm_p
+   if (present(pext_p)) pext_cp = pext_p
+   if (present(specpext_p)) specpext_cp = specpext_p
+   if (present(pabs_p)) pabs_cp = pabs_p
+   if (present(pasm_p)) pasm_cp = pasm_p
+   if (present(palb_p)) palb_cp = palb_p
+   if (present(dopaer_p)) dopaer_cp = dopaer_p
+   if (present(troplev_p)) troplev_cp = troplev_p
+   if (present(idxnite_p)) idxnite_cp = idxnite_p
+
+   status_c = modal_aero_sw_codon(int(stage, c_int64_t), ncol_c, pcols_c, pver_c, nswbands_c, &
+        ncoef_c, prefr_c, prefi_c, top_lev_c, k_c, isw_c, spectype_code_c, flag1_c, flag2_c, &
+        flag3_c, rga_c, rair_c, rhoh2o_c, xrmin_c, xrmax_c, sigma_logr_aer_c, cref_re_c, &
+        cref_im_c, specdens_c, specrefr_c, specrefi_c, hygro_aer_c, fillvalue_c, pdeldry_cp, &
+        pmid_cp, state_t_cp, tauxar_cp, wa_cp, ga_cp, fa_cp, mass_cp, air_density_cp, &
+        extinct_cp, absorb_cp, extinctuv_cp, extinctnir_cp, aodvis_cp, aodvisst_cp, aodabs_cp, &
+        aodabsbc_cp, ssavis_cp, burdendust_cp, burdenso4_cp, burdenpom_cp, burdensoa_cp, &
+        burdenbc_cp, burdenseasalt_cp, dustaod_cp, so4aod_cp, pomaod_cp, soaaod_cp, bcaod_cp, &
+        seasaltaod_cp, aoduv_cp, aodnir_cp, aoduvst_cp, aodnirst_cp, dgnumwet_cp, radsurf_cp, &
+        logradsurf_cp, cheb_cp, dryvol_cp, dustvol_cp, scatdust_cp, absdust_cp, hygrodust_cp, &
+        scatso4_cp, absso4_cp, hygroso4_cp, scatbc_cp, absbc_cp, hygrobc_cp, scatpom_cp, &
+        abspom_cp, hygropom_cp, scatsoa_cp, abssoa_cp, hygrosoa_cp, scatseasalt_cp, &
+        absseasalt_cp, hygroseasalt_cp, crefin_re_cp, crefin_im_cp, specmmr_cp, vol_cp, &
+        burden_cp, aodmode_cp, dustaodmode_cp, qaerwat_cp, watervol_cp, wetvol_cp, refr_cp, &
+        refi_cp, extpsw_cp, abspsw_cp, asmpsw_cp, refrtabsw_cp, refitabsw_cp, itab_cp, jtab_cp, &
+        ttab_cp, utab_cp, cext_cp, cabs_cp, casm_cp, pext_cp, specpext_cp, pabs_cp, pasm_cp, &
+        palb_cp, dopaer_cp, troplev_cp, idxnite_cp)
+
+end function modal_aero_sw_codon_dispatch
 
 !===============================================================================
 
@@ -1095,6 +1521,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    ! debug output
    integer, parameter :: nerrmax_dopaer=1000
    integer  :: nerr_dopaer = 0
+   integer(c_int64_t) :: codon_status
    real(r8) :: volf            ! volume fraction of insoluble aerosol
    character(len=*), parameter :: subname = 'modal_aero_sw'
    !----------------------------------------------------------------------------
@@ -1103,8 +1530,8 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    ncol  = state%ncol
 
    ! initialize output variables
-   call modal_aer_opt_helpers_select_impl()
-   if (use_native_modal_aer_opt_helpers_impl) then
+   call modal_aero_sw_select_impl()
+   if (use_native_modal_aero_sw_impl) then
       tauxar(:ncol,:,:) = 0._r8
       wa(:ncol,:,:)     = 0._r8
       ga(:ncol,:,:)     = 0._r8
@@ -1119,15 +1546,17 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
       mass(:ncol,:)        = state%pdeldry(:ncol,:)*rga
       air_density(:ncol,:) = state%pmid(:ncol,:)/(rair*state%t(:ncol,:))
    else
-      call modal_aer_opt_helpers_proof_once()
-      call modal_aer_opt_sw_init_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-           int(pver, c_int64_t), int(nswbands, c_int64_t), rga, rair, c_loc(state%pdeldry(1,1)), &
-           c_loc(state%pmid(1,1)), c_loc(state%t(1,1)), c_loc(tauxar(1,0,1)), c_loc(wa(1,0,1)), &
-           c_loc(ga(1,0,1)), c_loc(fa(1,0,1)), c_loc(mass(1,1)), c_loc(air_density(1,1)))
+      call modal_aero_sw_proof_once()
+      codon_status = modal_aero_sw_codon_dispatch(1, ncol_arg=ncol, pcols_arg=pcols, &
+           pver_arg=pver, nswbands_arg=nswbands, rga_arg=rga, rair_arg=rair, &
+           pdeldry_p=c_loc(state%pdeldry(1,1)), pmid_p=c_loc(state%pmid(1,1)), &
+           state_t_p=c_loc(state%t(1,1)), tauxar_p=c_loc(tauxar(1,0,1)), &
+           wa_p=c_loc(wa(1,0,1)), ga_p=c_loc(ga(1,0,1)), fa_p=c_loc(fa(1,0,1)), &
+           mass_p=c_loc(mass(1,1)), air_density_p=c_loc(air_density(1,1)))
    end if
 
    ! diagnostics for visible band summed over modes
-   if (use_native_modal_aer_opt_helpers_impl) then
+   if (use_native_modal_aero_sw_impl) then
       extinct(1:ncol,:)     = 0.0_r8
       absorb(1:ncol,:)      = 0.0_r8
       aodvis(1:ncol)        = 0.0_r8
@@ -1157,15 +1586,19 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
       aoduvst(:ncol)        = 0.0_r8
       aodnirst(:ncol)       = 0.0_r8
    else
-      call modal_aer_opt_helpers_proof_once()
-      call modal_aer_opt_sw_zero_diagnostics_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-           int(pver, c_int64_t), c_loc(extinct(1,1)), c_loc(absorb(1,1)), c_loc(extinctuv(1,1)), &
-           c_loc(extinctnir(1,1)), c_loc(aodvis(1)), c_loc(aodvisst(1)), c_loc(aodabs(1)), &
-           c_loc(aodabsbc(1)), c_loc(ssavis(1)), c_loc(burdendust(1)), c_loc(burdenso4(1)), &
-           c_loc(burdenpom(1)), c_loc(burdensoa(1)), c_loc(burdenbc(1)), c_loc(burdenseasalt(1)), &
-           c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), c_loc(soaaod(1)), &
-           c_loc(bcaod(1)), c_loc(seasaltaod(1)), c_loc(aoduv(1)), c_loc(aodnir(1)), &
-           c_loc(aoduvst(1)), c_loc(aodnirst(1)))
+      call modal_aero_sw_proof_once()
+      codon_status = modal_aero_sw_codon_dispatch(2, ncol_arg=ncol, pcols_arg=pcols, &
+           pver_arg=pver, extinct_p=c_loc(extinct(1,1)), absorb_p=c_loc(absorb(1,1)), &
+           extinctuv_p=c_loc(extinctuv(1,1)), extinctnir_p=c_loc(extinctnir(1,1)), &
+           aodvis_p=c_loc(aodvis(1)), aodvisst_p=c_loc(aodvisst(1)), aodabs_p=c_loc(aodabs(1)), &
+           aodabsbc_p=c_loc(aodabsbc(1)), ssavis_p=c_loc(ssavis(1)), &
+           burdendust_p=c_loc(burdendust(1)), burdenso4_p=c_loc(burdenso4(1)), &
+           burdenpom_p=c_loc(burdenpom(1)), burdensoa_p=c_loc(burdensoa(1)), &
+           burdenbc_p=c_loc(burdenbc(1)), burdenseasalt_p=c_loc(burdenseasalt(1)), &
+           dustaod_p=c_loc(dustaod(1)), so4aod_p=c_loc(so4aod(1)), pomaod_p=c_loc(pomaod(1)), &
+           soaaod_p=c_loc(soaaod(1)), bcaod_p=c_loc(bcaod(1)), seasaltaod_p=c_loc(seasaltaod(1)), &
+           aoduv_p=c_loc(aoduv(1)), aodnir_p=c_loc(aodnir(1)), aoduvst_p=c_loc(aoduvst(1)), &
+           aodnirst_p=c_loc(aodnirst(1)))
    end if
    call tropopause_find(state, troplev)
 
@@ -1187,14 +1620,14 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    do m = 1, nmodes
 
       ! diagnostics for visible band for each mode
-      if (use_native_modal_aer_opt_helpers_impl) then
+      if (use_native_modal_aero_sw_impl) then
          burden(:ncol)       = 0._r8
          aodmode(1:ncol)     = 0.0_r8
          dustaodmode(1:ncol) = 0.0_r8
       else
-         call modal_aer_opt_helpers_proof_once()
-         call modal_aer_opt_sw_mode_diag_init_codon(int(ncol, c_int64_t), c_loc(burden(1)), &
-              c_loc(aodmode(1)), c_loc(dustaodmode(1)))
+         call modal_aero_sw_proof_once()
+         codon_status = modal_aero_sw_codon_dispatch(3, ncol_arg=ncol, burden_p=c_loc(burden(1)), &
+              aodmode_p=c_loc(aodmode(1)), dustaodmode_p=c_loc(dustaodmode(1)))
       end if
 
       dgnumwet => dgnumwet_m(:,:,m)
@@ -1208,7 +1641,16 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
       call rad_cnst_get_info(list_idx, m, nspec=nspec)
 
       ! calc size parameter for all columns
-      call modal_size_parameters(ncol, sigma_logr_aer, dgnumwet, radsurf, logradsurf, cheb)
+      if (use_native_modal_aero_sw_impl) then
+         call modal_size_parameters_native(ncol, sigma_logr_aer, dgnumwet, radsurf, logradsurf, cheb)
+      else
+         call modal_aero_sw_proof_once()
+         codon_status = modal_aero_sw_codon_dispatch(4, ncol_arg=ncol, pcols_arg=pcols, &
+              pver_arg=pver, ncoef_arg=ncoef, top_lev_arg=top_lev, xrmin_arg=xrmin, &
+              xrmax_arg=xrmax, sigma_logr_aer_arg=sigma_logr_aer, dgnumwet_p=c_loc(dgnumwet(1,1)), &
+              radsurf_p=c_loc(radsurf(1,1)), logradsurf_p=c_loc(logradsurf(1,1)), &
+              cheb_p=c_loc(cheb(1,1,1)))
+      end if
 
       do isw = 1, nswbands
          savaervis = (isw .eq. idx_sw_diag)
@@ -1217,7 +1659,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
          do k = top_lev, pver
 
-            if (use_native_modal_aer_opt_helpers_impl) then
+            if (use_native_modal_aero_sw_impl) then
                ! form bulk refractive index
                crefin(:ncol) = (0._r8, 0._r8)
                crefin_re(:ncol) = 0._r8
@@ -1244,15 +1686,19 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                absseasalt(:ncol)   = 0._r8
                hygroseasalt(:ncol) = 0._r8
             else
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_guard_helpers_proof_once()
-               call modal_aer_opt_sw_reset_layer_codon(int(ncol, c_int64_t), c_loc(dryvol(1)), &
-                    c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(absdust(1)), c_loc(hygrodust(1)), &
-                    c_loc(scatso4(1)), c_loc(absso4(1)), c_loc(hygroso4(1)), c_loc(scatbc(1)), &
-                    c_loc(absbc(1)), c_loc(hygrobc(1)), c_loc(scatpom(1)), c_loc(abspom(1)), &
-                    c_loc(hygropom(1)), c_loc(scatsoa(1)), c_loc(abssoa(1)), c_loc(hygrosoa(1)), &
-                    c_loc(scatseasalt(1)), c_loc(absseasalt(1)), c_loc(hygroseasalt(1)), &
-                    c_loc(crefin_re(1)), c_loc(crefin_im(1)))
+               call modal_aero_sw_proof_once()
+               codon_status = modal_aero_sw_codon_dispatch(5, ncol_arg=ncol, dryvol_p=c_loc(dryvol(1)), &
+                    dustvol_p=c_loc(dustvol(1)), scatdust_p=c_loc(scatdust(1)), &
+                    absdust_p=c_loc(absdust(1)), hygrodust_p=c_loc(hygrodust(1)), &
+                    scatso4_p=c_loc(scatso4(1)), absso4_p=c_loc(absso4(1)), &
+                    hygroso4_p=c_loc(hygroso4(1)), scatbc_p=c_loc(scatbc(1)), &
+                    absbc_p=c_loc(absbc(1)), hygrobc_p=c_loc(hygrobc(1)), &
+                    scatpom_p=c_loc(scatpom(1)), abspom_p=c_loc(abspom(1)), &
+                    hygropom_p=c_loc(hygropom(1)), scatsoa_p=c_loc(scatsoa(1)), &
+                    abssoa_p=c_loc(abssoa(1)), hygrosoa_p=c_loc(hygrosoa(1)), &
+                    scatseasalt_p=c_loc(scatseasalt(1)), absseasalt_p=c_loc(absseasalt(1)), &
+                    hygroseasalt_p=c_loc(hygroseasalt(1)), crefin_re_p=c_loc(crefin_re(1)), &
+                    crefin_im_p=c_loc(crefin_im(1)))
             end if
 
             ! aerosol species loop
@@ -1265,7 +1711,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                specrefr = real(specrefindex(isw))
                specrefi = aimag(specrefindex(isw))
 
-               if (.not. use_native_modal_aer_opt_helpers_impl) then
+               if (.not. use_native_modal_aero_sw_impl) then
                   if (savaervis) then
                      select case (trim(spectype))
                      case ('dust')
@@ -1287,20 +1733,27 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                      spectype_code = 0
                   end if
 
-                  call modal_aer_opt_helpers_proof_once()
-                  call modal_aer_opt_sw_species_batch_proof_once()
-                  call modal_aer_opt_sw_species_layer_batch_codon(int(ncol, c_int64_t), &
-                       int(pcols, c_int64_t), int(k, c_int64_t), int(spectype_code, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, savaervis), specdens, specrefr, specrefi, hygro_aer, &
-                       c_loc(specmmr(1,1)), c_loc(mass(1,1)), c_loc(vol(1)), c_loc(dryvol(1)), &
-                       c_loc(crefin_re(1)), c_loc(crefin_im(1)), c_loc(burden(1)), c_loc(burdendust(1)), &
-                       c_loc(burdenso4(1)), c_loc(burdenbc(1)), c_loc(burdenpom(1)), &
-                       c_loc(burdensoa(1)), c_loc(burdenseasalt(1)), c_loc(dustvol(1)), &
-                       c_loc(scatdust(1)), c_loc(absdust(1)), c_loc(hygrodust(1)), c_loc(scatso4(1)), &
-                       c_loc(absso4(1)), c_loc(hygroso4(1)), c_loc(scatbc(1)), c_loc(absbc(1)), &
-                       c_loc(hygrobc(1)), c_loc(scatpom(1)), c_loc(abspom(1)), c_loc(hygropom(1)), &
-                       c_loc(scatsoa(1)), c_loc(abssoa(1)), c_loc(hygrosoa(1)), c_loc(scatseasalt(1)), &
-                       c_loc(absseasalt(1)), c_loc(hygroseasalt(1)))
+                  call modal_aero_sw_proof_once()
+                  codon_status = modal_aero_sw_codon_dispatch(6, ncol_arg=ncol, pcols_arg=pcols, &
+                       k_arg=k, spectype_code_arg=spectype_code, &
+                       flag1_arg=merge(1, 0, savaervis), specdens_arg=specdens, &
+                       specrefr_arg=specrefr, specrefi_arg=specrefi, hygro_aer_arg=hygro_aer, &
+                       specmmr_p=c_loc(specmmr(1,1)), mass_p=c_loc(mass(1,1)), vol_p=c_loc(vol(1)), &
+                       dryvol_p=c_loc(dryvol(1)), crefin_re_p=c_loc(crefin_re(1)), &
+                       crefin_im_p=c_loc(crefin_im(1)), burden_p=c_loc(burden(1)), &
+                       burdendust_p=c_loc(burdendust(1)), burdenso4_p=c_loc(burdenso4(1)), &
+                       burdenbc_p=c_loc(burdenbc(1)), burdenpom_p=c_loc(burdenpom(1)), &
+                       burdensoa_p=c_loc(burdensoa(1)), burdenseasalt_p=c_loc(burdenseasalt(1)), &
+                       dustvol_p=c_loc(dustvol(1)), scatdust_p=c_loc(scatdust(1)), &
+                       absdust_p=c_loc(absdust(1)), hygrodust_p=c_loc(hygrodust(1)), &
+                       scatso4_p=c_loc(scatso4(1)), absso4_p=c_loc(absso4(1)), &
+                       hygroso4_p=c_loc(hygroso4(1)), scatbc_p=c_loc(scatbc(1)), &
+                       absbc_p=c_loc(absbc(1)), hygrobc_p=c_loc(hygrobc(1)), &
+                       scatpom_p=c_loc(scatpom(1)), abspom_p=c_loc(abspom(1)), &
+                       hygropom_p=c_loc(hygropom(1)), scatsoa_p=c_loc(scatsoa(1)), &
+                       abssoa_p=c_loc(abssoa(1)), hygrosoa_p=c_loc(hygrosoa(1)), &
+                       scatseasalt_p=c_loc(scatseasalt(1)), absseasalt_p=c_loc(absseasalt(1)), &
+                       hygroseasalt_p=c_loc(hygroseasalt(1)))
                else
                   do i = 1, ncol
                      vol(i)      = specmmr(i,k)/specdens
@@ -1369,14 +1822,15 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                end if
             end do ! species loop
 
-            if (.not. use_native_modal_aer_opt_helpers_impl) then
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_water_refr_proof_once()
-               run_water_fix = modal_aer_opt_sw_water_refr_fastpath_codon(int(ncol, c_int64_t), &
-                    int(pcols, c_int64_t), int(k, c_int64_t), rhoh2o, real(crefwsw(isw), r8), &
-                    aimag(crefwsw(isw)), c_loc(qaerwat(1,1)), c_loc(dryvol(1)), c_loc(watervol(1)), &
-                    c_loc(wetvol(1)), c_loc(crefin_re(1)), c_loc(crefin_im(1)), c_loc(refr(1)), &
-                    c_loc(refi(1))) /= 0_c_int64_t
+            if (.not. use_native_modal_aero_sw_impl) then
+               call modal_aero_sw_proof_once()
+               run_water_fix = modal_aero_sw_codon_dispatch(7, ncol_arg=ncol, pcols_arg=pcols, &
+                    k_arg=k, rhoh2o_arg=rhoh2o, cref_re_arg=real(crefwsw(isw), r8), &
+                    cref_im_arg=aimag(crefwsw(isw)), qaerwat_p=c_loc(qaerwat(1,1)), &
+                    dryvol_p=c_loc(dryvol(1)), watervol_p=c_loc(watervol(1)), &
+                    wetvol_p=c_loc(wetvol(1)), crefin_re_p=c_loc(crefin_re(1)), &
+                    crefin_im_p=c_loc(crefin_im(1)), refr_p=c_loc(refr(1)), &
+                    refi_p=c_loc(refi(1))) /= 0_c_int64_t
                if (run_water_fix) then
                   do i = 1, ncol
                      if (watervol(i) < 0._r8) then
@@ -1389,10 +1843,12 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                      end if
                   end do
 
-                  call modal_aer_opt_helpers_proof_once()
-                  call modal_aer_opt_sw_finalize_refr_codon(int(ncol, c_int64_t), real(crefwsw(isw), r8), &
-                       aimag(crefwsw(isw)), c_loc(watervol(1)), c_loc(wetvol(1)), c_loc(crefin_re(1)), &
-                       c_loc(crefin_im(1)), c_loc(refr(1)), c_loc(refi(1)))
+                  call modal_aero_sw_proof_once()
+                  codon_status = modal_aero_sw_codon_dispatch(8, ncol_arg=ncol, &
+                       cref_re_arg=real(crefwsw(isw), r8), cref_im_arg=aimag(crefwsw(isw)), &
+                       watervol_p=c_loc(watervol(1)), wetvol_p=c_loc(wetvol(1)), &
+                       crefin_re_p=c_loc(crefin_re(1)), crefin_im_p=c_loc(crefin_im(1)), &
+                       refr_p=c_loc(refr(1)), refi_p=c_loc(refi(1)))
                end if
             else
                do i = 1, ncol
@@ -1419,14 +1875,16 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
             ! interpolate coefficients linear in refractive index
             ! first call calcs itab,jtab,ttab,utab
-            if (.not. use_native_modal_aer_opt_helpers_impl) then
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_binterp3_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
-                    int(ncoef, c_int64_t), int(prefr, c_int64_t), int(prefi, c_int64_t), &
-                    c_loc(extpsw(1,1,1,isw)), c_loc(abspsw(1,1,1,isw)), c_loc(asmpsw(1,1,1,isw)), &
-                    c_loc(refr(1)), c_loc(refi(1)), c_loc(refrtabsw(1,isw)), c_loc(refitabsw(1,isw)), &
-                    c_loc(itab(1)), c_loc(jtab(1)), c_loc(ttab(1)), c_loc(utab(1)), c_loc(cext(1,1)), &
-                    c_loc(cabs(1,1)), c_loc(casm(1,1)))
+            if (.not. use_native_modal_aero_sw_impl) then
+               call modal_aero_sw_proof_once()
+               codon_status = modal_aero_sw_codon_dispatch(9, ncol_arg=ncol, pcols_arg=pcols, &
+                    ncoef_arg=ncoef, prefr_arg=prefr, prefi_arg=prefi, &
+                    extpsw_p=c_loc(extpsw(1,1,1,isw)), abspsw_p=c_loc(abspsw(1,1,1,isw)), &
+                    asmpsw_p=c_loc(asmpsw(1,1,1,isw)), refr_p=c_loc(refr(1)), &
+                    refi_p=c_loc(refi(1)), refrtabsw_p=c_loc(refrtabsw(1,isw)), &
+                    refitabsw_p=c_loc(refitabsw(1,isw)), itab_p=c_loc(itab(1)), &
+                    jtab_p=c_loc(jtab(1)), ttab_p=c_loc(ttab(1)), utab_p=c_loc(utab(1)), &
+                    cext_p=c_loc(cext(1,1)), cabs_p=c_loc(cabs(1,1)), casm_p=c_loc(casm(1,1)))
             else
                itab(:ncol) = 0
                call binterp(extpsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
@@ -1443,33 +1901,41 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
             ! call t_stopf('binterp')
 
             ! parameterized optical properties, diagnostics, dopaer scan, and clean tau accumulate
-            if (.not. use_native_modal_aer_opt_helpers_impl) then
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_optics_tau_proof_once()
-               run_dopaer_diag = modal_aer_opt_sw_optics_diag_tau_batch_codon( &
-                    int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-                    int(k, c_int64_t), int(isw, c_int64_t), int(ncoef, c_int64_t), xrmax, rhoh2o, &
-                    merge(1_c_int64_t, 0_c_int64_t, savaeruv), &
-                    merge(1_c_int64_t, 0_c_int64_t, savaernir), &
-                    merge(1_c_int64_t, 0_c_int64_t, savaervis), real(crefwsw(isw), r8), &
-                    aimag(crefwsw(isw)), c_loc(radsurf(1,1)), c_loc(logradsurf(1,1)), &
-                    c_loc(cheb(1,1,1)), c_loc(cext(1,1)), c_loc(cabs(1,1)), c_loc(casm(1,1)), &
-                    c_loc(wetvol(1)), c_loc(mass(1,1)), c_loc(pext(1)), c_loc(specpext(1)), &
-                    c_loc(pabs(1)), c_loc(pasm(1)), c_loc(palb(1)), c_loc(dopaer(1)), &
-                    c_loc(troplev(1)), c_loc(air_density(1,1)), c_loc(watervol(1)), &
-                    c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(scatso4(1)), c_loc(scatbc(1)), &
-                    c_loc(scatpom(1)), c_loc(scatsoa(1)), c_loc(scatseasalt(1)), &
-                    c_loc(absdust(1)), c_loc(absso4(1)), c_loc(absbc(1)), c_loc(abspom(1)), &
-                    c_loc(abssoa(1)), c_loc(absseasalt(1)), c_loc(hygrodust(1)), &
-                    c_loc(hygroso4(1)), c_loc(hygrobc(1)), c_loc(hygropom(1)), &
-                    c_loc(hygrosoa(1)), c_loc(hygroseasalt(1)), c_loc(extinctuv(1,1)), &
-                    c_loc(aoduv(1)), c_loc(aoduvst(1)), c_loc(extinctnir(1,1)), &
-                    c_loc(aodnir(1)), c_loc(aodnirst(1)), c_loc(extinct(1,1)), &
-                    c_loc(absorb(1,1)), c_loc(aodvis(1)), c_loc(aodabs(1)), c_loc(aodmode(1)), &
-                    c_loc(ssavis(1)), c_loc(aodvisst(1)), c_loc(dustaodmode(1)), &
-                    c_loc(aodabsbc(1)), c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), &
-                    c_loc(soaaod(1)), c_loc(bcaod(1)), c_loc(seasaltaod(1)), c_loc(tauxar(1,0,1)), &
-                    c_loc(wa(1,0,1)), c_loc(ga(1,0,1)), c_loc(fa(1,0,1))) /= 0_c_int64_t
+            if (.not. use_native_modal_aero_sw_impl) then
+               call modal_aero_sw_proof_once()
+               run_dopaer_diag = modal_aero_sw_codon_dispatch(10, ncol_arg=ncol, pcols_arg=pcols, &
+                    pver_arg=pver, k_arg=k, isw_arg=isw, ncoef_arg=ncoef, xrmax_arg=xrmax, &
+                    rhoh2o_arg=rhoh2o, flag1_arg=merge(1, 0, savaeruv), &
+                    flag2_arg=merge(1, 0, savaernir), flag3_arg=merge(1, 0, savaervis), &
+                    cref_re_arg=real(crefwsw(isw), r8), cref_im_arg=aimag(crefwsw(isw)), &
+                    radsurf_p=c_loc(radsurf(1,1)), logradsurf_p=c_loc(logradsurf(1,1)), &
+                    cheb_p=c_loc(cheb(1,1,1)), cext_p=c_loc(cext(1,1)), cabs_p=c_loc(cabs(1,1)), &
+                    casm_p=c_loc(casm(1,1)), wetvol_p=c_loc(wetvol(1)), mass_p=c_loc(mass(1,1)), &
+                    pext_p=c_loc(pext(1)), specpext_p=c_loc(specpext(1)), pabs_p=c_loc(pabs(1)), &
+                    pasm_p=c_loc(pasm(1)), palb_p=c_loc(palb(1)), dopaer_p=c_loc(dopaer(1)), &
+                    troplev_p=c_loc(troplev(1)), air_density_p=c_loc(air_density(1,1)), &
+                    watervol_p=c_loc(watervol(1)), dustvol_p=c_loc(dustvol(1)), &
+                    scatdust_p=c_loc(scatdust(1)), scatso4_p=c_loc(scatso4(1)), &
+                    scatbc_p=c_loc(scatbc(1)), scatpom_p=c_loc(scatpom(1)), &
+                    scatsoa_p=c_loc(scatsoa(1)), scatseasalt_p=c_loc(scatseasalt(1)), &
+                    absdust_p=c_loc(absdust(1)), absso4_p=c_loc(absso4(1)), &
+                    absbc_p=c_loc(absbc(1)), abspom_p=c_loc(abspom(1)), abssoa_p=c_loc(abssoa(1)), &
+                    absseasalt_p=c_loc(absseasalt(1)), hygrodust_p=c_loc(hygrodust(1)), &
+                    hygroso4_p=c_loc(hygroso4(1)), hygrobc_p=c_loc(hygrobc(1)), &
+                    hygropom_p=c_loc(hygropom(1)), hygrosoa_p=c_loc(hygrosoa(1)), &
+                    hygroseasalt_p=c_loc(hygroseasalt(1)), extinctuv_p=c_loc(extinctuv(1,1)), &
+                    aoduv_p=c_loc(aoduv(1)), aoduvst_p=c_loc(aoduvst(1)), &
+                    extinctnir_p=c_loc(extinctnir(1,1)), aodnir_p=c_loc(aodnir(1)), &
+                    aodnirst_p=c_loc(aodnirst(1)), extinct_p=c_loc(extinct(1,1)), &
+                    absorb_p=c_loc(absorb(1,1)), aodvis_p=c_loc(aodvis(1)), &
+                    aodabs_p=c_loc(aodabs(1)), aodmode_p=c_loc(aodmode(1)), &
+                    ssavis_p=c_loc(ssavis(1)), aodvisst_p=c_loc(aodvisst(1)), &
+                    dustaodmode_p=c_loc(dustaodmode(1)), aodabsbc_p=c_loc(aodabsbc(1)), &
+                    dustaod_p=c_loc(dustaod(1)), so4aod_p=c_loc(so4aod(1)), &
+                    pomaod_p=c_loc(pomaod(1)), soaaod_p=c_loc(soaaod(1)), &
+                    bcaod_p=c_loc(bcaod(1)), seasaltaod_p=c_loc(seasaltaod(1)), &
+                    tauxar_p=c_loc(tauxar(1,0,1)), wa_p=c_loc(wa(1,0,1)), &
+                    ga_p=c_loc(ga(1,0,1)), fa_p=c_loc(fa(1,0,1))) /= 0_c_int64_t
             else
                do i=1,ncol
 
@@ -1639,13 +2105,13 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                end do
             end if
 
-            if (.not. use_native_modal_aer_opt_helpers_impl) then
+            if (.not. use_native_modal_aero_sw_impl) then
                if (run_dopaer_diag) then
-                  call modal_aer_opt_helpers_proof_once()
-                  call modal_aer_opt_sw_accumulate_tau_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-                       int(pver, c_int64_t), int(k, c_int64_t), int(isw, c_int64_t), c_loc(dopaer(1)), &
-                       c_loc(palb(1)), c_loc(pasm(1)), c_loc(tauxar(1,0,1)), c_loc(wa(1,0,1)), &
-                       c_loc(ga(1,0,1)), c_loc(fa(1,0,1)))
+                  call modal_aero_sw_proof_once()
+                  codon_status = modal_aero_sw_codon_dispatch(11, ncol_arg=ncol, pcols_arg=pcols, &
+                       pver_arg=pver, k_arg=k, isw_arg=isw, dopaer_p=c_loc(dopaer(1)), &
+                       palb_p=c_loc(palb(1)), pasm_p=c_loc(pasm(1)), tauxar_p=c_loc(tauxar(1,0,1)), &
+                       wa_p=c_loc(wa(1,0,1)), ga_p=c_loc(ga(1,0,1)), fa_p=c_loc(fa(1,0,1)))
                end if
             else
                do i=1,ncol
@@ -1664,16 +2130,17 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
       ! The diagnostics are currently only output for the climate list.  Code mods will
       ! be necessary to provide output for the rad_diag lists.
       if (list_idx == 0) then
-         if (use_native_modal_aer_opt_helpers_impl) then
+         if (use_native_modal_aero_sw_impl) then
             do i = 1, nnite
                burden(idxnite(i))  = fillvalue
                aodmode(idxnite(i)) = fillvalue
                dustaodmode(idxnite(i)) = fillvalue
             end do
          else if (nnite > 0) then
-            call modal_aer_opt_helpers_proof_once()
-            call modal_aer_opt_sw_mode_diag_night_codon(int(nnite, c_int64_t), fillvalue, &
-                 c_loc(idxnite(1)), c_loc(burden(1)), c_loc(aodmode(1)), c_loc(dustaodmode(1)))
+            call modal_aero_sw_proof_once()
+            codon_status = modal_aero_sw_codon_dispatch(12, ncol_arg=nnite, fillvalue_arg=fillvalue, &
+                 idxnite_p=c_loc(idxnite(1)), burden_p=c_loc(burden(1)), aodmode_p=c_loc(aodmode(1)), &
+                 dustaodmode_p=c_loc(dustaodmode(1)))
          end if
 
          write(outname,'(a,i1)') 'BURDEN', m
@@ -1698,7 +2165,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    ! Output visible band diagnostics for quantities summed over the modes
    ! These fields are put out for diagnostic lists as well as the climate list.
-   if (use_native_modal_aer_opt_helpers_impl) then
+   if (use_native_modal_aero_sw_impl) then
       do i = 1, nnite
          extinct(idxnite(i),:) = fillvalue
          absorb(idxnite(i),:)  = fillvalue
@@ -1707,10 +2174,11 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
          aodvisst(idxnite(i))  = fillvalue
       end do
    else if (nnite > 0) then
-      call modal_aer_opt_helpers_proof_once()
-      call modal_aer_opt_sw_sum_diag_night_codon(int(nnite, c_int64_t), int(pcols, c_int64_t), &
-           int(pver, c_int64_t), fillvalue, c_loc(idxnite(1)), c_loc(extinct(1,1)), &
-           c_loc(absorb(1,1)), c_loc(aodvis(1)), c_loc(aodabs(1)), c_loc(aodvisst(1)))
+      call modal_aero_sw_proof_once()
+      codon_status = modal_aero_sw_codon_dispatch(13, ncol_arg=nnite, pcols_arg=pcols, pver_arg=pver, &
+           fillvalue_arg=fillvalue, idxnite_p=c_loc(idxnite(1)), extinct_p=c_loc(extinct(1,1)), &
+           absorb_p=c_loc(absorb(1,1)), aodvis_p=c_loc(aodvis(1)), aodabs_p=c_loc(aodabs(1)), &
+           aodvisst_p=c_loc(aodvisst(1)))
    end if
 
    call outfld('EXTINCT'//diag(list_idx),  extinct, pcols, lchnk)
@@ -1721,7 +2189,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    ! These diagnostics are output only for climate list
    if (list_idx == 0) then
-      if (use_native_modal_aer_opt_helpers_impl) then
+      if (use_native_modal_aero_sw_impl) then
          do i = 1, ncol
             if (aodvis(i) > 1.e-10_r8) then
                ssavis(i) = ssavis(i)/aodvis(i)
@@ -1757,18 +2225,21 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
             seasaltaod(idxnite(i)) = fillvalue
           end do
       else
-         call modal_aer_opt_helpers_proof_once()
-         call modal_aer_opt_sw_finalize_ssavis_codon(int(ncol, c_int64_t), &
-              c_loc(aodvis(1)), c_loc(ssavis(1)))
+         call modal_aero_sw_proof_once()
+         codon_status = modal_aero_sw_codon_dispatch(14, ncol_arg=ncol, &
+              aodvis_p=c_loc(aodvis(1)), ssavis_p=c_loc(ssavis(1)))
          if (nnite > 0) then
-            call modal_aer_opt_sw_climate_diag_night_codon(int(nnite, c_int64_t), &
-                 int(pcols, c_int64_t), int(pver, c_int64_t), fillvalue, c_loc(idxnite(1)), &
-                 c_loc(ssavis(1)), c_loc(aoduv(1)), c_loc(aodnir(1)), c_loc(aoduvst(1)), &
-                 c_loc(aodnirst(1)), c_loc(extinctuv(1,1)), c_loc(extinctnir(1,1)), &
-                 c_loc(burdendust(1)), c_loc(burdenso4(1)), c_loc(burdenpom(1)), &
-                 c_loc(burdensoa(1)), c_loc(burdenbc(1)), c_loc(burdenseasalt(1)), &
-                 c_loc(aodabsbc(1)), c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), &
-                 c_loc(soaaod(1)), c_loc(bcaod(1)), c_loc(seasaltaod(1)))
+            codon_status = modal_aero_sw_codon_dispatch(15, ncol_arg=nnite, pcols_arg=pcols, &
+                 pver_arg=pver, fillvalue_arg=fillvalue, idxnite_p=c_loc(idxnite(1)), &
+                 ssavis_p=c_loc(ssavis(1)), aoduv_p=c_loc(aoduv(1)), aodnir_p=c_loc(aodnir(1)), &
+                 aoduvst_p=c_loc(aoduvst(1)), aodnirst_p=c_loc(aodnirst(1)), &
+                 extinctuv_p=c_loc(extinctuv(1,1)), extinctnir_p=c_loc(extinctnir(1,1)), &
+                 burdendust_p=c_loc(burdendust(1)), burdenso4_p=c_loc(burdenso4(1)), &
+                 burdenpom_p=c_loc(burdenpom(1)), burdensoa_p=c_loc(burdensoa(1)), &
+                 burdenbc_p=c_loc(burdenbc(1)), burdenseasalt_p=c_loc(burdenseasalt(1)), &
+                 aodabsbc_p=c_loc(aodabsbc(1)), dustaod_p=c_loc(dustaod(1)), &
+                 so4aod_p=c_loc(so4aod(1)), pomaod_p=c_loc(pomaod(1)), soaaod_p=c_loc(soaaod(1)), &
+                 bcaod_p=c_loc(bcaod(1)), seasaltaod_p=c_loc(seasaltaod(1)))
          end if
       end if
 

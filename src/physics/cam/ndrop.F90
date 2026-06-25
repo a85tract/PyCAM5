@@ -95,6 +95,9 @@ logical :: ndrop_init_proof_written = .false.
 logical :: use_native_ndrop_init_props_impl = .false.
 logical :: ndrop_init_props_impl_selected = .false.
 logical :: ndrop_init_props_proof_written = .false.
+logical :: use_native_dropmixnuc_impl = .false.
+logical :: dropmixnuc_impl_selected = .false.
+logical :: dropmixnuc_proof_written = .false.
 logical :: use_native_ndrop_dropmixnuc_helpers_impl = .false.
 logical :: ndrop_dropmixnuc_helpers_impl_selected = .false.
 logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
@@ -552,6 +555,57 @@ interface
       real(c_double), value :: surfrate_c, flxconv_c, dt_c
       type(c_ptr), value :: q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p
    end subroutine explmix_codon
+
+   function dropmixnuc_codon(ncol_c, pcols_c, psetcols_c, pver_c, top_lev_c, ntot_amode_c, &
+        ncnst_tot_c, psat_c, prog_modal_aero_c, dtmicro_c, dtinv_c, gravit_c, rair_c, &
+        zkmin_c, zkmax_c, wmixmin_c, p0_c, t0_c, rhoh2o_c, latvap_c, cpair_c, rh2o_c, &
+        pi_c, aten_c, twothird_c, sq2_c, sqpi_c, sixth_c, zero_c, surften_coef_c, &
+        smcoefcoef_c, ncldwtr_p, temp_p, pmid_p, pint_p, pdel_p, rpdel_p, zm_p, kvh_p, &
+        wsub_p, cldn_p, cldo_p, tendnd_p, factnum_p, raer_ptrs_p, qqcw_ptrs_p, &
+        nspec_amode_p, mam_idx_p, mam_cnst_idx_p, species_specdens_p, species_spechygro_p, &
+        voltonumblo_p, voltonumbhi_p, alogsig_p, exp45logsig_p, f1_p, f2_p, qs_act_all_p, &
+        qcld_p, qncld_p, srcn_p, source_p, cs_p, dz_p, zs_p, nact_p, mact_p, zn_p, &
+        ekd_p, ekk0_p, ekkp_p, ekkm_p, csbot_p, csbot_cscen_p, wtke_cen_p, wtke_p, &
+        overlapp_p, overlapm_p, nsource_p, ndropmix_p, ndropcol_p, raercol_p, raercol_cw_p, &
+        coltend_p, coltend_cw_p, naermod_p, hygro_p, vaerosol_p, fn_p, fm_p, fluxn_p, &
+        fluxm_p, flux_fullact_p, cldn_regen_p, qs_act_p, taumix_internal_pver_inv_p, &
+        nsubmix_p, dtmix_p, count_submix_p, nsav_p, nnew_p, zeta_p, eta_p, etafactor2_p, &
+        sqrtg_p, amcube_p, smc_p, lnsm_p, sumflxn_p, sumflxm_p, sumfn_p, sumfm_p, fnold_p, &
+        fmold_p, ptend_q_p, ccn_p, ccn_super_p, ccn_species_raer_ptrs_p, &
+        ccn_species_qqcw_ptrs_p, ccn_species_specdens_p, ccn_species_spechygro_p, &
+        ccn_num_raer_ptrs_p, ccn_num_qqcw_ptrs_p, ccn_naerosol_p, ccn_vaerosol_p, &
+        ccn_hygro_p, ccn_amcube_p, ccn_smcoef_p, ccn_sm_p, ccn_arg_p) result(status_c) &
+        bind(c, name="dropmixnuc_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, psetcols_c, pver_c, top_lev_c
+      integer(c_int64_t), value :: ntot_amode_c, ncnst_tot_c, psat_c, prog_modal_aero_c
+      real(c_double), value :: dtmicro_c, dtinv_c, gravit_c, rair_c, zkmin_c, zkmax_c, wmixmin_c
+      real(c_double), value :: p0_c, t0_c, rhoh2o_c, latvap_c, cpair_c, rh2o_c, pi_c, aten_c
+      real(c_double), value :: twothird_c, sq2_c, sqpi_c, sixth_c, zero_c
+      real(c_double), value :: surften_coef_c, smcoefcoef_c
+      type(c_ptr), value :: ncldwtr_p, temp_p, pmid_p, pint_p, pdel_p, rpdel_p, zm_p, kvh_p
+      type(c_ptr), value :: wsub_p, cldn_p, cldo_p, tendnd_p, factnum_p, raer_ptrs_p, qqcw_ptrs_p
+      type(c_ptr), value :: nspec_amode_p, mam_idx_p, mam_cnst_idx_p
+      type(c_ptr), value :: species_specdens_p, species_spechygro_p
+      type(c_ptr), value :: voltonumblo_p, voltonumbhi_p, alogsig_p, exp45logsig_p, f1_p, f2_p
+      type(c_ptr), value :: qs_act_all_p, qcld_p, qncld_p, srcn_p, source_p, cs_p, dz_p, zs_p
+      type(c_ptr), value :: nact_p, mact_p, zn_p, ekd_p, ekk0_p, ekkp_p, ekkm_p
+      type(c_ptr), value :: csbot_p, csbot_cscen_p, wtke_cen_p, wtke_p, overlapp_p, overlapm_p
+      type(c_ptr), value :: nsource_p, ndropmix_p, ndropcol_p, raercol_p, raercol_cw_p
+      type(c_ptr), value :: coltend_p, coltend_cw_p, naermod_p, hygro_p, vaerosol_p
+      type(c_ptr), value :: fn_p, fm_p, fluxn_p, fluxm_p, flux_fullact_p
+      type(c_ptr), value :: cldn_regen_p, qs_act_p, taumix_internal_pver_inv_p
+      type(c_ptr), value :: nsubmix_p, dtmix_p, count_submix_p, nsav_p, nnew_p
+      type(c_ptr), value :: zeta_p, eta_p, etafactor2_p, sqrtg_p, amcube_p, smc_p, lnsm_p
+      type(c_ptr), value :: sumflxn_p, sumflxm_p, sumfn_p, sumfm_p, fnold_p, fmold_p
+      type(c_ptr), value :: ptend_q_p, ccn_p, ccn_super_p
+      type(c_ptr), value :: ccn_species_raer_ptrs_p, ccn_species_qqcw_ptrs_p
+      type(c_ptr), value :: ccn_species_specdens_p, ccn_species_spechygro_p
+      type(c_ptr), value :: ccn_num_raer_ptrs_p, ccn_num_qqcw_ptrs_p
+      type(c_ptr), value :: ccn_naerosol_p, ccn_vaerosol_p, ccn_hygro_p
+      type(c_ptr), value :: ccn_amcube_p, ccn_smcoef_p, ccn_sm_p, ccn_arg_p
+      integer(c_int64_t) :: status_c
+   end function dropmixnuc_codon
 end interface
 
 !===============================================================================
@@ -653,6 +707,57 @@ subroutine ndrop_init_props_proof_once()
    end if
 
 end subroutine ndrop_init_props_proof_once
+
+!===============================================================================
+
+subroutine dropmixnuc_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (dropmixnuc_impl_selected) return
+
+   impl_name = 'codon'
+   call cam_codon_get_impl('DROPMIXNUC_IMPL', impl_name, n, status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_dropmixnuc_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_dropmixnuc_impl = .false.
+   end if
+
+   dropmixnuc_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_dropmixnuc_impl) then
+         write(iulog,*) 'dropmixnuc implementation = native'
+      else
+         write(iulog,*) 'dropmixnuc implementation = codon'
+      end if
+   end if
+
+end subroutine dropmixnuc_select_impl
+
+!===============================================================================
+
+subroutine dropmixnuc_proof_once()
+
+   if (dropmixnuc_proof_written) return
+   dropmixnuc_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'dropmixnuc direct = codon; one exported dropmixnuc_codon owns numeric column body/' // &
+           'ccncalc; native boundaries qsat/rad_constituents/pbuf/physics_ptend/outfld/allocation/endrun'
+      call flush(iulog)
+   end if
+
+end subroutine dropmixnuc_proof_once
 
 !===============================================================================
 
@@ -1258,7 +1363,7 @@ subroutine dropmixnuc( &
 
    ! arguments
    type(physics_state), target, intent(in)    :: state
-   type(physics_ptend),         intent(out)   :: ptend
+   type(physics_ptend), target, intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtmicro     ! time step for microphysics (s)
 
    type(physics_buffer_desc), pointer :: pbuf(:)
@@ -1380,9 +1485,11 @@ subroutine dropmixnuc( &
 
    real(r8), allocatable, target :: coltend(:,:)    ! column tendency for diagnostic output
    real(r8), allocatable, target :: coltend_cw(:,:) ! column tendency
-   real(r8) :: ccn(pcols,pver,psat)    ! number conc of aerosols activated at supersat
+   real(r8), target :: ccn(pcols,pver,psat)    ! number conc of aerosols activated at supersat
    real(r8), target :: es_act(pver)
    real(r8), target :: qs_act(pver)
+   real(r8), target :: es_act_all(pcols,pver)
+   real(r8), target :: qs_act_all(pcols,pver)
    real(r8), target :: cldn_regen(pver)
    real(r8), allocatable, target :: act_zeta(:)
    real(r8), allocatable, target :: act_eta(:)
@@ -1398,6 +1505,25 @@ subroutine dropmixnuc( &
    real(r8), allocatable, target :: act_fnold(:)
    real(r8), allocatable, target :: act_fmold(:)
    integer(c_int64_t) :: activation_status_c
+   integer(c_int64_t) :: dropmixnuc_status_c
+   real(r8) :: qsat_cs
+   real(r8) :: surften_coef_direct
+   real(r8) :: smcoefcoef_direct
+   type(c_ptr) :: ptend_q_p
+   type(c_ptr), target :: ccn_species_raer_ptrs(ncnst_tot,ntot_amode)
+   type(c_ptr), target :: ccn_species_qqcw_ptrs(ncnst_tot,ntot_amode)
+   type(c_ptr), target :: ccn_num_raer_ptrs(ntot_amode)
+   type(c_ptr), target :: ccn_num_qqcw_ptrs(ntot_amode)
+   real(r8), target :: ccn_species_specdens(ncnst_tot,ntot_amode)
+   real(r8), target :: ccn_species_spechygro(ncnst_tot,ntot_amode)
+   real(r8), target :: ccn_super(psat)
+   real(r8), target :: ccn_naerosol(pcols)
+   real(r8), target :: ccn_vaerosol(pcols)
+   real(r8), target :: ccn_hygro(pcols)
+   real(r8), target :: ccn_amcube(pcols)
+   real(r8), target :: ccn_smcoef(pcols)
+   real(r8), target :: ccn_sm(pcols)
+   real(r8), target :: ccn_arg(pcols)
 
    !-------------------------------------------------------------------------------
 
@@ -1467,6 +1593,15 @@ subroutine dropmixnuc( &
 
    dropmixnuc_species_specdens = 0._r8
    dropmixnuc_species_spechygro = 0._r8
+   ccn_species_raer_ptrs = c_null_ptr
+   ccn_species_qqcw_ptrs = c_null_ptr
+   ccn_num_raer_ptrs = c_null_ptr
+   ccn_num_qqcw_ptrs = c_null_ptr
+   ccn_species_specdens = 0._r8
+   ccn_species_spechygro = 0._r8
+   ccn_super = supersat*0.01_r8
+   surften_coef_direct = 2._r8*mwh2o*0.076_r8/(r_universal*rhoh2o)
+   smcoefcoef_direct = 2._r8/sqrt(27._r8)
 
    ! Init pointers to mode number and specie mass mixing ratios in 
    ! intersitial and cloud borne phases.
@@ -1478,6 +1613,8 @@ subroutine dropmixnuc( &
       call rad_cnst_get_mode_num(0, m, 'c', state, pbuf, qqcw(mm)%fld)  ! cloud-borne aerosol
       raer_ptrs(mm) = c_loc(raer(mm)%fld(1,1))
       qqcw_ptrs(mm) = c_loc(qqcw(mm)%fld(1,1))
+      ccn_num_raer_ptrs(m) = c_loc(raer(mm)%fld(1,1))
+      ccn_num_qqcw_ptrs(m) = c_loc(qqcw(mm)%fld(1,1))
       do l = 1, nspec_amode(m)
          mm = mam_idx(m, l)
          call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, raer(mm)%fld)
@@ -1486,8 +1623,101 @@ subroutine dropmixnuc( &
               hygro_aer=dropmixnuc_species_spechygro(m,l))
          raer_ptrs(mm) = c_loc(raer(mm)%fld(1,1))
          qqcw_ptrs(mm) = c_loc(qqcw(mm)%fld(1,1))
+         ccn_species_raer_ptrs(l,m) = c_loc(raer(mm)%fld(1,1))
+         ccn_species_qqcw_ptrs(l,m) = c_loc(qqcw(mm)%fld(1,1))
+         ccn_species_specdens(l,m) = dropmixnuc_species_specdens(m,l)
+         ccn_species_spechygro(l,m) = dropmixnuc_species_spechygro(m,l)
       end do
    end do
+
+   call dropmixnuc_select_impl()
+   if (.not. use_native_dropmixnuc_impl) then
+      if (prog_modal_aero) then
+         call physics_ptend_init(ptend, state%psetcols, 'ndrop', lq=lq)
+         ptend_q_p = c_loc(ptend%q(1,1,1))
+      else
+         call physics_ptend_init(ptend, state%psetcols, 'ndrop')
+         ptend_q_p = c_null_ptr
+      end if
+
+      do i = 1, ncol
+         do k = top_lev, pver
+            qsat_cs = pmid(i,k)/(rair*temp(i,k))
+            call qsat(temp(i,k), rair*qsat_cs*temp(i,k), es_act_all(i,k), qs_act_all(i,k))
+         end do
+      end do
+
+      call dropmixnuc_proof_once()
+      dropmixnuc_status_c = dropmixnuc_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(ptend%psetcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), int(psat, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), dtmicro, dtinv, gravit, rair, &
+           zkmin, zkmax, wmixmin, 1013.25e2_r8, t0, rhoh2o, latvap, cpair, rh2o, pi, aten, &
+           twothird, sq2, sqpi, sixth, zero, surften_coef_direct, smcoefcoef_direct, &
+           c_loc(ncldwtr(1,1)), c_loc(temp(1,1)), c_loc(pmid(1,1)), c_loc(pint(1,1)), &
+           c_loc(pdel(1,1)), c_loc(rpdel(1,1)), c_loc(zm(1,1)), c_loc(kvh(1,1)), &
+           c_loc(wsub(1,1)), c_loc(cldn(1,1)), c_loc(cldo(1,1)), c_loc(tendnd(1,1)), &
+           c_loc(factnum(1,1,1)), c_loc(raer_ptrs(1)), c_loc(qqcw_ptrs(1)), &
+           c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)), c_loc(mam_cnst_idx(1,0)), &
+           c_loc(dropmixnuc_species_specdens(1,0)), c_loc(dropmixnuc_species_spechygro(1,0)), &
+           c_loc(voltonumblo_amode(1)), c_loc(voltonumbhi_amode(1)), c_loc(alogsig(1)), &
+           c_loc(exp45logsig(1)), c_loc(f1(1)), c_loc(f2(1)), c_loc(qs_act_all(1,1)), &
+           c_loc(qcld(1)), c_loc(qncld(1)), c_loc(srcn(1)), c_loc(source(1)), c_loc(cs(1,1)), &
+           c_loc(dz(1,1)), c_loc(zs(1)), c_loc(nact(1,1)), c_loc(mact(1,1)), c_loc(zn(1)), &
+           c_loc(ekd(1)), c_loc(ekk(0)), c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(csbot(1)), &
+           c_loc(csbot_cscen(1)), c_loc(wtke_cen(1,1)), c_loc(wtke(1,1)), c_loc(overlapp(1)), &
+           c_loc(overlapm(1)), c_loc(nsource(1,1)), c_loc(ndropmix(1,1)), c_loc(ndropcol(1)), &
+           c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), c_loc(coltend(1,1)), &
+           c_loc(coltend_cw(1,1)), c_loc(naermod(1)), c_loc(hygro(1)), c_loc(vaerosol(1)), &
+           c_loc(fn(1)), c_loc(fm(1)), c_loc(fluxn(1)), c_loc(fluxm(1)), c_loc(flux_fullact(1)), &
+           c_loc(cldn_regen(1)), c_loc(qs_act(1)), c_loc(taumix_internal_pver_inv), &
+           c_loc(nsubmix), c_loc(dtmix), c_loc(count_submix(1)), c_loc(nsav), c_loc(nnew), &
+           c_loc(act_zeta(1)), c_loc(act_eta(1)), c_loc(act_etafactor2(1)), c_loc(act_sqrtg(1)), &
+           c_loc(act_amcube(1)), c_loc(act_smc(1)), c_loc(act_lnsm(1)), c_loc(act_sumflxn(1)), &
+           c_loc(act_sumflxm(1)), c_loc(act_sumfn(1)), c_loc(act_sumfm(1)), c_loc(act_fnold(1)), &
+           c_loc(act_fmold(1)), ptend_q_p, c_loc(ccn(1,1,1)), c_loc(ccn_super(1)), &
+           c_loc(ccn_species_raer_ptrs(1,1)), c_loc(ccn_species_qqcw_ptrs(1,1)), &
+           c_loc(ccn_species_specdens(1,1)), c_loc(ccn_species_spechygro(1,1)), &
+           c_loc(ccn_num_raer_ptrs(1)), c_loc(ccn_num_qqcw_ptrs(1)), c_loc(ccn_naerosol(1)), &
+           c_loc(ccn_vaerosol(1)), c_loc(ccn_hygro(1)), c_loc(ccn_amcube(1)), &
+           c_loc(ccn_smcoef(1)), c_loc(ccn_sm(1)), c_loc(ccn_arg(1)))
+
+      if (dropmixnuc_status_c == 1_c_int64_t) then
+         call endrun('dropmixnuc: Codon activation integration loop did not converge')
+      else if (dropmixnuc_status_c == 2_c_int64_t) then
+         call endrun('dropmixnuc: Codon activation fraction exceeded one')
+      else if (dropmixnuc_status_c /= 0_c_int64_t) then
+         call endrun('dropmixnuc: Codon direct path returned unknown status')
+      end if
+
+      call outfld('NDROPCOL', ndropcol, pcols, lchnk)
+      call outfld('NDROPSRC', nsource,  pcols, lchnk)
+      call outfld('NDROPMIX', ndropmix, pcols, lchnk)
+      call outfld('WTKE    ', wtke,     pcols, lchnk)
+
+      do l = 1, psat
+         call outfld(ccn_name(l), ccn(1,1,l), pcols, lchnk)
+      enddo
+
+      if (prog_modal_aero) then
+         do m = 1, ntot_amode
+            do l = 0, nspec_amode(m)
+               mm = mam_idx(m,l)
+               call outfld(fieldname(mm),    coltend(:,mm),    pcols, lchnk)
+               call outfld(fieldname_cw(mm), coltend_cw(:,mm), pcols, lchnk)
+            end do
+         end do
+      end if
+
+      deallocate( &
+         nact, mact, raer, qqcw, raercol, raercol_cw, coltend, coltend_cw, &
+         naermod, hygro, vaerosol, dropmixnuc_species_specdens, &
+         dropmixnuc_species_spechygro, fn, fm, fluxn, fluxm, act_zeta, act_eta, &
+         act_etafactor2, act_sqrtg, act_amcube, act_smc, act_lnsm, act_sumflxn, &
+         act_sumflxm, act_sumfn, act_sumfm, act_fnold, act_fmold )
+
+      return
+   end if
 
    call ndrop_dropmixnuc_helpers_select_impl()
    if (use_native_ndrop_dropmixnuc_helpers_impl) then
@@ -2267,10 +2497,25 @@ subroutine dropmixnuc( &
       naermod,    &
       hygro,      &
       vaerosol,   &
+      dropmixnuc_species_specdens, &
+      dropmixnuc_species_spechygro, &
       fn,         &
       fm,         &
       fluxn,      &
-      fluxm       )
+      fluxm,      &
+      act_zeta,   &
+      act_eta,    &
+      act_etafactor2, &
+      act_sqrtg,  &
+      act_amcube, &
+      act_smc,    &
+      act_lnsm,   &
+      act_sumflxn, &
+      act_sumflxm, &
+      act_sumfn,  &
+      act_sumfm,  &
+      act_fnold,  &
+      act_fmold   )
 
 end subroutine dropmixnuc
 

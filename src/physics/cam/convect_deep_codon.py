@@ -3694,7 +3694,6 @@ def zm_wtrc_precip_assign_shell_codon(
         i += 1
 
 
-@export
 def zm_conv_evap_prep_shell_codon(
     ncol: int,
     pcols: int,
@@ -3716,7 +3715,6 @@ def zm_conv_evap_prep_shell_codon(
         k += 1
 
 
-@export
 def zm_conv_evap_post_shell_codon(
     ncol: int,
     pcols: int,
@@ -3760,7 +3758,6 @@ def zm_conv_evap_post_shell_codon(
             k += 1
 
 
-@export
 def zm_conv_evap_hist_shell_codon(
     mode: int,
     ncol: int,
@@ -3792,7 +3789,6 @@ def zm_conv_evap_hist_shell_codon(
         k += 1
 
 
-@export
 def zm_conv_evap_main_stage_dispatch_codon(
     ncol: int,
     pcols: int,
@@ -3974,7 +3970,7 @@ def zm_conv_evap_main_stage_dispatch_codon(
         i += 1
 
 @export
-def zm_conv_evap_main_codon(
+def zm_conv_evap_codon(
     ncol: int,
     pcols: int,
     pver: int,

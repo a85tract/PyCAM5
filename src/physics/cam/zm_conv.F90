@@ -2009,47 +2009,48 @@ subroutine zm_conv_evap(ncol,lchnk, &
 
     use wv_saturation,  only: qsat
     use phys_grid, only: get_rlat_all_p
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
 
 !------------------------------Arguments--------------------------------
     integer,intent(in) :: ncol, lchnk                        ! number of columns and chunk index
-    real(r8),intent(in), dimension(pcols,pver) :: t          ! temperature (K)
-    real(r8),intent(in), dimension(pcols,pver) :: pmid       ! midpoint pressure (Pa)
-    real(r8),intent(in), dimension(pcols,pver) :: pdel       ! layer thickness (Pa)
-    real(r8),intent(in), dimension(pcols,pver) :: q          ! water vapor (kg/kg)
-    real(r8),intent(in), dimension(pcols) :: landfrac
-    real(r8),intent(inout), dimension(pcols,pver) :: tend_s     ! heating rate (J/kg/s)
-    real(r8),intent(inout), dimension(pcols,pver) :: tend_q     ! water vapor tendency (kg/kg/s)
-    real(r8),intent(out  ), dimension(pcols,pver) :: tend_s_snwprd ! Heating rate of snow production
-    real(r8),intent(out  ), dimension(pcols,pver) :: tend_s_snwevmlt ! Heating rate of evap/melting of snow
+    real(r8),target,intent(in), dimension(pcols,pver) :: t          ! temperature (K)
+    real(r8),target,intent(in), dimension(pcols,pver) :: pmid       ! midpoint pressure (Pa)
+    real(r8),target,intent(in), dimension(pcols,pver) :: pdel       ! layer thickness (Pa)
+    real(r8),target,intent(in), dimension(pcols,pver) :: q          ! water vapor (kg/kg)
+    real(r8),target,intent(in), dimension(pcols) :: landfrac
+    real(r8),target,intent(inout), dimension(pcols,pver) :: tend_s     ! heating rate (J/kg/s)
+    real(r8),target,intent(inout), dimension(pcols,pver) :: tend_q     ! water vapor tendency (kg/kg/s)
+    real(r8),target,intent(out  ), dimension(pcols,pver) :: tend_s_snwprd ! Heating rate of snow production
+    real(r8),target,intent(out  ), dimension(pcols,pver) :: tend_s_snwevmlt ! Heating rate of evap/melting of snow
 
 
 
-    real(r8), intent(in   ) :: prdprec(pcols,pver)! precipitation production (kg/ks/s)
-    real(r8), intent(in   ) :: cldfrc(pcols,pver) ! cloud fraction
+    real(r8), target, intent(in   ) :: prdprec(pcols,pver)! precipitation production (kg/ks/s)
+    real(r8), target, intent(in   ) :: cldfrc(pcols,pver) ! cloud fraction
     real(r8), intent(in   ) :: deltat             ! time step
 
-    real(r8), intent(inout) :: prec(pcols)        ! Convective-scale preciptn rate
-    real(r8), intent(out)   :: snow(pcols)        ! Convective-scale snowfall rate
+    real(r8), target, intent(inout) :: prec(pcols)        ! Convective-scale preciptn rate
+    real(r8), target, intent(out)   :: snow(pcols)        ! Convective-scale snowfall rate
 !
 !---------------------------Local storage-------------------------------
 
     real(r8) :: es    (pcols,pver)    ! Saturation vapor pressure
     real(r8) :: fice   (pcols,pver)    ! ice fraction in precip production
-    real(r8) :: fsnow_conv(pcols,pver) ! snow fraction in precip production
-    real(r8) :: qs   (pcols,pver)    ! saturation specific humidity
-    real(r8),intent(out) :: flxprec(pcols,pverp)   ! Convective-scale flux of precip at interfaces (kg/m2/s)
-    real(r8),intent(out) :: flxsnow(pcols,pverp)   ! Convective-scale flux of snow   at interfaces (kg/m2/s)
-    real(r8),intent(out) :: ntprprd(pcols,pver)    ! net precip production in layer
-    real(r8),intent(out) :: ntsnprd(pcols,pver)    ! net snow production in layer
+    real(r8), target :: fsnow_conv(pcols,pver) ! snow fraction in precip production
+    real(r8), target :: qs   (pcols,pver)    ! saturation specific humidity
+    real(r8),target,intent(out) :: flxprec(pcols,pverp)   ! Convective-scale flux of precip at interfaces (kg/m2/s)
+    real(r8),target,intent(out) :: flxsnow(pcols,pverp)   ! Convective-scale flux of snow   at interfaces (kg/m2/s)
+    real(r8),target,intent(out) :: ntprprd(pcols,pver)    ! net precip production in layer
+    real(r8),target,intent(out) :: ntsnprd(pcols,pver)    ! net snow production in layer
 
     !Needed for water tracers:
-    real(r8), intent(out) :: evpstore(pcols,pver) !preciptation evaporation
-    real(r8), intent(out) :: substore(pcols,pver) !snow sublimation
+    real(r8), target, intent(out) :: evpstore(pcols,pver) !preciptation evaporation
+    real(r8), target, intent(out) :: substore(pcols,pver) !snow sublimation
 
     real(r8) :: work1                  ! temp variable (pjr)
     real(r8) :: work2                  ! temp variable (pjr)
 
-    real(r8) :: evpvint(pcols)         ! vertical integral of evaporation
+    real(r8), target :: evpvint(pcols) ! vertical integral of evaporation
     real(r8) :: evpprec(pcols)         ! evaporation of precipitation (kg/kg/s)
     real(r8) :: evpsnow(pcols)         ! evaporation of snowfall (kg/kg/s)
     real(r8) :: snowmlt(pcols)         ! snow melt tendency in layer
@@ -2060,9 +2061,58 @@ subroutine zm_conv_evap(ncol,lchnk, &
     real(r8) :: rlat(pcols)
 
     integer :: i,k                     ! longitude,level indices
+    integer(c_int64_t) :: pergro_c, do_org_c
 
+    interface
+      subroutine zm_conv_evap_codon(ncol_c, pcols_c, pver_c, pverp_c, pergro_c, do_org_c, &
+           gravit_c, latvap_c, latice_c, tmelt_c, ke_c, ke_lnd_c, deltat_c, &
+           t_p, q_p, pdel_p, landfrac_p, prdprec_p, cldfrc_p, qs_p, fsnow_conv_p, &
+           prec_p, snow_p, tend_s_p, tend_q_p, tend_s_snwprd_p, tend_s_snwevmlt_p, &
+           evpstore_p, substore_p, ntprprd_p, ntsnprd_p, flxprec_p, flxsnow_p, &
+           evpvint_p) bind(c, name="zm_conv_evap_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pergro_c, do_org_c
+        real(c_double), value :: gravit_c, latvap_c, latice_c, tmelt_c, ke_c, ke_lnd_c, deltat_c
+        type(c_ptr), value :: t_p, q_p, pdel_p, landfrac_p, prdprec_p, cldfrc_p, qs_p, fsnow_conv_p
+        type(c_ptr), value :: prec_p, snow_p, tend_s_p, tend_q_p, tend_s_snwprd_p, tend_s_snwevmlt_p
+        type(c_ptr), value :: evpstore_p, substore_p, ntprprd_p, ntsnprd_p, flxprec_p, flxsnow_p
+        type(c_ptr), value :: evpvint_p
+      end subroutine zm_conv_evap_codon
+    end interface
 
 !-----------------------------------------------------------------------
+
+    call zm_conv_evap_main_select_impl()
+
+    if (.not. use_native_zm_conv_evap_main) then
+! determine saturation vapor pressure
+       call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &
+            es(1:ncol, 1:pver), qs(1:ncol, 1:pver))
+
+! determine ice fraction in rain production (use cloud water parameterization fraction at present)
+       call cldfrc_fice(ncol, t, fice, fsnow_conv)
+
+#ifdef PERGRO
+       pergro_c = 1_c_int64_t
+#else
+       pergro_c = 0_c_int64_t
+#endif
+       do_org_c = merge(1_c_int64_t, 0_c_int64_t, zm_org)
+
+       call zm_conv_log_direct(zm_conv_evap_main_logged, &
+            'zm_conv_evap direct = codon; qsat/cldfrc_fice native setup boundaries')
+
+       call zm_conv_evap_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+            int(pver, c_int64_t), int(pverp, c_int64_t), pergro_c, do_org_c, &
+            real(gravit, c_double), real(latvap, c_double), real(latice, c_double), &
+            real(tmelt, c_double), real(ke, c_double), real(ke_lnd, c_double), &
+            real(deltat, c_double), c_loc(t), c_loc(q), c_loc(pdel), c_loc(landfrac), &
+            c_loc(prdprec), c_loc(cldfrc), c_loc(qs), c_loc(fsnow_conv), c_loc(prec), &
+            c_loc(snow), c_loc(tend_s), c_loc(tend_q), c_loc(tend_s_snwprd), &
+            c_loc(tend_s_snwevmlt), c_loc(evpstore), c_loc(substore), c_loc(ntprprd), &
+            c_loc(ntsnprd), c_loc(flxprec), c_loc(flxsnow), c_loc(evpvint))
+       return
+    end if
 
 ! convert input precip to kg/m2/s
     prec(:ncol) = prec(:ncol)*1000._r8

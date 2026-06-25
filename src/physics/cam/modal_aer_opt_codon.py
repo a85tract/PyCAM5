@@ -1,4 +1,4 @@
-from math import exp
+from math import exp, log
 
 @inline
 def _ascii_ptr_to_str(n: int, ptr_p: cobj) -> str:
@@ -1533,6 +1533,288 @@ def modal_aer_opt_sw_optics_diag_tau_batch_codon(
             fa_p,
         )
     return has_bad
+
+
+def _modal_aero_sw_size_parameters_codon(
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncol: int,
+    ncoef: int,
+    sigma_logr_aer: float,
+    xrmin: float,
+    xrmax: float,
+    dgnumwet_p: cobj,
+    radsurf_p: cobj,
+    logradsurf_p: cobj,
+    cheb_p: cobj,
+):
+    dgnumwet = Ptr[float](dgnumwet_p)
+    radsurf = Ptr[float](radsurf_p)
+    logradsurf = Ptr[float](logradsurf_p)
+    cheb = Ptr[float](cheb_p)
+
+    alnsg_amode = log(sigma_logr_aer)
+    explnsigma = exp(2.0 * alnsg_amode * alnsg_amode)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            radsurf[idx2] = 0.5 * dgnumwet[idx2] * explnsigma
+            logradsurf[idx2] = log(radsurf[idx2])
+            xrad = max(logradsurf[idx2], xrmin)
+            xrad = min(xrad, xrmax)
+            xrad = (2.0 * xrad - xrmax - xrmin) / (xrmax - xrmin)
+            cheb[_cheb_idx(1, i, k, ncoef, pcols)] = 1.0
+            cheb[_cheb_idx(2, i, k, ncoef, pcols)] = xrad
+            for nc in range(3, ncoef + 1):
+                cheb[_cheb_idx(nc, i, k, ncoef, pcols)] = (
+                    2.0 * xrad * cheb[_cheb_idx(nc - 1, i, k, ncoef, pcols)]
+                    - cheb[_cheb_idx(nc - 2, i, k, ncoef, pcols)]
+                )
+
+
+@export
+def modal_aero_sw_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nswbands: int,
+    ncoef: int,
+    prefr: int,
+    prefi: int,
+    top_lev: int,
+    k: int,
+    isw: int,
+    spectype_code: int,
+    flag1: int,
+    flag2: int,
+    flag3: int,
+    rga: float,
+    rair: float,
+    rhoh2o: float,
+    xrmin: float,
+    xrmax: float,
+    sigma_logr_aer: float,
+    cref_re: float,
+    cref_im: float,
+    specdens: float,
+    specrefr: float,
+    specrefi: float,
+    hygro_aer: float,
+    fillvalue: float,
+    pdeldry_p: cobj,
+    pmid_p: cobj,
+    state_t_p: cobj,
+    tauxar_p: cobj,
+    wa_p: cobj,
+    ga_p: cobj,
+    fa_p: cobj,
+    mass_p: cobj,
+    air_density_p: cobj,
+    extinct_p: cobj,
+    absorb_p: cobj,
+    extinctuv_p: cobj,
+    extinctnir_p: cobj,
+    aodvis_p: cobj,
+    aodvisst_p: cobj,
+    aodabs_p: cobj,
+    aodabsbc_p: cobj,
+    ssavis_p: cobj,
+    burdendust_p: cobj,
+    burdenso4_p: cobj,
+    burdenpom_p: cobj,
+    burdensoa_p: cobj,
+    burdenbc_p: cobj,
+    burdenseasalt_p: cobj,
+    dustaod_p: cobj,
+    so4aod_p: cobj,
+    pomaod_p: cobj,
+    soaaod_p: cobj,
+    bcaod_p: cobj,
+    seasaltaod_p: cobj,
+    aoduv_p: cobj,
+    aodnir_p: cobj,
+    aoduvst_p: cobj,
+    aodnirst_p: cobj,
+    dgnumwet_p: cobj,
+    radsurf_p: cobj,
+    logradsurf_p: cobj,
+    cheb_p: cobj,
+    dryvol_p: cobj,
+    dustvol_p: cobj,
+    scatdust_p: cobj,
+    absdust_p: cobj,
+    hygrodust_p: cobj,
+    scatso4_p: cobj,
+    absso4_p: cobj,
+    hygroso4_p: cobj,
+    scatbc_p: cobj,
+    absbc_p: cobj,
+    hygrobc_p: cobj,
+    scatpom_p: cobj,
+    abspom_p: cobj,
+    hygropom_p: cobj,
+    scatsoa_p: cobj,
+    abssoa_p: cobj,
+    hygrosoa_p: cobj,
+    scatseasalt_p: cobj,
+    absseasalt_p: cobj,
+    hygroseasalt_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    specmmr_p: cobj,
+    vol_p: cobj,
+    burden_p: cobj,
+    aodmode_p: cobj,
+    dustaodmode_p: cobj,
+    qaerwat_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+    extpsw_p: cobj,
+    abspsw_p: cobj,
+    asmpsw_p: cobj,
+    refrtabsw_p: cobj,
+    refitabsw_p: cobj,
+    itab_p: cobj,
+    jtab_p: cobj,
+    ttab_p: cobj,
+    utab_p: cobj,
+    cext_p: cobj,
+    cabs_p: cobj,
+    casm_p: cobj,
+    pext_p: cobj,
+    specpext_p: cobj,
+    pabs_p: cobj,
+    pasm_p: cobj,
+    palb_p: cobj,
+    dopaer_p: cobj,
+    troplev_p: cobj,
+    idxnite_p: cobj,
+) -> int:
+    if stage == 1:
+        modal_aer_opt_sw_init_state_codon(
+            ncol, pcols, pver, nswbands, rga, rair, pdeldry_p, pmid_p, state_t_p,
+            tauxar_p, wa_p, ga_p, fa_p, mass_p, air_density_p,
+        )
+        return 0
+
+    if stage == 2:
+        modal_aer_opt_sw_zero_diagnostics_codon(
+            ncol, pcols, pver, extinct_p, absorb_p, extinctuv_p, extinctnir_p,
+            aodvis_p, aodvisst_p, aodabs_p, aodabsbc_p, ssavis_p, burdendust_p,
+            burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p, burdenseasalt_p,
+            dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p,
+            aoduv_p, aodnir_p, aoduvst_p, aodnirst_p,
+        )
+        return 0
+
+    if stage == 3:
+        modal_aer_opt_sw_mode_diag_init_codon(ncol, burden_p, aodmode_p, dustaodmode_p)
+        return 0
+
+    if stage == 4:
+        _modal_aero_sw_size_parameters_codon(
+            pcols, pver, top_lev, ncol, ncoef, sigma_logr_aer, xrmin, xrmax,
+            dgnumwet_p, radsurf_p, logradsurf_p, cheb_p,
+        )
+        return 0
+
+    if stage == 5:
+        modal_aer_opt_sw_reset_layer_codon(
+            ncol, dryvol_p, dustvol_p, scatdust_p, absdust_p, hygrodust_p,
+            scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p,
+            scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p,
+            scatseasalt_p, absseasalt_p, hygroseasalt_p, crefin_re_p, crefin_im_p,
+        )
+        return 0
+
+    if stage == 6:
+        modal_aer_opt_sw_species_layer_batch_codon(
+            ncol, pcols, k, spectype_code, flag1, specdens, specrefr, specrefi,
+            hygro_aer, specmmr_p, mass_p, vol_p, dryvol_p, crefin_re_p, crefin_im_p,
+            burden_p, burdendust_p, burdenso4_p, burdenbc_p, burdenpom_p,
+            burdensoa_p, burdenseasalt_p, dustvol_p, scatdust_p, absdust_p,
+            hygrodust_p, scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p,
+            hygrobc_p, scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p,
+            hygrosoa_p, scatseasalt_p, absseasalt_p, hygroseasalt_p,
+        )
+        return 0
+
+    if stage == 7:
+        return modal_aer_opt_sw_water_refr_fastpath_codon(
+            ncol, pcols, k, rhoh2o, cref_re, cref_im, qaerwat_p, dryvol_p,
+            watervol_p, wetvol_p, crefin_re_p, crefin_im_p, refr_p, refi_p,
+        )
+
+    if stage == 8:
+        modal_aer_opt_sw_finalize_refr_codon(
+            ncol, cref_re, cref_im, watervol_p, wetvol_p, crefin_re_p, crefin_im_p,
+            refr_p, refi_p,
+        )
+        return 0
+
+    if stage == 9:
+        modal_aer_opt_sw_binterp3_codon(
+            pcols, ncol, ncoef, prefr, prefi, extpsw_p, abspsw_p, asmpsw_p,
+            refr_p, refi_p, refrtabsw_p, refitabsw_p, itab_p, jtab_p, ttab_p,
+            utab_p, cext_p, cabs_p, casm_p,
+        )
+        return 0
+
+    if stage == 10:
+        return modal_aer_opt_sw_optics_diag_tau_batch_codon(
+            ncol, pcols, pver, k, isw, ncoef, xrmax, rhoh2o, flag1, flag2, flag3,
+            cref_re, cref_im, radsurf_p, logradsurf_p, cheb_p, cext_p, cabs_p,
+            casm_p, wetvol_p, mass_p, pext_p, specpext_p, pabs_p, pasm_p, palb_p,
+            dopaer_p, troplev_p, air_density_p, watervol_p, dustvol_p, scatdust_p,
+            scatso4_p, scatbc_p, scatpom_p, scatsoa_p, scatseasalt_p, absdust_p,
+            absso4_p, absbc_p, abspom_p, abssoa_p, absseasalt_p, hygrodust_p,
+            hygroso4_p, hygrobc_p, hygropom_p, hygrosoa_p, hygroseasalt_p,
+            extinctuv_p, aoduv_p, aoduvst_p, extinctnir_p, aodnir_p, aodnirst_p,
+            extinct_p, absorb_p, aodvis_p, aodabs_p, aodmode_p, ssavis_p,
+            aodvisst_p, dustaodmode_p, aodabsbc_p, dustaod_p, so4aod_p,
+            pomaod_p, soaaod_p, bcaod_p, seasaltaod_p, tauxar_p, wa_p, ga_p, fa_p,
+        )
+
+    if stage == 11:
+        modal_aer_opt_sw_accumulate_tau_codon(
+            ncol, pcols, pver, k, isw, dopaer_p, palb_p, pasm_p, tauxar_p, wa_p,
+            ga_p, fa_p,
+        )
+        return 0
+
+    if stage == 12:
+        modal_aer_opt_sw_mode_diag_night_codon(
+            ncol, fillvalue, idxnite_p, burden_p, aodmode_p, dustaodmode_p,
+        )
+        return 0
+
+    if stage == 13:
+        modal_aer_opt_sw_sum_diag_night_codon(
+            ncol, pcols, pver, fillvalue, idxnite_p, extinct_p, absorb_p, aodvis_p,
+            aodabs_p, aodvisst_p,
+        )
+        return 0
+
+    if stage == 14:
+        modal_aer_opt_sw_finalize_ssavis_codon(ncol, aodvis_p, ssavis_p)
+        return 0
+
+    if stage == 15:
+        modal_aer_opt_sw_climate_diag_night_codon(
+            ncol, pcols, pver, fillvalue, idxnite_p, ssavis_p, aoduv_p, aodnir_p,
+            aoduvst_p, aodnirst_p, extinctuv_p, extinctnir_p, burdendust_p,
+            burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p, burdenseasalt_p,
+            aodabsbc_p, dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p,
+            seasaltaod_p,
+        )
+        return 0
+
+    return -1
 
 
 def modal_aer_opt_lw_init_state_codon(
