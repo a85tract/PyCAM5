@@ -1127,6 +1127,108 @@ contains
 
        !   local variables
        integer j, l, la, lc, ll, m
+       character(len=32) :: impl_name
+       integer :: n, status, code
+       logical :: use_native
+       integer(c_int64_t) :: status_c
+       integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+       integer(c_int64_t), target :: numptr_amode_c(ntot_amode)
+       integer(c_int64_t), target :: numptrcw_amode_c(ntot_amode)
+       integer(c_int64_t), target :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+       integer(c_int64_t), target :: lmassptrcw_amode_c(maxd_aspectype,ntot_amode)
+       integer(c_int64_t), target :: cnst_names_ascii(len(cnst_name(1)),pcnst)
+       integer(c_int64_t), target :: cnst_name_cw_ascii(len(cnst_name_cw(1)),pcnst)
+       integer(c_int64_t), target :: err_c(4)
+
+       interface
+          function initaermodes_set_cnstnamecw_codon(ntot_amode_c, maxd_aspectype_c, pcnst_c, &
+               name_len_c, nspec_amode_p, numptr_amode_p, numptrcw_amode_p, lmassptr_amode_p, &
+               lmassptrcw_amode_p, cnst_names_p, cnst_name_cw_p, err_p) result(out_c) &
+               bind(c, name="initaermodes_set_cnstnamecw_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ntot_amode_c, maxd_aspectype_c, pcnst_c, name_len_c
+            type(c_ptr), value :: nspec_amode_p, numptr_amode_p, numptrcw_amode_p
+            type(c_ptr), value :: lmassptr_amode_p, lmassptrcw_amode_p
+            type(c_ptr), value :: cnst_names_p, cnst_name_cw_p, err_p
+            integer(c_int64_t) :: out_c
+          end function initaermodes_set_cnstnamecw_codon
+       end interface
+
+       impl_name = 'codon'
+       call cam_codon_get_impl('INITAERMODES_SET_CNSTNAMECW_IMPL', impl_name, n, status)
+       use_native = .false.
+       if (status == 0 .and. n > 0) then
+          do l = 1, n
+             code = iachar(impl_name(l:l))
+             if (code >= iachar('A') .and. code <= iachar('Z')) then
+                impl_name(l:l) = achar(code + iachar('a') - iachar('A'))
+             end if
+          end do
+          use_native = trim(adjustl(impl_name(:n))) == 'native'
+       end if
+
+       if (.not. use_native) then
+          do m = 1, ntot_amode
+             nspec_amode_c(m) = int(nspec_amode(m), c_int64_t)
+             numptr_amode_c(m) = int(numptr_amode(m), c_int64_t)
+             numptrcw_amode_c(m) = int(numptrcw_amode(m), c_int64_t)
+             do ll = 1, maxd_aspectype
+                lmassptr_amode_c(ll,m) = int(lmassptr_amode(ll,m), c_int64_t)
+                lmassptrcw_amode_c(ll,m) = int(lmassptrcw_amode(ll,m), c_int64_t)
+             end do
+          end do
+
+          do l = 1, pcnst
+             do j = 1, len(cnst_name(1))
+                cnst_names_ascii(j,l) = int(iachar(cnst_name(l)(j:j)), c_int64_t)
+             end do
+          end do
+
+          status_c = initaermodes_set_cnstnamecw_codon( &
+               int(ntot_amode, c_int64_t), int(maxd_aspectype, c_int64_t), int(pcnst, c_int64_t), &
+               int(len(cnst_name(1)), c_int64_t), c_loc(nspec_amode_c(1)), c_loc(numptr_amode_c(1)), &
+               c_loc(numptrcw_amode_c(1)), c_loc(lmassptr_amode_c(1,1)), &
+               c_loc(lmassptrcw_amode_c(1,1)), c_loc(cnst_names_ascii(1,1)), &
+               c_loc(cnst_name_cw_ascii(1,1)), c_loc(err_c(1)) )
+
+          if (status_c == -1_c_int64_t) then
+             write(*,'(/2a/a,5(1x,i10))')   &
+                  '*** initaermodes_set_cnstnamecw error',   &
+                  ' -- bad la or lc',   &
+                  '    m, ll, la, lc, pcnst =', int(err_c(1)), int(err_c(2)), &
+                  int(err_c(3)), int(err_c(4)), pcnst
+             call endrun( '*** initaermodes_set_cnstnamecw error' )
+          else if (status_c == -2_c_int64_t) then
+             write(*,'(/2a/a,3(1x,i10),2x,a)')   &
+                  '*** initaermodes_set_cnstnamecw error',   &
+                  ' -- bad cnst_name(la)',   &
+                  '    m, ll, la, cnst_name(la) =',   &
+                  int(err_c(1)), int(err_c(2)), int(err_c(3)), cnst_name(int(err_c(3)))
+             call endrun( '*** initaermodes_set_cnstnamecw error' )
+          else if (status_c /= 1_c_int64_t) then
+             call endrun( 'initaermodes_set_cnstnamecw_codon failed' )
+          end if
+
+          do l = 1, pcnst
+             cnst_name_cw(l) = ' '
+             do j = 1, min(len(cnst_name_cw(1)), len(cnst_name(1)))
+                cnst_name_cw(l)(j:j) = achar(int(cnst_name_cw_ascii(j,l)))
+             end do
+          end do
+
+          if (masterproc) then
+             write(iulog,'(A)') 'initaermodes_set_cnstnamecw implementation = codon'
+             write(iulog,'(A)') 'initaermodes_set_cnstnamecw direct = codon; native logging boundary'
+             call flush(iulog)
+
+             write(*,'(/a)') 'l, cnst_name(l), cnst_name_cw(l)'
+             do l = 1, pcnst
+                write(*,'(i4,2(2x,a))') l, cnst_name(l), cnst_name_cw(l)
+             end do
+          end if
+
+          return
+       end if
 
        !   set cnst_name_cw
        cnst_name_cw = ' '

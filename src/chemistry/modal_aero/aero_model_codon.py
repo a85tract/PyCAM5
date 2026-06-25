@@ -335,6 +335,83 @@ def initaermodes_setspecptrs_write2_codon(
 
 
 @export
+def initaermodes_set_cnstnamecw_codon(
+    ntot_amode: int,
+    maxd_aspectype: int,
+    pcnst: int,
+    name_len: int,
+    nspec_amode_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    cnst_names_p: cobj,
+    cnst_name_cw_p: cobj,
+    err_p: cobj,
+) -> int:
+    nspec_amode = Ptr[int](nspec_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lmassptrcw_amode = Ptr[int](lmassptrcw_amode_p)
+    cnst_names = Ptr[int](cnst_names_p)
+    cnst_name_cw = Ptr[int](cnst_name_cw_p)
+    err = Ptr[int](err_p)
+
+    for i in range(4):
+        err[i] = 0
+    for i in range(pcnst * name_len):
+        cnst_name_cw[i] = 32
+
+    for m in range(1, ntot_amode + 1):
+        for ll in range(0, nspec_amode[m - 1] + 1):
+            if ll == 0:
+                la = numptr_amode[m - 1]
+                lc = numptrcw_amode[m - 1]
+            else:
+                idx = _idx2(ll, m, maxd_aspectype)
+                la = lmassptr_amode[idx]
+                lc = lmassptrcw_amode[idx]
+
+            if la < 1 or la > pcnst or lc < 1 or lc > pcnst:
+                err[0] = m
+                err[1] = ll
+                err[2] = la
+                err[3] = lc
+                return -1
+
+            in_base = (la - 1) * name_len
+            out_base = (lc - 1) * name_len
+            found = 0
+            for j in range(1, name_len - 1):
+                ch0 = cnst_names[in_base + j]
+                ch1 = cnst_names[in_base + j + 1]
+                if ch0 == 95 and ch1 == 97:
+                    for k in range(name_len):
+                        cnst_name_cw[out_base + k] = cnst_names[in_base + k]
+                    cnst_name_cw[out_base + j] = 95
+                    cnst_name_cw[out_base + j + 1] = 99
+                    found = 1
+                    break
+                elif ch0 == 95 and ch1 == 65:
+                    for k in range(name_len):
+                        cnst_name_cw[out_base + k] = cnst_names[in_base + k]
+                    cnst_name_cw[out_base + j] = 95
+                    cnst_name_cw[out_base + j + 1] = 67
+                    found = 1
+                    break
+
+            if found == 0:
+                err[0] = m
+                err[1] = ll
+                err[2] = la
+                err[3] = lc
+                return -2
+
+    return 1
+
+
+@export
 def initaermodes_setspecptrs_codon(
     ntot_amode: int,
     maxd_aspectype: int,
