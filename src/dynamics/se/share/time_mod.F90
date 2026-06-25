@@ -5,7 +5,7 @@
 module time_mod
   !------------------
   use kinds, only : real_kind
-  use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
   !------------------
   implicit none
   integer,public                :: nsplit=1
@@ -42,6 +42,9 @@ module time_mod
      module procedure TimeLevel_init_copy
   end interface
 
+  logical, save :: time_at_codon_seen = .false.
+  logical, save :: time_at_codon_proof_seen = .false.
+
 contains
 
   logical function time_mod_use_native(selector)
@@ -68,7 +71,22 @@ contains
   function Time_at(nstep) result(tat)
     integer, intent(in) :: nstep
     real (kind=real_kind) :: tat
-    tat = nstep*tstep
+    interface
+       function time_at_codon(nstep_c, tstep_c) result(tat_c) bind(c, name='time_at_codon')
+         import :: c_double, c_int64_t
+         integer(c_int64_t), value :: nstep_c
+         real(c_double), value :: tstep_c
+         real(c_double) :: tat_c
+       end function time_at_codon
+    end interface
+
+    if (time_mod_use_native('TIME_AT_IMPL')) then
+       tat = nstep*tstep
+       return
+    end if
+
+    tat = real(time_at_codon(int(nstep, c_int64_t), real(tstep, c_double)), kind=real_kind)
+    time_at_codon_seen = .true.
   end function Time_at
 
   subroutine TimeLevel_init_default(tl)
@@ -239,6 +257,10 @@ contains
        ierr = int(timelevel_update_codon(c_loc(tl%nm1), c_loc(tl%n0), c_loc(tl%np1), &
             c_loc(tl%nstep), int(uptype_code, c_int64_t)))
        if (ierr == 0) write(iulog,*) 'timelevel_update implementation = codon'
+    end if
+    if (time_at_codon_seen .and. .not. time_at_codon_proof_seen) then
+       write(iulog,*) 'time_at implementation = codon'
+       time_at_codon_proof_seen = .true.
     end if
 #if (defined HORIZ_OPENMP)
 !$OMP END MASTER

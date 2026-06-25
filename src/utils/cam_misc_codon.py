@@ -8,6 +8,11 @@ def cam_misc_touch_codon(tag: int) -> int:
 
 
 @export
+def time_at_codon(nstep: int, tstep: float) -> float:
+    return float(nstep) * tstep
+
+
+@export
 def cam_instance_init_codon(
     in_atm_id: int,
     inst_index_in: int,
