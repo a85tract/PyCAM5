@@ -1652,6 +1652,33 @@ def jacobi_codon(n: int, x: float, alpha: float, beta: float, jac_p: cobj, djac_
         djac[k + 1] = (a2k * djac[k] + da2kdx * jac[k] - a3k * djac[k - 1]) / a1k
 
 
+def jacobi_polynomials_codon(n: int, alpha: float, beta: float, npoints: int, x_p: cobj, jac_p: cobj):
+    x = Ptr[float](x_p)
+    jac = Ptr[float](jac_p)
+
+    c1 = 1.0
+    c2 = 2.0
+
+    for j in range(npoints):
+        xtmp = x[j]
+        jacm1 = c1
+        jac0 = (c1 + alpha) * xtmp
+
+        for k in range(1, n):
+            kf = float(k)
+            a1k = c2 * (kf + c1) * (kf + alpha + beta + c1) * (c2 * kf + alpha + beta)
+            da2kdx = (c2 * kf + alpha + beta + c2) * (c2 * kf + alpha + beta + c1) * (c2 * kf + alpha + beta)
+            a2k = (c2 * kf + alpha + beta + c1) * (alpha * alpha - beta * beta) + xtmp * da2kdx
+            a3k = c2 * (kf + alpha) * (kf + beta) * (c2 * kf + alpha + beta + c2)
+            jacp1 = (a2k * jac0 - a3k * jacm1) / a1k
+            jacm1 = jac0
+            jac0 = jacp1
+
+        if n == 0:
+            jac0 = jacm1
+        jac[j] = jac0
+
+
 def se_gausslobatto_fill_codon(npts: int, points_p: cobj, weights_p: cobj) -> int:
     if npts != 4:
         return 0

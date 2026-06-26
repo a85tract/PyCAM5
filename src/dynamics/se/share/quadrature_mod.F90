@@ -11,6 +11,7 @@ module quadrature_mod
   logical, save :: gausslobatto_codon_logged = .false.
   logical, save :: legendre_codon_logged = .false.
   logical, save :: jacobi_codon_logged = .false.
+  logical, save :: jacobi_polynomials_codon_logged = .false.
 
   type, public :: quadrature_t
 #ifdef IS_ACCELERATOR
@@ -694,13 +695,15 @@ contains
   ! ===========================================================
 
   function jacobi_polynomials(n, alpha, beta, npoints, x) result(jac)
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use spmd_utils, only : masterproc
 
     integer, intent(in)     :: n         ! order of the Jacobi Polynomial
-    real (kind=longdouble_kind) :: alpha 
-    real (kind=longdouble_kind) :: beta
+    real (kind=longdouble_kind), intent(in) :: alpha
+    real (kind=longdouble_kind), intent(in) :: beta
     integer, intent(in)     :: npoints
-    real (kind=longdouble_kind) :: x(npoints)
-    real (kind=longdouble_kind) :: jac(npoints)
+    real (kind=longdouble_kind), intent(in), target :: x(npoints)
+    real (kind=longdouble_kind), target :: jac(npoints)
 
     ! Local variables
 
@@ -716,6 +719,32 @@ contains
 
     real (kind=longdouble_kind) :: c2,c1,c0
     integer j,k
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+
+    interface
+       subroutine jacobi_polynomials_codon(n_c, alpha_c, beta_c, npoints_c, x_p, jac_p) &
+            bind(c, name="jacobi_polynomials_codon")
+         import :: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: n_c, npoints_c
+         real(c_double), value :: alpha_c, beta_c
+         type(c_ptr), value :: x_p, jac_p
+       end subroutine jacobi_polynomials_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('JACOBI_POLYNOMIALS_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       call jacobi_polynomials_codon(int(n, c_int64_t), real(alpha, c_double), &
+            real(beta, c_double), int(npoints, c_int64_t), c_loc(x(1)), c_loc(jac(1)))
+       if (masterproc .and. .not. jacobi_polynomials_codon_logged) then
+          write(iulog,*) 'jacobi_polynomials implementation = codon'
+          jacobi_polynomials_codon_logged = .true.
+          call flush(iulog)
+       end if
+       return
+    end if
 
     c0 = 0.0_longdouble_kind
     c1 = 1.0_longdouble_kind

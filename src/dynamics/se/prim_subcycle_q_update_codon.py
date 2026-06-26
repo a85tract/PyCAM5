@@ -2504,6 +2504,24 @@ def jacobi_codon(
     )
 
 @export
+def jacobi_polynomials_codon(
+    n: int,
+    alpha: float,
+    beta: float,
+    npoints: int,
+    x_p: cobj,
+    jac_p: cobj,
+):
+    return _misc.jacobi_polynomials_codon(
+        n,
+        alpha,
+        beta,
+        npoints,
+        x_p,
+        jac_p,
+    )
+
+@export
 def se_gausslobatto_fill_codon(
     npts: int,
     points_p: cobj,
