@@ -1012,7 +1012,8 @@
    integer ier   !MP error code
    character(len=32) :: impl_name
    integer :: impl_n, impl_status
-   logical, save :: proof_seen = .false.
+   integer, save :: codon_proof_count = 0
+   integer, save :: native_proof_count = 0
 
    interface
       function mpibcast_codon(buffer_p, count_c, datatype_c, root_c, comm_c) result(ierr_c) &
@@ -1032,15 +1033,17 @@
    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon') then
       ier = mpibcast_codon(c_loc(buffer), int(count, c_int), int(datatype, c_int), &
                            int(root, c_int), int(comm, c_int))
-      if (.not. proof_seen) then
+      if (codon_proof_count < 20) then
          write(iulog,*) 'mpibcast implementation = codon'
-         proof_seen = .true.
+         call flush(iulog)
+         codon_proof_count = codon_proof_count + 1
       endif
    else
       call mpi_bcast (buffer, count, datatype, root, comm, ier)
-      if (.not. proof_seen) then
+      if (native_proof_count < 20) then
          write(iulog,*) 'mpibcast implementation = native'
-         proof_seen = .true.
+         call flush(iulog)
+         native_proof_count = native_proof_count + 1
       endif
    endif
    if (ier/=mpi_success) then
