@@ -35,6 +35,9 @@ module rad_solar_var
   logical :: use_native_rrtmg_solar_variability_impl = .false.
   logical :: rrtmg_solar_variability_impl_selected = .false.
   logical :: rrtmg_solar_variability_entered_logged = .false.
+  logical :: use_native_integrate_spectrum_impl = .false.
+  logical :: integrate_spectrum_impl_selected = .false.
+  logical :: integrate_spectrum_entered_logged = .false.
   interface
      function rad_solar_var_init_codon(nradbins_c, radbinmax_p) result(radmax_loc_c) &
           bind(c, name="rad_solar_var_init_codon")
@@ -375,17 +378,34 @@ contains
     !---------------------------------------------------------------
     integer,  intent(in)  :: nsrc                  ! dimension source array
     integer,  intent(in)  :: ntrg                  ! dimension target array
-    real(r8), intent(in)  :: src_x(nsrc+1)         ! source coordinates
-    real(r8), intent(in)  :: max_trg(ntrg)         ! target coordinates
-    real(r8), intent(in)  :: min_trg(ntrg)         ! target coordinates
-    real(r8), intent(in)  :: src(nsrc)             ! source array
-    real(r8), intent(out) :: trg(ntrg)             ! target array
+    real(r8), target, intent(in)  :: src_x(nsrc+1) ! source coordinates
+    real(r8), target, intent(in)  :: max_trg(ntrg) ! target coordinates
+    real(r8), target, intent(in)  :: min_trg(ntrg) ! target coordinates
+    real(r8), target, intent(in)  :: src(nsrc)     ! source array
+    real(r8), target, intent(out) :: trg(ntrg)     ! target array
  
     !---------------------------------------------------------------
     !	... local variables
     !---------------------------------------------------------------
     real(r8) :: trg_x(2), targ(1)         ! target coordinates
     integer  :: i
+
+    interface
+       subroutine integrate_spectrum_codon(nsrc_c, ntrg_c, src_x_p, min_trg_p, max_trg_p, &
+            src_p, trg_p) bind(c, name="integrate_spectrum_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: nsrc_c, ntrg_c
+         type(c_ptr), value :: src_x_p, min_trg_p, max_trg_p, src_p, trg_p
+       end subroutine integrate_spectrum_codon
+    end interface
+
+    call integrate_spectrum_select_impl()
+    if (.not. use_native_integrate_spectrum_impl) then
+       call integrate_spectrum_log_entered()
+       call integrate_spectrum_codon(int(nsrc, c_int64_t), int(ntrg, c_int64_t), &
+            c_loc(src_x(1)), c_loc(min_trg(1)), c_loc(max_trg(1)), c_loc(src(1)), c_loc(trg(1)))
+       return
+    end if
 
     do i = 1, ntrg
 
@@ -400,5 +420,51 @@ contains
 
 
   end subroutine integrate_spectrum
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine integrate_spectrum_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (integrate_spectrum_impl_selected) return
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('INTEGRATE_SPECTRUM_IMPL', impl_name, n, status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_integrate_spectrum_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_integrate_spectrum_impl = .false.
+    end if
+
+    integrate_spectrum_impl_selected = .true.
+
+  end subroutine integrate_spectrum_select_impl
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine integrate_spectrum_log_entered()
+
+    implicit none
+
+    if (integrate_spectrum_entered_logged) return
+    integrate_spectrum_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'integrate_spectrum implementation = codon'
+       call flush(iulog)
+    end if
+
+  end subroutine integrate_spectrum_log_entered
 
 endmodule rad_solar_var
