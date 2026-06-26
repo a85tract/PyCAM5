@@ -1,0 +1,13 @@
+PyCAM5
+Copyright (c) 2026 The Abstract Lab
+
+PyCAM5 is a Python modernization of the Community Atmosphere Model (CAM5).
+
+This repository contains:
+
+- Portions derived from CAM5 developed by UCAR/NCAR and collaborators.
+- New Python implementation, modernization infrastructure,
+  validation framework, tests, and tooling developed by
+  The Abstract Lab.
+
+Original copyright and license notices are retained where required.
