@@ -8184,6 +8184,54 @@ def fluxes_codon(
                 fi[i + m0 * ncol] = consta[row + m0 * 4] * u10cubed[i]
 
 @export
+def seasalt_emis_codon(
+    ncol: int,
+    pcols: int,
+    seasalt_nbin: int,
+    nsections: int,
+    seasalt_emis_scale: float,
+    pi_val: float,
+    seasalt_density: float,
+    u10cubed_p: cobj,
+    srf_temp_p: cobj,
+    ocnfrc_p: cobj,
+    cflx_p: cobj,
+    sflx_p: cobj,
+    seasalt_indices_p: cobj,
+    seasalt_sz_range_lo_p: cobj,
+    seasalt_sz_range_hi_p: cobj,
+    dg_p: cobj,
+    rdry_p: cobj,
+    fi_p: cobj,
+    whitecap_p: cobj,
+    consta_p: cobj,
+    constb_p: cobj,
+):
+    _emissions._aero_model_emissions_seasalt_shell(
+        ncol,
+        pcols,
+        seasalt_nbin,
+        nsections,
+        seasalt_emis_scale,
+        pi_val,
+        seasalt_density,
+        fi_p,
+        ocnfrc_p,
+        cflx_p,
+        sflx_p,
+        seasalt_indices_p,
+        seasalt_sz_range_lo_p,
+        seasalt_sz_range_hi_p,
+        dg_p,
+        rdry_p,
+        srf_temp_p,
+        u10cubed_p,
+        whitecap_p,
+        consta_p,
+        constb_p,
+    )
+
+@export
 def modal_aero_newnuc_init_codon(tag: int) -> int:
     return tag
 

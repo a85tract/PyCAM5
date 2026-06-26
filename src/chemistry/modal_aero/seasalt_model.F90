@@ -43,6 +43,7 @@ module seasalt_model
   integer :: seasalt_indices(nslt+nnum)
 
   logical :: seasalt_active = .false.
+  logical :: seasalt_emis_codon_logged = .false.
 
 contains
   
@@ -104,19 +105,81 @@ contains
   !=============================================================================
   subroutine seasalt_emis( u10cubed,  srf_temp, ocnfrc, ncol, cflx )
 
-    use sslt_sections, only: nsections, fluxes, Dg, rdry
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile, only: iulog
+    use spmd_utils, only: masterproc
+    use sslt_sections, only: nsections, fluxes, Dg, rdry, consta, constb
     use mo_constants,  only: dns_aer_sst=>seasalt_density, pi
 
     ! dummy arguments
-    real(r8), intent(in) :: u10cubed(:)
-    real(r8), intent(in) :: srf_temp(:)
-    real(r8), intent(in) :: ocnfrc(:)
+    real(r8), target, intent(in) :: u10cubed(:)
+    real(r8), target, intent(in) :: srf_temp(:)
+    real(r8), target, intent(in) :: ocnfrc(:)
     integer,  intent(in) :: ncol
-    real(r8), intent(inout) :: cflx(:,:)
+    real(r8), target, intent(inout) :: cflx(:,:)
 
     ! local vars
     integer  :: mn, mm, ibin, isec, i
-    real(r8) :: fi(ncol,nsections)
+    integer :: rt_codon_n, rt_codon_status, rt_codon_i, rt_codon_code
+    integer(c_int64_t), target :: seasalt_indices_c(nslt+nnum)
+    character(len=32) :: rt_codon_impl_name
+    logical :: rt_codon_use_native
+    real(c_double), target :: seasalt_sz_range_lo_c(nslt)
+    real(c_double), target :: seasalt_sz_range_hi_c(nslt)
+    real(c_double), target :: dg_c(nsections)
+    real(c_double), target :: rdry_c(nsections)
+    real(r8), target :: fi(pcols,nsections)
+    real(r8), target :: sflx(pcols)
+    real(r8), target :: whitecap(pcols)
+
+    interface
+       subroutine seasalt_emis_codon(ncol_c, pcols_c, seasalt_nbin_c, nsections_c, &
+            seasalt_emis_scale_c, pi_c, seasalt_density_c, u10cubed_p, srf_temp_p, ocnfrc_p, &
+            cflx_p, sflx_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p, &
+            dg_p, rdry_p, fi_p, whitecap_p, consta_p, constb_p) bind(c, name="seasalt_emis_codon")
+         import :: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, seasalt_nbin_c, nsections_c
+         real(c_double), value :: seasalt_emis_scale_c, pi_c, seasalt_density_c
+         type(c_ptr), value :: u10cubed_p, srf_temp_p, ocnfrc_p, cflx_p, sflx_p
+         type(c_ptr), value :: seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p
+         type(c_ptr), value :: dg_p, rdry_p, fi_p, whitecap_p, consta_p, constb_p
+       end subroutine seasalt_emis_codon
+    end interface
+
+    rt_codon_impl_name = 'codon'
+    call cam_codon_get_impl('SEASALT_EMIS_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+    rt_codon_use_native = .false.
+    if (rt_codon_status == 0 .and. rt_codon_n > 0) then
+       do rt_codon_i = 1, rt_codon_n
+          rt_codon_code = iachar(rt_codon_impl_name(rt_codon_i:rt_codon_i))
+          if (rt_codon_code >= iachar('A') .and. rt_codon_code <= iachar('Z')) then
+             rt_codon_impl_name(rt_codon_i:rt_codon_i) = achar(rt_codon_code + iachar('a') - iachar('A'))
+          end if
+       end do
+       rt_codon_use_native = trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native'
+    end if
+
+    if (.not. rt_codon_use_native) then
+       seasalt_indices_c(:) = int(seasalt_indices(:), c_int64_t)
+       seasalt_sz_range_lo_c(:) = real(seasalt_sz_range_lo(:), c_double)
+       seasalt_sz_range_hi_c(:) = real(seasalt_sz_range_hi(:), c_double)
+       do isec = 1, nsections
+          dg_c(isec) = real(Dg(isec), c_double)
+          rdry_c(isec) = real(rdry(isec), c_double)
+       end do
+       call seasalt_emis_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(nslt, c_int64_t), &
+            int(nsections, c_int64_t), real(seasalt_emis_scale, c_double), real(pi, c_double), &
+            real(dns_aer_sst, c_double), c_loc(u10cubed(1)), c_loc(srf_temp(1)), c_loc(ocnfrc(1)), &
+            c_loc(cflx(1,1)), c_loc(sflx(1)), c_loc(seasalt_indices_c(1)), c_loc(seasalt_sz_range_lo_c(1)), &
+            c_loc(seasalt_sz_range_hi_c(1)), c_loc(dg_c(1)), c_loc(rdry_c(1)), c_loc(fi(1,1)), &
+            c_loc(whitecap(1)), c_loc(consta(1,1)), c_loc(constb(1,1)))
+       if (masterproc .and. .not. seasalt_emis_codon_logged) then
+          seasalt_emis_codon_logged = .true.
+          write(iulog,'(A)') 'seasalt_emis implementation = codon'
+          call flush(iulog)
+       end if
+       return
+    end if
 
     fi(:ncol,:nsections) = fluxes( srf_temp, u10cubed, ncol )
 
