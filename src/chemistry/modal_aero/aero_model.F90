@@ -141,6 +141,7 @@ module aero_model
   logical :: vmr2qqcw_impl_selected = .false.
   logical :: aero_model_register_codon_logged = .false.
   logical :: aero_model_strat_surfarea_codon_logged = .false.
+  logical :: calc_1_impact_rate_codon_logged = .false.
 
 contains
   
@@ -5000,6 +5001,7 @@ contains
    !   lunerr = logical unit for error message
    !
    use shr_kind_mod, only: r8 => shr_kind_r8
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use mo_constants, only: boltz_cgs, pi, rhowater => rhoh2o_cgs, &
                            gravity => gravity_cgs, rgas => rgas_cgs
 
@@ -5007,20 +5009,25 @@ contains
 
    !   subr. parameters
    integer lunerr
-   real(r8) dg0, sigmag, rhoaero, temp, press, scavratenum, scavratevol
+   real(r8) dg0, sigmag, rhoaero, temp, press
+   real(r8), target :: scavratenum, scavratevol
 
    !   local variables
    integer nrainsvmax
    parameter (nrainsvmax=50)
-   real(r8) rrainsv(nrainsvmax), xnumrainsv(nrainsvmax),&
+   real(r8), target :: rrainsv(nrainsvmax), xnumrainsv(nrainsvmax),&
         vfallrainsv(nrainsvmax)
 
    integer naerosvmax
    parameter (naerosvmax=51)
-   real(r8) aaerosv(naerosvmax), &
+   real(r8), target :: aaerosv(naerosvmax), &
      	ynumaerosv(naerosvmax), yvolaerosv(naerosvmax)
 
    integer i, ja, jr, na, nr
+   integer :: rt_codon_n, rt_codon_status, rt_codon_i, rt_codon_code
+   integer(c_int64_t), target :: rt_codon_status_c
+   character(len=32) :: rt_codon_impl_name
+   logical :: rt_codon_use_native
    real(r8) a, aerodiffus, aeromass, ag0, airdynvisc, airkinvisc
    real(r8) anumsum, avolsum, cair, chi
    real(r8) d, dr, dum, dumfuchs, dx
@@ -5032,6 +5039,56 @@ contains
    real(r8) schmidt, sqrtreynolds, sstar, stokes, sx              
    real(r8) taurelax, vfall, vfallstp
    real(r8) x, xg0, xg3, xhi, xlo, xmuwaterair                     
+
+   interface
+      subroutine calc_1_impact_rate_codon(dg0_c, sigmag_c, rhoaero_c, temp_c, press_c, &
+           boltz_cgs_c, pi_c, rgas_c, scavratenum_p, scavratevol_p, status_p, &
+           rrainsv_p, xnumrainsv_p, vfallrainsv_p, aaerosv_p, ynumaerosv_p, yvolaerosv_p) &
+           bind(c, name="calc_1_impact_rate_codon")
+         import :: c_double, c_ptr
+         real(c_double), value :: dg0_c, sigmag_c, rhoaero_c, temp_c, press_c
+         real(c_double), value :: boltz_cgs_c, pi_c, rgas_c
+         type(c_ptr), value :: scavratenum_p, scavratevol_p, status_p
+         type(c_ptr), value :: rrainsv_p, xnumrainsv_p, vfallrainsv_p
+         type(c_ptr), value :: aaerosv_p, ynumaerosv_p, yvolaerosv_p
+      end subroutine calc_1_impact_rate_codon
+   end interface
+
+   rt_codon_impl_name = 'codon'
+   call cam_codon_get_impl('CALC_1_IMPACT_RATE_IMPL', rt_codon_impl_name, rt_codon_n, rt_codon_status)
+   rt_codon_use_native = .false.
+   if (rt_codon_status == 0 .and. rt_codon_n > 0) then
+      do rt_codon_i = 1, rt_codon_n
+         rt_codon_code = iachar(rt_codon_impl_name(rt_codon_i:rt_codon_i))
+         if (rt_codon_code >= iachar('A') .and. rt_codon_code <= iachar('Z')) then
+            rt_codon_impl_name(rt_codon_i:rt_codon_i) = achar(rt_codon_code + iachar('a') - iachar('A'))
+         end if
+      end do
+      rt_codon_use_native = trim(adjustl(rt_codon_impl_name(:rt_codon_n))) == 'native'
+   end if
+
+   if (.not. rt_codon_use_native) then
+      rt_codon_status_c = 0_c_int64_t
+      call calc_1_impact_rate_codon(real(dg0, c_double), real(sigmag, c_double), &
+           real(rhoaero, c_double), real(temp, c_double), real(press, c_double), &
+           real(boltz_cgs, c_double), real(pi, c_double), real(rgas, c_double), &
+           c_loc(scavratenum), c_loc(scavratevol), c_loc(rt_codon_status_c), &
+           c_loc(rrainsv(1)), c_loc(xnumrainsv(1)), c_loc(vfallrainsv(1)), &
+           c_loc(aaerosv(1)), c_loc(ynumaerosv(1)), c_loc(yvolaerosv(1)))
+      if (rt_codon_status_c == 1_c_int64_t) then
+         write(lunerr,9110)
+         call endrun()
+      else if (rt_codon_status_c == 2_c_int64_t) then
+         write(lunerr,9120)
+         call endrun()
+      end if
+      if (masterproc .and. .not. calc_1_impact_rate_codon_logged) then
+         calc_1_impact_rate_codon_logged = .true.
+         write(iulog,'(A)') 'calc_1_impact_rate implementation = codon'
+         call flush(iulog)
+      end if
+      return
+   end if
 
    
    rlo = .005_r8

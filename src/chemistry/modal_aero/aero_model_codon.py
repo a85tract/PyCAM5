@@ -216,6 +216,187 @@ def _idx5(i: int, j: int, k: int, l: int, m: int, ld1: int, ld2: int, ld3: int, 
     )
 
 
+@inline
+def _nint_positive_codon(x: float) -> int:
+    return int(x + 0.5)
+
+
+@export
+def calc_1_impact_rate_codon(
+    dg0: float,
+    sigmag: float,
+    rhoaero: float,
+    temp: float,
+    press: float,
+    boltz_cgs: float,
+    pi_v: float,
+    rgas: float,
+    scavratenum_p: cobj,
+    scavratevol_p: cobj,
+    status_p: cobj,
+    rrainsv_p: cobj,
+    xnumrainsv_p: cobj,
+    vfallrainsv_p: cobj,
+    aaerosv_p: cobj,
+    ynumaerosv_p: cobj,
+    yvolaerosv_p: cobj,
+):
+    scavratenum = Ptr[float](scavratenum_p)
+    scavratevol = Ptr[float](scavratevol_p)
+    status = Ptr[int](status_p)
+    rrainsv = Ptr[float](rrainsv_p)
+    xnumrainsv = Ptr[float](xnumrainsv_p)
+    vfallrainsv = Ptr[float](vfallrainsv_p)
+    aaerosv = Ptr[float](aaerosv_p)
+    ynumaerosv = Ptr[float](ynumaerosv_p)
+    yvolaerosv = Ptr[float](yvolaerosv_p)
+
+    status[0] = 0
+
+    nrainsvmax = 50
+    naerosvmax = 51
+
+    rlo = 0.005
+    rhi = 0.250
+    dr = 0.005
+    nr = 1 + _nint_positive_codon((rhi - rlo) / dr)
+    if nr > nrainsvmax:
+        status[0] = 1
+        return
+
+    precipmmhr = 1.0
+    precip = precipmmhr / 36000.0
+
+    ag0 = dg0 / 2.0
+    sx = log(sigmag)
+    xg0 = log(ag0)
+    xg3 = xg0 + 3.0 * sx * sx
+
+    xlo = xg3 - 4.0 * sx
+    xhi = xg3 + 4.0 * sx
+    dx = 0.2 * sx
+
+    dx = max(0.2 * sx, 0.01)
+    xlo = xg3 - max(4.0 * sx, 2.0 * dx)
+    xhi = xg3 + max(4.0 * sx, 2.0 * dx)
+
+    na = 1 + _nint_positive_codon((xhi - xlo) / dx)
+    if na > naerosvmax:
+        status[0] = 2
+        return
+
+    cair = press / (rgas * temp)
+    rhoair = 28.966 * cair
+    freepath = 2.8052e-10 / cair
+    airdynvisc = 1.8325e-4 * (416.16 / (temp + 120.0)) * ((temp / 296.16) ** 1.5)
+    airkinvisc = airdynvisc / rhoair
+    xmuwaterair = 60.0
+
+    precipsum = 0.0
+    for i in range(1, nr + 1):
+        idx = i - 1
+        r = rlo + float(i - 1) * dr
+        rrainsv[idx] = r
+        xnumrainsv[idx] = exp(-r / 2.7e-2)
+
+        d = 2.0 * r
+        if d <= 0.007:
+            vfallstp = 2.88e5 * (d ** 2.0)
+        elif d <= 0.025:
+            vfallstp = 2.8008e4 * (d ** 1.528)
+        elif d <= 0.1:
+            vfallstp = 4104.9 * (d ** 1.008)
+        elif d <= 0.25:
+            vfallstp = 1812.1 * (d ** 0.638)
+        else:
+            vfallstp = 1069.8 * (d ** 0.235)
+
+        vfall = vfallstp * sqrt(1.204e-3 / rhoair)
+        vfallrainsv[idx] = vfall
+        precipsum = precipsum + vfall * (r ** 3.0) * xnumrainsv[idx]
+    precipsum = precipsum * pi_v * 1.333333
+
+    rnumsum = 0.0
+    for i in range(1, nr + 1):
+        idx = i - 1
+        xnumrainsv[idx] = xnumrainsv[idx] * (precip / precipsum)
+        rnumsum = rnumsum + xnumrainsv[idx]
+
+    anumsum = 0.0
+    avolsum = 0.0
+    for i in range(1, na + 1):
+        idx = i - 1
+        x = xlo + float(i - 1) * dx
+        a = exp(x)
+        aaerosv[idx] = a
+        dum = (x - xg0) / sx
+        ynumaerosv[idx] = exp(-0.5 * dum * dum)
+        yvolaerosv[idx] = ynumaerosv[idx] * 1.3333 * pi_v * a * a * a
+        anumsum = anumsum + ynumaerosv[idx]
+        avolsum = avolsum + yvolaerosv[idx]
+
+    for i in range(1, na + 1):
+        idx = i - 1
+        ynumaerosv[idx] = ynumaerosv[idx] / anumsum
+        yvolaerosv[idx] = yvolaerosv[idx] / avolsum
+
+    scavsumnum = 0.0
+    scavsumvol = 0.0
+
+    for jr in range(1, nr + 1):
+        jr_idx = jr - 1
+        r = rrainsv[jr_idx]
+        vfall = vfallrainsv[jr_idx]
+
+        reynolds = r * vfall / airkinvisc
+        sqrtreynolds = sqrt(reynolds)
+
+        scavsumnumbb = 0.0
+        scavsumvolbb = 0.0
+
+        for ja in range(1, na + 1):
+            ja_idx = ja - 1
+            a = aaerosv[ja_idx]
+
+            chi = a / r
+
+            dum = freepath / a
+            dumfuchs = 1.0 + 1.246 * dum + 0.42 * dum * exp(-0.87 / dum)
+            taurelax = 2.0 * rhoaero * a * a * dumfuchs / (9.0 * rhoair * airkinvisc)
+
+            aeromass = 4.0 * pi_v * a * a * a * rhoaero / 3.0
+            aerodiffus = boltz_cgs * temp * taurelax / aeromass
+
+            schmidt = airkinvisc / aerodiffus
+            stokes = vfall * taurelax / r
+
+            ebrown = 4.0 * (1.0 + 0.4 * sqrtreynolds * (schmidt ** 0.3333333)) / (reynolds * schmidt)
+
+            dum = (1.0 + 2.0 * xmuwaterair * chi) / (1.0 + xmuwaterair / sqrtreynolds)
+            eintercept = 4.0 * chi * (chi + dum)
+
+            dum = log(1.0 + reynolds)
+            sstar = (1.2 + dum / 12.0) / (1.0 + dum)
+            eimpact = 0.0
+            if stokes > sstar:
+                dum = stokes - sstar
+                eimpact = (dum / (dum + 0.6666667)) ** 1.5
+
+            etotal = ebrown + eintercept + eimpact
+            etotal = min(etotal, 1.0)
+
+            rainsweepout = xnumrainsv[jr_idx] * 4.0 * pi_v * r * r * vfall
+
+            scavsumnumbb = scavsumnumbb + rainsweepout * etotal * ynumaerosv[ja_idx]
+            scavsumvolbb = scavsumvolbb + rainsweepout * etotal * yvolaerosv[ja_idx]
+
+        scavsumnum = scavsumnum + scavsumnumbb
+        scavsumvol = scavsumvol + scavsumvolbb
+
+    scavratenum[0] = scavsumnum * 3600.0
+    scavratevol[0] = scavsumvol * 3600.0
+
+
 @export
 def qqcw_set_ptr_codon(index: int, pcnst: int, iptr: int, qqcw_p: cobj) -> int:
     if index <= 0 or index > pcnst:
