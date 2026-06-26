@@ -227,6 +227,7 @@ contains
     use solar_data,    only : has_spectrum
     use photo_bkgrnd,  only : photo_bkgrnd_init
     use cam_history,   only : addfld,phys_decomp
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -271,6 +272,33 @@ contains
     character(len=256)    :: filespec
     real(r8), parameter :: trop_thrshld = 1._r8 ! Pa
     real(r8) :: to_lats(pcols)
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    integer(c_int64_t) :: tag_out
+    logical, save :: photo_inti_logged = .false.
+
+    interface
+       function photo_inti_codon(tag) result(tag_out) bind(c, name="photo_inti_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function photo_inti_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('PHOTO_INTI_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       tag_out = photo_inti_codon(663_c_int64_t)
+       if (tag_out /= 663_c_int64_t) then
+          write(iulog,*) 'photo_inti_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (masterproc .and. .not. photo_inti_logged) then
+          write(iulog,*) 'photo_inti implementation = codon'
+          photo_inti_logged = .true.
+       end if
+    end if
 
 
     if( phtcnt < 1 ) then

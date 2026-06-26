@@ -231,6 +231,32 @@ contains
 
   subroutine guarded_deallocate(array)
     real(r8), allocatable :: array(:,:)
+    character(len=32) :: impl_name
+    integer :: n, status
+    integer(c_int64_t) :: tag_out
+    logical, save :: guarded_deallocate_logged = .false.
+
+    interface
+       function guarded_deallocate_codon(tag) result(tag_out) bind(c, name='guarded_deallocate_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function guarded_deallocate_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('GUARDED_DEALLOCATE_IMPL', impl_name, n, status)
+    if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+       tag_out = guarded_deallocate_codon(237_c_int64_t)
+       if (tag_out /= 237_c_int64_t) then
+          write(iulog,*) 'guarded_deallocate_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. guarded_deallocate_logged) then
+          write(iulog,*) 'guarded_deallocate implementation = codon'
+          guarded_deallocate_logged = .true.
+       end if
+    end if
 
     if (allocated(array)) deallocate(array)
 

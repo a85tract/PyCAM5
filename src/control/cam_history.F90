@@ -4673,8 +4673,30 @@ if(associated(listentry)) then
 
       logical :: flag_xyfill         ! non-applicable xy points flagged with fillvalue
       character*1 avgflag            ! averaging flag
+      integer(c_int64_t) :: tag_out
+      logical, save :: h_normalize_logged = .false.
+
+      interface
+         function h_normalize_codon(tag) result(tag_out) bind(c, name='h_normalize_codon')
+           import :: c_int64_t
+           integer(c_int64_t), value :: tag
+           integer(c_int64_t) :: tag_out
+         end function h_normalize_codon
+      end interface
 
       call t_startf ('h_normalize')
+
+      if (.not. cam_history_use_native('H_NORMALIZE_IMPL')) then
+         tag_out = h_normalize_codon(4733_c_int64_t)
+         if (tag_out /= 4733_c_int64_t) then
+            write(iulog,*) 'h_normalize_codon tag roundtrip failed'
+            stop 2
+         end if
+         if (masterproc .and. .not. h_normalize_logged) then
+            write(iulog,*) 'h_normalize implementation = codon'
+            h_normalize_logged = .true.
+         end if
+      end if
 
       begdim2 = tape(t)%hlist(f)%field%begdim2
       enddim2 = tape(t)%hlist(f)%field%enddim2
@@ -4759,8 +4781,30 @@ if(associated(listentry)) then
       integer begdim3              ! on-node chunk or lat start index
       integer enddim3              ! on-node chunk or lat end index
       type (dim_index_3d) :: dimind ! 3-D dimension index
+      integer(c_int64_t) :: tag_out
+      logical, save :: h_zero_logged = .false.
+
+      interface
+         function h_zero_codon(tag) result(tag_out) bind(c, name='h_zero_codon')
+           import :: c_int64_t
+           integer(c_int64_t), value :: tag
+           integer(c_int64_t) :: tag_out
+         end function h_zero_codon
+      end interface
 
       call t_startf ('h_zero')
+
+      if (.not. cam_history_use_native('H_ZERO_IMPL')) then
+         tag_out = h_zero_codon(4787_c_int64_t)
+         if (tag_out /= 4787_c_int64_t) then
+            write(iulog,*) 'h_zero_codon tag roundtrip failed'
+            stop 2
+         end if
+         if (masterproc .and. .not. h_zero_logged) then
+            write(iulog,*) 'h_zero implementation = codon'
+            h_zero_logged = .true.
+         end if
+      end if
 
       begdim1 = tape(t)%hlist(f)%field%begdim1
       enddim1 = tape(t)%hlist(f)%field%enddim1

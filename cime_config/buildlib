@@ -45,6 +45,18 @@ def _build_codon_lib(srcroot, stem, subdir="physics/cam", lib_subdir=None,
                                  "lib{}_codon.so".format(stem))
         os.makedirs(os.path.dirname(codon_out), exist_ok=True)
 
+    skip_unchanged = os.environ.get("CAM_CODON_SKIP_UNCHANGED", "").lower() in \
+        ("1", "true", "yes", "on")
+    if skip_unchanged and os.path.isfile(codon_out) and \
+       os.path.getmtime(codon_out) >= os.path.getmtime(codon_src):
+        logger.info("Skipping unchanged Codon lib %s", codon_out)
+        if codon_out != codon_lib:
+            os.makedirs(os.path.dirname(codon_lib), exist_ok=True)
+            if os.path.lexists(codon_lib):
+                os.remove(codon_lib)
+            os.symlink(codon_out, codon_lib)
+        return
+
     codon_bin = shutil.which("codon")
     if codon_bin is None:
         codon_bin = os.path.join(os.path.expanduser("~"), ".codon", "bin", "codon")

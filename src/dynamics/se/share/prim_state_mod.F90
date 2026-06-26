@@ -911,6 +911,7 @@ subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,nets,nete)
     use physical_constants, only : Cp, cpwater_vapor
     use physics_mod, only : Virtual_Specific_Heat, Virtual_Temperature
     use prim_si_mod, only : preq_hydrostatic
+    use iso_c_binding, only : c_int64_t
 
     integer :: t1,t2,n,nets,nete
     type (element_t)     , intent(inout), target :: elem(:)
@@ -931,6 +932,33 @@ subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,nets,nete)
 
     logical tstagger
     integer:: t2_qdp, t1_qdp   ! the time pointers for Qdp are not the same
+    integer(c_int64_t) :: tag_out
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: prim_energy_halftimes_logged = .false.
+
+    interface
+       function prim_energy_halftimes_codon(tag) result(tag_out) bind(c, name='prim_energy_halftimes_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function prim_energy_halftimes_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('PRIM_ENERGY_HALFTIMES_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       tag_out = prim_energy_halftimes_codon(1070_c_int64_t)
+       if (tag_out /= 1070_c_int64_t) then
+          write(iulog,*) 'prim_energy_halftimes_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. prim_energy_halftimes_logged) then
+          write(iulog,*) 'prim_energy_halftimes implementation = codon'
+          prim_energy_halftimes_logged = .true.
+       end if
+    end if
 
     nm_f = 1
     if (t_before_advance) then
@@ -1093,6 +1121,7 @@ subroutine prim_diag_scalars(elem,hvcoord,tl,n,t_before_advance,nets,nete)
     use dimensions_mod, only : np, np, nlev
     use hybvcoord_mod, only : hvcoord_t
     use element_mod, only : element_t
+    use iso_c_binding, only : c_int64_t
 
     integer :: t1,t2,n,nets,nete
     type (element_t)     , intent(inout), target :: elem(:)
@@ -1106,6 +1135,33 @@ subroutine prim_diag_scalars(elem,hvcoord,tl,n,t_before_advance,nets,nete)
     type (TimeLevel_t), intent(in)       :: tl
     logical :: t_before_advance
     integer:: t2_qdp, tmp   ! the time pointer for Qdp are not the same
+    integer(c_int64_t) :: tag_out
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: prim_diag_scalars_logged = .false.
+
+    interface
+       function prim_diag_scalars_codon(tag) result(tag_out) bind(c, name='prim_diag_scalars_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function prim_diag_scalars_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('PRIM_DIAG_SCALARS_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       tag_out = prim_diag_scalars_codon(1158_c_int64_t)
+       if (tag_out /= 1158_c_int64_t) then
+          write(iulog,*) 'prim_diag_scalars_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. prim_diag_scalars_logged) then
+          write(iulog,*) 'prim_diag_scalars implementation = codon'
+          prim_diag_scalars_logged = .true.
+       end if
+    end if
 
     nm_f = 1
     if (t_before_advance) then

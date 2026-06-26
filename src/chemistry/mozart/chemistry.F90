@@ -945,6 +945,33 @@ end function chem_is_active
     integer :: i, n, ii
     logical :: history_aerosol 
     character(len=2)  :: unit_basename  ! Units 'kg' or '1' 
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    integer(c_int64_t) :: tag_out
+    logical, save :: chem_init_logged = .false.
+
+    interface
+       function chem_init_codon(tag) result(tag_out) bind(c, name="chem_init_codon")
+         use iso_c_binding, only : c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function chem_init_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('CHEM_INIT_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+         trim(adjustl(impl_name(:impl_n))) == 'native')) then
+       tag_out = chem_init_codon(1105_c_int64_t)
+       if (tag_out /= 1105_c_int64_t) then
+          write(iulog,*) 'chem_init_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (masterproc .and. .not. chem_init_logged) then
+          write(iulog,*) 'chem_init implementation = codon'
+          chem_init_logged = .true.
+       end if
+    end if
 
     call phys_getopts( cam_chempkg_out=chem_name, &
                        history_aerosol_out=history_aerosol )

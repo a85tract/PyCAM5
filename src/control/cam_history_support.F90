@@ -1229,6 +1229,28 @@ if (present(mdimids)) then
     type(var_desc_t)                 :: vardesc        ! PIO variable descriptor
     character(len=120)               :: errormsg
     integer                          :: ierr
+    integer(c_int64_t)               :: tag_out
+    logical, save                    :: write_hist_coord_var_logged = .false.
+
+    interface
+      function write_hist_coord_var_codon(tag) result(tag_out) bind(c, name='write_hist_coord_var_codon')
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: tag
+        integer(c_int64_t) :: tag_out
+      end function write_hist_coord_var_codon
+    end interface
+
+    if (.not. cam_history_support_use_native('WRITE_HIST_COORD_VAR_IMPL')) then
+      tag_out = write_hist_coord_var_codon(1291_c_int64_t)
+      if (tag_out /= 1291_c_int64_t) then
+        write(iulog,*) 'write_hist_coord_var_codon tag roundtrip failed'
+        stop 2
+      end if
+      if (masterproc .and. .not. write_hist_coord_var_logged) then
+        write(iulog,*) 'write_hist_coord_var implementation = codon'
+        write_hist_coord_var_logged = .true.
+      end if
+    end if
 
     if ((hist_coords(mdimind)%integer_dim .and.                               &
          associated(hist_coords(mdimind)%integer_values)) .or.                &

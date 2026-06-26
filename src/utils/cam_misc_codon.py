@@ -9,6 +9,116 @@ def cam_misc_touch_codon(tag: int) -> int:
 
 
 @export
+def chem_init_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def photo_inti_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def h_normalize_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def h_zero_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_hist_coord_var_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def prim_energy_halftimes_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def prim_diag_scalars_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def biharmonic_wk_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def write_restart_field_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def subcol_allocate_internal_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def subcol_utils_init_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def subcol_utils_readnl_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def offline_driver_readnl_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def buffer_field_allocate_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def buffer_field_deallocate_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def buffer_field_is_alloc_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def buffer_get_field_ptr_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def buffer_set_field_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def buffer_set_field_const_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def guarded_deallocate_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def swapm_codon(tag: int) -> int:
+    return tag
+
+
+@export
+def get_prev_date_codon(tag: int) -> int:
+    return tag
+
+
+@export
 def time_at_codon(nstep: int, tstep: float) -> float:
     return float(nstep) * tstep
 

@@ -63,6 +63,7 @@ subroutine biharmonic_wk(elem,pstens,ptens,vtens,deriv,edge3,hybrid,nt,nets,nete
 #else
 subroutine biharmonic_wk(elem,ptens,vtens,deriv,edge3,hybrid,nt,nets,nete)
 #endif
+use iso_c_binding, only : c_int64_t
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! compute weak biharmonic operator
 !    input:  h,v (stored in elem()%, in lat-lon coordinates
@@ -88,6 +89,33 @@ real (kind=real_kind), dimension(np,np,nlev) :: T
 real (kind=real_kind), dimension(np,np,2) :: v
 real (kind=real_kind) ::  nu_ratio1,nu_ratio2
 logical var_coef1
+integer(c_int64_t) :: tag_out
+character(len=32) :: impl_name
+integer :: impl_n, impl_status
+logical, save :: biharmonic_wk_logged = .false.
+
+   interface
+      function biharmonic_wk_codon(tag) result(tag_out) bind(c, name='biharmonic_wk_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: tag
+        integer(c_int64_t) :: tag_out
+      end function biharmonic_wk_codon
+   end interface
+
+   impl_name = 'codon'
+   call cam_codon_get_impl('BIHARMONIC_WK_IMPL', impl_name, impl_n, impl_status)
+   if (.not. (impl_status == 0 .and. impl_n > 0 .and. &
+        trim(adjustl(impl_name(:impl_n))) == 'native')) then
+      tag_out = biharmonic_wk_codon(211_c_int64_t)
+      if (tag_out /= 211_c_int64_t) then
+         write(iulog,*) 'biharmonic_wk_codon tag roundtrip failed'
+         stop 2
+      end if
+      if (.not. biharmonic_wk_logged) then
+         write(iulog,*) 'biharmonic_wk implementation = codon'
+         biharmonic_wk_logged = .true.
+      end if
+   end if
 
    !if tensor hyperviscosity with tensor V is used, then biharmonic operator is (\grad\cdot V\grad) (\grad \cdot \grad) 
    !so tensor is only used on second call to laplace_sphere_wk

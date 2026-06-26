@@ -1157,7 +1157,28 @@ subroutine get_prev_date(yr, mon, day, tod)
    character(len=*), parameter :: sub = 'get_prev_date'
    integer :: rc
    type(ESMF_Time) :: date
+   integer(c_int64_t) :: tag_out
+   logical, save :: get_prev_date_logged = .false.
+   interface
+      function get_prev_date_codon(tag) result(tag_out) bind(c, name='get_prev_date_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: tag
+        integer(c_int64_t) :: tag_out
+      end function get_prev_date_codon
+   end interface
 !-----------------------------------------------------------------------------------------
+
+   if (.not. time_manager_use_native('GET_PREV_DATE_IMPL')) then
+      tag_out = get_prev_date_codon(1168_c_int64_t)
+      if (tag_out /= 1168_c_int64_t) then
+         write(iulog,*) 'get_prev_date_codon tag roundtrip failed'
+         stop 2
+      end if
+      if (masterproc .and. .not. get_prev_date_logged) then
+         write(iulog,*) 'get_prev_date implementation = codon'
+         get_prev_date_logged = .true.
+      end if
+   end if
 
    call ESMF_ClockGet(tm_clock, prevTime=date, rc=rc )
    call chkrc(rc, sub//': error return from ESMF_ClockGet')

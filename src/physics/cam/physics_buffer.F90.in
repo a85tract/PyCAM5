@@ -2214,6 +2214,26 @@ CONTAINS
     integer                            :: grid_select ! 1=grid, 2=subcol
     integer                            :: piodtype, c, ierr
     integer                            :: mdimsize
+    integer(c_int64_t)                 :: tag_out
+    logical, save                      :: write_restart_field_logged = .false.
+
+    interface
+      function write_restart_field_codon(tag) result(tag_out) bind(c, name='write_restart_field_codon')
+        use iso_c_binding, only : c_int64_t
+        integer(c_int64_t), value :: tag
+        integer(c_int64_t) :: tag_out
+      end function write_restart_field_codon
+    end interface
+
+    if (physics_buffer_use_codon('WRITE_RESTART_FIELD_IMPL')) then
+      tag_out = write_restart_field_codon(2235_c_int64_t)
+      if (tag_out /= 2235_c_int64_t) then
+        write(iulog,*) 'write_restart_field_codon tag roundtrip failed'
+        stop 2
+      end if
+      call physics_buffer_log_direct(write_restart_field_logged, &
+           'write_restart_field_ implementation = codon')
+    end if
 
     pbuf => pbuf2d(index, begchunk)
     piodtype = pbuftype2piotype(pbuf%hdr%dtype)

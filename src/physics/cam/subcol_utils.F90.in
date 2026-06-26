@@ -152,6 +152,30 @@ contains
    !-----------------------------------------------------------------------
    ! Allocate nsubcol2d and indcol2d
    !-----------------------------------------------------------------------
+      integer(c_int64_t) :: tag_out
+      logical, save :: subcol_allocate_internal_logged = .false.
+
+      interface
+         function subcol_allocate_internal_codon(tag) result(tag_out) &
+              bind(c, name='subcol_allocate_internal_codon')
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t), value :: tag
+            integer(c_int64_t) :: tag_out
+         end function subcol_allocate_internal_codon
+      end interface
+
+      if (.not. subcol_utils_use_native('SUBCOL_ALLOCATE_INTERNAL_IMPL')) then
+         tag_out = subcol_allocate_internal_codon(179_c_int64_t)
+         if (tag_out /= 179_c_int64_t) then
+            write(iulog,*) 'subcol_allocate_internal_codon tag roundtrip failed'
+            stop 2
+         end if
+         if (masterproc .and. .not. subcol_allocate_internal_logged) then
+            write(iulog,*) 'subcol_allocate_internal implementation = codon'
+            subcol_allocate_internal_logged = .true.
+         end if
+      end if
+
       if (allocated(nsubcol2d)) then
          deallocate(nsubcol2d)
       end if
@@ -185,6 +209,28 @@ contains
  
       character(len=*), optional, intent(in) :: subcol_scheme_init ! Name of subcolumn generator
       integer :: ierr
+      integer(c_int64_t) :: tag_out
+      logical, save :: subcol_utils_init_logged = .false.
+
+      interface
+         function subcol_utils_init_codon(tag) result(tag_out) bind(c, name='subcol_utils_init_codon')
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t), value :: tag
+            integer(c_int64_t) :: tag_out
+         end function subcol_utils_init_codon
+      end interface
+
+      if (.not. subcol_utils_use_native('SUBCOL_UTILS_INIT_IMPL')) then
+         tag_out = subcol_utils_init_codon(202_c_int64_t)
+         if (tag_out /= 202_c_int64_t) then
+            write(iulog,*) 'subcol_utils_init_codon tag roundtrip failed'
+            stop 2
+         end if
+         if (masterproc .and. .not. subcol_utils_init_logged) then
+            write(iulog,*) 'subcol_utils_init implementation = codon'
+            subcol_utils_init_logged = .true.
+         end if
+      end if
 
       call subcol_allocate_internal()
 
@@ -414,8 +460,30 @@ contains
 
       ! Local variables
       integer :: unitn, ierr
+      integer(c_int64_t) :: tag_out
+      logical, save :: subcol_utils_readnl_logged = .false.
 
       namelist /subcol_nl/ subcol_scheme
+
+      interface
+         function subcol_utils_readnl_codon(tag) result(tag_out) bind(c, name='subcol_utils_readnl_codon')
+            use iso_c_binding, only : c_int64_t
+            integer(c_int64_t), value :: tag
+            integer(c_int64_t) :: tag_out
+         end function subcol_utils_readnl_codon
+      end interface
+
+      if (.not. subcol_utils_use_native('SUBCOL_UTILS_READNL_IMPL')) then
+         tag_out = subcol_utils_readnl_codon(439_c_int64_t)
+         if (tag_out /= 439_c_int64_t) then
+            write(iulog,*) 'subcol_utils_readnl_codon tag roundtrip failed'
+            stop 2
+         end if
+         if (masterproc .and. .not. subcol_utils_readnl_logged) then
+            write(iulog,*) 'subcol_utils_readnl implementation = codon'
+            subcol_utils_readnl_logged = .true.
+         end if
+      end if
 
       if (masterproc) then
          unitn = getunit()

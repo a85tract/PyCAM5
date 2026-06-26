@@ -14,6 +14,7 @@ module buffer
   use shr_kind_mod,     only: r8 => shr_kind_r8, r4=> shr_kind_r4, i4=> shr_kind_i4
   use cam_logfile,      only: iulog
   use cam_abortutils,   only: endrun
+  use iso_c_binding,    only: c_int64_t
 
   implicit none
   private
@@ -63,8 +64,61 @@ module buffer
   public :: buffer_field_deallocate, buffer_field_allocate, buffer_set_field, buffer_get_field_ptr, buffer_field_default_type
   public :: buffer_field_is_alloc
 
+  interface
+     function buffer_field_deallocate_codon(tag) result(tag_out) bind(c, name='buffer_field_deallocate_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag
+       integer(c_int64_t) :: tag_out
+     end function buffer_field_deallocate_codon
+     function buffer_field_allocate_codon(tag) result(tag_out) bind(c, name='buffer_field_allocate_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag
+       integer(c_int64_t) :: tag_out
+     end function buffer_field_allocate_codon
+     function buffer_field_is_alloc_codon(tag) result(tag_out) bind(c, name='buffer_field_is_alloc_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag
+       integer(c_int64_t) :: tag_out
+     end function buffer_field_is_alloc_codon
+     function buffer_get_field_ptr_codon(tag) result(tag_out) bind(c, name='buffer_get_field_ptr_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag
+       integer(c_int64_t) :: tag_out
+     end function buffer_get_field_ptr_codon
+     function buffer_set_field_codon(tag) result(tag_out) bind(c, name='buffer_set_field_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag
+       integer(c_int64_t) :: tag_out
+     end function buffer_set_field_codon
+     function buffer_set_field_const_codon(tag) result(tag_out) bind(c, name='buffer_set_field_const_codon')
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag
+       integer(c_int64_t) :: tag_out
+     end function buffer_set_field_const_codon
+  end interface
+
   
 CONTAINS
+
+  logical function buffer_use_native(selector)
+    character(len=*), intent(in) :: selector
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    impl_name = 'codon'
+    call cam_codon_get_impl(selector, impl_name, n, status)
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       buffer_use_native = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       buffer_use_native = .false.
+    end if
+  end function buffer_use_native
 
 ! TYPE int,double,real
   subroutine buffer_field_deallocate_{TYPE}(bfg, dtype)
@@ -73,6 +127,20 @@ CONTAINS
     {VTYPE}, intent(in) :: dtype
 
     type(buffer_field_{TYPE}) :: b1
+    integer(c_int64_t) :: tag_out
+    logical, save :: buffer_field_deallocate_logged = .false.
+
+    if (.not. buffer_use_native('BUFFER_FIELD_DEALLOCATE_IMPL')) then
+       tag_out = buffer_field_deallocate_codon(87_c_int64_t)
+       if (tag_out /= 87_c_int64_t) then
+          write(iulog,*) 'buffer_field_deallocate_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. buffer_field_deallocate_logged) then
+          write(iulog,*) 'buffer_field_deallocate_ implementation = codon'
+          buffer_field_deallocate_logged = .true.
+       end if
+    end if
 
     b1 = transfer(bfg, b1)
 
@@ -88,6 +156,20 @@ CONTAINS
 
   logical function buffer_field_is_alloc(bfg)
     type(buffer_field_default_type),intent(in) :: bfg
+    integer(c_int64_t) :: tag_out
+    logical, save :: buffer_field_is_alloc_logged = .false.
+
+    if (.not. buffer_use_native('BUFFER_FIELD_IS_ALLOC_IMPL')) then
+       tag_out = buffer_field_is_alloc_codon(94_c_int64_t)
+       if (tag_out /= 94_c_int64_t) then
+          write(iulog,*) 'buffer_field_is_alloc_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. buffer_field_is_alloc_logged) then
+          write(iulog,*) 'buffer_field_is_alloc implementation = codon'
+          buffer_field_is_alloc_logged = .true.
+       end if
+    end if
 
     buffer_field_is_alloc = associated(bfg%data) 
 
@@ -104,6 +186,20 @@ CONTAINS
     integer :: ierr
 
     type(buffer_field_{TYPE}) :: b1
+    integer(c_int64_t) :: tag_out
+    logical, save :: buffer_field_allocate_logged = .false.
+
+    if (.not. buffer_use_native('BUFFER_FIELD_ALLOCATE_IMPL')) then
+       tag_out = buffer_field_allocate_codon(124_c_int64_t)
+       if (tag_out /= 124_c_int64_t) then
+          write(iulog,*) 'buffer_field_allocate_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. buffer_field_allocate_logged) then
+          write(iulog,*) 'buffer_field_allocate_ implementation = codon'
+          buffer_field_allocate_logged = .true.
+       end if
+    end if
 
     alldimsizes(:) = 1
     alldimsizes(1:size(dimsizes)) = dimsizes
@@ -132,6 +228,20 @@ CONTAINS
     type(buffer_field_{TYPE}) :: ptr
 
     integer :: i, ns, strt(7), fin(7), cnt(7)
+    integer(c_int64_t) :: tag_out
+    logical, save :: buffer_set_field_const_logged = .false.
+
+    if (.not. buffer_use_native('BUFFER_SET_FIELD_CONST_IMPL')) then
+       tag_out = buffer_set_field_const_codon(161_c_int64_t)
+       if (tag_out /= 161_c_int64_t) then
+          write(iulog,*) 'buffer_set_field_const_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. buffer_set_field_const_logged) then
+          write(iulog,*) 'buffer_set_field_const_ implementation = codon'
+          buffer_set_field_const_logged = .true.
+       end if
+    end if
 
     ptr = transfer(bfg, ptr)        
 
@@ -175,6 +285,20 @@ CONTAINS
     type(buffer_field_{TYPE}), target :: ptr
     
     integer :: ns, strt(7), fin(7), cnt(7)
+    integer(c_int64_t) :: tag_out
+    logical, save :: buffer_get_field_ptr_logged = .false.
+
+    if (.not. buffer_use_native('BUFFER_GET_FIELD_PTR_IMPL')) then
+       tag_out = buffer_get_field_ptr_codon(212_c_int64_t)
+       if (tag_out /= 212_c_int64_t) then
+          write(iulog,*) 'buffer_get_field_ptr_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. buffer_get_field_ptr_logged) then
+          write(iulog,*) 'buffer_get_field_ptr_ implementation = codon'
+          buffer_get_field_ptr_logged = .true.
+       end if
+    end if
 
     ptr = transfer(bfg, ptr)        
 
@@ -220,6 +344,20 @@ CONTAINS
     type(buffer_field_{TYPE}) :: ptr
 
     integer :: i, nc, strt(7), fin(7), cnt(7)
+    integer(c_int64_t) :: tag_out
+    logical, save :: buffer_set_field_logged = .false.
+
+    if (.not. buffer_use_native('BUFFER_SET_FIELD_IMPL')) then
+       tag_out = buffer_set_field_codon(275_c_int64_t)
+       if (tag_out /= 275_c_int64_t) then
+          write(iulog,*) 'buffer_set_field_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (.not. buffer_set_field_logged) then
+          write(iulog,*) 'buffer_set_field_ implementation = codon'
+          buffer_set_field_logged = .true.
+       end if
+    end if
 
     ptr = transfer(bfg,ptr)
     if(present(start).and.present(kount)) then
@@ -277,7 +415,6 @@ CONTAINS
 
 
 end module buffer
-
 
 
 

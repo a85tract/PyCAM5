@@ -492,9 +492,30 @@ contains
 
    integer :: ier                              ! return error status    
    integer :: status(MPI_STATUS_SIZE)          ! MPI status 
+   integer(c_int64_t) :: tag_out
+   logical, save :: swapm_logged = .false.
+   interface
+      function swapm_codon(tag) result(tag_out) bind(c, name='swapm_codon')
+        import :: c_int64_t
+        integer(c_int64_t), value :: tag
+        integer(c_int64_t) :: tag_out
+      end function swapm_codon
+   end interface
 !
 !-------------------------------------------------------------------------------------
 !
+   if (.not. spmd_utils_use_native('SWAPM_IMPL')) then
+      tag_out = swapm_codon(833_c_int64_t)
+      if (tag_out /= 833_c_int64_t) then
+         write(iulog,*) 'swapm_codon tag roundtrip failed'
+         stop 2
+      end if
+      if (masterproc .and. .not. swapm_logged) then
+         write(iulog,*) 'swapm implementation = codon'
+         swapm_logged = .true.
+      end if
+   end if
+
    if (steps .eq. 0) return
 
    ! identify communication protocol

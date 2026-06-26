@@ -177,8 +177,34 @@ contains
     integer :: unitn, ierr
 
     character(len=cl) :: offline_driver_infile = ' '
+    character(len=32) :: impl_name
+    integer :: n, status
+    integer(c_int64_t) :: tag_out
+    logical, save :: offline_driver_readnl_logged = .false.
 
     namelist /offline_driver_nl/ offline_driver_infile, offline_driver_fileslist
+
+    interface
+       function offline_driver_readnl_codon(tag) result(tag_out) bind(c, name='offline_driver_readnl_codon')
+         import :: c_int64_t
+         integer(c_int64_t), value :: tag
+         integer(c_int64_t) :: tag_out
+       end function offline_driver_readnl_codon
+    end interface
+
+    impl_name = 'codon'
+    call cam_codon_get_impl('OFFLINE_DRIVER_READNL_IMPL', impl_name, n, status)
+    if (.not. (status == 0 .and. n > 0 .and. trim(adjustl(impl_name(:n))) == 'native')) then
+       tag_out = offline_driver_readnl_codon(224_c_int64_t)
+       if (tag_out /= 224_c_int64_t) then
+          write(iulog,*) 'offline_driver_readnl_codon tag roundtrip failed'
+          stop 2
+       end if
+       if (masterproc .and. .not. offline_driver_readnl_logged) then
+          write(iulog,*) 'offline_driver_readnl implementation = codon'
+          offline_driver_readnl_logged = .true.
+       end if
+    end if
 
     if (masterproc) then
 
