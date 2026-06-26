@@ -1,4 +1,5 @@
 from math import asin, atan2, cos, log, sin, sqrt, tan
+from C import MPI_Barrier(i32) -> i32
 
 
 def se_misc_touch_codon(tag: int) -> int:
@@ -2537,6 +2538,71 @@ def biharmonic_wk_dp3d_codon(tag: int) -> int:
 
 def initmpi_codon(tag: int) -> int:
     return tag
+
+def syncmp_codon(comm: int) -> int:
+    return int(MPI_Barrier(i32(comm)))
+
+def unit_face_based_cube_to_unit_sphere_codon(
+    x: float,
+    y: float,
+    face_no: int,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    r_out = Ptr[float](r_p)
+    lon = Ptr[float](lon_p)
+    lat = Ptr[float](lat_p)
+    one = 1.0
+    two_pi = 6.2831853071795864769252867665590057683943387987502
+    threshold = 1.0e-9
+    radius = sqrt(one + x**2.0 + y**2.0)
+    r_out[0] = one
+    if face_no == 1:
+        lat[0] = asin(y / radius)
+        lon[0] = atan2(x, one)
+    elif face_no == 2:
+        lat[0] = asin(y / radius)
+        lon[0] = atan2(one, -x)
+    elif face_no == 3:
+        lat[0] = asin(y / radius)
+        lon[0] = atan2(-x, -one)
+    elif face_no == 4:
+        lat[0] = asin(y / radius)
+        lon[0] = atan2(-one, x)
+    elif face_no == 5:
+        if abs(y) > threshold or abs(x) > threshold:
+            lon[0] = atan2(x, y)
+        else:
+            lon[0] = 0.0
+        lat[0] = asin(-one / radius)
+    elif face_no == 6:
+        if abs(y) > threshold or abs(x) > threshold:
+            lon[0] = atan2(x, -y)
+        else:
+            lon[0] = 0.0
+        lat[0] = asin(one / radius)
+    else:
+        lon[0] = 0.0
+        lat[0] = 0.0
+    if lon[0] < 0.0:
+        lon[0] = lon[0] + two_pi
+
+def incrementcurve_codon(
+    ja: int,
+    jd: int,
+    ordered_p: cobj,
+    ordered_n1: int,
+    pos_p: cobj,
+    vcnt_p: cobj,
+) -> int:
+    ordered = Ptr[i32](ordered_p)
+    pos = Ptr[i32](pos_p)
+    vcnt = Ptr[i32](vcnt_p)
+    ordered[int(pos[0]) + int(pos[1]) * ordered_n1] = vcnt[0]
+    vcnt[0] = vcnt[0] + i32(1)
+    pos[ja] = pos[ja] + i32(jd)
+    return 0
 
 def cubedsphere2cart_codon(cart_x: float, cart_y: float, face_no: int, x_p: cobj, y_p: cobj, z_p: cobj):
     x_out = Ptr[float](x_p)

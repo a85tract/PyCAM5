@@ -13,12 +13,12 @@ module spacecurve_mod
   end type factor_t
 
 
-  integer,public, dimension(:,:), allocatable :: ordered
+  integer,public, dimension(:,:), allocatable, target :: ordered
   integer,public, dimension(:,:), allocatable :: dir     ! direction to move along each level
-  integer,public, dimension(:)  , allocatable :: pos     ! position along each of the axes
+  integer,public, dimension(:)  , allocatable, target :: pos     ! position along each of the axes
 
   integer,public                              :: maxdim  ! dimensionality of entire space
-  integer,public                              :: vcnt   ! visitation count
+  integer,public, target                      :: vcnt   ! visitation count
   logical,private                             :: verbose=.FALSE. 
 
   type (factor_t),  public                      :: fact
@@ -798,17 +798,46 @@ contains
   end function hilbert
   !---------------------------------------------------------
   function IncrementCurve(ja,jd) result(ierr)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
 
     integer    :: ja,jd
     integer    :: ierr
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: proof_seen = .false.
 
-    ordered(pos(0)+1,pos(1)+1) = vcnt
-    vcnt  = vcnt + 1
-    pos(ja) = pos(ja) + jd
+    interface
+       function incrementcurve_codon(ja_c, jd_c, ordered_p, ordered_n1_c, pos_p, vcnt_p) result(ierr_c) &
+            bind(c, name='incrementcurve_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ja_c, jd_c, ordered_n1_c
+         type(c_ptr), value :: ordered_p, pos_p, vcnt_p
+         integer(c_int64_t) :: ierr_c
+       end function incrementcurve_codon
+    end interface
 
-    ierr = 0
+    impl_name = 'native'
+    call cam_codon_get_impl('INCREMENTCURVE_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon')) then
+       ordered(pos(0)+1,pos(1)+1) = vcnt
+       vcnt  = vcnt + 1
+       pos(ja) = pos(ja) + jd
+       ierr = 0
+       if (.not. proof_seen) then
+          write(iulog,*) 'incrementcurve implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    end if
+
+    ierr = int(incrementcurve_codon(int(ja, c_int64_t), int(jd, c_int64_t), &
+         c_loc(ordered(1,1)), int(size(ordered, 1), c_int64_t), c_loc(pos(0)), c_loc(vcnt)))
+    if (.not. proof_seen) then
+       write(iulog,*) 'incrementcurve implementation = codon'
+       proof_seen = .true.
+    endif
   end function IncrementCurve
   !---------------------------------------------------------
   recursive function hilbert_old(l,d,ma,md,ja,jd) result(ierr)

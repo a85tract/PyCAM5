@@ -996,32 +996,53 @@
    use mpishorthand
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
-   use iso_c_binding,    only: c_int64_t
+   use iso_c_binding,    only: c_int, c_loc, c_ptr
 #if defined( WRAP_MPI_TIMING )
    use perf_mod
 #endif
 
    implicit none
 
-   real (r8), intent(inout):: buffer(*)
+   real (r8), intent(inout), target :: buffer(*)
    integer, intent(in):: count
    integer, intent(in):: datatype
    integer, intent(in):: root
    integer, intent(in):: comm
  
    integer ier   !MP error code
- 
-#define CAM_MISC_TAG 257
-#define CAM_MISC_LABEL 'mpibcast'
-! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
-#include "cam_misc_codon_touch.inc"
-#undef CAM_MISC_LABEL
-#undef CAM_MISC_TAG
+   character(len=32) :: impl_name
+   integer :: impl_n, impl_status
+   logical, save :: proof_seen = .false.
+
+   interface
+      function mpibcast_codon(buffer_p, count_c, datatype_c, root_c, comm_c) result(ierr_c) &
+            bind(c, name='mpibcast_codon')
+         import :: c_int, c_ptr
+         type(c_ptr), value :: buffer_p
+         integer(c_int), value :: count_c, datatype_c, root_c, comm_c
+         integer(c_int) :: ierr_c
+      end function mpibcast_codon
+   end interface
 
 #if defined( WRAP_MPI_TIMING )
    call t_startf ('mpi_bcast')
 #endif
-   call mpi_bcast (buffer, count, datatype, root, comm, ier)
+   impl_name = 'native'
+   call cam_codon_get_impl('MPIBCAST_IMPL', impl_name, impl_n, impl_status)
+   if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon') then
+      ier = mpibcast_codon(c_loc(buffer), int(count, c_int), int(datatype, c_int), &
+                           int(root, c_int), int(comm, c_int))
+      if (.not. proof_seen) then
+         write(iulog,*) 'mpibcast implementation = codon'
+         proof_seen = .true.
+      endif
+   else
+      call mpi_bcast (buffer, count, datatype, root, comm, ier)
+      if (.not. proof_seen) then
+         write(iulog,*) 'mpibcast implementation = native'
+         proof_seen = .true.
+      endif
+   endif
    if (ier/=mpi_success) then
       write(iulog,*)'mpi_bcast failed ier=',ier
       call endrun

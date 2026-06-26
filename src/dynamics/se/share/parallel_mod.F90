@@ -537,6 +537,7 @@ end subroutine haltmp
 !
 ! =====================================
   subroutine syncmp(par)
+    use iso_c_binding, only : c_int
 
     type (parallel_t) par
 
@@ -544,8 +545,33 @@ end subroutine haltmp
 #include <mpif.h>
     integer                         :: errorcode,errorlen,ierr
     character(len=MPI_MAX_ERROR_STRING)               :: errorstring
+    character(len=32)               :: impl_name
+    integer                         :: impl_n, impl_status
+    logical, save                   :: proof_seen = .false.
 
-    call MPI_barrier(par%comm,ierr)
+    interface
+       function syncmp_codon(comm_c) result(ierr_c) bind(c, name='syncmp_codon')
+         import :: c_int
+         integer(c_int), value :: comm_c
+         integer(c_int) :: ierr_c
+       end function syncmp_codon
+    end interface
+
+    impl_name = 'native'
+    call cam_codon_get_impl('SYNCMP_IMPL', impl_name, impl_n, impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon') then
+      ierr = syncmp_codon(int(par%comm, c_int))
+      if (.not. proof_seen) then
+        write(iulog,*) 'syncmp implementation = codon'
+        proof_seen = .true.
+      endif
+    else
+      call MPI_barrier(par%comm,ierr)
+      if (.not. proof_seen) then
+        write(iulog,*) 'syncmp implementation = native'
+        proof_seen = .true.
+      endif
+    endif
 
     if(ierr.eq.MPI_ERROR) then
       errorcode=ierr

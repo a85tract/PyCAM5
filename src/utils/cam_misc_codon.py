@@ -1,5 +1,6 @@
 from C import MPI_Alltoall(Ptr[byte], i32, i32, Ptr[byte], i32, i32, i32) -> i32
 from C import MPI_Allgather(Ptr[byte], i32, i32, Ptr[byte], i32, i32, i32) -> i32
+from C import MPI_Bcast(Ptr[byte], i32, i32, i32, i32) -> i32
 
 
 @export
@@ -658,6 +659,25 @@ def mpiallgatherint_codon(
             Ptr[byte](recvbuf_p),
             i32(rcount),
             i32(mpiint_arg),
+            i32(comm),
+        )
+    )
+
+
+@export
+def mpibcast_codon(
+    buffer_p: cobj,
+    count: int,
+    datatype: int,
+    root: int,
+    comm: int,
+) -> int:
+    return int(
+        MPI_Bcast(
+            Ptr[byte](buffer_p),
+            i32(count),
+            i32(datatype),
+            i32(root),
             i32(comm),
         )
     )

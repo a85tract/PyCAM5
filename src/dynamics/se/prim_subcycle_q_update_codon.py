@@ -3063,5 +3063,31 @@ def initmpi_codon(tag: int) -> int:
     return _misc.initmpi_codon(tag)
 
 @export
+def syncmp_codon(comm: int) -> int:
+    return _misc.syncmp_codon(comm)
+
+@export
+def unit_face_based_cube_to_unit_sphere_codon(
+    x: float,
+    y: float,
+    face_no: int,
+    r_p: cobj,
+    lon_p: cobj,
+    lat_p: cobj,
+):
+    return _misc.unit_face_based_cube_to_unit_sphere_codon(x, y, face_no, r_p, lon_p, lat_p)
+
+@export
+def incrementcurve_codon(
+    ja: int,
+    jd: int,
+    ordered_p: cobj,
+    ordered_n1: int,
+    pos_p: cobj,
+    vcnt_p: cobj,
+) -> int:
+    return _misc.incrementcurve_codon(ja, jd, ordered_p, ordered_n1, pos_p, vcnt_p)
+
+@export
 def cubedsphere2cart_codon(cart_x: float, cart_y: float, face_no: int, x_p: cobj, y_p: cobj, z_p: cobj):
     return _misc.cubedsphere2cart_codon(cart_x, cart_y, face_no, x_p, y_p, z_p)

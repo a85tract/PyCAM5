@@ -345,7 +345,7 @@ contains
 
     use physical_constants, only : DD_PI
     use parallel_mod,       only : abortmp
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
     use cam_logfile, only : iulog
     implicit none
     type (cartesian2d_t), intent(in)     :: cart   ! On face_no of a unit cube
@@ -355,13 +355,20 @@ contains
 
     integer i,j
     real(kind=real_kind) :: r!, l_inf
+    real(c_double), target :: r_c, lon_c, lat_c
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: proof_seen = .false.
 
-#define SE_MISC_TAG 26
-#define SE_MISC_LABEL 'coordinate_systems_mod'
-! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
-#include "se_codon_misc_touch.inc"
-#undef SE_MISC_LABEL
-#undef SE_MISC_TAG
+    interface
+       subroutine unit_face_based_cube_to_unit_sphere_codon(x_c, y_c, face_no_c, r_p, lon_p, lat_p) &
+            bind(c, name='unit_face_based_cube_to_unit_sphere_codon')
+         import :: c_double, c_int64_t, c_ptr
+         real(c_double), value :: x_c, y_c
+         integer(c_int64_t), value :: face_no_c
+         type(c_ptr), value :: r_p, lon_p, lat_p
+       end subroutine unit_face_based_cube_to_unit_sphere_codon
+    end interface
 
 ! MNL: removing check that points are on the unit cube because we allow
 ! spherical grids to map beyond the extent of the cube (though we probably
@@ -371,42 +378,63 @@ contains
 !      call abortmp('unit_face_based_cube_to_unit_sphere: Input not on unit cube.')
 !    end if
 
-    sphere%r=one
-    r = SQRT( one + (cart%x)**2 + (cart%y)**2)
-    select case (face_no)
-    case (1) 
-       sphere%lat=ASIN((cart%y)/r)
-       sphere%lon=ATAN2(cart%x,one)
-    case (2) 
-       sphere%lat=ASIN((cart%y)/r)
-       sphere%lon=ATAN2(one,-cart%x)
-    case (3) 
-       sphere%lat=ASIN((cart%y)/r)
-       sphere%lon=ATAN2(-cart%x,-one)
-    case (4) 
-       sphere%lat=ASIN((cart%y)/r)
-       sphere%lon=ATAN2(-one,cart%x)
-    case (5) 
-       if (ABS(cart%y) > DIST_THRESHOLD .or. ABS(cart%x) > DIST_THRESHOLD ) then
-          sphere%lon=ATAN2(cart%x, cart%y )
-       else
-          sphere%lon= 0.0D0     ! longitude is meaningless at south pole set to 0.0
-       end if
-       sphere%lat=ASIN(-one/r)
-    case (6) 
-       if (ABS(cart%y) > DIST_THRESHOLD .or. ABS(cart%x) > DIST_THRESHOLD ) then
-          sphere%lon = ATAN2(cart%x, -cart%y)
-       else
-          sphere%lon= 0.0D0     ! longitude is meaningless at north pole set to 0.0
-       end if
-       sphere%lat=ASIN(one/r)
-    case default
+    if (face_no < 1 .or. face_no > 6) then
        call abortmp('unit_face_based_cube_to_unit_sphere: Face number not 1 to 6.')
-    end select
-
-    if (sphere%lon < 0.0D0) then
-       sphere%lon=sphere%lon + two*DD_PI
     end if
+
+    impl_name = 'native'
+    call cam_codon_get_impl('UNIT_FACE_BASED_CUBE_TO_UNIT_SPHERE_IMPL', impl_name, impl_n, impl_status)
+    if (.not. (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon')) then
+       sphere%r=one
+       r = SQRT( one + (cart%x)**2 + (cart%y)**2)
+       select case (face_no)
+       case (1)
+          sphere%lat=ASIN((cart%y)/r)
+          sphere%lon=ATAN2(cart%x,one)
+       case (2)
+          sphere%lat=ASIN((cart%y)/r)
+          sphere%lon=ATAN2(one,-cart%x)
+       case (3)
+          sphere%lat=ASIN((cart%y)/r)
+          sphere%lon=ATAN2(-cart%x,-one)
+       case (4)
+          sphere%lat=ASIN((cart%y)/r)
+          sphere%lon=ATAN2(-one,cart%x)
+       case (5)
+          if (ABS(cart%y) > DIST_THRESHOLD .or. ABS(cart%x) > DIST_THRESHOLD ) then
+             sphere%lon=ATAN2(cart%x, cart%y )
+          else
+             sphere%lon= 0.0D0
+          end if
+          sphere%lat=ASIN(-one/r)
+       case (6)
+          if (ABS(cart%y) > DIST_THRESHOLD .or. ABS(cart%x) > DIST_THRESHOLD ) then
+             sphere%lon = ATAN2(cart%x, -cart%y)
+          else
+             sphere%lon= 0.0D0
+          end if
+          sphere%lat=ASIN(one/r)
+       end select
+
+       if (sphere%lon < 0.0D0) then
+          sphere%lon=sphere%lon + two*DD_PI
+       end if
+       if (.not. proof_seen) then
+          write(iulog,*) 'unit_face_based_cube_to_unit_sphere implementation = native'
+          proof_seen = .true.
+       endif
+       return
+    end if
+
+    call unit_face_based_cube_to_unit_sphere_codon(real(cart%x, c_double), real(cart%y, c_double), &
+         int(face_no, c_int64_t), c_loc(r_c), c_loc(lon_c), c_loc(lat_c))
+    sphere%r = r_c
+    sphere%lon = lon_c
+    sphere%lat = lat_c
+    if (.not. proof_seen) then
+       write(iulog,*) 'unit_face_based_cube_to_unit_sphere implementation = codon'
+       proof_seen = .true.
+    endif
 
   end function unit_face_based_cube_to_unit_sphere
 
