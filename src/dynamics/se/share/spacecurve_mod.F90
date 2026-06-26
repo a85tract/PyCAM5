@@ -947,10 +947,39 @@ contains
   end function IsLoadBalanced
   !---------------------------------------------------------
   recursive function GenCurve(l,type,ma,md,ja,jd) result(ierr)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
     integer,intent(in)               :: l,type,ma,md,ja,jd
     integer                          :: ierr
+    character(len=32)                :: impl_name
+    integer                          :: impl_n, impl_status
+    logical, save                    :: proof_seen = .false.
+
+    interface
+       function gencurve_codon(l_c, type_c, ma_c, md_c, ja_c, jd_c, factors_p, ordered_p, ordered_n1_c, &
+            pos_p, pos_n_c, vcnt_p) result(ierr_c) bind(c, name='gencurve_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: l_c, type_c, ma_c, md_c, ja_c, jd_c, ordered_n1_c, pos_n_c
+         type(c_ptr), value :: factors_p, ordered_p, pos_p, vcnt_p
+         integer(c_int64_t) :: ierr_c
+       end function gencurve_codon
+    end interface
+
+    impl_name = 'native'
+    call cam_codon_get_impl('GENCURVE_IMPL', impl_name, impl_n, impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon' .and. &
+         associated(fact%factors) .and. allocated(ordered) .and. allocated(pos)) then
+       ierr = int(gencurve_codon(int(l, c_int64_t), int(type, c_int64_t), int(ma, c_int64_t), &
+            int(md, c_int64_t), int(ja, c_int64_t), int(jd, c_int64_t), c_loc(fact%factors(1)), &
+            c_loc(ordered(1,1)), int(size(ordered, 1), c_int64_t), c_loc(pos(0)), &
+            int(size(pos), c_int64_t), c_loc(vcnt)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'gencurve implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     if(type == 2) then
        ierr = hilbert(l,type,ma,md,ja,jd)
@@ -1023,12 +1052,40 @@ contains
   end function IsFactorable
   !------------------------------------------------
   subroutine map(l)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
     integer :: l,d
     integer :: type, ierr
+    character(len=32) :: impl_name
+    integer :: impl_n, impl_status
+    logical, save :: proof_seen = .false.
+
+    interface
+       function map_codon(l_c, factors_p, ordered_p, ordered_n1_c, pos_p, pos_n_c, vcnt_p) result(ierr_c) &
+            bind(c, name='map_codon')
+         import :: c_int64_t, c_ptr
+         integer(c_int64_t), value :: l_c, ordered_n1_c, pos_n_c
+         type(c_ptr), value :: factors_p, ordered_p, pos_p, vcnt_p
+         integer(c_int64_t) :: ierr_c
+       end function map_codon
+    end interface
 
     d = SIZE(pos)
+
+    impl_name = 'native'
+    call cam_codon_get_impl('MAP_IMPL', impl_name, impl_n, impl_status)
+    if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon' .and. &
+         associated(fact%factors) .and. allocated(ordered) .and. allocated(pos)) then
+       maxdim=d
+       ierr = int(map_codon(int(l, c_int64_t), c_loc(fact%factors(1)), c_loc(ordered(1,1)), &
+            int(size(ordered, 1), c_int64_t), c_loc(pos(0)), int(d, c_int64_t), c_loc(vcnt)))
+       if (.not. proof_seen) then
+          write(iulog,*) 'map implementation = codon'
+          proof_seen = .true.
+       endif
+       return
+    endif
 
     pos=0
     maxdim=d
@@ -1040,6 +1097,7 @@ contains
      end subroutine map
      !---------------------------------------------------------
      subroutine GenSpaceCurve(Mesh) 
+       use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
        implicit none
 
@@ -1047,6 +1105,20 @@ contains
        integer :: level,dim 
 
        integer :: gridsize
+       character(len=32) :: impl_name
+       integer :: impl_n, impl_status
+       integer :: ierr
+       logical, save :: proof_seen = .false.
+
+       interface
+          function genspacecurve_codon(mesh_p, mesh_n1_c, gridsize_c, factors_p, level_c, ordered_p, &
+               pos_p, vcnt_p) result(ierr_c) bind(c, name='genspacecurve_codon')
+            import :: c_int64_t, c_ptr
+            type(c_ptr), value :: mesh_p, factors_p, ordered_p, pos_p, vcnt_p
+            integer(c_int64_t), value :: mesh_n1_c, gridsize_c, level_c
+            integer(c_int64_t) :: ierr_c
+          end function genspacecurve_codon
+       end interface
 
        !  Setup the size of the grid to traverse
 
@@ -1060,6 +1132,20 @@ contains
 
        ! Setup the working arrays for the traversal
        allocate(pos(0:dim-1))
+
+       impl_name = 'native'
+       call cam_codon_get_impl('GENSPACECURVE_IMPL', impl_name, impl_n, impl_status)
+       if (impl_status == 0 .and. impl_n > 0 .and. trim(adjustl(impl_name(:impl_n))) == 'codon' .and. &
+            associated(fact%factors)) then
+          ierr = int(genspacecurve_codon(c_loc(Mesh(1,1)), int(size(Mesh, 1), c_int64_t), &
+               int(gridsize, c_int64_t), c_loc(fact%factors(1)), int(level, c_int64_t), &
+               c_loc(ordered(1,1)), c_loc(pos(0)), c_loc(vcnt)))
+          if (.not. proof_seen) then
+             write(iulog,*) 'genspacecurve implementation = codon'
+             proof_seen = .true.
+          endif
+          return
+       endif
 
        !  The array ordered will contain the visitation order
        ordered(:,:) = 0

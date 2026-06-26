@@ -3043,6 +3043,61 @@ def hilbert_codon(tag: int) -> int:
     return _misc.hilbert_codon(tag)
 
 @export
+def gencurve_codon(
+    l: int,
+    curve_type: int,
+    ma: int,
+    md: int,
+    ja: int,
+    jd: int,
+    factors_p: cobj,
+    ordered_p: cobj,
+    ordered_n1: int,
+    pos_p: cobj,
+    pos_n: int,
+    vcnt_p: cobj,
+) -> int:
+    return _misc.gencurve_codon(
+        l,
+        curve_type,
+        ma,
+        md,
+        ja,
+        jd,
+        factors_p,
+        ordered_p,
+        ordered_n1,
+        pos_p,
+        pos_n,
+        vcnt_p,
+    )
+
+@export
+def map_codon(
+    l: int,
+    factors_p: cobj,
+    ordered_p: cobj,
+    ordered_n1: int,
+    pos_p: cobj,
+    pos_n: int,
+    vcnt_p: cobj,
+) -> int:
+    return _misc.map_codon(l, factors_p, ordered_p, ordered_n1, pos_p, pos_n, vcnt_p)
+
+@export
+def genspacecurve_codon(
+    mesh_p: cobj,
+    mesh_n1: int,
+    gridsize: int,
+    factors_p: cobj,
+    level: int,
+    ordered_p: cobj,
+    pos_p: cobj,
+    vcnt_p: cobj,
+) -> int:
+    return _misc.genspacecurve_codon(mesh_p, mesh_n1, gridsize, factors_p, level, ordered_p, pos_p, vcnt_p)
+
+@export
 def init_restart_dynamics_codon(tag: int) -> int:
     return _misc.init_restart_dynamics_codon(tag)
 

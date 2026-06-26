@@ -2524,6 +2524,225 @@ def create_native_mapping_files_codon(active: int) -> int:
 def hilbert_codon(tag: int) -> int:
     return tag
 
+def _spacecurve_increment(ja: int, jd: int, ordered: Ptr[i32], ordered_n1: int, pos: Ptr[i32], vcnt: Ptr[i32]) -> int:
+    ordered[int(pos[0]) + int(pos[1]) * ordered_n1] = vcnt[0]
+    vcnt[0] = vcnt[0] + i32(1)
+    pos[ja] = pos[ja] + i32(jd)
+    return 0
+
+def _spacecurve_visit(
+    ll: int,
+    ltype: int,
+    lma: int,
+    lmd: int,
+    lja: int,
+    ljd: int,
+    factors: Ptr[i32],
+    ordered: Ptr[i32],
+    ordered_n1: int,
+    pos: Ptr[i32],
+    pos_n: int,
+    vcnt: Ptr[i32],
+) -> int:
+    if ll > 1:
+        return _spacecurve_gen_curve(ll - 1, ltype, lma, lmd, lja, ljd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    return _spacecurve_increment(lja, ljd, ordered, ordered_n1, pos, vcnt)
+
+def _spacecurve_hilbert(
+    l: int,
+    curve_type: int,
+    ma: int,
+    md: int,
+    ja: int,
+    jd: int,
+    factors: Ptr[i32],
+    ordered: Ptr[i32],
+    ordered_n1: int,
+    pos: Ptr[i32],
+    pos_n: int,
+    vcnt: Ptr[i32],
+) -> int:
+    ll = l
+    ltype = 0
+    if ll > 1:
+        ltype = int(factors[ll - 2])
+
+    ierr = _spacecurve_visit(ll, ltype, (ma + 1) % pos_n, md, (ma + 1) % pos_n, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, (ma + 1) % pos_n, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, (ma + 1) % pos_n, -md, ja, jd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    return ierr
+
+def _spacecurve_peanom(
+    l: int,
+    curve_type: int,
+    ma: int,
+    md: int,
+    ja: int,
+    jd: int,
+    factors: Ptr[i32],
+    ordered: Ptr[i32],
+    ordered_n1: int,
+    pos: Ptr[i32],
+    pos_n: int,
+    vcnt: Ptr[i32],
+) -> int:
+    ll = l
+    ltype = 0
+    if ll > 1:
+        ltype = int(factors[ll - 2])
+
+    ierr = _spacecurve_visit(ll, ltype, (ma + 1) % pos_n, md, (ma + 1) % pos_n, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, (ma + 1) % pos_n, md, (ma + 1) % pos_n, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, (ma + 1) % pos_n, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, -md, ma, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, (ma + 1) % pos_n, -md, (ma + 1) % pos_n, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    lma = (ma + 1) % pos_n
+    lmd = -md
+    ierr = _spacecurve_visit(ll, ltype, lma, lmd, (lma + 1) % pos_n, -lmd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ja, jd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    return ierr
+
+def _spacecurve_cinco(
+    l: int,
+    curve_type: int,
+    ma: int,
+    md: int,
+    ja: int,
+    jd: int,
+    factors: Ptr[i32],
+    ordered: Ptr[i32],
+    ordered_n1: int,
+    pos: Ptr[i32],
+    pos_n: int,
+    vcnt: Ptr[i32],
+) -> int:
+    ll = l
+    ltype = 0
+    if ll > 1:
+        ltype = int(factors[ll - 2])
+    mp1 = (ma + 1) % pos_n
+
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, md, mp1, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, md, mp1, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, md, ma, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, -md, mp1, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, -md, ma, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, -md, mp1, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, md, mp1, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, md, mp1, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, mp1, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, -md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, md, mp1, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, mp1, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, -md, ma, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, -md, mp1, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, -md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, mp1, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, -md, ma, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, -md, mp1, -md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, mp1, -md, ma, md, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    ierr = _spacecurve_visit(ll, ltype, ma, md, ja, jd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    return ierr
+
+def _spacecurve_gen_curve(
+    l: int,
+    curve_type: int,
+    ma: int,
+    md: int,
+    ja: int,
+    jd: int,
+    factors: Ptr[i32],
+    ordered: Ptr[i32],
+    ordered_n1: int,
+    pos: Ptr[i32],
+    pos_n: int,
+    vcnt: Ptr[i32],
+) -> int:
+    if curve_type == 2:
+        return _spacecurve_hilbert(l, curve_type, ma, md, ja, jd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    if curve_type == 3:
+        return _spacecurve_peanom(l, curve_type, ma, md, ja, jd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    if curve_type == 5:
+        return _spacecurve_cinco(l, curve_type, ma, md, ja, jd, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+    return 0
+
+def gencurve_codon(
+    l: int,
+    curve_type: int,
+    ma: int,
+    md: int,
+    ja: int,
+    jd: int,
+    factors_p: cobj,
+    ordered_p: cobj,
+    ordered_n1: int,
+    pos_p: cobj,
+    pos_n: int,
+    vcnt_p: cobj,
+) -> int:
+    return _spacecurve_gen_curve(
+        l,
+        curve_type,
+        ma,
+        md,
+        ja,
+        jd,
+        Ptr[i32](factors_p),
+        Ptr[i32](ordered_p),
+        ordered_n1,
+        Ptr[i32](pos_p),
+        pos_n,
+        Ptr[i32](vcnt_p),
+    )
+
+def map_codon(
+    l: int,
+    factors_p: cobj,
+    ordered_p: cobj,
+    ordered_n1: int,
+    pos_p: cobj,
+    pos_n: int,
+    vcnt_p: cobj,
+) -> int:
+    factors = Ptr[i32](factors_p)
+    ordered = Ptr[i32](ordered_p)
+    pos = Ptr[i32](pos_p)
+    vcnt = Ptr[i32](vcnt_p)
+    for i in range(pos_n):
+        pos[i] = i32(0)
+    vcnt[0] = i32(0)
+    curve_type = int(factors[l - 1])
+    return _spacecurve_gen_curve(l, curve_type, 0, 1, 0, 1, factors, ordered, ordered_n1, pos, pos_n, vcnt)
+
+def genspacecurve_codon(
+    mesh_p: cobj,
+    mesh_n1: int,
+    gridsize: int,
+    factors_p: cobj,
+    level: int,
+    ordered_p: cobj,
+    pos_p: cobj,
+    vcnt_p: cobj,
+) -> int:
+    mesh = Ptr[i32](mesh_p)
+    ordered = Ptr[i32](ordered_p)
+    total = gridsize * gridsize
+    for idx in range(total):
+        ordered[idx] = i32(0)
+    ierr = map_codon(level, factors_p, ordered_p, gridsize, pos_p, 2, vcnt_p)
+    for j in range(gridsize):
+        for i in range(gridsize):
+            mesh[i + j * mesh_n1] = ordered[i + j * gridsize]
+    return ierr
+
 def init_restart_dynamics_codon(tag: int) -> int:
     return tag
 
