@@ -60,16 +60,6 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
 
 
 @export
-def micro_mg_tend_codon(stage: int) -> int:
-    return stage
-
-
-@export
-def micro_mg_cam_tend_codon(stage: int) -> int:
-    return stage
-
-
-@export
 def micro_mg_cam_readnl_codon(
     path_len: int,
     path_ascii_p: cobj,

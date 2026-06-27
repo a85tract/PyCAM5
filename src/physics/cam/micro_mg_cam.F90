@@ -357,11 +357,6 @@ interface
       integer(c_int64_t) :: out_c
    end function p2_codon
 
-   function micro_mg_cam_tend_codon(stage_c) result(stage_out) bind(c, name="micro_mg_cam_tend_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: stage_c
-      integer(c_int64_t) :: stage_out
-   end function micro_mg_cam_tend_codon
 end interface
 
 
@@ -541,9 +536,9 @@ subroutine micro_mg_cam_tend_select_impl()
         call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TEND_PROOF_FILE', &
              'micro_mg_cam_tend implementation = native')
      else
-        write(iulog,*) 'micro_mg_cam_tend implementation = codon'
+        write(iulog,*) 'micro_mg_cam_tend implementation = partial codon helper stages; native MG core'
         call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TEND_PROOF_FILE', &
-             'micro_mg_cam_tend implementation = codon')
+             'micro_mg_cam_tend implementation = partial codon helper stages; native MG core')
      end if
      call flush(iulog)
   end if
@@ -2375,7 +2370,6 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    character(128) :: errstring   ! return status (non-blank for error return)
    real(r8) :: rate_local
-   integer(c_int64_t) :: touch_c
 
    ! For rrtmg optics. specified distribution.
    real(r8), parameter :: dcon   = 25.e-6_r8         ! Convective size distribution effective radius (meters)
@@ -2437,14 +2431,6 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    !-------------------------------------------------------------------------------
 
    call micro_mg_cam_tend_select_impl()
-
-   if (.not. use_native_micro_mg_cam_tend_impl) then
-      touch_c = micro_mg_cam_tend_codon(1_c_int64_t)
-      if (touch_c == 1_c_int64_t) then
-         call micro_mg_cam_log_entered_once(micro_mg_cam_tend_logged, 'MICRO_MG_CAM_TEND_PROOF_FILE', &
-              'micro_mg_cam_tend direct = codon stage dispatch; native MG core/CAM API callbacks')
-      end if
-   end if
 
    ! Find the number of levels used in the microphysics.
    nlev  = pver - top_lev + 1

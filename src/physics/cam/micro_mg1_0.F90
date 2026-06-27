@@ -57,14 +57,6 @@ implicit none
 private
 save
 
-interface
-   function micro_mg_tend_codon(stage_c) result(stage_out) bind(c, name="micro_mg_tend_codon")
-     use iso_c_binding, only: c_int64_t
-     integer(c_int64_t), value :: stage_c
-     integer(c_int64_t) :: stage_out
-   end function micro_mg_tend_codon
-end interface
-
 ! Note: The liu_in option has been removed, as there was a serious bug with this
 ! option being set to false. The code now behaves as if the default liu_in=.true.
 ! is always on. Addition/reinstatement of ice nucleation options will likely be
@@ -181,7 +173,6 @@ logical :: micro_mg1_0_effrad_liq_prep_logged = .false.
 logical :: micro_mg1_0_effrad_ice_prep_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
-logical :: micro_mg1_0_tend_logged = .false.
 logical :: micro_mg1_0_tail_diag_use_native_impl = .false.
 logical :: micro_mg1_0_tail_diag_impl_selected = .false.
 logical :: micro_mg1_0_tail_diag_logged = .false.
@@ -517,8 +508,6 @@ subroutine micro_mg_tend ( &
      tnd_qsnow, tnd_nsnow, re_ice,                    &
      frzimm, frzcnt, frzdep, preo, prdso,             &
      frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
-
-use iso_c_binding, only: c_int64_t
 
 ! input arguments
 logical,  intent(in) :: microp_uniform  ! True = configure uniform for sub-columns  False = use w/o sub-columns (standard)
@@ -971,8 +960,6 @@ real(r8) :: rainrt(pcols,pver)  ! rain rate for reflectivity calculation
 real(r8) :: rainrt1(pcols,pver)
 real(r8) :: tmp
 
-integer(c_int64_t) :: touch_c
-
 real(r8) dmc,ssmc,dstrn  ! variables for modal scheme.
 
 real(r8), parameter :: cdnl    = 0.e6_r8    ! cloud droplet number limiter
@@ -991,13 +978,6 @@ logical  :: do_clubb_sgs
 
 call micro_mg1_0_select_tend_impl()
 call micro_mg1_0_select_colzero_impl()
-
-if (.not. micro_mg1_0_tend_use_native_impl) then
-   touch_c = micro_mg_tend_codon(1_c_int64_t)
-   if (touch_c == 1_c_int64_t) then
-      call micro_mg1_0_log_tend_entered()
-   end if
-end if
 
 ! Return error message
 errstring = ' '
@@ -3906,24 +3886,14 @@ subroutine micro_mg1_0_select_tend_impl()
         call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
              'micro_mg_tend implementation = native')
      else
-        write(iulog,*) 'micro_mg_tend implementation = codon'
+        write(iulog,*) 'micro_mg_tend implementation = partial codon helper stages; native MG process core'
         call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
-             'micro_mg_tend implementation = codon')
+             'micro_mg_tend implementation = partial codon helper stages; native MG process core')
      end if
   end if
 
   micro_mg1_0_tend_impl_selected = .true.
 end subroutine micro_mg1_0_select_tend_impl
-
-subroutine micro_mg1_0_log_tend_entered()
-  if (micro_mg1_0_tend_logged) return
-  micro_mg1_0_tend_logged = .true.
-  if (masterproc) then
-     write(iulog,*) 'micro_mg_tend direct = codon helper stages; native MG process core and sensitive diagnostics'
-     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
-          'micro_mg_tend direct = codon helper stages; native MG process core and sensitive diagnostics')
-  end if
-end subroutine micro_mg1_0_log_tend_entered
 
 subroutine micro_mg1_0_select_tail_diag_impl()
   character(len=32) :: impl_name
