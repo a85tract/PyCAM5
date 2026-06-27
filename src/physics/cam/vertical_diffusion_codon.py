@@ -4662,7 +4662,11 @@ def eddy_diff_caleddy_closure_codon(
         pblhp[i - 1] = pi[_idx2(i, ktopbl_local, pcols)]
         wpert[i - 1] = max(wfac * sqrt(ebrk[_idx2(i, ncvsurf, pcols)]), wpertmin)
         tpert[i - 1] = max(abs(shflx[i - 1] * rrho[i - 1] / cpair) * tfac / wpert[i - 1], 0.0)
-        qpert[i - 1] = max(abs(qflx[i - 1] * rrho[i - 1]) * tfac / wpert[i - 1], 0.0)
+        qpert_raw = abs(qflx[i - 1] * rrho[i - 1]) * tfac / wpert[i - 1]
+        if qpert_raw <= 0.0:
+            qpert[i - 1] = 0.0
+        else:
+            qpert[i - 1] = qpert_raw
         if bflxs[i - 1] > 0.0:
             turbtype[_idx2(i, pver + 1, pcols)] = i32(2)
         else:
@@ -5050,7 +5054,11 @@ def eddy_diff_caleddy_stl_codon(
 
         wpert[i - 1] = 0.0
         tpert[i - 1] = max(shflx[i - 1] * rrho[i - 1] / cpair * fak / ustar[i - 1], 0.0)
-        qpert[i - 1] = max(qflx[i - 1] * rrho[i - 1] * fak / ustar[i - 1], 0.0)
+        qpert_raw = qflx[i - 1] * rrho[i - 1] * fak / ustar[i - 1]
+        if qpert_raw <= 0.0:
+            qpert[i - 1] = 0.0
+        else:
+            qpert[i - 1] = qpert_raw
 
         ipbl[i - 1] = i32(0)
         kpblh[i - 1] = i32(ktopbl)
