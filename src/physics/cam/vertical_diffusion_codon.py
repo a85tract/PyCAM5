@@ -1628,7 +1628,6 @@ def eddy_diff_driver_tail_batch_codon(
     )
 
 
-@export
 def eddy_diff_caleddy_init_codon(
     ncol: int,
     pcols: int,
@@ -1761,7 +1760,6 @@ def eddy_diff_caleddy_init_codon(
         sprod[surf_idx] = (ustar[i - 1] ** 3) / (vk * z[surf_layer_idx])
 
 
-@export
 def eddy_diff_caleddy_diaginit_codon(
     ncol: int,
     pcols: int,
@@ -1869,7 +1867,6 @@ def eddy_diff_caleddy_diaginit_codon(
         kpblh[i - 1] = i32(pver)
 
 
-@export
 def eddy_diff_caleddy_regime_diag_codon(
     i_col: int,
     pcols: int,
@@ -1898,7 +1895,6 @@ def eddy_diff_caleddy_regime_diag_codon(
     ncvfin_diag[i - 1] = float(ncvfin[i - 1])
 
 
-@export
 def eddy_diff_caleddy_stable_config_codon(
     ricrit: float,
     b1: float,
@@ -1926,7 +1922,6 @@ def eddy_diff_caleddy_stable_config_codon(
         status[0] = i32(1)
 
 
-@export
 def eddy_diff_caleddy_surface_tke_codon(
     i_col: int,
     pcols: int,
@@ -2028,7 +2023,6 @@ def _eddy_diff_caleddy_light_batch_dispatch(
         )
 
 
-@export
 def eddy_diff_caleddy_light_batch_codon(
     stage: int,
     i_col: int,
@@ -3934,7 +3928,6 @@ def eddy_diff_compute_radf_codon(
         radf_CL[_idx2(i, ncv, pcols)] = radf
 
 
-@export
 def eddy_diff_caleddy_clprep_codon(
     i_col: int,
     ncv_col: int,
@@ -4159,7 +4152,6 @@ def compute_cubic_codon(a: float, b: float, c: float) -> float:
     return compute_cubic_native_cb(a, b, c)
 
 
-@export
 def eddy_diff_caleddy_closure_codon(
     i_col: int,
     pcols: int,
@@ -4676,7 +4668,6 @@ def eddy_diff_caleddy_closure_codon(
         went[i - 1] = wet_CL[_idx2(i, ncvsurf, pcols)]
 
 
-@export
 def eddy_diff_caleddy_srcl_codon(
     i_col: int,
     pcols: int,
@@ -4879,7 +4870,6 @@ def _eddy_diff_leng_stl(
     return min(leng_max_val, leng_val)
 
 
-@export
 def eddy_diff_caleddy_stl_codon(
     i_col: int,
     pcols: int,
@@ -5886,7 +5876,6 @@ def _eddy_diff_caleddy_setup_batch_dispatch(
 
     eddy_diff_exacol_codon(ncol, pcols, pver, ncvmax, ntop_turb, ri_p, bflxs_p, ktop_p, kbase_p, ncvfin_p)
 
-@export
 def eddy_diff_caleddy_setup_batch_codon(
     ncol: int,
     pcols: int,
@@ -6168,7 +6157,6 @@ def _eddy_diff_caleddy_cloud_rad_batch_dispatch(
             radf_CL_p,
         )
 
-@export
 def eddy_diff_caleddy_cloud_rad_batch_codon(
     stage: int,
     i_col: int,
@@ -6435,7 +6423,6 @@ def _eddy_diff_caleddy_post_batch_dispatch(
             sm_aw_p,
         )
 
-@export
 def eddy_diff_caleddy_post_batch_codon(
     stage: int,
     i_col: int,
@@ -6567,7 +6554,6 @@ def eddy_diff_caleddy_post_batch_codon(
         stlmask_p,
     )
 
-@export
 def eddy_diff_caleddy_diag_codon(
     i_col: int,
     pcols: int,
