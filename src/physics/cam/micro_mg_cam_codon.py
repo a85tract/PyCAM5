@@ -1,4 +1,52 @@
-from math import gamma, pi
+from C import wv_sat_svp_water_codon(float, int) -> float
+from C import wv_sat_svp_ice_codon(float, int) -> float
+from C import wv_sat_svp_to_qsat_codon(float, float, float, float) -> float
+from C import pow(float, float) -> float
+from math import gamma, exp, log10, pi, sqrt
+
+
+@inline
+def pow_r8(x: float, y: float) -> float:
+    return pow(x, y)
+
+
+@inline
+def pow_i(x: float, n: int) -> float:
+    if n == 0:
+        return 1.0
+    if n < 0:
+        return 1.0 / pow_i(x, -n)
+    out = 1.0
+    base = x
+    expn = n
+    while expn > 0:
+        if expn % 2 == 1:
+            out *= base
+        expn //= 2
+        if expn > 0:
+            base *= base
+    return out
+
+
+@inline
+def pow_i_f90_pracs(x: float, n: int) -> float:
+    if n == 2:
+        return x * x
+    if n == 3:
+        x2 = x * x
+        return x2 * x
+    if n == 4:
+        x2 = x * x
+        return x2 * x2
+    if n == 5:
+        x2 = x * x
+        x3 = x2 * x
+        return x2 * x3
+    if n == 6:
+        x2 = x * x
+        x3 = x2 * x
+        return x3 * x3
+    return pow_i(x, n)
 
 
 @inline
@@ -5838,3 +5886,2032 @@ def micro_mg_cam_stage_dispatch_codon(
             p55,
             p56,
         )
+
+@export
+def micro_mg_tend_codon(pcols: int, pver: int, ncol: int, top_lev: int, microp_uniform_c: int, do_cldice_c: int, do_clubb_sgs_c: int, use_hetfrz_classnuc_c: int, wv_sat_idx: int, deltatin: float, epsilo: float, omeps: float, ptrs_p: cobj, scalars_p: cobj):
+    ptrs = Ptr[cobj](ptrs_p)
+    scalars = Ptr[float](scalars_p)
+    tn = Ptr[float](ptrs[0])
+    qn = Ptr[float](ptrs[1])
+    relvar = Ptr[float](ptrs[2])
+    accre_enhan = Ptr[float](ptrs[3])
+    qc = Ptr[float](ptrs[4])
+    qi = Ptr[float](ptrs[5])
+    nc = Ptr[float](ptrs[6])
+    ni = Ptr[float](ptrs[7])
+    p = Ptr[float](ptrs[8])
+    pdel = Ptr[float](ptrs[9])
+    cldn = Ptr[float](ptrs[10])
+    icecldf = Ptr[float](ptrs[11])
+    liqcldf = Ptr[float](ptrs[12])
+    rate1ord_cw2pr_st = Ptr[float](ptrs[13])
+    naai = Ptr[float](ptrs[14])
+    npccnin = Ptr[float](ptrs[15])
+    rndst = Ptr[float](ptrs[16])
+    nacon = Ptr[float](ptrs[17])
+    tlat = Ptr[float](ptrs[18])
+    qvlat = Ptr[float](ptrs[19])
+    qctend = Ptr[float](ptrs[20])
+    qitend = Ptr[float](ptrs[21])
+    nctend = Ptr[float](ptrs[22])
+    nitend = Ptr[float](ptrs[23])
+    effc = Ptr[float](ptrs[24])
+    effc_fn = Ptr[float](ptrs[25])
+    effi = Ptr[float](ptrs[26])
+    prect = Ptr[float](ptrs[27])
+    preci = Ptr[float](ptrs[28])
+    nevapr = Ptr[float](ptrs[29])
+    evapsnow = Ptr[float](ptrs[30])
+    am_evp_st = Ptr[float](ptrs[31])
+    prain = Ptr[float](ptrs[32])
+    prodsnow = Ptr[float](ptrs[33])
+    cmeout = Ptr[float](ptrs[34])
+    deffi = Ptr[float](ptrs[35])
+    pgamrad = Ptr[float](ptrs[36])
+    lamcrad = Ptr[float](ptrs[37])
+    qsout = Ptr[float](ptrs[38])
+    dsout = Ptr[float](ptrs[39])
+    rflx = Ptr[float](ptrs[40])
+    sflx = Ptr[float](ptrs[41])
+    qrout = Ptr[float](ptrs[42])
+    reff_rain = Ptr[float](ptrs[43])
+    reff_snow = Ptr[float](ptrs[44])
+    qcsevap = Ptr[float](ptrs[45])
+    qisevap = Ptr[float](ptrs[46])
+    qvres = Ptr[float](ptrs[47])
+    cmeiout = Ptr[float](ptrs[48])
+    vtrmc = Ptr[float](ptrs[49])
+    vtrmi = Ptr[float](ptrs[50])
+    qcsedten = Ptr[float](ptrs[51])
+    qisedten = Ptr[float](ptrs[52])
+    prao = Ptr[float](ptrs[53])
+    prco = Ptr[float](ptrs[54])
+    mnuccco = Ptr[float](ptrs[55])
+    mnuccto = Ptr[float](ptrs[56])
+    msacwio = Ptr[float](ptrs[57])
+    psacwso = Ptr[float](ptrs[58])
+    bergso = Ptr[float](ptrs[59])
+    bergo = Ptr[float](ptrs[60])
+    melto = Ptr[float](ptrs[61])
+    homoo = Ptr[float](ptrs[62])
+    qcreso = Ptr[float](ptrs[63])
+    prcio = Ptr[float](ptrs[64])
+    praio = Ptr[float](ptrs[65])
+    qireso = Ptr[float](ptrs[66])
+    mnuccro = Ptr[float](ptrs[67])
+    pracso = Ptr[float](ptrs[68])
+    meltsdt = Ptr[float](ptrs[69])
+    frzrdt = Ptr[float](ptrs[70])
+    mnuccdo = Ptr[float](ptrs[71])
+    nrout = Ptr[float](ptrs[72])
+    nsout = Ptr[float](ptrs[73])
+    refl = Ptr[float](ptrs[74])
+    arefl = Ptr[float](ptrs[75])
+    areflz = Ptr[float](ptrs[76])
+    frefl = Ptr[float](ptrs[77])
+    csrfl = Ptr[float](ptrs[78])
+    acsrfl = Ptr[float](ptrs[79])
+    fcsrfl = Ptr[float](ptrs[80])
+    rercld = Ptr[float](ptrs[81])
+    ncai = Ptr[float](ptrs[82])
+    ncal = Ptr[float](ptrs[83])
+    qrout2 = Ptr[float](ptrs[84])
+    qsout2 = Ptr[float](ptrs[85])
+    nrout2 = Ptr[float](ptrs[86])
+    nsout2 = Ptr[float](ptrs[87])
+    drout2 = Ptr[float](ptrs[88])
+    dsout2 = Ptr[float](ptrs[89])
+    freqs = Ptr[float](ptrs[90])
+    freqr = Ptr[float](ptrs[91])
+    nfice = Ptr[float](ptrs[92])
+    prer_evap = Ptr[float](ptrs[93])
+    nevapr2 = Ptr[float](ptrs[94])
+    tnd_qsnow = Ptr[float](ptrs[95])
+    tnd_nsnow = Ptr[float](ptrs[96])
+    re_ice = Ptr[float](ptrs[97])
+    frzimm = Ptr[float](ptrs[98])
+    frzcnt = Ptr[float](ptrs[99])
+    frzdep = Ptr[float](ptrs[100])
+    preo = Ptr[float](ptrs[101])
+    prdso = Ptr[float](ptrs[102])
+    frzro = Ptr[float](ptrs[103])
+    meltso = Ptr[float](ptrs[104])
+    wtfc = Ptr[float](ptrs[105])
+    wtfi = Ptr[float](ptrs[106])
+    wtprelat = Ptr[float](ptrs[107])
+    wtpostlat = Ptr[float](ptrs[108])
+    t1 = Ptr[float](ptrs[109])
+    q1 = Ptr[float](ptrs[110])
+    qc1 = Ptr[float](ptrs[111])
+    qi1 = Ptr[float](ptrs[112])
+    nc1 = Ptr[float](ptrs[113])
+    ni1 = Ptr[float](ptrs[114])
+    tlat1 = Ptr[float](ptrs[115])
+    qvlat1 = Ptr[float](ptrs[116])
+    qctend1 = Ptr[float](ptrs[117])
+    qitend1 = Ptr[float](ptrs[118])
+    nctend1 = Ptr[float](ptrs[119])
+    nitend1 = Ptr[float](ptrs[120])
+    prect1 = Ptr[float](ptrs[121])
+    preci1 = Ptr[float](ptrs[122])
+    q = Ptr[float](ptrs[123])
+    t = Ptr[float](ptrs[124])
+    rho = Ptr[float](ptrs[125])
+    dv = Ptr[float](ptrs[126])
+    mu = Ptr[float](ptrs[127])
+    sc = Ptr[float](ptrs[128])
+    kap = Ptr[float](ptrs[129])
+    rhof = Ptr[float](ptrs[130])
+    cldmax = Ptr[float](ptrs[131])
+    cldm = Ptr[float](ptrs[132])
+    icldm = Ptr[float](ptrs[133])
+    lcldm = Ptr[float](ptrs[134])
+    icwc = Ptr[float](ptrs[135])
+    calpha = Ptr[float](ptrs[136])
+    cbeta = Ptr[float](ptrs[137])
+    cbetah = Ptr[float](ptrs[138])
+    cgamma = Ptr[float](ptrs[139])
+    cgamah = Ptr[float](ptrs[140])
+    rcgama = Ptr[float](ptrs[141])
+    cmec1 = Ptr[float](ptrs[142])
+    cmec2 = Ptr[float](ptrs[143])
+    cmec3 = Ptr[float](ptrs[144])
+    cmec4 = Ptr[float](ptrs[145])
+    cme = Ptr[float](ptrs[146])
+    cmei = Ptr[float](ptrs[147])
+    cwml = Ptr[float](ptrs[148])
+    cwmi = Ptr[float](ptrs[149])
+    nnuccd = Ptr[float](ptrs[150])
+    mnuccd = Ptr[float](ptrs[151])
+    lcldn = Ptr[float](ptrs[152])
+    lcldo = Ptr[float](ptrs[153])
+    nctend_mixnuc = Ptr[float](ptrs[154])
+    qcsinksum_rate1ord = Ptr[float](ptrs[155])
+    qcsum_rate1ord = Ptr[float](ptrs[156])
+    npccn = Ptr[float](ptrs[157])
+    qcic = Ptr[float](ptrs[158])
+    qiic = Ptr[float](ptrs[159])
+    qniic = Ptr[float](ptrs[160])
+    qric = Ptr[float](ptrs[161])
+    ncic = Ptr[float](ptrs[162])
+    niic = Ptr[float](ptrs[163])
+    nsic = Ptr[float](ptrs[164])
+    nric = Ptr[float](ptrs[165])
+    lami = Ptr[float](ptrs[166])
+    n0i = Ptr[float](ptrs[167])
+    lamc = Ptr[float](ptrs[168])
+    n0c = Ptr[float](ptrs[169])
+    lams = Ptr[float](ptrs[170])
+    n0s = Ptr[float](ptrs[171])
+    lamr = Ptr[float](ptrs[172])
+    n0r = Ptr[float](ptrs[173])
+    cdist1 = Ptr[float](ptrs[174])
+    arcld = Ptr[float](ptrs[175])
+    pgam = Ptr[float](ptrs[176])
+    mnuccc = Ptr[float](ptrs[177])
+    nnuccc = Ptr[float](ptrs[178])
+    mnucct = Ptr[float](ptrs[179])
+    nnucct = Ptr[float](ptrs[180])
+    msacwi = Ptr[float](ptrs[181])
+    nsacwi = Ptr[float](ptrs[182])
+    prc = Ptr[float](ptrs[183])
+    nprc = Ptr[float](ptrs[184])
+    nprc1 = Ptr[float](ptrs[185])
+    nsagg = Ptr[float](ptrs[186])
+    psacws = Ptr[float](ptrs[187])
+    npsacws = Ptr[float](ptrs[188])
+    uns = Ptr[float](ptrs[189])
+    ums = Ptr[float](ptrs[190])
+    unr = Ptr[float](ptrs[191])
+    umr = Ptr[float](ptrs[192])
+    pracs = Ptr[float](ptrs[193])
+    npracs = Ptr[float](ptrs[194])
+    mnuccr = Ptr[float](ptrs[195])
+    nnuccr = Ptr[float](ptrs[196])
+    pra = Ptr[float](ptrs[197])
+    npra = Ptr[float](ptrs[198])
+    nragg = Ptr[float](ptrs[199])
+    prci = Ptr[float](ptrs[200])
+    nprci = Ptr[float](ptrs[201])
+    prai = Ptr[float](ptrs[202])
+    nprai = Ptr[float](ptrs[203])
+    pre = Ptr[float](ptrs[204])
+    prds = Ptr[float](ptrs[205])
+    dumc = Ptr[float](ptrs[206])
+    dumnc = Ptr[float](ptrs[207])
+    dumi = Ptr[float](ptrs[208])
+    dumni = Ptr[float](ptrs[209])
+    dums = Ptr[float](ptrs[210])
+    dumns = Ptr[float](ptrs[211])
+    dumr = Ptr[float](ptrs[212])
+    dumnr = Ptr[float](ptrs[213])
+    fr = Ptr[float](ptrs[214])
+    fnr = Ptr[float](ptrs[215])
+    fc = Ptr[float](ptrs[216])
+    fnc = Ptr[float](ptrs[217])
+    fi = Ptr[float](ptrs[218])
+    fni = Ptr[float](ptrs[219])
+    fs = Ptr[float](ptrs[220])
+    fns = Ptr[float](ptrs[221])
+    faloutr = Ptr[float](ptrs[222])
+    faloutnr = Ptr[float](ptrs[223])
+    faloutc = Ptr[float](ptrs[224])
+    faloutnc = Ptr[float](ptrs[225])
+    falouti = Ptr[float](ptrs[226])
+    faloutni = Ptr[float](ptrs[227])
+    falouts = Ptr[float](ptrs[228])
+    faloutns = Ptr[float](ptrs[229])
+    relhum = Ptr[float](ptrs[230])
+    csigma = Ptr[float](ptrs[231])
+    arn = Ptr[float](ptrs[232])
+    asn = Ptr[float](ptrs[233])
+    acn = Ptr[float](ptrs[234])
+    ain = Ptr[float](ptrs[235])
+    nsubi = Ptr[float](ptrs[236])
+    nsubc = Ptr[float](ptrs[237])
+    nsubs = Ptr[float](ptrs[238])
+    nsubr = Ptr[float](ptrs[239])
+    dz = Ptr[float](ptrs[240])
+    rflx1 = Ptr[float](ptrs[241])
+    sflx1 = Ptr[float](ptrs[242])
+    tsp = Ptr[float](ptrs[243])
+    qsp = Ptr[float](ptrs[244])
+    qsphy = Ptr[float](ptrs[245])
+    qs = Ptr[float](ptrs[246])
+    es = Ptr[float](ptrs[247])
+    esl = Ptr[float](ptrs[248])
+    esi = Ptr[float](ptrs[249])
+    qnitend = Ptr[float](ptrs[250])
+    nstend = Ptr[float](ptrs[251])
+    qrtend = Ptr[float](ptrs[252])
+    nrtend = Ptr[float](ptrs[253])
+    berg = Ptr[float](ptrs[254])
+    bergs = Ptr[float](ptrs[255])
+    drout = Ptr[float](ptrs[256])
+    dum2i = Ptr[float](ptrs[257])
+    dum2l = Ptr[float](ptrs[258])
+    cldmw = Ptr[float](ptrs[259])
+    qrtend_copy = Ptr[float](ptrs[260])
+    qnitend_copy = Ptr[float](ptrs[261])
+    rainrt = Ptr[float](ptrs[262])
+    rainrt1 = Ptr[float](ptrs[263])
+    mnudep = Ptr[float](ptrs[264])
+    nnudep = Ptr[float](ptrs[265])
+    ltrue = Ptr[int](ptrs[266])
+    microp_uniform = microp_uniform_c != 0
+    do_cldice = do_cldice_c != 0
+    do_clubb_sgs = do_clubb_sgs_c != 0
+    use_hetfrz_classnuc = use_hetfrz_classnuc_c != 0
+    g = scalars[0]
+    r = scalars[1]
+    rv = scalars[2]
+    cpp = scalars[3]
+    rhow = scalars[4]
+    tmelt = scalars[5]
+    xxlv = scalars[6]
+    xlf = scalars[7]
+    xxls = scalars[8]
+    rhosn = scalars[9]
+    rhoi = scalars[10]
+    ac = scalars[11]
+    bc = scalars[12]
+    as_ = scalars[13]
+    bs = scalars[14]
+    ai = scalars[15]
+    bi = scalars[16]
+    ar = scalars[17]
+    br = scalars[18]
+    ci = scalars[19]
+    di = scalars[20]
+    cs = scalars[21]
+    ds = scalars[22]
+    cr = scalars[23]
+    dr = scalars[24]
+    f1s = scalars[25]
+    f2s = scalars[26]
+    eii = scalars[27]
+    ecr = scalars[28]
+    f1r = scalars[29]
+    f2r = scalars[30]
+    dcs = scalars[31]
+    qsmall = scalars[32]
+    bimm = scalars[33]
+    aimm = scalars[34]
+    rhosu = scalars[35]
+    mi0 = scalars[36]
+    rin = scalars[37]
+    pi = scalars[38]
+    cons1 = scalars[39]
+    cons4 = scalars[40]
+    cons5 = scalars[41]
+    cons6 = scalars[42]
+    cons7 = scalars[43]
+    cons8 = scalars[44]
+    cons11 = scalars[45]
+    cons13 = scalars[46]
+    cons14 = scalars[47]
+    cons16 = scalars[48]
+    cons17 = scalars[49]
+    cons22 = scalars[50]
+    cons23 = scalars[51]
+    cons24 = scalars[52]
+    cons25 = scalars[53]
+    cons27 = scalars[54]
+    cons28 = scalars[55]
+    lammini = scalars[56]
+    lammaxi = scalars[57]
+    lamminr = scalars[58]
+    lammaxr = scalars[59]
+    lammins = scalars[60]
+    lammaxs = scalars[61]
+    csmin = scalars[62]
+    csmax = scalars[63]
+    minrefl = scalars[64]
+    mindbz = scalars[65]
+    rhmini = scalars[66]
+    micro_mg_berg_eff_factor = scalars[67]
+    cdnl = 0.0
+    cons2 = 0.0
+    cons3 = 0.0
+    cons9 = 0.0
+    cons10 = 0.0
+    cons12 = 0.0
+    cons15 = 0.0
+    cons18 = 0.0
+    cons19 = 0.0
+    cons20 = 0.0
+    deltat = 0.0
+    omsm = 0.0
+    dto2 = 0.0
+    mincld = 0.0
+    qtmp = 0.0
+    dum = 0.0
+    qcld = 0.0
+    arg = 0.0
+    alpha = 0.0
+    dum1 = 0.0
+    dum2 = 0.0
+    actmp = 0.0
+    artmp = 0.0
+    lammax = 0.0
+    lammin = 0.0
+    nacnt = 0.0
+    dc0 = 0.0
+    ds0 = 0.0
+    eci = 0.0
+    uni = 0.0
+    umi = 0.0
+    unc = 0.0
+    umc = 0.0
+    qvs = 0.0
+    qvi = 0.0
+    dqsdt = 0.0
+    dqsidt = 0.0
+    ab = 0.0
+    qclr = 0.0
+    abi = 0.0
+    epss = 0.0
+    epsr = 0.0
+    qce = 0.0
+    qie = 0.0
+    nce = 0.0
+    nie = 0.0
+    ratio = 0.0
+    faltndr = 0.0
+    faltndnr = 0.0
+    faltndc = 0.0
+    faltndnc = 0.0
+    faltndi = 0.0
+    faltndni = 0.0
+    faltnds = 0.0
+    faltndns = 0.0
+    faltndqie = 0.0
+    faltndqce = 0.0
+    rgvm = 0.0
+    mtime = 0.0
+    qrtot = 0.0
+    nrtot = 0.0
+    qstot = 0.0
+    nstot = 0.0
+    dumnnuc = 0.0
+    ninew = 0.0
+    qinew = 0.0
+    qvl = 0.0
+    epsi = 0.0
+    prd = 0.0
+    bergtsf = 0.0
+    rhin = 0.0
+    dumfice = 0.0
+    ncmax = 0.0
+    nimax = 0.0
+    qcvar = 0.0
+    tcnt = 0.0
+    viscosity = 0.0
+    mfp = 0.0
+    slip1 = 0.0
+    slip2 = 0.0
+    slip3 = 0.0
+    slip4 = 0.0
+    ndfaer1 = 0.0
+    ndfaer2 = 0.0
+    ndfaer3 = 0.0
+    ndfaer4 = 0.0
+    nslip1 = 0.0
+    nslip2 = 0.0
+    nslip3 = 0.0
+    nslip4 = 0.0
+    bbi = 0.0
+    cci = 0.0
+    ak = 0.0
+    iciwc = 0.0
+    rvi = 0.0
+    tk = 0.0
+    deles = 0.0
+    aprpr = 0.0
+    bprpr = 0.0
+    cice = 0.0
+    qi0 = 0.0
+    crate = 0.0
+    qidep = 0.0
+    ni_secp = 0.0
+    esn = 0.0
+    qsn = 0.0
+    ttmp = 0.0
+    tmp = 0.0
+    dmc = 0.0
+    ssmc = 0.0
+    dstrn = 0.0
+    con1 = 0.0
+    r3lx = 0.0
+    mi0l = 0.0
+    frztmp = 0.0
+    for _s2 in range(1, pver + 1):
+        for _s1 in range(1, ncol + 1):
+            ncai[_idx2(_s1, _s2, pcols)] = 0.0
+    for _s4 in range(1, pver + 1):
+        for _s3 in range(1, ncol + 1):
+            ncal[_idx2(_s3, _s4, pcols)] = 0.0
+    for _s6 in range(1, pver + 1):
+        for _s5 in range(1, ncol + 1):
+            rercld[_idx2(_s5, _s6, pcols)] = 0.0
+    for _s8 in range(1, pver + 1):
+        for _s7 in range(1, ncol + 1):
+            arcld[_idx2(_s7, _s8, pcols)] = 0.0
+    for _s10 in range(1, pver + 1):
+        for _s9 in range(1, ncol + 1):
+            pgamrad[_idx2(_s9, _s10, pcols)] = 0.0
+    for _s12 in range(1, pver + 1):
+        for _s11 in range(1, ncol + 1):
+            lamcrad[_idx2(_s11, _s12, pcols)] = 0.0
+    for _s14 in range(1, pver + 1):
+        for _s13 in range(1, ncol + 1):
+            deffi[_idx2(_s13, _s14, pcols)] = 0.0
+    for _s16 in range(1, pver + 1):
+        for _s15 in range(1, ncol + 1):
+            qcsevap[_idx2(_s15, _s16, pcols)] = 0.0
+    for _s18 in range(1, pver + 1):
+        for _s17 in range(1, ncol + 1):
+            qisevap[_idx2(_s17, _s18, pcols)] = 0.0
+    for _s20 in range(1, pver + 1):
+        for _s19 in range(1, ncol + 1):
+            qvres[_idx2(_s19, _s20, pcols)] = 0.0
+    for _s22 in range(1, pver + 1):
+        for _s21 in range(1, ncol + 1):
+            cmeiout[_idx2(_s21, _s22, pcols)] = 0.0
+    for _s24 in range(1, pver + 1):
+        for _s23 in range(1, ncol + 1):
+            vtrmc[_idx2(_s23, _s24, pcols)] = 0.0
+    for _s26 in range(1, pver + 1):
+        for _s25 in range(1, ncol + 1):
+            vtrmi[_idx2(_s25, _s26, pcols)] = 0.0
+    for _s28 in range(1, pver + 1):
+        for _s27 in range(1, ncol + 1):
+            qcsedten[_idx2(_s27, _s28, pcols)] = 0.0
+    for _s30 in range(1, pver + 1):
+        for _s29 in range(1, ncol + 1):
+            qisedten[_idx2(_s29, _s30, pcols)] = 0.0
+    for _s32 in range(1, pver + 1):
+        for _s31 in range(1, ncol + 1):
+            prao[_idx2(_s31, _s32, pcols)] = 0.0
+    for _s34 in range(1, pver + 1):
+        for _s33 in range(1, ncol + 1):
+            prco[_idx2(_s33, _s34, pcols)] = 0.0
+    for _s36 in range(1, pver + 1):
+        for _s35 in range(1, ncol + 1):
+            mnuccco[_idx2(_s35, _s36, pcols)] = 0.0
+    for _s38 in range(1, pver + 1):
+        for _s37 in range(1, ncol + 1):
+            mnuccto[_idx2(_s37, _s38, pcols)] = 0.0
+    for _s40 in range(1, pver + 1):
+        for _s39 in range(1, ncol + 1):
+            msacwio[_idx2(_s39, _s40, pcols)] = 0.0
+    for _s42 in range(1, pver + 1):
+        for _s41 in range(1, ncol + 1):
+            psacwso[_idx2(_s41, _s42, pcols)] = 0.0
+    for _s44 in range(1, pver + 1):
+        for _s43 in range(1, ncol + 1):
+            bergso[_idx2(_s43, _s44, pcols)] = 0.0
+    for _s46 in range(1, pver + 1):
+        for _s45 in range(1, ncol + 1):
+            bergo[_idx2(_s45, _s46, pcols)] = 0.0
+    for _s48 in range(1, pver + 1):
+        for _s47 in range(1, ncol + 1):
+            melto[_idx2(_s47, _s48, pcols)] = 0.0
+    for _s50 in range(1, pver + 1):
+        for _s49 in range(1, ncol + 1):
+            homoo[_idx2(_s49, _s50, pcols)] = 0.0
+    for _s52 in range(1, pver + 1):
+        for _s51 in range(1, ncol + 1):
+            qcreso[_idx2(_s51, _s52, pcols)] = 0.0
+    for _s54 in range(1, pver + 1):
+        for _s53 in range(1, ncol + 1):
+            prcio[_idx2(_s53, _s54, pcols)] = 0.0
+    for _s56 in range(1, pver + 1):
+        for _s55 in range(1, ncol + 1):
+            praio[_idx2(_s55, _s56, pcols)] = 0.0
+    for _s58 in range(1, pver + 1):
+        for _s57 in range(1, ncol + 1):
+            qireso[_idx2(_s57, _s58, pcols)] = 0.0
+    for _s60 in range(1, pver + 1):
+        for _s59 in range(1, ncol + 1):
+            mnuccro[_idx2(_s59, _s60, pcols)] = 0.0
+    for _s62 in range(1, pver + 1):
+        for _s61 in range(1, ncol + 1):
+            pracso[_idx2(_s61, _s62, pcols)] = 0.0
+    for _s64 in range(1, pver + 1):
+        for _s63 in range(1, ncol + 1):
+            meltsdt[_idx2(_s63, _s64, pcols)] = 0.0
+    for _s66 in range(1, pver + 1):
+        for _s65 in range(1, ncol + 1):
+            frzrdt[_idx2(_s65, _s66, pcols)] = 0.0
+    for _s68 in range(1, pver + 1):
+        for _s67 in range(1, ncol + 1):
+            mnuccdo[_idx2(_s67, _s68, pcols)] = 0.0
+    for _s70 in range(1, pver + 1 + 1):
+        for _s69 in range(1, pcols + 1):
+            rflx[_idx2(_s69, _s70, pcols)] = 0.0
+    for _s72 in range(1, pver + 1 + 1):
+        for _s71 in range(1, pcols + 1):
+            sflx[_idx2(_s71, _s72, pcols)] = 0.0
+    for _s74 in range(1, pver + 1):
+        for _s73 in range(1, pcols + 1):
+            effc[_idx2(_s73, _s74, pcols)] = 0.0
+    for _s76 in range(1, pver + 1):
+        for _s75 in range(1, pcols + 1):
+            effc_fn[_idx2(_s75, _s76, pcols)] = 0.0
+    for _s78 in range(1, pver + 1):
+        for _s77 in range(1, pcols + 1):
+            effi[_idx2(_s77, _s78, pcols)] = 0.0
+    for _s80 in range(1, pver + 1):
+        for _s79 in range(1, ncol + 1):
+            preo[_idx2(_s79, _s80, pcols)] = 0.0
+    for _s82 in range(1, pver + 1):
+        for _s81 in range(1, ncol + 1):
+            prdso[_idx2(_s81, _s82, pcols)] = 0.0
+    for _s84 in range(1, pver + 1):
+        for _s83 in range(1, ncol + 1):
+            frzro[_idx2(_s83, _s84, pcols)] = 0.0
+    for _s86 in range(1, pver + 1):
+        for _s85 in range(1, ncol + 1):
+            meltso[_idx2(_s85, _s86, pcols)] = 0.0
+    for _s88 in range(1, pver + 1):
+        for _s87 in range(1, ncol + 1):
+            wtfc[_idx2(_s87, _s88, pcols)] = 0.0
+    for _s90 in range(1, pver + 1):
+        for _s89 in range(1, ncol + 1):
+            wtfi[_idx2(_s89, _s90, pcols)] = 0.0
+    for _s92 in range(1, pver + 1):
+        for _s91 in range(1, ncol + 1):
+            wtprelat[_idx2(_s91, _s92, pcols)] = 0.0
+    for _s94 in range(1, pver + 1):
+        for _s93 in range(1, ncol + 1):
+            wtpostlat[_idx2(_s93, _s94, pcols)] = 0.0
+    deltat = deltatin
+    omsm = 0.99999
+    dto2 = 0.5 * deltat
+    mincld = 0.0001
+    for _s96 in range(1, pver + 1):
+        for _s95 in range(1, ncol + 1):
+            q[_idx2(_s95, _s96, pcols)] = qn[_idx2(_s95, _s96, pcols)]
+    for _s98 in range(1, pver + 1):
+        for _s97 in range(1, ncol + 1):
+            t[_idx2(_s97, _s98, pcols)] = tn[_idx2(_s97, _s98, pcols)]
+    for _s100 in range(1, top_lev - 1 + 1):
+        for _s99 in range(1, ncol + 1):
+            qc[_idx2(_s99, _s100, pcols)] = 0.0
+    for _s102 in range(1, top_lev - 1 + 1):
+        for _s101 in range(1, ncol + 1):
+            qi[_idx2(_s101, _s102, pcols)] = 0.0
+    for _s104 in range(1, top_lev - 1 + 1):
+        for _s103 in range(1, ncol + 1):
+            nc[_idx2(_s103, _s104, pcols)] = 0.0
+    for _s106 in range(1, top_lev - 1 + 1):
+        for _s105 in range(1, ncol + 1):
+            ni[_idx2(_s105, _s106, pcols)] = 0.0
+    for _s108 in range(1, pver + 1):
+        for _s107 in range(1, ncol + 1):
+            t1[_idx2(_s107, _s108, pcols)] = t[_idx2(_s107, _s108, pcols)]
+    for _s110 in range(1, pver + 1):
+        for _s109 in range(1, ncol + 1):
+            q1[_idx2(_s109, _s110, pcols)] = q[_idx2(_s109, _s110, pcols)]
+    for _s112 in range(1, pver + 1):
+        for _s111 in range(1, ncol + 1):
+            qc1[_idx2(_s111, _s112, pcols)] = qc[_idx2(_s111, _s112, pcols)]
+    for _s114 in range(1, pver + 1):
+        for _s113 in range(1, ncol + 1):
+            qi1[_idx2(_s113, _s114, pcols)] = qi[_idx2(_s113, _s114, pcols)]
+    for _s116 in range(1, pver + 1):
+        for _s115 in range(1, ncol + 1):
+            nc1[_idx2(_s115, _s116, pcols)] = nc[_idx2(_s115, _s116, pcols)]
+    for _s118 in range(1, pver + 1):
+        for _s117 in range(1, ncol + 1):
+            ni1[_idx2(_s117, _s118, pcols)] = ni[_idx2(_s117, _s118, pcols)]
+    for _s120 in range(1, pver + 1):
+        for _s119 in range(1, ncol + 1):
+            tlat1[_idx2(_s119, _s120, pcols)] = 0.0
+    for _s122 in range(1, pver + 1):
+        for _s121 in range(1, ncol + 1):
+            qvlat1[_idx2(_s121, _s122, pcols)] = 0.0
+    for _s124 in range(1, pver + 1):
+        for _s123 in range(1, ncol + 1):
+            qctend1[_idx2(_s123, _s124, pcols)] = 0.0
+    for _s126 in range(1, pver + 1):
+        for _s125 in range(1, ncol + 1):
+            qitend1[_idx2(_s125, _s126, pcols)] = 0.0
+    for _s128 in range(1, pver + 1):
+        for _s127 in range(1, ncol + 1):
+            nctend1[_idx2(_s127, _s128, pcols)] = 0.0
+    for _s130 in range(1, pver + 1):
+        for _s129 in range(1, ncol + 1):
+            nitend1[_idx2(_s129, _s130, pcols)] = 0.0
+    for _s132 in range(1, pver + 1):
+        for _s131 in range(1, ncol + 1):
+            qrout[_idx2(_s131, _s132, pcols)] = 0.0
+    for _s134 in range(1, pver + 1):
+        for _s133 in range(1, ncol + 1):
+            qsout[_idx2(_s133, _s134, pcols)] = 0.0
+    for _s136 in range(1, pver + 1):
+        for _s135 in range(1, ncol + 1):
+            nrout[_idx2(_s135, _s136, pcols)] = 0.0
+    for _s138 in range(1, pver + 1):
+        for _s137 in range(1, ncol + 1):
+            nsout[_idx2(_s137, _s138, pcols)] = 0.0
+    for _s140 in range(1, pver + 1):
+        for _s139 in range(1, ncol + 1):
+            dsout[_idx2(_s139, _s140, pcols)] = 0.0
+    for _s142 in range(1, pver + 1):
+        for _s141 in range(1, ncol + 1):
+            drout[_idx2(_s141, _s142, pcols)] = 0.0
+    for _s144 in range(1, pver + 1):
+        for _s143 in range(1, ncol + 1):
+            reff_rain[_idx2(_s143, _s144, pcols)] = 0.0
+    for _s146 in range(1, pver + 1):
+        for _s145 in range(1, ncol + 1):
+            reff_snow[_idx2(_s145, _s146, pcols)] = 0.0
+    for _s148 in range(1, pver + 1):
+        for _s147 in range(1, ncol + 1):
+            nevapr[_idx2(_s147, _s148, pcols)] = 0.0
+    for _s150 in range(1, pver + 1):
+        for _s149 in range(1, ncol + 1):
+            nevapr2[_idx2(_s149, _s150, pcols)] = 0.0
+    for _s152 in range(1, pver + 1):
+        for _s151 in range(1, ncol + 1):
+            evapsnow[_idx2(_s151, _s152, pcols)] = 0.0
+    for _s154 in range(1, pver + 1):
+        for _s153 in range(1, ncol + 1):
+            prain[_idx2(_s153, _s154, pcols)] = 0.0
+    for _s156 in range(1, pver + 1):
+        for _s155 in range(1, ncol + 1):
+            prodsnow[_idx2(_s155, _s156, pcols)] = 0.0
+    for _s158 in range(1, pver + 1):
+        for _s157 in range(1, ncol + 1):
+            cmeout[_idx2(_s157, _s158, pcols)] = 0.0
+    for _s160 in range(1, pver + 1):
+        for _s159 in range(1, ncol + 1):
+            am_evp_st[_idx2(_s159, _s160, pcols)] = 0.0
+    for _s162 in range(1, pver + 1):
+        for _s161 in range(1, ncol + 1):
+            rainrt1[_idx2(_s161, _s162, pcols)] = 0.0
+    for _s164 in range(1, pver + 1):
+        for _s163 in range(1, ncol + 1):
+            cldmax[_idx2(_s163, _s164, pcols)] = mincld
+    for _s166 in range(1, pver + 1):
+        for _s165 in range(1, ncol + 1):
+            dum2l[_idx2(_s165, _s166, pcols)] = 0.0
+    for _s168 in range(1, pver + 1):
+        for _s167 in range(1, ncol + 1):
+            dum2i[_idx2(_s167, _s168, pcols)] = 0.0
+    for _s169 in range(1, ncol + 1):
+        prect1[_s169 - 1] = 0.0
+    for _s170 in range(1, ncol + 1):
+        preci1[_s170 - 1] = 0.0
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            _idx = _idx2(i, k, pcols)
+            rho[_idx] = p[_idx] / (r * t[_idx])
+            dv[_idx] = 8.794E-5 * pow_r8(t[_idx], 1.81) / p[_idx]
+            mu[_idx] = 1.496E-6 * pow_r8(t[_idx], 1.5) / (t[_idx] + 120.0)
+            sc[_idx] = mu[_idx] / (rho[_idx] * dv[_idx])
+            kap[_idx] = 1.414e3 * 1.496e-6 * pow_r8(t[_idx], 1.5) / (t[_idx] + 120.0)
+            rhof[_idx] = pow_r8(rhosu / rho[_idx], 0.54)
+            arn[_idx] = ar * rhof[_idx]
+            asn[_idx] = as_ * rhof[_idx]
+            acn[_idx] = ac * rhof[_idx]
+            ain[_idx] = ai * rhof[_idx]
+            dz[_idx] = pdel[_idx] / (rho[_idx] * g)
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            es[i - 1] = wv_sat_svp_water_codon(t[_idx2(i, k, pcols)], wv_sat_idx)
+            qs[i - 1] = wv_sat_svp_to_qsat_codon(es[i - 1], p[_idx2(i, k, pcols)], epsilo, omeps)
+            if qs[i - 1] < 0.0:
+                qs[i - 1] = 1.0
+                es[i - 1] = p[_idx2(i, k, pcols)]
+            esl[_idx2(i, k, pcols)] = wv_sat_svp_water_codon(t[_idx2(i, k, pcols)], wv_sat_idx)
+            esi[_idx2(i, k, pcols)] = wv_sat_svp_ice_codon(t[_idx2(i, k, pcols)], wv_sat_idx)
+            if t[_idx2(i, k, pcols)] > tmelt:
+                esi[_idx2(i, k, pcols)] = esl[_idx2(i, k, pcols)]
+            relhum[_idx2(i, k, pcols)] = q[_idx2(i, k, pcols)] / qs[i - 1]
+            cldm[_idx2(i, k, pcols)] = max(cldn[_idx2(i, k, pcols)], mincld)
+            cldmw[_idx2(i, k, pcols)] = max(cldn[_idx2(i, k, pcols)], mincld)
+            icldm[_idx2(i, k, pcols)] = max(icecldf[_idx2(i, k, pcols)], mincld)
+            lcldm[_idx2(i, k, pcols)] = max(liqcldf[_idx2(i, k, pcols)], mincld)
+            if microp_uniform:
+                cldm[_idx2(i, k, pcols)] = mincld
+                cldmw[_idx2(i, k, pcols)] = mincld
+                icldm[_idx2(i, k, pcols)] = mincld
+                lcldm[_idx2(i, k, pcols)] = mincld
+                if qc[_idx2(i, k, pcols)] >= qsmall:
+                    lcldm[_idx2(i, k, pcols)] = 1.0
+                    cldm[_idx2(i, k, pcols)] = 1.0
+                    cldmw[_idx2(i, k, pcols)] = 1.0
+                if qi[_idx2(i, k, pcols)] >= qsmall:
+                    cldm[_idx2(i, k, pcols)] = 1.0
+                    icldm[_idx2(i, k, pcols)] = 1.0
+            nfice[_idx2(i, k, pcols)] = 0.0
+            dumfice = qc[_idx2(i, k, pcols)] + qi[_idx2(i, k, pcols)]
+            if dumfice > qsmall and qi[_idx2(i, k, pcols)] > qsmall:
+                nfice[_idx2(i, k, pcols)] = qi[_idx2(i, k, pcols)] / dumfice
+            if do_cldice and t[_idx2(i, k, pcols)] < tmelt - 5.0:
+                dum2 = naai[_idx2(i, k, pcols)]
+                dumnnuc = (dum2 - ni[_idx2(i, k, pcols)] / icldm[_idx2(i, k, pcols)]) / deltat * icldm[_idx2(i, k, pcols)]
+                dumnnuc = max(dumnnuc, 0.0)
+                ninew = ni[_idx2(i, k, pcols)] + dumnnuc * deltat
+                qinew = qi[_idx2(i, k, pcols)] + dumnnuc * deltat * mi0
+            else:
+                ninew = ni[_idx2(i, k, pcols)]
+                qinew = qi[_idx2(i, k, pcols)]
+            cme[_idx2(i, k, pcols)] = 0.0
+            cmei[_idx2(i, k, pcols)] = 0.0
+            berg[_idx2(i, k, pcols)] = 0.0
+            prd = 0.0
+            if icldm[_idx2(i, k, pcols)] > 0.0:
+                qiic[_idx2(i, k, pcols)] = qinew / icldm[_idx2(i, k, pcols)]
+                niic[_idx2(i, k, pcols)] = ninew / icldm[_idx2(i, k, pcols)]
+            else:
+                qiic[_idx2(i, k, pcols)] = 0.0
+                niic[_idx2(i, k, pcols)] = 0.0
+            if do_cldice and t[_idx2(i, k, pcols)] < 273.15:
+                if qi[_idx2(i, k, pcols)] > qsmall:
+                    bergtsf = 0.0
+                    qvi = wv_sat_svp_to_qsat_codon(esi[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                    qvl = wv_sat_svp_to_qsat_codon(esl[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                    dqsidt = xxls * qvi / (rv * pow_i(t[_idx2(i, k, pcols)], 2))
+                    abi = 1.0 + dqsidt * xxls / cpp
+                    if qiic[_idx2(i, k, pcols)] >= qsmall:
+                        lami[k - 1] = pow_r8(cons1 * ci * niic[_idx2(i, k, pcols)] / qiic[_idx2(i, k, pcols)], 1.0 / di)
+                        n0i[k - 1] = niic[_idx2(i, k, pcols)] * lami[k - 1]
+                        if lami[k - 1] < lammini:
+                            lami[k - 1] = lammini
+                            n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * qiic[_idx2(i, k, pcols)] / (ci * cons1)
+                        elif lami[k - 1] > lammaxi:
+                            lami[k - 1] = lammaxi
+                            n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * qiic[_idx2(i, k, pcols)] / (ci * cons1)
+                        epsi = 2.0 * pi * n0i[k - 1] * rho[_idx2(i, k, pcols)] * dv[_idx2(i, k, pcols)] / (lami[k - 1] * lami[k - 1])
+                        if qc[_idx2(i, k, pcols)] > qsmall:
+                            prd = epsi * (qvl - qvi) / abi
+                        else:
+                            prd = 0.0
+                        prd = prd * min(icldm[_idx2(i, k, pcols)], lcldm[_idx2(i, k, pcols)])
+                        berg[_idx2(i, k, pcols)] = max(0.0, prd)
+                    if berg[_idx2(i, k, pcols)] > 0.0:
+                        bergtsf = max(0.0, qc[_idx2(i, k, pcols)] / berg[_idx2(i, k, pcols)] / deltat)
+                        if bergtsf < 1.0:
+                            berg[_idx2(i, k, pcols)] = max(0.0, qc[_idx2(i, k, pcols)] / deltat)
+                    if bergtsf < 1.0 or icldm[_idx2(i, k, pcols)] > lcldm[_idx2(i, k, pcols)]:
+                        if qiic[_idx2(i, k, pcols)] >= qsmall:
+                            if qc[_idx2(i, k, pcols)] >= qsmall:
+                                rhin = (1.0 + relhum[_idx2(i, k, pcols)]) / 2.0
+                                if rhin * esl[_idx2(i, k, pcols)] / esi[_idx2(i, k, pcols)] > 1.0:
+                                    prd = epsi * (rhin * qvl - qvi) / abi
+                                    prd = prd * min(icldm[_idx2(i, k, pcols)], lcldm[_idx2(i, k, pcols)])
+                                    cmei[_idx2(i, k, pcols)] = cmei[_idx2(i, k, pcols)] + prd * (1.0 - bergtsf)
+                            if qc[_idx2(i, k, pcols)] < qsmall or icldm[_idx2(i, k, pcols)] > lcldm[_idx2(i, k, pcols)]:
+                                if qc[_idx2(i, k, pcols)] < qsmall:
+                                    dum = 0.0
+                                else:
+                                    dum = lcldm[_idx2(i, k, pcols)]
+                                rhin = relhum[_idx2(i, k, pcols)]
+                                if rhin * esl[_idx2(i, k, pcols)] / esi[_idx2(i, k, pcols)] > 1.0:
+                                    prd = epsi * (rhin * qvl - qvi) / abi
+                                    prd = prd * max(icldm[_idx2(i, k, pcols)] - dum, 0.0)
+                                    cmei[_idx2(i, k, pcols)] = cmei[_idx2(i, k, pcols)] + prd
+                    if cmei[_idx2(i, k, pcols)] > 0.0 and relhum[_idx2(i, k, pcols)] * esl[_idx2(i, k, pcols)] / esi[_idx2(i, k, pcols)] > 1.0:
+                        cmei[_idx2(i, k, pcols)] = min(cmei[_idx2(i, k, pcols)], (q[_idx2(i, k, pcols)] - qs[i - 1] * esi[_idx2(i, k, pcols)] / esl[_idx2(i, k, pcols)]) / abi / deltat)
+            if -berg[_idx2(i, k, pcols)] < -qc[_idx2(i, k, pcols)] / deltat:
+                berg[_idx2(i, k, pcols)] = max(qc[_idx2(i, k, pcols)] / deltat, 0.0)
+            if do_cldice and (relhum[_idx2(i, k, pcols)] * esl[_idx2(i, k, pcols)] / esi[_idx2(i, k, pcols)] < 1.0 and qiic[_idx2(i, k, pcols)] >= qsmall):
+                qvi = wv_sat_svp_to_qsat_codon(esi[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                qvl = wv_sat_svp_to_qsat_codon(esl[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                dqsidt = xxls * qvi / (rv * pow_i(t[_idx2(i, k, pcols)], 2))
+                abi = 1.0 + dqsidt * xxls / cpp
+                lami[k - 1] = pow_r8(cons1 * ci * niic[_idx2(i, k, pcols)] / qiic[_idx2(i, k, pcols)], 1.0 / di)
+                n0i[k - 1] = niic[_idx2(i, k, pcols)] * lami[k - 1]
+                if lami[k - 1] < lammini:
+                    lami[k - 1] = lammini
+                    n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * qiic[_idx2(i, k, pcols)] / (ci * cons1)
+                elif lami[k - 1] > lammaxi:
+                    lami[k - 1] = lammaxi
+                    n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * qiic[_idx2(i, k, pcols)] / (ci * cons1)
+                epsi = 2.0 * pi * n0i[k - 1] * rho[_idx2(i, k, pcols)] * dv[_idx2(i, k, pcols)] / (lami[k - 1] * lami[k - 1])
+                prd = epsi * (relhum[_idx2(i, k, pcols)] * qvl - qvi) / abi * icldm[_idx2(i, k, pcols)]
+                cmei[_idx2(i, k, pcols)] = min(prd, 0.0)
+            if cmei[_idx2(i, k, pcols)] < -qi[_idx2(i, k, pcols)] / deltat:
+                cmei[_idx2(i, k, pcols)] = -qi[_idx2(i, k, pcols)] / deltat
+            if cmei[_idx2(i, k, pcols)] < 0.0 and relhum[_idx2(i, k, pcols)] * esl[_idx2(i, k, pcols)] / esi[_idx2(i, k, pcols)] < 1.0:
+                cmei[_idx2(i, k, pcols)] = min(0.0, max(cmei[_idx2(i, k, pcols)], (q[_idx2(i, k, pcols)] - qs[i - 1] * esi[_idx2(i, k, pcols)] / esl[_idx2(i, k, pcols)]) / abi / deltat))
+            cmei[_idx2(i, k, pcols)] = cmei[_idx2(i, k, pcols)] * omsm
+            if do_cldice and t[_idx2(i, k, pcols)] < tmelt - 5.0:
+                dum2i[_idx2(i, k, pcols)] = naai[_idx2(i, k, pcols)]
+            else:
+                dum2i[_idx2(i, k, pcols)] = 0.0
+    for i in range(1, ncol + 1):
+        rflx1[_idx2(i, 1, pcols)] = 0.0
+        sflx1[_idx2(i, 1, pcols)] = 0.0
+        for k in range(top_lev, pver + 1):
+            rflx1[_idx2(i, k + 1, pcols)] = 0.0
+            sflx1[_idx2(i, k + 1, pcols)] = 0.0
+    for i in range(1, ncol + 1):
+        rflx[_idx2(i, 1, pcols)] = 0.0
+        sflx[_idx2(i, 1, pcols)] = 0.0
+        for k in range(top_lev, pver + 1):
+            rflx[_idx2(i, k + 1, pcols)] = 0.0
+            sflx[_idx2(i, k + 1, pcols)] = 0.0
+    for i in range(1, ncol + 1):
+        ltrue[i - 1] = 0
+        for k in range(top_lev, pver + 1):
+            if qc[_idx2(i, k, pcols)] >= qsmall or qi[_idx2(i, k, pcols)] >= qsmall or cmei[_idx2(i, k, pcols)] >= qsmall:
+                ltrue[i - 1] = 1
+    iter = 2
+    deltat = deltat / float(iter)
+    mtime = 1.0
+    for _s172 in range(1, pver + 1):
+        for _s171 in range(1, pcols + 1):
+            rate1ord_cw2pr_st[_idx2(_s171, _s172, pcols)] = 0.0
+    for i in range(1, ncol + 1):
+        if ltrue[i - 1] == 0:
+            for _s173 in range(1, pver + 1):
+                tlat[_idx2(i, _s173, pcols)] = 0.0
+            for _s174 in range(1, pver + 1):
+                qvlat[_idx2(i, _s174, pcols)] = 0.0
+            for _s175 in range(1, pver + 1):
+                qctend[_idx2(i, _s175, pcols)] = 0.0
+            for _s176 in range(1, pver + 1):
+                qitend[_idx2(i, _s176, pcols)] = 0.0
+            for _s177 in range(1, pver + 1):
+                qnitend[_idx2(i, _s177, pcols)] = 0.0
+            for _s178 in range(1, pver + 1):
+                qrtend[_idx2(i, _s178, pcols)] = 0.0
+            for _s179 in range(1, pver + 1):
+                nctend[_idx2(i, _s179, pcols)] = 0.0
+            for _s180 in range(1, pver + 1):
+                nitend[_idx2(i, _s180, pcols)] = 0.0
+            for _s181 in range(1, pver + 1):
+                nrtend[_idx2(i, _s181, pcols)] = 0.0
+            for _s182 in range(1, pver + 1):
+                nstend[_idx2(i, _s182, pcols)] = 0.0
+            prect[i - 1] = 0.0
+            preci[i - 1] = 0.0
+            for _s183 in range(1, pver + 1):
+                qniic[_idx2(i, _s183, pcols)] = 0.0
+            for _s184 in range(1, pver + 1):
+                qric[_idx2(i, _s184, pcols)] = 0.0
+            for _s185 in range(1, pver + 1):
+                nsic[_idx2(i, _s185, pcols)] = 0.0
+            for _s186 in range(1, pver + 1):
+                nric[_idx2(i, _s186, pcols)] = 0.0
+            for _s187 in range(1, pver + 1):
+                rainrt[_idx2(i, _s187, pcols)] = 0.0
+            for _s188 in range(1, pver + 1):
+                qrtend_copy[_idx2(i, _s188, pcols)] = 0.0
+            for _s189 in range(1, pver + 1):
+                qnitend_copy[_idx2(i, _s189, pcols)] = 0.0
+            continue
+        for _s190 in range(1, pver + 1):
+            qcsinksum_rate1ord[_s190 - 1] = 0.0
+        for _s191 in range(1, pver + 1):
+            qcsum_rate1ord[_s191 - 1] = 0.0
+        for it in range(1, iter + 1):
+            for _s192 in range(1, pver + 1):
+                tlat[_idx2(i, _s192, pcols)] = 0.0
+            for _s193 in range(1, pver + 1):
+                qvlat[_idx2(i, _s193, pcols)] = 0.0
+            for _s194 in range(1, pver + 1):
+                qctend[_idx2(i, _s194, pcols)] = 0.0
+            for _s195 in range(1, pver + 1):
+                qitend[_idx2(i, _s195, pcols)] = 0.0
+            for _s196 in range(1, pver + 1):
+                qnitend[_idx2(i, _s196, pcols)] = 0.0
+            for _s197 in range(1, pver + 1):
+                qrtend[_idx2(i, _s197, pcols)] = 0.0
+            for _s198 in range(1, pver + 1):
+                nctend[_idx2(i, _s198, pcols)] = 0.0
+            for _s199 in range(1, pver + 1):
+                nitend[_idx2(i, _s199, pcols)] = 0.0
+            for _s200 in range(1, pver + 1):
+                nrtend[_idx2(i, _s200, pcols)] = 0.0
+            for _s201 in range(1, pver + 1):
+                nstend[_idx2(i, _s201, pcols)] = 0.0
+            for _s202 in range(1, pver + 1):
+                qrtend_copy[_idx2(i, _s202, pcols)] = 0.0
+            for _s203 in range(1, pver + 1):
+                qnitend_copy[_idx2(i, _s203, pcols)] = 0.0
+            for _s204 in range(1, pver + 1):
+                qniic[_idx2(i, _s204, pcols)] = 0.0
+            for _s205 in range(1, pver + 1):
+                qric[_idx2(i, _s205, pcols)] = 0.0
+            for _s206 in range(1, pver + 1):
+                nsic[_idx2(i, _s206, pcols)] = 0.0
+            for _s207 in range(1, pver + 1):
+                nric[_idx2(i, _s207, pcols)] = 0.0
+            for _s208 in range(1, pver + 1):
+                rainrt[_idx2(i, _s208, pcols)] = 0.0
+            qrtot = 0.0
+            nrtot = 0.0
+            qstot = 0.0
+            nstot = 0.0
+            prect[i - 1] = 0.0
+            preci[i - 1] = 0.0
+            for k in range(top_lev, pver + 1):
+                qcvar = relvar[_idx2(i, k, pcols)]
+                cons2 = gamma(qcvar + 2.47)
+                cons3 = gamma(qcvar)
+                cons9 = gamma(qcvar + 2.0)
+                cons10 = gamma(qcvar + 1.0)
+                cons12 = gamma(qcvar + 1.15)
+                cons15 = gamma(qcvar + bc / 3.0)
+                cons18 = pow_r8(qcvar, 2.47)
+                cons19 = pow_i(qcvar, 2)
+                cons20 = pow_r8(qcvar, 1.15)
+                cwml[_idx2(i, k, pcols)] = qc[_idx2(i, k, pcols)]
+                cwmi[_idx2(i, k, pcols)] = qi[_idx2(i, k, pcols)]
+                ums[k - 1] = 0.0
+                uns[k - 1] = 0.0
+                umr[k - 1] = 0.0
+                unr[k - 1] = 0.0
+                if k == top_lev:
+                    cldmax[_idx2(i, k, pcols)] = cldm[_idx2(i, k, pcols)]
+                elif do_clubb_sgs:
+                    if qc[_idx2(i, k, pcols)] >= qsmall or qi[_idx2(i, k, pcols)] >= qsmall:
+                        cldmax[_idx2(i, k, pcols)] = cldm[_idx2(i, k, pcols)]
+                    else:
+                        cldmax[_idx2(i, k, pcols)] = cldmax[_idx2(i, k - 1, pcols)]
+                elif qric[_idx2(i, k - 1, pcols)] >= qsmall or qniic[_idx2(i, k - 1, pcols)] >= qsmall:
+                    cldmax[_idx2(i, k, pcols)] = max(cldmax[_idx2(i, k - 1, pcols)], cldm[_idx2(i, k, pcols)])
+                else:
+                    cldmax[_idx2(i, k, pcols)] = cldm[_idx2(i, k, pcols)]
+                if cmei[_idx2(i, k, pcols)] < 0.0 and qi[_idx2(i, k, pcols)] > qsmall and (cldm[_idx2(i, k, pcols)] > mincld):
+                    nsubi[k - 1] = cmei[_idx2(i, k, pcols)] / qi[_idx2(i, k, pcols)] * ni[_idx2(i, k, pcols)] / cldm[_idx2(i, k, pcols)]
+                else:
+                    nsubi[k - 1] = 0.0
+                nsubc[k - 1] = 0.0
+                if do_cldice and dum2i[_idx2(i, k, pcols)] > 0.0 and (t[_idx2(i, k, pcols)] < tmelt - 5.0) and (relhum[_idx2(i, k, pcols)] * esl[_idx2(i, k, pcols)] / esi[_idx2(i, k, pcols)] > rhmini + 0.05):
+                    nnuccd[k - 1] = (dum2i[_idx2(i, k, pcols)] - ni[_idx2(i, k, pcols)] / icldm[_idx2(i, k, pcols)]) / deltat * icldm[_idx2(i, k, pcols)]
+                    nnuccd[k - 1] = max(nnuccd[k - 1], 0.0)
+                    nimax = dum2i[_idx2(i, k, pcols)] * icldm[_idx2(i, k, pcols)]
+                    mnuccd[k - 1] = nnuccd[k - 1] * mi0
+                    cmei[_idx2(i, k, pcols)] = cmei[_idx2(i, k, pcols)] + mnuccd[k - 1] * mtime
+                    qvi = wv_sat_svp_to_qsat_codon(esi[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                    dqsidt = xxls * qvi / (rv * pow_i(t[_idx2(i, k, pcols)], 2))
+                    abi = 1.0 + dqsidt * xxls / cpp
+                    cmei[_idx2(i, k, pcols)] = min(cmei[_idx2(i, k, pcols)], (q[_idx2(i, k, pcols)] - qvi) / abi / deltat)
+                    cmei[_idx2(i, k, pcols)] = cmei[_idx2(i, k, pcols)] * omsm
+                else:
+                    nnuccd[k - 1] = 0.0
+                    nimax = 0.0
+                    mnuccd[k - 1] = 0.0
+                qcic[_idx2(i, k, pcols)] = min(cwml[_idx2(i, k, pcols)] / lcldm[_idx2(i, k, pcols)], 0.005)
+                qiic[_idx2(i, k, pcols)] = min(cwmi[_idx2(i, k, pcols)] / icldm[_idx2(i, k, pcols)], 0.005)
+                ncic[_idx2(i, k, pcols)] = max(nc[_idx2(i, k, pcols)] / lcldm[_idx2(i, k, pcols)], 0.0)
+                niic[_idx2(i, k, pcols)] = max(ni[_idx2(i, k, pcols)] / icldm[_idx2(i, k, pcols)], 0.0)
+                if qc[_idx2(i, k, pcols)] - berg[_idx2(i, k, pcols)] * deltat < qsmall:
+                    qcic[_idx2(i, k, pcols)] = 0.0
+                    ncic[_idx2(i, k, pcols)] = 0.0
+                    if qc[_idx2(i, k, pcols)] - berg[_idx2(i, k, pcols)] * deltat < 0.0:
+                        berg[_idx2(i, k, pcols)] = qc[_idx2(i, k, pcols)] / deltat * omsm
+                if do_cldice and qi[_idx2(i, k, pcols)] + (cmei[_idx2(i, k, pcols)] + berg[_idx2(i, k, pcols)]) * deltat < qsmall:
+                    qiic[_idx2(i, k, pcols)] = 0.0
+                    niic[_idx2(i, k, pcols)] = 0.0
+                    if qi[_idx2(i, k, pcols)] + (cmei[_idx2(i, k, pcols)] + berg[_idx2(i, k, pcols)]) * deltat < 0.0:
+                        cmei[_idx2(i, k, pcols)] = (-qi[_idx2(i, k, pcols)] / deltat - berg[_idx2(i, k, pcols)]) * omsm
+                cmeout[_idx2(i, k, pcols)] = cmeout[_idx2(i, k, pcols)] + cmei[_idx2(i, k, pcols)]
+                if qcic[_idx2(i, k, pcols)] >= qsmall:
+                    npccn[k - 1] = max(0.0, npccnin[_idx2(i, k, pcols)])
+                    dum2l[_idx2(i, k, pcols)] = (nc[_idx2(i, k, pcols)] + npccn[k - 1] * deltat) / lcldm[_idx2(i, k, pcols)]
+                    dum2l[_idx2(i, k, pcols)] = max(dum2l[_idx2(i, k, pcols)], cdnl / rho[_idx2(i, k, pcols)])
+                    ncmax = dum2l[_idx2(i, k, pcols)] * lcldm[_idx2(i, k, pcols)]
+                else:
+                    npccn[k - 1] = 0.0
+                    dum2l[_idx2(i, k, pcols)] = 0.0
+                    ncmax = 0.0
+                if qiic[_idx2(i, k, pcols)] >= qsmall:
+                    niic[_idx2(i, k, pcols)] = min(niic[_idx2(i, k, pcols)], qiic[_idx2(i, k, pcols)] * 1e+20)
+                    lami[k - 1] = pow_r8(cons1 * ci * niic[_idx2(i, k, pcols)] / qiic[_idx2(i, k, pcols)], 1.0 / di)
+                    n0i[k - 1] = niic[_idx2(i, k, pcols)] * lami[k - 1]
+                    if lami[k - 1] < lammini:
+                        lami[k - 1] = lammini
+                        n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * qiic[_idx2(i, k, pcols)] / (ci * cons1)
+                        niic[_idx2(i, k, pcols)] = n0i[k - 1] / lami[k - 1]
+                    elif lami[k - 1] > lammaxi:
+                        lami[k - 1] = lammaxi
+                        n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * qiic[_idx2(i, k, pcols)] / (ci * cons1)
+                        niic[_idx2(i, k, pcols)] = n0i[k - 1] / lami[k - 1]
+                else:
+                    lami[k - 1] = 0.0
+                    n0i[k - 1] = 0.0
+                if qcic[_idx2(i, k, pcols)] >= qsmall:
+                    ncic[_idx2(i, k, pcols)] = min(ncic[_idx2(i, k, pcols)], qcic[_idx2(i, k, pcols)] * 1e+20)
+                    ncic[_idx2(i, k, pcols)] = max(ncic[_idx2(i, k, pcols)], cdnl / rho[_idx2(i, k, pcols)])
+                    pgam[k - 1] = 0.0005714 * (ncic[_idx2(i, k, pcols)] / 1000000.0 * rho[_idx2(i, k, pcols)]) + 0.2714
+                    pgam[k - 1] = 1.0 / pow_i(pgam[k - 1], 2) - 1.0
+                    pgam[k - 1] = max(pgam[k - 1], 2.0)
+                    pgam[k - 1] = min(pgam[k - 1], 15.0)
+                    lamc[k - 1] = pow_r8(pi / 6.0 * rhow * ncic[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 4.0) / (qcic[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0)), 1.0 / 3.0)
+                    lammin = (pgam[k - 1] + 1.0) / 5e-05
+                    lammax = (pgam[k - 1] + 1.0) / 2e-06
+                    if lamc[k - 1] < lammin:
+                        lamc[k - 1] = lammin
+                        ncic[_idx2(i, k, pcols)] = 6.0 * pow_i(lamc[k - 1], 3) * qcic[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0) / (pi * rhow * gamma(pgam[k - 1] + 4.0))
+                    elif lamc[k - 1] > lammax:
+                        lamc[k - 1] = lammax
+                        ncic[_idx2(i, k, pcols)] = 6.0 * pow_i(lamc[k - 1], 3) * qcic[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0) / (pi * rhow * gamma(pgam[k - 1] + 4.0))
+                    cdist1[k - 1] = ncic[_idx2(i, k, pcols)] / gamma(pgam[k - 1] + 1.0)
+                else:
+                    lamc[k - 1] = 0.0
+                    cdist1[k - 1] = 0.0
+                if qcic[_idx2(i, k, pcols)] >= 1e-08:
+                    if microp_uniform:
+                        prc[k - 1] = 1350.0 * pow_r8(qcic[_idx2(i, k, pcols)], 2.47) * pow_r8(ncic[_idx2(i, k, pcols)] / 1000000.0 * rho[_idx2(i, k, pcols)], -1.79)
+                        nprc[k - 1] = prc[k - 1] / (4.0 / 3.0 * pi * rhow * pow_i(2.5e-05, 3))
+                        nprc1[k - 1] = prc[k - 1] / (qcic[_idx2(i, k, pcols)] / ncic[_idx2(i, k, pcols)])
+                    else:
+                        prc[k - 1] = cons2 / (cons3 * cons18) * 1350.0 * pow_r8(qcic[_idx2(i, k, pcols)], 2.47) * pow_r8(ncic[_idx2(i, k, pcols)] / 1000000.0 * rho[_idx2(i, k, pcols)], -1.79)
+                        nprc[k - 1] = prc[k - 1] / cons22
+                        nprc1[k - 1] = prc[k - 1] / (qcic[_idx2(i, k, pcols)] / ncic[_idx2(i, k, pcols)])
+                else:
+                    prc[k - 1] = 0.0
+                    nprc[k - 1] = 0.0
+                    nprc1[k - 1] = 0.0
+                dum = 0.45
+                dum1 = 0.45
+                if k == top_lev:
+                    qric[_idx2(i, k, pcols)] = prc[k - 1] * lcldm[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / dum
+                    nric[_idx2(i, k, pcols)] = nprc[k - 1] * lcldm[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / dum
+                else:
+                    if qric[_idx2(i, k - 1, pcols)] >= qsmall:
+                        dum = umr[k - 1 - 1]
+                        dum1 = unr[k - 1 - 1]
+                    if qric[_idx2(i, k - 1, pcols)] >= 1e-09 or qniic[_idx2(i, k - 1, pcols)] >= 1e-09:
+                        nprc[k - 1] = 0.0
+                    qric[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * umr[k - 1 - 1] * qric[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * ((pra[k - 1 - 1] + prc[k - 1]) * lcldm[_idx2(i, k, pcols)] + (pre[k - 1 - 1] - pracs[k - 1 - 1] - mnuccr[k - 1 - 1]) * cldmax[_idx2(i, k, pcols)])) / (dum * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                    nric[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * unr[k - 1 - 1] * nric[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * (nprc[k - 1] * lcldm[_idx2(i, k, pcols)] + (nsubr[k - 1 - 1] - npracs[k - 1 - 1] - nnuccr[k - 1 - 1] + nragg[k - 1 - 1]) * cldmax[_idx2(i, k, pcols)])) / (dum1 * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                if do_cldice:
+                    if t[_idx2(i, k, pcols)] <= 273.15 and qiic[_idx2(i, k, pcols)] >= qsmall:
+                        nprci[k - 1] = n0i[k - 1] / (lami[k - 1] * 180.0) * exp(-lami[k - 1] * dcs)
+                        prci[k - 1] = pi * rhoi * n0i[k - 1] / (6.0 * 180.0) * (cons23 / lami[k - 1] + 3.0 * cons24 / pow_i(lami[k - 1], 2) + 6.0 * dcs / pow_i(lami[k - 1], 3) + 6.0 / pow_i(lami[k - 1], 4)) * exp(-lami[k - 1] * dcs)
+                    else:
+                        prci[k - 1] = 0.0
+                        nprci[k - 1] = 0.0
+                else:
+                    prci[k - 1] = tnd_qsnow[_idx2(i, k, pcols)] / cldm[_idx2(i, k, pcols)]
+                    nprci[k - 1] = tnd_nsnow[_idx2(i, k, pcols)] / cldm[_idx2(i, k, pcols)]
+                dum = asn[_idx2(i, k, pcols)] * cons25
+                dum1 = asn[_idx2(i, k, pcols)] * cons25
+                if k == top_lev:
+                    qniic[_idx2(i, k, pcols)] = prci[k - 1] * icldm[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / dum
+                    nsic[_idx2(i, k, pcols)] = nprci[k - 1] * icldm[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / dum
+                else:
+                    if qniic[_idx2(i, k - 1, pcols)] >= qsmall:
+                        dum = ums[k - 1 - 1]
+                        dum1 = uns[k - 1 - 1]
+                    qniic[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * ums[k - 1 - 1] * qniic[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * ((prci[k - 1] + prai[k - 1 - 1] + psacws[k - 1 - 1] + bergs[k - 1 - 1]) * icldm[_idx2(i, k, pcols)] + (prds[k - 1 - 1] + pracs[k - 1 - 1] + mnuccr[k - 1 - 1]) * cldmax[_idx2(i, k, pcols)])) / (dum * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                    nsic[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * uns[k - 1 - 1] * nsic[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * (nprci[k - 1] * icldm[_idx2(i, k, pcols)] + (nsubs[k - 1 - 1] + nsagg[k - 1 - 1] + nnuccr[k - 1 - 1]) * cldmax[_idx2(i, k, pcols)])) / (dum1 * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                if qniic[_idx2(i, k, pcols)] < qsmall:
+                    qniic[_idx2(i, k, pcols)] = 0.0
+                    nsic[_idx2(i, k, pcols)] = 0.0
+                if qric[_idx2(i, k, pcols)] < qsmall:
+                    qric[_idx2(i, k, pcols)] = 0.0
+                    nric[_idx2(i, k, pcols)] = 0.0
+                nric[_idx2(i, k, pcols)] = max(nric[_idx2(i, k, pcols)], 0.0)
+                nsic[_idx2(i, k, pcols)] = max(nsic[_idx2(i, k, pcols)], 0.0)
+                if qric[_idx2(i, k, pcols)] >= qsmall:
+                    lamr[k - 1] = pow_r8(pi * rhow * nric[_idx2(i, k, pcols)] / qric[_idx2(i, k, pcols)], 1.0 / 3.0)
+                    n0r[k - 1] = nric[_idx2(i, k, pcols)] * lamr[k - 1]
+                    if lamr[k - 1] < lamminr:
+                        lamr[k - 1] = lamminr
+                        n0r[k - 1] = pow_i(lamr[k - 1], 4) * qric[_idx2(i, k, pcols)] / (pi * rhow)
+                        nric[_idx2(i, k, pcols)] = n0r[k - 1] / lamr[k - 1]
+                    elif lamr[k - 1] > lammaxr:
+                        lamr[k - 1] = lammaxr
+                        n0r[k - 1] = pow_i(lamr[k - 1], 4) * qric[_idx2(i, k, pcols)] / (pi * rhow)
+                        nric[_idx2(i, k, pcols)] = n0r[k - 1] / lamr[k - 1]
+                    unr[k - 1] = min(arn[_idx2(i, k, pcols)] * cons4 / pow_r8(lamr[k - 1], br), 9.1 * rhof[_idx2(i, k, pcols)])
+                    umr[k - 1] = min(arn[_idx2(i, k, pcols)] * cons5 / (6.0 * pow_r8(lamr[k - 1], br)), 9.1 * rhof[_idx2(i, k, pcols)])
+                else:
+                    lamr[k - 1] = 0.0
+                    n0r[k - 1] = 0.0
+                    umr[k - 1] = 0.0
+                    unr[k - 1] = 0.0
+                if qniic[_idx2(i, k, pcols)] >= qsmall:
+                    lams[k - 1] = pow_r8(cons6 * cs * nsic[_idx2(i, k, pcols)] / qniic[_idx2(i, k, pcols)], 1.0 / ds)
+                    n0s[k - 1] = nsic[_idx2(i, k, pcols)] * lams[k - 1]
+                    if lams[k - 1] < lammins:
+                        lams[k - 1] = lammins
+                        n0s[k - 1] = pow_r8(lams[k - 1], ds + 1.0) * qniic[_idx2(i, k, pcols)] / (cs * cons6)
+                        nsic[_idx2(i, k, pcols)] = n0s[k - 1] / lams[k - 1]
+                    elif lams[k - 1] > lammaxs:
+                        lams[k - 1] = lammaxs
+                        n0s[k - 1] = pow_r8(lams[k - 1], ds + 1.0) * qniic[_idx2(i, k, pcols)] / (cs * cons6)
+                        nsic[_idx2(i, k, pcols)] = n0s[k - 1] / lams[k - 1]
+                    ums[k - 1] = min(asn[_idx2(i, k, pcols)] * cons8 / (6.0 * pow_r8(lams[k - 1], bs)), 1.2 * rhof[_idx2(i, k, pcols)])
+                    uns[k - 1] = min(asn[_idx2(i, k, pcols)] * cons7 / pow_r8(lams[k - 1], bs), 1.2 * rhof[_idx2(i, k, pcols)])
+                else:
+                    lams[k - 1] = 0.0
+                    n0s[k - 1] = 0.0
+                    ums[k - 1] = 0.0
+                    uns[k - 1] = 0.0
+                if not use_hetfrz_classnuc:
+                    if do_cldice and qcic[_idx2(i, k, pcols)] >= qsmall and (t[_idx2(i, k, pcols)] < 269.15):
+                        if microp_uniform:
+                            mnuccc[k - 1] = pi * pi / 36.0 * rhow * cdist1[k - 1] * gamma(7.0 + pgam[k - 1]) * bimm * (exp(aimm * (273.15 - t[_idx2(i, k, pcols)])) - 1.0) / pow_i(lamc[k - 1], 3) / pow_i(lamc[k - 1], 3)
+                            nnuccc[k - 1] = pi / 6.0 * cdist1[k - 1] * gamma(pgam[k - 1] + 4.0) * bimm * (exp(aimm * (273.15 - t[_idx2(i, k, pcols)])) - 1.0) / pow_i(lamc[k - 1], 3)
+                        else:
+                            mnuccc[k - 1] = cons9 / (cons3 * cons19) * pi * pi / 36.0 * rhow * cdist1[k - 1] * gamma(7.0 + pgam[k - 1]) * bimm * (exp(aimm * (273.15 - t[_idx2(i, k, pcols)])) - 1.0) / pow_i(lamc[k - 1], 3) / pow_i(lamc[k - 1], 3)
+                            nnuccc[k - 1] = cons10 / (cons3 * qcvar) * pi / 6.0 * cdist1[k - 1] * gamma(pgam[k - 1] + 4.0) * bimm * (exp(aimm * (273.15 - t[_idx2(i, k, pcols)])) - 1.0) / pow_i(lamc[k - 1], 3)
+                        tcnt = pow_r8(270.16 - t[_idx2(i, k, pcols)], 1.3)
+                        viscosity = 1.8e-05 * pow_r8(t[_idx2(i, k, pcols)] / 298.0, 0.85)
+                        mfp = 2.0 * viscosity / (p[_idx2(i, k, pcols)] * sqrt(8.0 * 0.02896 / (pi * 8.314409 * t[_idx2(i, k, pcols)])))
+                        nslip1 = 1.0 + mfp / rndst[_idx3(i, k, 1, pcols, pver)] * (1.257 + 0.4 * exp(-(1.1 * rndst[_idx3(i, k, 1, pcols, pver)] / mfp)))
+                        nslip2 = 1.0 + mfp / rndst[_idx3(i, k, 2, pcols, pver)] * (1.257 + 0.4 * exp(-(1.1 * rndst[_idx3(i, k, 2, pcols, pver)] / mfp)))
+                        nslip3 = 1.0 + mfp / rndst[_idx3(i, k, 3, pcols, pver)] * (1.257 + 0.4 * exp(-(1.1 * rndst[_idx3(i, k, 3, pcols, pver)] / mfp)))
+                        nslip4 = 1.0 + mfp / rndst[_idx3(i, k, 4, pcols, pver)] * (1.257 + 0.4 * exp(-(1.1 * rndst[_idx3(i, k, 4, pcols, pver)] / mfp)))
+                        ndfaer1 = 1.381e-23 * t[_idx2(i, k, pcols)] * nslip1 / (6.0 * pi * viscosity * rndst[_idx3(i, k, 1, pcols, pver)])
+                        ndfaer2 = 1.381e-23 * t[_idx2(i, k, pcols)] * nslip2 / (6.0 * pi * viscosity * rndst[_idx3(i, k, 2, pcols, pver)])
+                        ndfaer3 = 1.381e-23 * t[_idx2(i, k, pcols)] * nslip3 / (6.0 * pi * viscosity * rndst[_idx3(i, k, 3, pcols, pver)])
+                        ndfaer4 = 1.381e-23 * t[_idx2(i, k, pcols)] * nslip4 / (6.0 * pi * viscosity * rndst[_idx3(i, k, 4, pcols, pver)])
+                        if microp_uniform:
+                            mnucct[k - 1] = (ndfaer1 * (nacon[_idx3(i, k, 1, pcols, pver)] * tcnt) + ndfaer2 * (nacon[_idx3(i, k, 2, pcols, pver)] * tcnt) + ndfaer3 * (nacon[_idx3(i, k, 3, pcols, pver)] * tcnt) + ndfaer4 * (nacon[_idx3(i, k, 4, pcols, pver)] * tcnt)) * pi * pi / 3.0 * rhow * cdist1[k - 1] * gamma(pgam[k - 1] + 5.0) / pow_i(lamc[k - 1], 4)
+                            nnucct[k - 1] = (ndfaer1 * (nacon[_idx3(i, k, 1, pcols, pver)] * tcnt) + ndfaer2 * (nacon[_idx3(i, k, 2, pcols, pver)] * tcnt) + ndfaer3 * (nacon[_idx3(i, k, 3, pcols, pver)] * tcnt) + ndfaer4 * (nacon[_idx3(i, k, 4, pcols, pver)] * tcnt)) * 2.0 * pi * cdist1[k - 1] * gamma(pgam[k - 1] + 2.0) / lamc[k - 1]
+                        else:
+                            mnucct[k - 1] = gamma(qcvar + 4.0 / 3.0) / (cons3 * pow_r8(qcvar, 4.0 / 3.0)) * (ndfaer1 * (nacon[_idx3(i, k, 1, pcols, pver)] * tcnt) + ndfaer2 * (nacon[_idx3(i, k, 2, pcols, pver)] * tcnt) + ndfaer3 * (nacon[_idx3(i, k, 3, pcols, pver)] * tcnt) + ndfaer4 * (nacon[_idx3(i, k, 4, pcols, pver)] * tcnt)) * pi * pi / 3.0 * rhow * cdist1[k - 1] * gamma(pgam[k - 1] + 5.0) / pow_i(lamc[k - 1], 4)
+                            nnucct[k - 1] = gamma(qcvar + 1.0 / 3.0) / (cons3 * pow_r8(qcvar, 1.0 / 3.0)) * (ndfaer1 * (nacon[_idx3(i, k, 1, pcols, pver)] * tcnt) + ndfaer2 * (nacon[_idx3(i, k, 2, pcols, pver)] * tcnt) + ndfaer3 * (nacon[_idx3(i, k, 3, pcols, pver)] * tcnt) + ndfaer4 * (nacon[_idx3(i, k, 4, pcols, pver)] * tcnt)) * 2.0 * pi * cdist1[k - 1] * gamma(pgam[k - 1] + 2.0) / lamc[k - 1]
+                        if nnuccc[k - 1] * lcldm[_idx2(i, k, pcols)] > nnuccd[k - 1]:
+                            dum = nnuccd[k - 1] / (nnuccc[k - 1] * lcldm[_idx2(i, k, pcols)])
+                            mnuccc[k - 1] = mnuccc[k - 1] * dum
+                            nnuccc[k - 1] = nnuccd[k - 1] / lcldm[_idx2(i, k, pcols)]
+                    else:
+                        mnuccc[k - 1] = 0.0
+                        nnuccc[k - 1] = 0.0
+                        mnucct[k - 1] = 0.0
+                        nnucct[k - 1] = 0.0
+                elif do_cldice and qcic[_idx2(i, k, pcols)] >= qsmall:
+                    con1 = 1.0 / pow_r8(1.333 * pi, 0.333)
+                    r3lx = con1 * pow_r8(rho[_idx2(i, k, pcols)] * qcic[_idx2(i, k, pcols)] / (rhow * max(ncic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)], 1000000.0)), 0.333)
+                    r3lx = max(4e-06, r3lx)
+                    mi0l = 4.0 / 3.0 * pi * rhow * pow_r8(r3lx, 3)
+                    nnuccc[k - 1] = frzimm[_idx2(i, k, pcols)] * 1000000.0 / rho[_idx2(i, k, pcols)]
+                    mnuccc[k - 1] = nnuccc[k - 1] * mi0l
+                    nnucct[k - 1] = frzcnt[_idx2(i, k, pcols)] * 1000000.0 / rho[_idx2(i, k, pcols)]
+                    mnucct[k - 1] = nnucct[k - 1] * mi0l
+                    nnudep[k - 1] = frzdep[_idx2(i, k, pcols)] * 1000000.0 / rho[_idx2(i, k, pcols)]
+                    mnudep[k - 1] = nnudep[k - 1] * mi0
+                else:
+                    nnuccc[k - 1] = 0.0
+                    mnuccc[k - 1] = 0.0
+                    nnucct[k - 1] = 0.0
+                    mnucct[k - 1] = 0.0
+                    nnudep[k - 1] = 0.0
+                    mnudep[k - 1] = 0.0
+                if qniic[_idx2(i, k, pcols)] >= qsmall and t[_idx2(i, k, pcols)] <= 273.15:
+                    nsagg[k - 1] = -1108.0 * asn[_idx2(i, k, pcols)] * eii * pow_r8(pi, (1.0 - bs) / 3.0) * pow_r8(rhosn, (-2.0 - bs) / 3.0) * pow_r8(rho[_idx2(i, k, pcols)], (2.0 + bs) / 3.0) * pow_r8(qniic[_idx2(i, k, pcols)], (2.0 + bs) / 3.0) * pow_r8(nsic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)], (4.0 - bs) / 3.0) / (4.0 * 720.0 * rho[_idx2(i, k, pcols)])
+                else:
+                    nsagg[k - 1] = 0.0
+                if qniic[_idx2(i, k, pcols)] >= qsmall and t[_idx2(i, k, pcols)] <= tmelt and (qcic[_idx2(i, k, pcols)] >= qsmall):
+                    dc0 = (pgam[k - 1] + 1.0) / lamc[k - 1]
+                    ds0 = 1.0 / lams[k - 1]
+                    dum = dc0 * dc0 * uns[k - 1] * rhow / (9.0 * mu[_idx2(i, k, pcols)] * ds0)
+                    eci = dum * dum / ((dum + 0.4) * (dum + 0.4))
+                    eci = max(eci, 0.0)
+                    eci = min(eci, 1.0)
+                    psacws[k - 1] = pi / 4.0 * asn[_idx2(i, k, pcols)] * qcic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * n0s[k - 1] * eci * cons11 / pow_r8(lams[k - 1], bs + 3.0)
+                    npsacws[k - 1] = pi / 4.0 * asn[_idx2(i, k, pcols)] * ncic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * n0s[k - 1] * eci * cons11 / pow_r8(lams[k - 1], bs + 3.0)
+                else:
+                    psacws[k - 1] = 0.0
+                    npsacws[k - 1] = 0.0
+                if not do_cldice:
+                    ni_secp = 0.0
+                    nsacwi[k - 1] = 0.0
+                    msacwi[k - 1] = 0.0
+                elif t[_idx2(i, k, pcols)] < 270.16 and t[_idx2(i, k, pcols)] >= 268.16:
+                    ni_secp = 350000000.0 * (270.16 - t[_idx2(i, k, pcols)]) / 2.0 * psacws[k - 1]
+                    nsacwi[k - 1] = ni_secp
+                    msacwi[k - 1] = min(ni_secp * mi0, psacws[k - 1])
+                elif t[_idx2(i, k, pcols)] < 268.16 and t[_idx2(i, k, pcols)] >= 265.16:
+                    ni_secp = 350000000.0 * (t[_idx2(i, k, pcols)] - 265.16) / 3.0 * psacws[k - 1]
+                    nsacwi[k - 1] = ni_secp
+                    msacwi[k - 1] = min(ni_secp * mi0, psacws[k - 1])
+                else:
+                    ni_secp = 0.0
+                    nsacwi[k - 1] = 0.0
+                    msacwi[k - 1] = 0.0
+                psacws[k - 1] = max(0.0, psacws[k - 1] - ni_secp * mi0)
+                if qric[_idx2(i, k, pcols)] >= 1e-08 and qniic[_idx2(i, k, pcols)] >= 1e-08 and (t[_idx2(i, k, pcols)] <= 273.15):
+                    pracs[k - 1] = pi * pi * ecr * (pow_r8(pow_i(1.2 * umr[k - 1] - 0.95 * ums[k - 1], 2) + 0.08 * ums[k - 1] * umr[k - 1], 0.5) * rhow * rho[_idx2(i, k, pcols)] * n0r[k - 1] * n0s[k - 1] * (5.0 / (pow_i_f90_pracs(lamr[k - 1], 6) * lams[k - 1]) + 2.0 / (pow_i_f90_pracs(lamr[k - 1], 5) * pow_i_f90_pracs(lams[k - 1], 2)) + 0.5 / (pow_i_f90_pracs(lamr[k - 1], 4) * pow_i_f90_pracs(lams[k - 1], 3))))
+                    npracs[k - 1] = pi / 2.0 * rho[_idx2(i, k, pcols)] * ecr * pow_r8(1.7 * pow_i(unr[k - 1] - uns[k - 1], 2) + 0.3 * unr[k - 1] * uns[k - 1], 0.5) * n0r[k - 1] * n0s[k - 1] * (1.0 / (pow_i(lamr[k - 1], 3) * lams[k - 1]) + 1.0 / (pow_i(lamr[k - 1], 2) * pow_i(lams[k - 1], 2)) + 1.0 / (lamr[k - 1] * pow_i(lams[k - 1], 3)))
+                else:
+                    pracs[k - 1] = 0.0
+                    npracs[k - 1] = 0.0
+                if t[_idx2(i, k, pcols)] < 269.15 and qric[_idx2(i, k, pcols)] >= qsmall:
+                    mnuccr[k - 1] = 20.0 * pi * pi * rhow * nric[_idx2(i, k, pcols)] * bimm * (exp(aimm * (273.15 - t[_idx2(i, k, pcols)])) - 1.0) / pow_i(lamr[k - 1], 3) / pow_i(lamr[k - 1], 3)
+                    nnuccr[k - 1] = pi * nric[_idx2(i, k, pcols)] * bimm * (exp(aimm * (273.15 - t[_idx2(i, k, pcols)])) - 1.0) / pow_i(lamr[k - 1], 3)
+                else:
+                    mnuccr[k - 1] = 0.0
+                    nnuccr[k - 1] = 0.0
+                if qric[_idx2(i, k, pcols)] >= qsmall and qcic[_idx2(i, k, pcols)] >= qsmall:
+                    if microp_uniform:
+                        pra[k - 1] = 67.0 * pow_r8(qcic[_idx2(i, k, pcols)] * qric[_idx2(i, k, pcols)], 1.15)
+                        npra[k - 1] = pra[k - 1] / (qcic[_idx2(i, k, pcols)] / ncic[_idx2(i, k, pcols)])
+                    else:
+                        pra[k - 1] = accre_enhan[_idx2(i, k, pcols)] * (cons12 / (cons3 * cons20) * 67.0 * pow_r8(qcic[_idx2(i, k, pcols)] * qric[_idx2(i, k, pcols)], 1.15))
+                        npra[k - 1] = pra[k - 1] / (qcic[_idx2(i, k, pcols)] / ncic[_idx2(i, k, pcols)])
+                else:
+                    pra[k - 1] = 0.0
+                    npra[k - 1] = 0.0
+                if qric[_idx2(i, k, pcols)] >= qsmall:
+                    nragg[k - 1] = -8.0 * nric[_idx2(i, k, pcols)] * qric[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]
+                else:
+                    nragg[k - 1] = 0.0
+                if do_cldice and qniic[_idx2(i, k, pcols)] >= qsmall and (qiic[_idx2(i, k, pcols)] >= qsmall) and (t[_idx2(i, k, pcols)] <= 273.15):
+                    prai[k - 1] = pi / 4.0 * asn[_idx2(i, k, pcols)] * qiic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * n0s[k - 1] * eii * cons11 / pow_r8(lams[k - 1], bs + 3.0)
+                    nprai[k - 1] = pi / 4.0 * asn[_idx2(i, k, pcols)] * niic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * n0s[k - 1] * eii * cons11 / pow_r8(lams[k - 1], bs + 3.0)
+                else:
+                    prai[k - 1] = 0.0
+                    nprai[k - 1] = 0.0
+                pre[k - 1] = 0.0
+                prds[k - 1] = 0.0
+                if qcic[_idx2(i, k, pcols)] + qiic[_idx2(i, k, pcols)] < 1e-06 or cldmax[_idx2(i, k, pcols)] > lcldm[_idx2(i, k, pcols)]:
+                    if qcic[_idx2(i, k, pcols)] + qiic[_idx2(i, k, pcols)] < 1e-06:
+                        dum = 0.0
+                    else:
+                        dum = lcldm[_idx2(i, k, pcols)]
+                    esn = wv_sat_svp_water_codon(t[_idx2(i, k, pcols)], wv_sat_idx)
+                    qsn = wv_sat_svp_to_qsat_codon(esn, p[_idx2(i, k, pcols)], epsilo, omeps)
+                    esl[_idx2(i, k, pcols)] = esn
+                    esi[_idx2(i, k, pcols)] = wv_sat_svp_ice_codon(t[_idx2(i, k, pcols)], wv_sat_idx)
+                    if t[_idx2(i, k, pcols)] > tmelt:
+                        esi[_idx2(i, k, pcols)] = esl[_idx2(i, k, pcols)]
+                    qclr = (q[_idx2(i, k, pcols)] - dum * qsn) / (1.0 - dum)
+                    if qric[_idx2(i, k, pcols)] >= qsmall:
+                        qvs = wv_sat_svp_to_qsat_codon(esl[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                        dqsdt = xxlv * qvs / (rv * pow_i(t[_idx2(i, k, pcols)], 2))
+                        ab = 1.0 + dqsdt * xxlv / cpp
+                        epsr = 2.0 * pi * n0r[k - 1] * rho[_idx2(i, k, pcols)] * dv[_idx2(i, k, pcols)] * (f1r / (lamr[k - 1] * lamr[k - 1]) + f2r * pow_r8(arn[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] / mu[_idx2(i, k, pcols)], 0.5) * pow_r8(sc[_idx2(i, k, pcols)], 1.0 / 3.0) * cons13 / pow_r8(lamr[k - 1], 5.0 / 2.0 + br / 2.0))
+                        pre[k - 1] = epsr * (qclr - qvs) / ab
+                        pre[k - 1] = min(pre[k - 1] * (cldmax[_idx2(i, k, pcols)] - dum), 0.0)
+                        pre[k - 1] = pre[k - 1] / cldmax[_idx2(i, k, pcols)]
+                        am_evp_st[_idx2(i, k, pcols)] = max(cldmax[_idx2(i, k, pcols)] - dum, 0.0)
+                    if qniic[_idx2(i, k, pcols)] >= qsmall:
+                        qvi = wv_sat_svp_to_qsat_codon(esi[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                        dqsidt = xxls * qvi / (rv * pow_i(t[_idx2(i, k, pcols)], 2))
+                        abi = 1.0 + dqsidt * xxls / cpp
+                        epss = 2.0 * pi * n0s[k - 1] * rho[_idx2(i, k, pcols)] * dv[_idx2(i, k, pcols)] * (f1s / (lams[k - 1] * lams[k - 1]) + f2s * pow_r8(asn[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] / mu[_idx2(i, k, pcols)], 0.5) * pow_r8(sc[_idx2(i, k, pcols)], 1.0 / 3.0) * cons14 / pow_r8(lams[k - 1], 5.0 / 2.0 + bs / 2.0))
+                        prds[k - 1] = epss * (qclr - qvi) / abi
+                        prds[k - 1] = min(prds[k - 1] * (cldmax[_idx2(i, k, pcols)] - dum), 0.0)
+                        prds[k - 1] = prds[k - 1] / cldmax[_idx2(i, k, pcols)]
+                        am_evp_st[_idx2(i, k, pcols)] = max(cldmax[_idx2(i, k, pcols)] - dum, 0.0)
+                    qtmp = q[_idx2(i, k, pcols)] - (cmei[_idx2(i, k, pcols)] + (pre[k - 1] + prds[k - 1]) * cldmax[_idx2(i, k, pcols)]) * deltat
+                    ttmp = t[_idx2(i, k, pcols)] + (pre[k - 1] * cldmax[_idx2(i, k, pcols)] * xxlv + (cmei[_idx2(i, k, pcols)] + prds[k - 1] * cldmax[_idx2(i, k, pcols)]) * xxls) * deltat / cpp
+                    ttmp = max(180.0, min(ttmp, 323.0))
+                    esn = wv_sat_svp_water_codon(ttmp, wv_sat_idx)
+                    qsn = wv_sat_svp_to_qsat_codon(esn, p[_idx2(i, k, pcols)], epsilo, omeps)
+                    if qtmp > qsn:
+                        if pre[k - 1] + prds[k - 1] < -1e-20:
+                            dum1 = pre[k - 1] / (pre[k - 1] + prds[k - 1])
+                            qtmp = q[_idx2(i, k, pcols)] - cmei[_idx2(i, k, pcols)] * deltat
+                            ttmp = t[_idx2(i, k, pcols)] + cmei[_idx2(i, k, pcols)] * xxls * deltat / cpp
+                            esn = wv_sat_svp_water_codon(ttmp, wv_sat_idx)
+                            qsn = wv_sat_svp_to_qsat_codon(esn, p[_idx2(i, k, pcols)], epsilo, omeps)
+                            dum = (qtmp - qsn) / (1.0 + cons27 * qsn / (cpp * rv * pow_i(ttmp, 2)))
+                            dum = min(dum, 0.0)
+                            pre[k - 1] = dum * dum1 / deltat / cldmax[_idx2(i, k, pcols)]
+                            esn = wv_sat_svp_ice_codon(ttmp, wv_sat_idx)
+                            qsn = wv_sat_svp_to_qsat_codon(esn, p[_idx2(i, k, pcols)], epsilo, omeps)
+                            dum = (qtmp - qsn) / (1.0 + cons28 * qsn / (cpp * rv * pow_i(ttmp, 2)))
+                            dum = min(dum, 0.0)
+                            prds[k - 1] = dum * (1.0 - dum1) / deltat / cldmax[_idx2(i, k, pcols)]
+                if qniic[_idx2(i, k, pcols)] >= qsmall and qcic[_idx2(i, k, pcols)] >= qsmall and (t[_idx2(i, k, pcols)] < tmelt):
+                    qvi = wv_sat_svp_to_qsat_codon(esi[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                    qvs = wv_sat_svp_to_qsat_codon(esl[_idx2(i, k, pcols)], p[_idx2(i, k, pcols)], epsilo, omeps)
+                    dqsidt = xxls * qvi / (rv * pow_i(t[_idx2(i, k, pcols)], 2))
+                    abi = 1.0 + dqsidt * xxls / cpp
+                    epss = 2.0 * pi * n0s[k - 1] * rho[_idx2(i, k, pcols)] * dv[_idx2(i, k, pcols)] * (f1s / (lams[k - 1] * lams[k - 1]) + f2s * pow_r8(asn[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] / mu[_idx2(i, k, pcols)], 0.5) * pow_r8(sc[_idx2(i, k, pcols)], 1.0 / 3.0) * cons14 / pow_r8(lams[k - 1], 5.0 / 2.0 + bs / 2.0))
+                    bergs[k - 1] = epss * (qvs - qvi) / abi
+                else:
+                    bergs[k - 1] = 0.0
+                qce = qc[_idx2(i, k, pcols)] - berg[_idx2(i, k, pcols)] * deltat
+                nce = nc[_idx2(i, k, pcols)] + npccn[k - 1] * deltat * mtime
+                qie = qi[_idx2(i, k, pcols)] + (cmei[_idx2(i, k, pcols)] + berg[_idx2(i, k, pcols)]) * deltat
+                nie = ni[_idx2(i, k, pcols)] + nnuccd[k - 1] * deltat * mtime
+                dum = (prc[k - 1] + pra[k - 1] + mnuccc[k - 1] + mnucct[k - 1] + msacwi[k - 1] + psacws[k - 1] + bergs[k - 1]) * lcldm[_idx2(i, k, pcols)] * deltat
+                if dum > qce:
+                    ratio = qce / deltat / lcldm[_idx2(i, k, pcols)] / (prc[k - 1] + pra[k - 1] + mnuccc[k - 1] + mnucct[k - 1] + msacwi[k - 1] + psacws[k - 1] + bergs[k - 1]) * omsm
+                    prc[k - 1] = prc[k - 1] * ratio
+                    pra[k - 1] = pra[k - 1] * ratio
+                    mnuccc[k - 1] = mnuccc[k - 1] * ratio
+                    mnucct[k - 1] = mnucct[k - 1] * ratio
+                    msacwi[k - 1] = msacwi[k - 1] * ratio
+                    psacws[k - 1] = psacws[k - 1] * ratio
+                    bergs[k - 1] = bergs[k - 1] * ratio
+                dum = (nprc1[k - 1] + npra[k - 1] + nnuccc[k - 1] + nnucct[k - 1] + npsacws[k - 1] - nsubc[k - 1]) * lcldm[_idx2(i, k, pcols)] * deltat
+                if dum > nce:
+                    ratio = nce / deltat / ((nprc1[k - 1] + npra[k - 1] + nnuccc[k - 1] + nnucct[k - 1] + npsacws[k - 1] - nsubc[k - 1]) * lcldm[_idx2(i, k, pcols)]) * omsm
+                    nprc1[k - 1] = nprc1[k - 1] * ratio
+                    npra[k - 1] = npra[k - 1] * ratio
+                    nnuccc[k - 1] = nnuccc[k - 1] * ratio
+                    nnucct[k - 1] = nnucct[k - 1] * ratio
+                    npsacws[k - 1] = npsacws[k - 1] * ratio
+                    nsubc[k - 1] = nsubc[k - 1] * ratio
+                if do_cldice:
+                    frztmp = -mnuccc[k - 1] - mnucct[k - 1] - msacwi[k - 1]
+                    if use_hetfrz_classnuc:
+                        frztmp = -mnuccc[k - 1] - mnucct[k - 1] - mnudep[k - 1] - msacwi[k - 1]
+                    dum = (frztmp * lcldm[_idx2(i, k, pcols)] + (prci[k - 1] + prai[k - 1]) * icldm[_idx2(i, k, pcols)]) * deltat
+                    if dum > qie:
+                        frztmp = mnuccc[k - 1] + mnucct[k - 1] + msacwi[k - 1]
+                        if use_hetfrz_classnuc:
+                            frztmp = mnuccc[k - 1] + mnucct[k - 1] + mnudep[k - 1] + msacwi[k - 1]
+                        ratio = (qie / deltat + frztmp * lcldm[_idx2(i, k, pcols)]) / ((prci[k - 1] + prai[k - 1]) * icldm[_idx2(i, k, pcols)]) * omsm
+                        prci[k - 1] = prci[k - 1] * ratio
+                        prai[k - 1] = prai[k - 1] * ratio
+                    frztmp = -nnucct[k - 1] - nsacwi[k - 1]
+                    if use_hetfrz_classnuc:
+                        frztmp = -nnucct[k - 1] - nnuccc[k - 1] - nnudep[k - 1] - nsacwi[k - 1]
+                    dum = (frztmp * lcldm[_idx2(i, k, pcols)] + (nprci[k - 1] + nprai[k - 1] - nsubi[k - 1]) * icldm[_idx2(i, k, pcols)]) * deltat
+                    if dum > nie:
+                        frztmp = nnucct[k - 1] + nsacwi[k - 1]
+                        if use_hetfrz_classnuc:
+                            frztmp = nnucct[k - 1] + nnuccc[k - 1] + nnudep[k - 1] + nsacwi[k - 1]
+                        ratio = (nie / deltat + frztmp * lcldm[_idx2(i, k, pcols)]) / ((nprci[k - 1] + nprai[k - 1] - nsubi[k - 1]) * icldm[_idx2(i, k, pcols)]) * omsm
+                        nprci[k - 1] = nprci[k - 1] * ratio
+                        nprai[k - 1] = nprai[k - 1] * ratio
+                        nsubi[k - 1] = nsubi[k - 1] * ratio
+                if ((prc[k - 1] + pra[k - 1]) * lcldm[_idx2(i, k, pcols)] + (-mnuccr[k - 1] + pre[k - 1] - pracs[k - 1]) * cldmax[_idx2(i, k, pcols)]) * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] + qrtot < 0.0:
+                    if -pre[k - 1] + pracs[k - 1] + mnuccr[k - 1] >= qsmall:
+                        ratio = (qrtot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]) + (prc[k - 1] + pra[k - 1]) * lcldm[_idx2(i, k, pcols)]) / ((-pre[k - 1] + pracs[k - 1] + mnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]) * omsm
+                        pre[k - 1] = pre[k - 1] * ratio
+                        pracs[k - 1] = pracs[k - 1] * ratio
+                        mnuccr[k - 1] = mnuccr[k - 1] * ratio
+                nsubr[k - 1] = 0.0
+                if (nprc[k - 1] * lcldm[_idx2(i, k, pcols)] + (-nnuccr[k - 1] + nsubr[k - 1] - npracs[k - 1] + nragg[k - 1]) * cldmax[_idx2(i, k, pcols)]) * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] + nrtot < 0.0:
+                    if -nsubr[k - 1] - nragg[k - 1] + npracs[k - 1] + nnuccr[k - 1] >= qsmall:
+                        ratio = (nrtot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]) + nprc[k - 1] * lcldm[_idx2(i, k, pcols)]) / ((-nsubr[k - 1] - nragg[k - 1] + npracs[k - 1] + nnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]) * omsm
+                        nsubr[k - 1] = nsubr[k - 1] * ratio
+                        npracs[k - 1] = npracs[k - 1] * ratio
+                        nnuccr[k - 1] = nnuccr[k - 1] * ratio
+                        nragg[k - 1] = nragg[k - 1] * ratio
+                if ((bergs[k - 1] + psacws[k - 1]) * lcldm[_idx2(i, k, pcols)] + (prai[k - 1] + prci[k - 1]) * icldm[_idx2(i, k, pcols)] + (pracs[k - 1] + mnuccr[k - 1] + prds[k - 1]) * cldmax[_idx2(i, k, pcols)]) * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] + qstot < 0.0:
+                    if -prds[k - 1] >= qsmall:
+                        ratio = (qstot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]) + (bergs[k - 1] + psacws[k - 1]) * lcldm[_idx2(i, k, pcols)] + (prai[k - 1] + prci[k - 1]) * icldm[_idx2(i, k, pcols)] + (pracs[k - 1] + mnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]) / (-prds[k - 1] * cldmax[_idx2(i, k, pcols)]) * omsm
+                        prds[k - 1] = prds[k - 1] * ratio
+                nsubs[k - 1] = 0.0
+                if (nprci[k - 1] * icldm[_idx2(i, k, pcols)] + (nnuccr[k - 1] + nsubs[k - 1] + nsagg[k - 1]) * cldmax[_idx2(i, k, pcols)]) * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] + nstot < 0.0:
+                    if -nsubs[k - 1] - nsagg[k - 1] >= qsmall:
+                        ratio = (nstot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]) + nprci[k - 1] * icldm[_idx2(i, k, pcols)] + nnuccr[k - 1] * cldmax[_idx2(i, k, pcols)]) / ((-nsubs[k - 1] - nsagg[k - 1]) * cldmax[_idx2(i, k, pcols)]) * omsm
+                        nsubs[k - 1] = nsubs[k - 1] * ratio
+                        nsagg[k - 1] = nsagg[k - 1] * ratio
+                qvlat[_idx2(i, k, pcols)] = qvlat[_idx2(i, k, pcols)] - (pre[k - 1] + prds[k - 1]) * cldmax[_idx2(i, k, pcols)] - cmei[_idx2(i, k, pcols)]
+                tlat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)] + (pre[k - 1] * cldmax[_idx2(i, k, pcols)] * xxlv + (prds[k - 1] * cldmax[_idx2(i, k, pcols)] + cmei[_idx2(i, k, pcols)]) * xxls + ((bergs[k - 1] + psacws[k - 1] + mnuccc[k - 1] + mnucct[k - 1] + msacwi[k - 1]) * lcldm[_idx2(i, k, pcols)] + (mnuccr[k - 1] + pracs[k - 1]) * cldmax[_idx2(i, k, pcols)] + berg[_idx2(i, k, pcols)]) * xlf)
+                qctend[_idx2(i, k, pcols)] = qctend[_idx2(i, k, pcols)] + (-pra[k - 1] - prc[k - 1] - mnuccc[k - 1] - mnucct[k - 1] - msacwi[k - 1] - psacws[k - 1] - bergs[k - 1]) * lcldm[_idx2(i, k, pcols)] - berg[_idx2(i, k, pcols)]
+                if do_cldice:
+                    frztmp = mnuccc[k - 1] + mnucct[k - 1] + msacwi[k - 1]
+                    if use_hetfrz_classnuc:
+                        frztmp = mnuccc[k - 1] + mnucct[k - 1] + mnudep[k - 1] + msacwi[k - 1]
+                    qitend[_idx2(i, k, pcols)] = qitend[_idx2(i, k, pcols)] + frztmp * lcldm[_idx2(i, k, pcols)] + (-prci[k - 1] - prai[k - 1]) * icldm[_idx2(i, k, pcols)] + cmei[_idx2(i, k, pcols)] + berg[_idx2(i, k, pcols)]
+                qrtend[_idx2(i, k, pcols)] = qrtend[_idx2(i, k, pcols)] + (pra[k - 1] + prc[k - 1]) * lcldm[_idx2(i, k, pcols)] + (pre[k - 1] - pracs[k - 1] - mnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]
+                qnitend[_idx2(i, k, pcols)] = qnitend[_idx2(i, k, pcols)] + (prai[k - 1] + prci[k - 1]) * icldm[_idx2(i, k, pcols)] + (psacws[k - 1] + bergs[k - 1]) * lcldm[_idx2(i, k, pcols)] + (prds[k - 1] + pracs[k - 1] + mnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]
+                qrtend_copy[_idx2(i, k, pcols)] = qrtend_copy[_idx2(i, k, pcols)] + qrtend[_idx2(i, k, pcols)]
+                qnitend_copy[_idx2(i, k, pcols)] = qnitend_copy[_idx2(i, k, pcols)] + qnitend[_idx2(i, k, pcols)]
+                cmeiout[_idx2(i, k, pcols)] = cmeiout[_idx2(i, k, pcols)] + cmei[_idx2(i, k, pcols)]
+                evapsnow[_idx2(i, k, pcols)] = evapsnow[_idx2(i, k, pcols)] - prds[k - 1] * cldmax[_idx2(i, k, pcols)]
+                nevapr[_idx2(i, k, pcols)] = nevapr[_idx2(i, k, pcols)] - pre[k - 1] * cldmax[_idx2(i, k, pcols)]
+                nevapr2[_idx2(i, k, pcols)] = nevapr2[_idx2(i, k, pcols)] - pre[k - 1] * cldmax[_idx2(i, k, pcols)]
+                prain[_idx2(i, k, pcols)] = prain[_idx2(i, k, pcols)] + (pra[k - 1] + prc[k - 1]) * lcldm[_idx2(i, k, pcols)] + (-pracs[k - 1] - mnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]
+                prodsnow[_idx2(i, k, pcols)] = prodsnow[_idx2(i, k, pcols)] + (prai[k - 1] + prci[k - 1]) * icldm[_idx2(i, k, pcols)] + (psacws[k - 1] + bergs[k - 1]) * lcldm[_idx2(i, k, pcols)] + (pracs[k - 1] + mnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)]
+                qcsinksum_rate1ord[k - 1] = qcsinksum_rate1ord[k - 1] + (pra[k - 1] + prc[k - 1] + psacws[k - 1]) * lcldm[_idx2(i, k, pcols)]
+                qcsum_rate1ord[k - 1] = qcsum_rate1ord[k - 1] + qc[_idx2(i, k, pcols)]
+                prao[_idx2(i, k, pcols)] = prao[_idx2(i, k, pcols)] + pra[k - 1] * lcldm[_idx2(i, k, pcols)]
+                prco[_idx2(i, k, pcols)] = prco[_idx2(i, k, pcols)] + prc[k - 1] * lcldm[_idx2(i, k, pcols)]
+                mnuccco[_idx2(i, k, pcols)] = mnuccco[_idx2(i, k, pcols)] + mnuccc[k - 1] * lcldm[_idx2(i, k, pcols)]
+                mnuccto[_idx2(i, k, pcols)] = mnuccto[_idx2(i, k, pcols)] + mnucct[k - 1] * lcldm[_idx2(i, k, pcols)]
+                mnuccdo[_idx2(i, k, pcols)] = mnuccdo[_idx2(i, k, pcols)] + mnuccd[k - 1] * lcldm[_idx2(i, k, pcols)]
+                msacwio[_idx2(i, k, pcols)] = msacwio[_idx2(i, k, pcols)] + msacwi[k - 1] * lcldm[_idx2(i, k, pcols)]
+                psacwso[_idx2(i, k, pcols)] = psacwso[_idx2(i, k, pcols)] + psacws[k - 1] * lcldm[_idx2(i, k, pcols)]
+                bergso[_idx2(i, k, pcols)] = bergso[_idx2(i, k, pcols)] + bergs[k - 1] * lcldm[_idx2(i, k, pcols)]
+                bergo[_idx2(i, k, pcols)] = bergo[_idx2(i, k, pcols)] + berg[_idx2(i, k, pcols)]
+                prcio[_idx2(i, k, pcols)] = prcio[_idx2(i, k, pcols)] + prci[k - 1] * icldm[_idx2(i, k, pcols)]
+                praio[_idx2(i, k, pcols)] = praio[_idx2(i, k, pcols)] + prai[k - 1] * icldm[_idx2(i, k, pcols)]
+                mnuccro[_idx2(i, k, pcols)] = mnuccro[_idx2(i, k, pcols)] + mnuccr[k - 1] * cldmax[_idx2(i, k, pcols)]
+                pracso[_idx2(i, k, pcols)] = pracso[_idx2(i, k, pcols)] + pracs[k - 1] * cldmax[_idx2(i, k, pcols)]
+                preo[_idx2(i, k, pcols)] = preo[_idx2(i, k, pcols)] + pre[k - 1] * cldmax[_idx2(i, k, pcols)]
+                prdso[_idx2(i, k, pcols)] = prdso[_idx2(i, k, pcols)] + prds[k - 1] * cldmax[_idx2(i, k, pcols)]
+                nctend[_idx2(i, k, pcols)] = nctend[_idx2(i, k, pcols)] + npccn[k - 1] * mtime + (-nnuccc[k - 1] - nnucct[k - 1] - npsacws[k - 1] + nsubc[k - 1] - npra[k - 1] - nprc1[k - 1]) * lcldm[_idx2(i, k, pcols)]
+                if do_cldice:
+                    frztmp = nnucct[k - 1] + nsacwi[k - 1]
+                    if use_hetfrz_classnuc:
+                        frztmp = nnucct[k - 1] + nnuccc[k - 1] + nnudep[k - 1] + nsacwi[k - 1]
+                    nitend[_idx2(i, k, pcols)] = nitend[_idx2(i, k, pcols)] + nnuccd[k - 1] * mtime + frztmp * lcldm[_idx2(i, k, pcols)] + (nsubi[k - 1] - nprci[k - 1] - nprai[k - 1]) * icldm[_idx2(i, k, pcols)]
+                nstend[_idx2(i, k, pcols)] = nstend[_idx2(i, k, pcols)] + (nsubs[k - 1] + nsagg[k - 1] + nnuccr[k - 1]) * cldmax[_idx2(i, k, pcols)] + nprci[k - 1] * icldm[_idx2(i, k, pcols)]
+                nrtend[_idx2(i, k, pcols)] = nrtend[_idx2(i, k, pcols)] + nprc[k - 1] * lcldm[_idx2(i, k, pcols)] + (nsubr[k - 1] - npracs[k - 1] - nnuccr[k - 1] + nragg[k - 1]) * cldmax[_idx2(i, k, pcols)]
+                if nctend[_idx2(i, k, pcols)] > 0.0 and nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat > ncmax:
+                    nctend[_idx2(i, k, pcols)] = max(0.0, (ncmax - nc[_idx2(i, k, pcols)]) / deltat)
+                if do_cldice and nitend[_idx2(i, k, pcols)] > 0.0 and (ni[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)] * deltat > nimax):
+                    nitend[_idx2(i, k, pcols)] = max(0.0, (nimax - ni[_idx2(i, k, pcols)]) / deltat)
+                if qric[_idx2(i, k, pcols)] >= qsmall:
+                    if k == top_lev:
+                        qric[_idx2(i, k, pcols)] = qrtend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / umr[k - 1]
+                        nric[_idx2(i, k, pcols)] = nrtend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / unr[k - 1]
+                    else:
+                        qric[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * umr[k - 1 - 1] * qric[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * qrtend[_idx2(i, k, pcols)]) / (umr[k - 1] * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                        nric[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * unr[k - 1 - 1] * nric[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * nrtend[_idx2(i, k, pcols)]) / (unr[k - 1] * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                else:
+                    qric[_idx2(i, k, pcols)] = 0.0
+                    nric[_idx2(i, k, pcols)] = 0.0
+                if qniic[_idx2(i, k, pcols)] >= qsmall:
+                    if k == top_lev:
+                        qniic[_idx2(i, k, pcols)] = qnitend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / ums[k - 1]
+                        nsic[_idx2(i, k, pcols)] = nstend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)] / uns[k - 1]
+                    else:
+                        qniic[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * ums[k - 1 - 1] * qniic[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * qnitend[_idx2(i, k, pcols)]) / (ums[k - 1] * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                        nsic[_idx2(i, k, pcols)] = (rho[_idx2(i, k - 1, pcols)] * uns[k - 1 - 1] * nsic[_idx2(i, k - 1, pcols)] * cldmax[_idx2(i, k - 1, pcols)] + rho[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * nstend[_idx2(i, k, pcols)]) / (uns[k - 1] * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)])
+                else:
+                    qniic[_idx2(i, k, pcols)] = 0.0
+                    nsic[_idx2(i, k, pcols)] = 0.0
+                prect[i - 1] = prect[i - 1] + (qrtend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] + qnitend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]) / rhow
+                preci[i - 1] = preci[i - 1] + qnitend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] / rhow
+                rainrt[_idx2(i, k, pcols)] = qric[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * umr[k - 1] / rhow * 3600.0 * 1000.0
+                qrtot = max(qrtot + qrtend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)], 0.0)
+                qstot = max(qstot + qnitend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)], 0.0)
+                nrtot = max(nrtot + nrtend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)], 0.0)
+                nstot = max(nstot + nstend[_idx2(i, k, pcols)] * dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)], 0.0)
+                if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat > 275.15:
+                    if qstot > 0.0:
+                        dum = -xlf / cpp * qstot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)])
+                        if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat + dum < 275.15:
+                            dum = (t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat - 275.15) * cpp / xlf
+                            dum = dum / (xlf / cpp * qstot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]))
+                            dum = max(0.0, dum)
+                            dum = min(1.0, dum)
+                        else:
+                            dum = 1.0
+                        qric[_idx2(i, k, pcols)] = qric[_idx2(i, k, pcols)] + dum * qniic[_idx2(i, k, pcols)]
+                        nric[_idx2(i, k, pcols)] = nric[_idx2(i, k, pcols)] + dum * nsic[_idx2(i, k, pcols)]
+                        qniic[_idx2(i, k, pcols)] = (1.0 - dum) * qniic[_idx2(i, k, pcols)]
+                        nsic[_idx2(i, k, pcols)] = (1.0 - dum) * nsic[_idx2(i, k, pcols)]
+                        meltso[_idx2(i, k, pcols)] = meltso[_idx2(i, k, pcols)] + dum * qstot * g
+                        tmp = -xlf * dum * qstot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)])
+                        meltsdt[_idx2(i, k, pcols)] = meltsdt[_idx2(i, k, pcols)] + tmp
+                        tlat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)] + tmp
+                        qrtot = qrtot + dum * qstot
+                        nrtot = nrtot + dum * nstot
+                        qstot = (1.0 - dum) * qstot
+                        nstot = (1.0 - dum) * nstot
+                        preci[i - 1] = (1.0 - dum) * preci[i - 1]
+                if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat < tmelt - 5.0:
+                    if qrtot > 0.0:
+                        dum = xlf / cpp * qrtot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)])
+                        if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat + dum > tmelt - 5.0:
+                            dum = -(t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat - (tmelt - 5.0)) * cpp / xlf
+                            dum = dum / (xlf / cpp * qrtot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]))
+                            dum = max(0.0, dum)
+                            dum = min(1.0, dum)
+                        else:
+                            dum = 1.0
+                        qniic[_idx2(i, k, pcols)] = qniic[_idx2(i, k, pcols)] + dum * qric[_idx2(i, k, pcols)]
+                        nsic[_idx2(i, k, pcols)] = nsic[_idx2(i, k, pcols)] + dum * nric[_idx2(i, k, pcols)]
+                        qric[_idx2(i, k, pcols)] = (1.0 - dum) * qric[_idx2(i, k, pcols)]
+                        nric[_idx2(i, k, pcols)] = (1.0 - dum) * nric[_idx2(i, k, pcols)]
+                        frzro[_idx2(i, k, pcols)] = frzro[_idx2(i, k, pcols)] + dum * qrtot * g
+                        tmp = xlf * dum * qrtot / (dz[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)])
+                        frzrdt[_idx2(i, k, pcols)] = frzrdt[_idx2(i, k, pcols)] + tmp
+                        tlat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)] + tmp
+                        qstot = qstot + dum * qrtot
+                        qrtot = (1.0 - dum) * qrtot
+                        nstot = nstot + dum * nrtot
+                        nrtot = (1.0 - dum) * nrtot
+                        preci[i - 1] = preci[i - 1] + dum * (prect[i - 1] - preci[i - 1])
+                if qniic[_idx2(i, k, pcols)] < qsmall:
+                    qniic[_idx2(i, k, pcols)] = 0.0
+                    nsic[_idx2(i, k, pcols)] = 0.0
+                if qric[_idx2(i, k, pcols)] < qsmall:
+                    qric[_idx2(i, k, pcols)] = 0.0
+                    nric[_idx2(i, k, pcols)] = 0.0
+                nric[_idx2(i, k, pcols)] = max(nric[_idx2(i, k, pcols)], 0.0)
+                nsic[_idx2(i, k, pcols)] = max(nsic[_idx2(i, k, pcols)], 0.0)
+                if qric[_idx2(i, k, pcols)] >= qsmall:
+                    lamr[k - 1] = pow_r8(pi * rhow * nric[_idx2(i, k, pcols)] / qric[_idx2(i, k, pcols)], 1.0 / 3.0)
+                    n0r[k - 1] = nric[_idx2(i, k, pcols)] * lamr[k - 1]
+                    if lamr[k - 1] < lamminr:
+                        lamr[k - 1] = lamminr
+                        n0r[k - 1] = pow_i(lamr[k - 1], 4) * qric[_idx2(i, k, pcols)] / (pi * rhow)
+                        nric[_idx2(i, k, pcols)] = n0r[k - 1] / lamr[k - 1]
+                    elif lamr[k - 1] > lammaxr:
+                        lamr[k - 1] = lammaxr
+                        n0r[k - 1] = pow_i(lamr[k - 1], 4) * qric[_idx2(i, k, pcols)] / (pi * rhow)
+                        nric[_idx2(i, k, pcols)] = n0r[k - 1] / lamr[k - 1]
+                    unr[k - 1] = min(arn[_idx2(i, k, pcols)] * cons4 / pow_r8(lamr[k - 1], br), 9.1 * rhof[_idx2(i, k, pcols)])
+                    umr[k - 1] = min(arn[_idx2(i, k, pcols)] * cons5 / (6.0 * pow_r8(lamr[k - 1], br)), 9.1 * rhof[_idx2(i, k, pcols)])
+                else:
+                    lamr[k - 1] = 0.0
+                    n0r[k - 1] = 0.0
+                    umr[k - 1] = 0.0
+                    unr[k - 1] = 0.0
+                if lamr[k - 1] > 0.0:
+                    artmp = n0r[k - 1] * pi / (2.0 * pow_r8(lamr[k - 1], 3.0))
+                else:
+                    artmp = 0.0
+                if lamc[k - 1] > 0.0:
+                    actmp = cdist1[k - 1] * pi * gamma(pgam[k - 1] + 3.0) / (4.0 * pow_r8(lamc[k - 1], 2.0))
+                else:
+                    actmp = 0.0
+                if actmp > 0 or artmp > 0:
+                    rercld[_idx2(i, k, pcols)] = rercld[_idx2(i, k, pcols)] + 3.0 * (qric[_idx2(i, k, pcols)] + qcic[_idx2(i, k, pcols)]) / (4.0 * rhow * (actmp + artmp))
+                    arcld[_idx2(i, k, pcols)] = arcld[_idx2(i, k, pcols)] + 1.0
+                if qniic[_idx2(i, k, pcols)] >= qsmall:
+                    lams[k - 1] = pow_r8(cons6 * cs * nsic[_idx2(i, k, pcols)] / qniic[_idx2(i, k, pcols)], 1.0 / ds)
+                    n0s[k - 1] = nsic[_idx2(i, k, pcols)] * lams[k - 1]
+                    if lams[k - 1] < lammins:
+                        lams[k - 1] = lammins
+                        n0s[k - 1] = pow_r8(lams[k - 1], ds + 1.0) * qniic[_idx2(i, k, pcols)] / (cs * cons6)
+                        nsic[_idx2(i, k, pcols)] = n0s[k - 1] / lams[k - 1]
+                    elif lams[k - 1] > lammaxs:
+                        lams[k - 1] = lammaxs
+                        n0s[k - 1] = pow_r8(lams[k - 1], ds + 1.0) * qniic[_idx2(i, k, pcols)] / (cs * cons6)
+                        nsic[_idx2(i, k, pcols)] = n0s[k - 1] / lams[k - 1]
+                    ums[k - 1] = min(asn[_idx2(i, k, pcols)] * cons8 / (6.0 * pow_r8(lams[k - 1], bs)), 1.2 * rhof[_idx2(i, k, pcols)])
+                    uns[k - 1] = min(asn[_idx2(i, k, pcols)] * cons7 / pow_r8(lams[k - 1], bs), 1.2 * rhof[_idx2(i, k, pcols)])
+                else:
+                    lams[k - 1] = 0.0
+                    n0s[k - 1] = 0.0
+                    ums[k - 1] = 0.0
+                    uns[k - 1] = 0.0
+                qrout[_idx2(i, k, pcols)] = qrout[_idx2(i, k, pcols)] + qric[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)]
+                qsout[_idx2(i, k, pcols)] = qsout[_idx2(i, k, pcols)] + qniic[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)]
+                nrout[_idx2(i, k, pcols)] = nrout[_idx2(i, k, pcols)] + nric[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)]
+                nsout[_idx2(i, k, pcols)] = nsout[_idx2(i, k, pcols)] + nsic[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * cldmax[_idx2(i, k, pcols)]
+                tlat1[_idx2(i, k, pcols)] = tlat1[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)]
+                qvlat1[_idx2(i, k, pcols)] = qvlat1[_idx2(i, k, pcols)] + qvlat[_idx2(i, k, pcols)]
+                qctend1[_idx2(i, k, pcols)] = qctend1[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)]
+                qitend1[_idx2(i, k, pcols)] = qitend1[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)]
+                nctend1[_idx2(i, k, pcols)] = nctend1[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)]
+                nitend1[_idx2(i, k, pcols)] = nitend1[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)]
+                t[_idx2(i, k, pcols)] = t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] * deltat / cpp
+                q[_idx2(i, k, pcols)] = q[_idx2(i, k, pcols)] + qvlat[_idx2(i, k, pcols)] * deltat
+                qc[_idx2(i, k, pcols)] = qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat
+                qi[_idx2(i, k, pcols)] = qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat
+                nc[_idx2(i, k, pcols)] = nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat
+                ni[_idx2(i, k, pcols)] = ni[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)] * deltat
+                rainrt1[_idx2(i, k, pcols)] = rainrt1[_idx2(i, k, pcols)] + rainrt[_idx2(i, k, pcols)]
+                if arcld[_idx2(i, k, pcols)] > 0.0:
+                    rercld[_idx2(i, k, pcols)] = rercld[_idx2(i, k, pcols)] / arcld[_idx2(i, k, pcols)]
+                rflx[_idx2(i, 1, pcols)] = 0.0
+                sflx[_idx2(i, 1, pcols)] = 0.0
+                rflx[_idx2(i, k + 1, pcols)] = qrout[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * umr[k - 1]
+                sflx[_idx2(i, k + 1, pcols)] = qsout[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * ums[k - 1]
+                rflx1[_idx2(i, k + 1, pcols)] = rflx1[_idx2(i, k + 1, pcols)] + rflx[_idx2(i, k + 1, pcols)]
+                sflx1[_idx2(i, k + 1, pcols)] = sflx1[_idx2(i, k + 1, pcols)] + sflx[_idx2(i, k + 1, pcols)]
+            prect1[i - 1] = prect1[i - 1] + prect[i - 1]
+            preci1[i - 1] = preci1[i - 1] + preci[i - 1]
+        for k in range(top_lev, pver + 1):
+            rate1ord_cw2pr_st[_idx2(i, k, pcols)] = qcsinksum_rate1ord[k - 1] / max(qcsum_rate1ord[k - 1], 1e-30)
+    deltat = deltat * float(iter)
+    for i in range(1, ncol + 1):
+        skip_to_500 = False
+        if ltrue[i - 1] == 0:
+            for k in range(1, top_lev - 1 + 1):
+                effc[_idx2(i, k, pcols)] = 0.0
+                effi[_idx2(i, k, pcols)] = 0.0
+                effc_fn[_idx2(i, k, pcols)] = 0.0
+                lamcrad[_idx2(i, k, pcols)] = 0.0
+                pgamrad[_idx2(i, k, pcols)] = 0.0
+                deffi[_idx2(i, k, pcols)] = 0.0
+            for k in range(top_lev, pver + 1):
+                effc[_idx2(i, k, pcols)] = 10.0
+                effi[_idx2(i, k, pcols)] = 25.0
+                effc_fn[_idx2(i, k, pcols)] = 10.0
+                lamcrad[_idx2(i, k, pcols)] = 0.0
+                pgamrad[_idx2(i, k, pcols)] = 0.0
+                deffi[_idx2(i, k, pcols)] = 0.0
+            skip_to_500 = True
+        if not skip_to_500:
+            nstep = 1
+            prect[i - 1] = prect1[i - 1] / float(iter)
+            preci[i - 1] = preci1[i - 1] / float(iter)
+            for k in range(top_lev, pver + 1):
+                t[_idx2(i, k, pcols)] = t1[_idx2(i, k, pcols)]
+                q[_idx2(i, k, pcols)] = q1[_idx2(i, k, pcols)]
+                qc[_idx2(i, k, pcols)] = qc1[_idx2(i, k, pcols)]
+                qi[_idx2(i, k, pcols)] = qi1[_idx2(i, k, pcols)]
+                nc[_idx2(i, k, pcols)] = nc1[_idx2(i, k, pcols)]
+                ni[_idx2(i, k, pcols)] = ni1[_idx2(i, k, pcols)]
+                tlat[_idx2(i, k, pcols)] = tlat1[_idx2(i, k, pcols)] / float(iter)
+                qvlat[_idx2(i, k, pcols)] = qvlat1[_idx2(i, k, pcols)] / float(iter)
+                qctend[_idx2(i, k, pcols)] = qctend1[_idx2(i, k, pcols)] / float(iter)
+                qitend[_idx2(i, k, pcols)] = qitend1[_idx2(i, k, pcols)] / float(iter)
+                nctend[_idx2(i, k, pcols)] = nctend1[_idx2(i, k, pcols)] / float(iter)
+                nitend[_idx2(i, k, pcols)] = nitend1[_idx2(i, k, pcols)] / float(iter)
+                rainrt[_idx2(i, k, pcols)] = rainrt1[_idx2(i, k, pcols)] / float(iter)
+                rflx[_idx2(i, k + 1, pcols)] = rflx1[_idx2(i, k + 1, pcols)] / float(iter)
+                sflx[_idx2(i, k + 1, pcols)] = sflx1[_idx2(i, k + 1, pcols)] / float(iter)
+                qrout[_idx2(i, k, pcols)] = qrout[_idx2(i, k, pcols)] / float(iter)
+                qsout[_idx2(i, k, pcols)] = qsout[_idx2(i, k, pcols)] / float(iter)
+                nrout[_idx2(i, k, pcols)] = nrout[_idx2(i, k, pcols)] / float(iter)
+                nsout[_idx2(i, k, pcols)] = nsout[_idx2(i, k, pcols)] / float(iter)
+                nevapr[_idx2(i, k, pcols)] = nevapr[_idx2(i, k, pcols)] / float(iter)
+                nevapr2[_idx2(i, k, pcols)] = nevapr2[_idx2(i, k, pcols)] / float(iter)
+                evapsnow[_idx2(i, k, pcols)] = evapsnow[_idx2(i, k, pcols)] / float(iter)
+                prain[_idx2(i, k, pcols)] = prain[_idx2(i, k, pcols)] / float(iter)
+                prodsnow[_idx2(i, k, pcols)] = prodsnow[_idx2(i, k, pcols)] / float(iter)
+                cmeout[_idx2(i, k, pcols)] = cmeout[_idx2(i, k, pcols)] / float(iter)
+                cmeiout[_idx2(i, k, pcols)] = cmeiout[_idx2(i, k, pcols)] / float(iter)
+                meltsdt[_idx2(i, k, pcols)] = meltsdt[_idx2(i, k, pcols)] / float(iter)
+                frzrdt[_idx2(i, k, pcols)] = frzrdt[_idx2(i, k, pcols)] / float(iter)
+                prao[_idx2(i, k, pcols)] = prao[_idx2(i, k, pcols)] / float(iter)
+                prco[_idx2(i, k, pcols)] = prco[_idx2(i, k, pcols)] / float(iter)
+                mnuccco[_idx2(i, k, pcols)] = mnuccco[_idx2(i, k, pcols)] / float(iter)
+                mnuccto[_idx2(i, k, pcols)] = mnuccto[_idx2(i, k, pcols)] / float(iter)
+                msacwio[_idx2(i, k, pcols)] = msacwio[_idx2(i, k, pcols)] / float(iter)
+                psacwso[_idx2(i, k, pcols)] = psacwso[_idx2(i, k, pcols)] / float(iter)
+                bergso[_idx2(i, k, pcols)] = bergso[_idx2(i, k, pcols)] / float(iter)
+                bergo[_idx2(i, k, pcols)] = bergo[_idx2(i, k, pcols)] / float(iter)
+                prcio[_idx2(i, k, pcols)] = prcio[_idx2(i, k, pcols)] / float(iter)
+                praio[_idx2(i, k, pcols)] = praio[_idx2(i, k, pcols)] / float(iter)
+                mnuccro[_idx2(i, k, pcols)] = mnuccro[_idx2(i, k, pcols)] / float(iter)
+                pracso[_idx2(i, k, pcols)] = pracso[_idx2(i, k, pcols)] / float(iter)
+                mnuccdo[_idx2(i, k, pcols)] = mnuccdo[_idx2(i, k, pcols)] / float(iter)
+                preo[_idx2(i, k, pcols)] = preo[_idx2(i, k, pcols)] / float(iter)
+                prdso[_idx2(i, k, pcols)] = prdso[_idx2(i, k, pcols)] / float(iter)
+                frzro[_idx2(i, k, pcols)] = frzro[_idx2(i, k, pcols)] / float(iter)
+                meltso[_idx2(i, k, pcols)] = meltso[_idx2(i, k, pcols)] / float(iter)
+                wtprelat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)]
+                nevapr[_idx2(i, k, pcols)] = nevapr[_idx2(i, k, pcols)] + evapsnow[_idx2(i, k, pcols)]
+                prer_evap[_idx2(i, k, pcols)] = nevapr2[_idx2(i, k, pcols)]
+                prain[_idx2(i, k, pcols)] = prain[_idx2(i, k, pcols)] + prodsnow[_idx2(i, k, pcols)]
+                dumc[_idx2(i, k, pcols)] = (qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat) / lcldm[_idx2(i, k, pcols)]
+                dumi[_idx2(i, k, pcols)] = (qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat) / icldm[_idx2(i, k, pcols)]
+                dumnc[_idx2(i, k, pcols)] = max((nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat) / lcldm[_idx2(i, k, pcols)], 0.0)
+                dumni[_idx2(i, k, pcols)] = max((ni[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)] * deltat) / icldm[_idx2(i, k, pcols)], 0.0)
+                if dumi[_idx2(i, k, pcols)] >= qsmall:
+                    dumni[_idx2(i, k, pcols)] = min(dumni[_idx2(i, k, pcols)], dumi[_idx2(i, k, pcols)] * 1e+20)
+                    lami[k - 1] = pow_r8(cons1 * ci * dumni[_idx2(i, k, pcols)] / dumi[_idx2(i, k, pcols)], 1.0 / di)
+                    lami[k - 1] = max(lami[k - 1], lammini)
+                    lami[k - 1] = min(lami[k - 1], lammaxi)
+                else:
+                    lami[k - 1] = 0.0
+                if dumc[_idx2(i, k, pcols)] >= qsmall:
+                    dumnc[_idx2(i, k, pcols)] = min(dumnc[_idx2(i, k, pcols)], dumc[_idx2(i, k, pcols)] * 1e+20)
+                    dumnc[_idx2(i, k, pcols)] = max(dumnc[_idx2(i, k, pcols)], cdnl / rho[_idx2(i, k, pcols)])
+                    pgam[k - 1] = 0.0005714 * (ncic[_idx2(i, k, pcols)] / 1000000.0 * rho[_idx2(i, k, pcols)]) + 0.2714
+                    pgam[k - 1] = 1.0 / pow_i(pgam[k - 1], 2) - 1.0
+                    pgam[k - 1] = max(pgam[k - 1], 2.0)
+                    pgam[k - 1] = min(pgam[k - 1], 15.0)
+                    lamc[k - 1] = pow_r8(pi / 6.0 * rhow * dumnc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 4.0) / (dumc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0)), 1.0 / 3.0)
+                    lammin = (pgam[k - 1] + 1.0) / 5e-05
+                    lammax = (pgam[k - 1] + 1.0) / 2e-06
+                    lamc[k - 1] = max(lamc[k - 1], lammin)
+                    lamc[k - 1] = min(lamc[k - 1], lammax)
+                else:
+                    lamc[k - 1] = 0.0
+                if dumc[_idx2(i, k, pcols)] >= qsmall:
+                    unc = acn[_idx2(i, k, pcols)] * gamma(1.0 + bc + pgam[k - 1]) / (pow_r8(lamc[k - 1], bc) * gamma(pgam[k - 1] + 1.0))
+                    umc = acn[_idx2(i, k, pcols)] * gamma(4.0 + bc + pgam[k - 1]) / (pow_r8(lamc[k - 1], bc) * gamma(pgam[k - 1] + 4.0))
+                    vtrmc[_idx2(i, k, pcols)] = umc
+                else:
+                    umc = 0.0
+                    unc = 0.0
+                if dumi[_idx2(i, k, pcols)] >= qsmall:
+                    uni = ain[_idx2(i, k, pcols)] * cons16 / pow_r8(lami[k - 1], bi)
+                    umi = ain[_idx2(i, k, pcols)] * cons17 / (6.0 * pow_r8(lami[k - 1], bi))
+                    uni = min(uni, 1.2 * rhof[_idx2(i, k, pcols)])
+                    umi = min(umi, 1.2 * rhof[_idx2(i, k, pcols)])
+                    vtrmi[_idx2(i, k, pcols)] = umi
+                else:
+                    umi = 0.0
+                    uni = 0.0
+                fi[k - 1] = g * rho[_idx2(i, k, pcols)] * umi
+                fni[k - 1] = g * rho[_idx2(i, k, pcols)] * uni
+                fc[k - 1] = g * rho[_idx2(i, k, pcols)] * umc
+                fnc[k - 1] = g * rho[_idx2(i, k, pcols)] * unc
+                wtfc[_idx2(i, k, pcols)] = fc[k - 1]
+                wtfi[_idx2(i, k, pcols)] = fi[k - 1]
+                rgvm = max(fi[k - 1], fc[k - 1], fni[k - 1], fnc[k - 1])
+                nstep = max(int(rgvm * deltat / pdel[_idx2(i, k, pcols)] + 1.0), nstep)
+                dumc[_idx2(i, k, pcols)] = qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat
+                dumi[_idx2(i, k, pcols)] = qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat
+                dumnc[_idx2(i, k, pcols)] = max(nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat, 0.0)
+                dumni[_idx2(i, k, pcols)] = max(ni[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)] * deltat, 0.0)
+                if dumc[_idx2(i, k, pcols)] < qsmall:
+                    dumnc[_idx2(i, k, pcols)] = 0.0
+                if dumi[_idx2(i, k, pcols)] < qsmall:
+                    dumni[_idx2(i, k, pcols)] = 0.0
+            micro_mg1_0_sedimentation_fallout_codon(
+                i,
+                pcols,
+                pver,
+                top_lev,
+                nstep,
+                1 if do_cldice else 0,
+                deltat,
+                g,
+                xxlv,
+                xxls,
+                ptrs[9],
+                ptrs[134],
+                ptrs[133],
+                ptrs[21],
+                ptrs[23],
+                ptrs[20],
+                ptrs[22],
+                ptrs[51],
+                ptrs[52],
+                ptrs[19],
+                ptrs[46],
+                ptrs[45],
+                ptrs[18],
+                ptrs[208],
+                ptrs[209],
+                ptrs[206],
+                ptrs[207],
+                ptrs[218],
+                ptrs[219],
+                ptrs[216],
+                ptrs[217],
+                ptrs[226],
+                ptrs[227],
+                ptrs[224],
+                ptrs[225],
+                ptrs[27],
+                ptrs[28],
+            )
+            for k in range(top_lev, pver + 1):
+                dumc[_idx2(i, k, pcols)] = max(qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat, 0.0)
+                dumi[_idx2(i, k, pcols)] = max(qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat, 0.0)
+                dumnc[_idx2(i, k, pcols)] = max(nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat, 0.0)
+                dumni[_idx2(i, k, pcols)] = max(ni[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)] * deltat, 0.0)
+                if dumc[_idx2(i, k, pcols)] < qsmall:
+                    dumnc[_idx2(i, k, pcols)] = 0.0
+                if dumi[_idx2(i, k, pcols)] < qsmall:
+                    dumni[_idx2(i, k, pcols)] = 0.0
+                if do_cldice:
+                    if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat > tmelt:
+                        if dumi[_idx2(i, k, pcols)] > 0.0:
+                            dum = -dumi[_idx2(i, k, pcols)] * xlf / cpp
+                            if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat + dum < tmelt:
+                                dum = (t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat - tmelt) * cpp / xlf
+                                dum = dum / dumi[_idx2(i, k, pcols)] * xlf / cpp
+                                dum = max(0.0, dum)
+                                dum = min(1.0, dum)
+                            else:
+                                dum = 1.0
+                            qctend[_idx2(i, k, pcols)] = qctend[_idx2(i, k, pcols)] + dum * dumi[_idx2(i, k, pcols)] / deltat
+                            melto[_idx2(i, k, pcols)] = dum * dumi[_idx2(i, k, pcols)] / deltat
+                            nctend[_idx2(i, k, pcols)] = nctend[_idx2(i, k, pcols)] + 3.0 * dum * dumi[_idx2(i, k, pcols)] / deltat / (4.0 * pi * 5.12e-16 * rhow)
+                            qitend[_idx2(i, k, pcols)] = ((1.0 - dum) * dumi[_idx2(i, k, pcols)] - qi[_idx2(i, k, pcols)]) / deltat
+                            nitend[_idx2(i, k, pcols)] = ((1.0 - dum) * dumni[_idx2(i, k, pcols)] - ni[_idx2(i, k, pcols)]) / deltat
+                            tlat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)] - xlf * dum * dumi[_idx2(i, k, pcols)] / deltat
+                            wtpostlat[_idx2(i, k, pcols)] = wtpostlat[_idx2(i, k, pcols)] - xlf * dum * dumi[_idx2(i, k, pcols)] / deltat
+                    if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat < 233.15:
+                        if dumc[_idx2(i, k, pcols)] > 0.0:
+                            dum = dumc[_idx2(i, k, pcols)] * xlf / cpp
+                            if t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat + dum > 233.15:
+                                dum = -(t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat - 233.15) * cpp / xlf
+                                dum = dum / dumc[_idx2(i, k, pcols)] * xlf / cpp
+                                dum = max(0.0, dum)
+                                dum = min(1.0, dum)
+                            else:
+                                dum = 1.0
+                            qitend[_idx2(i, k, pcols)] = qitend[_idx2(i, k, pcols)] + dum * dumc[_idx2(i, k, pcols)] / deltat
+                            homoo[_idx2(i, k, pcols)] = dum * dumc[_idx2(i, k, pcols)] / deltat
+                            nitend[_idx2(i, k, pcols)] = nitend[_idx2(i, k, pcols)] + dum * 3.0 * dumc[_idx2(i, k, pcols)] / (4.0 * 3.14 * 1.563e-14 * 500.0) / deltat
+                            qctend[_idx2(i, k, pcols)] = ((1.0 - dum) * dumc[_idx2(i, k, pcols)] - qc[_idx2(i, k, pcols)]) / deltat
+                            nctend[_idx2(i, k, pcols)] = ((1.0 - dum) * dumnc[_idx2(i, k, pcols)] - nc[_idx2(i, k, pcols)]) / deltat
+                            tlat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)] + xlf * dum * dumc[_idx2(i, k, pcols)] / deltat
+                            wtpostlat[_idx2(i, k, pcols)] = wtpostlat[_idx2(i, k, pcols)] + xlf * dum * dumc[_idx2(i, k, pcols)] / deltat
+                    qtmp = q[_idx2(i, k, pcols)] + qvlat[_idx2(i, k, pcols)] * deltat
+                    ttmp = t[_idx2(i, k, pcols)] + tlat[_idx2(i, k, pcols)] / cpp * deltat
+                    esn = wv_sat_svp_water_codon(ttmp, wv_sat_idx)
+                    qsn = wv_sat_svp_to_qsat_codon(esn, p[_idx2(i, k, pcols)], epsilo, omeps)
+                    if qtmp > qsn and qsn > 0:
+                        dum = (qtmp - qsn) / (1.0 + cons27 * qsn / (cpp * rv * pow_i(ttmp, 2))) / deltat
+                        cmeout[_idx2(i, k, pcols)] = cmeout[_idx2(i, k, pcols)] + dum
+                        if ttmp > 268.15:
+                            dum1 = 0.0
+                        elif ttmp < 238.15:
+                            dum1 = 1.0
+                        else:
+                            dum1 = (268.15 - ttmp) / 30.0
+                        dum = (qtmp - qsn) / (1.0 + pow_i(xxls * dum1 + xxlv * (1.0 - dum1), 2) * qsn / (cpp * rv * pow_i(ttmp, 2))) / deltat
+                        qctend[_idx2(i, k, pcols)] = qctend[_idx2(i, k, pcols)] + dum * (1.0 - dum1)
+                        qcreso[_idx2(i, k, pcols)] = dum * (1.0 - dum1)
+                        qitend[_idx2(i, k, pcols)] = qitend[_idx2(i, k, pcols)] + dum * dum1
+                        qireso[_idx2(i, k, pcols)] = dum * dum1
+                        qvlat[_idx2(i, k, pcols)] = qvlat[_idx2(i, k, pcols)] - dum
+                        qvres[_idx2(i, k, pcols)] = -dum
+                        tlat[_idx2(i, k, pcols)] = tlat[_idx2(i, k, pcols)] + dum * (1.0 - dum1) * xxlv + dum * dum1 * xxls
+                        wtpostlat[_idx2(i, k, pcols)] = wtpostlat[_idx2(i, k, pcols)] + (dum * (1.0 - dum1) * xxlv + dum * dum1 * xxls)
+                dumc[_idx2(i, k, pcols)] = max(qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat, 0.0) / lcldm[_idx2(i, k, pcols)]
+                dumi[_idx2(i, k, pcols)] = max(qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat, 0.0) / icldm[_idx2(i, k, pcols)]
+                dumnc[_idx2(i, k, pcols)] = max(nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat, 0.0) / lcldm[_idx2(i, k, pcols)]
+                dumni[_idx2(i, k, pcols)] = max(ni[_idx2(i, k, pcols)] + nitend[_idx2(i, k, pcols)] * deltat, 0.0) / icldm[_idx2(i, k, pcols)]
+                dumc[_idx2(i, k, pcols)] = min(dumc[_idx2(i, k, pcols)], 0.005)
+                dumi[_idx2(i, k, pcols)] = min(dumi[_idx2(i, k, pcols)], 0.005)
+                if dumi[_idx2(i, k, pcols)] >= qsmall:
+                    dumni[_idx2(i, k, pcols)] = min(dumni[_idx2(i, k, pcols)], dumi[_idx2(i, k, pcols)] * 1e+20)
+                    lami[k - 1] = pow_r8(cons1 * ci * dumni[_idx2(i, k, pcols)] / dumi[_idx2(i, k, pcols)], 1.0 / di)
+                    if lami[k - 1] < lammini:
+                        lami[k - 1] = lammini
+                        n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * dumi[_idx2(i, k, pcols)] / (ci * cons1)
+                        niic[_idx2(i, k, pcols)] = n0i[k - 1] / lami[k - 1]
+                        if do_cldice:
+                            nitend[_idx2(i, k, pcols)] = (niic[_idx2(i, k, pcols)] * icldm[_idx2(i, k, pcols)] - ni[_idx2(i, k, pcols)]) / deltat
+                    elif lami[k - 1] > lammaxi:
+                        lami[k - 1] = lammaxi
+                        n0i[k - 1] = pow_r8(lami[k - 1], di + 1.0) * dumi[_idx2(i, k, pcols)] / (ci * cons1)
+                        niic[_idx2(i, k, pcols)] = n0i[k - 1] / lami[k - 1]
+                        if do_cldice:
+                            nitend[_idx2(i, k, pcols)] = (niic[_idx2(i, k, pcols)] * icldm[_idx2(i, k, pcols)] - ni[_idx2(i, k, pcols)]) / deltat
+                    effi[_idx2(i, k, pcols)] = 1.5 / lami[k - 1] * 1000000.0
+                else:
+                    effi[_idx2(i, k, pcols)] = 25.0
+                if not do_cldice:
+                    effi[_idx2(i, k, pcols)] = re_ice[_idx2(i, k, pcols)] * 1000000.0
+                if dumc[_idx2(i, k, pcols)] >= qsmall:
+                    dumnc[_idx2(i, k, pcols)] = min(dumnc[_idx2(i, k, pcols)], dumc[_idx2(i, k, pcols)] * 1e+20)
+                    if dumnc[_idx2(i, k, pcols)] < cdnl / rho[_idx2(i, k, pcols)]:
+                        nctend[_idx2(i, k, pcols)] = (cdnl / rho[_idx2(i, k, pcols)] * lcldm[_idx2(i, k, pcols)] - nc[_idx2(i, k, pcols)]) / deltat
+                    dumnc[_idx2(i, k, pcols)] = max(dumnc[_idx2(i, k, pcols)], cdnl / rho[_idx2(i, k, pcols)])
+                    pgam[k - 1] = 0.0005714 * (ncic[_idx2(i, k, pcols)] / 1000000.0 * rho[_idx2(i, k, pcols)]) + 0.2714
+                    pgam[k - 1] = 1.0 / pow_i(pgam[k - 1], 2) - 1.0
+                    pgam[k - 1] = max(pgam[k - 1], 2.0)
+                    pgam[k - 1] = min(pgam[k - 1], 15.0)
+                    lamc[k - 1] = pow_r8(pi / 6.0 * rhow * dumnc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 4.0) / (dumc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0)), 1.0 / 3.0)
+                    lammin = (pgam[k - 1] + 1.0) / 5e-05
+                    lammax = (pgam[k - 1] + 1.0) * omsm / 2e-06
+                    if lamc[k - 1] < lammin:
+                        lamc[k - 1] = lammin
+                        ncic[_idx2(i, k, pcols)] = 6.0 * pow_i(lamc[k - 1], 3) * dumc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0) / (pi * rhow * gamma(pgam[k - 1] + 4.0))
+                        nctend[_idx2(i, k, pcols)] = (ncic[_idx2(i, k, pcols)] * lcldm[_idx2(i, k, pcols)] - nc[_idx2(i, k, pcols)]) / deltat
+                    elif lamc[k - 1] > lammax:
+                        lamc[k - 1] = lammax
+                        ncic[_idx2(i, k, pcols)] = 6.0 * pow_i(lamc[k - 1], 3) * dumc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0) / (pi * rhow * gamma(pgam[k - 1] + 4.0))
+                        nctend[_idx2(i, k, pcols)] = (ncic[_idx2(i, k, pcols)] * lcldm[_idx2(i, k, pcols)] - nc[_idx2(i, k, pcols)]) / deltat
+                    effc[_idx2(i, k, pcols)] = gamma(pgam[k - 1] + 4.0) / gamma(pgam[k - 1] + 3.0) / lamc[k - 1] / 2.0 * 1000000.0
+                    lamcrad[_idx2(i, k, pcols)] = lamc[k - 1]
+                    pgamrad[_idx2(i, k, pcols)] = pgam[k - 1]
+                else:
+                    effc[_idx2(i, k, pcols)] = 10.0
+                    lamcrad[_idx2(i, k, pcols)] = 0.0
+                    pgamrad[_idx2(i, k, pcols)] = 0.0
+                if do_cldice:
+                    deffi[_idx2(i, k, pcols)] = effi[_idx2(i, k, pcols)] * rhoi / 917.0 * 2.0
+                else:
+                    deffi[_idx2(i, k, pcols)] = effi[_idx2(i, k, pcols)] * 2.0
+                dumnc[_idx2(i, k, pcols)] = 100000000.0
+                if dumc[_idx2(i, k, pcols)] >= qsmall:
+                    pgam[k - 1] = 0.0005714 * (ncic[_idx2(i, k, pcols)] / 1000000.0 * rho[_idx2(i, k, pcols)]) + 0.2714
+                    pgam[k - 1] = 1.0 / pow_i(pgam[k - 1], 2) - 1.0
+                    pgam[k - 1] = max(pgam[k - 1], 2.0)
+                    pgam[k - 1] = min(pgam[k - 1], 15.0)
+                    lamc[k - 1] = pow_r8(pi / 6.0 * rhow * dumnc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 4.0) / (dumc[_idx2(i, k, pcols)] * gamma(pgam[k - 1] + 1.0)), 1.0 / 3.0)
+                    lammin = (pgam[k - 1] + 1.0) / 5e-05
+                    lammax = (pgam[k - 1] + 1.0) / 2e-06
+                    if lamc[k - 1] < lammin:
+                        lamc[k - 1] = lammin
+                    elif lamc[k - 1] > lammax:
+                        lamc[k - 1] = lammax
+                    effc_fn[_idx2(i, k, pcols)] = gamma(pgam[k - 1] + 4.0) / gamma(pgam[k - 1] + 3.0) / lamc[k - 1] / 2.0 * 1000000.0
+                else:
+                    effc_fn[_idx2(i, k, pcols)] = 10.0
+        for k in range(top_lev, pver + 1):
+            if qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat < qsmall:
+                nctend[_idx2(i, k, pcols)] = -nc[_idx2(i, k, pcols)] / deltat
+            if do_cldice and qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat < qsmall:
+                nitend[_idx2(i, k, pcols)] = -ni[_idx2(i, k, pcols)] / deltat
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            if qsout[_idx2(i, k, pcols)] > 1e-07 and nsout[_idx2(i, k, pcols)] > 0.0:
+                dsout[_idx2(i, k, pcols)] = 3.0 * rhosn / 917.0 * pow_r8(pi * rhosn * nsout[_idx2(i, k, pcols)] / qsout[_idx2(i, k, pcols)], -1.0 / 3.0)
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            if qrout[_idx2(i, k, pcols)] > 1e-07 and nrout[_idx2(i, k, pcols)] > 0.0:
+                reff_rain[_idx2(i, k, pcols)] = 1.5 * pow_r8(pi * rhow * nrout[_idx2(i, k, pcols)] / qrout[_idx2(i, k, pcols)], -1.0 / 3.0) * 1000000.0
+            if qsout[_idx2(i, k, pcols)] > 1e-07 and nsout[_idx2(i, k, pcols)] > 0.0:
+                reff_snow[_idx2(i, k, pcols)] = 1.5 * pow_r8(pi * rhosn * nsout[_idx2(i, k, pcols)] / qsout[_idx2(i, k, pcols)], -1.0 / 3.0) * 1000000.0
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            if qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat >= qsmall:
+                dum = pow_i((qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat) / lcldm[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * 1000.0, 2) / (0.109 * (nc[_idx2(i, k, pcols)] + nctend[_idx2(i, k, pcols)] * deltat) / lcldm[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] / 1000000.0) * lcldm[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)]
+            else:
+                dum = 0.0
+            if qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat >= qsmall:
+                dum1 = pow_r8((qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat) * rho[_idx2(i, k, pcols)] / icldm[_idx2(i, k, pcols)] * 1000.0 / 0.1, 1.0 / 0.63) * icldm[_idx2(i, k, pcols)] / cldmax[_idx2(i, k, pcols)]
+            else:
+                dum1 = 0.0
+            if qsout[_idx2(i, k, pcols)] >= qsmall:
+                dum1 = dum1 + pow_r8(qsout[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)] * 1000.0 / 0.1, 1.0 / 0.63)
+            refl[_idx2(i, k, pcols)] = dum + dum1
+            if rainrt[_idx2(i, k, pcols)] >= 0.001:
+                dum = log10(pow_r8(rainrt[_idx2(i, k, pcols)], 6.0)) + 16.0
+                dum = pow_r8(10.0, dum / 10.0)
+            else:
+                dum = 0.0
+            refl[_idx2(i, k, pcols)] = refl[_idx2(i, k, pcols)] + dum
+            areflz[_idx2(i, k, pcols)] = refl[_idx2(i, k, pcols)]
+            if refl[_idx2(i, k, pcols)] > minrefl:
+                refl[_idx2(i, k, pcols)] = 10.0 * log10(refl[_idx2(i, k, pcols)])
+            else:
+                refl[_idx2(i, k, pcols)] = -9999.0
+            if refl[_idx2(i, k, pcols)] > mindbz:
+                arefl[_idx2(i, k, pcols)] = refl[_idx2(i, k, pcols)]
+                frefl[_idx2(i, k, pcols)] = 1.0
+            else:
+                arefl[_idx2(i, k, pcols)] = 0.0
+                areflz[_idx2(i, k, pcols)] = 0.0
+                frefl[_idx2(i, k, pcols)] = 0.0
+            csrfl[_idx2(i, k, pcols)] = min(csmax, refl[_idx2(i, k, pcols)])
+            if csrfl[_idx2(i, k, pcols)] > csmin:
+                acsrfl[_idx2(i, k, pcols)] = refl[_idx2(i, k, pcols)]
+                fcsrfl[_idx2(i, k, pcols)] = 1.0
+            else:
+                acsrfl[_idx2(i, k, pcols)] = 0.0
+                fcsrfl[_idx2(i, k, pcols)] = 0.0
+    for _s210 in range(1, pver + 1):
+        for _s209 in range(1, pcols + 1):
+            qrout2[_idx2(_s209, _s210, pcols)] = 0.0
+    for _s212 in range(1, pver + 1):
+        for _s211 in range(1, pcols + 1):
+            qsout2[_idx2(_s211, _s212, pcols)] = 0.0
+    for _s214 in range(1, pver + 1):
+        for _s213 in range(1, pcols + 1):
+            nrout2[_idx2(_s213, _s214, pcols)] = 0.0
+    for _s216 in range(1, pver + 1):
+        for _s215 in range(1, pcols + 1):
+            nsout2[_idx2(_s215, _s216, pcols)] = 0.0
+    for _s218 in range(1, pver + 1):
+        for _s217 in range(1, pcols + 1):
+            drout2[_idx2(_s217, _s218, pcols)] = 0.0
+    for _s220 in range(1, pver + 1):
+        for _s219 in range(1, pcols + 1):
+            dsout2[_idx2(_s219, _s220, pcols)] = 0.0
+    for _s222 in range(1, pver + 1):
+        for _s221 in range(1, pcols + 1):
+            freqs[_idx2(_s221, _s222, pcols)] = 0.0
+    for _s224 in range(1, pver + 1):
+        for _s223 in range(1, pcols + 1):
+            freqr[_idx2(_s223, _s224, pcols)] = 0.0
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            if qrout[_idx2(i, k, pcols)] > 1e-07 and nrout[_idx2(i, k, pcols)] > 0.0:
+                qrout2[_idx2(i, k, pcols)] = qrout[_idx2(i, k, pcols)]
+                nrout2[_idx2(i, k, pcols)] = nrout[_idx2(i, k, pcols)]
+                drout2[_idx2(i, k, pcols)] = pow_r8(pi * rhow * nrout[_idx2(i, k, pcols)] / qrout[_idx2(i, k, pcols)], -1.0 / 3.0)
+                freqr[_idx2(i, k, pcols)] = 1.0
+            if qsout[_idx2(i, k, pcols)] > 1e-07 and nsout[_idx2(i, k, pcols)] > 0.0:
+                qsout2[_idx2(i, k, pcols)] = qsout[_idx2(i, k, pcols)]
+                nsout2[_idx2(i, k, pcols)] = nsout[_idx2(i, k, pcols)]
+                dsout2[_idx2(i, k, pcols)] = pow_r8(pi * rhosn * nsout[_idx2(i, k, pcols)] / qsout[_idx2(i, k, pcols)], -1.0 / 3.0)
+                freqs[_idx2(i, k, pcols)] = 1.0
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            ncai[_idx2(i, k, pcols)] = dum2i[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]
+            ncal[_idx2(i, k, pcols)] = dum2l[_idx2(i, k, pcols)] * rho[_idx2(i, k, pcols)]
+    for _s226 in range(1, pver + 1):
+        for _s225 in range(1, pcols + 1):
+            nfice[_idx2(_s225, _s226, pcols)] = 0.0
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            dumc[_idx2(i, k, pcols)] = qc[_idx2(i, k, pcols)] + qctend[_idx2(i, k, pcols)] * deltat
+            dumi[_idx2(i, k, pcols)] = qi[_idx2(i, k, pcols)] + qitend[_idx2(i, k, pcols)] * deltat
+            dumfice = qsout[_idx2(i, k, pcols)] + qrout[_idx2(i, k, pcols)] + dumc[_idx2(i, k, pcols)] + dumi[_idx2(i, k, pcols)]
+            if dumfice > qsmall and qsout[_idx2(i, k, pcols)] + dumi[_idx2(i, k, pcols)] > qsmall:
+                nfice[_idx2(i, k, pcols)] = (qsout[_idx2(i, k, pcols)] + dumi[_idx2(i, k, pcols)]) / dumfice
+            if nfice[_idx2(i, k, pcols)] > 1.0:
+                nfice[_idx2(i, k, pcols)] = 1.0

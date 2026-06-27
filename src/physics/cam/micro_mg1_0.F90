@@ -47,7 +47,8 @@ use shr_spfn_mod, only: gamma => shr_spfn_gamma
   use wv_sat_methods, only: &
        svp_water => wv_sat_svp_water, &
        svp_ice => wv_sat_svp_ice, &
-       svp_to_qsat => wv_sat_svp_to_qsat
+       svp_to_qsat => wv_sat_svp_to_qsat, &
+       wv_sat_get_default_idx
 
   use phys_control, only: phys_getopts
   use spmd_utils, only: masterproc
@@ -173,6 +174,7 @@ logical :: micro_mg1_0_effrad_liq_prep_logged = .false.
 logical :: micro_mg1_0_effrad_ice_prep_logged = .false.
 logical :: micro_mg1_0_tend_use_native_impl = .false.
 logical :: micro_mg1_0_tend_impl_selected = .false.
+logical :: micro_mg1_0_tend_wrapper_logged = .false.
 logical :: micro_mg1_0_tail_diag_use_native_impl = .false.
 logical :: micro_mg1_0_tail_diag_impl_selected = .false.
 logical :: micro_mg1_0_tail_diag_logged = .false.
@@ -484,6 +486,871 @@ end subroutine micro_mg_init
 !microphysics routine for each timestep goes here...
 
 subroutine micro_mg_tend ( &
+     microp_uniform, pcols, pver, ncol, top_lev, deltatin,&
+     tn, qn, qc, qi, nc,                              &
+     ni, p, pdel, cldn, liqcldf,                      &
+     relvar, accre_enhan,                             &
+     icecldf, rate1ord_cw2pr_st, naai, npccnin,       &
+     rndst, nacon, tlat, qvlat, qctend,               &
+     qitend, nctend, nitend, effc, effc_fn,           &
+     effi, prect, preci, nevapr, evapsnow, am_evp_st, &
+     prain, prodsnow, cmeout, deffi, pgamrad,         &
+     lamcrad, qsout, dsout, rflx, sflx,               &
+     qrout, reff_rain, reff_snow, qcsevap, qisevap,   &
+     qvres, cmeiout, vtrmc, vtrmi, qcsedten,          &
+     qisedten, prao, prco, mnuccco, mnuccto,          &
+     msacwio, psacwso, bergso, bergo, melto,          &
+     homoo, qcreso, prcio, praio, qireso,             &
+     mnuccro, pracso, meltsdt, frzrdt, mnuccdo,       &
+     nrout, nsout, refl, arefl, areflz,               &
+     frefl, csrfl, acsrfl, fcsrfl, rercld,            &
+     ncai, ncal, qrout2, qsout2, nrout2,              &
+     nsout2, drout2, dsout2, freqs, freqr,            &
+     nfice, prer_evap, do_cldice, errstring,          &
+     tnd_qsnow, tnd_nsnow, re_ice,                    &
+     frzimm, frzcnt, frzdep, preo, prdso,             &
+     frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
+
+  logical, intent(in) :: microp_uniform
+  integer, intent(in) :: pcols
+  integer, intent(in) :: pver
+  integer, intent(in) :: ncol
+  integer, intent(in) :: top_lev
+  real(r8), intent(in) :: deltatin
+  real(r8), intent(in) :: tn(pcols,pver)
+  real(r8), intent(in) :: qn(pcols,pver)
+  real(r8), intent(inout) :: qc(pcols,pver)
+  real(r8), intent(inout) :: qi(pcols,pver)
+  real(r8), intent(inout) :: nc(pcols,pver)
+  real(r8), intent(inout) :: ni(pcols,pver)
+  real(r8), intent(in) :: p(pcols,pver)
+  real(r8), intent(in) :: pdel(pcols,pver)
+  real(r8), intent(in) :: cldn(pcols,pver)
+  real(r8), intent(in) :: liqcldf(pcols,pver)
+  real(r8), intent(in) :: relvar(pcols,pver)
+  real(r8), intent(in) :: accre_enhan(pcols,pver)
+  real(r8), intent(in) :: icecldf(pcols,pver)
+  real(r8), intent(out) :: rate1ord_cw2pr_st(pcols,pver)
+  real(r8), intent(in) :: naai(pcols,pver)
+  real(r8), intent(in) :: npccnin(pcols,pver)
+  real(r8), intent(in) :: rndst(pcols,pver,4)
+  real(r8), intent(in) :: nacon(pcols,pver,4)
+  real(r8), intent(out) :: tlat(pcols,pver)
+  real(r8), intent(out) :: qvlat(pcols,pver)
+  real(r8), intent(out) :: qctend(pcols,pver)
+  real(r8), intent(out) :: qitend(pcols,pver)
+  real(r8), intent(out) :: nctend(pcols,pver)
+  real(r8), intent(out) :: nitend(pcols,pver)
+  real(r8), intent(out) :: effc(pcols,pver)
+  real(r8), intent(out) :: effc_fn(pcols,pver)
+  real(r8), intent(out) :: effi(pcols,pver)
+  real(r8), intent(out) :: prect(pcols)
+  real(r8), intent(out) :: preci(pcols)
+  real(r8), intent(out) :: nevapr(pcols,pver)
+  real(r8), intent(out) :: evapsnow(pcols,pver)
+  real(r8), intent(out) :: am_evp_st(pcols,pver)
+  real(r8), intent(out) :: prain(pcols,pver)
+  real(r8), intent(out) :: prodsnow(pcols,pver)
+  real(r8), intent(out) :: cmeout(pcols,pver)
+  real(r8), intent(out) :: deffi(pcols,pver)
+  real(r8), intent(out) :: pgamrad(pcols,pver)
+  real(r8), intent(out) :: lamcrad(pcols,pver)
+  real(r8), intent(out) :: qsout(pcols,pver)
+  real(r8), intent(out) :: dsout(pcols,pver)
+  real(r8), intent(out) :: rflx(pcols,pver+1)
+  real(r8), intent(out) :: sflx(pcols,pver+1)
+  real(r8), intent(out) :: qrout(pcols,pver)
+  real(r8), intent(inout) :: reff_rain(pcols,pver)
+  real(r8), intent(inout) :: reff_snow(pcols,pver)
+  real(r8), intent(out) :: qcsevap(pcols,pver)
+  real(r8), intent(out) :: qisevap(pcols,pver)
+  real(r8), intent(out) :: qvres(pcols,pver)
+  real(r8), intent(out) :: cmeiout(pcols,pver)
+  real(r8), intent(out) :: vtrmc(pcols,pver)
+  real(r8), intent(out) :: vtrmi(pcols,pver)
+  real(r8), intent(out) :: qcsedten(pcols,pver)
+  real(r8), intent(out) :: qisedten(pcols,pver)
+  real(r8), intent(out) :: prao(pcols,pver)
+  real(r8), intent(out) :: prco(pcols,pver)
+  real(r8), intent(out) :: mnuccco(pcols,pver)
+  real(r8), intent(out) :: mnuccto(pcols,pver)
+  real(r8), intent(out) :: msacwio(pcols,pver)
+  real(r8), intent(out) :: psacwso(pcols,pver)
+  real(r8), intent(out) :: bergso(pcols,pver)
+  real(r8), intent(out) :: bergo(pcols,pver)
+  real(r8), intent(out) :: melto(pcols,pver)
+  real(r8), intent(out) :: homoo(pcols,pver)
+  real(r8), intent(out) :: qcreso(pcols,pver)
+  real(r8), intent(out) :: prcio(pcols,pver)
+  real(r8), intent(out) :: praio(pcols,pver)
+  real(r8), intent(out) :: qireso(pcols,pver)
+  real(r8), intent(out) :: mnuccro(pcols,pver)
+  real(r8), intent(out) :: pracso(pcols,pver)
+  real(r8), intent(out) :: meltsdt(pcols,pver)
+  real(r8), intent(out) :: frzrdt(pcols,pver)
+  real(r8), intent(out) :: mnuccdo(pcols,pver)
+  real(r8), intent(out) :: nrout(pcols,pver)
+  real(r8), intent(out) :: nsout(pcols,pver)
+  real(r8), intent(out) :: refl(pcols,pver)
+  real(r8), intent(out) :: arefl(pcols,pver)
+  real(r8), intent(out) :: areflz(pcols,pver)
+  real(r8), intent(out) :: frefl(pcols,pver)
+  real(r8), intent(out) :: csrfl(pcols,pver)
+  real(r8), intent(out) :: acsrfl(pcols,pver)
+  real(r8), intent(out) :: fcsrfl(pcols,pver)
+  real(r8), intent(out) :: rercld(pcols,pver)
+  real(r8), intent(out) :: ncai(pcols,pver)
+  real(r8), intent(out) :: ncal(pcols,pver)
+  real(r8), intent(out) :: qrout2(pcols,pver)
+  real(r8), intent(out) :: qsout2(pcols,pver)
+  real(r8), intent(out) :: nrout2(pcols,pver)
+  real(r8), intent(out) :: nsout2(pcols,pver)
+  real(r8), intent(out) :: drout2(pcols,pver)
+  real(r8), intent(out) :: dsout2(pcols,pver)
+  real(r8), intent(out) :: freqs(pcols,pver)
+  real(r8), intent(out) :: freqr(pcols,pver)
+  real(r8), intent(out) :: nfice(pcols,pver)
+  real(r8), intent(out) :: prer_evap(pcols,pver)
+  logical, intent(in) :: do_cldice
+  character(128), intent(out) :: errstring
+  real(r8), intent(in), pointer :: tnd_qsnow(:,:)
+  real(r8), intent(in), pointer :: tnd_nsnow(:,:)
+  real(r8), intent(in), pointer :: re_ice(:,:)
+  real(r8), intent(in), pointer :: frzimm(:,:)
+  real(r8), intent(in), pointer :: frzcnt(:,:)
+  real(r8), intent(in), pointer :: frzdep(:,:)
+  real(r8), intent(out) :: preo(pcols,pver)
+  real(r8), intent(out) :: prdso(pcols,pver)
+  real(r8), intent(out) :: frzro(pcols,pver)
+  real(r8), intent(out) :: meltso(pcols,pver)
+  real(r8), intent(out) :: wtfc(pcols,pver)
+  real(r8), intent(out) :: wtfi(pcols,pver)
+  real(r8), intent(out) :: wtprelat(pcols,pver)
+  real(r8), intent(out) :: wtpostlat(pcols,pver)
+
+  call micro_mg1_0_select_tend_impl()
+  if (micro_mg1_0_tend_use_native_impl) then
+     call micro_mg_tend_native( &
+       microp_uniform, pcols, pver, ncol, top_lev, deltatin, tn, qn, qc, qi, nc, ni, p, pdel, cldn, liqcldf, relvar, &
+       accre_enhan, icecldf, rate1ord_cw2pr_st, naai, npccnin, rndst, nacon, tlat, qvlat, qctend, qitend, nctend, &
+       nitend, effc, effc_fn, effi, prect, preci, nevapr, evapsnow, am_evp_st, prain, prodsnow, cmeout, deffi, &
+       pgamrad, lamcrad, qsout, dsout, rflx, sflx, qrout, reff_rain, reff_snow, qcsevap, qisevap, qvres, cmeiout, &
+       vtrmc, vtrmi, qcsedten, qisedten, prao, prco, mnuccco, mnuccto, msacwio, psacwso, bergso, bergo, melto, homoo, &
+       qcreso, prcio, praio, qireso, mnuccro, pracso, meltsdt, frzrdt, mnuccdo, nrout, nsout, refl, arefl, areflz, &
+       frefl, csrfl, acsrfl, fcsrfl, rercld, ncai, ncal, qrout2, qsout2, nrout2, nsout2, drout2, dsout2, freqs, freqr, &
+       nfice, prer_evap, do_cldice, errstring, tnd_qsnow, tnd_nsnow, re_ice, frzimm, frzcnt, frzdep, preo, prdso, &
+       frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
+  else
+     call micro_mg_tend_codon_wrap( &
+       microp_uniform, pcols, pver, ncol, top_lev, deltatin, tn, qn, qc, qi, nc, ni, p, pdel, cldn, liqcldf, relvar, &
+       accre_enhan, icecldf, rate1ord_cw2pr_st, naai, npccnin, rndst, nacon, tlat, qvlat, qctend, qitend, nctend, &
+       nitend, effc, effc_fn, effi, prect, preci, nevapr, evapsnow, am_evp_st, prain, prodsnow, cmeout, deffi, &
+       pgamrad, lamcrad, qsout, dsout, rflx, sflx, qrout, reff_rain, reff_snow, qcsevap, qisevap, qvres, cmeiout, &
+       vtrmc, vtrmi, qcsedten, qisedten, prao, prco, mnuccco, mnuccto, msacwio, psacwso, bergso, bergo, melto, homoo, &
+       qcreso, prcio, praio, qireso, mnuccro, pracso, meltsdt, frzrdt, mnuccdo, nrout, nsout, refl, arefl, areflz, &
+       frefl, csrfl, acsrfl, fcsrfl, rercld, ncai, ncal, qrout2, qsout2, nrout2, nsout2, drout2, dsout2, freqs, freqr, &
+       nfice, prer_evap, do_cldice, errstring, tnd_qsnow, tnd_nsnow, re_ice, frzimm, frzcnt, frzdep, preo, prdso, &
+       frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
+  end if
+end subroutine micro_mg_tend
+
+
+
+
+
+
+subroutine micro_mg_tend_codon_wrap ( &
+     microp_uniform, pcols, pver, ncol, top_lev, deltatin,&
+     tn, qn, qc, qi, nc,                              &
+     ni, p, pdel, cldn, liqcldf,                      &
+     relvar, accre_enhan,                             &
+     icecldf, rate1ord_cw2pr_st, naai, npccnin,       &
+     rndst, nacon, tlat, qvlat, qctend,               &
+     qitend, nctend, nitend, effc, effc_fn,           &
+     effi, prect, preci, nevapr, evapsnow, am_evp_st, &
+     prain, prodsnow, cmeout, deffi, pgamrad,         &
+     lamcrad, qsout, dsout, rflx, sflx,               &
+     qrout, reff_rain, reff_snow, qcsevap, qisevap,   &
+     qvres, cmeiout, vtrmc, vtrmi, qcsedten,          &
+     qisedten, prao, prco, mnuccco, mnuccto,          &
+     msacwio, psacwso, bergso, bergo, melto,          &
+     homoo, qcreso, prcio, praio, qireso,             &
+     mnuccro, pracso, meltsdt, frzrdt, mnuccdo,       &
+     nrout, nsout, refl, arefl, areflz,               &
+     frefl, csrfl, acsrfl, fcsrfl, rercld,            &
+     ncai, ncal, qrout2, qsout2, nrout2,              &
+     nsout2, drout2, dsout2, freqs, freqr,            &
+     nfice, prer_evap, do_cldice, errstring,          &
+     tnd_qsnow, tnd_nsnow, re_ice,                    &
+     frzimm, frzcnt, frzdep, preo, prdso,             &
+     frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+  use physconst, only: phys_epsilo => epsilo
+
+  logical, intent(in) :: microp_uniform
+  integer, intent(in) :: pcols
+  integer, intent(in) :: pver
+  integer, intent(in) :: ncol
+  integer, intent(in) :: top_lev
+  real(r8), intent(in) :: deltatin
+  real(r8), target, intent(in) :: tn(pcols,pver)
+  real(r8), target, intent(in) :: qn(pcols,pver)
+  real(r8), target, intent(inout) :: qc(pcols,pver)
+  real(r8), target, intent(inout) :: qi(pcols,pver)
+  real(r8), target, intent(inout) :: nc(pcols,pver)
+  real(r8), target, intent(inout) :: ni(pcols,pver)
+  real(r8), target, intent(in) :: p(pcols,pver)
+  real(r8), target, intent(in) :: pdel(pcols,pver)
+  real(r8), target, intent(in) :: cldn(pcols,pver)
+  real(r8), target, intent(in) :: liqcldf(pcols,pver)
+  real(r8), target, intent(in) :: relvar(pcols,pver)
+  real(r8), target, intent(in) :: accre_enhan(pcols,pver)
+  real(r8), target, intent(in) :: icecldf(pcols,pver)
+  real(r8), target, intent(out) :: rate1ord_cw2pr_st(pcols,pver)
+  real(r8), target, intent(in) :: naai(pcols,pver)
+  real(r8), target, intent(in) :: npccnin(pcols,pver)
+  real(r8), target, intent(in) :: rndst(pcols,pver,4)
+  real(r8), target, intent(in) :: nacon(pcols,pver,4)
+  real(r8), target, intent(out) :: tlat(pcols,pver)
+  real(r8), target, intent(out) :: qvlat(pcols,pver)
+  real(r8), target, intent(out) :: qctend(pcols,pver)
+  real(r8), target, intent(out) :: qitend(pcols,pver)
+  real(r8), target, intent(out) :: nctend(pcols,pver)
+  real(r8), target, intent(out) :: nitend(pcols,pver)
+  real(r8), target, intent(out) :: effc(pcols,pver)
+  real(r8), target, intent(out) :: effc_fn(pcols,pver)
+  real(r8), target, intent(out) :: effi(pcols,pver)
+  real(r8), target, intent(out) :: prect(pcols)
+  real(r8), target, intent(out) :: preci(pcols)
+  real(r8), target, intent(out) :: nevapr(pcols,pver)
+  real(r8), target, intent(out) :: evapsnow(pcols,pver)
+  real(r8), target, intent(out) :: am_evp_st(pcols,pver)
+  real(r8), target, intent(out) :: prain(pcols,pver)
+  real(r8), target, intent(out) :: prodsnow(pcols,pver)
+  real(r8), target, intent(out) :: cmeout(pcols,pver)
+  real(r8), target, intent(out) :: deffi(pcols,pver)
+  real(r8), target, intent(out) :: pgamrad(pcols,pver)
+  real(r8), target, intent(out) :: lamcrad(pcols,pver)
+  real(r8), target, intent(out) :: qsout(pcols,pver)
+  real(r8), target, intent(out) :: dsout(pcols,pver)
+  real(r8), target, intent(out) :: rflx(pcols,pver+1)
+  real(r8), target, intent(out) :: sflx(pcols,pver+1)
+  real(r8), target, intent(out) :: qrout(pcols,pver)
+  real(r8), target, intent(inout) :: reff_rain(pcols,pver)
+  real(r8), target, intent(inout) :: reff_snow(pcols,pver)
+  real(r8), target, intent(out) :: qcsevap(pcols,pver)
+  real(r8), target, intent(out) :: qisevap(pcols,pver)
+  real(r8), target, intent(out) :: qvres(pcols,pver)
+  real(r8), target, intent(out) :: cmeiout(pcols,pver)
+  real(r8), target, intent(out) :: vtrmc(pcols,pver)
+  real(r8), target, intent(out) :: vtrmi(pcols,pver)
+  real(r8), target, intent(out) :: qcsedten(pcols,pver)
+  real(r8), target, intent(out) :: qisedten(pcols,pver)
+  real(r8), target, intent(out) :: prao(pcols,pver)
+  real(r8), target, intent(out) :: prco(pcols,pver)
+  real(r8), target, intent(out) :: mnuccco(pcols,pver)
+  real(r8), target, intent(out) :: mnuccto(pcols,pver)
+  real(r8), target, intent(out) :: msacwio(pcols,pver)
+  real(r8), target, intent(out) :: psacwso(pcols,pver)
+  real(r8), target, intent(out) :: bergso(pcols,pver)
+  real(r8), target, intent(out) :: bergo(pcols,pver)
+  real(r8), target, intent(out) :: melto(pcols,pver)
+  real(r8), target, intent(out) :: homoo(pcols,pver)
+  real(r8), target, intent(out) :: qcreso(pcols,pver)
+  real(r8), target, intent(out) :: prcio(pcols,pver)
+  real(r8), target, intent(out) :: praio(pcols,pver)
+  real(r8), target, intent(out) :: qireso(pcols,pver)
+  real(r8), target, intent(out) :: mnuccro(pcols,pver)
+  real(r8), target, intent(out) :: pracso(pcols,pver)
+  real(r8), target, intent(out) :: meltsdt(pcols,pver)
+  real(r8), target, intent(out) :: frzrdt(pcols,pver)
+  real(r8), target, intent(out) :: mnuccdo(pcols,pver)
+  real(r8), target, intent(out) :: nrout(pcols,pver)
+  real(r8), target, intent(out) :: nsout(pcols,pver)
+  real(r8), target, intent(out) :: refl(pcols,pver)
+  real(r8), target, intent(out) :: arefl(pcols,pver)
+  real(r8), target, intent(out) :: areflz(pcols,pver)
+  real(r8), target, intent(out) :: frefl(pcols,pver)
+  real(r8), target, intent(out) :: csrfl(pcols,pver)
+  real(r8), target, intent(out) :: acsrfl(pcols,pver)
+  real(r8), target, intent(out) :: fcsrfl(pcols,pver)
+  real(r8), target, intent(out) :: rercld(pcols,pver)
+  real(r8), target, intent(out) :: ncai(pcols,pver)
+  real(r8), target, intent(out) :: ncal(pcols,pver)
+  real(r8), target, intent(out) :: qrout2(pcols,pver)
+  real(r8), target, intent(out) :: qsout2(pcols,pver)
+  real(r8), target, intent(out) :: nrout2(pcols,pver)
+  real(r8), target, intent(out) :: nsout2(pcols,pver)
+  real(r8), target, intent(out) :: drout2(pcols,pver)
+  real(r8), target, intent(out) :: dsout2(pcols,pver)
+  real(r8), target, intent(out) :: freqs(pcols,pver)
+  real(r8), target, intent(out) :: freqr(pcols,pver)
+  real(r8), target, intent(out) :: nfice(pcols,pver)
+  real(r8), target, intent(out) :: prer_evap(pcols,pver)
+  logical, intent(in) :: do_cldice
+  character(128), intent(out) :: errstring
+  real(r8), intent(in), pointer :: tnd_qsnow(:,:)
+  real(r8), intent(in), pointer :: tnd_nsnow(:,:)
+  real(r8), intent(in), pointer :: re_ice(:,:)
+  real(r8), intent(in), pointer :: frzimm(:,:)
+  real(r8), intent(in), pointer :: frzcnt(:,:)
+  real(r8), intent(in), pointer :: frzdep(:,:)
+  real(r8), target, intent(out) :: preo(pcols,pver)
+  real(r8), target, intent(out) :: prdso(pcols,pver)
+  real(r8), target, intent(out) :: frzro(pcols,pver)
+  real(r8), target, intent(out) :: meltso(pcols,pver)
+  real(r8), target, intent(out) :: wtfc(pcols,pver)
+  real(r8), target, intent(out) :: wtfi(pcols,pver)
+  real(r8), target, intent(out) :: wtprelat(pcols,pver)
+  real(r8), target, intent(out) :: wtpostlat(pcols,pver)
+
+  real(r8), target :: nevapr2(pcols,pver)
+  real(r8), target :: t1(pcols,pver)
+  real(r8), target :: q1(pcols,pver)
+  real(r8), target :: qc1(pcols,pver)
+  real(r8), target :: qi1(pcols,pver)
+  real(r8), target :: nc1(pcols,pver)
+  real(r8), target :: ni1(pcols,pver)
+  real(r8), target :: tlat1(pcols,pver)
+  real(r8), target :: qvlat1(pcols,pver)
+  real(r8), target :: qctend1(pcols,pver)
+  real(r8), target :: qitend1(pcols,pver)
+  real(r8), target :: nctend1(pcols,pver)
+  real(r8), target :: nitend1(pcols,pver)
+  real(r8), target :: prect1(pcols)
+  real(r8), target :: preci1(pcols)
+  real(r8), target :: q(pcols,pver)
+  real(r8), target :: t(pcols,pver)
+  real(r8), target :: rho(pcols,pver)
+  real(r8), target :: dv(pcols,pver)
+  real(r8), target :: mu(pcols,pver)
+  real(r8), target :: sc(pcols,pver)
+  real(r8), target :: kap(pcols,pver)
+  real(r8), target :: rhof(pcols,pver)
+  real(r8), target :: cldmax(pcols,pver)
+  real(r8), target :: cldm(pcols,pver)
+  real(r8), target :: icldm(pcols,pver)
+  real(r8), target :: lcldm(pcols,pver)
+  real(r8), target :: icwc(pcols)
+  real(r8), target :: calpha(pcols)
+  real(r8), target :: cbeta(pcols)
+  real(r8), target :: cbetah(pcols)
+  real(r8), target :: cgamma(pcols)
+  real(r8), target :: cgamah(pcols)
+  real(r8), target :: rcgama(pcols)
+  real(r8), target :: cmec1(pcols)
+  real(r8), target :: cmec2(pcols)
+  real(r8), target :: cmec3(pcols)
+  real(r8), target :: cmec4(pcols)
+  real(r8), target :: cme(pcols,pver)
+  real(r8), target :: cmei(pcols,pver)
+  real(r8), target :: cwml(pcols,pver)
+  real(r8), target :: cwmi(pcols,pver)
+  real(r8), target :: nnuccd(pver)
+  real(r8), target :: mnuccd(pver)
+  real(r8), target :: lcldn(pcols,pver)
+  real(r8), target :: lcldo(pcols,pver)
+  real(r8), target :: nctend_mixnuc(pcols,pver)
+  real(r8), target :: qcsinksum_rate1ord(pver)
+  real(r8), target :: qcsum_rate1ord(pver)
+  real(r8), target :: npccn(pver)
+  real(r8), target :: qcic(pcols,pver)
+  real(r8), target :: qiic(pcols,pver)
+  real(r8), target :: qniic(pcols,pver)
+  real(r8), target :: qric(pcols,pver)
+  real(r8), target :: ncic(pcols,pver)
+  real(r8), target :: niic(pcols,pver)
+  real(r8), target :: nsic(pcols,pver)
+  real(r8), target :: nric(pcols,pver)
+  real(r8), target :: lami(pver)
+  real(r8), target :: n0i(pver)
+  real(r8), target :: lamc(pver)
+  real(r8), target :: n0c(pver)
+  real(r8), target :: lams(pver)
+  real(r8), target :: n0s(pver)
+  real(r8), target :: lamr(pver)
+  real(r8), target :: n0r(pver)
+  real(r8), target :: cdist1(pver)
+  real(r8), target :: arcld(pcols,pver)
+  real(r8), target :: pgam(pver)
+  real(r8), target :: mnuccc(pver)
+  real(r8), target :: nnuccc(pver)
+  real(r8), target :: mnucct(pver)
+  real(r8), target :: nnucct(pver)
+  real(r8), target :: msacwi(pver)
+  real(r8), target :: nsacwi(pver)
+  real(r8), target :: prc(pver)
+  real(r8), target :: nprc(pver)
+  real(r8), target :: nprc1(pver)
+  real(r8), target :: nsagg(pver)
+  real(r8), target :: psacws(pver)
+  real(r8), target :: npsacws(pver)
+  real(r8), target :: uns(pver)
+  real(r8), target :: ums(pver)
+  real(r8), target :: unr(pver)
+  real(r8), target :: umr(pver)
+  real(r8), target :: pracs(pver)
+  real(r8), target :: npracs(pver)
+  real(r8), target :: mnuccr(pver)
+  real(r8), target :: nnuccr(pver)
+  real(r8), target :: pra(pver)
+  real(r8), target :: npra(pver)
+  real(r8), target :: nragg(pver)
+  real(r8), target :: prci(pver)
+  real(r8), target :: nprci(pver)
+  real(r8), target :: prai(pver)
+  real(r8), target :: nprai(pver)
+  real(r8), target :: pre(pver)
+  real(r8), target :: prds(pver)
+  real(r8), target :: dumc(pcols,pver)
+  real(r8), target :: dumnc(pcols,pver)
+  real(r8), target :: dumi(pcols,pver)
+  real(r8), target :: dumni(pcols,pver)
+  real(r8), target :: dums(pcols,pver)
+  real(r8), target :: dumns(pcols,pver)
+  real(r8), target :: dumr(pcols,pver)
+  real(r8), target :: dumnr(pcols,pver)
+  real(r8), target :: fr(pver)
+  real(r8), target :: fnr(pver)
+  real(r8), target :: fc(pver)
+  real(r8), target :: fnc(pver)
+  real(r8), target :: fi(pver)
+  real(r8), target :: fni(pver)
+  real(r8), target :: fs(pver)
+  real(r8), target :: fns(pver)
+  real(r8), target :: faloutr(pver)
+  real(r8), target :: faloutnr(pver)
+  real(r8), target :: faloutc(pver)
+  real(r8), target :: faloutnc(pver)
+  real(r8), target :: falouti(pver)
+  real(r8), target :: faloutni(pver)
+  real(r8), target :: falouts(pver)
+  real(r8), target :: faloutns(pver)
+  real(r8), target :: relhum(pcols,pver)
+  real(r8), target :: csigma(pcols)
+  real(r8), target :: arn(pcols,pver)
+  real(r8), target :: asn(pcols,pver)
+  real(r8), target :: acn(pcols,pver)
+  real(r8), target :: ain(pcols,pver)
+  real(r8), target :: nsubi(pver)
+  real(r8), target :: nsubc(pver)
+  real(r8), target :: nsubs(pver)
+  real(r8), target :: nsubr(pver)
+  real(r8), target :: dz(pcols,pver)
+  real(r8), target :: rflx1(pcols,pver+1)
+  real(r8), target :: sflx1(pcols,pver+1)
+  real(r8), target :: tsp(pcols,pver)
+  real(r8), target :: qsp(pcols,pver)
+  real(r8), target :: qsphy(pcols,pver)
+  real(r8), target :: qs(pcols)
+  real(r8), target :: es(pcols)
+  real(r8), target :: esl(pcols,pver)
+  real(r8), target :: esi(pcols,pver)
+  real(r8), target :: qnitend(pcols,pver)
+  real(r8), target :: nstend(pcols,pver)
+  real(r8), target :: qrtend(pcols,pver)
+  real(r8), target :: nrtend(pcols,pver)
+  real(r8), target :: berg(pcols,pver)
+  real(r8), target :: bergs(pver)
+  real(r8), target :: drout(pcols,pver)
+  real(r8), target :: dum2i(pcols,pver)
+  real(r8), target :: dum2l(pcols,pver)
+  real(r8), target :: cldmw(pcols,pver)
+  real(r8), target :: qrtend_copy(pcols,pver)
+  real(r8), target :: qnitend_copy(pcols,pver)
+  real(r8), target :: rainrt(pcols,pver)
+  real(r8), target :: rainrt1(pcols,pver)
+  real(r8), target :: mnudep(pver)
+  real(r8), target :: nnudep(pver)
+  integer(c_int64_t), target :: ltrue(pcols)
+
+  type(c_ptr), target :: mg_tend_ptrs(267)
+  real(c_double), target :: mg_tend_scalars(68)
+  logical :: do_clubb_sgs
+
+  interface
+     subroutine micro_mg_tend_codon(pcols_c, pver_c, ncol_c, top_lev_c, microp_uniform_c, do_cldice_c, &
+          do_clubb_sgs_c, use_hetfrz_classnuc_c, wv_sat_idx_c, deltatin_c, epsilo_c, omeps_c, ptrs_p, scalars_p) &
+          bind(c, name="micro_mg_tend_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, top_lev_c
+       integer(c_int64_t), value :: microp_uniform_c, do_cldice_c, do_clubb_sgs_c, use_hetfrz_classnuc_c
+       integer(c_int64_t), value :: wv_sat_idx_c
+       real(c_double), value :: deltatin_c, epsilo_c, omeps_c
+       type(c_ptr), value :: ptrs_p, scalars_p
+     end subroutine micro_mg_tend_codon
+  end interface
+
+  errstring = ' '
+
+  if (.not. (do_cldice .or. &
+       (associated(tnd_qsnow) .and. associated(tnd_nsnow) .and. associated(re_ice)))) then
+     errstring = "MG's native cloud ice processes are disabled, but &
+          &no replacement values were passed in."
+  end if
+
+  if (use_hetfrz_classnuc .and. (.not. &
+       (associated(frzimm) .and. associated(frzcnt) .and. associated(frzdep)))) then
+     errstring = "Hoose heterogeneous freezing is enabled, but the &
+          &required tendencies were not all passed in."
+  end if
+
+  call phys_getopts(do_clubb_sgs_out = do_clubb_sgs)
+
+  mg_tend_ptrs(:) = c_null_ptr
+  mg_tend_ptrs(1) = c_loc(tn(1,1))
+  mg_tend_ptrs(2) = c_loc(qn(1,1))
+  mg_tend_ptrs(3) = c_loc(relvar(1,1))
+  mg_tend_ptrs(4) = c_loc(accre_enhan(1,1))
+  mg_tend_ptrs(5) = c_loc(qc(1,1))
+  mg_tend_ptrs(6) = c_loc(qi(1,1))
+  mg_tend_ptrs(7) = c_loc(nc(1,1))
+  mg_tend_ptrs(8) = c_loc(ni(1,1))
+  mg_tend_ptrs(9) = c_loc(p(1,1))
+  mg_tend_ptrs(10) = c_loc(pdel(1,1))
+  mg_tend_ptrs(11) = c_loc(cldn(1,1))
+  mg_tend_ptrs(12) = c_loc(icecldf(1,1))
+  mg_tend_ptrs(13) = c_loc(liqcldf(1,1))
+  mg_tend_ptrs(14) = c_loc(rate1ord_cw2pr_st(1,1))
+  mg_tend_ptrs(15) = c_loc(naai(1,1))
+  mg_tend_ptrs(16) = c_loc(npccnin(1,1))
+  mg_tend_ptrs(17) = c_loc(rndst(1,1,1))
+  mg_tend_ptrs(18) = c_loc(nacon(1,1,1))
+  mg_tend_ptrs(19) = c_loc(tlat(1,1))
+  mg_tend_ptrs(20) = c_loc(qvlat(1,1))
+  mg_tend_ptrs(21) = c_loc(qctend(1,1))
+  mg_tend_ptrs(22) = c_loc(qitend(1,1))
+  mg_tend_ptrs(23) = c_loc(nctend(1,1))
+  mg_tend_ptrs(24) = c_loc(nitend(1,1))
+  mg_tend_ptrs(25) = c_loc(effc(1,1))
+  mg_tend_ptrs(26) = c_loc(effc_fn(1,1))
+  mg_tend_ptrs(27) = c_loc(effi(1,1))
+  mg_tend_ptrs(28) = c_loc(prect(1))
+  mg_tend_ptrs(29) = c_loc(preci(1))
+  mg_tend_ptrs(30) = c_loc(nevapr(1,1))
+  mg_tend_ptrs(31) = c_loc(evapsnow(1,1))
+  mg_tend_ptrs(32) = c_loc(am_evp_st(1,1))
+  mg_tend_ptrs(33) = c_loc(prain(1,1))
+  mg_tend_ptrs(34) = c_loc(prodsnow(1,1))
+  mg_tend_ptrs(35) = c_loc(cmeout(1,1))
+  mg_tend_ptrs(36) = c_loc(deffi(1,1))
+  mg_tend_ptrs(37) = c_loc(pgamrad(1,1))
+  mg_tend_ptrs(38) = c_loc(lamcrad(1,1))
+  mg_tend_ptrs(39) = c_loc(qsout(1,1))
+  mg_tend_ptrs(40) = c_loc(dsout(1,1))
+  mg_tend_ptrs(41) = c_loc(rflx(1,1))
+  mg_tend_ptrs(42) = c_loc(sflx(1,1))
+  mg_tend_ptrs(43) = c_loc(qrout(1,1))
+  mg_tend_ptrs(44) = c_loc(reff_rain(1,1))
+  mg_tend_ptrs(45) = c_loc(reff_snow(1,1))
+  mg_tend_ptrs(46) = c_loc(qcsevap(1,1))
+  mg_tend_ptrs(47) = c_loc(qisevap(1,1))
+  mg_tend_ptrs(48) = c_loc(qvres(1,1))
+  mg_tend_ptrs(49) = c_loc(cmeiout(1,1))
+  mg_tend_ptrs(50) = c_loc(vtrmc(1,1))
+  mg_tend_ptrs(51) = c_loc(vtrmi(1,1))
+  mg_tend_ptrs(52) = c_loc(qcsedten(1,1))
+  mg_tend_ptrs(53) = c_loc(qisedten(1,1))
+  mg_tend_ptrs(54) = c_loc(prao(1,1))
+  mg_tend_ptrs(55) = c_loc(prco(1,1))
+  mg_tend_ptrs(56) = c_loc(mnuccco(1,1))
+  mg_tend_ptrs(57) = c_loc(mnuccto(1,1))
+  mg_tend_ptrs(58) = c_loc(msacwio(1,1))
+  mg_tend_ptrs(59) = c_loc(psacwso(1,1))
+  mg_tend_ptrs(60) = c_loc(bergso(1,1))
+  mg_tend_ptrs(61) = c_loc(bergo(1,1))
+  mg_tend_ptrs(62) = c_loc(melto(1,1))
+  mg_tend_ptrs(63) = c_loc(homoo(1,1))
+  mg_tend_ptrs(64) = c_loc(qcreso(1,1))
+  mg_tend_ptrs(65) = c_loc(prcio(1,1))
+  mg_tend_ptrs(66) = c_loc(praio(1,1))
+  mg_tend_ptrs(67) = c_loc(qireso(1,1))
+  mg_tend_ptrs(68) = c_loc(mnuccro(1,1))
+  mg_tend_ptrs(69) = c_loc(pracso(1,1))
+  mg_tend_ptrs(70) = c_loc(meltsdt(1,1))
+  mg_tend_ptrs(71) = c_loc(frzrdt(1,1))
+  mg_tend_ptrs(72) = c_loc(mnuccdo(1,1))
+  mg_tend_ptrs(73) = c_loc(nrout(1,1))
+  mg_tend_ptrs(74) = c_loc(nsout(1,1))
+  mg_tend_ptrs(75) = c_loc(refl(1,1))
+  mg_tend_ptrs(76) = c_loc(arefl(1,1))
+  mg_tend_ptrs(77) = c_loc(areflz(1,1))
+  mg_tend_ptrs(78) = c_loc(frefl(1,1))
+  mg_tend_ptrs(79) = c_loc(csrfl(1,1))
+  mg_tend_ptrs(80) = c_loc(acsrfl(1,1))
+  mg_tend_ptrs(81) = c_loc(fcsrfl(1,1))
+  mg_tend_ptrs(82) = c_loc(rercld(1,1))
+  mg_tend_ptrs(83) = c_loc(ncai(1,1))
+  mg_tend_ptrs(84) = c_loc(ncal(1,1))
+  mg_tend_ptrs(85) = c_loc(qrout2(1,1))
+  mg_tend_ptrs(86) = c_loc(qsout2(1,1))
+  mg_tend_ptrs(87) = c_loc(nrout2(1,1))
+  mg_tend_ptrs(88) = c_loc(nsout2(1,1))
+  mg_tend_ptrs(89) = c_loc(drout2(1,1))
+  mg_tend_ptrs(90) = c_loc(dsout2(1,1))
+  mg_tend_ptrs(91) = c_loc(freqs(1,1))
+  mg_tend_ptrs(92) = c_loc(freqr(1,1))
+  mg_tend_ptrs(93) = c_loc(nfice(1,1))
+  mg_tend_ptrs(94) = c_loc(prer_evap(1,1))
+  mg_tend_ptrs(95) = c_loc(nevapr2(1,1))
+  if (associated(tnd_qsnow)) mg_tend_ptrs(96) = c_loc(tnd_qsnow(1,1))
+  if (associated(tnd_nsnow)) mg_tend_ptrs(97) = c_loc(tnd_nsnow(1,1))
+  if (associated(re_ice)) mg_tend_ptrs(98) = c_loc(re_ice(1,1))
+  if (associated(frzimm)) mg_tend_ptrs(99) = c_loc(frzimm(1,1))
+  if (associated(frzcnt)) mg_tend_ptrs(100) = c_loc(frzcnt(1,1))
+  if (associated(frzdep)) mg_tend_ptrs(101) = c_loc(frzdep(1,1))
+  mg_tend_ptrs(102) = c_loc(preo(1,1))
+  mg_tend_ptrs(103) = c_loc(prdso(1,1))
+  mg_tend_ptrs(104) = c_loc(frzro(1,1))
+  mg_tend_ptrs(105) = c_loc(meltso(1,1))
+  mg_tend_ptrs(106) = c_loc(wtfc(1,1))
+  mg_tend_ptrs(107) = c_loc(wtfi(1,1))
+  mg_tend_ptrs(108) = c_loc(wtprelat(1,1))
+  mg_tend_ptrs(109) = c_loc(wtpostlat(1,1))
+  mg_tend_ptrs(110) = c_loc(t1(1,1))
+  mg_tend_ptrs(111) = c_loc(q1(1,1))
+  mg_tend_ptrs(112) = c_loc(qc1(1,1))
+  mg_tend_ptrs(113) = c_loc(qi1(1,1))
+  mg_tend_ptrs(114) = c_loc(nc1(1,1))
+  mg_tend_ptrs(115) = c_loc(ni1(1,1))
+  mg_tend_ptrs(116) = c_loc(tlat1(1,1))
+  mg_tend_ptrs(117) = c_loc(qvlat1(1,1))
+  mg_tend_ptrs(118) = c_loc(qctend1(1,1))
+  mg_tend_ptrs(119) = c_loc(qitend1(1,1))
+  mg_tend_ptrs(120) = c_loc(nctend1(1,1))
+  mg_tend_ptrs(121) = c_loc(nitend1(1,1))
+  mg_tend_ptrs(122) = c_loc(prect1(1))
+  mg_tend_ptrs(123) = c_loc(preci1(1))
+  mg_tend_ptrs(124) = c_loc(q(1,1))
+  mg_tend_ptrs(125) = c_loc(t(1,1))
+  mg_tend_ptrs(126) = c_loc(rho(1,1))
+  mg_tend_ptrs(127) = c_loc(dv(1,1))
+  mg_tend_ptrs(128) = c_loc(mu(1,1))
+  mg_tend_ptrs(129) = c_loc(sc(1,1))
+  mg_tend_ptrs(130) = c_loc(kap(1,1))
+  mg_tend_ptrs(131) = c_loc(rhof(1,1))
+  mg_tend_ptrs(132) = c_loc(cldmax(1,1))
+  mg_tend_ptrs(133) = c_loc(cldm(1,1))
+  mg_tend_ptrs(134) = c_loc(icldm(1,1))
+  mg_tend_ptrs(135) = c_loc(lcldm(1,1))
+  mg_tend_ptrs(136) = c_loc(icwc(1))
+  mg_tend_ptrs(137) = c_loc(calpha(1))
+  mg_tend_ptrs(138) = c_loc(cbeta(1))
+  mg_tend_ptrs(139) = c_loc(cbetah(1))
+  mg_tend_ptrs(140) = c_loc(cgamma(1))
+  mg_tend_ptrs(141) = c_loc(cgamah(1))
+  mg_tend_ptrs(142) = c_loc(rcgama(1))
+  mg_tend_ptrs(143) = c_loc(cmec1(1))
+  mg_tend_ptrs(144) = c_loc(cmec2(1))
+  mg_tend_ptrs(145) = c_loc(cmec3(1))
+  mg_tend_ptrs(146) = c_loc(cmec4(1))
+  mg_tend_ptrs(147) = c_loc(cme(1,1))
+  mg_tend_ptrs(148) = c_loc(cmei(1,1))
+  mg_tend_ptrs(149) = c_loc(cwml(1,1))
+  mg_tend_ptrs(150) = c_loc(cwmi(1,1))
+  mg_tend_ptrs(151) = c_loc(nnuccd(1))
+  mg_tend_ptrs(152) = c_loc(mnuccd(1))
+  mg_tend_ptrs(153) = c_loc(lcldn(1,1))
+  mg_tend_ptrs(154) = c_loc(lcldo(1,1))
+  mg_tend_ptrs(155) = c_loc(nctend_mixnuc(1,1))
+  mg_tend_ptrs(156) = c_loc(qcsinksum_rate1ord(1))
+  mg_tend_ptrs(157) = c_loc(qcsum_rate1ord(1))
+  mg_tend_ptrs(158) = c_loc(npccn(1))
+  mg_tend_ptrs(159) = c_loc(qcic(1,1))
+  mg_tend_ptrs(160) = c_loc(qiic(1,1))
+  mg_tend_ptrs(161) = c_loc(qniic(1,1))
+  mg_tend_ptrs(162) = c_loc(qric(1,1))
+  mg_tend_ptrs(163) = c_loc(ncic(1,1))
+  mg_tend_ptrs(164) = c_loc(niic(1,1))
+  mg_tend_ptrs(165) = c_loc(nsic(1,1))
+  mg_tend_ptrs(166) = c_loc(nric(1,1))
+  mg_tend_ptrs(167) = c_loc(lami(1))
+  mg_tend_ptrs(168) = c_loc(n0i(1))
+  mg_tend_ptrs(169) = c_loc(lamc(1))
+  mg_tend_ptrs(170) = c_loc(n0c(1))
+  mg_tend_ptrs(171) = c_loc(lams(1))
+  mg_tend_ptrs(172) = c_loc(n0s(1))
+  mg_tend_ptrs(173) = c_loc(lamr(1))
+  mg_tend_ptrs(174) = c_loc(n0r(1))
+  mg_tend_ptrs(175) = c_loc(cdist1(1))
+  mg_tend_ptrs(176) = c_loc(arcld(1,1))
+  mg_tend_ptrs(177) = c_loc(pgam(1))
+  mg_tend_ptrs(178) = c_loc(mnuccc(1))
+  mg_tend_ptrs(179) = c_loc(nnuccc(1))
+  mg_tend_ptrs(180) = c_loc(mnucct(1))
+  mg_tend_ptrs(181) = c_loc(nnucct(1))
+  mg_tend_ptrs(182) = c_loc(msacwi(1))
+  mg_tend_ptrs(183) = c_loc(nsacwi(1))
+  mg_tend_ptrs(184) = c_loc(prc(1))
+  mg_tend_ptrs(185) = c_loc(nprc(1))
+  mg_tend_ptrs(186) = c_loc(nprc1(1))
+  mg_tend_ptrs(187) = c_loc(nsagg(1))
+  mg_tend_ptrs(188) = c_loc(psacws(1))
+  mg_tend_ptrs(189) = c_loc(npsacws(1))
+  mg_tend_ptrs(190) = c_loc(uns(1))
+  mg_tend_ptrs(191) = c_loc(ums(1))
+  mg_tend_ptrs(192) = c_loc(unr(1))
+  mg_tend_ptrs(193) = c_loc(umr(1))
+  mg_tend_ptrs(194) = c_loc(pracs(1))
+  mg_tend_ptrs(195) = c_loc(npracs(1))
+  mg_tend_ptrs(196) = c_loc(mnuccr(1))
+  mg_tend_ptrs(197) = c_loc(nnuccr(1))
+  mg_tend_ptrs(198) = c_loc(pra(1))
+  mg_tend_ptrs(199) = c_loc(npra(1))
+  mg_tend_ptrs(200) = c_loc(nragg(1))
+  mg_tend_ptrs(201) = c_loc(prci(1))
+  mg_tend_ptrs(202) = c_loc(nprci(1))
+  mg_tend_ptrs(203) = c_loc(prai(1))
+  mg_tend_ptrs(204) = c_loc(nprai(1))
+  mg_tend_ptrs(205) = c_loc(pre(1))
+  mg_tend_ptrs(206) = c_loc(prds(1))
+  mg_tend_ptrs(207) = c_loc(dumc(1,1))
+  mg_tend_ptrs(208) = c_loc(dumnc(1,1))
+  mg_tend_ptrs(209) = c_loc(dumi(1,1))
+  mg_tend_ptrs(210) = c_loc(dumni(1,1))
+  mg_tend_ptrs(211) = c_loc(dums(1,1))
+  mg_tend_ptrs(212) = c_loc(dumns(1,1))
+  mg_tend_ptrs(213) = c_loc(dumr(1,1))
+  mg_tend_ptrs(214) = c_loc(dumnr(1,1))
+  mg_tend_ptrs(215) = c_loc(fr(1))
+  mg_tend_ptrs(216) = c_loc(fnr(1))
+  mg_tend_ptrs(217) = c_loc(fc(1))
+  mg_tend_ptrs(218) = c_loc(fnc(1))
+  mg_tend_ptrs(219) = c_loc(fi(1))
+  mg_tend_ptrs(220) = c_loc(fni(1))
+  mg_tend_ptrs(221) = c_loc(fs(1))
+  mg_tend_ptrs(222) = c_loc(fns(1))
+  mg_tend_ptrs(223) = c_loc(faloutr(1))
+  mg_tend_ptrs(224) = c_loc(faloutnr(1))
+  mg_tend_ptrs(225) = c_loc(faloutc(1))
+  mg_tend_ptrs(226) = c_loc(faloutnc(1))
+  mg_tend_ptrs(227) = c_loc(falouti(1))
+  mg_tend_ptrs(228) = c_loc(faloutni(1))
+  mg_tend_ptrs(229) = c_loc(falouts(1))
+  mg_tend_ptrs(230) = c_loc(faloutns(1))
+  mg_tend_ptrs(231) = c_loc(relhum(1,1))
+  mg_tend_ptrs(232) = c_loc(csigma(1))
+  mg_tend_ptrs(233) = c_loc(arn(1,1))
+  mg_tend_ptrs(234) = c_loc(asn(1,1))
+  mg_tend_ptrs(235) = c_loc(acn(1,1))
+  mg_tend_ptrs(236) = c_loc(ain(1,1))
+  mg_tend_ptrs(237) = c_loc(nsubi(1))
+  mg_tend_ptrs(238) = c_loc(nsubc(1))
+  mg_tend_ptrs(239) = c_loc(nsubs(1))
+  mg_tend_ptrs(240) = c_loc(nsubr(1))
+  mg_tend_ptrs(241) = c_loc(dz(1,1))
+  mg_tend_ptrs(242) = c_loc(rflx1(1,1))
+  mg_tend_ptrs(243) = c_loc(sflx1(1,1))
+  mg_tend_ptrs(244) = c_loc(tsp(1,1))
+  mg_tend_ptrs(245) = c_loc(qsp(1,1))
+  mg_tend_ptrs(246) = c_loc(qsphy(1,1))
+  mg_tend_ptrs(247) = c_loc(qs(1))
+  mg_tend_ptrs(248) = c_loc(es(1))
+  mg_tend_ptrs(249) = c_loc(esl(1,1))
+  mg_tend_ptrs(250) = c_loc(esi(1,1))
+  mg_tend_ptrs(251) = c_loc(qnitend(1,1))
+  mg_tend_ptrs(252) = c_loc(nstend(1,1))
+  mg_tend_ptrs(253) = c_loc(qrtend(1,1))
+  mg_tend_ptrs(254) = c_loc(nrtend(1,1))
+  mg_tend_ptrs(255) = c_loc(berg(1,1))
+  mg_tend_ptrs(256) = c_loc(bergs(1))
+  mg_tend_ptrs(257) = c_loc(drout(1,1))
+  mg_tend_ptrs(258) = c_loc(dum2i(1,1))
+  mg_tend_ptrs(259) = c_loc(dum2l(1,1))
+  mg_tend_ptrs(260) = c_loc(cldmw(1,1))
+  mg_tend_ptrs(261) = c_loc(qrtend_copy(1,1))
+  mg_tend_ptrs(262) = c_loc(qnitend_copy(1,1))
+  mg_tend_ptrs(263) = c_loc(rainrt(1,1))
+  mg_tend_ptrs(264) = c_loc(rainrt1(1,1))
+  mg_tend_ptrs(265) = c_loc(mnudep(1))
+  mg_tend_ptrs(266) = c_loc(nnudep(1))
+  mg_tend_ptrs(267) = c_loc(ltrue(1))
+
+  mg_tend_scalars(1) = real(g, c_double)
+  mg_tend_scalars(2) = real(r, c_double)
+  mg_tend_scalars(3) = real(rv, c_double)
+  mg_tend_scalars(4) = real(cpp, c_double)
+  mg_tend_scalars(5) = real(rhow, c_double)
+  mg_tend_scalars(6) = real(tmelt, c_double)
+  mg_tend_scalars(7) = real(xxlv, c_double)
+  mg_tend_scalars(8) = real(xlf, c_double)
+  mg_tend_scalars(9) = real(xxls, c_double)
+  mg_tend_scalars(10) = real(rhosn, c_double)
+  mg_tend_scalars(11) = real(rhoi, c_double)
+  mg_tend_scalars(12) = real(ac, c_double)
+  mg_tend_scalars(13) = real(bc, c_double)
+  mg_tend_scalars(14) = real(as, c_double)
+  mg_tend_scalars(15) = real(bs, c_double)
+  mg_tend_scalars(16) = real(ai, c_double)
+  mg_tend_scalars(17) = real(bi, c_double)
+  mg_tend_scalars(18) = real(ar, c_double)
+  mg_tend_scalars(19) = real(br, c_double)
+  mg_tend_scalars(20) = real(ci, c_double)
+  mg_tend_scalars(21) = real(di, c_double)
+  mg_tend_scalars(22) = real(cs, c_double)
+  mg_tend_scalars(23) = real(ds, c_double)
+  mg_tend_scalars(24) = real(cr, c_double)
+  mg_tend_scalars(25) = real(dr, c_double)
+  mg_tend_scalars(26) = real(f1s, c_double)
+  mg_tend_scalars(27) = real(f2s, c_double)
+  mg_tend_scalars(28) = real(eii, c_double)
+  mg_tend_scalars(29) = real(ecr, c_double)
+  mg_tend_scalars(30) = real(f1r, c_double)
+  mg_tend_scalars(31) = real(f2r, c_double)
+  mg_tend_scalars(32) = real(dcs, c_double)
+  mg_tend_scalars(33) = real(qsmall, c_double)
+  mg_tend_scalars(34) = real(bimm, c_double)
+  mg_tend_scalars(35) = real(aimm, c_double)
+  mg_tend_scalars(36) = real(rhosu, c_double)
+  mg_tend_scalars(37) = real(mi0, c_double)
+  mg_tend_scalars(38) = real(rin, c_double)
+  mg_tend_scalars(39) = real(pi, c_double)
+  mg_tend_scalars(40) = real(cons1, c_double)
+  mg_tend_scalars(41) = real(cons4, c_double)
+  mg_tend_scalars(42) = real(cons5, c_double)
+  mg_tend_scalars(43) = real(cons6, c_double)
+  mg_tend_scalars(44) = real(cons7, c_double)
+  mg_tend_scalars(45) = real(cons8, c_double)
+  mg_tend_scalars(46) = real(cons11, c_double)
+  mg_tend_scalars(47) = real(cons13, c_double)
+  mg_tend_scalars(48) = real(cons14, c_double)
+  mg_tend_scalars(49) = real(cons16, c_double)
+  mg_tend_scalars(50) = real(cons17, c_double)
+  mg_tend_scalars(51) = real(cons22, c_double)
+  mg_tend_scalars(52) = real(cons23, c_double)
+  mg_tend_scalars(53) = real(cons24, c_double)
+  mg_tend_scalars(54) = real(cons25, c_double)
+  mg_tend_scalars(55) = real(cons27, c_double)
+  mg_tend_scalars(56) = real(cons28, c_double)
+  mg_tend_scalars(57) = real(lammini, c_double)
+  mg_tend_scalars(58) = real(lammaxi, c_double)
+  mg_tend_scalars(59) = real(lamminr, c_double)
+  mg_tend_scalars(60) = real(lammaxr, c_double)
+  mg_tend_scalars(61) = real(lammins, c_double)
+  mg_tend_scalars(62) = real(lammaxs, c_double)
+  mg_tend_scalars(63) = real(csmin, c_double)
+  mg_tend_scalars(64) = real(csmax, c_double)
+  mg_tend_scalars(65) = real(minrefl, c_double)
+  mg_tend_scalars(66) = real(mindbz, c_double)
+  mg_tend_scalars(67) = real(rhmini, c_double)
+  mg_tend_scalars(68) = real(micro_mg_berg_eff_factor, c_double)
+
+  if (masterproc .and. .not. micro_mg1_0_tend_wrapper_logged) then
+     write(iulog,*) 'micro_mg_tend_codon_wrap entered (full parent routine = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
+          'micro_mg_tend_codon_wrap entered (full parent routine = codon)')
+     micro_mg1_0_tend_wrapper_logged = .true.
+  end if
+
+  call micro_mg_tend_codon( &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), int(top_lev, c_int64_t), &
+       int(merge(1, 0, microp_uniform), c_int64_t), int(merge(1, 0, do_cldice), c_int64_t), &
+       int(merge(1, 0, do_clubb_sgs), c_int64_t), int(merge(1, 0, use_hetfrz_classnuc), c_int64_t), &
+       int(wv_sat_get_default_idx(), c_int64_t), real(deltatin, c_double), real(phys_epsilo, c_double), &
+       real(1._r8 - phys_epsilo, c_double), c_loc(mg_tend_ptrs(1)), c_loc(mg_tend_scalars(1)) )
+end subroutine micro_mg_tend_codon_wrap
+
+subroutine micro_mg_tend_native ( &
      microp_uniform, pcols, pver, ncol, top_lev, deltatin,&
      tn, qn, qc, qi, nc,                              &
      ni, p, pdel, cldn, liqcldf,                      &
@@ -1172,6 +2039,7 @@ do k=1,pver
 
    end do
 end do
+
 
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !Get humidity and saturation vapor pressures
@@ -3135,6 +4003,7 @@ do i=1,ncol
 300 continue  ! continue if no cloud water
 end do ! i loop
 
+
 ! convert dt from sub-step back to full time step
 deltat=deltat*real(iter)
 
@@ -3662,6 +4531,7 @@ if (.not. micro_mg1_0_colzero_use_native_impl) then
         do_cldice, qc, qi, nc, ni, qctend, qitend, nctend, nitend)
 end if
 
+
 ! add snow ouptut
 do i = 1,ncol
    do k=top_lev,pver
@@ -3856,7 +4726,82 @@ else
 end if
 
 
-end subroutine micro_mg_tend
+
+
+end subroutine micro_mg_tend_native
+
+real(r8) function micro_mg_tend_weighted_sum2(arr, pcols, ncol, k0, k1)
+  integer, intent(in) :: pcols, ncol, k0, k1
+  real(r8), intent(in) :: arr(pcols,*)
+  integer :: i, k
+  real(r8) :: weight
+
+  micro_mg_tend_weighted_sum2 = 0._r8
+  do k = k0, k1
+     do i = 1, ncol
+        weight = 17._r8 * real(i, r8) + 131._r8 * real(k, r8) + 1._r8
+        micro_mg_tend_weighted_sum2 = micro_mg_tend_weighted_sum2 + arr(i,k) * weight
+     end do
+  end do
+end function micro_mg_tend_weighted_sum2
+
+real(r8) function micro_mg_tend_sum2(arr, pcols, ncol, k0, k1)
+  integer, intent(in) :: pcols, ncol, k0, k1
+  real(r8), intent(in) :: arr(pcols,*)
+  integer :: i, k
+
+  micro_mg_tend_sum2 = 0._r8
+  do k = k0, k1
+     do i = 1, ncol
+        micro_mg_tend_sum2 = micro_mg_tend_sum2 + arr(i,k)
+     end do
+  end do
+end function micro_mg_tend_sum2
+
+real(r8) function micro_mg_tend_weighted_sumsq2(arr, pcols, ncol, k0, k1)
+  integer, intent(in) :: pcols, ncol, k0, k1
+  real(r8), intent(in) :: arr(pcols,*)
+  integer :: i, k
+  real(r8) :: weight
+
+  micro_mg_tend_weighted_sumsq2 = 0._r8
+  do k = k0, k1
+     do i = 1, ncol
+        weight = 17._r8 * real(i, r8) + 131._r8 * real(k, r8) + 1._r8
+        micro_mg_tend_weighted_sumsq2 = micro_mg_tend_weighted_sumsq2 + arr(i,k) * arr(i,k) * weight
+     end do
+  end do
+end function micro_mg_tend_weighted_sumsq2
+
+real(r8) function micro_mg_tend_sumsq2(arr, pcols, ncol, k0, k1)
+  integer, intent(in) :: pcols, ncol, k0, k1
+  real(r8), intent(in) :: arr(pcols,*)
+  integer :: i, k
+
+  micro_mg_tend_sumsq2 = 0._r8
+  do k = k0, k1
+     do i = 1, ncol
+        micro_mg_tend_sumsq2 = micro_mg_tend_sumsq2 + arr(i,k) * arr(i,k)
+     end do
+  end do
+end function micro_mg_tend_sumsq2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 subroutine micro_mg1_0_select_tend_impl()
   character(len=32) :: impl_name
@@ -3886,9 +4831,9 @@ subroutine micro_mg1_0_select_tend_impl()
         call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
              'micro_mg_tend implementation = native')
      else
-        write(iulog,*) 'micro_mg_tend implementation = partial codon helper stages; native MG process core'
+        write(iulog,*) 'micro_mg_tend implementation = codon'
         call micro_mg1_0_append_impl_proof('MICRO_MG1_0_TEND_PROOF_FILE', &
-             'micro_mg_tend implementation = partial codon helper stages; native MG process core')
+             'micro_mg_tend implementation = codon')
      end if
   end if
 
