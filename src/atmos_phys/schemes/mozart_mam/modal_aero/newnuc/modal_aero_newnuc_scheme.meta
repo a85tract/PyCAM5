@@ -41,6 +41,18 @@
   type = integer
   dimensions = ()
   intent = in
+[ pcnst_in ]
+  standard_name = physics_constituent_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ top_lev_in ]
+  standard_name = modal_aerosol_top_level_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
 [ loffset ]
   standard_name = modal_aerosol_constituent_offset
   units = index
@@ -50,6 +62,84 @@
 [ deltat ]
   standard_name = physics_timestep
   units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ l_h2so4_sv_in ]
+  standard_name = sulfuric_acid_constituent_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ l_nh3_sv_in ]
+  standard_name = ammonia_constituent_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ lnumait_sv_in ]
+  standard_name = aitken_mode_number_constituent_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ lnh4ait_sv_in ]
+  standard_name = aitken_mode_ammonium_constituent_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ lso4ait_sv_in ]
+  standard_name = aitken_mode_sulfate_constituent_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ lptr_nh4_aitken_in ]
+  standard_name = aitken_mode_ammonium_pointer
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dgnumlo_aitken_in ]
+  standard_name = aitken_mode_lower_geometric_mean_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dgnum_aitken_in ]
+  standard_name = aitken_mode_geometric_mean_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dgnumhi_aitken_in ]
+  standard_name = aitken_mode_upper_geometric_mean_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_so4_in ]
+  standard_name = sulfate_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specmw_so4_in ]
+  standard_name = sulfate_aerosol_molecular_weight
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specmw_nh4_in ]
+  standard_name = ammonium_aerosol_molecular_weight
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravity_in ]
+  standard_name = gravitational_acceleration
+  units = m s-2
   type = real | kind = r8
   dimensions = ()
   intent = in
@@ -89,6 +179,12 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
+[ qv_sat ]
+  standard_name = saturation_water_vapor_specific_humidity
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
 [ cld ]
   standard_name = cloud_area_fraction
   units = 1
@@ -113,3 +209,15 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
+[ qsrflx_out ]
+  standard_name = modal_aerosol_nucleation_column_tendency_unscaled
+  units = mol m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, physics_constituent_dimension)
+  intent = out
+[ dotend_out ]
+  standard_name = modal_aerosol_nucleation_tendency_flags
+  units = flag
+  type = logical
+  dimensions = (physics_constituent_dimension)
+  intent = out
