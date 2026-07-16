@@ -357,7 +357,6 @@ subroutine wetdepa_v2(                                  &
         sol_fact, ncol, scavcoef, is_strat_cloudborne, qqcw, f_act_conv, &
         icscavt, isscavt, bcscavt, bsscavt, sol_facti_in, sol_factic_in, &
         negative_dblchek, negative_srct, negative_rat, negative_fracev)
-   call t_stopf('ap_wetdepa_v2_run')
 
    do k = 1, pver
       do i = 1, ncol
@@ -368,6 +367,7 @@ subroutine wetdepa_v2(                                  &
          end if
       end do
    end do
+   call t_stopf('ap_wetdepa_v2_run')
 
 end subroutine wetdepa_v2
 
