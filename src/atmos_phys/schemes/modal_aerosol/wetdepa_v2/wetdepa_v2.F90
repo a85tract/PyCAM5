@@ -163,8 +163,8 @@ subroutine wetdepa_v2_run(                                  &
       do i = 1, ncol
 
          clds(i)  = cldt(i,k) - cldc(i,k)
-         pdog(i)  = pdel(i,k)/gravity
-         rpdog(i) = gravity/pdel(i,k)
+         pdog(i)  = pdel(i,k)/gravit
+         rpdog(i) = gravit/pdel(i,k)
          rdeltat  = 1.0_r8/deltat
 
          ! ****************** Evaporation **************************
