@@ -2809,6 +2809,7 @@ sub write_filepath
     # schemes and their legacy CAM host adapters.
     print $fh "$srcdir/cam/src/atmos_phys/support/thermodynamics\n";
     print $fh "$srcdir/cam/src/atmos_phys/support/cloud_microphysics\n";
+    print $fh "$srcdir/cam/src/atmos_phys/support/radiation/common\n";
     print $fh "$srcdir/cam/src/atmos_phys/support/vertical_diffusion\n";
     print $fh "$srcdir/cam/src/atmos_phys/support/orographic_gravity_wave\n";
     print $fh "$srcdir/cam/src/atmos_phys/support/chemistry/common\n";
