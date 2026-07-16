@@ -1,0 +1,97 @@
+[ccpp-table-properties]
+  name = modal_aero_depvel_part
+  type = scheme
+
+[ccpp-arg-table]
+  name = modal_aero_depvel_part_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ ram1 ]
+  standard_name = surface_aerodynamic_resistance
+  units = s m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ fv ]
+  standard_name = surface_friction_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ vlc_dry ]
+  standard_name = aerosol_total_dry_deposition_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ vlc_trb ]
+  standard_name = aerosol_turbulent_deposition_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ vlc_grv ]
+  standard_name = aerosol_gravitational_settling_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ radius_part ]
+  standard_name = aerosol_particle_volume_mean_radius
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ density_part ]
+  standard_name = aerosol_particle_material_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ sig_part ]
+  standard_name = aerosol_particle_geometric_standard_deviation
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ moment ]
+  standard_name = aerosol_size_distribution_moment
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in

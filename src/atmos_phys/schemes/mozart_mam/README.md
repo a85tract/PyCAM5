@@ -21,3 +21,17 @@ solvers used by the PI-atm `pp_trop_mam3` mechanism.
 CAM initialization, species/reaction name lookup, history registration and
 `outfld`, logging/abort handling, and the existing public chemistry-driver
 interfaces remain in `mo_exp_sol` and `mo_imp_sol` adapters.
+
+The `modal_aero` subgroup owns the MAM gas/aerosol and dry-deposition process
+boundaries.  Its historical modules under `src/chemistry/modal_aero` remain
+thin CAM API adapters:
+
+- `gasaerexch/aero_model_gasaerexch_run` preserves the parent process order
+  and calls the separately timed exchange, nucleation, and coagulation scheme
+  entries.
+- `gasaerexch/modal_aero_gasaerexch_sub_run`,
+  `newnuc/modal_aero_newnuc_sub_run`, and
+  `coag/modal_aero_coag_sub_run` own their original numerical modules and
+  initialization state.
+- `drydep/aero_model_drydep_run` owns dry deposition together with its private
+  particle deposition-velocity helper.

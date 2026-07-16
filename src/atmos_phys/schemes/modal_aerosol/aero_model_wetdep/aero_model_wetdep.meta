@@ -1,0 +1,115 @@
+[ccpp-table-properties]
+  name = aero_model_wetdep
+  type = scheme
+
+[ccpp-arg-table]
+  name = aero_model_wetdep_run
+  type = scheme
+[ state ]
+  standard_name = cam_physics_state
+  units = none
+  type = physics_state
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dlf ]
+  standard_name = convective_condensate_detrainment_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cam_out ]
+  standard_name = cam_surface_exchange_output_state
+  units = none
+  type = cam_out_t
+  dimensions = ()
+  intent = inout
+[ ptend ]
+  standard_name = cam_physics_parameterization_tendencies
+  units = none
+  type = physics_ptend
+  dimensions = ()
+  intent = out
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout
+[ nmodes_in ]
+  standard_name = number_of_modal_aerosol_modes
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dgnumwet_idx_in ]
+  standard_name = physics_buffer_index_for_wet_geometric_mean_aerosol_diameter
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ qaerwat_idx_in ]
+  standard_name = physics_buffer_index_for_aerosol_water_mixing_ratio
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ fracis_idx_in ]
+  standard_name = physics_buffer_index_for_unscavenged_tracer_fraction
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ sol_facti_cloud_borne_in ]
+  standard_name = cloudborne_in_cloud_scavenging_solubility_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ sol_factb_interstitial_in ]
+  standard_name = interstitial_below_cloud_scavenging_solubility_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ sol_factic_interstitial_in ]
+  standard_name = interstitial_convective_in_cloud_scavenging_solubility_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ nwetdep_in ]
+  standard_name = number_of_wet_deposition_species
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ wetdep_lq_in ]
+  standard_name = flag_for_constituent_wet_deposition_tendency
+  units = flag
+  type = logical
+  dimensions = (number_of_constituents)
+  intent = in
+[ dlndg_nimptblgrow_in ]
+  standard_name = log_aerosol_diameter_spacing_for_impaction_scavenging_table
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ scavimptblnum_in ]
+  standard_name = number_impaction_scavenging_lookup_table
+  units = 1
+  type = real | kind = r8
+  dimensions = (aerosol_impaction_growth_bin_dimension, number_of_aerosol_modes)
+  intent = in
+[ scavimptblvol_in ]
+  standard_name = volume_impaction_scavenging_lookup_table
+  units = 1
+  type = real | kind = r8
+  dimensions = (aerosol_impaction_growth_bin_dimension, number_of_aerosol_modes)
+  intent = in

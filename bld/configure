@@ -2805,6 +2805,44 @@ sub write_filepath
 	print $fh "$srcdir/cam/src/physics/carma/base\n";
     }
 
+    # Decoupled atmospheric-physics schemes. Keep every scheme directory
+    # ahead of the legacy chemistry and physics host directories.
+    print $fh "$srcdir/cam/src/atmos_phys/phys_utils\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/utilities\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/thermo_water_update\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/check_energy\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/water\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/aero_model_emissions\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/dust_emis\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/seasalt_emis\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/set_srf_emissions\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/drydep_update\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/trop_mam3\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/gas_phase_chemdr\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/neu_wetdep\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/modal_aero/newnuc\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/modal_aero/coag\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/modal_aero_depvel_part\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/modal_aero/drydep\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/tropopause_find\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/modal_aero_calcsize_sub\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/modal_aero_wateruptake_dr\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/wetdepa_v2\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/aero_model_wetdep\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_tms\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/calc_obklen\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/positive_moisture\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_vdiff\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_eddy_diff\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/orographic_gravity_wave\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/deep_convection/dry_adiabatic_adjust\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/deep_convection/zhang_mcfarlane\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/uw_shallow\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_fraction\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/sedimentation\n";
+
     # CAM chemistry, dynamics, physics, control and shared utilities.
     if ($chem_proc_src) {
         print $fh "$chem_proc_src\n";
@@ -2838,34 +2876,6 @@ sub write_filepath
 	print $fh "$srcdir/cam/src/physics/rrtmg/ext/rrtmg_sw\n";
     }
 
-    # Decoupled atmospheric-physics schemes.  Keep these leaf directories
-    # ahead of physics/cam so CAM adapters can use the portable array kernels.
-    print $fh "$srcdir/cam/src/atmos_phys/phys_utils\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/utilities\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/thermo_water_update\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/check_energy\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/water\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/aero_model_emissions\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/dust_emis\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/seasalt_emis\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/chemistry_emissions/set_srf_emissions\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/drydep_update\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/trop_mam3\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/gas_phase_chemdr\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/neu_wetdep\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/tropopause_find\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_tms\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/calc_obklen\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/positive_moisture\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_vdiff\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_eddy_diff\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/orographic_gravity_wave\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/deep_convection/dry_adiabatic_adjust\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/deep_convection/zhang_mcfarlane\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/uw_shallow\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_fraction\n";
-    print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/sedimentation\n";
     print $fh "$srcdir/cam/src/physics/cam\n";
     if ($clubb_sgs eq '1') {
        print $fh "$srcdir/cam/src/physics/clubb\n";

@@ -1,0 +1,96 @@
+[ccpp-table-properties]
+  name = modal_aero_wateruptake_dr
+  type = scheme
+
+[ccpp-arg-table]
+  name = modal_aero_wateruptake_dr_run
+  type = scheme
+[ state ]
+  standard_name = cam_physics_state
+  units = none
+  type = physics_state
+  dimensions = ()
+  intent = in
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout
+[ cld_idx_in ]
+  standard_name = physics_buffer_index_for_cloud_fraction
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dgnum_idx_in ]
+  standard_name = physics_buffer_index_for_dry_geometric_mean_aerosol_diameter
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dgnumwet_idx_in ]
+  standard_name = physics_buffer_index_for_wet_geometric_mean_aerosol_diameter
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ sulfeq_idx_in ]
+  standard_name = physics_buffer_index_for_sulfuric_acid_equilibrium_mixing_ratio
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ wetdens_ap_idx_in ]
+  standard_name = physics_buffer_index_for_wet_aerosol_density
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ qaerwat_idx_in ]
+  standard_name = physics_buffer_index_for_aerosol_water_mixing_ratio
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ modal_strat_sulfate_in ]
+  standard_name = flag_for_modal_stratospheric_sulfate
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ list_idx_in ]
+  standard_name = radiative_constituent_list_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+  optional = True
+[ dgnumdry_m ]
+  standard_name = diagnostic_dry_geometric_mean_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  intent = in
+  optional = True
+[ dgnumwet_m ]
+  standard_name = diagnostic_wet_geometric_mean_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  intent = out
+  optional = True
+[ qaerwat_m ]
+  standard_name = diagnostic_aerosol_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  intent = out
+  optional = True
+[ wetdens_m ]
+  standard_name = diagnostic_wet_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  intent = out
+  optional = True

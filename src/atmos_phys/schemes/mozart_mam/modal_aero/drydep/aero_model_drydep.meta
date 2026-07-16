@@ -1,0 +1,85 @@
+[ccpp-table-properties]
+  name = aero_model_drydep
+  type = scheme
+
+[ccpp-arg-table]
+  name  = aero_model_drydep_run
+  type  = scheme
+[ state ]
+  standard_name = cam_physics_state
+  units = none
+  type = physics_state
+  dimensions = ()
+  intent = in
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout
+[ obklen ]
+  standard_name = surface_monin_obukhov_length
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ustar ]
+  standard_name = surface_friction_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ cam_in ]
+  standard_name = cam_surface_import_state
+  units = none
+  type = cam_in_t
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ cam_out ]
+  standard_name = cam_surface_export_state
+  units = none
+  type = cam_out_t
+  dimensions = ()
+  intent = inout
+[ ptend ]
+  standard_name = cam_physics_tendency
+  units = none
+  type = physics_ptend
+  dimensions = ()
+  intent = out
+[ drydep_lq ]
+  standard_name = constituent_has_aerosol_dry_deposition_tendency
+  units = 1
+  type = logical
+  dimensions = (number_of_constituents)
+  intent = in
+[ dgnumwet_idx ]
+  standard_name = wet_geometric_mean_aerosol_diameter_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ wetdens_ap_idx ]
+  standard_name = wet_aerosol_density_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ qaerwat_idx ]
+  standard_name = aerosol_water_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ nmodes ]
+  standard_name = number_of_aerosol_modes
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in

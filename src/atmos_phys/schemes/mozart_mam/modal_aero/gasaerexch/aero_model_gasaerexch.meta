@@ -1,0 +1,175 @@
+[ccpp-table-properties]
+  name = aero_model_gasaerexch
+  type = scheme
+
+[ccpp-arg-table]
+  name  = aero_model_gasaerexch_run
+  type  = scheme
+[ loffset ]
+  standard_name = modal_aerosol_constituent_offset
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ troplev ]
+  standard_name = tropopause_vertical_layer_index
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ delt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tfld ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ mbar ]
+  standard_name = mean_wet_air_molecular_weight
+  units = g mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ zm ]
+  standard_name = geopotential_height_wrt_surface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qh2o ]
+  standard_name = water_vapor_specific_humidity
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cwat ]
+  standard_name = cloud_liquid_water_mass_fraction
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldfr ]
+  standard_name = cloud_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldnum ]
+  standard_name = cloud_droplet_number_concentration
+  units = kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ airdens ]
+  standard_name = air_number_density
+  units = molecule cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ invariants ]
+  standard_name = gas_phase_chemistry_invariant_number_density
+  units = molecule cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemistry_invariant_dimension)
+  intent = in
+[ del_h2so4_gasprod ]
+  standard_name = sulfuric_acid_gas_production_increment
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ vmr0 ]
+  standard_name = gas_phase_species_mole_fraction_before_aerosol_processes
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  intent = in
+[ vmr ]
+  standard_name = gas_phase_species_mole_fraction
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  intent = inout
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout
+[ dgnum_idx ]
+  standard_name = dry_geometric_mean_aerosol_diameter_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dgnumwet_idx ]
+  standard_name = wet_geometric_mean_aerosol_diameter_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ wetdens_ap_idx ]
+  standard_name = wet_aerosol_density_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ pblh_idx ]
+  standard_name = planetary_boundary_layer_height_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ sulfeq_idx ]
+  standard_name = equilibrium_sulfate_buffer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ndx_h2so4 ]
+  standard_name = sulfuric_acid_species_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dgnum_name ]
+  standard_name = dry_geometric_mean_aerosol_diameter_field_name_by_mode
+  units = none
+  type = character | kind = len=*
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ dgnumwet_name ]
+  standard_name = wet_geometric_mean_aerosol_diameter_field_name_by_mode
+  units = none
+  type = character | kind = len=*
+  dimensions = (aerosol_mode_dimension)
+  intent = in

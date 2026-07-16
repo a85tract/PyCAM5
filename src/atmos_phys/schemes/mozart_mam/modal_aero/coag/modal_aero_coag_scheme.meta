@@ -1,0 +1,103 @@
+[ccpp-table-properties]
+  name  = modal_aero_coag_sub
+  type = scheme
+
+[ccpp-arg-table]
+  name  = modal_aero_coag_sub_run
+  type  = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nstep ]
+  standard_name = model_timestep_number
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols_in ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver_in ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcnstxx_in ]
+  standard_name = gas_phase_chemical_species_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ntot_amode_in ]
+  standard_name = aerosol_mode_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ loffset ]
+  standard_name = modal_aerosol_constituent_offset
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ deltat_main ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ q ]
+  standard_name = gas_phase_species_mole_fraction
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  intent = inout
+[ dgncur_a ]
+  standard_name = dry_geometric_mean_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  intent = in
+[ dgncur_awet ]
+  standard_name = wet_geometric_mean_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  intent = in
+[ wetdens_a ]
+  standard_name = wet_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  intent = in

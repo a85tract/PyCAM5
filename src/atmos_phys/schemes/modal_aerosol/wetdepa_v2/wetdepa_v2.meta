@@ -1,0 +1,220 @@
+[ccpp-table-properties]
+  name = wetdepa_v2
+  type = scheme
+
+[ccpp-arg-table]
+  name = wetdepa_v2_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ p ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ q ]
+  standard_name = water_vapor_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldt ]
+  standard_name = cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldc ]
+  standard_name = convective_cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cmfdqr ]
+  standard_name = convective_precipitation_production_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ evapc ]
+  standard_name = convective_precipitation_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ conicw ]
+  standard_name = convective_cloud_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ precs ]
+  standard_name = stratiform_precipitation_production_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ conds ]
+  standard_name = stratiform_condensation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ evaps ]
+  standard_name = stratiform_precipitation_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cwat ]
+  standard_name = cloud_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ tracer ]
+  standard_name = wet_deposition_tracer_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ deltat ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ scavt ]
+  standard_name = total_wet_scavenging_tendency
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ iscavt ]
+  standard_name = in_cloud_wet_scavenging_tendency
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ cldvcu ]
+  standard_name = convective_precipitation_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldvst ]
+  standard_name = stratiform_precipitation_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ dlf ]
+  standard_name = convective_condensate_detrainment_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ fracis ]
+  standard_name = unscavenged_tracer_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ sol_fact ]
+  standard_name = below_cloud_scavenging_solubility_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ scavcoef ]
+  standard_name = below_cloud_impaction_scavenging_coefficient
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ is_strat_cloudborne ]
+  standard_name = flag_for_stratiform_cloudborne_aerosol
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+  optional = True
+[ qqcw ]
+  standard_name = cloudborne_aerosol_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+  optional = True
+[ f_act_conv ]
+  standard_name = convective_aerosol_activation_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+  optional = True
+[ icscavt ]
+  standard_name = convective_in_cloud_scavenging_tendency
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+  optional = True
+[ isscavt ]
+  standard_name = stratiform_in_cloud_scavenging_tendency
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+  optional = True
+[ bcscavt ]
+  standard_name = convective_below_cloud_scavenging_tendency
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+  optional = True
+[ bsscavt ]
+  standard_name = stratiform_below_cloud_scavenging_tendency
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+  optional = True
+[ sol_facti_in ]
+  standard_name = in_cloud_scavenging_solubility_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ sol_factic_in ]
+  standard_name = convective_in_cloud_scavenging_solubility_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+  optional = True

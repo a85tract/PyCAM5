@@ -1,0 +1,63 @@
+[ccpp-table-properties]
+  name = modal_aero_calcsize_sub
+  type = scheme
+
+[ccpp-arg-table]
+  name = modal_aero_calcsize_sub_run
+  type = scheme
+[ state ]
+  standard_name = cam_physics_state
+  units = none
+  type = physics_state
+  dimensions = ()
+  intent = in
+[ ptend ]
+  standard_name = cam_physics_parameterization_tendencies
+  units = none
+  type = physics_ptend
+  dimensions = ()
+  intent = inout
+[ deltat ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout
+[ do_adjust_default_in ]
+  standard_name = default_flag_for_modal_aerosol_number_adjustment
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ do_aitacc_transfer_default_in ]
+  standard_name = default_flag_for_aitken_accumulation_mode_transfer
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ dgnum_idx_in ]
+  standard_name = physics_buffer_index_for_dry_geometric_mean_aerosol_diameter
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ do_adjust_in ]
+  standard_name = flag_for_modal_aerosol_number_adjustment
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+  optional = True
+[ do_aitacc_transfer_in ]
+  standard_name = flag_for_aitken_accumulation_mode_transfer
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+  optional = True

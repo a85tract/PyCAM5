@@ -1,0 +1,115 @@
+[ccpp-table-properties]
+  name  = modal_aero_newnuc_sub
+  type = scheme
+
+[ccpp-arg-table]
+  name  = modal_aero_newnuc_sub_run
+  type  = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nstep ]
+  standard_name = model_timestep_number
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols_in ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver_in ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcnstxx_in ]
+  standard_name = gas_phase_chemical_species_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ loffset ]
+  standard_name = modal_aerosol_constituent_offset
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ deltat ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ zm ]
+  standard_name = geopotential_height_wrt_surface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pblh ]
+  standard_name = planetary_boundary_layer_height
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ qv ]
+  standard_name = water_vapor_specific_humidity
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cld ]
+  standard_name = cloud_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ q ]
+  standard_name = gas_phase_species_mole_fraction
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  intent = inout
+[ del_h2so4_gasprod ]
+  standard_name = sulfuric_acid_gas_production_increment
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ del_h2so4_aeruptk ]
+  standard_name = sulfuric_acid_aerosol_uptake_increment
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
