@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<suite name="tphysbc_active" version="1.0">
+  <!-- Declarative order for the active PI physics-before-coupler path. -->
+  <group name="physics_before_coupler">
+    <!-- Water, tracer, and global energy preparation. -->
+    <scheme>wtrc_mass_fixer</scheme>
+    <scheme>qneg</scheme>
+    <scheme>check_energy_chng</scheme>
+    <scheme>check_energy_gmean</scheme>
+    <scheme>check_energy_zero_fluxes</scheme>
+    <scheme>check_energy_fix</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>geopotential_temp</scheme>
+    <scheme>update_dry_static_energy</scheme>
+    <scheme>check_energy_scaling</scheme>
+    <scheme>check_energy_chng</scheme>
+
+    <!-- Dry adjustment and ZM deep convection. -->
+    <scheme>dadadj</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>qneg</scheme>
+    <scheme>geopotential_temp</scheme>
+    <scheme>zm_convr</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+    <scheme>zm_conv_evap</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+    <scheme>zm_conv_momtran</scheme>
+    <scheme>apply_tendency_of_eastward_wind</scheme>
+    <scheme>apply_tendency_of_northward_wind</scheme>
+    <scheme>zm_conv_convtran</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+    <scheme>update_dry_static_energy</scheme>
+
+    <!-- UW shallow convection and convective/aerosol column transport. -->
+    <scheme>compute_uwshcu_inv</scheme>
+    <scheme>compute_uwshcu</scheme>
+    <scheme>cloud_fraction_fice</scheme>
+    <scheme>dust_sediment_tend</scheme>
+    <scheme>d3ddflux</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+
+    <!-- Aerosol activation, Park macrophysics, and MG1.0 microphysics. -->
+    <scheme>nucleate_ice_cam_calc</scheme>
+    <scheme>dropmixnuc</scheme>
+    <scheme>ice_macro_tend</scheme>
+    <scheme>cldfrc</scheme>
+    <scheme>mmacro_pcond</scheme>
+    <scheme>micro_mg_tend</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+    <scheme>qneg</scheme>
+
+    <!-- Modal aerosol size, water uptake, and wet deposition. -->
+    <scheme>modal_aero_calcsize_sub</scheme>
+    <scheme>modal_aero_wateruptake_dr</scheme>
+    <scheme>aero_model_wetdep</scheme>
+    <scheme>wetdepa_v2</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+
+    <!-- RRTMG and final diagnostics/state checks. -->
+    <scheme>rad_rrtmg_sw</scheme>
+    <scheme>rrtmg_sw</scheme>
+    <scheme>rad_rrtmg_lw</scheme>
+    <scheme>rrtmg_lw</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>geopotential_temp</scheme>
+    <scheme>tropopause_find</scheme>
+    <scheme>check_energy_scaling</scheme>
+    <scheme>check_energy_chng</scheme>
+  </group>
+</suite>

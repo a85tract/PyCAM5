@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<suite name="tphysac_active" version="1.0">
+  <!-- Declarative order for the active PI physics-after-coupler path. -->
+  <group name="physics_after_coupler">
+    <!-- Per-timestep state and energy initialization. -->
+    <scheme>check_energy_chng</scheme>
+    <scheme>qneg4</scheme>
+
+    <!-- Surface emissions and MOZART/MAM chemistry. -->
+    <scheme>aero_model_emissions</scheme>
+    <scheme>dust_emis</scheme>
+    <scheme>seasalt_emis</scheme>
+    <scheme>set_srf_emissions</scheme>
+    <scheme>drydep_update</scheme>
+    <scheme>neu_wetdep_tend</scheme>
+    <scheme>gas_phase_chemdr</scheme>
+    <scheme>exp_sol</scheme>
+    <scheme>imp_sol</scheme>
+    <scheme>aero_model_gasaerexch</scheme>
+    <scheme>modal_aero_gasaerexch_sub</scheme>
+    <scheme>modal_aero_newnuc_sub</scheme>
+    <scheme>modal_aero_coag_sub</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>geopotential_temp</scheme>
+    <scheme>update_dry_static_energy</scheme>
+    <scheme>check_energy_scaling</scheme>
+
+    <!-- diag_TKE/TMS vertical diffusion. -->
+    <scheme>compute_tms</scheme>
+    <scheme>compute_eddy_diff</scheme>
+    <scheme>calc_obklen</scheme>
+    <scheme>compute_vdiff</scheme>
+    <scheme>vertical_diffusion_positive_moisture</scheme>
+    <scheme>apply_tendency_of_eastward_wind</scheme>
+    <scheme>apply_tendency_of_northward_wind</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+
+    <!-- Modal aerosol dry deposition. -->
+    <scheme>aero_model_drydep</scheme>
+    <scheme>modal_aero_depvel_part</scheme>
+    <scheme>apply_constituent_tendencies</scheme>
+
+    <!-- Orographic gravity-wave drag. -->
+    <scheme>gw_prof</scheme>
+    <scheme>gw_oro_src</scheme>
+    <scheme>gw_drag_prof</scheme>
+    <scheme>energy_change</scheme>
+    <scheme>calcram</scheme>
+    <scheme>apply_tendency_of_eastward_wind</scheme>
+    <scheme>apply_tendency_of_northward_wind</scheme>
+    <scheme>apply_heating_rate</scheme>
+    <scheme>update_dry_static_energy</scheme>
+
+    <!-- End-of-host conservation and dynamics state conversion. -->
+    <scheme>check_energy_chng</scheme>
+    <scheme>check_energy_save_teout</scheme>
+    <scheme>thermo_water_update</scheme>
+    <scheme>dycore_energy_consistency_adjust</scheme>
+    <scheme>set_dry_to_wet</scheme>
+  </group>
+</suite>
