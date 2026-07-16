@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T07:06:31Z",
+  "updated_at": "2026-07-16T07:53:20Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -567,11 +567,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "modal_aero_gasaerexch_sub_run",
@@ -583,11 +583,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "modal_aero_newnuc_sub_run",
@@ -599,11 +599,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "modal_aero_coag_sub_run",
@@ -615,11 +615,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "aero_model_drydep_run",
@@ -631,11 +631,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "modal_aero_depvel_part_run",
@@ -647,11 +647,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "modal_aero_calcsize_sub_run",
@@ -663,11 +663,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "modal_aero_wateruptake_dr_run",
@@ -679,11 +679,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "aero_model_wetdep_run",
@@ -695,11 +695,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "wetdepa_v2_run",
@@ -711,11 +711,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
+      "status": "build_pass",
+      "commit": "0aeeb444e9bd1e7c6215c5b1717fcb507f561a41",
       "last_run": null,
       "bfb_run": null,
-      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
+      "note": "Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending."
     },
     {
       "entry_point": "compute_tms_run",
@@ -728,10 +728,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "compute_eddy_diff_run",
@@ -744,10 +744,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "calc_obklen_run",
@@ -760,10 +760,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "compute_vdiff_run",
@@ -776,10 +776,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "vertical_diffusion_positive_moisture_run",
@@ -792,10 +792,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "gw_prof_run",
@@ -808,10 +808,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "gw_oro_src_run",
@@ -824,10 +824,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "gw_drag_prof_run",
@@ -840,10 +840,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "energy_change_run",
@@ -856,10 +856,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "calcram_run",
@@ -872,10 +872,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch."
+      "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
       "entry_point": "dadadj_run",
@@ -888,10 +888,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "zm_convr_run",
@@ -904,10 +904,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "zm_conv_evap_run",
@@ -920,10 +920,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "zm_conv_momtran_run",
@@ -936,10 +936,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "zm_conv_convtran_run",
@@ -952,10 +952,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "compute_uwshcu_inv_run",
@@ -967,11 +967,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
-      "commit": null,
+      "status": "in_progress",
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "compute_uwshcu_run",
@@ -983,11 +983,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
-      "commit": null,
+      "status": "in_progress",
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "cloud_fraction_fice_run",
@@ -999,11 +999,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
-      "commit": null,
+      "status": "in_progress",
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "dust_sediment_tend_run",
@@ -1015,11 +1015,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
-      "commit": null,
+      "status": "in_progress",
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "d3ddflux_run",
@@ -1031,11 +1031,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
-      "commit": null,
+      "status": "in_progress",
+      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
       "entry_point": "nucleate_ice_cam_calc_run",
@@ -1047,11 +1047,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
     },
     {
       "entry_point": "dropmixnuc_run",
@@ -1063,11 +1063,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
     },
     {
       "entry_point": "ice_macro_tend_run",
@@ -1079,11 +1079,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
     },
     {
       "entry_point": "cldfrc_run",
@@ -1095,11 +1095,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
     },
     {
       "entry_point": "mmacro_pcond_run",
@@ -1111,11 +1111,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
     },
     {
       "entry_point": "micro_mg_tend_run",
@@ -1127,11 +1127,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
     },
     {
       "entry_point": "rad_rrtmg_sw_run",
