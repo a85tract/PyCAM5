@@ -2805,6 +2805,11 @@ sub write_filepath
 	print $fh "$srcdir/cam/src/physics/carma/base\n";
     }
 
+    # Standalone scientific support modules must precede both the decoupled
+    # schemes and their legacy CAM host adapters.
+    print $fh "$srcdir/cam/src/atmos_phys/support/vertical_diffusion\n";
+    print $fh "$srcdir/cam/src/atmos_phys/support/orographic_gravity_wave\n";
+
     # Decoupled atmospheric-physics schemes. Keep every scheme directory
     # ahead of the legacy chemistry and physics host directories.
     print $fh "$srcdir/cam/src/atmos_phys/phys_utils\n";
@@ -2879,8 +2884,10 @@ sub write_filepath
 	# These directories need to precede physics/cam/ to replace
 	# the CAM3 radiation package with RRTMG
 	print $fh "$srcdir/cam/src/physics/rrtmg\n";
-	print $fh "$srcdir/cam/src/physics/rrtmg/ext/rrtmg_mcica\n";
+	print $fh "$srcdir/cam/src/atmos_phys/support/radiation/rrtmg/rrtmg_mcica\n";
+	print $fh "$srcdir/cam/src/atmos_phys/support/radiation/rrtmg/rrtmg_lw\n";
 	print $fh "$srcdir/cam/src/physics/rrtmg/ext/rrtmg_lw\n";
+	print $fh "$srcdir/cam/src/atmos_phys/support/radiation/rrtmg/rrtmg_sw\n";
 	print $fh "$srcdir/cam/src/physics/rrtmg/ext/rrtmg_sw\n";
     }
 
