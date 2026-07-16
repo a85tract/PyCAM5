@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T23:15:24Z",
+  "updated_at": "2026-07-16T23:33:05Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -226,11 +226,11 @@
       "order": 3,
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_convr.F90",
       "module": "ap_zm_convr_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
+      "last_run": "S02-ZM-default-20260716-job6757863",
+      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
       "entry_point": "zm_conv_evap_run",
@@ -240,11 +240,11 @@
       "order": 4,
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_conv_evap.F90",
       "module": "ap_zm_conv_evap_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
+      "last_run": "S02-ZM-default-20260716-job6757863",
+      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
       "entry_point": "zm_conv_momtran_run",
@@ -254,11 +254,11 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_conv_momtran.F90",
       "module": "ap_zm_conv_momtran_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
+      "last_run": "S02-ZM-default-20260716-job6757863",
+      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
       "entry_point": "zm_conv_convtran_run",
@@ -268,11 +268,11 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_conv_convtran.F90",
       "module": "ap_zm_conv_convtran_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
+      "last_run": "S02-ZM-default-20260716-job6757863",
+      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
       "entry_point": "compute_uwshcu_inv_run",
@@ -917,6 +917,106 @@
       },
       "recorded_at": "2026-07-16T23:15:24Z",
       "note": "Actual 256-rank STOP_N=50 run completed with PBS Exit_status 0; all nine S03 runtime timers are nonzero; 790/790 numeric variables are exact against the authoritative native baseline. Character equality is normalized only for volatile timestamps and case-local hrestpath. The S03 closure source files are unchanged between executed commit 02cc874 and compose commit 2eee2b1."
+    },
+    {
+      "run_id": "S02-ZM-default-20260716-job6757863",
+      "batch": "S02",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6757863.desched1",
+      "source_commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_zm_convr_bfb_fix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_ZM_dependency_b2f2c40.txt",
+          "size": 638,
+          "sha256": "fd8cdfea37b9cf8a8361894cb2bbe823d3509ff35319afa626d514db06532c33"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_ZM_standalone_build_b2f2c40.txt",
+          "size": 1513,
+          "sha256": "83e1323aa433c71f6ed90b3eb7167b7402e5a013f228f64f9183af4152635327"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/bld/cesm.exe",
+          "size": 55301616,
+          "sha256": "833f9beca2a118ddd343cc49b44d6181bab16f9d9f2736aeeffbc9e62a73d7ac"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_zm_convr_bfb_fix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/logs/run_environment.txt.6757863.desched1.260716-170111",
+          "size": 42081,
+          "sha256": "8a6a12fd02019ab240f05e02c0f5e9db16606d7159e023a002cc71f589df376d"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_zm_convr_bfb_fix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 10443,
+          "sha256": "435fab6ba4bfce7d71b87be883f177800daede1b39767254f78e2967c408174d"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_zm_convr_bfb_fix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_ZM_compare_job6757863.txt",
+          "size": 1510,
+          "sha256": "32f7b32c84902a57d86861618392380c41c241281940e80d18efbccb93491af1"
+        }
+      },
+      "execution_proof": {
+        "zm_convr_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63913,
+            "sha256": "dd102056cba0126eb5d5c7a6c9ec4f92b2b258f429d1ad00b7c40e70ecbe3107"
+          },
+          "line": "ap_zm_convr_run global_calls=5.324800e+04"
+        },
+        "zm_conv_evap_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63913,
+            "sha256": "dd102056cba0126eb5d5c7a6c9ec4f92b2b258f429d1ad00b7c40e70ecbe3107"
+          },
+          "line": "ap_zm_conv_evap_run global_calls=5.324800e+04"
+        },
+        "zm_conv_momtran_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63913,
+            "sha256": "dd102056cba0126eb5d5c7a6c9ec4f92b2b258f429d1ad00b7c40e70ecbe3107"
+          },
+          "line": "ap_zm_conv_momtran_run global_calls=5.324800e+04"
+        },
+        "zm_conv_convtran_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63913,
+            "sha256": "dd102056cba0126eb5d5c7a6c9ec4f92b2b258f429d1ad00b7c40e70ecbe3107"
+          },
+          "line": "ap_zm_conv_convtran_run global_calls=1.064960e+05"
+        }
+      },
+      "recorded_at": "2026-07-16T23:33:05Z",
+      "note": "Four standalone ZM entries completed a 256-rank STOP_N=50 run with PBS Exit_status 0 and nonzero runtime timers; all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for volatile date_written/time_written. The executed ZM science is preserved in compose commit b2f2c40, which also passes an independent 22-root/100-source standalone build."
     }
   ]
 }

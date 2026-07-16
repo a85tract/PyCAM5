@@ -1,0 +1,7 @@
+S02 ZM standalone dependency audit
+compose_source_commit: b2f2c4084b02462d6fd161b9dad8159ea2a15a2a
+entries: zm_convr_run, zm_conv_evap_run, zm_conv_momtran_run, zm_conv_convtran_run
+command: PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --process zm_convr_run --process zm_conv_evap_run --process zm_conv_momtran_run --process zm_conv_convtran_run
+scope=all selected_entries=4 allowed_external=ISO/IEEE,shr_*,MPI,OpenMP,NetCDF,PIO
+[direct] PASS: entries=4 roots=4 closure_sources=6 violations=0 duplicates=0
+[transitive] PASS: entries=4 roots=4 closure_sources=6 violations=0 duplicates=0

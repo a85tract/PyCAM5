@@ -1,0 +1,24 @@
+S01+S03+S02-ZM completed-only standalone source build
+compose_source_commit: b2f2c4084b02462d6fd161b9dad8159ea2a15a2a
+compiler: IntelLLVM ifx 2025.2.1
+build_directory: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/standalone_s01s03zm_final
+source_mode: TPHYS_STANDALONE_BUILD_SOURCES=ON
+scope: completed-only
+mode: both
+PI-atm compile-time dimensions: PCOLS=16, PLEV=30
+external_modules:
+  /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s01_external/modules (shr_kind_mod only)
+  /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_share_external_20260716/modules (shr_const_mod and shr_spfn_mod only)
+dependency_gate:
+  [direct] PASS: entries=22 roots=22 closure_sources=59 violations=0 duplicates=0
+  [transitive] PASS: entries=22 roots=22 closure_sources=100 violations=0 duplicates=0
+build_result: PASS, libtphys-standalone-schemes.a built from 100 closure sources
+ctest_result: PASS, 2/2 tests
+  tphys-standalone-ledger: Passed
+  tphys-standalone-dependencies: Passed
+CAM EXEROOT modules or objects were not supplied to this standalone build.
+
+Clean full CAM integration build:
+  case: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_zm_final_integration_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node
+  executable: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_final_integration_20260716/output/bld/cesm.exe
+  result: PASS after case.build --clean-all with an initially empty EXEROOT

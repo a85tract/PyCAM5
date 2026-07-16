@@ -1,0 +1,19 @@
+S02 ZM 256-rank 50-step comparison
+job_id: 6757863.desched1
+executed_source_commit: 9b2d2db6a0f58f69e0c48435691a99a8a48d6088
+native_run_dir: /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run
+candidate_run_dir: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_zm_convr_bfb_fix_20260716/output/run
+PBS Exit_status: 0
+MPI ranks: 256
+STOP_N: 50
+cam.r: numeric variables 307/307 equal; numeric MD5 8ecb1dc7e4ca29f9adf2e92017106cfe; character fields equal
+cam.rh0: numeric variables 392/392 equal; numeric MD5 e81876a05681533e9f4b8a9a67ea5154; only date_written/time_written differ
+cam.rs: numeric variables 91/91 equal; numeric MD5 b9d2a429aede18ca97b0f9af0e19fba2; character fields equal
+overall_numeric_equal: True (790/790)
+raw_overall_character_equal: False (volatile write timestamps only)
+normalized_character_equal: True
+
+Root cause fixed by the executed source:
+The decoupling had changed latice/cpliq from compile-time parameters into runtime module configuration, which changed floating-point code generation. Restoring the shr_const_mod parameters recovered BFB. Static work-array shapes and the qsat bridge were independently excluded by 50-step bisection.
+
+The four ZM scheme sources, host adapter, and wv_sat_compat are science-equivalent in compose commit b2f2c4084b02462d6fd161b9dad8159ea2a15a2a. Its only support addition relative to the executed branch is the pre-existing read-only wv_sat_get_default_idx accessor required by the S04-compatible base.

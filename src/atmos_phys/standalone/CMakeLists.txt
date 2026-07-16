@@ -53,12 +53,30 @@ set(
   CACHE STRING
   "Semicolon-separated external CMake library targets or link items"
 )
+set(
+  TPHYS_STANDALONE_PCOLS
+  "16"
+  CACHE STRING
+  "Compile-time physics column count for the PI-atm standalone configuration"
+)
+set(
+  TPHYS_STANDALONE_PLEV
+  "30"
+  CACHE STRING
+  "Compile-time vertical level count for the PI-atm standalone configuration"
+)
 
 if(NOT TPHYS_STANDALONE_SCOPE MATCHES "^(completed-only|all)$")
   message(FATAL_ERROR "TPHYS_STANDALONE_SCOPE must be completed-only or all")
 endif()
 if(NOT TPHYS_STANDALONE_MODE MATCHES "^(direct|transitive|both)$")
   message(FATAL_ERROR "TPHYS_STANDALONE_MODE must be direct, transitive, or both")
+endif()
+if(NOT TPHYS_STANDALONE_PCOLS MATCHES "^[1-9][0-9]*$")
+  message(FATAL_ERROR "TPHYS_STANDALONE_PCOLS must be a positive integer")
+endif()
+if(NOT TPHYS_STANDALONE_PLEV MATCHES "^[1-9][0-9]*$")
+  message(FATAL_ERROR "TPHYS_STANDALONE_PLEV must be a positive integer")
 endif()
 
 set(_tracker "${TPHYS_CAM_ROOT}/tools/tphys_standalone_progress.py")
@@ -195,6 +213,16 @@ if(TPHYS_STANDALONE_BUILD_SOURCES)
       PRIVATE
         "${CMAKE_CURRENT_BINARY_DIR}/modules"
         ${TPHYS_STANDALONE_MODULE_INCLUDE_DIRS}
+    )
+    # These two dimensions are CAM configuration constants, not host-module
+    # state.  Expose them as standalone cache inputs and default them to the
+    # validated PI-atm case so routines with fixed work arrays retain the
+    # production compile-time shapes.
+    target_compile_definitions(
+      tphys-standalone-schemes
+      PRIVATE
+        PCOLS=${TPHYS_STANDALONE_PCOLS}
+        PLEV=${TPHYS_STANDALONE_PLEV}
     )
     # CAM defines this portability macro in bld/Makefile.in.  The standalone
     # build owns the same explicit definition so moved solver utilities do not
