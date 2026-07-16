@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T08:42:40Z",
+  "updated_at": "2026-07-16T08:55:17Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -1079,11 +1079,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
-      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
+      "last_run": "B07-icesupersat-integrated-20260716-job6749436",
+      "bfb_run": "B07-icesupersat-integrated-20260716-job6749436",
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4. Default B07 run leaves this branch inactive; matched native/decoupled micro_do_icesupersat=.true. 50-step jobs 6749435/6749436 each submitted once and completed successfully. Decoupled timer recorded 5.324800e+04 global calls; all 790 numeric variables were exact, with only time_written normalized."
     },
     {
       "entry_point": "cldfrc_run",
@@ -2397,6 +2397,72 @@
       },
       "recorded_at": "2026-07-16T08:42:40Z",
       "note": "Default PI path: fresh uniquely submitted job completed 50 steps and case.run/CPL succeeded; nine B07 timers nonzero; 790/790 numeric exact; normalized character equality excludes only date_written/time_written. ice_macro_tend_run is default-inactive because micro_do_icesupersat=false and remains open for a matched namelist variant pair."
+    },
+    {
+      "run_id": "B07-icesupersat-integrated-20260716-job6749436",
+      "batch": "B07",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6749436.desched1",
+      "source_commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b07_icesupersat_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/b07/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/b07/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/b07/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/b07/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/bld/cesm.exe",
+          "size": 55213088,
+          "sha256": "e11e68cb8456eaeeadef88bc4391b0ae92ac2c823bb9414729dda3486eaa6a34"
+        },
+        "run_environment": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b07_icesupersat_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/logs/run_environment.txt.6749436.desched1.260716-024845",
+          "size": 42052,
+          "sha256": "2d458ee0cf609fd6cdd0547a27421578d91aff9901ea855f89c3e0058a5c4ca2"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b07_icesupersat_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 8520,
+          "sha256": "2f8cda1ea5b75821ad7669778088eb111d7d8d0d2081edbb5fca844689a162e9"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b07_icesupersat_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12756,
+          "sha256": "5f72e4241aa505d0c5e4292650dad1ffaf0c9563b3970a23f2f6a094e8e30a67"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/B07_ICESUPERSAT_COMPARE.txt",
+          "size": 1554,
+          "sha256": "67ebb06ed5d0641c1e20de8b991226a85f7bd686d6d9a04dc8eee493259d7f99"
+        }
+      },
+      "execution_proof": {
+        "ice_macro_tend_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_icesupersat_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749436.desched1.260716-024845",
+            "size": 64348,
+            "sha256": "acb29bd00350f2214a16dc79a9b1634c776e90d0a97767646194d4292d6d549c"
+          },
+          "line": "\"ap_ice_macro_tend_run\"                    -        256      256 5.324800e+04   9.647835e-01     0.004 (     2      0)     0.003 (   109      0)"
+        }
+      },
+      "recorded_at": "2026-07-16T08:54:46Z",
+      "note": "Matched native/decoupled 50-step micro_do_icesupersat=.true. variant; 790/790 numeric variables exact; only raw character difference was normalized time_written; target timer global_calls=5.324800e+04."
     }
   ]
 }
