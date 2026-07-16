@@ -259,7 +259,6 @@ subroutine modal_aero_wateruptake_dr(state, pbuf, list_idx_in, dgnumdry_m, dgnum
       dgncur_awet => dgnumwet_m
       qaerwat => qaerwat_m
       wetdens => wetdens_m
-      dgncur_awet(:,:,:) = dgncur_a(:,:,:)
    end if
 
    if (modal_strat_sulfate) then
@@ -277,7 +276,7 @@ subroutine modal_aero_wateruptake_dr(state, pbuf, list_idx_in, dgnumdry_m, dgnum
    itim_old = pbuf_old_tim_idx()
    call pbuf_get_field(pbuf, cld_idx, cldn, start=(/1,1,itim_old/), &
         kount=(/pcols,pver,1/))
-   first_step = is_first_step()
+   first_step = (list_idx == 0) .and. is_first_step()
 
    call modal_aero_wateruptake_dr_run( &
         ncol, pcols, pver, nmodes, maxspec, top_lev, &
