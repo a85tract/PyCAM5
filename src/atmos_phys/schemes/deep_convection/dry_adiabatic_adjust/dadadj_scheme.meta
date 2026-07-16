@@ -65,3 +65,39 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   intent = inout
+[ cappa ]
+  standard_name = ratio_of_dry_air_gas_constant_to_specific_heat
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ nlvdry ]
+  standard_name = dry_adjustment_bottom_level
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ lat ]
+  standard_name = latitude_for_diagnostics
+  units = degrees_north
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ lon ]
+  standard_name = longitude_for_diagnostics
+  units = degrees_east
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_flag
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

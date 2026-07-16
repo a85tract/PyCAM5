@@ -9,7 +9,7 @@ module ap_dust_sediment_tend_scheme
 !
 !---------------------------------------------------------------------------------
 
-  use shr_kind_mod, only: r8=>shr_kind_r8
+  use shr_kind_mod,      only: r8=>shr_kind_r8
 
   private
   public :: dust_sediment_vel, dust_sediment_tend_run
@@ -18,6 +18,11 @@ module ap_dust_sediment_tend_scheme
   real (r8), parameter :: vland  = 2.8_r8            ! dust fall velocity over land  (cm/s)
   real (r8), parameter :: vocean = 1.5_r8            ! dust fall velocity over ocean (cm/s)
   real (r8), parameter :: mxsedfac   = 0.99_r8       ! maximum sedimentation flux factor
+  integer :: pcols_cfg = 0
+  integer :: pver_cfg = 0
+  integer :: pverp_cfg = 0
+  character(len=512) :: core_errmsg = ''
+  integer :: core_errflg = 0
 
 contains
 
@@ -38,25 +43,34 @@ contains
     real(r8), intent(in)  :: icefrac (:)        ! sea ice fraction (fraction)
     real(r8), intent(in)  :: landfrac(:)        ! land fraction (fraction)
     real(r8), intent(in)  :: ocnfrac (:)        ! ocean fraction (fraction)
-    real(r8), intent(in)  :: pmid  (:,:)         ! pressure of midpoint levels (Pa)
-    real(r8), intent(in)  :: pdel  (:,:)         ! pressure diff across layer (Pa)
-    real(r8), intent(in)  :: t     (:,:)         ! temperature (K)
-    real(r8), intent(in)  :: dustmr(:,:)         ! dust (kg/kg)
+    real(r8), intent(in)  :: pmid  (:,:)        ! pressure of midpoint levels (Pa)
+    real(r8), intent(in)  :: pdel  (:,:)        ! pressure diff across layer (Pa)
+    real(r8), intent(in)  :: t     (:,:)        ! temperature (K)
+    real(r8), intent(in)  :: dustmr(:,:)        ! dust (kg/kg)
 
-    real(r8), intent(out) :: pvdust (:,:)         ! vertical velocity of dust (Pa/s)
+    real(r8), intent(out) :: pvdust (:,:)        ! vertical velocity of dust (Pa/s)
 ! -> note that pvel is at the interfaces (loss from cell is based on pvel(k+1))
 
 ! Local variables
-    real (r8) :: vfall(size(pmid,1))                ! settling velocity of dust particles (m/s)
+    real (r8) :: vfall(size(landfrac))              ! settling velocity of dust particles (m/s)
 
-    integer i,k,pver
+    integer i,k
+
+    real (r8) :: lbound, ac, bc, cc
 
 !-----------------------------------------------------------------------
 !--------------------- dust fall velocity ----------------------------
 !-----------------------------------------------------------------------
 
-    pver = size(pmid,2)
-    do k = 1,pver
+    pcols_cfg = size(pmid, 1)
+    pver_cfg = size(pmid, 2)
+    pverp_cfg = size(pvdust, 2)
+
+    ! Interface 1 and padded columns are not used by the sedimentation
+    ! tendency, but intent(out) requires them to be defined on return.
+    pvdust(:,:) = 0._r8
+
+    do k = 1,pver_cfg
        do i = 1,ncol
 
           ! merge the dust fall velocities for land and ocean (cm/s)
@@ -78,7 +92,7 @@ contains
   !! \htmlinclude dust_sediment_tend_run.html
   subroutine dust_sediment_tend_run ( &
        ncol,   dtime,  pint,     pmid,    pdel,  t,   &
-       dustmr ,pvdust, gravit, dusttend, sfdust, errmsg, errflg )
+       dustmr ,pvdust, gravit,   dusttend, sfdust, errmsg, errflg )
 
 !----------------------------------------------------------------------
 !     Apply Particle Gravitational Sedimentation
@@ -96,7 +110,7 @@ contains
     real(r8), intent(in)  :: t     (:,:)        ! temperature (K)
     real(r8), intent(in)  :: dustmr(:,:)        ! dust (kg/kg)
     real(r8), intent(in)  :: pvdust (:,:)      ! vertical velocity of dust drops  (Pa/s)
-    real(r8), intent(in)  :: gravit
+    real(r8), intent(in)  :: gravit            ! gravitational acceleration
 ! -> note that pvel is at the interfaces (loss from cell is based on pvel(k+1))
 
     real(r8), intent(out) :: dusttend(:,:)      ! dust tend
@@ -105,25 +119,29 @@ contains
     integer, intent(out) :: errflg
 
 ! Local variables
-    real(r8) :: fxdust(size(pint,1),size(pint,2)) ! fluxes at the interfaces, dust (positive = down)
+    real(r8) :: fxdust(size(pint,1),size(pint,2)) ! fluxes at interfaces, positive down
 
-    integer :: i,k,pver,pverp
+    integer :: i,k
 !----------------------------------------------------------------------
 
+    pcols_cfg = size(pint, 1)
+    pverp_cfg = size(pint, 2)
+    pver_cfg = pverp_cfg - 1
+    core_errmsg = ''
+    core_errflg = 0
     errmsg = ''
     errflg = 0
-    pver = size(pmid,2)
-    pverp = size(pint,2)
 
 ! initialize variables
-    fxdust  (:ncol,:) = 0._r8 ! flux at interfaces (dust)
-    dusttend(:ncol,:) = 0._r8 ! tend (dust)
-    sfdust(:ncol)     = 0._r8 ! sedimentation flux out bot of column (dust)
+    fxdust  (:,:) = 0._r8 ! flux at interfaces (dust)
+    dusttend(:,:) = 0._r8 ! tend (dust)
+    sfdust(:)     = 0._r8 ! sedimentation flux out bot of column (dust)
 
 ! fluxes at interior points
-    call getflx(ncol, pint, dustmr, pvdust, dtime, fxdust, errflg)
-    if (errflg /= 0) then
-       errmsg = 'dust_sediment_tend_run: interpolation interval was not found'
+    call getflx(ncol, pint, dustmr, pvdust, dtime, fxdust)
+    if (core_errflg /= 0) then
+       errmsg = core_errmsg
+       errflg = core_errflg
        return
     end if
 
@@ -131,11 +149,11 @@ contains
     do i = 1,ncol
        fxdust(i,1) = 0
 ! surface flux by upstream scheme
-       fxdust(i,pverp) = dustmr(i,pver) * pvdust(i,pverp) * dtime
+       fxdust(i,pverp_cfg) = dustmr(i,pver_cfg) * pvdust(i,pverp_cfg) * dtime
     end do
 
 ! filter out any negative fluxes from the getflx routine
-    do k = 2,pver
+    do k = 2,pver_cfg
        fxdust(:ncol,k) = max(0._r8, fxdust(:ncol,k))
     end do
 
@@ -144,7 +162,7 @@ contains
 ! NOTE, REMOVED CLOUD FACTOR FROM AVAILABLE WATER. ALL CLOUD WATER IS IN CLOUDS.
 ! ***Should we include the flux in the top, to allow for thin surface layers?
 ! ***Requires simple treatment of cloud overlap, already included below.
-    do k = 1,pver
+    do k = 1,pver_cfg
        do i = 1,ncol
           fxdust(i,k+1) = min( fxdust(i,k+1), mxsedfac * dustmr(i,k) * pdel(i,k) )
 !!$        fxdust(i,k+1) = min( fxdust(i,k+1), dustmr(i,k) * pdel(i,k) + fxdust(i,k))
@@ -152,7 +170,7 @@ contains
     end do
 
 ! Now calculate the tendencies
-    do k = 1,pver
+    do k = 1,pver_cfg
        do i = 1,ncol
 ! net flux into cloud changes cloud dust/ice (all flux is out of cloud)
           dusttend(i,k)  = (fxdust(i,k) - fxdust(i,k+1)) / (dtime * pdel(i,k))
@@ -160,13 +178,13 @@ contains
     end do
 
 ! convert flux out the bottom to mass units Pa -> kg/m2/s
-    sfdust(:ncol) = fxdust(:ncol,pverp) / (dtime*gravit)
+    sfdust(:ncol) = fxdust(:ncol,pverp_cfg) / (dtime*gravit)
 
     return
   end subroutine dust_sediment_tend_run
 
 !===============================================================================
-  subroutine getflx(ncol, xw, phi, vel, deltat, flux, errflg)
+  subroutine getflx(ncol, xw, phi, vel, deltat, flux)
 
 !.....xw1.......xw2.......xw3.......xw4.......xw5.......xw6
 !....psiw1.....psiw2.....psiw3.....psiw4.....psiw5.....psiw6
@@ -181,36 +199,31 @@ contains
     integer i
     integer k
 
-    real (r8), intent(in) :: vel(:,:)
-    real (r8), intent(out) :: flux(:,:)
-    real (r8), intent(in) :: xw(:,:)
-    real (r8) :: psi(size(xw,1),size(xw,2))
-    real (r8), intent(in) :: phi(:,:)
-    real (r8) :: fdot(size(xw,1),size(xw,2))
-    real (r8) :: fxdot(size(xw,1))
-    real (r8) :: fxdd(size(xw,1))
+    real (r8) vel(pcols_cfg,pverp_cfg)
+    real (r8) flux(pcols_cfg,pverp_cfg)
+    real (r8) xw(pcols_cfg,pverp_cfg)
+    real (r8) psi(pcols_cfg,pverp_cfg)
+    real (r8) phi(pcols_cfg,pverp_cfg-1)
+    real (r8) fdot(pcols_cfg,pverp_cfg)
+    real (r8) xx(pcols_cfg)
+    real (r8) fxdot(pcols_cfg)
+    real (r8) fxdd(pcols_cfg)
 
-    real (r8) :: psistar(size(xw,1))
+    real (r8) psistar(pcols_cfg)
     real (r8) deltat
-    integer, intent(out) :: errflg
 
-    integer :: pver, pverp
-    real (r8) :: xxk(size(xw,1),size(phi,2))
-
-    errflg = 0
-    pver = size(phi,2)
-    pverp = size(xw,2)
+    real (r8) xxk(pcols_cfg,pver_cfg)
 
     do i = 1,ncol
 !        integral of phi
        psi(i,1) = 0._r8
 !        fluxes at boundaries
        flux(i,1) = 0
-       flux(i,pverp) = 0._r8
+       flux(i,pverp_cfg) = 0._r8
     end do
 
 !     integral function
-    do k = 2,pverp
+    do k = 2,pverp_cfg
        do i = 1,ncol
           psi(i,k) = phi(i,k-1)*(xw(i,k)-xw(i,k-1)) + psi(i,k-1)
        end do
@@ -222,14 +235,13 @@ contains
 
 !  NEW WAY
 !     calculate fluxes at interior pts
-    do k = 2,pver
+    do k = 2,pver_cfg
        do i = 1,ncol
           xxk(i,k) = xw(i,k)-vel(i,k)*deltat
        end do
     end do
-    do k = 2,pver
-       call cfint2(ncol, xw, psi, fdot, xxk(:,k), fxdot, fxdd, psistar, errflg)
-       if (errflg /= 0) return
+    do k = 2,pver_cfg
+       call cfint2(ncol, xw, psi, fdot, xxk(1,k), fxdot, fxdd, psistar)
        do i = 1,ncol
           flux(i,k) = (psi(i,k)-psistar(i))
        end do
@@ -243,7 +255,7 @@ contains
 
 !##############################################################################
 
-  subroutine cfint2 (ncol, x, f, fdot, xin, fxdot, fxdd, psistar, errflg)
+  subroutine cfint2 (ncol, x, f, fdot, xin, fxdot, fxdd, psistar)
 
 
     implicit none
@@ -251,21 +263,19 @@ contains
 ! input
     integer ncol                      ! number of colums to process
 
-    real (r8), intent(in) :: x(:,:)
-    real (r8), intent(in) :: f(:,:)
-    real (r8), intent(in) :: fdot(:,:)
-    real (r8), intent(in) :: xin(:)
+    real (r8) x(pcols_cfg, pverp_cfg)
+    real (r8) f(pcols_cfg, pverp_cfg)
+    real (r8) fdot(pcols_cfg, pverp_cfg)
+    real (r8) xin(pcols_cfg)
 
 ! output
-    real (r8), intent(out) :: fxdot(:)
-    real (r8), intent(out) :: fxdd(:)
-    real (r8), intent(out) :: psistar(:)
-    integer, intent(out) :: errflg
+    real (r8) fxdot(pcols_cfg)
+    real (r8) fxdd(pcols_cfg)
+    real (r8) psistar(pcols_cfg)
 
     integer i
     integer k
-    integer :: pverp
-    integer intz(size(x,1))
+    integer intz(pcols_cfg)
     real (r8) dx
     real (r8) s
     real (r8) c2
@@ -275,7 +285,7 @@ contains
     real (r8) psi1, psi2, psi3, psim
     real (r8) cfint
     real (r8) cfnew
-    real (r8) xins(size(x,1))
+    real (r8) xins(pcols_cfg)
 
 !     the minmod function
     real (r8) a, b, c
@@ -284,15 +294,13 @@ contains
     minmod(a,b) = 0.5_r8*(sign(1._r8,a) + sign(1._r8,b))*min(abs(a),abs(b))
     medan(a,b,c) = a + minmod(b-a,c-a)
 
-    errflg = 0
-    pverp = size(x,2)
     do i = 1,ncol
-       xins(i) = medan(x(i,1), xin(i), x(i,pverp))
+       xins(i) = medan(x(i,1), xin(i), x(i,pverp_cfg))
        intz(i) = 0
     end do
 
 ! first find the interval
-    do k =  1,pverp-1
+    do k =  1,pverp_cfg-1
        do i = 1,ncol
           if ((xins(i)-x(i,k))*(x(i,k+1)-xins(i)).ge.0._r8) then
              intz(i) = k
@@ -302,10 +310,12 @@ contains
 
     do i = 1,ncol
        if (intz(i).eq.0) then
-          errflg = 1
+          write(core_errmsg,'(a,i0)') &
+               'dust_sediment_tend_run: interpolation interval missing for column ', i
+          core_errflg = 1
+          return
        endif
     end do
-    if (errflg /= 0) return
 
 ! now interpolate
     do i = 1,ncol
@@ -326,8 +336,8 @@ contains
        else
           psi2 = f(i,k) + (f(i,k)-f(i,k-1))*xx/(x(i,k)-x(i,k-1))
        endif
-       if (k+1.eq.pverp) then
-          psi3 = f(i,pverp)
+       if (k+1.eq.pverp_cfg) then
+          psi3 = f(i,pverp_cfg)
        else
           psi3 = f(i,k+1) - (f(i,k+2)-f(i,k+1))*(dx-xx)/(x(i,k+2)-x(i,k+1))
        endif
@@ -366,24 +376,24 @@ contains
 ! input
     integer ncol                      ! number of colums to process
 
-    real (r8), intent(in) :: x(:,:)
-    real (r8), intent(in) :: f(:,:)
+    real (r8) x(pcols_cfg, pverp_cfg)
+    real (r8) f(pcols_cfg, pverp_cfg)
 ! output
-    real (r8), intent(out) :: fdot(:,:)          ! derivative at nodes
+    real (r8) fdot(pcols_cfg, pverp_cfg)          ! derivative at nodes
 
 ! assumed variable distribution
-!     x1.......x2.......x3.......x4.......x5.......x6     1,pverp points
-!     f1.......f2.......f3.......f4.......f5.......f6     1,pverp points
-!     ...sh1.......sh2......sh3......sh4......sh5....     1,pver points
-!     .........d2.......d3.......d4.......d5.........     2,pver points
-!     .........s2.......s3.......s4.......s5.........     2,pver points
-!     .............dh2......dh3......dh4.............     2,pver-1 points
-!     .............eh2......eh3......eh4.............     2,pver-1 points
-!     ..................e3.......e4..................     3,pver-1 points
-!     .................ppl3......ppl4................     3,pver-1 points
-!     .................ppr3......ppr4................     3,pver-1 points
-!     .................t3........t4..................     3,pver-1 points
-!     ................fdot3.....fdot4................     3,pver-1 points
+!     x1.......x2.......x3.......x4.......x5.......x6     1,pverp_cfg points
+!     f1.......f2.......f3.......f4.......f5.......f6     1,pverp_cfg points
+!     ...sh1.......sh2......sh3......sh4......sh5....     1,pver_cfg points
+!     .........d2.......d3.......d4.......d5.........     2,pver_cfg points
+!     .........s2.......s3.......s4.......s5.........     2,pver_cfg points
+!     .............dh2......dh3......dh4.............     2,pver_cfg-1 points
+!     .............eh2......eh3......eh4.............     2,pver_cfg-1 points
+!     ..................e3.......e4..................     3,pver_cfg-1 points
+!     .................ppl3......ppl4................     3,pver_cfg-1 points
+!     .................ppr3......ppr4................     3,pver_cfg-1 points
+!     .................t3........t4..................     3,pver_cfg-1 points
+!     ................fdot3.....fdot4................     3,pver_cfg-1 points
 
 
 ! work variables
@@ -395,23 +405,22 @@ contains
     real (r8) a                    ! work var
     real (r8) b                    ! work var
     real (r8) c                    ! work var
-    real (r8) s(size(x,1),size(x,2))             ! first divided differences at nodes
-    real (r8) sh(size(x,1),size(x,2))            ! first divided differences between nodes
-    real (r8) d(size(x,1),size(x,2))             ! second divided differences at nodes
-    real (r8) dh(size(x,1),size(x,2))            ! second divided differences between nodes
-    real (r8) e(size(x,1),size(x,2))             ! third divided differences at nodes
-    real (r8) eh(size(x,1),size(x,2))            ! third divided differences between nodes
+    real (r8) s(pcols_cfg,pverp_cfg)             ! first divided differences at nodes
+    real (r8) sh(pcols_cfg,pverp_cfg)            ! first divided differences between nodes
+    real (r8) d(pcols_cfg,pverp_cfg)             ! second divided differences at nodes
+    real (r8) dh(pcols_cfg,pverp_cfg)            ! second divided differences between nodes
+    real (r8) e(pcols_cfg,pverp_cfg)             ! third divided differences at nodes
+    real (r8) eh(pcols_cfg,pverp_cfg)            ! third divided differences between nodes
     real (r8) pp                   ! p prime
-    real (r8) ppl(size(x,1),size(x,2))           ! p prime on left
-    real (r8) ppr(size(x,1),size(x,2))           ! p prime on right
+    real (r8) ppl(pcols_cfg,pverp_cfg)           ! p prime on left
+    real (r8) ppr(pcols_cfg,pverp_cfg)           ! p prime on right
     real (r8) qpl
     real (r8) qpr
     real (r8) ttt
     real (r8) t
     real (r8) tmin
     real (r8) tmax
-    real (r8) delxh(size(x,1),size(x,2))
-    integer :: pver, pverp
+    real (r8) delxh(pcols_cfg,pverp_cfg)
 
 
 !     the minmod function
@@ -420,9 +429,7 @@ contains
     minmod(a,b) = 0.5_r8*(sign(1._r8,a) + sign(1._r8,b))*min(abs(a),abs(b))
     medan(a,b,c) = a + minmod(b-a,c-a)
 
-    pverp = size(x,2)
-    pver = pverp - 1
-    do k = 1,pver
+    do k = 1,pver_cfg
 
 
 !        first divided differences between nodes
@@ -441,7 +448,7 @@ contains
     end do
 
 !     second and third divided diffs between nodes
-    do k = 2,pver-1
+    do k = 2,pver_cfg-1
        do i = 1, ncol
           eh(i,k) = (d(i,k+1)-d(i,k))/(x(i,k+2)-x(i,k-1))
           dh(i,k) = minmod(d(i,k),d(i,k+1))
@@ -451,24 +458,24 @@ contains
 !     treat the boundaries
     do i = 1,ncol
        e(i,2) = eh(i,2)
-       e(i,pver) = eh(i,pver-1)
+       e(i,pver_cfg) = eh(i,pver_cfg-1)
 !        outside level
        fdot(i,1) = sh(i,1) - d(i,2)*delxh(i,1)  &
             - eh(i,2)*delxh(i,1)*(x(i,1)-x(i,3))
        fdot(i,1) = minmod(fdot(i,1),3*sh(i,1))
-       fdot(i,pverp) = sh(i,pver) + d(i,pver)*delxh(i,pver)  &
-            + eh(i,pver-1)*delxh(i,pver)*(x(i,pverp)-x(i,pver-1))
-       fdot(i,pverp) = minmod(fdot(i,pverp),3*sh(i,pver))
+       fdot(i,pverp_cfg) = sh(i,pver_cfg) + d(i,pver_cfg)*delxh(i,pver_cfg)  &
+            + eh(i,pver_cfg-1)*delxh(i,pver_cfg)*(x(i,pverp_cfg)-x(i,pver_cfg-1))
+       fdot(i,pverp_cfg) = minmod(fdot(i,pverp_cfg),3*sh(i,pver_cfg))
 !        one in from boundary
        fdot(i,2) = sh(i,1) + d(i,2)*delxh(i,1) - eh(i,2)*delxh(i,1)*delxh(i,2)
        fdot(i,2) = minmod(fdot(i,2),3*s(i,2))
-       fdot(i,pver) = sh(i,pver) - d(i,pver)*delxh(i,pver)   &
-            - eh(i,pver-1)*delxh(i,pver)*delxh(i,pver-1)
-       fdot(i,pver) = minmod(fdot(i,pver),3*s(i,pver))
+       fdot(i,pver_cfg) = sh(i,pver_cfg) - d(i,pver_cfg)*delxh(i,pver_cfg)   &
+            - eh(i,pver_cfg-1)*delxh(i,pver_cfg)*delxh(i,pver_cfg-1)
+       fdot(i,pver_cfg) = minmod(fdot(i,pver_cfg),3*s(i,pver_cfg))
     end do
 
 
-    do k = 3,pver-1
+    do k = 3,pver_cfg-1
        do i = 1,ncol
           e(i,k) = minmod(eh(i,k),eh(i,k-1))
        end do
@@ -476,7 +483,7 @@ contains
 
 
 
-    do k = 3,pver-1
+    do k = 3,pver_cfg-1
 
        do i = 1,ncol
 

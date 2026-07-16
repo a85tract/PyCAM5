@@ -18,6 +18,10 @@ subroutine dadadj (lchnk   ,ncol    , &
    use ppgrid
    use perf_mod,        only: t_startf, t_stopf
    use ap_dadadj_scheme, only: dadadj_run
+   use phys_grid,       only: get_lat_p, get_lon_p
+   use physconst,       only: cappa
+   use cam_control_mod, only: nlvdry
+   use cam_abortutils,  only: endrun
    implicit none
 
 !
@@ -36,8 +40,19 @@ subroutine dadadj (lchnk   ,ncol    , &
    real(r8), intent(inout) :: t(pcols,pver)      ! temperature (K)
    real(r8), intent(inout) :: q(pcols,pver)      ! specific humidity
 
+   real(r8) :: lat(pcols), lon(pcols)
+   character(len=512) :: errmsg
+   integer :: errflg, i
+
+   do i = 1, ncol
+      lat(i) = real(get_lat_p(lchnk, i), r8)
+      lon(i) = real(get_lon_p(lchnk, i), r8)
+   end do
+
    call t_startf('ap_dadadj_run')
    call dadadj_run(lchnk, ncol, pcols, pver, pverp, &
-                   pmid, pint, pdel, t, q)
+                   pmid, pint, pdel, t, q, cappa, nlvdry, lat, lon, &
+                   errmsg, errflg)
    call t_stopf('ap_dadadj_run')
+   if (errflg /= 0) call endrun(trim(errmsg))
 end subroutine dadadj

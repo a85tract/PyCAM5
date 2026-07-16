@@ -299,6 +299,18 @@
   type = real | kind = r8
   dimensions = (allocated_horizontal_dimension)
   intent = in
+[ cpairv_col ]
+  standard_name = specific_heat_of_moist_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension,vertical_layer_dimension)
+  intent = in
+[ rairi ]
+  standard_name = gas_constant_of_air_at_interface
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension,vertical_interface_dimension)
+  intent = in
 [ ipbl ]
   standard_name = planetary_boundary_layer_cloud_layer_flag
   units = flag

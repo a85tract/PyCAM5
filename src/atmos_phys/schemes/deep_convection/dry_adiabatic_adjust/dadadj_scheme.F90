@@ -13,7 +13,8 @@ contains
 !! \htmlinclude dadadj_run.html
 subroutine dadadj_run (lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
                    pmid    ,pint    ,pdel    ,t       , &
-                   q       )
+                   q       ,cappa   ,nlvdry  ,lat     ,lon     , &
+                   errmsg  ,errflg  )
 !-----------------------------------------------------------------------
 !
 ! Purpose:
@@ -26,11 +27,6 @@ subroutine dadadj_run (lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
 ! Author: CMS Contact J.Hack
 !
 !-----------------------------------------------------------------------
-   use phys_grid,       only: get_lat_p, get_lon_p
-   use physconst,       only: cappa
-   use cam_abortutils,  only: endrun
-   use cam_control_mod, only: nlvdry
-   use cam_logfile,     only: iulog
    implicit none
 
    integer niter           ! number of iterations for convergence
@@ -44,16 +40,22 @@ subroutine dadadj_run (lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
    integer, intent(in) :: pcols               ! declared horizontal dimension
    integer, intent(in) :: pver                ! vertical layer dimension
    integer, intent(in) :: pverp               ! vertical interface dimension
+   integer, intent(in) :: nlvdry              ! deepest interface considered
 
    real(r8), intent(in) :: pmid(pcols,pver)   ! pressure at model levels
    real(r8), intent(in) :: pint(pcols,pverp)  ! pressure at model interfaces
    real(r8), intent(in) :: pdel(pcols,pver)   ! vertical delta-p
+   real(r8), intent(in) :: cappa               ! R/cp for dry air
+   real(r8), intent(in) :: lat(pcols)          ! host latitude index/value for diagnostics
+   real(r8), intent(in) :: lon(pcols)          ! host longitude index/value for diagnostics
 
 !
 ! Input/output arguments
 !
    real(r8), intent(inout) :: t(pcols,pver)      ! temperature (K)
    real(r8), intent(inout) :: q(pcols,pver)      ! specific humidity
+   character(len=512), intent(out) :: errmsg
+   integer, intent(out) :: errflg
 !
 !---------------------------Local workspace-----------------------------
 !
@@ -77,6 +79,15 @@ subroutine dadadj_run (lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
 !
 !-----------------------------------------------------------------------
 !
+   errmsg = ''
+   errflg = 0
+
+   if (pver < 2 .or. pverp < pver + 1 .or. nlvdry < 1 .or. nlvdry >= pver) then
+      errmsg = 'dadadj_run: invalid vertical dimensions or nlvdry'
+      errflg = 1
+      return
+   end if
+
    zeps = 2.0e-5_r8           ! set convergence criteria
 !
 ! Find gridpoints with unstable stratification
@@ -128,11 +139,10 @@ subroutine dadadj_run (lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
 !
          zeps = zeps + zeps
          if (zeps > 1.e-4_r8) then
-            write(iulog,*)'DADADJ: No convergence in dry adiabatic adjustment'
-            write(iulog,800) get_lat_p(lchnk,i),get_lon_p(lchnk,i),zeps
-            call endrun
+            write(errmsg,800) lat(i), lon(i), zeps
+            errflg = 1
+            return
          else
-            write(iulog,810) zeps,get_lat_p(lchnk,i),get_lon_p(lchnk,i)
             go to 50
          end if
       end if
@@ -141,10 +151,7 @@ subroutine dadadj_run (lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
 !
 ! Formats
 !
-800   format(' lat,lon = ',2i5,', zeps= ',e9.4)
-810   format(//,'DADADJ: Convergence criterion doubled to EPS=',E9.4, &
-             ' for'/'        DRY CONVECTIVE ADJUSTMENT at Lat,Lon=', &
-             2i5)
+800   format('dadadj_run: no convergence at lat/lon=',2f12.5,', zeps=',e9.4)
 end subroutine dadadj_run
 
 end module ap_dadadj_scheme

@@ -78,8 +78,8 @@
   dimensions = ()
   intent = out
 [ errflg ]
-  standard_name = ccpp_error_code
-  units = flag
+  standard_name = ccpp_error_flag
+  units = 1
   type = integer
   dimensions = ()
   intent = out

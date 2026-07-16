@@ -5,6 +5,8 @@ module ap_aero_model_drydep_scheme
   use ap_calcram_scheme, only : calcram_run
   use ap_modal_aero_depvel_part_scheme, only : modal_aero_depvel_part_run
   use ap_dust_sediment_tend_scheme, only : dust_sediment_tend_run
+  use ap_modal_aerosol_timer_hooks, only : modal_aerosol_timer_start, &
+       modal_aerosol_timer_stop
 
   implicit none
   private
@@ -163,6 +165,7 @@ contains
              pvmzaer(:ncol,1) = 0._r8
              pvmzaer(:ncol,2:pverp) = vlc_dry(:ncol,:,jvlc)
 
+             call modal_aerosol_timer_start('ap_dust_sediment_tend_run')
              if (lphase == 1) then
                 ptend_lq(mm) = .true.
                 ddv(:ncol,:,mm) = pvmzaer(:ncol,2:pverp)
@@ -178,6 +181,7 @@ contains
                      temperature, qcw(:,:,mm), pvmzaer, gravit, &
                      dqdt_tmp, sflx, child_errmsg, child_errflg)
              end if
+             call modal_aerosol_timer_stop('ap_dust_sediment_tend_run')
 
              if (child_errflg /= 0) then
                 errmsg = child_errmsg

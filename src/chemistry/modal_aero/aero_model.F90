@@ -18,6 +18,7 @@ module aero_model
   use ap_aero_model_emissions_scheme, only: aero_model_emissions_run
   use ap_aero_model_gasaerexch_scheme, only: aero_model_gasaerexch_run
   use ap_aero_model_drydep_scheme, only: aero_model_drydep_run
+  use ap_modal_aerosol_timer_hooks, only: register_modal_aerosol_timer_hooks
 
   use cam_history,    only: outfld, fieldname_len
   use chem_mods,      only: gas_pcnst, adv_mass
@@ -197,6 +198,8 @@ contains
     character(len=32) :: spec_type
     character(len=32) :: mode_type
     integer :: nspec
+
+    call register_modal_aerosol_timer_hooks(t_startf, t_stopf)
 
     dgnum_idx    = pbuf_get_index('DGNUM')
     dgnumwet_idx = pbuf_get_index('DGNUMWET')
