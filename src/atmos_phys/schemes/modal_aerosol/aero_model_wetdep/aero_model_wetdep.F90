@@ -9,6 +9,7 @@ module ap_aero_model_wetdep_scheme
   use physics_buffer, only : physics_buffer_desc, pbuf_get_field
   use physconst,      only : gravit
   use cam_history,    only : outfld
+  use perf_mod,       only : t_startf, t_stopf
   use modal_aero_data
   use modal_aero_deposition, only : set_srf_wetdep
   use wetdep,                only : wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
