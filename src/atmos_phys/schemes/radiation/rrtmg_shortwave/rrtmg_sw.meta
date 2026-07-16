@@ -1,3 +1,5 @@
+# Standalone contract: rrtmg_sw_run exposes only intrinsic scalar and array data.
+# Its RRTMG and McICA science closure is owned below src/atmos_phys/support/radiation/rrtmg.
 [ccpp-table-properties]
   name = rrtmg_sw
   type = scheme

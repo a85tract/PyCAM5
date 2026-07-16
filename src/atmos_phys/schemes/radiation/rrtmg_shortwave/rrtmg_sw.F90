@@ -67,8 +67,6 @@
       use rrtmg_sw_setcoef, only: setcoef_sw
       use rrtmg_sw_spcvmc, only: spcvmc_sw
 
-      use perf_mod, only: t_startf, t_stopf
-
       implicit none
 
 ! public interfaces/functions/subroutines
@@ -476,8 +474,6 @@
 
 ! Initializations
 
-      call t_startf('ap_rrtmg_sw_run')
-
       zepsec = 1.e-06_r8
       zepzen = 1.e-10_r8
       oneminus = 1.0_r8 - zepsec
@@ -753,8 +749,6 @@
 
 ! End longitude loop
       enddo
-
-      call t_stopf('ap_rrtmg_sw_run')
 
       end subroutine rrtmg_sw_run
 

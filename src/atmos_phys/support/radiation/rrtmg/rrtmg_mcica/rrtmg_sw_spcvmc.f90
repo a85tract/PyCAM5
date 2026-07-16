@@ -18,7 +18,6 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
-      use ppgrid,       only: pcols, begchunk, endchunk
 
 !      use parkind, only : jpim, jprb
       use parrrsw, only : nbndsw, ngptsw, mxmol, jpband
@@ -666,5 +665,4 @@
       end subroutine spcvmc_sw
 
       end module rrtmg_sw_spcvmc
-
 

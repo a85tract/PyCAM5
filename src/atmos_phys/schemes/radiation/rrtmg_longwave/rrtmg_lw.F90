@@ -55,7 +55,6 @@
 ! -------- Modules --------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
-      use ppgrid,       only: pcols, begchunk, endchunk
 
 !      use parkind, only : jpim, jprb
       use rrlw_vsn
@@ -67,8 +66,6 @@
       use rrtmg_lw_rtrnmc, only: rtrnmc
       use rrtmg_lw_setcoef, only: setcoef
       use rrtmg_lw_taumol, only: taumol
-      use perf_mod, only: t_startf, t_stopf
-
       implicit none
 
 ! public interfaces/functions/subroutines
@@ -388,8 +385,6 @@
 
 ! Initializations
 
-      call t_startf('ap_rrtmg_lw_run')
-
       oneminus = 1._r8 - 1.e-6_r8
       pi = 2._r8 * asin(1._r8)
       fluxfac = pi * 2.e4_r8                    ! orig:   fluxfac = pi * 2.d4
@@ -524,8 +519,6 @@
          enddo
 
       enddo
-
-      call t_stopf('ap_rrtmg_lw_run')
 
       end subroutine rrtmg_lw_run
 
