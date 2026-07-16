@@ -5,6 +5,7 @@ module mo_imp_sol
   implicit none
   private
   public :: imp_slv_inti, imp_sol
+  public :: itermax, epsilon, factor, small, imp_sol_scheme_entry_count
   save
   real(r8), parameter :: rel_err = 1.e-3_r8
   real(r8), parameter :: high_rel_err = 1.e-4_r8

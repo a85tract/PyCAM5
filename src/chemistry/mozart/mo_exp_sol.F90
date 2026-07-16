@@ -4,6 +4,7 @@ module mo_exp_sol
   private
   public :: exp_sol
   public :: exp_sol_inti
+  public :: exp_sol_scheme_entry_count
 
   integer, save :: exp_sol_scheme_entry_count = 0
 !$omp threadprivate(exp_sol_scheme_entry_count)
