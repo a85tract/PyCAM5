@@ -3,7 +3,8 @@ module uwshcu
   use shr_kind_mod, only: r8 => shr_kind_r8
   use ap_uwshcu_processes_scheme, only: scheme_set_rpen => uwshcu_set_rpen, &
        scheme_init_uwshcu => init_uwshcu, &
-       compute_uwshcu_run, compute_uwshcu_inv_run
+       compute_uwshcu_run, &
+       compute_uwshcu_inv => compute_uwshcu_inv_run
   use ap_water_isotope_fractionation, only: &
        register_water_isotope_alpha_hook
   use ap_saturation_table, only: register_qsat_table_hook, &
@@ -98,49 +99,6 @@ contains
          wtrc_alpha_kinetic, wtrc_fixed_alpha, species_rstd, errmsg, errflg)
     if (errflg /= 0) call endrun(trim(errmsg))
   end subroutine init_uwshcu
-
-  subroutine compute_uwshcu_inv(mix, mkx, iend, ncnst, dt, ps0_inv, zs0_inv, &
-       p0_inv, z0_inv, dp0_inv, u0_inv, v0_inv, qv0_inv, ql0_inv, qi0_inv, &
-       t0_inv, s0_inv, tr0_inv, tke_inv, cldfrct_inv, concldfrct_inv, pblh, &
-       cush, umf_inv, slflx_inv, qtflx_inv, flxprc1_inv, flxsnow1_inv, &
-       qvten_inv, qlten_inv, qiten_inv, sten_inv, uten_inv, vten_inv, &
-       trten_inv, qrten_inv, qsten_inv, precip, snow, evapc_inv, cufrc_inv, &
-       qcu_inv, qlu_inv, qiu_inv, cbmf, qc_inv, rliq, cnt_inv, cnb_inv, &
-       lchnk, dpdry0_inv, wtprec, wtsnow, wtqc_inv)
-
-    integer, intent(in) :: mix, mkx, iend, ncnst, lchnk
-    real(r8), intent(in) :: dt
-    real(r8), intent(in) :: ps0_inv(:,:), zs0_inv(:,:), p0_inv(:,:), z0_inv(:,:)
-    real(r8), intent(in) :: dp0_inv(:,:), u0_inv(:,:), v0_inv(:,:)
-    real(r8), intent(in) :: qv0_inv(:,:), ql0_inv(:,:), qi0_inv(:,:)
-    real(r8), intent(in) :: t0_inv(:,:), s0_inv(:,:), tr0_inv(:,:,:)
-    real(r8), intent(in) :: tke_inv(:,:), cldfrct_inv(:,:), concldfrct_inv(:,:)
-    real(r8), intent(in) :: pblh(:), dpdry0_inv(:,:)
-    real(r8), intent(inout) :: cush(:)
-    real(r8), intent(out) :: umf_inv(:,:), slflx_inv(:,:), qtflx_inv(:,:)
-    real(r8), intent(out) :: flxprc1_inv(:,:), flxsnow1_inv(:,:)
-    real(r8), intent(out) :: qvten_inv(:,:), qlten_inv(:,:), qiten_inv(:,:)
-    real(r8), intent(out) :: sten_inv(:,:), uten_inv(:,:), vten_inv(:,:)
-    real(r8), intent(out) :: trten_inv(:,:,:), qrten_inv(:,:), qsten_inv(:,:)
-    real(r8), intent(out) :: precip(:), snow(:), evapc_inv(:,:), cufrc_inv(:,:)
-    real(r8), intent(out) :: qcu_inv(:,:), qlu_inv(:,:), qiu_inv(:,:), cbmf(:)
-    real(r8), intent(out) :: qc_inv(:,:), rliq(:), cnt_inv(:), cnb_inv(:)
-    real(r8), intent(out) :: wtprec(:,:), wtsnow(:,:), wtqc_inv(:,:,:)
-    character(len=512) :: errmsg
-    integer :: errflg
-
-    call t_startf('ap_compute_uwshcu_inv_run')
-    call compute_uwshcu_inv_run(mix, mkx, iend, ncnst, dt, ps0_inv, zs0_inv, &
-         p0_inv, z0_inv, dp0_inv, u0_inv, v0_inv, qv0_inv, ql0_inv, qi0_inv, &
-         t0_inv, s0_inv, tr0_inv, tke_inv, cldfrct_inv, concldfrct_inv, pblh, &
-         cush, umf_inv, slflx_inv, qtflx_inv, flxprc1_inv, flxsnow1_inv, &
-         qvten_inv, qlten_inv, qiten_inv, sten_inv, uten_inv, vten_inv, &
-         trten_inv, qrten_inv, qsten_inv, precip, snow, evapc_inv, cufrc_inv, &
-         qcu_inv, qlu_inv, qiu_inv, cbmf, qc_inv, rliq, cnt_inv, cnb_inv, &
-         lchnk, dpdry0_inv, wtprec, wtsnow, wtqc_inv, errmsg, errflg)
-    call t_stopf('ap_compute_uwshcu_inv_run')
-    if (errflg /= 0) call endrun(trim(errmsg))
-  end subroutine compute_uwshcu_inv
 
   subroutine compute_uwshcu(mix, mkx, iend, ncnst, dt, ps0_in, zs0_in, &
        p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, t0_in, &

@@ -277,8 +277,10 @@ end subroutine uwshcu_set_rpen
     real(r8), intent(out)   :: wtprec(:,:)        !  Water tracer surface precipitation [ m/s ]
     real(r8), intent(out)   :: wtsnow(:,:)        !  Water tracer surface snow [ m/s ]
     real(r8), intent(out)   :: wtqc_inv(:,:,:)  !  Water tracer detrained condensate [ kg/kg/s ]
-    character(len=*), intent(out) :: errmsg
-    integer, intent(out) :: errflg
+    character(len=*), intent(out), optional :: errmsg
+    integer, intent(out), optional :: errflg
+    character(len=512) :: errmsg_local
+    integer :: errflg_local
     !*************
 
     real(r8)                :: ps0(mix,0:mkx)           !  Environmental pressure at the interfaces [ Pa ]
@@ -382,9 +384,11 @@ end subroutine uwshcu_set_rpen
                          cufrc, qcu    , qlu       , qiu   ,        &
                          cbmf , qc     , rliq      ,                &
                          cnt  , cnb    , lchnk     , dpdry0, wtprec,&
-                         wtsnow, wtqc, errmsg, errflg )
+                         wtsnow, wtqc, errmsg_local, errflg_local )
 
-    if (errflg /= 0) return
+    if (present(errmsg)) errmsg = errmsg_local
+    if (present(errflg)) errflg = errflg_local
+    if (errflg_local /= 0) return
 
     !**********************************************
     !Calculate impact of UW scheme on water tracers:

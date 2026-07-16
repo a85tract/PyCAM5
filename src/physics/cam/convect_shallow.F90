@@ -17,6 +17,7 @@
    use cam_history,       only : outfld, addfld, phys_decomp
    use cam_logfile,       only : iulog
    use phys_control,      only : phys_getopts
+   use perf_mod,          only : t_startf, t_stopf
 
    implicit none
    private                 
@@ -436,6 +437,7 @@ end subroutine convect_shallow_init_cnst
    use wv_saturation,   only : qsat
    use physconst,       only : latice, latvap, rhoh2o
    use spmd_utils, only : iam
+   use cam_abortutils,  only : endrun
 
   !water tracers:
    use water_tracer_vars,only: trace_water, wtrc_ntype, wtrc_srfpcp_indices,&
@@ -484,6 +486,8 @@ end subroutine convect_shallow_init_cnst
    integer  :: nstep                                                     ! Current time step index
    integer  :: ixcldice, ixcldliq                                        ! Constituent indices for cloud liquid and ice water.
    integer  :: ixnumice, ixnumliq                                        ! Constituent indices for cloud liquid and ice number concentration
+   integer  :: uw_errflg
+   character(len=512) :: uw_errmsg
 
    real(r8),  pointer   :: precc(:)                                      ! Shallow convective precipitation (rain+snow) rate at surface [ m/s ]
    real(r8),  pointer   :: snow(:)                                       ! Shallow convective snow rate at surface [ m/s ]
@@ -680,6 +684,8 @@ end subroutine convect_shallow_init_cnst
       call pbuf_get_field(pbuf, sh_flxprc_idx, flxprec)
       call pbuf_get_field(pbuf, sh_flxsnw_idx, flxsnow)
 
+      call t_startf('ap_compute_uwshcu_inv_run')
+      call t_startf('ap_compute_uwshcu_run')
       call compute_uwshcu_inv( pcols     , pver    , ncol           , pcnst         , ztodt         ,                   &
                                state%pint, state%zi, state%pmid     , state%zm      , state%pdel    ,                   & 
                                state%u   , state%v , state%q(:,:,1) , state%q(:,:,ixcldliq), state%q(:,:,ixcldice),     &
@@ -693,7 +699,10 @@ end subroutine convect_shallow_init_cnst
                                evapcsh             , shfrc          , iccmr_UW      , icwmr_UW      ,                   &
                                icimr_UW            , cbmf           , qc2           , rliq2         ,                   &
                                cnt2                , cnb2           , lchnk         , state%pdeldry ,                   &
-                               wtprect             , wtsnowt        , wtqc )
+                               wtprect             , wtsnowt        , wtqc          , uw_errmsg     , uw_errflg )
+      call t_stopf('ap_compute_uwshcu_run')
+      call t_stopf('ap_compute_uwshcu_inv_run')
+      if (uw_errflg /= 0) call endrun(trim(uw_errmsg))
 
       ! --------------------------------------------------------------------- !
       ! Here, 'rprdsh = qrten', 'cmfdqs = qsten' both in unit of [ kg/kg/s ]  !
