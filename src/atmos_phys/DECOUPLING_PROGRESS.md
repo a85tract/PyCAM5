@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T06:32:54Z`
+- 最近更新：`2026-07-16T06:54:33Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 19 | 7 | 0 | 0 | 0 | 43 |
+| 69 | 29 | 0 | 0 | 0 | 0 | 40 |
 
 ## 批次
 
@@ -19,7 +19,7 @@
 |---|---|---:|---|---|---:|
 | B01 | 公共状态更新 | 9 | — | `bfb` | 9/9 |
 | B02 | 守恒与能量 | 10 | B01 | `bfb` | 10/10 |
-| B03 | 排放与气相化学 | 10 | B01, B02 | `in_progress` | 0/10 |
+| B03 | 排放与气相化学 | 10 | B01, B02 | `bfb` | 10/10 |
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `planned` | 0/10 |
 | B05 | 边界层与地形重力波 | 10 | B01, B02 | `planned` | 0/10 |
 | B06 | 对流与柱沉降 | 10 | B01, B02 | `planned` | 0/10 |
@@ -48,16 +48,16 @@
 | B02 | tphysac | conservation_adjust/check_energy | `dycore_energy_consistency_adjust_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
 | B02 | tphysbc | conservation_adjust/water | `wtrc_mass_fixer_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
 | B02 | tphysac | conservation_adjust/water | `set_dry_to_wet_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
-| B03 | tphysac | chemistry_emissions | `aero_model_emissions_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysac | chemistry_emissions | `dust_emis_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysac | chemistry_emissions | `seasalt_emis_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysac | chemistry_emissions | `set_srf_emissions_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysac | mozart_mam | `drydep_update_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysac | mozart_mam | `neu_wetdep_tend_run` | `planned` | — | — | — | — |
-| B03 | tphysac | mozart_mam | `gas_phase_chemdr_run` | `planned` | — | — | — | — |
-| B03 | tphysac | mozart_mam | `exp_sol_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysac | mozart_mam | `imp_sol_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
-| B03 | tphysbc | tropopause_find | `tropopause_find_run` | `planned` | — | — | — | — |
+| B03 | tphysac | chemistry_emissions | `aero_model_emissions_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | chemistry_emissions | `dust_emis_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | chemistry_emissions | `seasalt_emis_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | chemistry_emissions | `set_srf_emissions_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | mozart_mam | `drydep_update_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | mozart_mam | `neu_wetdep_tend_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | mozart_mam | `gas_phase_chemdr_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | mozart_mam | `exp_sol_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysac | mozart_mam | `imp_sol_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
+| B03 | tphysbc | tropopause_find | `tropopause_find_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
 | B04 | tphysac | modal_aerosol | `aero_model_gasaerexch_run` | `planned` | — | — | — | — |
 | B04 | tphysac | modal_aerosol | `modal_aero_gasaerexch_sub_run` | `planned` | — | — | — | — |
 | B04 | tphysac | modal_aerosol | `modal_aero_newnuc_sub_run` | `planned` | — | — | — | — |
@@ -129,3 +129,4 @@
 |---|---|---|---|---|---|---|---:|---|
 | `B01-20260715-job6748173` | B01 | `bfb` | 6748173.desched1 | 93da2d05049841a54ae3c6310c089e924c99c458 | True | True | 9 | 2026-07-16T06:05:09Z |
 | `B02-20260716-job6748264` | B02 | `bfb` | 6748264.desched1 | a6753f460534a8f7d246e81b02424ababf3ab539 | True | True | 10 | 2026-07-16T06:21:15Z |
+| `B03-20260716-job6748380` | B03 | `bfb` | 6748380.desched1 | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | True | True | 10 | 2026-07-16T06:49:26Z |

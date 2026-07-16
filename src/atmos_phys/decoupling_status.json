@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T06:32:54Z",
+  "updated_at": "2026-07-16T06:54:33Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -407,11 +407,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "dust_emis_run",
@@ -423,11 +423,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "seasalt_emis_run",
@@ -439,11 +439,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "set_srf_emissions_run",
@@ -455,11 +455,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "drydep_update_run",
@@ -471,11 +471,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "neu_wetdep_tend_run",
@@ -487,11 +487,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "gas_phase_chemdr_run",
@@ -503,11 +503,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "exp_sol_run",
@@ -519,11 +519,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "imp_sol_run",
@@ -535,11 +535,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes"
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "tropopause_find_run",
@@ -551,11 +551,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "last_run": "B03-20260716-job6748380",
+      "bfb_run": "B03-20260716-job6748380",
+      "note": "Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented."
     },
     {
       "entry_point": "aero_model_gasaerexch_run",
@@ -1599,6 +1599,144 @@
       },
       "recorded_at": "2026-07-16T06:21:15Z",
       "note": "Integrated B01+B02 50-step numeric BFB; normalized character BFB after excluding volatile date_written/time_written; 19/19 dependency timers executed; B02 record contains exactly its ten proofs; executable checkout 28df74a1b533d2cd3980c0a1ea91838e4a469ff1 differs from effective source a6753f460534a8f7d246e81b02424ababf3ab539 only by tracker Markdown/JSON."
+    },
+    {
+      "run_id": "B03-20260716-job6748380",
+      "batch": "B03",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748380.desched1",
+      "source_commit": "bf46c7c6e665a6e1491a86539cc3d3364f9071d5",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b03/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b03/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b03/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b03/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b03/bld/cesm.exe",
+          "size": 54953480,
+          "sha256": "2e794378fd6ccd9bec01f977330ab8340e58766d49343a8a78118853851aa963"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b03/run/run_environment.txt.job6748380",
+          "size": 45839,
+          "sha256": "777cb286dcbf4604a6ea35e4d14b381ba644b0013684dbf4e5188f535098da89"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 4312,
+          "sha256": "4ff4f4ba0c744a3e88c5b2e45d2c329fd12897a8fc5b4b44b3de8cdf6668ba7b"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/B03_INTEGRATED_COMPARE.txt",
+          "size": 902,
+          "sha256": "af3f481df13d50f23edb4f94b49157fab8e354663f02b5a86b00c1360b20ad71"
+        }
+      },
+      "execution_proof": {
+        "aero_model_emissions_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_aero_model_emissions_run global_calls=52224"
+        },
+        "dust_emis_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_dust_emis_run global_calls=52224"
+        },
+        "seasalt_emis_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_seasalt_emis_run global_calls=52224"
+        },
+        "set_srf_emissions_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_set_srf_emissions_run global_calls=52224"
+        },
+        "drydep_update_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_drydep_update_run global_calls=52224"
+        },
+        "neu_wetdep_tend_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_neu_wetdep_tend_run global_calls=52224"
+        },
+        "gas_phase_chemdr_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_gas_phase_chemdr_run global_calls=52224"
+        },
+        "exp_sol_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_exp_sol_run global_calls=52224"
+        },
+        "imp_sol_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_imp_sol_run global_calls=52224"
+        },
+        "tropopause_find_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b03_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748380.desched1.260716-004824",
+            "size": 58838,
+            "sha256": "add8948aff35fbfababb62cced728e5d232355818696c35f5faf8e6665b43f39"
+          },
+          "line": "ap_tropopause_find_run global_calls=211968"
+        }
+      },
+      "recorded_at": "2026-07-16T06:49:26Z",
+      "note": "Integrated B01+B02+B03 50-step numeric BFB; normalized character BFB after excluding volatile date_written/time_written; 29/29 dependency timers executed; B03 record contains exactly its ten proofs; clean integration source bf46c7c6."
     }
   ]
 }
