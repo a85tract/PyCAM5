@@ -1,0 +1,103 @@
+[ccpp-table-properties]
+  name = calcram
+  type = scheme
+
+[ccpp-arg-table]
+  name = calcram_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ rair ]
+  standard_name = dry_air_gas_constant
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = standard_gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ landfrac ]
+  standard_name = land_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ icefrac ]
+  standard_name = sea_ice_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ocnfrac ]
+  standard_name = ocean_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ obklen ]
+  standard_name = obukhov_length
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ustar ]
+  standard_name = surface_friction_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ram1in ]
+  standard_name = land_surface_aerodynamic_resistance
+  units = s m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ram1 ]
+  standard_name = surface_aerodynamic_resistance
+  units = s m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ t ]
+  standard_name = air_temperature_at_lowest_model_layer
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure_at_lowest_model_layer
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness_at_lowest_model_layer
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ fvin ]
+  standard_name = land_surface_friction_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ fv ]
+  standard_name = effective_surface_friction_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out

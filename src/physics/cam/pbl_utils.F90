@@ -12,6 +12,8 @@ module pbl_utils
 !-----------------------------------------------------------------------!
 
 use shr_kind_mod, only: r8 => shr_kind_r8
+use ap_calc_obklen_scheme, only: calc_obklen_run
+use perf_mod, only: t_startf, t_stopf
 
 implicit none
 private
@@ -35,6 +37,11 @@ real(r8) :: vk        ! Von Karman's constant
 real(r8) :: cpair     ! specific heat of dry air
 real(r8) :: rair      ! gas constant for dry air
 real(r8) :: zvir      ! rh2o/rair - 1
+
+interface calc_obklen
+  module procedure calc_obklen_scalar
+  module procedure calc_obklen_vector
+end interface calc_obklen
 
 contains
 
@@ -79,35 +86,75 @@ elemental subroutine calc_ustar( t,    pmid, taux, tauy, &
   
 end subroutine calc_ustar
 
-elemental subroutine calc_obklen( ths,  thvs, qflx, shflx, rrho, ustar, &
-                                  khfs, kqfs, kbfs, obklen)
+subroutine calc_obklen_scalar(ths, thvs, qflx, shflx, rrho, ustar, &
+                              khfs, kqfs, kbfs, obklen)
 
   !-----------------------------------------------------------------------!
   ! Purpose: Calculate Obukhov length and kinematic fluxes.               !
   !-----------------------------------------------------------------------!
 
-  real(r8), intent(in)  :: ths           ! potential temperature at surface [K]
-  real(r8), intent(in)  :: thvs          ! virtual potential temperature at surface
-  real(r8), intent(in)  :: qflx          ! water vapor flux (kg/m2/s)
-  real(r8), intent(in)  :: shflx         ! surface heat flux (W/m2)
+  real(r8), intent(in)  :: ths
+  real(r8), intent(in)  :: thvs
+  real(r8), intent(in)  :: qflx
+  real(r8), intent(in)  :: shflx
 
-  real(r8), intent(in)  :: rrho          ! 1./bottom level density [ m3/kg ]
-  real(r8), intent(in)  :: ustar         ! Surface friction velocity [ m/s ]
+  real(r8), intent(in)  :: rrho
+  real(r8), intent(in)  :: ustar
   
-  real(r8), intent(out) :: khfs          ! sfc kinematic heat flux [mK/s]
-  real(r8), intent(out) :: kqfs          ! sfc kinematic water vapor flux [m/s]
-  real(r8), intent(out) :: kbfs          ! sfc kinematic buoyancy flux [m^2/s^3]
-  real(r8), intent(out) :: obklen        ! Obukhov length
-  
-  ! Need kinematic fluxes for Obukhov:
-  khfs = shflx*rrho/cpair
-  kqfs = qflx*rrho
-  kbfs = khfs + zvir*ths*kqfs
-  
-  ! Compute Obukhov length:
-  obklen = -thvs * ustar**3 / (g*vk*(kbfs + sign(1.e-10_r8,kbfs)))
+  real(r8), intent(out) :: khfs
+  real(r8), intent(out) :: kqfs
+  real(r8), intent(out) :: kbfs
+  real(r8), intent(out) :: obklen
 
-end subroutine calc_obklen
+  real(r8) :: ths_work(1), thvs_work(1), qflx_work(1), shflx_work(1)
+  real(r8) :: rrho_work(1), ustar_work(1)
+  real(r8) :: khfs_work(1), kqfs_work(1), kbfs_work(1), obklen_work(1)
+  character(len=512) :: errmsg
+  integer :: errflg
+
+  ths_work(1) = ths
+  thvs_work(1) = thvs
+  qflx_work(1) = qflx
+  shflx_work(1) = shflx
+  rrho_work(1) = rrho
+  ustar_work(1) = ustar
+
+  call t_startf('ap_calc_obklen_run')
+  call calc_obklen_run(1, g, vk, cpair, zvir, ths_work, thvs_work, &
+       qflx_work, shflx_work, rrho_work, ustar_work, khfs_work, &
+       kqfs_work, kbfs_work, obklen_work, errmsg, errflg)
+  call t_stopf('ap_calc_obklen_run')
+
+  khfs = khfs_work(1)
+  kqfs = kqfs_work(1)
+  kbfs = kbfs_work(1)
+  obklen = obklen_work(1)
+
+end subroutine calc_obklen_scalar
+
+subroutine calc_obklen_vector(ths, thvs, qflx, shflx, rrho, ustar, &
+                              khfs, kqfs, kbfs, obklen)
+
+  real(r8), intent(in)  :: ths(:)
+  real(r8), intent(in)  :: thvs(:)
+  real(r8), intent(in)  :: qflx(:)
+  real(r8), intent(in)  :: shflx(:)
+  real(r8), intent(in)  :: rrho(:)
+  real(r8), intent(in)  :: ustar(:)
+  real(r8), intent(out) :: khfs(:)
+  real(r8), intent(out) :: kqfs(:)
+  real(r8), intent(out) :: kbfs(:)
+  real(r8), intent(out) :: obklen(:)
+
+  character(len=512) :: errmsg
+  integer :: errflg
+
+  call t_startf('ap_calc_obklen_run')
+  call calc_obklen_run(size(ths), g, vk, cpair, zvir, ths, thvs, qflx, &
+       shflx, rrho, ustar, khfs, kqfs, kbfs, obklen, errmsg, errflg)
+  call t_stopf('ap_calc_obklen_run')
+
+end subroutine calc_obklen_vector
 
 elemental real(r8) function virtem(t,q)
 

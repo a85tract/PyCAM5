@@ -1,0 +1,109 @@
+[ccpp-table-properties]
+  name = calc_obklen
+  type = scheme
+
+[ccpp-arg-table]
+  name = calc_obklen_run
+  type = scheme
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ g ]
+  standard_name = standard_gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ vk ]
+  standard_name = von_karman_constant
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ cpair ]
+  standard_name = specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ zvir ]
+  standard_name = water_vapor_virtual_temperature_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ths ]
+  standard_name = potential_temperature_at_surface_layer
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ thvs ]
+  standard_name = virtual_potential_temperature_at_surface_layer
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ qflx ]
+  standard_name = water_vapor_flux_at_surface
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ shflx ]
+  standard_name = sensible_heat_flux_at_surface
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ rrho ]
+  standard_name = inverse_air_density_at_surface_layer
+  units = m3 kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ustar ]
+  standard_name = friction_velocity_at_surface
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ khfs ]
+  standard_name = kinematic_heat_flux_at_surface
+  units = K m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ kqfs ]
+  standard_name = kinematic_water_vapor_flux_at_surface
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ kbfs ]
+  standard_name = kinematic_buoyancy_flux_at_surface
+  units = m2 s-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ obklen ]
+  standard_name = obukhov_length
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

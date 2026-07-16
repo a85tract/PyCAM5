@@ -178,7 +178,8 @@ subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
   ! The parameterization is assumed to operate only where water vapor
   ! concentrations are negligible in determining the density.
   !-----------------------------------------------------------------------
-  use gw_utils, only: midpoint_interp
+  use ap_gw_prof_scheme, only: gw_prof_run
+  use perf_mod, only: t_startf, t_stopf
   !------------------------------Arguments--------------------------------
   ! Column dimension.
   integer, intent(in) :: ncol
@@ -195,58 +196,9 @@ subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
   ! Midpoint and interface Brunt-Vaisalla frequencies.
   real(r8), intent(out) :: nm(ncol,pver), ni(ncol,pver+1)
 
-  !---------------------------Local Storage-------------------------------
-  ! Column and level indices.
-  integer :: i,k
-
-  ! dt/dp
-  real(r8) :: dtdp
-  ! Brunt-Vaisalla frequency squared.
-  real(r8) :: n2
-
-  ! Interface temperature.
-  real(r8) :: ti(ncol,pver+1)
-
-  ! Minimum value of Brunt-Vaisalla frequency squared.
-  real(r8), parameter :: n2min = 5.e-5_r8
-
-  !------------------------------------------------------------------------
-  ! Determine the interface densities and Brunt-Vaisala frequencies.
-  !------------------------------------------------------------------------
-
-  ! The top interface values are calculated assuming an isothermal
-  ! atmosphere above the top level.
-  k = 1
-  do i = 1, ncol
-     ti(i,k) = t(i,k)
-     rhoi(i,k) = p%ifc(i,k) / (rair*ti(i,k))
-     ni(i,k) = sqrt(gravit*gravit / (cpair*ti(i,k)))
-  end do
-
-  ! Interior points use centered differences.
-  ti(:,2:pver) = midpoint_interp(t)
-  do k = 2, pver
-     do i = 1, ncol
-        rhoi(i,k) = p%ifc(i,k) / (rair*ti(i,k))
-        dtdp = (t(i,k)-t(i,k-1)) * p%rdst(i,k-1)
-        n2 = gravit*gravit/ti(i,k) * (1._r8/cpair - rhoi(i,k)*dtdp)
-        ni(i,k) = sqrt(max(n2min, n2))
-     end do
-  end do
-
-  ! Bottom interface uses bottom level temperature, density; next interface
-  ! B-V frequency.
-  k = pver+1
-  do i = 1, ncol
-     ti(i,k) = t(i,k-1)
-     rhoi(i,k) = p%ifc(i,k) / (rair*ti(i,k))
-     ni(i,k) = ni(i,k-1)
-  end do
-
-  !------------------------------------------------------------------------
-  ! Determine the midpoint Brunt-Vaisala frequencies.
-  !------------------------------------------------------------------------
-  nm = midpoint_interp(ni)
+  call t_startf('ap_gw_prof_run')
+  call gw_prof_run(pver, pver+1, rair, gravit, ncol, p, cpair, t, rhoi, nm, ni)
+  call t_stopf('ap_gw_prof_run')
 
 end subroutine gw_prof
 
@@ -270,8 +222,8 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   !        tendency
   !-----------------------------------------------------------------------
 
-  use gw_diffusion, only: gw_ediff, gw_diff_tend
-  use linear_1d_operators, only: TriDiagDecomp
+  use ap_gw_drag_prof_scheme, only: gw_drag_prof_run
+  use perf_mod, only: t_startf, t_stopf
 
   !------------------------------Arguments--------------------------------
   ! Column dimension.
@@ -337,225 +289,15 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   real(r8), intent(in), optional :: &
        ro_adjust(ncol,-band%ngwv:band%ngwv,pver+1)
 
-  !---------------------------Local storage-------------------------------
-
-  ! Level, wavenumber, and constituent loop indices.
-  integer :: k, l, m
-
-  ! Lowest tendency and source levels.
-  integer :: kbot_tend, kbot_src
-
-  ! "Total" and saturation diffusivity.
-  real(r8) :: d(ncol)
-  ! Imaginary part of vertical wavenumber.
-  real(r8) :: mi(ncol)
-  ! Stress after damping.
-  real(r8) :: taudmp(ncol)
-  ! Saturation stress.
-  real(r8) :: tausat(ncol)
-  ! (ub-c) and (ub-c)**2
-  real(r8) :: ubmc(ncol), ubmc2(ncol)
-  ! Temporary ubar tendencies (overall, and at wave l).
-  real(r8) :: ubt(ncol,pver), ubtl(ncol)
-  real(r8) :: wrk(ncol)
-  ! Ratio used for ubt tndmax limiting.
-  real(r8) :: ubt_lim_ratio(ncol)
-
-  ! LU decomposition.
-  type(TriDiagDecomp) :: decomp
-
-  !------------------------------------------------------------------------
-
-  ! Lowest levels that loops need to iterate over.
-  kbot_tend = maxval(tend_level)
-  kbot_src = maxval(src_level)
-
-  ! Initialize gravity wave drag tendencies to zero.
-
-  utgw = 0._r8
-  vtgw = 0._r8
-
-  gwut = 0._r8
-
-  dttke = 0._r8
-  ttgw = 0._r8
-
-  ! Workaround floating point exception issues on Intel by initializing
-  ! everything that's first set in a where block.
-  mi = 0._r8
-  taudmp = 0._r8
-  tausat = 0._r8
-  ubmc = 0._r8
-  ubmc2 = 0._r8
-  wrk = 0._r8
-
-  !------------------------------------------------------------------------
-  ! Compute the stress profiles and diffusivities
-  !------------------------------------------------------------------------
-
-  ! Loop from bottom to top to get stress profiles.
-  do k = kbot_src, ktop, -1
-
-     ! Determine the diffusivity for each column.
-
-     d = dback + kvtt(:,k)
-
-     do l = -band%ngwv, band%ngwv
-
-        ! Determine the absolute value of the saturation stress.
-        ! Define critical levels where the sign of (u-c) changes between
-        ! interfaces.
-        ubmc = ubi(:,k) - c(:,l)
-
-        tausat = 0.0_r8
-        where (src_level >= k)
-           ! Test to see if u-c has the same sign here as the level below.
-           where (ubmc > 0.0_r8 .eqv. ubi(:,k+1) > c(:,l))
-              tausat = abs(band%effkwv * rhoi(:,k) * ubmc**3 / &
-                   (2._r8*ni(:,k)))
-           end where
-        end where
-
-        if (present(ro_adjust)) then
-           where (src_level >= k)
-              tausat = tausat * sqrt(ro_adjust(:,l,k))
-           end where
-        end if
-
-        where (src_level >= k)
-
-           ! Compute stress for each wave. The stress at this level is the
-           ! min of the saturation stress and the stress at the level below
-           ! reduced by damping. The sign of the stress must be the same as
-           ! at the level below.
-
-           ubmc2 = max(ubmc**2, ubmc2mn)
-           mi = ni(:,k) / (2._r8 * band%kwv * ubmc2) * &
-                (alpha(k) + ni(:,k)**2/ubmc2 * d)
-           wrk = -2._r8*mi*rog*t(:,k)*(piln(:,k+1) - piln(:,k))
-
-           taudmp = tau(:,l,k+1) * exp(wrk)
-
-           ! For some reason, PGI 14.1 loses bit-for-bit reproducibility if
-           ! we limit tau, so instead limit the arrays used to set it.
-           where (tausat <= taumin) tausat = 0._r8
-           where (taudmp <= taumin) taudmp = 0._r8
-
-           tau(:,l,k) = min(taudmp, tausat)
-
-        end where
-     end do
-
-  end do
-
-  ! Force tau at the top of the model to zero, if requested.
-  if (tau_0_ubc) tau(:,:,ktop) = 0._r8
-
-  ! Apply efficiency to completed stress profile.
-  do k = ktop, kbot_tend+1
-     do l = -band%ngwv, band%ngwv
-        where (k-1 <= tend_level)
-           tau(:,l,k) = tau(:,l,k) * effgw
-        end where
-     end do
-  end do
-
-  !------------------------------------------------------------------------
-  ! Compute the tendencies from the stress divergence.
-  !------------------------------------------------------------------------
-
-  ! Loop over levels from top to bottom
-  do k = ktop, kbot_tend
-
-     ! Accumulate the mean wind tendency over wavenumber.
-     ubt(:,k) = 0.0_r8
-
-     do l = -band%ngwv, band%ngwv    ! loop over wave
-
-        ! Determine the wind tendency, including excess stress carried down
-        ! from above.
-        ubtl = gravit * (tau(:,l,k+1)-tau(:,l,k)) * p%rdel(:,k)
-
-        ! Apply first tendency limit to maintain numerical stability.
-        ! Enforce du/dt < |c-u|/dt  so u-c cannot change sign
-        !    (u^n+1 = u^n + du/dt * dt)
-        ! The limiter is somewhat stricter, so that we don't come anywhere
-        ! near reversing c-u.
-        ubtl = min(ubtl, umcfac * abs(c(:,l)-ubm(:,k)) / dt)
-
-        where (k <= tend_level)
-
-           ! Save tendency for each wave (for later computation of kzz):
-           gwut(:,k,l) = sign(ubtl, c(:,l)-ubm(:,k))
-           ubt(:,k) = ubt(:,k) + gwut(:,k,l)
-
-        end where
-
-     end do
-
-     ! Apply second tendency limit to maintain numerical stability.
-     ! Enforce du/dt < tndmax so that ridicuously large tendencies are not
-     ! permitted.
-     ! This can only happen above tend_level, so don't bother checking the
-     ! level explicitly.
-     where (abs(ubt(:,k)) > tndmax)
-        ubt_lim_ratio = tndmax/abs(ubt(:,k))
-        ubt(:,k) = ubt_lim_ratio * ubt(:,k)
-     elsewhere
-        ubt_lim_ratio = 1._r8
-     end where
-
-     do l = -band%ngwv, band%ngwv
-        gwut(:,k,l) = ubt_lim_ratio*gwut(:,k,l)
-        ! Redetermine the effective stress on the interface below from the
-        ! wind tendency. If the wind tendency was limited above, then the
-        ! new stress will be smaller than the old stress, causing stress
-        ! divergence in the next layer down. This smoothes large stress
-        ! divergences downward while conserving total stress.
-        where (k <= tend_level)
-           tau(:,l,k+1) = tau(:,l,k) + &
-                abs(gwut(:,k,l)) * p%del(:,k) / gravit
-        end where
-     end do
-
-     ! Project the mean wind tendency onto the components.
-     where (k <= tend_level)
-        utgw(:,k) = ubt(:,k) * xv
-        vtgw(:,k) = ubt(:,k) * yv
-     end where
-
-     ! End of level loop.
-  end do
-
-  ! Calculate effective diffusivity and LU decomposition for the
-  ! vertical diffusion solver.
-  call gw_ediff (ncol, pver, band%ngwv, kbot_tend, ktop, tend_level, &
-       gwut, ubm, nm, rhoi, dt, gravit, p, c, &
-       egwdffi, decomp, ro_adjust=ro_adjust)
-
-  ! Calculate tendency on each constituent.
-  do m = 1, size(q,3)
-
-     call gw_diff_tend(ncol, pver, kbot_tend, ktop, q(:,:,m), &
-          dt, decomp, qtgw(:,:,m))
-
-  enddo
-
-  ! Calculate tendency from diffusing dry static energy (dttdf).
-  call gw_diff_tend(ncol, pver, kbot_tend, ktop, dse, dt, decomp, dttdf)
-
-  ! Evaluate second temperature tendency term: Conversion of kinetic
-  ! energy into thermal.
-  do l = -band%ngwv, band%ngwv
-     do k = ktop, kbot_tend
-        dttke(:,k) = dttke(:,k) - (ubm(:,k) - c(:,l)) * gwut(:,k,l)
-     end do
-  end do
-
-  ttgw = dttke + dttdf
-
-  ! Deallocate decomp.
-  call decomp%finalize()
+  call t_startf('ap_gw_drag_prof_run')
+  call gw_drag_prof_run(pver, pver+1, size(q,3), band%ngwv, &
+       2*band%ngwv+1, ktop, tau_0_ubc, dback, rog, alpha, &
+       taumin, tndmax, umcfac, ubmc2mn, gravit, band%kwv, &
+       band%effkwv, ncol, p, src_level, tend_level, dt, t, &
+       piln, rhoi, nm, ni, ubm, ubi, xv, yv, effgw, c, kvtt, q, &
+       dse, tau, utgw, vtgw, ttgw, qtgw, egwdffi, gwut, dttdf, &
+       dttke, ro_adjust)
+  call t_stopf('ap_gw_drag_prof_run')
 
 end subroutine gw_drag_prof
 
@@ -711,6 +453,8 @@ end subroutine momentum_fixer
 
 ! Calculate the change in total energy from tendencies up to this point.
 subroutine energy_change(dt, p, u, v, dudt, dvdt, dsdt, de)
+  use ap_energy_change_scheme, only: energy_change_run
+  use perf_mod, only: t_startf, t_stopf
 
   ! Time step.
   real(r8), intent(in) :: dt
@@ -725,16 +469,9 @@ subroutine energy_change(dt, p, u, v, dudt, dvdt, dsdt, de)
   ! Change in energy.
   real(r8), intent(out) :: de(:)
 
-  ! Level index.
-  integer :: k
-
-  ! Net gain/loss of total energy in the column.
-  de = 0.0_r8
-  do k = 1, pver
-     de = de + p%del(:,k)/gravit * (dsdt(:,k) + &
-          dudt(:,k)*(u(:,k)+dudt(:,k)*0.5_r8*dt) + &
-          dvdt(:,k)*(v(:,k)+dvdt(:,k)*0.5_r8*dt) )
-  end do
+  call t_startf('ap_energy_change_run')
+  call energy_change_run(pver, size(de), gravit, dt, p, u, v, dudt, dvdt, dsdt, de)
+  call t_stopf('ap_energy_change_run')
 
 end subroutine energy_change
 

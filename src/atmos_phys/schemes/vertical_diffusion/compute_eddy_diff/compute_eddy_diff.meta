@@ -1,0 +1,355 @@
+[ccpp-table-properties]
+  name = compute_eddy_diff
+  type = scheme
+
+[ccpp-arg-table]
+  name = compute_eddy_diff_run
+  type = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = allocated_horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature_for_eddy_diffusion
+  units = K
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ qv ]
+  standard_name = water_vapor_mixing_ratio_for_eddy_diffusion
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ ztodt ]
+  standard_name = eddy_diffusion_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ql ]
+  standard_name = cloud_liquid_water_mixing_ratio_for_eddy_diffusion
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ qi ]
+  standard_name = cloud_ice_mixing_ratio_for_eddy_diffusion
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ s ]
+  standard_name = dry_static_energy_for_eddy_diffusion
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness_for_eddy_diffusion
+  units = Pa
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ rpdel ]
+  standard_name = inverse_air_pressure_thickness_for_eddy_diffusion
+  units = Pa-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ cldn ]
+  standard_name = stratiform_cloud_fraction_for_eddy_diffusion
+  units = 1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ qrl ]
+  standard_name = longwave_heating_rate_for_eddy_diffusion
+  units = K s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ wsedl ]
+  standard_name = cloud_liquid_sedimentation_velocity_for_eddy_diffusion
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ z ]
+  standard_name = geopotential_height_for_eddy_diffusion
+  units = m
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ zi ]
+  standard_name = geopotential_height_at_interface_for_eddy_diffusion
+  units = m
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure_for_eddy_diffusion
+  units = Pa
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ pi ]
+  standard_name = air_pressure_at_interface_for_eddy_diffusion
+  units = Pa
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = in
+[ u ]
+  standard_name = eastward_wind_for_eddy_diffusion
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ v ]
+  standard_name = northward_wind_for_eddy_diffusion
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ taux ]
+  standard_name = eastward_stress_at_surface_for_eddy_diffusion
+  units = N m-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = in
+[ tauy ]
+  standard_name = northward_stress_at_surface_for_eddy_diffusion
+  units = N m-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = in
+[ shflx ]
+  standard_name = sensible_heat_flux_at_surface_for_eddy_diffusion
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = in
+[ qflx ]
+  standard_name = water_vapor_flux_at_surface_for_eddy_diffusion
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = in
+[ wstarent ]
+  standard_name = use_convective_velocity_entrainment_closure
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ nturb ]
+  standard_name = number_of_eddy_diffusion_iterations
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ rrho ]
+  standard_name = inverse_air_density_at_surface_layer
+  units = m3 kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ ustar ]
+  standard_name = friction_velocity_at_surface
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ pblh ]
+  standard_name = planetary_boundary_layer_height
+  units = m
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ kvm_in ]
+  standard_name = previous_timestep_eddy_diffusivity_for_momentum
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = in
+[ kvh_in ]
+  standard_name = previous_timestep_eddy_diffusivity_for_heat
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = in
+[ kvm_out ]
+  standard_name = eddy_diffusivity_for_momentum
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ kvh_out ]
+  standard_name = eddy_diffusivity_for_heat
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ kvq ]
+  standard_name = eddy_diffusivity_for_constituents
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ cgh ]
+  standard_name = countergradient_heat_term_for_eddy_diffusion
+  units = J kg-1 m-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ cgs ]
+  standard_name = countergradient_star_for_eddy_diffusion
+  units = 1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ tpert ]
+  standard_name = convective_temperature_excess
+  units = K
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ qpert ]
+  standard_name = convective_humidity_excess
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ wpert ]
+  standard_name = turbulent_vertical_velocity_excess
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ tke ]
+  standard_name = turbulent_kinetic_energy_at_interface
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ bprod ]
+  standard_name = buoyancy_production_of_turbulent_kinetic_energy
+  units = m2 s-3
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ sprod ]
+  standard_name = shear_production_of_turbulent_kinetic_energy
+  units = m2 s-3
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ sfi ]
+  standard_name = saturation_fraction_at_interface
+  units = 1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ kvinit ]
+  standard_name = initialize_eddy_diffusivity_from_free_troposphere
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ tauresx ]
+  standard_name = residual_eastward_surface_stress
+  units = N m-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = inout
+[ tauresy ]
+  standard_name = residual_northward_surface_stress
+  units = N m-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = inout
+[ ksrftms ]
+  standard_name = turbulent_mountain_surface_drag_coefficient
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = in
+[ ipbl ]
+  standard_name = planetary_boundary_layer_cloud_layer_flag
+  units = flag
+  type = integer | kind = i4
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ kpblh ]
+  standard_name = planetary_boundary_layer_top_layer_index
+  units = index
+  type = integer | kind = i4
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ wstarPBL ]
+  standard_name = convective_velocity_scale_in_planetary_boundary_layer
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ tkes ]
+  standard_name = turbulent_kinetic_energy_at_surface_interface
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ went ]
+  standard_name = entrainment_rate_at_planetary_boundary_layer_top
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = out
+[ turbtype ]
+  standard_name = turbulence_type_at_interface
+  units = 1
+  type = integer | kind = i4
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ sm_aw ]
+  standard_name = normalized_momentum_instability_function_at_interface
+  units = 1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

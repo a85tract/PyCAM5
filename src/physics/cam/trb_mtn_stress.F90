@@ -1,5 +1,8 @@
 module trb_mtn_stress
 
+  use ap_compute_tms_scheme, only : compute_tms_run
+  use perf_mod,              only : t_startf, t_stopf
+
   implicit none
   private      
   save
@@ -13,9 +16,6 @@ module trb_mtn_stress
 
   integer,  parameter :: r8 = selected_real_kind(12) ! 8 byte real
 
-  real(r8), parameter :: horomin= 1._r8       ! Minimum value of subgrid orographic height for mountain stress [ m ]
-  real(r8), parameter :: z0max  = 100._r8     ! Maximum value of z_0 for orography [ m ]
-  real(r8), parameter :: dv2min = 0.01_r8     ! Minimum shear squared [ m2/s2 ]
   real(r8)            :: orocnst              ! Converts from standard deviation to height [ no unit ]
   real(r8)            :: z0fac                ! Factor determining z_0 from orographic standard deviation [ no unit ] 
   real(r8)            :: karman               ! von Karman constant
@@ -92,89 +92,15 @@ contains
     real(r8), intent(out) :: taux(pcols)           ! Surface zonal      wind stress [ N/m2 ]
     real(r8), intent(out) :: tauy(pcols)           ! Surface meridional wind stress [ N/m2 ]
 
-    ! --------------- !
-    ! Local Variables !
-    ! --------------- !
+    character(len=512) :: errmsg
+    integer            :: errflg
 
-    integer  :: i                                  ! Loop index
-    integer  :: kb, kt                             ! Bottom and top of source region
-    
-    real(r8) :: horo                               ! Orographic height [ m ]
-    real(r8) :: z0oro                              ! Orographic z0 for momentum [ m ]
-    real(r8) :: dv2                                ! (delta v)**2 [ m2/s2 ]
-    real(r8) :: ri                                 ! Richardson number [ no unit ]
-    real(r8) :: stabfri                            ! Instability function of Richardson number [ no unit ]
-    real(r8) :: rho                                ! Density [ kg/m3 ]
-    real(r8) :: cd                                 ! Drag coefficient [ no unit ]
-    real(r8) :: vmag                               ! Velocity magnitude [ m /s ]
+    call t_startf('ap_compute_tms_run')
+    call compute_tms_run(pcols, pver, ncol, orocnst, z0fac, karman, &
+         gravit, rair, u, v, t, pmid, exner, zm, sgh, landfrac, &
+         ksrf, taux, tauy, errmsg, errflg)
+    call t_stopf('ap_compute_tms_run')
 
-    ! ----------------------- !
-    ! Main Computation Begins !
-    ! ----------------------- !
-       
-    do i = 1, ncol
-
-     ! determine subgrid orgraphic height ( mean to peak )
-
-       horo = orocnst * sgh(i)
-
-     ! No mountain stress if horo is too small
-
-       if( horo < horomin ) then
-
-           ksrf(i) = 0._r8
-           taux(i) = 0._r8
-           tauy(i) = 0._r8
-
-       else
-
-         ! Determine z0m for orography
-
-           z0oro = min( z0fac * horo, z0max )
-
-         ! Calculate neutral drag coefficient
-
-           cd = ( karman / log( ( zm(i,pver) + z0oro ) / z0oro) )**2
-
-         ! Calculate the Richardson number over the lowest 2 layers
-
-           kt  = pver - 1
-           kb  = pver
-           dv2 = max( ( u(i,kt) - u(i,kb) )**2 + ( v(i,kt) - v(i,kb) )**2, dv2min )
-
-         ! Modification : Below computation of Ri is wrong. Note that 'Exner' function here is
-         !                inverse exner function. Here, exner function is not multiplied in
-         !                the denominator. Also, we should use moist Ri not dry Ri.
-         !                Also, this approach using the two lowest model layers can be potentially
-         !                sensitive to the vertical resolution.  
-         ! OK. I only modified the part associated with exner function.
-
-           ri  = 2._r8 * gravit * ( t(i,kt) * exner(i,kt) - t(i,kb) * exner(i,kb) ) * ( zm(i,kt) - zm(i,kb) ) &
-                                / ( ( t(i,kt) * exner(i,kt) + t(i,kb) * exner(i,kb) ) * dv2 )
-
-         ! ri  = 2._r8 * gravit * ( t(i,kt) * exner(i,kt) - t(i,kb) * exner(i,kb) ) * ( zm(i,kt) - zm(i,kb) ) &
-         !                      / ( ( t(i,kt) + t(i,kb) ) * dv2 )
-
-         ! Calculate the instability function and modify the neutral drag cofficient.
-         ! We should probably follow more elegant approach like Louis et al (1982) or Bretherton and Park (2009) 
-         ! but for now we use very crude approach : just 1 for ri < 0, 0 for ri > 1, and linear ramping.
-
-           stabfri = max( 0._r8, min( 1._r8, 1._r8 - ri ) )
-           cd      = cd * stabfri
-
-         ! Compute density, velocity magnitude and stress using bottom level properties
-
-           rho     = pmid(i,pver) / ( rair * t(i,pver) ) 
-           vmag    = sqrt( u(i,pver)**2 + v(i,pver)**2 )
-           ksrf(i) = rho * cd * vmag * landfrac(i)
-           taux(i) = -ksrf(i) * u(i,pver)
-           tauy(i) = -ksrf(i) * v(i,pver)
-
-       end if
-
-    end do
-    
-    return
   end subroutine compute_tms
 
 end module trb_mtn_stress

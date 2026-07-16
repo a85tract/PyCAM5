@@ -2855,6 +2855,12 @@ sub write_filepath
     print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/gas_phase_chemdr\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/mozart_mam/neu_wetdep\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/tropopause_find\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_tms\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/calc_obklen\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/positive_moisture\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_vdiff\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/vertical_diffusion/compute_eddy_diff\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/orographic_gravity_wave\n";
     print $fh "$srcdir/cam/src/physics/cam\n";
     if ($clubb_sgs eq '1') {
        print $fh "$srcdir/cam/src/physics/clubb\n";

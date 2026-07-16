@@ -54,6 +54,8 @@ module vertical_diffusion
   use ref_pres,         only : do_molec_diff
   use phys_control,     only : phys_getopts, waccmx_is
   use time_manager,     only : is_first_step
+  use ap_vertical_diffusion_positive_moisture_scheme, only : &
+       vertical_diffusion_positive_moisture_run
 
   implicit none
   private      
@@ -1408,59 +1410,18 @@ contains
     real(r8), intent(in)     :: dp(ncol,mkx)
     real(r8), intent(inout)  :: qv(ncol,mkx), ql(ncol,mkx), qi(ncol,mkx), t(ncol,mkx), s(ncol,mkx)
     real(r8), intent(inout)  :: qvten(ncol,mkx), qlten(ncol,mkx), qiten(ncol,mkx), sten(ncol,mkx)
-    integer   i, k
-    real(r8)  dql, dqi, dqv, sum, aa, dum 
+    integer :: i, impossible_count, errflg
+    character(len=512) :: errmsg
 
-  ! Modification : I should check whether this is exactly same as the one used in
-  !                shallow convection and cloud macrophysics.
+    call t_startf('ap_vertical_diffusion_positive_moisture_run')
+    call vertical_diffusion_positive_moisture_run(cp, xlv, xls, ncol, &
+         mkx, dt, qvmin, qlmin, qimin, dp, qv, ql, qi, t, s, qvten, &
+         qlten, qiten, sten, impossible_count, errmsg, errflg)
+    call t_stopf('ap_vertical_diffusion_positive_moisture_run')
 
-    do i = 1, ncol
-       do k = mkx, 1, -1    ! From the top to the 1st (lowest) layer from the surface
-          dql        = max(0._r8,1._r8*qlmin-ql(i,k))
-          dqi        = max(0._r8,1._r8*qimin-qi(i,k))
-          qlten(i,k) = qlten(i,k) +  dql/dt
-          qiten(i,k) = qiten(i,k) +  dqi/dt
-          qvten(i,k) = qvten(i,k) - (dql+dqi)/dt
-          sten(i,k)  = sten(i,k)  + xlv * (dql/dt) + xls * (dqi/dt)
-          ql(i,k)    = ql(i,k) +  dql
-          qi(i,k)    = qi(i,k) +  dqi
-          qv(i,k)    = qv(i,k) -  dql - dqi
-          s(i,k)     = s(i,k)  +  xlv * dql + xls * dqi
-          t(i,k)     = t(i,k)  + (xlv * dql + xls * dqi)/cp
-          dqv        = max(0._r8,1._r8*qvmin-qv(i,k))
-          qvten(i,k) = qvten(i,k) + dqv/dt
-          qv(i,k)    = qv(i,k)    + dqv
-          if( k .ne. 1 ) then 
-              qv(i,k-1)    = qv(i,k-1)    - dqv*dp(i,k)/dp(i,k-1)
-              qvten(i,k-1) = qvten(i,k-1) - dqv*dp(i,k)/dp(i,k-1)/dt
-          endif
-          qv(i,k) = max(qv(i,k),qvmin)
-          ql(i,k) = max(ql(i,k),qlmin)
-          qi(i,k) = max(qi(i,k),qimin)
-       end do
-       ! Extra moisture used to satisfy 'qv(i,1)=qvmin' is proportionally 
-       ! extracted from all the layers that has 'qv > 2*qvmin'. This fully
-       ! preserves column moisture. 
-       if( dqv .gt. 1.e-20_r8 ) then
-           sum = 0._r8
-           do k = 1, mkx
-              if( qv(i,k) .gt. 2._r8*qvmin ) sum = sum + qv(i,k)*dp(i,k)
-           enddo
-           aa = dqv*dp(i,1)/max(1.e-20_r8,sum)
-           if( aa .lt. 0.5_r8 ) then
-               do k = 1, mkx
-                  if( qv(i,k) .gt. 2._r8*qvmin ) then
-                      dum        = aa*qv(i,k)
-                      qv(i,k)    = qv(i,k) - dum
-                      qvten(i,k) = qvten(i,k) - dum/dt
-                  endif
-               enddo 
-           else 
-               write(iulog,*) 'Full positive_moisture is impossible in vertical_diffusion'
-           endif
-       endif 
+    do i = 1, impossible_count
+       write(iulog,*) 'Full positive_moisture is impossible in vertical_diffusion'
     end do
-    return
 
   end subroutine positive_moisture
 

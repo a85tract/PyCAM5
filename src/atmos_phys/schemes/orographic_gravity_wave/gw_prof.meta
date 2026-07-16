@@ -1,0 +1,73 @@
+[ccpp-table-properties]
+  name = gw_prof
+  type = scheme
+
+[ccpp-arg-table]
+  name = gw_prof_run
+  type = scheme
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ rair ]
+  standard_name = dry_air_gas_constant
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = standard_gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ p ]
+  standard_name = vertical_pressure_coordinates_for_gravity_wave_drag
+  units = Pa
+  type = coords1d
+  dimensions = ()
+  intent = in
+[ cpair ]
+  standard_name = specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ rhoi ]
+  standard_name = air_density_at_interfaces_for_gravity_wave_drag
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = out
+[ nm ]
+  standard_name = brunt_vaisalla_frequencies
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ni ]
+  standard_name = brunt_vaisalla_frequencies_at_interfaces
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = out

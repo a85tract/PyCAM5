@@ -1,0 +1,139 @@
+[ccpp-table-properties]
+  name = vertical_diffusion_positive_moisture
+  type = scheme
+
+[ccpp-arg-table]
+  name = vertical_diffusion_positive_moisture_run
+  type = scheme
+[ cp ]
+  standard_name = specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ xlv ]
+  standard_name = latent_heat_of_vaporization
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ xls ]
+  standard_name = latent_heat_of_sublimation
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ mkx ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ qvmin ]
+  standard_name = minimum_water_vapor_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ qlmin ]
+  standard_name = minimum_cloud_liquid_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ qimin ]
+  standard_name = minimum_cloud_ice_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dp ]
+  standard_name = air_pressure_thickness_surface_to_top
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qv ]
+  standard_name = water_vapor_mixing_ratio_after_vertical_diffusion_surface_to_top
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ ql ]
+  standard_name = cloud_liquid_water_mixing_ratio_after_vertical_diffusion_surface_to_top
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qi ]
+  standard_name = cloud_ice_mixing_ratio_after_vertical_diffusion_surface_to_top
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ t ]
+  standard_name = air_temperature_after_vertical_diffusion_surface_to_top
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ s ]
+  standard_name = dry_static_energy_after_vertical_diffusion_surface_to_top
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qvten ]
+  standard_name = water_vapor_mixing_ratio_tendency_from_vertical_diffusion
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qlten ]
+  standard_name = cloud_liquid_water_mixing_ratio_tendency_from_vertical_diffusion
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qiten ]
+  standard_name = cloud_ice_mixing_ratio_tendency_from_vertical_diffusion
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ sten ]
+  standard_name = dry_static_energy_tendency_from_vertical_diffusion
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ impossible_count ]
+  standard_name = number_of_unsatisfied_vertical_diffusion_moisture_constraints
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

@@ -1,0 +1,284 @@
+[ccpp-table-properties]
+  name = gw_drag_prof
+  type = scheme
+
+[ccpp-arg-table]
+  name = gw_drag_prof_run
+  type = scheme
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nconst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ngwv ]
+  standard_name = gravity_wave_spectrum_half_width
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nwave ]
+  standard_name = gravity_wave_spectrum_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ktop ]
+  standard_name = top_interface_index_for_gravity_wave_drag
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ tau_0_ubc ]
+  standard_name = enforce_zero_gravity_wave_stress_at_upper_boundary
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ dback ]
+  standard_name = background_diffusivity_for_gravity_wave_drag
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rog ]
+  standard_name = dry_air_gas_constant_divided_by_gravity
+  units = m K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ alpha ]
+  standard_name = newtonian_cooling_coefficients_for_gravity_wave_drag
+  units = s-1
+  type = real | kind = r8
+  dimensions = (vertical_interface_dimension)
+  intent = in
+[ taumin ]
+  standard_name = minimum_nonzero_gravity_wave_stress
+  units = N m-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tndmax ]
+  standard_name = maximum_wind_tendency_from_gravity_wave_stress_divergence
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ umcfac ]
+  standard_name = gravity_wave_phase_speed_tendency_limiter_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ubmc2mn ]
+  standard_name = minimum_squared_wind_minus_gravity_wave_phase_speed
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = standard_gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ kwv ]
+  standard_name = gravity_wave_horizontal_wave_number
+  units = m-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ effkwv ]
+  standard_name = effective_gravity_wave_horizontal_wave_number
+  units = m-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ p ]
+  standard_name = vertical_pressure_coordinates_for_gravity_wave_drag
+  units = Pa
+  type = coords1d
+  dimensions = ()
+  intent = in
+[ src_level ]
+  standard_name = vertical_index_of_gravity_wave_source_level
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ tend_level ]
+  standard_name = vertical_index_of_lowest_gravity_wave_tendency_level
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ piln ]
+  standard_name = ln_air_pressure_at_interface
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ rhoi ]
+  standard_name = air_density_at_interfaces_for_gravity_wave_drag
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ nm ]
+  standard_name = brunt_vaisalla_frequencies
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ ni ]
+  standard_name = brunt_vaisalla_frequencies_at_interfaces
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ ubm ]
+  standard_name = wind_speed_along_gravity_wave_source_direction
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ ubi ]
+  standard_name = wind_speed_along_gravity_wave_source_direction_at_interfaces
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ xv ]
+  standard_name = eastward_component_of_gravity_wave_source_wind_unit_vector
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ yv ]
+  standard_name = northward_component_of_gravity_wave_source_wind_unit_vector
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ effgw ]
+  standard_name = gravity_wave_tendency_efficiency
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ c ]
+  standard_name = gravity_wave_phase_speeds
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, gravity_wave_spectrum_dimension)
+  intent = in
+[ kvtt ]
+  standard_name = molecular_thermal_diffusivity_at_interfaces
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ q ]
+  standard_name = constituent_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = in
+[ dse ]
+  standard_name = dry_static_energy
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ tau ]
+  standard_name = gravity_wave_reynolds_stress
+  units = N m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, gravity_wave_spectrum_dimension, vertical_interface_dimension)
+  intent = inout
+[ utgw ]
+  standard_name = tendency_of_eastward_wind_due_to_gravity_wave_drag
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ vtgw ]
+  standard_name = tendency_of_northward_wind_due_to_gravity_wave_drag
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ttgw ]
+  standard_name = tendency_of_dry_static_energy_due_to_gravity_wave_drag
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qtgw ]
+  standard_name = constituent_tendency_due_to_gravity_wave_drag
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = out
+[ egwdffi ]
+  standard_name = effective_diffusivity_at_interfaces_due_to_gravity_wave_drag
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = out
+[ gwut ]
+  standard_name = wind_tendency_for_each_gravity_wave
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gravity_wave_spectrum_dimension)
+  intent = out
+[ dttdf ]
+  standard_name = dry_static_energy_tendency_due_to_gravity_wave_diffusion
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ dttke ]
+  standard_name = dry_static_energy_tendency_due_to_gravity_wave_kinetic_energy_dissipation
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ro_adjust ]
+  standard_name = inertial_gravity_wave_adjustment_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, gravity_wave_spectrum_dimension, vertical_interface_dimension)
+  intent = in
+  optional = True
