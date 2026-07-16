@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T05:06:12Z",
+  "updated_at": "2026-07-16T05:06:43Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -241,11 +241,11 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "check_energy_zero_fluxes_run",
@@ -257,11 +257,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "check_energy_gmean_run",
@@ -273,11 +273,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "check_energy_fix_run",
@@ -289,11 +289,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "check_energy_scaling_run",
@@ -306,11 +306,11 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "check_energy_chng_run",
@@ -323,11 +323,11 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "check_energy_save_teout_run",
@@ -339,11 +339,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "dycore_energy_consistency_adjust_run",
@@ -355,11 +355,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "wtrc_mass_fixer_run",
@@ -371,11 +371,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "set_dry_to_wet_run",
@@ -387,11 +387,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
     },
     {
       "entry_point": "aero_model_emissions_run",
