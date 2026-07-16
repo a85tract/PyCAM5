@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T06:55:39Z",
+  "updated_at": "2026-07-16T07:06:07Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -568,10 +568,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "modal_aero_gasaerexch_sub_run",
@@ -584,10 +584,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "modal_aero_newnuc_sub_run",
@@ -600,10 +600,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "modal_aero_coag_sub_run",
@@ -616,10 +616,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "aero_model_drydep_run",
@@ -632,10 +632,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "modal_aero_depvel_part_run",
@@ -648,10 +648,10 @@
         "tphysac"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "modal_aero_calcsize_sub_run",
@@ -664,10 +664,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "modal_aero_wateruptake_dr_run",
@@ -680,10 +680,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "aero_model_wetdep_run",
@@ -696,10 +696,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "wetdepa_v2_run",
@@ -712,10 +712,10 @@
         "tphysbc"
       ],
       "status": "in_progress",
-      "commit": null,
+      "commit": "60acc4c58222508f5710ae3b7286e13de715e11e",
       "last_run": null,
       "bfb_run": null,
-      "note": "Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted."
+      "note": "atomic implementation checkpoint prepared on isolated aggregate branch; official metadata 10/10 PASS; combined depvel->drydep production static compile PASS; full integrated 50-step BFB is dependency-gated on B05 and B06"
     },
     {
       "entry_point": "compute_tms_run",
