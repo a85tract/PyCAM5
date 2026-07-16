@@ -59,6 +59,7 @@ public wv_sat_valid_idx
 
 public wv_sat_set_default
 public wv_sat_reset_default
+public wv_sat_get_default_idx
 
 public wv_sat_svp_water
 public wv_sat_svp_ice
@@ -170,6 +171,10 @@ subroutine wv_sat_reset_default()
   default_idx = initial_default_idx
 
 end subroutine wv_sat_reset_default
+
+pure integer function wv_sat_get_default_idx() result(idx)
+  idx = default_idx
+end function wv_sat_get_default_idx
 
 !---------------------------------------------------------------------
 ! UTILITIES
