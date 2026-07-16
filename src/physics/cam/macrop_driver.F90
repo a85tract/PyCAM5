@@ -836,11 +836,13 @@ end subroutine macrop_driver_readnl
       qitend(:ncol,:)=0._r8
       initend(:ncol,:)=0._r8
 
+      call t_startf('ap_ice_macro_tend_run')
       call ice_macro_tend(naai(:ncol,top_lev:pver),state%t(:ncol,top_lev:pver), &
            state%pmid(:ncol,top_lev:pver),state%q(:ncol,top_lev:pver,1),state%q(:ncol,top_lev:pver,ixcldice),&
            state%q(:ncol,top_lev:pver,ixnumice),latsub,dtime,&
            stend(:ncol,top_lev:pver),qvtend(:ncol,top_lev:pver),qitend(:ncol,top_lev:pver),&
            initend(:ncol,top_lev:pver))
+      call t_stopf('ap_ice_macro_tend_run')
 
       ! update local copy of state with the tendencies
       ptend_loc%q(:ncol,top_lev:pver,1)=qvtend(:ncol,top_lev:pver)
@@ -1227,7 +1229,7 @@ end subroutine macrop_driver_tend
 ! Add ice mass if supersaturated
 elemental subroutine ice_macro_tend(naai,t,p,qv,qi,ni,xxls,deltat,stend,qvtend,qitend,nitend) 
 
-  use wv_sat_methods, only: wv_sat_qsat_ice
+  use ap_ice_macro_tend_scheme, only: ice_macro_tend_run
 
   real(r8), intent(in)  :: naai   !Activated number of ice nuclei 
   real(r8), intent(in)  :: t      !temperature (k)
@@ -1242,51 +1244,8 @@ elemental subroutine ice_macro_tend(naai,t,p,qv,qi,ni,xxls,deltat,stend,qvtend,q
   real(r8), intent(out) :: qitend !ice mass tendency
   real(r8), intent(out) :: nitend !ice number tendency  
  
-  real(r8) :: ESI
-  real(r8) :: QSI
-  real(r8) :: tau
-  logical  :: tau_constant
-
-  tau_constant = .true.
-
-  stend = 0._r8
-  qvtend = 0._r8
-  qitend = 0._r8
-  nitend = 0._r8
-
-  ! calculate qsati from t,p,q
-
-  call wv_sat_qsat_ice(t, p, ESI, QSI)
-
-  if (naai.gt.1.e-18_r8.and.qv.gt.QSI) then
-
-     !optional timescale on condensation
-     !tau in sections. Try 300. or tau = f(T): 300s  t> 268, 1800s for t<238
-     !     
-     if (.not. tau_constant) then
-        if( t.gt. 268.15_r8 ) then
-           tau = 300.0_r8
-        elseif(t.lt.238.15_r8 ) then
-           tau = 1800._r8
-        else
-           tau = 300._r8 + (1800._r8 - 300._r8) * ( 268.15_r8 - t ) / 30._r8
-        endif
-     else
-         tau = 300._r8
-     end if
-
-     qitend = (qv-QSI)/deltat !* exp(-tau/deltat)
-     qvtend = 0._r8 - qitend
-     stend  = qitend * xxls    ! moist static energy tend...[J/kg/s] !
-
-     ! kg(h2o)/kg(air)/s * J/kg(h2o)  = J/kg(air)/s (=W/kg)
-     ! if ice exists (more than 1 L-1) and there is condensation, do not add to number (= growth), else, add 10um ice
-
-     if (ni.lt.1.e3_r8.and.(qi+qitend*deltat).gt.1e-18_r8) then
-        nitend = nitend + 3._r8 * qitend/(4._r8*3.14_r8* 10.e-6_r8**3*997._r8)
-     endif
-
-  endif
+  call ice_macro_tend_run(naai, t, p, qv, qi, ni, xxls, deltat, &
+       stend, qvtend, qitend, nitend)
 
 end subroutine ice_macro_tend
 

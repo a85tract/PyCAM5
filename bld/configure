@@ -2842,6 +2842,12 @@ sub write_filepath
     print $fh "$srcdir/cam/src/atmos_phys/schemes/uw_shallow\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_fraction\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/modal_aerosol/sedimentation\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_microphysics/nucleate_ice\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_microphysics/dropmixnuc\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_microphysics/ice_macro\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_microphysics/cldfrc\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_microphysics/mmacro_pcond\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/cloud_microphysics/micro_mg1_0\n";
 
     # CAM chemistry, dynamics, physics, control and shared utilities.
     if ($chem_proc_src) {

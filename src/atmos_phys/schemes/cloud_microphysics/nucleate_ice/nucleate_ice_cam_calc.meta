@@ -1,0 +1,25 @@
+[ccpp-table-properties]
+  name = nucleate_ice_cam_calc
+  type = scheme
+
+[ccpp-arg-table]
+  name  = nucleate_ice_cam_calc_run
+  type  = scheme
+[ state ]
+  standard_name = cam_physics_state
+  units = none
+  type = physics_state
+  dimensions = ()
+  intent = in
+[ wsubi ]
+  standard_name = cam_nucleate_ice_wsubi
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout

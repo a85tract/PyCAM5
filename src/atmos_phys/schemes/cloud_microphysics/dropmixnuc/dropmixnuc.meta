@@ -1,0 +1,61 @@
+[ccpp-table-properties]
+  name = dropmixnuc
+  type = scheme
+
+[ccpp-arg-table]
+  name  = dropmixnuc_run
+  type  = scheme
+[ state ]
+  standard_name = cam_physics_state
+  units = none
+  type = physics_state
+  dimensions = ()
+  intent = in
+[ ptend ]
+  standard_name = cam_physics_tendency
+  units = none
+  type = physics_ptend
+  dimensions = ()
+  intent = out
+[ dtmicro ]
+  standard_name = cam_dropmixnuc_dtmicro
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout
+[ wsub ]
+  standard_name = cam_dropmixnuc_wsub
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldn ]
+  standard_name = cam_dropmixnuc_cldn
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldo ]
+  standard_name = cam_dropmixnuc_cldo
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ tendnd ]
+  standard_name = cam_dropmixnuc_tendnd
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ factnum ]
+  standard_name = cam_dropmixnuc_factnum
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  intent = out

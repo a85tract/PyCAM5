@@ -25,6 +25,7 @@ module clubb_intr
   use spmd_utils,    only: masterproc 
   use constituents,  only: pcnst, cnst_add
   use pbl_utils,     only: calc_ustar, calc_obklen
+  use perf_mod,      only: t_startf, t_stopf
   use mpishorthand
 
   implicit none
@@ -1266,11 +1267,13 @@ end subroutine clubb_init_cnst
      qitend(:ncol,:)=0._r8
      initend(:ncol,:)=0._r8
 
+     call t_startf('ap_ice_macro_tend_run')
      call ice_macro_tend(naai(:ncol,top_lev:pver),state1%t(:ncol,top_lev:pver), &
         state1%pmid(:ncol,top_lev:pver),state1%q(:ncol,top_lev:pver,1),state1%q(:ncol,top_lev:pver,ixcldice),&
         state1%q(:ncol,top_lev:pver,ixnumice),latsub,hdtime,&
         stend(:ncol,top_lev:pver),qvtend(:ncol,top_lev:pver),qitend(:ncol,top_lev:pver),&
         initend(:ncol,top_lev:pver))
+     call t_stopf('ap_ice_macro_tend_run')
 
      ! update local copy of state with the tendencies
      ptend_loc%q(:ncol,top_lev:pver,1)=qvtend(:ncol,top_lev:pver)

@@ -1,0 +1,367 @@
+[ccpp-table-properties]
+  name = mmacro_pcond
+  type = scheme
+
+[ccpp-arg-table]
+  name  = mmacro_pcond_run
+  type  = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = cam_mmacro_pcond_dt
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ p ]
+  standard_name = cam_mmacro_pcond_p
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ dp ]
+  standard_name = cam_mmacro_pcond_dp
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ T0 ]
+  standard_name = cam_mmacro_pcond_t0
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qv0 ]
+  standard_name = cam_mmacro_pcond_qv0
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ ql0 ]
+  standard_name = cam_mmacro_pcond_ql0
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qi0 ]
+  standard_name = cam_mmacro_pcond_qi0
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ nl0 ]
+  standard_name = cam_mmacro_pcond_nl0
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ ni0 ]
+  standard_name = cam_mmacro_pcond_ni0
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ A_T ]
+  standard_name = cam_mmacro_pcond_a_t
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ A_qv ]
+  standard_name = cam_mmacro_pcond_a_qv
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ A_ql ]
+  standard_name = cam_mmacro_pcond_a_ql
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ A_qi ]
+  standard_name = cam_mmacro_pcond_a_qi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ A_nl ]
+  standard_name = cam_mmacro_pcond_a_nl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ A_ni ]
+  standard_name = cam_mmacro_pcond_a_ni
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_T ]
+  standard_name = cam_mmacro_pcond_c_t
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_qv ]
+  standard_name = cam_mmacro_pcond_c_qv
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_ql ]
+  standard_name = cam_mmacro_pcond_c_ql
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_qi ]
+  standard_name = cam_mmacro_pcond_c_qi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_nl ]
+  standard_name = cam_mmacro_pcond_c_nl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_ni ]
+  standard_name = cam_mmacro_pcond_c_ni
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ C_qlst ]
+  standard_name = cam_mmacro_pcond_c_qlst
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ D_T ]
+  standard_name = cam_mmacro_pcond_d_t
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ D_qv ]
+  standard_name = cam_mmacro_pcond_d_qv
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ D_ql ]
+  standard_name = cam_mmacro_pcond_d_ql
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ D_qi ]
+  standard_name = cam_mmacro_pcond_d_qi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ D_nl ]
+  standard_name = cam_mmacro_pcond_d_nl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ D_ni ]
+  standard_name = cam_mmacro_pcond_d_ni
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ a_cud ]
+  standard_name = cam_mmacro_pcond_a_cud
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ a_cu0 ]
+  standard_name = cam_mmacro_pcond_a_cu0
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ clrw_old ]
+  standard_name = cam_mmacro_pcond_clrw_old
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ clri_old ]
+  standard_name = cam_mmacro_pcond_clri_old
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ landfrac ]
+  standard_name = cam_mmacro_pcond_landfrac
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ snowh ]
+  standard_name = cam_mmacro_pcond_snowh
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ tke ]
+  standard_name = cam_mmacro_pcond_tke
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ qtl_flx ]
+  standard_name = cam_mmacro_pcond_qtl_flx
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ qti_flx ]
+  standard_name = cam_mmacro_pcond_qti_flx
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ cmfr_det ]
+  standard_name = cam_mmacro_pcond_cmfr_det
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qlr_det ]
+  standard_name = cam_mmacro_pcond_qlr_det
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qir_det ]
+  standard_name = cam_mmacro_pcond_qir_det
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ s_tendout ]
+  standard_name = cam_mmacro_pcond_s_tendout
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qv_tendout ]
+  standard_name = cam_mmacro_pcond_qv_tendout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ql_tendout ]
+  standard_name = cam_mmacro_pcond_ql_tendout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qi_tendout ]
+  standard_name = cam_mmacro_pcond_qi_tendout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nl_tendout ]
+  standard_name = cam_mmacro_pcond_nl_tendout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ni_tendout ]
+  standard_name = cam_mmacro_pcond_ni_tendout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qme ]
+  standard_name = cam_mmacro_pcond_qme
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qvadj ]
+  standard_name = cam_mmacro_pcond_qvadj
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qladj ]
+  standard_name = cam_mmacro_pcond_qladj
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qiadj ]
+  standard_name = cam_mmacro_pcond_qiadj
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qllim ]
+  standard_name = cam_mmacro_pcond_qllim
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qilim ]
+  standard_name = cam_mmacro_pcond_qilim
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ cld ]
+  standard_name = cam_mmacro_pcond_cld
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ al_st_star ]
+  standard_name = cam_mmacro_pcond_al_st_star
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ai_st_star ]
+  standard_name = cam_mmacro_pcond_ai_st_star
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ql_st_star ]
+  standard_name = cam_mmacro_pcond_ql_st_star
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qi_st_star ]
+  standard_name = cam_mmacro_pcond_qi_st_star
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ do_cldice ]
+  standard_name = cam_mmacro_pcond_do_cldice
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in

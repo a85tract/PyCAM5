@@ -1,0 +1,79 @@
+[ccpp-table-properties]
+  name = ice_macro_tend
+  type = scheme
+
+[ccpp-arg-table]
+  name  = ice_macro_tend_run
+  type  = scheme
+[ naai ]
+  standard_name = cam_ice_macro_naai
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = cam_ice_macro_t
+  units = K
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ p ]
+  standard_name = cam_ice_macro_p
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ qv ]
+  standard_name = cam_ice_macro_qv
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ qi ]
+  standard_name = cam_ice_macro_qi
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ni ]
+  standard_name = cam_ice_macro_ni
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ xxls ]
+  standard_name = cam_ice_macro_xxls
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ deltat ]
+  standard_name = cam_ice_macro_deltat
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ stend ]
+  standard_name = cam_ice_macro_stend
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = out
+[ qvtend ]
+  standard_name = cam_ice_macro_qvtend
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = out
+[ qitend ]
+  standard_name = cam_ice_macro_qitend
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = out
+[ nitend ]
+  standard_name = cam_ice_macro_nitend
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = out

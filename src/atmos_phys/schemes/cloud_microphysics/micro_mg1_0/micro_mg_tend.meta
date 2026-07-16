@@ -1,0 +1,703 @@
+[ccpp-table-properties]
+  name = micro_mg_tend
+  type = scheme
+
+[ccpp-arg-table]
+  name  = micro_mg_tend_run
+  type  = scheme
+[ microp_uniform ]
+  standard_name = cam_micro_mg1_0_microp_uniform
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ top_lev ]
+  standard_name = vertical_layer_index_of_microphysics_top
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ deltatin ]
+  standard_name = cam_micro_mg1_0_deltatin
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tn ]
+  standard_name = cam_micro_mg1_0_tn
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qn ]
+  standard_name = cam_micro_mg1_0_qn
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qc ]
+  standard_name = cam_micro_mg1_0_qc
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qi ]
+  standard_name = cam_micro_mg1_0_qi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ nc ]
+  standard_name = cam_micro_mg1_0_nc
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ ni ]
+  standard_name = cam_micro_mg1_0_ni
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ p ]
+  standard_name = cam_micro_mg1_0_p
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = cam_micro_mg1_0_pdel
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldn ]
+  standard_name = cam_micro_mg1_0_cldn
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ liqcldf ]
+  standard_name = cam_micro_mg1_0_liqcldf
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ relvar ]
+  standard_name = cam_micro_mg1_0_relvar
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ accre_enhan ]
+  standard_name = cam_micro_mg1_0_accre_enhan
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ icecldf ]
+  standard_name = cam_micro_mg1_0_icecldf
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ rate1ord_cw2pr_st ]
+  standard_name = cam_micro_mg1_0_rate1ord_cw2pr_st
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ naai ]
+  standard_name = cam_micro_mg1_0_naai
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ npccnin ]
+  standard_name = cam_micro_mg1_0_npccnin
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ rndst ]
+  standard_name = cam_micro_mg1_0_rndst
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, microphysics_dust_bin_dimension)
+  intent = in
+[ nacon ]
+  standard_name = cam_micro_mg1_0_nacon
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, microphysics_dust_bin_dimension)
+  intent = in
+[ tlat ]
+  standard_name = cam_micro_mg1_0_tlat
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qvlat ]
+  standard_name = cam_micro_mg1_0_qvlat
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qctend ]
+  standard_name = cam_micro_mg1_0_qctend
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qitend ]
+  standard_name = cam_micro_mg1_0_qitend
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nctend ]
+  standard_name = cam_micro_mg1_0_nctend
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nitend ]
+  standard_name = cam_micro_mg1_0_nitend
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ effc ]
+  standard_name = cam_micro_mg1_0_effc
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ effc_fn ]
+  standard_name = cam_micro_mg1_0_effc_fn
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ effi ]
+  standard_name = cam_micro_mg1_0_effi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prect ]
+  standard_name = cam_micro_mg1_0_prect
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ preci ]
+  standard_name = cam_micro_mg1_0_preci
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ nevapr ]
+  standard_name = cam_micro_mg1_0_nevapr
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ evapsnow ]
+  standard_name = cam_micro_mg1_0_evapsnow
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ am_evp_st ]
+  standard_name = cam_micro_mg1_0_am_evp_st
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prain ]
+  standard_name = cam_micro_mg1_0_prain
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prodsnow ]
+  standard_name = cam_micro_mg1_0_prodsnow
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ cmeout ]
+  standard_name = cam_micro_mg1_0_cmeout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ deffi ]
+  standard_name = cam_micro_mg1_0_deffi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ pgamrad ]
+  standard_name = cam_micro_mg1_0_pgamrad
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ lamcrad ]
+  standard_name = cam_micro_mg1_0_lamcrad
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qsout ]
+  standard_name = cam_micro_mg1_0_qsout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ dsout ]
+  standard_name = cam_micro_mg1_0_dsout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ rflx ]
+  standard_name = cam_micro_mg1_0_rflx
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = out
+[ sflx ]
+  standard_name = cam_micro_mg1_0_sflx
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = out
+[ qrout ]
+  standard_name = cam_micro_mg1_0_qrout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ reff_rain ]
+  standard_name = cam_micro_mg1_0_reff_rain
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ reff_snow ]
+  standard_name = cam_micro_mg1_0_reff_snow
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ qcsevap ]
+  standard_name = cam_micro_mg1_0_qcsevap
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qisevap ]
+  standard_name = cam_micro_mg1_0_qisevap
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qvres ]
+  standard_name = cam_micro_mg1_0_qvres
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ cmeiout ]
+  standard_name = cam_micro_mg1_0_cmeiout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ vtrmc ]
+  standard_name = cam_micro_mg1_0_vtrmc
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ vtrmi ]
+  standard_name = cam_micro_mg1_0_vtrmi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qcsedten ]
+  standard_name = cam_micro_mg1_0_qcsedten
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qisedten ]
+  standard_name = cam_micro_mg1_0_qisedten
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prao ]
+  standard_name = cam_micro_mg1_0_prao
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prco ]
+  standard_name = cam_micro_mg1_0_prco
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ mnuccco ]
+  standard_name = cam_micro_mg1_0_mnuccco
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ mnuccto ]
+  standard_name = cam_micro_mg1_0_mnuccto
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ msacwio ]
+  standard_name = cam_micro_mg1_0_msacwio
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ psacwso ]
+  standard_name = cam_micro_mg1_0_psacwso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ bergso ]
+  standard_name = cam_micro_mg1_0_bergso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ bergo ]
+  standard_name = cam_micro_mg1_0_bergo
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ melto ]
+  standard_name = cam_micro_mg1_0_melto
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ homoo ]
+  standard_name = cam_micro_mg1_0_homoo
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qcreso ]
+  standard_name = cam_micro_mg1_0_qcreso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prcio ]
+  standard_name = cam_micro_mg1_0_prcio
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ praio ]
+  standard_name = cam_micro_mg1_0_praio
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qireso ]
+  standard_name = cam_micro_mg1_0_qireso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ mnuccro ]
+  standard_name = cam_micro_mg1_0_mnuccro
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ pracso ]
+  standard_name = cam_micro_mg1_0_pracso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ meltsdt ]
+  standard_name = cam_micro_mg1_0_meltsdt
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ frzrdt ]
+  standard_name = cam_micro_mg1_0_frzrdt
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ mnuccdo ]
+  standard_name = cam_micro_mg1_0_mnuccdo
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nrout ]
+  standard_name = cam_micro_mg1_0_nrout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nsout ]
+  standard_name = cam_micro_mg1_0_nsout
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ refl ]
+  standard_name = cam_micro_mg1_0_refl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ arefl ]
+  standard_name = cam_micro_mg1_0_arefl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ areflz ]
+  standard_name = cam_micro_mg1_0_areflz
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ frefl ]
+  standard_name = cam_micro_mg1_0_frefl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ csrfl ]
+  standard_name = cam_micro_mg1_0_csrfl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ acsrfl ]
+  standard_name = cam_micro_mg1_0_acsrfl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ fcsrfl ]
+  standard_name = cam_micro_mg1_0_fcsrfl
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ rercld ]
+  standard_name = cam_micro_mg1_0_rercld
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ncai ]
+  standard_name = cam_micro_mg1_0_ncai
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ ncal ]
+  standard_name = cam_micro_mg1_0_ncal
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qrout2 ]
+  standard_name = cam_micro_mg1_0_qrout2
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qsout2 ]
+  standard_name = cam_micro_mg1_0_qsout2
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nrout2 ]
+  standard_name = cam_micro_mg1_0_nrout2
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nsout2 ]
+  standard_name = cam_micro_mg1_0_nsout2
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ drout2 ]
+  standard_name = cam_micro_mg1_0_drout2
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ dsout2 ]
+  standard_name = cam_micro_mg1_0_dsout2
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ freqs ]
+  standard_name = cam_micro_mg1_0_freqs
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ freqr ]
+  standard_name = cam_micro_mg1_0_freqr
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ nfice ]
+  standard_name = cam_micro_mg1_0_nfice
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prer_evap ]
+  standard_name = cam_micro_mg1_0_prer_evap
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ do_cldice ]
+  standard_name = cam_micro_mg1_0_do_cldice
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ errstring ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=128
+  dimensions = ()
+  intent = out
+[ tnd_qsnow ]
+  standard_name = cam_micro_mg1_0_tnd_qsnow
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ tnd_nsnow ]
+  standard_name = cam_micro_mg1_0_tnd_nsnow
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ re_ice ]
+  standard_name = cam_micro_mg1_0_re_ice
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ frzimm ]
+  standard_name = cam_micro_mg1_0_frzimm
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ frzcnt ]
+  standard_name = cam_micro_mg1_0_frzcnt
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ frzdep ]
+  standard_name = cam_micro_mg1_0_frzdep
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ preo ]
+  standard_name = cam_micro_mg1_0_preo
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ prdso ]
+  standard_name = cam_micro_mg1_0_prdso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ frzro ]
+  standard_name = cam_micro_mg1_0_frzro
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ meltso ]
+  standard_name = cam_micro_mg1_0_meltso
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ wtfc ]
+  standard_name = cam_micro_mg1_0_wtfc
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ wtfi ]
+  standard_name = cam_micro_mg1_0_wtfi
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ wtprelat ]
+  standard_name = cam_micro_mg1_0_wtprelat
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ wtpostlat ]
+  standard_name = cam_micro_mg1_0_wtpostlat
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
