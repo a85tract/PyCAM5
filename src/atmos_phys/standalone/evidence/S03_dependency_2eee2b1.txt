@@ -1,0 +1,6 @@
+S03 standalone dependency audit
+source_commit: 2eee2b10988aabed1c1f271ceb95586a758c17c4
+command: PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --batch S03
+scope=all selected_entries=9 allowed_external=ISO/IEEE,shr_*,MPI,OpenMP,NetCDF,PIO
+[direct] PASS: entries=9 roots=9 closure_sources=19 violations=0 duplicates=0
+[transitive] PASS: entries=9 roots=9 closure_sources=20 violations=0 duplicates=0

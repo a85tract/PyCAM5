@@ -1,0 +1,18 @@
+S01+S03 completed-only standalone source build
+source_commit: 2eee2b10988aabed1c1f271ceb95586a758c17c4
+compiler: IntelLLVM ifx 2025.2.1
+build_directory: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/standalone_s01s03_final
+source_mode: TPHYS_STANDALONE_BUILD_SOURCES=ON
+scope: completed-only
+mode: both
+external_modules:
+  /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s01_external/modules (shr_kind_mod only)
+  /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_share_external_20260716/modules (shr_const_mod and shr_spfn_mod only)
+dependency_gate:
+  [direct] PASS: entries=18 roots=18 closure_sources=53 violations=0 duplicates=0
+  [transitive] PASS: entries=18 roots=18 closure_sources=94 violations=0 duplicates=0
+build_result: PASS, libtphys-standalone-schemes.a built from 94 closure sources
+ctest_result: PASS, 2/2 tests
+  tphys-standalone-ledger: Passed
+  tphys-standalone-dependencies: Passed
+CAM EXEROOT modules or objects were not supplied to this standalone build.

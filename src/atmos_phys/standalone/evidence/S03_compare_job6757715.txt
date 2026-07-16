@@ -1,0 +1,15 @@
+S03 256-rank 50-step comparison
+job_id: 6757715.desched1
+source_commit_run: 02cc8741d3d29416f0125105c778b1c28fc0c4a3
+native_run_dir: /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run
+candidate_run_dir: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/output/run
+PBS Exit_status: 0
+MPI ranks: 256
+STOP_N: 50
+cam.r: numeric variables 307/307 equal; numeric MD5 8ecb1dc7e4ca29f9adf2e92017106cfe
+cam.rh0: numeric variables 392/392 equal; numeric MD5 e81876a05681533e9f4b8a9a67ea5154
+cam.rs: numeric variables 91/91 equal; numeric MD5 b9d2a429aede18ca97b0f9af0e19fba2
+overall_numeric_equal: True (790/790)
+normalized_character_equal: True
+normalized character comparison excludes only volatile date_written/time_written and the expected case-local hrestpath value.
+The S03 root and support source files at compose commit 2eee2b10988aabed1c1f271ceb95586a758c17c4 are unchanged from the executed source commit; compose-only differences are outside the S03 closure.

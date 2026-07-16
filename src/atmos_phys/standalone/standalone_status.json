@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T18:48:47Z",
+  "updated_at": "2026-07-16T23:15:24Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -324,11 +324,11 @@
       "order": 1,
       "source": "src/atmos_phys/schemes/mozart_mam/gas_phase_chemdr/gas_phase_chemdr.F90",
       "module": "gas_phase_chemdr_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "aero_model_gasaerexch_run",
@@ -338,11 +338,11 @@
       "order": 2,
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch/aero_model_gasaerexch.F90",
       "module": "ap_aero_model_gasaerexch_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "modal_aero_gasaerexch_sub_run",
@@ -352,11 +352,11 @@
       "order": 3,
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch/modal_aero_gasaerexch_scheme.F90",
       "module": "ap_modal_aero_gasaerexch_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "modal_aero_newnuc_sub_run",
@@ -366,11 +366,11 @@
       "order": 4,
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/newnuc/modal_aero_newnuc_scheme.F90",
       "module": "ap_modal_aero_newnuc_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "modal_aero_coag_sub_run",
@@ -380,11 +380,11 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/coag/modal_aero_coag_scheme.F90",
       "module": "ap_modal_aero_coag_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "aero_model_drydep_run",
@@ -394,11 +394,11 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/drydep/aero_model_drydep.F90",
       "module": "ap_aero_model_drydep_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "modal_aero_calcsize_sub_run",
@@ -408,11 +408,11 @@
       "order": 7,
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_calcsize_sub/modal_aero_calcsize_sub.F90",
       "module": "ap_modal_aero_calcsize_sub_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "modal_aero_wateruptake_dr_run",
@@ -422,11 +422,11 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_wateruptake_dr/modal_aero_wateruptake_dr.F90",
       "module": "ap_modal_aero_wateruptake_dr_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "wetdepa_v2_run",
@@ -436,11 +436,11 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/modal_aerosol/wetdepa_v2/wetdepa_v2.F90",
       "module": "ap_wetdepa_v2_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "last_run": "S03-default-20260716-job6757715",
+      "bfb_run": "S03-default-20260716-job6757715",
+      "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
       "entry_point": "neu_wetdep_tend_run",
@@ -777,6 +777,146 @@
       },
       "recorded_at": "2026-07-16T18:48:47Z",
       "note": "Matched native/integration micro_do_icesupersat=.true. variant using the same clean source-1165032 executable; unique job completed 50 steps with PBS Exit_status 0 and CPL success; ice_macro_tend_run timer nonzero; 790/790 numeric exact; normalized character equality excludes only time_written."
+    },
+    {
+      "run_id": "S03-default-20260716-job6757715",
+      "batch": "S03",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6757715.desched1",
+      "source_commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S03_dependency_2eee2b1.txt",
+          "size": 447,
+          "sha256": "764fa0134ca529aed19079976c3b917b21a2949838c605af8f9fcdd2d71de3c3"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S03_standalone_build_2eee2b1.txt",
+          "size": 1037,
+          "sha256": "a58b2163140ab7c58993a202c41c6da705de412807f4e1dbbfec8fe1b1a46e89"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/output/bld/cesm.exe",
+          "size": 55370592,
+          "sha256": "9bd742a94a6f9f8c00d6185b47ce8f256239fe3200c843f99a66ecf05b8d944d"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/logs/run_environment.txt.6757715.desched1.260716-165300",
+          "size": 41871,
+          "sha256": "1ad4e341ed3b16e97f257a7fdc749c51a0d715c3caa8a6566417c5681788333d"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/Buildconf/camconf/Filepath",
+          "size": 9954,
+          "sha256": "f60d3c0723db4565ce0642a57298f67185f91e07c1cfef8f008e8f59e9a8997d"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S03_compare_job6757715.txt",
+          "size": 1014,
+          "sha256": "8577a3bc1fb33dc6f8199027e5b8561d2889aae2ba613cda426743abcac8bbd2"
+        }
+      },
+      "execution_proof": {
+        "gas_phase_chemdr_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "ap_gas_phase_chemdr_run global_calls=5.222400e+04"
+        },
+        "aero_model_gasaerexch_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "ap_aero_model_gasaerexch_run global_calls=5.222400e+04"
+        },
+        "modal_aero_gasaerexch_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "modal_gas-aer_exchng global_calls=5.222400e+04"
+        },
+        "modal_aero_newnuc_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "modal_nucl global_calls=5.222400e+04"
+        },
+        "modal_aero_coag_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "modal_coag global_calls=5.222400e+04"
+        },
+        "aero_model_drydep_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "ap_aero_model_drydep_run global_calls=5.222400e+04"
+        },
+        "modal_aero_calcsize_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "ap_modal_aero_calcsize_sub_run global_calls=5.324800e+04"
+        },
+        "modal_aero_wateruptake_dr_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "ap_modal_aero_wateruptake_dr_run global_calls=5.324800e+04"
+        },
+        "wetdepa_v2_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s03_prefix_470/case/timing/cesm_timing_stats.6757715.desched1.260716-165300",
+            "size": 63043,
+            "sha256": "6199d9bfa4bf7a60ffdb54ffe4f1547f45808986e0f726830ee2e5789787f606"
+          },
+          "line": "ap_wetdepa_v2_run global_calls=1.597440e+06"
+        }
+      },
+      "recorded_at": "2026-07-16T23:15:24Z",
+      "note": "Actual 256-rank STOP_N=50 run completed with PBS Exit_status 0; all nine S03 runtime timers are nonzero; 790/790 numeric variables are exact against the authoritative native baseline. Character equality is normalized only for volatile timestamps and case-local hrestpath. The S03 closure source files are unchanged between executed commit 02cc874 and compose commit 2eee2b1."
     }
   ]
 }
