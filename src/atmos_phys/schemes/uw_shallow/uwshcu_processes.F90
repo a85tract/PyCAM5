@@ -1,20 +1,17 @@
   module ap_uwshcu_processes_scheme
 
-  use cam_history,    only: outfld, addfld, phys_decomp
   use shr_spfn_mod,   only: erfc => shr_spfn_erfc
-  use cam_logfile,    only: iulog
-  use ppgrid,         only: pcols, pver, pverp
-  use cam_abortutils, only: endrun
-  use spmd_utils,     only: masterproc
-  use wv_saturation,  only: qsat
-  use perf_mod,       only: t_startf, t_stopf
+  use ap_saturation_table, only: saturation_table_init, qsat_table, findsp_table_vc
+  use ap_water_isotope_fractionation, only: water_isotope_alpha
+  use atmos_phys_history_hooks, only: atmos_phys_outfld
+  use wv_sat_methods, only: wv_sat_methods_init, wv_sat_qsat_water
 
   implicit none
   private
   save
 
   public &
-     uwshcu_readnl,      &
+     uwshcu_set_rpen,    &
      init_uwshcu,        &
      compute_uwshcu_run,     &
      compute_uwshcu_inv_run
@@ -33,7 +30,33 @@
   real(r8)            :: rovcp                          !  R/cp
 
   ! Tuning parameters set via namelist
-  real(r8) :: rpen          !  For penetrative entrainment efficiency
+  real(r8) :: rpen = unset_r8 ! For penetrative entrainment efficiency
+
+  logical :: trace_water = .false.
+  logical :: wisotope = .false.
+  integer :: wtrc_nwset = 1
+  integer :: iwtvap = 1
+  integer :: iwtliq = 2
+  integer :: iwtice = 3
+  integer :: iwtstrain = 4
+  integer :: iwtcvrain = 6
+  integer :: isph2o = 1
+  integer :: isphdo = 3
+  integer, allocatable :: wtrc_iatype(:,:)
+  integer, allocatable :: iwspec(:)
+  logical, allocatable :: water_tracer_mask(:)
+  logical, allocatable :: constituent_is_wet(:)
+  real(r8), allocatable :: constituent_qmin(:)
+  real(r8), allocatable :: wtrc_fixed_alpha(:)
+  real(r8), allocatable :: wtrc_species_rstd(:)
+  real(r8) :: wtrc_qmin = 1.e-18_r8
+  real(r8) :: h2otrip = 273.16_r8
+  real(r8) :: rhoh2o = 1000._r8
+  real(r8) :: rh2o_isotope = 461.5_r8
+  logical :: wtrc_alpha_kinetic = .false.
+  integer :: ixnumliq, ixnumice, ixcldliq, ixcldice
+  character(len=512) :: scheme_errmsg
+  integer :: scheme_errflg
 
 !===============================================================================
 contains
@@ -47,59 +70,29 @@ contains
 
 !===============================================================================
 
-subroutine uwshcu_readnl(nlfile)
-
-   use namelist_utils,  only: find_group_name
-   use units,           only: getunit, freeunit
-   use mpishorthand
-
-   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
-
-   ! Local variables
-   integer :: unitn, ierr
-   character(len=*), parameter :: subname = 'uwshcu_readnl'
-
-   ! Namelist variables
-   real(r8) :: uwshcu_rpen =  unset_r8    !  For penetrative entrainment efficiency
-
-   namelist /uwshcu_nl/ uwshcu_rpen
-   !-----------------------------------------------------------------------------
-
-   if (masterproc) then
-      unitn = getunit()
-      open( unitn, file=trim(nlfile), status='old' )
-      call find_group_name(unitn, 'uwshcu_nl', status=ierr)
-      if (ierr == 0) then
-         read(unitn, uwshcu_nl, iostat=ierr)
-         if (ierr /= 0) then
-            call endrun(subname // ':: ERROR reading namelist')
-         end if
-      end if
-      close(unitn)
-      call freeunit(unitn)
-   end if
-
-#ifdef SPMD
-   ! Broadcast namelist variables
-   call mpibcast(uwshcu_rpen,            1, mpir8,  0, mpicom)
-#endif
-
-   rpen=uwshcu_rpen
-
-
-end subroutine uwshcu_readnl
+subroutine uwshcu_set_rpen(rpen_in)
+   real(r8), intent(in) :: rpen_in
+   rpen = rpen_in
+end subroutine uwshcu_set_rpen
 
 !===============================================================================
 
-  subroutine init_uwshcu( kind, xlv_in, cp_in, xlf_in, zvir_in, r_in, g_in, ep2_in )
+  subroutine init_uwshcu(kind, xlv_in, cp_in, xlf_in, zvir_in, r_in, g_in, ep2_in, &
+                         sat_table, epsilo_sat, rh2o_sat, tmelt_sat, qmin_in, &
+                         constituent_is_wet_in, ixnumliq_in, ixnumice_in, &
+                         ixcldliq_in, ixcldice_in, trace_water_in, wisotope_in, &
+                         wtrc_nwset_in, wtrc_iatype_in, iwspec_in, &
+                         water_tracer_mask_in, wtrc_qmin_in, iwtvap_in, &
+                         iwtliq_in, iwtice_in, iwtstrain_in, iwtcvrain_in, &
+                         isph2o_in, isphdo_in, h2otrip_in, rhoh2o_in, &
+                         wtrc_alpha_kinetic_in, wtrc_fixed_alpha_in, &
+                         wtrc_species_rstd_in, errmsg, errflg)
 
     !------------------------------------------------------------- !
     ! Purpose:                                                     !
     ! Initialize key constants for the shallow convection package. !
     !------------------------------------------------------------- !
 
-    use cam_history,   only: outfld, addfld, phys_decomp
-    use ppgrid,        only: pcols, pver, pverp
     implicit none
     integer , intent(in) :: kind       !  kind of reals being passed in
     real(r8), intent(in) :: xlv_in     !  Latent heat of vaporization
@@ -109,6 +102,24 @@ end subroutine uwshcu_readnl
     real(r8), intent(in) :: r_in       !  Gas constant for dry air
     real(r8), intent(in) :: g_in       !  Gravitational constant
     real(r8), intent(in) :: ep2_in     !  mol wgt water vapor / mol wgt dry air
+    real(r8), intent(in) :: sat_table(:)
+    real(r8), intent(in) :: epsilo_sat, rh2o_sat, tmelt_sat
+    real(r8), intent(in) :: qmin_in(:)
+    logical, intent(in) :: constituent_is_wet_in(:)
+    integer, intent(in) :: ixnumliq_in, ixnumice_in, ixcldliq_in, ixcldice_in
+    logical, intent(in) :: trace_water_in, wisotope_in
+    integer, intent(in) :: wtrc_nwset_in
+    integer, intent(in) :: wtrc_iatype_in(:,:), iwspec_in(:)
+    logical, intent(in) :: water_tracer_mask_in(:)
+    real(r8), intent(in) :: wtrc_qmin_in
+    integer, intent(in) :: iwtvap_in, iwtliq_in, iwtice_in
+    integer, intent(in) :: iwtstrain_in, iwtcvrain_in
+    integer, intent(in) :: isph2o_in, isphdo_in
+    real(r8), intent(in) :: h2otrip_in, rhoh2o_in
+    logical, intent(in) :: wtrc_alpha_kinetic_in
+    real(r8), intent(in) :: wtrc_fixed_alpha_in(:), wtrc_species_rstd_in(:)
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out) :: errflg
 
     character(len=*), parameter :: subname = 'init_uwshcu'
 
@@ -116,108 +127,14 @@ end subroutine uwshcu_readnl
     ! Internal Output Variables !
     ! ------------------------- !
 
-    call addfld( 'qtflx_Cu'       , 'kg/m2/s' , pverp , 'A' , 'Convective qt flux'                                  , phys_decomp )
-    call addfld( 'slflx_Cu'       , 'J/m2/s'  , pverp , 'A' , 'Convective sl flux'                                  , phys_decomp )
-    call addfld( 'uflx_Cu'        , 'kg/m/s2' , pverp , 'A' , 'Convective  u flux'                                  , phys_decomp )
-    call addfld( 'vflx_Cu'        , 'kg/m/s2' , pverp , 'A' , 'Convective  v flux'                                  , phys_decomp )
 
-    call addfld( 'qtten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'qt tendency by convection'                           , phys_decomp )
-    call addfld( 'slten_Cu'       , 'J/kg/s'  , pver  , 'A' , 'sl tendency by convection'                           , phys_decomp )
-    call addfld( 'uten_Cu'        , 'm/s2'    , pver  , 'A' , ' u tendency by convection'                           , phys_decomp )
-    call addfld( 'vten_Cu'        , 'm/s2'    , pver  , 'A' , ' v tendency by convection'                           , phys_decomp )
-    call addfld( 'qvten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'qv tendency by convection'                           , phys_decomp )
-    call addfld( 'qlten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'ql tendency by convection'                           , phys_decomp )
-    call addfld( 'qiten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'qi tendency by convection'                           , phys_decomp )
-
-    call addfld( 'cbmf_Cu'        , 'kg/m2/s' , 1     , 'A' , 'Cumulus base mass flux'                              , phys_decomp )
-    call addfld( 'ufrcinvbase_Cu' , 'fraction', 1     , 'A' , 'Cumulus fraction at PBL top'                         , phys_decomp )
-    call addfld( 'ufrclcl_Cu'     , 'fraction', 1     , 'A' , 'Cumulus fraction at LCL'                             , phys_decomp )
-    call addfld( 'winvbase_Cu'    , 'm/s'     , 1     , 'A' , 'Cumulus vertical velocity at PBL top'                , phys_decomp )
-    call addfld( 'wlcl_Cu'        , 'm/s'     , 1     , 'A' , 'Cumulus vertical velocity at LCL'                    , phys_decomp )
-    call addfld( 'plcl_Cu'        , 'Pa'      , 1     , 'A' , 'LCL of source air'                                   , phys_decomp )
-    call addfld( 'pinv_Cu'        , 'Pa'      , 1     , 'A' , 'PBL top pressure'                                    , phys_decomp )
-    call addfld( 'plfc_Cu'        , 'Pa'      , 1     , 'A' , 'LFC of source air'                                   , phys_decomp )
-    call addfld( 'pbup_Cu'        , 'Pa'      , 1     , 'A' , 'Highest interface level of positive cumulus buoyancy', phys_decomp )
-    call addfld( 'ppen_Cu'        , 'Pa'      , 1     , 'A' , 'Highest level where cumulus w is 0'                  , phys_decomp )
-    call addfld( 'qtsrc_Cu'       , 'kg/kg'   , 1     , 'A' , 'Cumulus source air qt'                               , phys_decomp )
-    call addfld( 'thlsrc_Cu'      , 'K'       , 1     , 'A' , 'Cumulus source air thl'                              , phys_decomp )
-    call addfld( 'thvlsrc_Cu'     , 'K'       , 1     , 'A' , 'Cumulus source air thvl'                             , phys_decomp )
-    call addfld( 'emfkbup_Cu'     , 'kg/m2/s' , 1     , 'A' , 'Penetrative mass flux at kbup'                       , phys_decomp )
-    call addfld( 'cin_Cu'         , 'J/kg'    , 1     , 'A' , 'CIN upto LFC'                                        , phys_decomp )
-    call addfld( 'cinlcl_Cu'      , 'J/kg'    , 1     , 'A' , 'CIN upto LCL'                                        , phys_decomp )
-    call addfld( 'cbmflimit_Cu'   , 'kg/m2/s' , 1     , 'A' , 'cbmflimiter'                                         , phys_decomp )
-    call addfld( 'tkeavg_Cu'      , 'm2/s2'   , 1     , 'A' , 'Average tke within PBL for convection scheme'        , phys_decomp )
-    call addfld( 'zinv_Cu'        , 'm'       , 1     , 'A' , 'PBL top height'                                      , phys_decomp )
-    call addfld( 'rcwp_Cu'        , 'kg/m2'   , 1     , 'A' , 'Cumulus LWP+IWP'                                     , phys_decomp )
-    call addfld( 'rlwp_Cu'        , 'kg/m2'   , 1     , 'A' , 'Cumulus LWP'                                         , phys_decomp )
-    call addfld( 'riwp_Cu'        , 'kg/m2'   , 1     , 'A' , 'Cumulus IWP'                                         , phys_decomp )
-    call addfld( 'tophgt_Cu'      , 'm'       , 1     , 'A' , 'Cumulus top height'                                  , phys_decomp )
-
-    call addfld( 'wu_Cu'          , 'm/s'     , pverp , 'A' , 'Convective updraft vertical velocity'                , phys_decomp )
-    call addfld( 'ufrc_Cu'        , 'fraction', pverp , 'A' , 'Convective updraft fractional area'                  , phys_decomp )
-    call addfld( 'qtu_Cu'         , 'kg/kg'   , pverp , 'A' , 'Cumulus updraft qt'                                  , phys_decomp )
-    call addfld( 'thlu_Cu'        , 'K'       , pverp , 'A' , 'Cumulus updraft thl'                                 , phys_decomp )
-    call addfld( 'thvu_Cu'        , 'K'       , pverp , 'A' , 'Cumulus updraft thv'                                 , phys_decomp )
-    call addfld( 'uu_Cu'          , 'm/s'     , pverp , 'A' , 'Cumulus updraft uwnd'                                , phys_decomp )
-    call addfld( 'vu_Cu'          , 'm/s'     , pverp , 'A' , 'Cumulus updraft vwnd'                                , phys_decomp )
-    call addfld( 'qtu_emf_Cu'     , 'kg/kg'   , pverp , 'A' , 'qt of penatratively entrained air'                   , phys_decomp )
-    call addfld( 'thlu_emf_Cu'    , 'K'       , pverp , 'A' , 'thl of penatratively entrained air'                  , phys_decomp )
-    call addfld( 'uu_emf_Cu'      , 'm/s'     , pverp , 'A' , 'uwnd of penatratively entrained air'                 , phys_decomp )
-    call addfld( 'vu_emf_Cu'      , 'm/s'     , pverp , 'A' , 'vwnd of penatratively entrained air'                 , phys_decomp )
-    call addfld( 'umf_Cu'         , 'kg/m2/s' , pverp , 'A' , 'Cumulus updraft mass flux'                           , phys_decomp )
-    call addfld( 'uemf_Cu'        , 'kg/m2/s' , pverp , 'A' , 'Cumulus net ( updraft + entrainment ) mass flux'     , phys_decomp )
-    call addfld( 'qcu_Cu'         , 'kg/kg'   , pver  , 'A' , 'Cumulus updraft LWC+IWC'                             , phys_decomp )
-    call addfld( 'qlu_Cu'         , 'kg/kg'   , pver  , 'A' , 'Cumulus updraft LWC'                                 , phys_decomp )
-    call addfld( 'qiu_Cu'         , 'kg/kg'   , pver  , 'A' , 'Cumulus updraft IWC'                                 , phys_decomp )
-    call addfld( 'cufrc_Cu'       , 'fraction', pver  , 'A' , 'Cumulus cloud fraction'                              , phys_decomp )
-    call addfld( 'fer_Cu'         , '1/m'     , pver  , 'A' , 'Cumulus lateral fractional entrainment rate'         , phys_decomp )
-    call addfld( 'fdr_Cu'         , '1/m'     , pver  , 'A' , 'Cumulus lateral fractional detrainment Rate'         , phys_decomp )
-
-    call addfld( 'dwten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'Expellsion rate of cumulus cloud water to env.'      , phys_decomp )
-    call addfld( 'diten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'Expellsion rate of cumulus ice water to env.'        , phys_decomp )
-    call addfld( 'qrten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'Production rate of rain by cumulus'                  , phys_decomp )
-    call addfld( 'qsten_Cu'       , 'kg/kg/s' , pver  , 'A' , 'Production rate of snow by cumulus'                  , phys_decomp )
-    call addfld( 'flxrain_Cu'     , 'kg/m2/s' , pverp , 'A' , 'Rain flux induced by Cumulus'                        , phys_decomp )
-    call addfld( 'flxsnow_Cu'     , 'kg/m2/s' , pverp , 'A' , 'Snow flux induced by Cumulus'                        , phys_decomp )
-    call addfld( 'ntraprd_Cu'     , 'kg/kg/s' , pver  , 'A' , 'Net production rate of rain by Cumulus'              , phys_decomp )
-    call addfld( 'ntsnprd_Cu'     , 'kg/kg/s' , pver  , 'A' , 'Net production rate of snow by Cumulus'              , phys_decomp )
-
-    call addfld( 'excessu_Cu'     , 'no'      , pver  , 'A' , 'Updraft saturation excess'                           , phys_decomp )
-    call addfld( 'excess0_Cu'     , 'no'      , pver  , 'A' , 'Environmental saturation excess'                     , phys_decomp )
-    call addfld( 'xc_Cu'          , 'no'      , pver  , 'A' , 'Critical mixing ratio'                               , phys_decomp )
-    call addfld( 'aquad_Cu'       , 'no'      , pver  , 'A' , 'aquad'                                               , phys_decomp )
-    call addfld( 'bquad_Cu'       , 'no'      , pver  , 'A' , 'bquad'                                               , phys_decomp )
-    call addfld( 'cquad_Cu'       , 'no'      , pver  , 'A' , 'cquad'                                               , phys_decomp )
-    call addfld( 'bogbot_Cu'      , 'no'      , pver  , 'A' , 'Cloud buoyancy at the bottom interface'              , phys_decomp )
-    call addfld( 'bogtop_Cu'      , 'no'      , pver  , 'A' , 'Cloud buoyancy at the top interface'                 , phys_decomp )
-
-    call addfld('exit_UWCu_Cu'    , 'no'      , 1     , 'A' , 'exit_UWCu'                                           , phys_decomp )
-    call addfld('exit_conden_Cu'  , 'no'      , 1     , 'A' , 'exit_conden'                                         , phys_decomp )
-    call addfld('exit_klclmkx_Cu' , 'no'      , 1     , 'A' , 'exit_klclmkx'                                        , phys_decomp )
-    call addfld('exit_klfcmkx_Cu' , 'no'      , 1     , 'A' , 'exit_klfcmkx'                                        , phys_decomp )
-    call addfld('exit_ufrc_Cu'    , 'no'      , 1     , 'A' , 'exit_ufrc'                                           , phys_decomp )
-    call addfld('exit_wtw_Cu'     , 'no'      , 1     , 'A' , 'exit_wtw'                                            , phys_decomp )
-    call addfld('exit_drycore_Cu' , 'no'      , 1     , 'A' , 'exit_drycore'                                        , phys_decomp )
-    call addfld('exit_wu_Cu'      , 'no'      , 1     , 'A' , 'exit_wu'                                             , phys_decomp )
-    call addfld('exit_cufilter_Cu', 'no'      , 1     , 'A' , 'exit_cufilter'                                       , phys_decomp )
-    call addfld('exit_kinv1_Cu'   , 'no'      , 1     , 'A' , 'exit_kinv1'                                          , phys_decomp )
-    call addfld('exit_rei_Cu'     , 'no'      , 1     , 'A' , 'exit_rei'                                            , phys_decomp )
-
-    call addfld('limit_shcu_Cu'   , 'no'      , 1     , 'A' , 'limit_shcu'                                          , phys_decomp )
-    call addfld('limit_negcon_Cu' , 'no'      , 1     , 'A' , 'limit_negcon'                                        , phys_decomp )
-    call addfld('limit_ufrc_Cu'   , 'no'      , 1     , 'A' , 'limit_ufrc'                                          , phys_decomp )
-    call addfld('limit_ppen_Cu'   , 'no'      , 1     , 'A' , 'limit_ppen'                                          , phys_decomp )
-    call addfld('limit_emf_Cu'    , 'no'      , 1     , 'A' , 'limit_emf'                                           , phys_decomp )
-    call addfld('limit_cinlcl_Cu' , 'no'      , 1     , 'A' , 'limit_cinlcl'                                        , phys_decomp )
-    call addfld('limit_cin_Cu'    , 'no'      , 1     , 'A' , 'limit_cin'                                           , phys_decomp )
-    call addfld('limit_cbmf_Cu'   , 'no'      , 1     , 'A' , 'limit_cbmf'                                          , phys_decomp )
-    call addfld('limit_rei_Cu'    , 'no'      , 1     , 'A' , 'limit_rei'                                           , phys_decomp )
-    call addfld('ind_delcin_Cu'   , 'no'      , 1     , 'A' , 'ind_delcin'                                          , phys_decomp )
-
-    if( kind .ne. r8 ) then
-        write(iulog,*) subname//': ERROR -- real KIND does not match internal specification.'
-        call endrun(subname//': ERROR -- real KIND does not match internal specification.')
-    endif
+    errmsg = ''
+    errflg = 0
+    if (kind /= r8) then
+       errmsg = subname//': real KIND does not match internal specification'
+       errflg = 1
+       return
+    end if
 
     xlv   = xlv_in
     xlf   = xlf_in
@@ -230,13 +147,54 @@ end subroutine uwshcu_readnl
     p00   = 1.e5_r8
     rovcp = r/cp
 
-    if (rpen == unset_r8) then
-       call endrun(subname//': uwshcu_rpen must be set in the namelist')
+    call saturation_table_init(sat_table, epsilo_sat, xlv_in, xlf_in, &
+                               rh2o_sat, cp_in, tmelt_sat)
+    call wv_sat_methods_init(r8, tmelt_sat, h2otrip_in, 373.16_r8, &
+                             20._r8, epsilo_sat, errmsg)
+    if (len_trim(errmsg) /= 0) then
+       errflg = 1
+       return
     end if
+    trace_water = trace_water_in
+    wisotope = wisotope_in
+    wtrc_alpha_kinetic = wtrc_alpha_kinetic_in
+    wtrc_nwset = wtrc_nwset_in
+    wtrc_qmin = wtrc_qmin_in
+    iwtvap = iwtvap_in
+    iwtliq = iwtliq_in
+    iwtice = iwtice_in
+    iwtstrain = iwtstrain_in
+    iwtcvrain = iwtcvrain_in
+    isph2o = isph2o_in
+    isphdo = isphdo_in
+    h2otrip = h2otrip_in
+    rhoh2o = rhoh2o_in
+    rh2o_isotope = rh2o_sat
+    ixnumliq = ixnumliq_in
+    ixnumice = ixnumice_in
+    ixcldliq = ixcldliq_in
+    ixcldice = ixcldice_in
 
-    if ( masterproc ) then
-       write(iulog,*) subname//': tuning parameters: rpen=',rpen
-    endif
+    if (allocated(constituent_qmin)) deallocate(constituent_qmin)
+    if (allocated(constituent_is_wet)) deallocate(constituent_is_wet)
+    if (allocated(water_tracer_mask)) deallocate(water_tracer_mask)
+    if (allocated(wtrc_iatype)) deallocate(wtrc_iatype)
+    if (allocated(iwspec)) deallocate(iwspec)
+    if (allocated(wtrc_fixed_alpha)) deallocate(wtrc_fixed_alpha)
+    if (allocated(wtrc_species_rstd)) deallocate(wtrc_species_rstd)
+    allocate(constituent_qmin(size(qmin_in)), source=qmin_in)
+    allocate(constituent_is_wet(size(constituent_is_wet_in)), source=constituent_is_wet_in)
+    allocate(water_tracer_mask(size(water_tracer_mask_in)), source=water_tracer_mask_in)
+    allocate(wtrc_iatype(size(wtrc_iatype_in,1),size(wtrc_iatype_in,2)), source=wtrc_iatype_in)
+    allocate(iwspec(size(iwspec_in)), source=iwspec_in)
+    allocate(wtrc_fixed_alpha(size(wtrc_fixed_alpha_in)), source=wtrc_fixed_alpha_in)
+    allocate(wtrc_species_rstd(size(wtrc_species_rstd_in)), source=wtrc_species_rstd_in)
+
+    if (rpen == unset_r8) then
+       errmsg = subname//': uwshcu_rpen must be set in the namelist'
+       errflg = 1
+       return
+    end if
 
   end subroutine init_uwshcu
 
@@ -255,13 +213,7 @@ end subroutine uwshcu_readnl
                                  cufrc_inv, qcu_inv    , qlu_inv       , qiu_inv   ,             &
                                  cbmf     , qc_inv     , rliq          ,                         &
                                  cnt_inv  , cnb_inv    , lchnk         , dpdry0_inv,             &
-                                 wtprec   , wtsnow     , wtqc_inv  )
-
-    !Water tracer modules:
-    use water_tracer_vars, only: wtrc_nwset, wtrc_iatype
-    use water_types,       only: iwtvap,iwtliq,iwtice
-  !  use wtrc_uwshcu,       only: wtrc_compute_uwshcu
-
+                                 wtprec   , wtsnow     , wtqc_inv, errmsg, errflg )
 
     implicit none
     integer , intent(in)    :: lchnk
@@ -325,6 +277,8 @@ end subroutine uwshcu_readnl
     real(r8), intent(out)   :: wtprec(:,:)        !  Water tracer surface precipitation [ m/s ]
     real(r8), intent(out)   :: wtsnow(:,:)        !  Water tracer surface snow [ m/s ]
     real(r8), intent(out)   :: wtqc_inv(:,:,:)  !  Water tracer detrained condensate [ kg/kg/s ]
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out) :: errflg
     !*************
 
     real(r8)                :: ps0(mix,0:mkx)           !  Environmental pressure at the interfaces [ Pa ]
@@ -388,8 +342,6 @@ end subroutine uwshcu_readnl
 !    wtcush(:) = cush(:) !Copy convective scale height (needed for water tracers)
     !*********************
 
-    call t_startf('ap_compute_uwshcu_inv_run')
-
     do k = 1, mkx
        k_inv               = mkx + 1 - k
        p0(:iend,k)         = p0_inv(:iend,k_inv)
@@ -430,7 +382,9 @@ end subroutine uwshcu_readnl
                          cufrc, qcu    , qlu       , qiu   ,        &
                          cbmf , qc     , rliq      ,                &
                          cnt  , cnb    , lchnk     , dpdry0, wtprec,&
-                         wtsnow, wtqc )
+                         wtsnow, wtqc, errmsg, errflg )
+
+    if (errflg /= 0) return
 
     !**********************************************
     !Calculate impact of UW scheme on water tracers:
@@ -498,7 +452,6 @@ end subroutine uwshcu_readnl
        enddo
     enddo
 
-    call t_stopf('ap_compute_uwshcu_inv_run')
   end subroutine compute_uwshcu_inv_run
 
   !> \section arg_table_compute_uwshcu_run Argument Table
@@ -516,7 +469,7 @@ end subroutine uwshcu_readnl
                              cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
                              cbmf_out , qc_out    , rliq_out     ,                        &
                              cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                             wtsnow_out, wtqc_out )
+                             wtsnow_out, wtqc_out, errmsg, errflg )
 
     ! ------------------------------------------------------------ !
     !                                                              !
@@ -534,18 +487,6 @@ end subroutine uwshcu_readnl
     !                                  sungsu@atmos.washington.edu !
     !                                                              !
     ! ------------------------------------------------------------ !
-
-    use cam_history,     only : outfld, addfld, phys_decomp
-    use constituents,    only : qmin, cnst_get_type_byind, cnst_get_ind
-    use wv_saturation,   only : findsp_vc
-
-   !Water tracers:
-    use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, &
-                                  iwspec
-    use water_tracers,     only : wtrc_ratio, wtrc_get_alpha, wtrc_liqvap_equil, &
-                                  wtrc_is_wtrc, wtrc_get_rstd, wtrc_equil_time
-    use water_types,       only : iwtvap, iwtliq, iwtice
-
 
     implicit none
 
@@ -617,6 +558,8 @@ end subroutine uwshcu_readnl
     real(r8), intent(out)  :: wtqc_out(:,:,:)         ! Tendency of detrained condensate [ kg/kg/s ]
     real(r8), intent(out)  :: wtprec_out(:,:)           ! Water tracer precipitation [ m/s ]
     real(r8), intent(out)  :: wtsnow_out(:,:)           ! Water tracer snow [ m/s ]
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out) :: errflg
     !*************
 
     !
@@ -897,7 +840,7 @@ end subroutine uwshcu_readnl
 
     integer     kk, mm, k, i, m, kp1, km1
     integer     iter_scaleh, iter_xc
-    integer     id_check, status
+    integer     id_check, status, findsp_errflg
     integer     klcl                                          !  Layer containing LCL of source air
     integer     kinv                                          !  Inversion layer with PBL top interface as a lower interface
     integer     krel                                          !  Release layer where buoyancy sorting mixing
@@ -1247,17 +1190,6 @@ end subroutine uwshcu_readnl
     !                        !
     !------------------------!
 
-    call t_startf('ap_compute_uwshcu_run')
-
-    call cnst_get_ind( 'NUMLIQ', ixnumliq )
-    call cnst_get_ind( 'NUMICE', ixnumice )
-
-    call cnst_get_ind( 'CLDLIQ', ixcldliq )
-    call cnst_get_ind( 'CLDICE', ixcldice )
-
-
-
-
     ! ------------------------------------------------------- !
     ! Initialize output variables defined for all grid points !
     ! ------------------------------------------------------- !
@@ -1387,13 +1319,21 @@ end subroutine uwshcu_readnl
     !                                                              !
     !--------------------------------------------------------------!
 
+    errmsg = ''
+    errflg = 0
+
     ! Compute wet-bulb temperature and specific humidity
     ! for treating evaporation of precipitation.
 
     ! "True" means ice will be taken into account
     do k = 1, mkx
-       call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
-            tw0_in(:iend,k), qw0_in(:iend,k))
+       call findsp_table_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
+            tw0_in(:iend,k), qw0_in(:iend,k), findsp_errflg)
+       if (findsp_errflg /= 0) then
+          errmsg = 'compute_uwshcu_run: wet-bulb iteration failed'
+          errflg = findsp_errflg
+          return
+       end if
     end do
 
     do i = 1, iend
@@ -2373,8 +2313,9 @@ end subroutine uwshcu_readnl
        if( mulcl .gt. 1.e-8_r8 .and. mulcl .gt. mulclstar ) then
            mumin2 = compute_mumin2(mulcl,rmaxfrac,mu)
            if( mu .gt. mumin2 ) then
-               write(iulog,*) 'Critical error in mu calculation in UW_ShCu'
-               call endrun
+               errmsg = 'compute_uwshcu_run: critical error in mu calculation'
+               errflg = 1
+               return
            endif
            mu = max(mu,mumin2)
            if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
@@ -2709,7 +2650,7 @@ end subroutine uwshcu_readnl
           thv0j    = thj * ( 1._r8 + zvir*qvj - qlj - qij )
           rho0j    = pe / ( r * thv0j * exne )
           qsat_arg = thle*exne
-          call qsat(qsat_arg, pe, es, qs)
+          call qsat_table(qsat_arg, pe, es, qs)
           excess0  = qte - qs
 
           call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
@@ -2742,7 +2683,7 @@ end subroutine uwshcu_readnl
           thvj     = thj * ( 1._r8 + zvir * qvj - qlj - qij )
           tj       = thj * exne ! This 'tj' is used for computing thermo. coeffs. below
           qsat_arg = thlue*exne
-          call qsat(qsat_arg, pe, es, qs)
+          call qsat_table(qsat_arg, pe, es, qs)
           excessu  = qtue - qs
 
           ! ------------------------------------------------------------------- !
@@ -3247,14 +3188,12 @@ end subroutine uwshcu_readnl
                    ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
                elseif( xc1 .gt. 0._r8 .and. xc2 .gt. 0._r8 ) then
                    ppen = -dp0(kpen)
-                   write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
                else
                    ppen = min( xc1, xc2 )
                    ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
                endif
            else
                ppen = -dp0(kpen)
-               write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
            endif
        else
            ppen = compute_ppen(wtwb,drage,bogbot,bogtop,rho0j,dp0(kpen))
@@ -4664,7 +4603,7 @@ end subroutine uwshcu_readnl
           !   3. Total evaporation cannot exceed the input total surface flux !
           ! ----------------------------------------------------------------- !
 
-          call qsat(t0(k), p0(k), es, qs)
+          call qsat_table(t0(k), p0(k), es, qs)
           subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
           if( noevap_krelkpen ) then
               if( k .ge. krel ) subsat = 0._r8
@@ -4737,9 +4676,9 @@ end subroutine uwshcu_readnl
           qiten(k) = qiten(k) - qsten(k)
           qvten(k) = qvten(k) + evprain  + evpsnow
           qtten(k) = qlten(k) + qiten(k) + qvten(k)
-          if( ( qv0(k) + qvten(k)*dt ) .lt. qmin(1) .or. &
-              ( ql0(k) + qlten(k)*dt ) .lt. qmin(ixcldliq) .or. &
-              ( qi0(k) + qiten(k)*dt ) .lt. qmin(ixcldice) ) then
+          if( ( qv0(k) + qvten(k)*dt ) .lt. constituent_qmin(1) .or. &
+              ( ql0(k) + qlten(k)*dt ) .lt. constituent_qmin(ixcldliq) .or. &
+              ( qi0(k) + qiten(k)*dt ) .lt. constituent_qmin(ixcldice) ) then
                limit_negcon(i) = 1._r8
           end if
           sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt
@@ -5010,11 +4949,11 @@ end subroutine uwshcu_readnl
             wt0_star(:mkx,m,2) = tr0(:mkx,wtrc_iatype(m,iwtliq)) + trten(:mkx,wtrc_iatype(m,iwtliq)) * dt
             wt0_star(:mkx,m,3) = tr0(:mkx,wtrc_iatype(m,iwtice)) + trten(:mkx,wtrc_iatype(m,iwtice)) * dt
           end do
-          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
-                                         qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
+          call positive_moisture_single( xlv, xls, mkx, dt, constituent_qmin(1), constituent_qmin(ixcldliq), &
+                                         constituent_qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
                                          qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
         else
-          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
+          call positive_moisture_single( xlv, xls, mkx, dt, constituent_qmin(1), constituent_qmin(ixcldliq), constituent_qmin(ixcldice), &
                dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
         end if !water tracers
         !************
@@ -5031,11 +4970,11 @@ end subroutine uwshcu_readnl
 
        if( m .ne. ixnumliq .and. m .ne. ixnumice .and. (.not. wtrc_is_wtrc(m))) then
 
-          trmin = qmin(m)
+          trmin = constituent_qmin(m)
           trflx_d(0:mkx) = 0._r8
           trflx_u(0:mkx) = 0._r8
           do k = 1, mkx-1
-             if( cnst_get_type_byind(m) .eq. 'wet' ) then
+             if (constituent_is_wet(m)) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
@@ -5045,7 +4984,7 @@ end subroutine uwshcu_readnl
              trflx_d(k) = min( 0._r8, dum )
           enddo
           do k = mkx, 2, -1
-             if( cnst_get_type_byind(m) .eq. 'wet' ) then
+             if (constituent_is_wet(m)) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
@@ -5056,7 +4995,7 @@ end subroutine uwshcu_readnl
              trflx_u(km1) = max( 0._r8, -dum )
           enddo
           do k = 1, mkx
-             if( cnst_get_type_byind(m) .eq. 'wet' ) then
+             if (constituent_is_wet(m)) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
@@ -5564,105 +5503,97 @@ end subroutine uwshcu_readnl
      ! Writing main diagnostic output variables !
      ! ---------------------------------------- !
 
-     call outfld( 'qtflx_Cu'        , qtflx_out(:,mkx:0:-1),    mix,    lchnk )
-     call outfld( 'slflx_Cu'        , slflx_out(:,mkx:0:-1),    mix,    lchnk )
-     call outfld( 'uflx_Cu'         , uflx_out,                 mix,    lchnk )
-     call outfld( 'vflx_Cu'         , vflx_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'qtflx_Cu'        , qtflx_out(:,mkx:0:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'slflx_Cu'        , slflx_out(:,mkx:0:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'uflx_Cu'         , uflx_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'vflx_Cu'         , vflx_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'qtten_Cu'        , qtten_out,                mix,    lchnk )
+     call atmos_phys_outfld( 'slten_Cu'        , slten_out,                mix,    lchnk )
+     call atmos_phys_outfld( 'uten_Cu'         , uten_out(:,mkx:1:-1),     mix,    lchnk )
+     call atmos_phys_outfld( 'vten_Cu'         , vten_out(:,mkx:1:-1),     mix,    lchnk )
+     call atmos_phys_outfld( 'qvten_Cu'        , qvten_out(:,mkx:1:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'qlten_Cu'        , qlten_out(:,mkx:1:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'qiten_Cu'        , qiten_out(:,mkx:1:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'cbmf_Cu'         , cbmf_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'ufrcinvbase_Cu'  , ufrcinvbase_out,          mix,    lchnk )
+     call atmos_phys_outfld( 'ufrclcl_Cu'      , ufrclcl_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'winvbase_Cu'     , winvbase_out,             mix,    lchnk )
+     call atmos_phys_outfld( 'wlcl_Cu'         , wlcl_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'plcl_Cu'         , plcl_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'pinv_Cu'         , pinv_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'plfc_Cu'         , plfc_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'pbup_Cu'         , pbup_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'ppen_Cu'         , ppen_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'qtsrc_Cu'        , qtsrc_out,                mix,    lchnk )
+     call atmos_phys_outfld( 'thlsrc_Cu'       , thlsrc_out,               mix,    lchnk )
+     call atmos_phys_outfld( 'thvlsrc_Cu'      , thvlsrc_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'emfkbup_Cu'      , emfkbup_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'cin_Cu'          , cinh_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'cinlcl_Cu'       , cinlclh_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'cbmflimit_Cu'    , cbmflimit_out,            mix,    lchnk )
+     call atmos_phys_outfld( 'tkeavg_Cu'       , tkeavg_out,               mix,    lchnk )
+     call atmos_phys_outfld( 'zinv_Cu'         , zinv_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'rcwp_Cu'         , rcwp_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'rlwp_Cu'         , rlwp_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'riwp_Cu'         , riwp_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'tophgt_Cu'       , cush_inout,               mix,    lchnk )
+     call atmos_phys_outfld( 'wu_Cu'           , wu_out,                   mix,    lchnk )
+     call atmos_phys_outfld( 'ufrc_Cu'         , ufrc_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'qtu_Cu'          , qtu_out,                  mix,    lchnk )
+     call atmos_phys_outfld( 'thlu_Cu'         , thlu_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'thvu_Cu'         , thvu_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'uu_Cu'           , uu_out,                   mix,    lchnk )
+     call atmos_phys_outfld( 'vu_Cu'           , vu_out,                   mix,    lchnk )
+     call atmos_phys_outfld( 'qtu_emf_Cu'      , qtu_emf_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'thlu_emf_Cu'     , thlu_emf_out,             mix,    lchnk )
+     call atmos_phys_outfld( 'uu_emf_Cu'       , uu_emf_out,               mix,    lchnk )
+     call atmos_phys_outfld( 'vu_emf_Cu'       , vu_emf_out,               mix,    lchnk )
+     call atmos_phys_outfld( 'umf_Cu'          , umf_out(:,mkx:0:-1),      mix,    lchnk )
+     call atmos_phys_outfld( 'uemf_Cu'         , uemf_out,                 mix,    lchnk )
+     call atmos_phys_outfld( 'qcu_Cu'          , qcu_out(:,mkx:1:-1),      mix,    lchnk )
+     call atmos_phys_outfld( 'qlu_Cu'          , qlu_out(:,mkx:1:-1),      mix,    lchnk )
+     call atmos_phys_outfld( 'qiu_Cu'          , qiu_out(:,mkx:1:-1),      mix,    lchnk )
+     call atmos_phys_outfld( 'cufrc_Cu'        , cufrc_out(:,mkx:1:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'fer_Cu'          , fer_out,                  mix,    lchnk )
+     call atmos_phys_outfld( 'fdr_Cu'          , fdr_out,                  mix,    lchnk )
+     call atmos_phys_outfld( 'dwten_Cu'        , dwten_out,                mix,    lchnk )
+     call atmos_phys_outfld( 'diten_Cu'        , diten_out,                mix,    lchnk )
+     call atmos_phys_outfld( 'qrten_Cu'        , qrten_out(:,mkx:1:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'qsten_Cu'        , qsten_out(:,mkx:1:-1),    mix,    lchnk )
+     call atmos_phys_outfld( 'flxrain_Cu'      , flxrain_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'flxsnow_Cu'      , flxsnow_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'ntraprd_Cu'      , ntraprd_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'ntsnprd_Cu'      , ntsnprd_out,              mix,    lchnk )
+     call atmos_phys_outfld( 'excessu_Cu'      , excessu_arr_out,          mix,    lchnk )
+     call atmos_phys_outfld( 'excess0_Cu'      , excess0_arr_out,          mix,    lchnk )
+     call atmos_phys_outfld( 'xc_Cu'           , xc_arr_out,               mix,    lchnk )
+     call atmos_phys_outfld( 'aquad_Cu'        , aquad_arr_out,            mix,    lchnk )
+     call atmos_phys_outfld( 'bquad_Cu'        , bquad_arr_out,            mix,    lchnk )
+     call atmos_phys_outfld( 'cquad_Cu'        , cquad_arr_out,            mix,    lchnk )
+     call atmos_phys_outfld( 'bogbot_Cu'       , bogbot_arr_out,           mix,    lchnk )
+     call atmos_phys_outfld( 'bogtop_Cu'       , bogtop_arr_out,           mix,    lchnk )
+     call atmos_phys_outfld( 'exit_UWCu_Cu'    , exit_UWCu,                mix,    lchnk )
+     call atmos_phys_outfld( 'exit_conden_Cu'  , exit_conden,              mix,    lchnk )
+     call atmos_phys_outfld( 'exit_klclmkx_Cu' , exit_klclmkx,             mix,    lchnk )
+     call atmos_phys_outfld( 'exit_klfcmkx_Cu' , exit_klfcmkx,             mix,    lchnk )
+     call atmos_phys_outfld( 'exit_ufrc_Cu'    , exit_ufrc,                mix,    lchnk )
+     call atmos_phys_outfld( 'exit_wtw_Cu'     , exit_wtw,                 mix,    lchnk )
+     call atmos_phys_outfld( 'exit_drycore_Cu' , exit_drycore,             mix,    lchnk )
+     call atmos_phys_outfld( 'exit_wu_Cu'      , exit_wu,                  mix,    lchnk )
+     call atmos_phys_outfld( 'exit_cufilter_Cu', exit_cufilter,            mix,    lchnk )
+     call atmos_phys_outfld( 'exit_kinv1_Cu'   , exit_kinv1,               mix,    lchnk )
+     call atmos_phys_outfld( 'exit_rei_Cu'     , exit_rei,                 mix,    lchnk )
+     call atmos_phys_outfld( 'limit_shcu_Cu'   , limit_shcu,               mix,    lchnk )
+     call atmos_phys_outfld( 'limit_negcon_Cu' , limit_negcon,             mix,    lchnk )
+     call atmos_phys_outfld( 'limit_ufrc_Cu'   , limit_ufrc,               mix,    lchnk )
+     call atmos_phys_outfld( 'limit_ppen_Cu'   , limit_ppen,               mix,    lchnk )
+     call atmos_phys_outfld( 'limit_emf_Cu'    , limit_emf,                mix,    lchnk )
+     call atmos_phys_outfld( 'limit_cinlcl_Cu' , limit_cinlcl,             mix,    lchnk )
+     call atmos_phys_outfld( 'limit_cin_Cu'    , limit_cin,                mix,    lchnk )
+     call atmos_phys_outfld( 'limit_cbmf_Cu'   , limit_cbmf,               mix,    lchnk )
+     call atmos_phys_outfld( 'limit_rei_Cu'    , limit_rei,                mix,    lchnk )
+     call atmos_phys_outfld( 'ind_delcin_Cu'   , ind_delcin,               mix,    lchnk )
 
-     call outfld( 'qtten_Cu'        , qtten_out,                mix,    lchnk )
-     call outfld( 'slten_Cu'        , slten_out,                mix,    lchnk )
-     call outfld( 'uten_Cu'         , uten_out(:,mkx:1:-1),     mix,    lchnk )
-     call outfld( 'vten_Cu'         , vten_out(:,mkx:1:-1),     mix,    lchnk )
-     call outfld( 'qvten_Cu'        , qvten_out(:,mkx:1:-1),    mix,    lchnk )
-     call outfld( 'qlten_Cu'        , qlten_out(:,mkx:1:-1),    mix,    lchnk )
-     call outfld( 'qiten_Cu'        , qiten_out(:,mkx:1:-1),    mix,    lchnk )
-
-     call outfld( 'cbmf_Cu'         , cbmf_out,                 mix,    lchnk )
-     call outfld( 'ufrcinvbase_Cu'  , ufrcinvbase_out,          mix,    lchnk )
-     call outfld( 'ufrclcl_Cu'      , ufrclcl_out,              mix,    lchnk )
-     call outfld( 'winvbase_Cu'     , winvbase_out,             mix,    lchnk )
-     call outfld( 'wlcl_Cu'         , wlcl_out,                 mix,    lchnk )
-     call outfld( 'plcl_Cu'         , plcl_out,                 mix,    lchnk )
-     call outfld( 'pinv_Cu'         , pinv_out,                 mix,    lchnk )
-     call outfld( 'plfc_Cu'         , plfc_out,                 mix,    lchnk )
-     call outfld( 'pbup_Cu'         , pbup_out,                 mix,    lchnk )
-     call outfld( 'ppen_Cu'         , ppen_out,                 mix,    lchnk )
-     call outfld( 'qtsrc_Cu'        , qtsrc_out,                mix,    lchnk )
-     call outfld( 'thlsrc_Cu'       , thlsrc_out,               mix,    lchnk )
-     call outfld( 'thvlsrc_Cu'      , thvlsrc_out,              mix,    lchnk )
-     call outfld( 'emfkbup_Cu'      , emfkbup_out,              mix,    lchnk )
-     call outfld( 'cin_Cu'          , cinh_out,                 mix,    lchnk )
-     call outfld( 'cinlcl_Cu'       , cinlclh_out,              mix,    lchnk )
-     call outfld( 'cbmflimit_Cu'    , cbmflimit_out,            mix,    lchnk )
-     call outfld( 'tkeavg_Cu'       , tkeavg_out,               mix,    lchnk )
-     call outfld( 'zinv_Cu'         , zinv_out,                 mix,    lchnk )
-     call outfld( 'rcwp_Cu'         , rcwp_out,                 mix,    lchnk )
-     call outfld( 'rlwp_Cu'         , rlwp_out,                 mix,    lchnk )
-     call outfld( 'riwp_Cu'         , riwp_out,                 mix,    lchnk )
-     call outfld( 'tophgt_Cu'       , cush_inout,               mix,    lchnk )
-
-     call outfld( 'wu_Cu'           , wu_out,                   mix,    lchnk )
-     call outfld( 'ufrc_Cu'         , ufrc_out,                 mix,    lchnk )
-     call outfld( 'qtu_Cu'          , qtu_out,                  mix,    lchnk )
-     call outfld( 'thlu_Cu'         , thlu_out,                 mix,    lchnk )
-     call outfld( 'thvu_Cu'         , thvu_out,                 mix,    lchnk )
-     call outfld( 'uu_Cu'           , uu_out,                   mix,    lchnk )
-     call outfld( 'vu_Cu'           , vu_out,                   mix,    lchnk )
-     call outfld( 'qtu_emf_Cu'      , qtu_emf_out,              mix,    lchnk )
-     call outfld( 'thlu_emf_Cu'     , thlu_emf_out,             mix,    lchnk )
-     call outfld( 'uu_emf_Cu'       , uu_emf_out,               mix,    lchnk )
-     call outfld( 'vu_emf_Cu'       , vu_emf_out,               mix,    lchnk )
-     call outfld( 'umf_Cu'          , umf_out(:,mkx:0:-1),      mix,    lchnk )
-     call outfld( 'uemf_Cu'         , uemf_out,                 mix,    lchnk )
-     call outfld( 'qcu_Cu'          , qcu_out(:,mkx:1:-1),      mix,    lchnk )
-     call outfld( 'qlu_Cu'          , qlu_out(:,mkx:1:-1),      mix,    lchnk )
-     call outfld( 'qiu_Cu'          , qiu_out(:,mkx:1:-1),      mix,    lchnk )
-     call outfld( 'cufrc_Cu'        , cufrc_out(:,mkx:1:-1),    mix,    lchnk )
-     call outfld( 'fer_Cu'          , fer_out,                  mix,    lchnk )
-     call outfld( 'fdr_Cu'          , fdr_out,                  mix,    lchnk )
-
-     call outfld( 'dwten_Cu'        , dwten_out,                mix,    lchnk )
-     call outfld( 'diten_Cu'        , diten_out,                mix,    lchnk )
-     call outfld( 'qrten_Cu'        , qrten_out(:,mkx:1:-1),    mix,    lchnk )
-     call outfld( 'qsten_Cu'        , qsten_out(:,mkx:1:-1),    mix,    lchnk )
-     call outfld( 'flxrain_Cu'      , flxrain_out,              mix,    lchnk )
-     call outfld( 'flxsnow_Cu'      , flxsnow_out,              mix,    lchnk )
-     call outfld( 'ntraprd_Cu'      , ntraprd_out,              mix,    lchnk )
-     call outfld( 'ntsnprd_Cu'      , ntsnprd_out,              mix,    lchnk )
-
-     call outfld( 'excessu_Cu'      , excessu_arr_out,          mix,    lchnk )
-     call outfld( 'excess0_Cu'      , excess0_arr_out,          mix,    lchnk )
-     call outfld( 'xc_Cu'           , xc_arr_out,               mix,    lchnk )
-     call outfld( 'aquad_Cu'        , aquad_arr_out,            mix,    lchnk )
-     call outfld( 'bquad_Cu'        , bquad_arr_out,            mix,    lchnk )
-     call outfld( 'cquad_Cu'        , cquad_arr_out,            mix,    lchnk )
-     call outfld( 'bogbot_Cu'       , bogbot_arr_out,           mix,    lchnk )
-     call outfld( 'bogtop_Cu'       , bogtop_arr_out,           mix,    lchnk )
-
-     call outfld( 'exit_UWCu_Cu'    , exit_UWCu,                mix,    lchnk )
-     call outfld( 'exit_conden_Cu'  , exit_conden,              mix,    lchnk )
-     call outfld( 'exit_klclmkx_Cu' , exit_klclmkx,             mix,    lchnk )
-     call outfld( 'exit_klfcmkx_Cu' , exit_klfcmkx,             mix,    lchnk )
-     call outfld( 'exit_ufrc_Cu'    , exit_ufrc,                mix,    lchnk )
-     call outfld( 'exit_wtw_Cu'     , exit_wtw,                 mix,    lchnk )
-     call outfld( 'exit_drycore_Cu' , exit_drycore,             mix,    lchnk )
-     call outfld( 'exit_wu_Cu'      , exit_wu,                  mix,    lchnk )
-     call outfld( 'exit_cufilter_Cu', exit_cufilter,            mix,    lchnk )
-     call outfld( 'exit_kinv1_Cu'   , exit_kinv1,               mix,    lchnk )
-     call outfld( 'exit_rei_Cu'     , exit_rei,                 mix,    lchnk )
-
-     call outfld( 'limit_shcu_Cu'   , limit_shcu,               mix,    lchnk )
-     call outfld( 'limit_negcon_Cu' , limit_negcon,             mix,    lchnk )
-     call outfld( 'limit_ufrc_Cu'   , limit_ufrc,               mix,    lchnk )
-     call outfld( 'limit_ppen_Cu'   , limit_ppen,               mix,    lchnk )
-     call outfld( 'limit_emf_Cu'    , limit_emf,                mix,    lchnk )
-     call outfld( 'limit_cinlcl_Cu' , limit_cinlcl,             mix,    lchnk )
-     call outfld( 'limit_cin_Cu'    , limit_cin,                mix,    lchnk )
-     call outfld( 'limit_cbmf_Cu'   , limit_cbmf,               mix,    lchnk )
-     call outfld( 'limit_rei_Cu'    , limit_rei,                mix,    lchnk )
-     call outfld( 'ind_delcin_Cu'   , ind_delcin,               mix,    lchnk )
-
-    call t_stopf('ap_compute_uwshcu_run')
     return
 
   end subroutine compute_uwshcu_run
@@ -5765,12 +5696,6 @@ end subroutine uwshcu_readnl
 
 
   subroutine conden(p,thl,qt,th,qv,ql,qi,rvls,id_check,ncnst,qv0,tr0,wtout)
-  ! --------------------------- !
-   !water tracer use statements
-  ! --------------------------- !
-    use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, iwspec, wtrc_nwset
-    use water_tracers,     only : wtrc_ratio, wtrc_get_alpha
-    use water_types,       only : iwtvap, iwtliq, iwtice
   ! --------------------------------------------------------------------- !
   ! Calculate thermodynamic properties from a given set of ( p, thl, qt ) !
   ! --------------------------------------------------------------------- !
@@ -5831,7 +5756,7 @@ end subroutine uwshcu_readnl
    ! --------------------------------------------------------------------------- !
 
     temps  = tc
-    call qsat(temps, p, es, qs)
+    call qsat_table(temps, p, es, qs)
     rvls   = qs
 
     if( qs .ge. qt ) then
@@ -5844,7 +5769,7 @@ end subroutine uwshcu_readnl
     else
         do iteration = 1, 10
            temps  = temps + ( (tc-temps)*cp/leff + qt - rvls )/( cp/leff + ep2*leff*rvls/r/temps/temps )
-           call qsat(temps, p, es, qs)
+           call qsat_table(temps, p, es, qs)
            rvls   = qs
         end do
         qc = max(qt - qs,0._r8)
@@ -6001,10 +5926,9 @@ end subroutine uwshcu_readnl
     ! ------------------------------------ !
 
     Ti       =  thl*(psfc/p00)**rovcp
-    call qsat(Ti, psfc, es, qs)
+    call qsat_table(Ti, psfc, es, qs)
     rhi      =  qt/qs
     if( rhi .le. 0.01_r8 ) then
-        write(iulog,*) 'Source air is too dry and pLCL is set to psmin in uwshcu.F90'
         qsinvert = psmin
         return
     end if
@@ -6015,7 +5939,7 @@ end subroutine uwshcu_readnl
     do i = 1, 10
        Pis      =  (ps/p00)**rovcp
        Ts       =  thl*Pis
-       call qsat(Ts, ps, es, qs, gam=gam)
+       call qsat_table(Ts, ps, es, qs, gam=gam)
        err      =  qt - qs
        nu       =  max(min((268._r8 - Ts)/20._r8,1.0_r8),0.0_r8)
        leff     =  (1._r8 - nu)*xlv + nu*xls
@@ -6027,7 +5951,6 @@ end subroutine uwshcu_readnl
        dps      = -err/derrdps
        ps       =  ps + dps
        if( ps .lt. 0._r8 ) then
-           write(iulog,*) 'pLCL iteration is negative and set to psmin in uwshcu.F90', qt, thl, psfc
            qsinvert = psmin
            return
        end if
@@ -6036,7 +5959,6 @@ end subroutine uwshcu_readnl
            return
        end if
     end do
-    write(iulog,*) 'pLCL does not converge and is set to psmin in uwshcu.F90', qt, thl, psfc
     qsinvert = psmin
     return
   end function qsinvert
@@ -6219,14 +6141,6 @@ end subroutine uwshcu_readnl
   ! Note that (qv,ql,qi,s) are final state variables after applying corresponding   !
   ! input tendencies and corrective tendencies                                      !
   ! ------------------------------------------------------------------------------- !
-  ! --------------------------- !
-   !water tracer use statements
-  ! --------------------------- !
-    use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, iwspec, wtrc_nwset
-    use water_tracers,     only : wtrc_ratio, wtrc_get_rstd
-    use water_types,       only : iwtvap, iwtliq, iwtice
-  ! --------------------------- !
-
     implicit none
     integer,  intent(in)     :: mkx
     real(r8), intent(in)     :: xlv, xls
@@ -6351,12 +6265,149 @@ end subroutine uwshcu_readnl
                endif
             enddo
         else
-            write(iulog,*) 'Full positive_moisture is impossible in uwshcu'
         endif
     endif
 
     return
   end subroutine positive_moisture_single
+
+  logical function wtrc_is_wtrc(m)
+    integer, intent(in) :: m
+    wtrc_is_wtrc = m >= 1 .and. m <= size(water_tracer_mask)
+    if (wtrc_is_wtrc) wtrc_is_wtrc = water_tracer_mask(m)
+  end function wtrc_is_wtrc
+
+  real(r8) function wtrc_get_rstd(ispec)
+    integer, intent(in) :: ispec
+    wtrc_get_rstd = wtrc_species_rstd(ispec)
+  end function wtrc_get_rstd
+
+  real(r8) function wtrc_ratio(ispec, qtrc, qtot)
+    integer, intent(in) :: ispec
+    real(r8), intent(in) :: qtrc, qtot
+    if (abs(qtot) < wtrc_qmin) then
+       wtrc_ratio = wtrc_get_rstd(ispec)
+    else
+       wtrc_ratio = qtrc/qtot
+    end if
+  end function wtrc_ratio
+
+  real(r8) function wtrc_get_alpha(q, tk, ispec, isrctype, idsttype, rhclc, porqh, kin)
+    real(r8), intent(in) :: q, tk, porqh
+    integer, intent(in) :: ispec, isrctype, idsttype
+    logical, intent(in) :: rhclc
+    logical, intent(in), optional :: kin
+    logical :: alpkin
+    real(r8) :: es, qs, rh
+
+    if (present(kin)) then
+       alpkin = kin
+    else
+       alpkin = wtrc_alpha_kinetic
+    end if
+
+    if (rhclc) then
+       call wv_sat_qsat_water(tk, porqh, es, qs)
+       rh = q/qs
+    else
+       rh = porqh
+    end if
+
+    if (wisotope) then
+       wtrc_get_alpha = water_isotope_alpha(ispec, isrctype, idsttype, &
+            tk, rh, alpkin)
+    else
+       wtrc_get_alpha = wtrc_fixed_alpha(ispec)
+    end if
+  end function wtrc_get_alpha
+
+  subroutine wtrc_equil_time(ispec, temp, pres, rdrop, zdel, alpha, difrm, fequil)
+    integer, intent(in) :: ispec
+    real(r8), intent(in) :: temp, pres, rdrop, zdel, alpha, difrm
+    real(r8), intent(out) :: fequil
+    real(r8) :: tadjust, texposure
+    real(r8) :: rhoa, reynolds, schmidt, xx
+    real(r8) :: difa, mu, vterm, cddrop, fvent
+    real(r8) :: esat, qst
+
+    rhoa = pres/(r*temp)
+    call qsat_table(temp, pres, esat, qst)
+    difa = 2.11e-5_r8*difrm*(temp/273.15_r8)**1.94_r8*(101325._r8/pres)
+    mu = 1.72e-5_r8*((temp/273.0_r8)**1.5_r8)*393.0_r8/(temp+120.0_r8)
+    cddrop = 0.6_r8
+    vterm = sqrt((4._r8/3._r8)*g*(2._r8*rdrop)*rhoh2o/(cddrop*rhoa))
+    reynolds = 2._r8*rdrop*rhoa*vterm/mu
+    schmidt = mu/(rhoa*difa)
+    xx = reynolds**(1._r8/2._r8)*schmidt**(1._r8/3._r8)
+    if (xx >= 1.4_r8) then
+       fvent = 0.78_r8+0.308_r8*xx
+    else
+       fvent = 1.0_r8+0.108_r8*xx*xx
+    end if
+    tadjust = alpha*(rdrop*rdrop)*rhoh2o*rh2o_isotope*temp/ &
+         (3._r8*fvent*difa*esat)
+    texposure = zdel/vterm
+    fequil = 1._r8-exp(-texposure/tadjust)
+  end subroutine wtrc_equil_time
+
+  subroutine wtrc_liqvap_equil(alpha, feq0, vaptot, liqtot, vapiso, liqiso, dliqiso)
+    real(r8), intent(in) :: alpha, feq0, vaptot, liqtot
+    real(r8), intent(inout) :: vapiso, liqiso
+    real(r8), intent(out) :: dliqiso
+    real(r8) :: dviso, qtot, qiso
+    real(r8), parameter :: qtiny = 1.e-36_r8
+
+    dliqiso = 0._r8
+    qtot = vaptot+liqtot
+    qiso = vapiso+liqiso
+    if (qtot < qtiny) return
+    if (qiso < qtiny) return
+    if (liqtot < qtiny) then
+       dliqiso = -liqiso
+       vapiso = vapiso-dliqiso
+       liqiso = 0._r8
+       return
+    end if
+    if (vaptot < qtiny) then
+       dliqiso = vapiso
+       vapiso = 0._r8
+       liqiso = liqiso+dliqiso
+       return
+    end if
+    dviso = wtrc_dqequil(alpha, feq0, vaptot, liqtot, vapiso, liqiso)
+    dliqiso = -dviso
+    liqiso = liqiso+dliqiso
+    vapiso = vapiso-dliqiso
+  end subroutine wtrc_liqvap_equil
+
+  real(r8) function wtrc_dqequil(alpha, feq0, vtotnew, ltotnew, visoold, lisoold)
+    real(r8), intent(in) :: alpha, feq0, vtotnew, ltotnew, visoold, lisoold
+    real(r8) :: qiso, vieql, vinof, visonew, dviso
+
+    qiso = visoold+lisoold
+    vieql = qiso*wtrc_efac(alpha, vtotnew, ltotnew)
+    vinof = qiso*wtrc_efac(1.0_r8, vtotnew, ltotnew)
+    visonew = feq0*vieql+(1._r8-feq0)*vinof
+    dviso = visonew-visoold
+    if (dviso < 0._r8) then
+       dviso = max(dviso, -visoold)
+    else
+       dviso = min(dviso, lisoold)
+    end if
+    wtrc_dqequil = dviso
+  end function wtrc_dqequil
+
+  real(r8) function wtrc_efac(alpha, vapnew, liqnew)
+    real(r8), intent(in) :: alpha, vapnew, liqnew
+    real(r8) :: efac, alov
+
+    alov = wtrc_ratio(isph2o, vapnew, vapnew+liqnew)
+    alov = alpha*(1.0_r8/alov-1.0_r8)
+    efac = 1.0_r8/(alov+1.0_r8)
+    efac = max(efac, 0._r8)
+    efac = min(efac, 1._r8)
+    wtrc_efac = efac
+  end function wtrc_efac
 
   ! ------------------------ !
   !                          !
