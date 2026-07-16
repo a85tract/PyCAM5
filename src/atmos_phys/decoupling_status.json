@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T05:06:43Z",
+  "updated_at": "2026-07-16T06:05:09Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -12,6 +12,10 @@
     "steps": 50,
     "numeric_equal_required": true,
     "char_equal_required": true,
+    "ignored_volatile_character_variables": [
+      "date_written",
+      "time_written"
+    ],
     "execution_proof_required_for_every_entry": true,
     "fresh_run_directory_required": true
   },
@@ -91,10 +95,10 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -108,10 +112,10 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -125,10 +129,10 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -142,10 +146,10 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -158,10 +162,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -175,10 +179,10 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -192,10 +196,10 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -208,10 +212,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -224,10 +228,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "last_run": "B01-20260715-job6748173",
+      "bfb_run": "B01-20260715-job6748173",
       "note": "clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428"
     },
     {
@@ -1335,5 +1339,128 @@
       "reason": "These alternative activation/freezing branches are not selected by the current PI namelist."
     }
   ],
-  "runs": []
+  "runs": [
+    {
+      "run_id": "B01-20260715-job6748173",
+      "batch": "B01",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748173.desched1",
+      "source_commit": "93da2d05049841a54ae3c6310c089e924c99c458",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b01_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/bld/cesm.exe",
+          "size": 54797304,
+          "sha256": "9214a13236de24939c470d040569d4a78787a50c07adee4f14a018e0408b6fef"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/run_environment.txt.job6748173",
+          "size": 45791,
+          "sha256": "9f5a9dd20c260c312bcf269e51714c82ad151f28626ef2b398df923fc7f26b48"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b01_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 2377,
+          "sha256": "250ba38029154893942b1662fa76c203f9f2eb27691d83b45f36719b98a0ade9"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b01_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/VALIDATION.md",
+          "size": 2506,
+          "sha256": "2eaa26a069806ddbfd3e332f6940ce56e10e2b54738740145c50dc397b79e2b9"
+        }
+      },
+      "execution_proof": {
+        "apply_tendency_of_eastward_wind_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_apply_tendency_of_eastward_wind_run global_calls=369664"
+        },
+        "apply_tendency_of_northward_wind_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_apply_tendency_of_northward_wind_run global_calls=369664"
+        },
+        "apply_heating_rate_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_apply_heating_rate_run global_calls=902144"
+        },
+        "apply_constituent_tendencies_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_apply_constituent_tendencies_run global_calls=25885760"
+        },
+        "qneg_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_qneg_run global_calls=35048448"
+        },
+        "geopotential_temp_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_geopotential_temp_run global_calls=902144"
+        },
+        "update_dry_static_energy_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_update_dry_static_energy_run global_calls=53248"
+        },
+        "thermo_water_update_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_thermo_water_update_run global_calls=1113088"
+        },
+        "qneg4_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b01/output/run/timing/cesm_timing_stats",
+            "size": 55938,
+            "sha256": "ec9eb6b642ca2e4bffbdd6aeb03a7aaae09dff017e26a5a95916ed87ac17af09"
+          },
+          "line": "ap_qneg4_run global_calls=52224"
+        }
+      },
+      "recorded_at": "2026-07-16T06:05:09Z",
+      "note": "50-step numeric BFB; all scientific character fields equal after excluding volatile time_written; official metadata check passed"
+    }
+  ]
 }

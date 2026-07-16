@@ -5,19 +5,19 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T05:06:43Z`
+- 最近更新：`2026-07-16T06:05:09Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 0 | 10 | 0 | 9 | 0 | 50 |
+| 69 | 9 | 10 | 0 | 0 | 0 | 50 |
 
 ## 批次
 
 | 批次 | 模块组 | 入口数 | 依赖 | 当前状态 | BFB入口 |
 |---|---|---:|---|---|---:|
-| B01 | 公共状态更新 | 9 | — | `50step_running` | 0/9 |
+| B01 | 公共状态更新 | 9 | — | `bfb` | 9/9 |
 | B02 | 守恒与能量 | 10 | B01 | `in_progress` | 0/10 |
 | B03 | 排放与气相化学 | 10 | B01, B02 | `planned` | 0/10 |
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `planned` | 0/10 |
@@ -29,15 +29,15 @@
 
 | 批次 | Host | Family | 导出入口 | 状态 | 提交 | 最近运行 | BFB运行 | 备注 |
 |---|---|---|---|---|---|---|---|---|
-| B01 | tphysac, tphysbc | phys_utils | `apply_tendency_of_eastward_wind_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac, tphysbc | phys_utils | `apply_tendency_of_northward_wind_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac, tphysbc | phys_utils | `apply_heating_rate_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac, tphysbc | phys_utils | `apply_constituent_tendencies_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysbc | phys_utils | `qneg_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac, tphysbc | phys_utils | `geopotential_temp_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac, tphysbc | phys_utils | `update_dry_static_energy_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac | phys_utils | `thermo_water_update_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B01 | tphysac | phys_utils | `qneg4_run` | `50step_running` | — | — | — | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac, tphysbc | phys_utils | `apply_tendency_of_eastward_wind_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac, tphysbc | phys_utils | `apply_tendency_of_northward_wind_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac, tphysbc | phys_utils | `apply_heating_rate_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac, tphysbc | phys_utils | `apply_constituent_tendencies_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysbc | phys_utils | `qneg_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac, tphysbc | phys_utils | `geopotential_temp_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac, tphysbc | phys_utils | `update_dry_static_energy_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac | phys_utils | `thermo_water_update_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
+| B01 | tphysac | phys_utils | `qneg4_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
 | B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_chng_timestep_init` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
 | B02 | tphysbc | conservation_adjust/check_energy | `check_energy_zero_fluxes_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
 | B02 | tphysbc | conservation_adjust/check_energy | `check_energy_gmean_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
@@ -127,4 +127,4 @@
 
 | Run ID | 批次 | 结果 | Job ID | Commit | Numeric | Char | 执行证据 | 时间 |
 |---|---|---|---|---|---|---|---:|---|
-| — | — | — | — | — | — | — | 0 | — |
+| `B01-20260715-job6748173` | B01 | `bfb` | 6748173.desched1 | 93da2d05049841a54ae3c6310c089e924c99c458 | True | True | 9 | 2026-07-16T06:05:09Z |

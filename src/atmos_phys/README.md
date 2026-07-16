@@ -78,6 +78,10 @@ A BFB record is rejected unless all of the following are present:
 - executable, run-environment, CAM Filepath, namelist, and comparison report
   files.  Their paths, sizes, and SHA-256 hashes are recorded where applicable.
 
+`char_equal=true` refers to normalized scientific character data.  NetCDF
+`date_written` and `time_written` are volatile wall-clock provenance fields and
+are excluded; every other character variable must compare exactly.
+
 A failed run can also be recorded with `--result failed`; it requires a clear
 `--note`.  This keeps failed 50-step attempts visible without allowing them to
 be mistaken for BFB evidence.

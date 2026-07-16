@@ -91,11 +91,17 @@ class ProgressTrackerTests(unittest.TestCase):
             [],
         )
 
-    def test_render_is_deterministic_and_reports_initial_counts(self) -> None:
+    def test_render_is_deterministic_and_reports_current_counts(self) -> None:
         first = tracker.render_markdown(self.data)
         second = tracker.render_markdown(self.data)
         self.assertEqual(first, second)
-        self.assertIn("| 69 | 0 | 0 | 0 | 0 | 0 | 69 |", first)
+        statuses = [item["status"] for item in self.data["processes"]]
+        expected_summary = (
+            f"| 69 | {statuses.count('bfb')} | {statuses.count('in_progress')} | "
+            f"{statuses.count('build_pass')} | {statuses.count('50step_running')} | "
+            f"{statuses.count('failed')} | {statuses.count('planned')} |"
+        )
+        self.assertIn(expected_summary, first)
         self.assertIn("| B01 | 公共状态更新 | 9 |", first)
         self.assertIn("| B07 | 云、微物理与辐射 | 10 |", first)
 
