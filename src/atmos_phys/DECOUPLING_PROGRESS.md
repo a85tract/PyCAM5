@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T06:55:34Z`
+- 最近更新：`2026-07-16T06:55:39Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 29 | 10 | 0 | 0 | 0 | 30 |
+| 69 | 29 | 20 | 0 | 0 | 0 | 20 |
 
 ## 批次
 
@@ -21,7 +21,7 @@
 | B02 | 守恒与能量 | 10 | B01 | `bfb` | 10/10 |
 | B03 | 排放与气相化学 | 10 | B01, B02 | `bfb` | 10/10 |
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `in_progress` | 0/10 |
-| B05 | 边界层与地形重力波 | 10 | B01, B02 | `planned` | 0/10 |
+| B05 | 边界层与地形重力波 | 10 | B01, B02 | `in_progress` | 0/10 |
 | B06 | 对流与柱沉降 | 10 | B01, B02 | `planned` | 0/10 |
 | B07 | 云、微物理与辐射 | 10 | B04, B06 | `planned` | 0/10 |
 
@@ -68,16 +68,16 @@
 | B04 | tphysbc | modal_aerosol | `modal_aero_wateruptake_dr_run` | `in_progress` | — | — | — | Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted. |
 | B04 | tphysbc | modal_aerosol | `aero_model_wetdep_run` | `in_progress` | — | — | — | Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted. |
 | B04 | tphysbc | modal_aerosol | `wetdepa_v2_run` | `in_progress` | — | — | — | Implementation started in isolated lanes b04_gasaer_drydep and b04_size_wetdep from B03 source bf46c7c6; grouped scheme boundaries, metadata, production static compile, and bit harnesses are in progress; no B04 case has been submitted. |
-| B05 | tphysac | vertical_diffusion | `compute_tms_run` | `planned` | — | — | — | — |
-| B05 | tphysac | vertical_diffusion | `compute_eddy_diff_run` | `planned` | — | — | — | — |
-| B05 | tphysac | vertical_diffusion | `calc_obklen_run` | `planned` | — | — | — | — |
-| B05 | tphysac | vertical_diffusion | `compute_vdiff_run` | `planned` | — | — | — | — |
-| B05 | tphysac | vertical_diffusion | `vertical_diffusion_positive_moisture_run` | `planned` | — | — | — | — |
-| B05 | tphysac | orographic_gravity_wave | `gw_prof_run` | `planned` | — | — | — | — |
-| B05 | tphysac | orographic_gravity_wave | `gw_oro_src_run` | `planned` | — | — | — | — |
-| B05 | tphysac | orographic_gravity_wave | `gw_drag_prof_run` | `planned` | — | — | — | — |
-| B05 | tphysac | orographic_gravity_wave | `energy_change_run` | `planned` | — | — | — | — |
-| B05 | tphysac | orographic_gravity_wave | `calcram_run` | `planned` | — | — | — | — |
+| B05 | tphysac | vertical_diffusion | `compute_tms_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | vertical_diffusion | `compute_eddy_diff_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | vertical_diffusion | `calc_obklen_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | vertical_diffusion | `compute_vdiff_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | vertical_diffusion | `vertical_diffusion_positive_moisture_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | orographic_gravity_wave | `gw_prof_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | orographic_gravity_wave | `gw_oro_src_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | orographic_gravity_wave | `gw_drag_prof_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | orographic_gravity_wave | `energy_change_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
+| B05 | tphysac | orographic_gravity_wave | `calcram_run` | `in_progress` | — | — | — | Implementation started in isolated vertical-diffusion lane b05_vertical_diffusion from B03 source bf46c7c6; gravity-wave half remains queued; no B05 case has been submitted and 50-step BFB is pending for the full ten-process batch. |
 | B06 | tphysbc | dry_adiabatic_adjust | `dadadj_run` | `planned` | — | — | — | — |
 | B06 | tphysbc | zhang_mcfarlane | `zm_convr_run` | `planned` | — | — | — | — |
 | B06 | tphysbc | zhang_mcfarlane | `zm_conv_evap_run` | `planned` | — | — | — | — |
