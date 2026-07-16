@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T18:21:06Z",
+  "updated_at": "2026-07-16T18:31:34Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -72,11 +72,11 @@
       "order": 1,
       "source": "src/atmos_phys/schemes/vertical_diffusion/compute_vdiff/compute_vdiff.F90",
       "module": "ap_compute_vdiff_scheme",
-      "status": "in_progress",
-      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
+      "status": "dependency_pass",
+      "commit": "a074ba5b2b244523763e6a8da522e547a4933666",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic API and static closure PASS for non-molecular path; do_molec_diff intrinsic kernel still pending"
+      "note": "intrinsic molecular-diffusion kernel complete; direct/transitive standalone closure and metadata checks PASS"
     },
     {
       "entry_point": "gw_prof_run",

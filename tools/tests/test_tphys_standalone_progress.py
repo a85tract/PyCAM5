@@ -87,7 +87,19 @@ class StandaloneProgressTests(unittest.TestCase):
         rendered = tracker.render_markdown(self.data)
         self.assertEqual(rendered, tracker.render_markdown(self.data))
         self.assertEqual(rendered, tracker.DEFAULT_PROGRESS_FILE.read_text(encoding="utf-8"))
-        self.assertIn("| 36 | 0 | 0 | 0 | 0 | 0 | 0 | 36 |", rendered)
+        counts = {
+            status: sum(
+                item["status"] == status for item in self.data["processes"]
+            )
+            for status in tracker.ALLOWED_STATUSES
+        }
+        summary = (
+            f"| 36 | {counts['bfb']} | {counts['50step_running']} | "
+            f"{counts['build_pass']} | {counts['dependency_pass']} | "
+            f"{counts['in_progress']} | {counts['failed']} | "
+            f"{counts['planned']} |"
+        )
+        self.assertIn(summary, rendered)
 
     def test_phase_one_tracker_is_a_different_file(self) -> None:
         phase_one = tracker.REPO_ROOT / "tools/tphys_decoupling_progress.py"
@@ -126,12 +138,16 @@ class StandaloneProgressTests(unittest.TestCase):
         run = self.bfb_run("S01")
         proven = next(iter(run["execution_proof"]))
         run["execution_proof"] = {proven: run["execution_proof"][proven]}
+        before = {
+            item["entry_point"]: copy.deepcopy(item)
+            for item in tracker.processes_for_batch(self.data, "S01")
+        }
         updated = tracker.record_run(self.data, run)
         by_entry = tracker.process_index(updated)
         self.assertEqual(by_entry[proven]["status"], "bfb")
         self.assertTrue(
             all(
-                item["status"] == "planned"
+                item == before[item["entry_point"]]
                 for item in tracker.processes_for_batch(updated, "S01")
                 if item["entry_point"] != proven
             )
