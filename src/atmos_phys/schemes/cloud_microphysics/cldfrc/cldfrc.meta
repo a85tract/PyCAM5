@@ -3,11 +3,17 @@
   type = scheme
 
 [ccpp-arg-table]
-  name  = cldfrc_run
-  type  = scheme
-[ lchnk ]
-  standard_name = physics_chunk_index
-  units = index
+  name = cldfrc_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
   type = integer
   dimensions = ()
   intent = in
@@ -17,177 +23,333 @@
   type = integer
   dimensions = ()
   intent = in
-[ pbuf ]
-  standard_name = cam_physics_buffer
-  units = none
-  type = physics_buffer_desc
-  dimensions = (physics_chunk_dimension)
-  intent = inout
+[ top_lev ]
+  standard_name = cloud_fraction_top_layer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ k700 ]
+  standard_name = model_layer_nearest_700_hpa
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dindex ]
+  standard_name = relative_humidity_perturbation_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ iceopt ]
+  standard_name = ice_cloud_fraction_option
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = in
+[ cldfrc_freeze_dry ]
+  standard_name = freeze_dry_cloud_adjustment_enabled
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ cldfrc_ice ]
+  standard_name = ice_cloud_fraction_calculation_enabled
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ inversion_cld_off ]
+  standard_name = inversion_cloud_fraction_disabled
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ shallow_fraction_provided ]
+  standard_name = shallow_cloud_fraction_input_enabled
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ rhminl ]
+  standard_name = minimum_relative_humidity_for_low_cloud
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rhminl_adj_land ]
+  standard_name = low_cloud_relative_humidity_land_adjustment
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rhminh ]
+  standard_name = minimum_relative_humidity_for_high_cloud
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rhminp ]
+  standard_name = minimum_relative_humidity_for_polar_high_cloud
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rhminp_botmb ]
+  standard_name = polar_high_cloud_bottom_pressure
+  units = hPa
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ sh1 ]
+  standard_name = shallow_cloud_fraction_coefficient_one
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ sh2 ]
+  standard_name = shallow_cloud_fraction_coefficient_two
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dp1 ]
+  standard_name = deep_cloud_fraction_coefficient_one
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dp2 ]
+  standard_name = deep_cloud_fraction_coefficient_two
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ premit ]
+  standard_name = middle_cloud_top_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ premib ]
+  standard_name = middle_cloud_bottom_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ icecrit ]
+  standard_name = critical_relative_humidity_for_ice_cloud
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ unset_r8 ]
+  standard_name = unset_real_sentinel
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ cappa ]
+  standard_name = ratio_of_gas_constant_to_specific_heat
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rair ]
+  standard_name = dry_air_gas_constant
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pi ]
+  standard_name = pi_constant
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pref_mid ]
+  standard_name = reference_midpoint_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (vertical_layer_dimension)
+  intent = in
+[ clat ]
+  standard_name = latitude
+  units = radian
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
 [ pmid ]
-  standard_name = cam_cldfrc_pmid
+  standard_name = air_pressure
   units = Pa
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
 [ temp ]
-  standard_name = cam_cldfrc_temp
+  standard_name = air_temperature
   units = K
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
 [ q ]
-  standard_name = cam_cldfrc_q
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = in
-[ omga ]
-  standard_name = cam_cldfrc_omga
-  units = Pa s-1
+  standard_name = water_vapor_mixing_ratio
+  units = kg kg-1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
 [ phis ]
-  standard_name = cam_cldfrc_phis
+  standard_name = surface_geopotential
   units = m2 s-2
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
   intent = in
 [ shfrc ]
-  standard_name = cam_cldfrc_shfrc
+  standard_name = shallow_convective_cloud_fraction
   units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = in
-[ use_shfrc ]
-  standard_name = cam_cldfrc_use_shfrc
-  units = flag
-  type = logical
-  dimensions = ()
-  intent = in
-[ cloud ]
-  standard_name = cam_cldfrc_cloud
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = out
-[ rhcloud ]
-  standard_name = cam_cldfrc_rhcloud
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = out
-[ clc ]
-  standard_name = cam_cldfrc_clc
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent)
-  intent = out
-[ pdel ]
-  standard_name = cam_cldfrc_pdel
-  units = Pa
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
 [ cmfmc ]
-  standard_name = cam_cldfrc_cmfmc
-  units = 1
+  standard_name = convective_mass_flux
+  units = kg m-2 s-1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_interface_dimension)
   intent = in
 [ cmfmc2 ]
-  standard_name = cam_cldfrc_cmfmc2
-  units = 1
+  standard_name = shallow_convective_mass_flux
+  units = kg m-2 s-1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_interface_dimension)
   intent = in
 [ landfrac ]
-  standard_name = cam_cldfrc_landfrac
+  standard_name = land_area_fraction
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
   intent = in
 [ snowh ]
-  standard_name = cam_cldfrc_snowh
+  standard_name = surface_snow_water_equivalent_depth
   units = m
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
   intent = in
-[ concld ]
-  standard_name = cam_cldfrc_concld
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = out
-[ cldst ]
-  standard_name = cam_cldfrc_cldst
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = out
-[ ts ]
-  standard_name = cam_cldfrc_ts
-  units = K
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent)
-  intent = in
 [ sst ]
-  standard_name = cam_cldfrc_sst
+  standard_name = sea_surface_temperature
   units = K
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
   intent = in
 [ ps ]
-  standard_name = cam_cldfrc_ps
+  standard_name = surface_air_pressure
   units = Pa
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
   intent = in
-[ zdu ]
-  standard_name = cam_cldfrc_zdu
-  units = 1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = in
 [ ocnfrac ]
-  standard_name = cam_cldfrc_ocnfrac
+  standard_name = ocean_area_fraction
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
   intent = in
-[ rhu00 ]
-  standard_name = cam_cldfrc_rhu00
+[ cldice ]
+  standard_name = cloud_ice_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qs ]
+  standard_name = saturation_specific_humidity
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ esl ]
+  standard_name = saturation_vapor_pressure_over_liquid
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ esi ]
+  standard_name = saturation_vapor_pressure_over_ice
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cloud ]
+  standard_name = total_cloud_fraction
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = out
-[ cldice ]
-  standard_name = cam_cldfrc_cldice
+[ rhcloud ]
+  standard_name = relative_humidity_cloud_fraction
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
-  intent = in
+  intent = out
+[ clc ]
+  standard_name = column_convective_cloud_amount
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ concld ]
+  standard_name = convective_cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ cldst ]
+  standard_name = stratocumulus_cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ rhu00 ]
+  standard_name = cloud_relative_humidity_threshold
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
 [ icecldf ]
-  standard_name = cam_cldfrc_icecldf
+  standard_name = ice_cloud_fraction
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = out
 [ liqcldf ]
-  standard_name = cam_cldfrc_liqcldf
+  standard_name = liquid_cloud_fraction
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = out
 [ relhum ]
-  standard_name = cam_cldfrc_relhum
+  standard_name = relative_humidity
   units = 1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = out
-[ dindex ]
-  standard_name = cam_cldfrc_dindex
+[ shallowcu ]
+  standard_name = diagnosed_shallow_convective_cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ deepcu ]
+  standard_name = diagnosed_deep_convective_cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ cold_sst_index ]
+  standard_name = cold_sea_surface_temperature_column_index
   units = index
   type = integer
   dimensions = ()
-  intent = in
+  intent = out

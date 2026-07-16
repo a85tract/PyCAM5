@@ -1,385 +1,71 @@
 module ap_cldfrc_scheme
 
-  ! Cloud fraction parameterization.
-
-
-  use shr_kind_mod,   only: r8 => shr_kind_r8
-  use ppgrid,         only: pcols, pver, pverp
-  use ref_pres,       only: pref_mid
-  use spmd_utils,     only: masterproc
-  use cam_logfile,    only: iulog
-  use cam_abortutils, only: endrun
-  use ref_pres,       only: trop_cloud_top_lev
+  use shr_kind_mod, only: r8 => shr_kind_r8
 
   implicit none
   private
-  save
 
-  ! Public interfaces
-  public &
-     cldfrc_readnl,    &! read cldfrc_nl namelist
-     cldfrc_register,  &! add fields to pbuf
-     cldfrc_init,      &! Inititialization of cloud_fraction run-time parameters
-     cldfrc_getparams, &! public access of tuning parameters
-     cldfrc_run,       &! Computation of cloud fraction
-     cldfrc_fice        ! Calculate fraction of condensate in ice phase (radiation partitioning)
-
-  ! Private data
-  real(r8), parameter :: unset_r8 = huge(1.0_r8)
-
-  ! Top level
-  integer :: top_lev = 1
-
-  ! Physics buffer indices
-  integer :: sh_frac_idx   = 0
-  integer :: dp_frac_idx   = 0
-
-  ! Namelist variables
-  logical  :: cldfrc_freeze_dry           ! switch for Vavrus correction
-  logical  :: cldfrc_ice                  ! switch to compute ice cloud fraction
-  real(r8) :: cldfrc_rhminl = unset_r8    ! minimum rh for low stable clouds
-  real(r8) :: cldfrc_rhminl_adj_land = unset_r8   ! rhminl adjustment for snowfree land
-  real(r8) :: cldfrc_rhminh = unset_r8    ! minimum rh for high stable clouds
-  real(r8) :: cldfrc_rhminp = unset_r8    ! minimum rh for high stable clouds poleward of 60 degrees
-  real(r8) :: cldfrc_rhminp_botmb = 300._r8 ! and pressures less than cldfrc_rhminp_botmb (hPa)
-  real(r8) :: cldfrc_sh1    = unset_r8    ! parameter for shallow convection cloud fraction
-  real(r8) :: cldfrc_sh2    = unset_r8    ! parameter for shallow convection cloud fraction
-  real(r8) :: cldfrc_dp1    = unset_r8    ! parameter for deep convection cloud fraction
-  real(r8) :: cldfrc_dp2    = unset_r8    ! parameter for deep convection cloud fraction
-  real(r8) :: cldfrc_premit = unset_r8    ! top pressure bound for mid level cloud
-  real(r8) :: cldfrc_premib  = unset_r8   ! bottom pressure bound for mid level cloud
-  integer  :: cldfrc_iceopt               ! option for ice cloud closure
-                                          ! 1=wang & sassen 2=schiller (iciwc)
-                                          ! 3=wood & field, 4=Wilson (based on smith)
-  real(r8) :: cldfrc_icecrit = unset_r8   ! Critical RH for ice clouds in Wilson & Ballard closure (smaller = more ice clouds)
-
-  real(r8) :: rhminl             ! set from namelist input cldfrc_rhminl
-  real(r8) :: rhminl_adj_land    ! set from namelist input cldfrc_rhminl_adj_land
-  real(r8) :: rhminh             ! set from namelist input cldfrc_rhminh
-  real(r8) :: rhminp             ! set from namelist input cldfrc_rhminp
-  real(r8) :: sh1, sh2           ! set from namelist input cldfrc_sh1, cldfrc_sh2
-  real(r8) :: dp1,dp2            ! set from namelist input cldfrc_dp1, cldfrc_dp2
-  real(r8) :: premit             ! set from namelist input cldfrc_premit
-  real(r8) :: premib             ! set from namelist input cldfrc_premib
-  integer  :: iceopt             ! set from namelist input cldfrc_iceopt
-  real(r8) :: icecrit            ! set from namelist input cldfrc_icecrit
-
-  ! constants
-  real(r8), parameter :: pnot = 1.e5_r8         ! reference pressure
-  real(r8), parameter :: lapse = 6.5e-3_r8      ! U.S. Standard Atmosphere lapse rate
-  real(r8), parameter :: pretop = 1.0e2_r8      ! pressure bounding high cloud
-
-  integer count
-
-  logical :: inversion_cld_off    ! Turns off stratification-based cld frc
-
-  integer :: k700   ! model level nearest 700 mb
-
-!================================================================================================
-  contains
-!================================================================================================
-
-subroutine cldfrc_readnl(nlfile)
-
-   use namelist_utils,  only: find_group_name
-   use units,           only: getunit, freeunit
-   use mpishorthand
-
-   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
-
-   ! Local variables
-   integer :: unitn, ierr
-   character(len=*), parameter :: subname = 'cldfrc_readnl'
-
-   namelist /cldfrc_nl/ cldfrc_freeze_dry,      cldfrc_ice,    cldfrc_rhminl, &
-                        cldfrc_rhminl_adj_land, cldfrc_rhminh, cldfrc_sh1,    &
-                        cldfrc_rhminp,          cldfrc_rhminp_botmb, &
-                        cldfrc_sh2,             cldfrc_dp1,    cldfrc_dp2,    &
-                        cldfrc_premit,          cldfrc_premib, cldfrc_iceopt, &
-                        cldfrc_icecrit
-   !-----------------------------------------------------------------------------
-
-   if (masterproc) then
-      unitn = getunit()
-      open( unitn, file=trim(nlfile), status='old' )
-      call find_group_name(unitn, 'cldfrc_nl', status=ierr)
-      if (ierr == 0) then
-         read(unitn, cldfrc_nl, iostat=ierr)
-         if (ierr /= 0) then
-            call endrun(subname // ':: ERROR reading namelist')
-         end if
-      end if
-      close(unitn)
-      call freeunit(unitn)
-
-      ! set local variables
-      rhminl = cldfrc_rhminl
-      rhminl_adj_land = cldfrc_rhminl_adj_land
-      rhminh = cldfrc_rhminh
-      rhminp = cldfrc_rhminp
-      sh1    = cldfrc_sh1
-      sh2    = cldfrc_sh2
-      dp1    = cldfrc_dp1
-      dp2    = cldfrc_dp2
-      premit = cldfrc_premit
-      premib  = cldfrc_premib
-      iceopt  = cldfrc_iceopt
-      icecrit = cldfrc_icecrit
-
-   end if
-
-#ifdef SPMD
-   ! Broadcast namelist variables
-   call mpibcast(cldfrc_freeze_dry, 1, mpilog, 0, mpicom)
-   call mpibcast(cldfrc_ice,        1, mpilog, 0, mpicom)
-   call mpibcast(rhminl,            1, mpir8,  0, mpicom)
-   call mpibcast(rhminl_adj_land,   1, mpir8,  0, mpicom)
-   call mpibcast(rhminh,            1, mpir8,  0, mpicom)
-   call mpibcast(rhminp,            1, mpir8,  0, mpicom)
-   call mpibcast(sh1   ,            1, mpir8,  0, mpicom)
-   call mpibcast(sh2   ,            1, mpir8,  0, mpicom)
-   call mpibcast(dp1   ,            1, mpir8,  0, mpicom)
-   call mpibcast(dp2   ,            1, mpir8,  0, mpicom)
-   call mpibcast(premit,            1, mpir8,  0, mpicom)
-   call mpibcast(premib,            1, mpir8,  0, mpicom)
-   call mpibcast(iceopt,            1, mpiint, 0, mpicom)
-   call mpibcast(icecrit,           1, mpir8,  0, mpicom)
-#endif
-
-end subroutine cldfrc_readnl
-
-!================================================================================================
-
-subroutine cldfrc_register
-
-   ! Register fields in the physics buffer.
-
-   use physics_buffer, only : pbuf_add_field, dtype_r8
-
-   !-----------------------------------------------------------------------
-
-   call pbuf_add_field('SH_FRAC', 'physpkg', dtype_r8, (/pcols,pver/), sh_frac_idx)
-   call pbuf_add_field('DP_FRAC', 'physpkg', dtype_r8, (/pcols,pver/), dp_frac_idx)
-
-end subroutine cldfrc_register
-
-!================================================================================================
-
-subroutine cldfrc_getparams(rhminl_out, rhminl_adj_land_out, rhminh_out,  premit_out, &
-                            rhminp_out, premib_out, iceopt_out, icecrit_out)
-!-----------------------------------------------------------------------
-! Purpose: Return cldfrc tuning parameters
-!-----------------------------------------------------------------------
-
-   real(r8),          intent(out), optional :: rhminl_out
-   real(r8),          intent(out), optional :: rhminl_adj_land_out
-   real(r8),          intent(out), optional :: rhminh_out
-   real(r8),          intent(out), optional :: rhminp_out
-   real(r8),          intent(out), optional :: premit_out
-   real(r8),          intent(out), optional :: premib_out
-   integer,           intent(out), optional :: iceopt_out
-   real(r8),          intent(out), optional :: icecrit_out
-
-   if ( present(rhminl_out) )      rhminl_out = rhminl
-   if ( present(rhminl_adj_land_out) ) rhminl_adj_land_out = rhminl_adj_land
-   if ( present(rhminh_out) )      rhminh_out = rhminh
-   if ( present(rhminp_out) )      rhminp_out = rhminp
-   if ( present(premit_out) )      premit_out = premit
-   if ( present(premib_out) )      premib_out  = premib
-   if ( present(iceopt_out) )      iceopt_out  = iceopt
-   if ( present(icecrit_out) )     icecrit_out = icecrit
-
-end subroutine cldfrc_getparams
-
-!===============================================================================
-
-subroutine cldfrc_init
-
-   ! Initialize cloud fraction run-time parameters
-
-   use cam_history,   only:  phys_decomp, addfld
-   use dycore,        only:  dycore_is, get_resolution
-   use phys_control,  only:  phys_getopts
-
-   ! horizontal grid specifier
-   character(len=32) :: hgrid
-
-   ! query interfaces for scheme settings
-   character(len=16) :: shallow_scheme, eddy_scheme, macrop_scheme
-
-   integer :: k
-   !-----------------------------------------------------------------------------
-
-   call phys_getopts(shallow_scheme_out = shallow_scheme ,&
-                     eddy_scheme_out    = eddy_scheme    ,&
-                     macrop_scheme_out  = macrop_scheme  )
-
-   ! Limit CAM5 cloud physics to below top cloud level.
-   if (macrop_scheme /= "rk") top_lev = trop_cloud_top_lev
-
-   hgrid = get_resolution()
-
-   ! Turn off inversion_cld if any UW PBL scheme is being used
-   if ( (eddy_scheme .eq. 'diag_TKE' ) .or. (shallow_scheme .eq.  'UW' )) then
-      inversion_cld_off = .true.
-   else
-      inversion_cld_off = .false.
-   endif
-
-   if ( masterproc ) then
-      write(iulog,*)'tuning parameters cldfrc_init: inversion_cld_off',inversion_cld_off
-      write(iulog,*)'tuning parameters cldfrc_init: dp1',dp1,'dp2',dp2,'sh1',sh1,'sh2',sh2
-      if (shallow_scheme .ne. 'UW' ) then
-         write(iulog,*)'tuning parameters cldfrc_init: rhminl',rhminl,'rhminl_adj_land',rhminl_adj_land, &
-                       'rhminh',rhminh,'premit',premit,'premib',premib
-         write(iulog,*)'tuning parameters cldfrc_init: iceopt',iceopt,'icecrit',icecrit
-      endif
-   endif
-
-   if (pref_mid(top_lev) > 7.e4_r8) &
-        call endrun ('cldfrc_init: model levels bracketing 700 mb not found')
-
-   ! Find vertical level nearest 700 mb.
-   k700 = minloc(abs(pref_mid(top_lev:pver) - 7.e4_r8), 1)
-
-   if (masterproc) then
-      write(iulog,*)'cldfrc_init: model level nearest 700 mb is',k700,'which is',pref_mid(k700),'pascals'
-   end if
-
-   call addfld ('SH_CLD   ', 'fraction', pver, 'A', 'Shallow convective cloud cover'                          ,phys_decomp)
-   call addfld ('DP_CLD   ', 'fraction', pver, 'A', 'Deep convective cloud cover'                             ,phys_decomp)
-
-end subroutine cldfrc_init
-
-!===============================================================================
-
-!> \section arg_table_cldfrc_run Argument Table
-!! \htmlinclude cldfrc_run.html
-subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
-       pmid    ,temp    ,q       ,omga    , phis, &
-       shfrc   ,use_shfrc, &
-       cloud   ,rhcloud, clc     ,pdel    , &
-       cmfmc   ,cmfmc2  ,landfrac,snowh   ,concld  ,cldst   , &
-       ts      ,sst     ,ps      ,zdu     ,ocnfrac ,&
-       rhu00   ,cldice  ,icecldf ,liqcldf ,relhum  ,dindex )
-    !-----------------------------------------------------------------------
-    !
-    ! Purpose:
-    ! Compute cloud fraction
-    !
-    !
-    ! Method:
-    ! This calculate cloud fraction using a relative humidity threshold
-    ! The threshold depends upon pressure, and upon the presence or absence
-    ! of convection as defined by a reasonably large vertical mass flux
-    ! entering that layer from below.
-    !
-    ! Author: Many. Last modified by Jim McCaa
-    !
-    !-----------------------------------------------------------------------
-    use cam_history,   only: outfld
-    use physconst,     only: cappa, gravit, rair, tmelt
-    use wv_saturation, only: qsat, qsat_water, svp_ice
-    use phys_grid,     only: get_rlat_all_p, get_rlon_all_p
-    use dycore,        only: dycore_is, get_resolution
-    use perf_mod,      only: t_startf, t_stopf
-
-
-!RBN - Need this to write shallow,deep fraction to phys buffer.
-!PJR - we should probably make seperate modules for determining convective
-!      clouds and make this one just responsible for relative humidity clouds
-
-    use physics_buffer, only: physics_buffer_desc, pbuf_get_field
-
-    ! Arguments
-    integer, intent(in) :: lchnk                  ! chunk identifier
-    integer, intent(in) :: ncol                   ! number of atmospheric columns
-    integer, intent(in) :: dindex                 ! 0 or 1 to perturb rh
-
-    type(physics_buffer_desc), pointer, intent(inout) :: pbuf(:)
-    real(r8), intent(in) :: pmid(:,:)      ! midpoint pressures
-    real(r8), intent(in) :: temp(:,:)      ! temperature
-    real(r8), intent(in) :: q(:,:)         ! specific humidity
-    real(r8), intent(in) :: omga(:,:)      ! vertical pressure velocity
-    real(r8), intent(in) :: cmfmc(:,:)     ! convective mass flux--m sub c
-    real(r8), intent(in) :: cmfmc2(:,:)    ! shallow convective mass flux--m sub c
-    real(r8), intent(in) :: snowh(:)       ! snow depth (liquid water equivalent)
-    real(r8), intent(in) :: pdel(:,:)      ! pressure depth of layer
-    real(r8), intent(in) :: landfrac(:)    ! Land fraction
-    real(r8), intent(in) :: ocnfrac(:)     ! Ocean fraction
-    real(r8), intent(in) :: ts(:)          ! surface temperature
-    real(r8), intent(in) :: sst(:)         ! sea surface temperature
-    real(r8), intent(in) :: ps(:)          ! surface pressure
-    real(r8), intent(in) :: zdu(:,:)       ! detrainment rate from deep convection
-    real(r8), intent(in) :: phis(:)        ! surface geopotential
-    real(r8), intent(in) :: shfrc(:,:)     ! cloud fraction from convect_shallow
-    real(r8), intent(in) :: cldice(:,:)    ! cloud ice mixing ratio
-    logical,  intent(in)  :: use_shfrc
-
-    ! Output arguments
-    real(r8), intent(out) :: cloud(:,:)     ! cloud fraction
-    real(r8), intent(out) :: rhcloud(:,:)   ! cloud fraction
-    real(r8), intent(out) :: clc(:)         ! column convective cloud amount
-    real(r8), intent(out) :: cldst(:,:)     ! cloud fraction
-    real(r8), intent(out) :: rhu00(:,:)     ! RH threshold for cloud
-    real(r8), intent(out) :: relhum(:,:)    ! RH
-    real(r8), intent(out) :: icecldf(:,:)   ! ice cloud fraction
-    real(r8), intent(out) :: liqcldf(:,:)   ! liquid cloud fraction (combined into cloud)
-
-    !---------------------------Local workspace-----------------------------
-    !
-    real(r8), intent(out) :: concld(:,:)    ! convective cloud cover
-    real(r8) cld                   ! intermediate scratch variable (low cld)
-    real(r8) dthdpmn(pcols)         ! most stable lapse rate below 750 mb
-    real(r8) dthdp                 ! lapse rate (intermediate variable)
-    real(r8) es(pcols,pver)        ! saturation vapor pressure
-    real(r8) qs(pcols,pver)        ! saturation specific humidity
-    real(r8) rhwght                ! weighting function for rhlim transition
-    real(r8) rh(pcols,pver)        ! relative humidity
-    real(r8) rhdif                 ! intermediate scratch variable
-    real(r8) strat                 ! intermediate scratch variable
-    real(r8) theta(pcols,pver)     ! potential temperature
-    real(r8) rhlim                 ! local rel. humidity threshold estimate
-    real(r8) coef1                 ! coefficient to convert mass flux to mb/d
-    real(r8) clrsky(pcols)         ! temporary used in random overlap calc
-    real(r8) rpdeli(pcols,pver-1) ! 1./(pmid(k+1)-pmid(k))
-    real(r8) rhpert                !the specified perturbation to rh
-
-    real(r8), pointer, dimension(:,:) :: deepcu      ! deep convection cloud fraction
-    real(r8), pointer, dimension(:,:) :: shallowcu   ! shallow convection cloud fraction
-
-    logical cldbnd(pcols)          ! region below high cloud boundary
-
-    integer i, ierror, k           ! column, level indices
-    integer kp1, ifld
-    integer kdthdp(pcols)
-    integer numkcld                ! number of levels in which to allow clouds
-
-    !  In Cloud Ice Content variables
-    real(r8) :: a,b,c,as,bs,cs        !fit parameters
-    real(r8) :: Kc                    !constant for ice cloud calc (wood & field)
-    real(r8) :: ttmp                  !limited temperature
-    real(r8) :: icicval               !empirical iwc value
-    real(r8) :: rho                   !local air density
-    real(r8) :: esl(pcols,pver)       !liq sat vapor pressure
-    real(r8) :: esi(pcols,pver)       !ice sat vapor pressure
-    real(r8) :: ncf,phi               !Wilson and Ballard parameters
-
-    real(r8) thetas(pcols)                    ! ocean surface potential temperature
-    real(r8) :: clat(pcols)                   ! current latitudes(radians)
-    real(r8) :: clon(pcols)                   ! current longitudes(radians)
-
-    ! Statement functions
-    logical land
+  real(r8), parameter :: pnot = 1.e5_r8
+  real(r8), parameter :: lapse = 6.5e-3_r8
+  real(r8), parameter :: pretop = 1.e2_r8
+
+  public :: cldfrc_run
+
+contains
+
+  !> \section arg_table_cldfrc_run Argument Table
+  !! \htmlinclude cldfrc_run.html
+  subroutine cldfrc_run( &
+       pcols, pver, ncol, top_lev, k700, dindex, iceopt, &
+       cldfrc_freeze_dry, cldfrc_ice, inversion_cld_off, &
+       shallow_fraction_provided, &
+       rhminl, rhminl_adj_land, rhminh, rhminp, rhminp_botmb, &
+       sh1, sh2, dp1, dp2, &
+       premit, premib, icecrit, unset_r8, cappa, gravit, rair, pi, &
+       pref_mid, clat, pmid, temp, q, phis, shfrc, cmfmc, cmfmc2, &
+       landfrac, snowh, sst, ps, ocnfrac, cldice, qs, esl, esi, &
+       cloud, rhcloud, clc, concld, cldst, rhu00, icecldf, liqcldf, &
+       relhum, shallowcu, deepcu, cold_sst_index)
+
+    integer, intent(in) :: pcols, pver, ncol, top_lev, k700, dindex, iceopt
+    logical, intent(in) :: cldfrc_freeze_dry, cldfrc_ice
+    logical, intent(in) :: inversion_cld_off, shallow_fraction_provided
+    real(r8), intent(in) :: rhminl, rhminl_adj_land, rhminh, rhminp
+    real(r8), intent(in) :: rhminp_botmb, sh1, sh2, dp1, dp2
+    real(r8), intent(in) :: premit, premib, icecrit, unset_r8
+    real(r8), intent(in) :: cappa, gravit, rair, pi
+    real(r8), intent(in) :: pref_mid(:), clat(:)
+    real(r8), intent(in) :: pmid(:,:), temp(:,:), q(:,:), phis(:)
+    real(r8), intent(in) :: shfrc(:,:), cmfmc(:,:), cmfmc2(:,:)
+    real(r8), intent(in) :: landfrac(:), snowh(:), sst(:), ps(:)
+    real(r8), intent(in) :: ocnfrac(:), cldice(:,:)
+    real(r8), intent(in) :: qs(:,:), esl(:,:), esi(:,:)
+    real(r8), intent(out) :: cloud(:,:), rhcloud(:,:), clc(:)
+    real(r8), intent(out) :: concld(:,:), cldst(:,:), rhu00(:,:)
+    real(r8), intent(out) :: icecldf(:,:), liqcldf(:,:), relhum(:,:)
+    real(r8), intent(out) :: shallowcu(:,:), deepcu(:,:)
+    integer, intent(out) :: cold_sst_index
+
+    real(r8) :: dthdpmn(pcols)
+    real(r8) :: dthdp
+    real(r8) :: rhwght
+    real(r8) :: rh(pcols,pver)
+    real(r8) :: rhdif
+    real(r8) :: strat
+    real(r8) :: theta(pcols,pver)
+    real(r8) :: rhlim
+    real(r8) :: coef1
+    real(r8) :: rpdeli(pcols,pver-1)
+    real(r8) :: rhpert
+    logical :: cldbnd(pcols)
+    integer :: i, k, kp1, numkcld
+    integer :: kdthdp(pcols)
+    real(r8) :: a, b, c, as, bs, cs
+    real(r8) :: Kc, ttmp, icicval, rho, ncf, phi
+    real(r8) :: thetas(pcols)
+
+    logical :: land
     land(i) = nint(landfrac(i)) == 1
-
-    call t_startf('ap_cldfrc_run')
-
-    call get_rlat_all_p(lchnk, ncol, clat)
-    call get_rlon_all_p(lchnk, ncol, clon)
-
-    call pbuf_get_field(pbuf, sh_frac_idx, shallowcu )
-    call pbuf_get_field(pbuf, dp_frac_idx, deepcu )
 
     ! Initialise cloud fraction
     shallowcu = 0._r8
@@ -427,18 +113,6 @@ subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
     !set wood and field paramters...
     Kc=75._r8
 
-    ! Evaluate potential temperature and relative humidity
-    ! If not computing ice cloud fraction then hybrid RH, if MG then water RH
-    if ( cldfrc_ice ) then
-       call qsat_water(temp(1:ncol,top_lev:pver), pmid(1:ncol,top_lev:pver), &
-            esl(1:ncol,top_lev:pver), qs(1:ncol,top_lev:pver))
-
-       esi(1:ncol,top_lev:pver) = svp_ice(temp(1:ncol,top_lev:pver))
-    else
-       call qsat(temp(1:ncol,top_lev:pver), pmid(1:ncol,top_lev:pver), &
-            es(1:ncol,top_lev:pver), qs(1:ncol,top_lev:pver))
-    endif
-
     cloud    = 0._r8
     icecldf  = 0._r8
     liqcldf  = 0._r8
@@ -457,20 +131,16 @@ subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
     end do
 
     ! Initialize other temporary variables
-    ierror = 0
+    cold_sst_index = 0
     do i=1,ncol
        ! Adjust thetas(i) in the presence of non-zero ocean heights.
        ! This reduces the temperature for positive heights according to a standard lapse rate.
        if(ocnfrac(i).gt.0.01_r8) thetas(i)  = &
             ( sst(i) - lapse * phis(i) / gravit) * (pnot/ps(i))**cappa
-       if(ocnfrac(i).gt.0.01_r8.and.sst(i).lt.260._r8) ierror = i
+       if(ocnfrac(i).gt.0.01_r8.and.sst(i).lt.260._r8) cold_sst_index = i
        clc(i) = 0.0_r8
     end do
     coef1 = gravit*864.0_r8    ! conversion to millibars/day
-
-    if (ierror > 0) then
-       write(iulog,*) 'COLDSST: encountered in cldfrc:', lchnk,ierror,ocnfrac(ierror),sst(ierror)
-    endif
 
     do k=top_lev,pver-1
        rpdeli(:ncol,k) = 1._r8/(pmid(:ncol,k+1) - pmid(:ncol,k))
@@ -490,7 +160,7 @@ subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
 #ifndef PERGRO
     do k=top_lev,pver
        do i=1,ncol
-          if ( .not. use_shfrc ) then
+          if ( .not. shallow_fraction_provided ) then
              shallowcu(i,k) = max(0.0_r8,min(sh1*log(1.0_r8+sh2*cmfmc2(i,k+1)),0.30_r8))
           else
              shallowcu(i,k) = shfrc(i,k)
@@ -543,7 +213,7 @@ subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
              ! This is the high cloud (above premit) block
              !==============================================================
              !
-             rhlim = relhum_min(pref_mid(k),clat(i))
+             rhlim = relhum_min(pref_mid(k), clat(i), rhminh, rhminp, unset_r8, rhminp_botmb, pi)
              !
              rhdif = (rh(i,k) - rhlim)/(1.0_r8-rhlim)
              rhcloud(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
@@ -557,9 +227,9 @@ subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
              rhwght = (premib-(max(pmid(i,k),premit)))/(premib-premit)
 
              if (land(i) .and. (snowh(i) <= 0.000001_r8)) then
-                rhlim = relhum_min(pref_mid(k),clat(i))*rhwght + (rhminl - rhminl_adj_land)*(1.0_r8-rhwght)
+                rhlim = relhum_min(pref_mid(k), clat(i), rhminh, rhminp, unset_r8, rhminp_botmb, pi)*rhwght + (rhminl - rhminl_adj_land)*(1.0_r8-rhwght)
              else
-                rhlim = relhum_min(pref_mid(k),clat(i))*rhwght + rhminl*(1.0_r8-rhwght)
+                rhlim = relhum_min(pref_mid(k), clat(i), rhminh, rhminp, unset_r8, rhminp_botmb, pi)*rhwght + rhminl*(1.0_r8-rhwght)
              endif
              rhdif = (rh(i,k) - rhlim)/(1.0_r8-rhlim)
              rhcloud(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
@@ -747,50 +417,20 @@ subroutine cldfrc_run(lchnk   ,ncol    , pbuf,  &
        end do
     end do
 
-    call outfld( 'SH_CLD  ', shallowcu   , pcols, lchnk )
-    call outfld( 'DP_CLD  ', deepcu      , pcols, lchnk )
-
-    !
-    call t_stopf('ap_cldfrc_run')
-    return
   end subroutine cldfrc_run
 
-!================================================================================================
-
-  subroutine cldfrc_fice(ncol, t, fice, fsnow)
-    use physconst, only: tmelt
-    use ap_cloud_fraction_fice_scheme, only: cloud_fraction_fice_run
-    use perf_mod, only: t_startf, t_stopf
-    integer, intent(in) :: ncol
-    real(r8), intent(in) :: t(pcols,pver)
-    real(r8), intent(out) :: fice(pcols,pver)
-    real(r8), intent(out) :: fsnow(pcols,pver)
-
-    call t_startf('ap_cloud_fraction_fice_run')
-    call cloud_fraction_fice_run(pcols, pver, ncol, t, tmelt, top_lev, &
-         fice, fsnow)
-    call t_stopf('ap_cloud_fraction_fice_run')
-  end subroutine cldfrc_fice
-
-  !-----------------------------------------------------------------------------
-  ! Sets rhmin to a different value (rhminp) poleward of +/- 60 deg latitude and
-  ! pressure levels less than cldfrc_rhminp_botmb (hPa) if cldfrc_rhminp is specified
-  ! ** This is used only for special waccm/cam-chem cases with cam4 physics **
-  !-----------------------------------------------------------------------------
-  function relhum_min(press,lat) result(rh)
-    use physconst, only: pi
-
-    real(r8), intent(in) :: press, lat
+  function relhum_min(press, lat, rhminh, rhminp, unset_r8, rhminp_botmb, pi) result(rh)
+    real(r8), intent(in) :: press, lat, rhminh, rhminp
+    real(r8), intent(in) :: unset_r8, rhminp_botmb, pi
     real(r8) :: rh
 
     rh = rhminh
-    if (rhminp .eq. unset_r8 ) return
+    if (rhminp == unset_r8) return
 
-    if ((press .lt. cldfrc_rhminp_botmb*1.e2_r8) .and. &
-        ( abs( lat*180._r8/pi ) .gt. 60._r8 ) ) then
+    if (press < rhminp_botmb * 1.e2_r8 .and. &
+         abs(lat * 180._r8 / pi) > 60._r8) then
        rh = rhminp
-    endif
-
+    end if
   end function relhum_min
 
 end module ap_cldfrc_scheme
