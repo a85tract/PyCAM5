@@ -6,31 +6,17 @@ module ap_rad_rrtmg_sw_scheme
 !
 !-----------------------------------------------------------------------
 use shr_kind_mod,    only: r8 => shr_kind_r8
-use ppgrid,          only: pcols, pver, pverp
-use cam_abortutils,  only: endrun
-use cam_history,     only: outfld
-use scamMod,         only: single_column,scm_crm_mode,have_asdir, &
-                           asdirobs, have_asdif, asdifobs, have_aldir, &
-                           aldirobs, have_aldif, aldifobs
-use cam_logfile,     only: iulog
 use parrrsw,         only: nbndsw, ngptsw
-use rrtmg_sw_init,   only: rrtmg_sw_ini
 use rrtmg_sw_rad,    only: rrtmg_sw
-use perf_mod,        only: t_startf, t_stopf
-use radconstants,    only: idx_sw_diag
 
 implicit none
 
 private
 save
 
-real(r8) :: fractional_solar_irradiance(1:nbndsw) ! fraction of solar irradiance in each band
-real(r8) :: solar_band_irrad(1:nbndsw) ! rrtmg-assumed solar irradiance in each sw band
-
 ! Public methods
 
 public ::&
-   radsw_init,      &! initialize constants
    rad_rrtmg_sw_run   ! driver for solar radiation code
 
 !===============================================================================
@@ -39,7 +25,9 @@ CONTAINS
 
 !> \section arg_table_rad_rrtmg_sw_run Argument Table
 !! \htmlinclude rad_rrtmg_sw_run.html
-subroutine rad_rrtmg_sw_run(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
+subroutine rad_rrtmg_sw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair, &
+                    pmidmb, pintmb, tlay, tlev, h2ovmr, o3vmr, co2vmr, &
+                    ch4vmr, o2vmr, n2ovmr, solar_band_irrad, &
                     E_pmid   ,E_cld      ,                             &
                     E_aer_tau,E_aer_tau_w,E_aer_tau_w_g,E_aer_tau_w_f, &
                     eccf     ,E_coszrs   ,solin        ,sfac         , &
@@ -49,16 +37,18 @@ subroutine rad_rrtmg_sw_run(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
                     fsnsc    ,fsdsc      ,fsds         ,sols         ,soll    , &
                     solsd    ,solld      ,fns          ,fcns         , &
                     Nday     ,Nnite      ,IdxDay       ,IdxNite      , &
-                    su       ,sd         ,                             &
+                    su       ,sd, fus, fds, fusc, fdsc,               &
                     E_cld_tau, E_cld_tau_w, E_cld_tau_w_g, E_cld_tau_w_f,  &
                     old_convert)
 
-   use rrtmg_state, only: rrtmg_state_t
-
-   integer, intent(in) :: lchnk, ncol, rrtmg_levs
+   integer, intent(in) :: pcols, pver, pverp, lchnk, ncol, rrtmg_levs
    integer, intent(in) :: Nday, Nnite
    integer, intent(in) :: IdxDay(:), IdxNite(:)
-   type(rrtmg_state_t), intent(in) :: r_state
+   real(r8), intent(in) :: cpair
+   real(r8), intent(in) :: pmidmb(:,:), pintmb(:,:), tlay(:,:), tlev(:,:)
+   real(r8), intent(in) :: h2ovmr(:,:), o3vmr(:,:), co2vmr(:,:)
+   real(r8), intent(in) :: ch4vmr(:,:), o2vmr(:,:), n2ovmr(:,:)
+   real(r8), intent(in) :: solar_band_irrad(:)
 
    real(r8), intent(in) :: E_pmid(:,:), E_cld(:,:)
    ! Remap the historical zero-based aerosol interface in the core below.
@@ -82,6 +72,7 @@ subroutine rad_rrtmg_sw_run(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), intent(out) :: solsd(:), solld(:)
    real(r8), intent(out) :: fns(:,:), fcns(:,:)
    real(r8), pointer, intent(inout) :: su(:,:,:), sd(:,:,:)
+   real(r8), intent(out) :: fus(:,:), fds(:,:), fusc(:,:), fdsc(:,:)
 
    real(r8), optional, intent(in) :: E_cld_tau(:,:,:)
    real(r8), optional, intent(in) :: E_cld_tau_w(:,:,:)
@@ -89,22 +80,26 @@ subroutine rad_rrtmg_sw_run(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), optional, intent(in) :: E_cld_tau_w_f(:,:,:)
    logical, optional, intent(in) :: old_convert
 
-   call t_startf('ap_rad_rrtmg_sw_run')
    call rad_rrtmg_sw_core(                                          &
-        lchnk, ncol, rrtmg_levs, r_state, E_pmid, E_cld,            &
+        pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,         &
+        pmidmb, pintmb, tlay, tlev, h2ovmr, o3vmr, co2vmr,          &
+        ch4vmr, o2vmr, n2ovmr, solar_band_irrad, E_pmid, E_cld,     &
         E_aer_tau, E_aer_tau_w, E_aer_tau_w_g, E_aer_tau_w_f,      &
         eccf, E_coszrs, solin, sfac, E_asdir, E_asdif, E_aldir,     &
         E_aldif, qrs, qrsc, fsnt, fsntc, fsntoa, fsutoa, fsntoac,   &
         fsnirtoa, fsnrtoac, fsnrtoaq, fsns, fsnsc, fsdsc, fsds,     &
         sols, soll, solsd, solld, fns, fcns, Nday, Nnite, IdxDay,   &
-        IdxNite, su, sd, E_cld_tau, E_cld_tau_w, E_cld_tau_w_g,     &
+        IdxNite, su, sd, fus, fds, fusc, fdsc,                      &
+        E_cld_tau, E_cld_tau_w, E_cld_tau_w_g,                      &
         E_cld_tau_w_f, old_convert)
-   call t_stopf('ap_rad_rrtmg_sw_run')
 
 end subroutine rad_rrtmg_sw_run
 
 
-subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
+subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair, &
+                    pmidmb_in, pintmb_in, tlay_in, tlev_in, h2ovmr_in, &
+                    o3vmr_in, co2vmr_in, ch4vmr_in, o2vmr_in, n2ovmr_in, &
+                    solar_band_irrad, &
                     E_pmid   ,E_cld      ,                             &
                     E_aer_tau,E_aer_tau_w,E_aer_tau_w_g,E_aer_tau_w_f, &
                     eccf     ,E_coszrs   ,solin        ,sfac         , &
@@ -114,7 +109,7 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
                     fsnsc    ,fsdsc      ,fsds         ,sols         ,soll    , &
                     solsd    ,solld      ,fns          ,fcns         , &
                     Nday     ,Nnite      ,IdxDay       ,IdxNite      , &
-                    su       ,sd         ,                             &
+                    su       ,sd, fus, fds, fusc, fdsc,               &
                     E_cld_tau, E_cld_tau_w, E_cld_tau_w_g, E_cld_tau_w_f,  &
                     old_convert)
 
@@ -150,10 +145,7 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 !-----------------------------------------------------------------------
 
    use cmparray_mod,        only: CmpDayNite, ExpDayNite
-   use phys_control,        only: phys_getopts
    use mcica_subcol_gen_sw, only: mcica_subcol_sw
-   use physconst,           only: cpair
-   use rrtmg_state,         only: rrtmg_state_t
 
    ! Minimum cloud amount (as a fraction of the grid-box area) to
    ! distinguish from clear sky
@@ -164,11 +156,17 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), parameter :: cldeps = 0.0_r8
 
    ! Input arguments
+   integer, intent(in) :: pcols, pver, pverp
    integer, intent(in) :: lchnk             ! chunk identifier
    integer, intent(in) :: ncol              ! number of atmospheric columns
    integer, intent(in) :: rrtmg_levs        ! number of levels rad is applied
 
-    type(rrtmg_state_t), intent(in) :: r_state
+   real(r8), intent(in) :: cpair
+   real(r8), intent(in) :: pmidmb_in(:,:), pintmb_in(:,:)
+   real(r8), intent(in) :: tlay_in(:,:), tlev_in(:,:)
+   real(r8), intent(in) :: h2ovmr_in(:,:), o3vmr_in(:,:), co2vmr_in(:,:)
+   real(r8), intent(in) :: ch4vmr_in(:,:), o2vmr_in(:,:), n2ovmr_in(:,:)
+   real(r8), intent(in) :: solar_band_irrad(:)
 
    integer, intent(in) :: Nday                      ! Number of daylight columns
    integer, intent(in) :: Nnite                     ! Number of night columns
@@ -222,6 +220,8 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    real(r8), intent(out) :: fns(pcols,pverp)   ! net flux at interfaces
    real(r8), intent(out) :: fcns(pcols,pverp)  ! net clear-sky flux at interfaces
+   real(r8), intent(out) :: fus(pcols,pverp), fds(pcols,pverp)
+   real(r8), intent(out) :: fusc(pcols,pverp), fdsc(pcols,pverp)
 
    real(r8), pointer, dimension(:,:,:) :: su ! shortwave spectral flux up
    real(r8), pointer, dimension(:,:,:) :: sd ! shortwave spectral flux down
@@ -326,12 +326,6 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: ga(pcols,0:pver) ! aerosol assymetry parameter
    real(r8) :: fa(pcols,0:pver) ! aerosol forward scattered fraction
 
-   ! CRM
-   real(r8) :: fus(pcols,pverp)   ! Upward flux (added for CRM)
-   real(r8) :: fds(pcols,pverp)   ! Downward flux (added for CRM)
-   real(r8) :: fusc(pcols,pverp)  ! Upward clear-sky flux (added for CRM)
-   real(r8) :: fdsc(pcols,pverp)  ! Downward clear-sky flux (added for CRM)
-
    integer :: kk
 
    real(r8) :: pmidmb(pcols,rrtmg_levs)   ! Level pressure (hPa)
@@ -372,12 +366,10 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    qrsc(1:ncol,1:pver) = 0.0_r8
    fns(1:ncol,1:pverp) = 0.0_r8
    fcns(1:ncol,1:pverp) = 0.0_r8
-   if (single_column.and.scm_crm_mode) then
-      fus(1:ncol,1:pverp) = 0.0_r8
-      fds(1:ncol,1:pverp) = 0.0_r8
-      fusc(:ncol,:pverp) = 0.0_r8
-      fdsc(:ncol,:pverp) = 0.0_r8
-   endif
+   fus(1:ncol,1:pverp) = 0.0_r8
+   fds(1:ncol,1:pverp) = 0.0_r8
+   fusc(:ncol,:pverp) = 0.0_r8
+   fdsc(:ncol,:pverp) = 0.0_r8
 
    if (associated(su)) su(1:ncol,:,:) = 0.0_r8
    if (associated(sd)) sd(1:ncol,:,:) = 0.0_r8
@@ -393,11 +385,11 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    call CmpDayNite(E_cld(:,pverp-rrtmg_levs+1:pver),  cld(:,1:rrtmg_levs-1), &
         Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs-1)
 
-   call CmpDayNite(r_state%pintmb, pintmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
-   call CmpDayNite(r_state%pmidmb, pmidmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%h2ovmr, h2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%o3vmr,  o3vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%co2vmr, co2vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(pintmb_in, pintmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
+   call CmpDayNite(pmidmb_in, pmidmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(h2ovmr_in, h2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(o3vmr_in,  o3vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(co2vmr_in, co2vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
 
    call CmpDayNite(E_coszrs, coszrs,    Nday, IdxDay, Nnite, IdxNite, 1, pcols)
    call CmpDayNite(E_asdir,  asdir,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
@@ -405,11 +397,11 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    call CmpDayNite(E_asdif,  asdif,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
    call CmpDayNite(E_aldif,  aldif,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
 
-   call CmpDayNite(r_state%tlay,   tlay,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%tlev,   tlev,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
-   call CmpDayNite(r_state%ch4vmr, ch4vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%o2vmr,  o2vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%n2ovmr, n2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(tlay_in,   tlay,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(tlev_in,   tlev,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
+   call CmpDayNite(ch4vmr_in, ch4vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(o2vmr_in,  o2vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   call CmpDayNite(n2ovmr_in, n2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
 
    ! These fields are no longer input by CAM.
    cicewp = 0.0_r8
@@ -442,14 +434,6 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          enddo
       enddo
    enddo
-
-   if (scm_crm_mode) then
-      ! overwrite albedos for CRM
-      if(have_asdir) asdir = asdirobs(1)
-      if(have_asdif) asdif = asdifobs(1)
-      if(have_aldir) aldir = aldirobs(1)
-      if(have_aldif) aldif = aldifobs(1)
-   endif
 
    ! Define solar incident radiation
    do i = 1, Nday
@@ -553,8 +537,6 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    ! Call mcica sub-column generator for RRTMG_SW
 
    ! Call sub-column generator for McICA in radiation
-   call t_startf('mcica_subcol_sw')
-
    ! Select cloud overlap approach (1=random, 2=maximum-random, 3=maximum)
    icld = 2
    ! Set permute seed (must be offset between LW and SW by at least 140 to insure
@@ -566,10 +548,6 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
       cld, cicewp, cliqwp, rei, rel, tauc_sw, ssac_sw, asmc_sw, fsfc_sw, &
       cld_stosw, cicewp_stosw, cliqwp_stosw, rei_stosw, rel_stosw, &
       tauc_stosw, ssac_stosw, asmc_stosw, fsfc_stosw)
-
-   call t_stopf('mcica_subcol_sw')
-
-   call t_startf('rrtmg_sw')
 
    ! Call RRTMG_SW for all layers for daylight columns
 
@@ -669,8 +647,6 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
            (/Nday,rrtmg_levs,nbndsw/), order=(/3,1,2/))
    end if
 
-   call t_stopf('rrtmg_sw')
-
    ! Rearrange output arrays.
    !
    ! intent(out)
@@ -705,43 +681,11 @@ subroutine rad_rrtmg_sw_core(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
       call ExpDayNite(sd,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp, 1, nbndsw)
    end if
 
-   !  these outfld calls don't work for spmd only outfield in scm mode (nonspmd)
-   if (single_column .and. scm_crm_mode) then
-      ! Following outputs added for CRM
-      call ExpDayNite(fus,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-      call ExpDayNite(fds,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-      call ExpDayNite(fusc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-      call ExpDayNite(fdsc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-      call outfld('FUS     ',fus * 1.e-3_r8 ,pcols,lchnk)
-      call outfld('FDS     ',fds * 1.e-3_r8 ,pcols,lchnk)
-      call outfld('FUSC    ',fusc,pcols,lchnk)
-      call outfld('FDSC    ',fdsc,pcols,lchnk)
-   endif
+   call ExpDayNite(fus,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+   call ExpDayNite(fds,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+   call ExpDayNite(fusc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+   call ExpDayNite(fdsc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
 
 end subroutine rad_rrtmg_sw_core
-
-!-------------------------------------------------------------------------------
-
-subroutine radsw_init()
-!-----------------------------------------------------------------------
-!
-! Purpose:
-! Initialize various constants for radiation scheme.
-!
-!-----------------------------------------------------------------------
-    use radconstants,  only: get_solar_band_fraction_irrad, get_ref_solar_band_irrad
-
-    ! get the reference fractional solar irradiance in each band
-    call get_solar_band_fraction_irrad(fractional_solar_irradiance)
-    call get_ref_solar_band_irrad( solar_band_irrad )
-
-
-   ! Initialize rrtmg_sw
-   call rrtmg_sw_ini
-
-end subroutine radsw_init
-
-
-!-------------------------------------------------------------------------------
 
 end module ap_rad_rrtmg_sw_scheme

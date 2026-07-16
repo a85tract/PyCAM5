@@ -5,6 +5,24 @@
 [ccpp-arg-table]
   name  = rad_rrtmg_sw_run
   type  = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
 [ lchnk ]
   standard_name = rad_rrtmg_sw_lchnk
   units = none
@@ -23,11 +41,77 @@
   type = integer
   dimensions = ()
   intent = in
-[ r_state ]
-  standard_name = rad_rrtmg_sw_r_state
-  units = none
-  type = rrtmg_state_t
+[ cpair ]
+  standard_name = specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
   dimensions = ()
+  intent = in
+[ pmidmb ]
+  standard_name = rrtmg_layer_pressure
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ pintmb ]
+  standard_name = rrtmg_interface_pressure
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels_plus_one)
+  intent = in
+[ tlay ]
+  standard_name = rrtmg_layer_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ tlev ]
+  standard_name = rrtmg_interface_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels_plus_one)
+  intent = in
+[ h2ovmr ]
+  standard_name = rrtmg_water_vapor_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ o3vmr ]
+  standard_name = rrtmg_ozone_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ co2vmr ]
+  standard_name = rrtmg_carbon_dioxide_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ ch4vmr ]
+  standard_name = rrtmg_methane_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ o2vmr ]
+  standard_name = rrtmg_oxygen_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ n2ovmr ]
+  standard_name = rrtmg_nitrous_oxide_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ solar_band_irrad ]
+  standard_name = reference_solar_irradiance_by_shortwave_band
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (shortwave_band_dimension)
   intent = in
 [ E_pmid ]
   standard_name = rad_rrtmg_sw_e_pmid
@@ -269,6 +353,30 @@
   type = real | kind = r8
   dimensions = (rad_rrtmg_sw_auxiliary_dimension_154:rad_rrtmg_sw_auxiliary_dimension_155,rad_rrtmg_sw_auxiliary_dimension_156:rad_rrtmg_sw_auxiliary_dimension_157,rad_rrtmg_sw_auxiliary_dimension_158:rad_rrtmg_sw_auxiliary_dimension_159)
   intent = inout
+[ fus ]
+  standard_name = diagnostic_upwelling_shortwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ fds ]
+  standard_name = diagnostic_downwelling_shortwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ fusc ]
+  standard_name = diagnostic_clear_sky_upwelling_shortwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ fdsc ]
+  standard_name = diagnostic_clear_sky_downwelling_shortwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
 [ E_cld_tau ]
   standard_name = rad_rrtmg_sw_e_cld_tau
   units = none
