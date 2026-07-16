@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T08:18:05Z`
+- 最近更新：`2026-07-16T08:19:26Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 59 | 0 | 6 | 0 | 0 | 4 |
+| 69 | 59 | 4 | 6 | 0 | 0 | 0 |
 
 ## 批次
 
@@ -94,10 +94,10 @@
 | B07 | tphysbc | park_macrophysics | `cldfrc_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
 | B07 | tphysbc | park_macrophysics | `mmacro_pcond_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
 | B07 | tphysbc | micro_mg | `micro_mg_tend_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
-| B07 | tphysbc | rrtmg | `rad_rrtmg_sw_run` | `planned` | — | — | — | — |
-| B07 | tphysbc | rrtmg | `rad_rrtmg_lw_run` | `planned` | — | — | — | — |
-| B07 | tphysbc | rrtmg | `rrtmg_sw_run` | `planned` | — | — | — | — |
-| B07 | tphysbc | rrtmg | `rrtmg_lw_run` | `planned` | — | — | — | — |
+| B07 | tphysbc | rrtmg | `rad_rrtmg_sw_run` | `in_progress` | — | — | — | B07 radiation lane active in isolated worktree; production Filepath source-chain audit and four-process extraction underway. No 50-step claim yet. |
+| B07 | tphysbc | rrtmg | `rad_rrtmg_lw_run` | `in_progress` | — | — | — | B07 radiation lane active in isolated worktree; production Filepath source-chain audit and four-process extraction underway. No 50-step claim yet. |
+| B07 | tphysbc | rrtmg | `rrtmg_sw_run` | `in_progress` | — | — | — | B07 radiation lane active in isolated worktree; production Filepath source-chain audit and four-process extraction underway. No 50-step claim yet. |
+| B07 | tphysbc | rrtmg | `rrtmg_lw_run` | `in_progress` | — | — | — | B07 radiation lane active in isolated worktree; production Filepath source-chain audit and four-process extraction underway. No 50-step claim yet. |
 
 ## 暂缓的非活动分支
 
