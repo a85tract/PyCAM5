@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T18:33:10Z",
+  "updated_at": "2026-07-16T18:48:47Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -72,10 +72,10 @@
       "order": 1,
       "source": "src/atmos_phys/schemes/vertical_diffusion/compute_vdiff/compute_vdiff.F90",
       "module": "ap_compute_vdiff_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -86,10 +86,10 @@
       "order": 2,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_prof.F90",
       "module": "ap_gw_prof_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -100,10 +100,10 @@
       "order": 3,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_oro_src.F90",
       "module": "ap_gw_oro_src_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -114,10 +114,10 @@
       "order": 4,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_drag_prof.F90",
       "module": "ap_gw_drag_prof_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -128,10 +128,10 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/energy_change.F90",
       "module": "ap_energy_change_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -142,10 +142,10 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/cloud_microphysics/ice_macro/ice_macro_tend.F90",
       "module": "ap_ice_macro_tend_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-icesupersat-20260716-job6753240",
+      "bfb_run": "S01-icesupersat-20260716-job6753240",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -156,10 +156,10 @@
       "order": 7,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rrtmg_sw.F90",
       "module": "ap_rrtmg_sw_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -170,10 +170,10 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rrtmg_lw.F90",
       "module": "ap_rrtmg_lw_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -184,10 +184,10 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_depvel_part/modal_aero_depvel_part.F90",
       "module": "ap_modal_aero_depvel_part_scheme",
-      "status": "build_pass",
-      "commit": "8cc5aaee0997f6a2792cea633eb25ecd1b97a871",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "last_run": "S01-default-20260716-job6753204",
+      "bfb_run": "S01-default-20260716-job6753204",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -569,5 +569,214 @@
       "note": ""
     }
   ],
-  "runs": []
+  "runs": [
+    {
+      "run_id": "S01-default-20260716-job6753204",
+      "batch": "S01",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6753204.desched1",
+      "source_commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/evidence/s01/dependency_final_1165032.txt",
+          "size": 243,
+          "sha256": "7cf870d7f7fc922a25c49120d3c0feb6deb4ddb8569d3eeb30a3dfa2d0ee0151"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/evidence/s01/standalone_build_final_1165032.txt",
+          "size": 17940,
+          "sha256": "2102049cc6f5d3151e44da2e2beea90c92cd011937c148aafb09b797295f313e"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/bld/cesm.exe",
+          "size": 55203960,
+          "sha256": "955352ea3466f7b8db12f2e618dd77953895f755d83b3c0fff300b1c6f93ecf4"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/logs/run_environment.txt.6753204.desched1.260716-123919",
+          "size": 42032,
+          "sha256": "517ea616b38a0c518786b163d5246577a8baf841db1f728d3e110f460491a4f1"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 8350,
+          "sha256": "618607d02c774e8a3e05325404c2f364c294664372c21d5b696d64051700d9b7"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/evidence/s01/final_default_compare_job6753204.txt",
+          "size": 902,
+          "sha256": "ff70727e9e68d5089d7ebd8c7e5a05146d96e83cefc3c4a0771595e7ab31cf32"
+        }
+      },
+      "execution_proof": {
+        "compute_vdiff_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "ap_compute_vdiff_run global_calls=3.133440e+05"
+        },
+        "gw_prof_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "ap_gw_prof_run global_calls=5.222400e+04"
+        },
+        "gw_oro_src_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "ap_gw_oro_src_run global_calls=5.222400e+04"
+        },
+        "gw_drag_prof_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "ap_gw_drag_prof_run global_calls=5.222400e+04"
+        },
+        "energy_change_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "ap_energy_change_run global_calls=5.222400e+04"
+        },
+        "rrtmg_sw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "rrtmg_sw parent timer global_calls=2.653600e+04"
+        },
+        "rrtmg_lw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "rrtmg_lw parent timer global_calls=2.662400e+04"
+        },
+        "modal_aero_depvel_part_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753204.desched1.260716-123919",
+            "size": 63913,
+            "sha256": "e15761b523e65339d018dfb7b485f8a95eab0f9421a5758b1f05984036599242"
+          },
+          "line": "ap_modal_aero_depvel_part_run global_calls=4.177920e+05"
+        }
+      },
+      "recorded_at": "2026-07-16T18:48:25Z",
+      "note": "Authoritative clean full CAM build at source 1165032; matched-name default PI case; unique job completed 50 steps with PBS Exit_status 0 and CPL success; eight active S01 timers nonzero; 790/790 numeric exact; normalized character equality excludes only date_written/time_written. ice_macro_tend_run remains for the matched ice-supersaturation variant."
+    },
+    {
+      "run_id": "S01-icesupersat-20260716-job6753240",
+      "batch": "S01",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6753240.desched1",
+      "source_commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_icesupersat_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_icesupersat_final/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b07_icesupersat_variant/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_icesupersat_final/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_icesupersat_final/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_icesupersat_final/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/evidence/s01/dependency_final_1165032.txt",
+          "size": 243,
+          "sha256": "7cf870d7f7fc922a25c49120d3c0feb6deb4ddb8569d3eeb30a3dfa2d0ee0151"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/evidence/s01/standalone_build_final_1165032.txt",
+          "size": 17940,
+          "sha256": "2102049cc6f5d3151e44da2e2beea90c92cd011937c148aafb09b797295f313e"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/bld/cesm.exe",
+          "size": 55203960,
+          "sha256": "955352ea3466f7b8db12f2e618dd77953895f755d83b3c0fff300b1c6f93ecf4"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_icesupersat_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/logs/run_environment.txt.6753240.desched1.260716-124336",
+          "size": 42056,
+          "sha256": "f2ba55dc9e1fb1340ec97f49a27c08c9f025db8a8d0490c68ca24e2a68b54fee"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_icesupersat_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 8362,
+          "sha256": "4dec15a03c2f272ca8c444e02f25210f638677d349c1aa9ee521d50085427dc4"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_icesupersat_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12756,
+          "sha256": "5f72e4241aa505d0c5e4292650dad1ffaf0c9563b3970a23f2f6a094e8e30a67"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/evidence/s01/final_icesupersat_compare_job6753240.txt",
+          "size": 888,
+          "sha256": "a67b6397112b6183a17ec58914b609bf1d4ad78a948ef48c83b03227ab98881c"
+        }
+      },
+      "execution_proof": {
+        "ice_macro_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s01_icesupersat_final/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6753240.desched1.260716-124336",
+            "size": 64058,
+            "sha256": "aa7e7ca86374c79938f90cd26d584a532e3f6136e31706fd68f106458cc2a251"
+          },
+          "line": "ap_ice_macro_tend_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-16T18:48:47Z",
+      "note": "Matched native/integration micro_do_icesupersat=.true. variant using the same clean source-1165032 executable; unique job completed 50 steps with PBS Exit_status 0 and CPL success; ice_macro_tend_run timer nonzero; 790/790 numeric exact; normalized character equality excludes only time_written."
+    }
+  ]
 }
