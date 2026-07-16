@@ -61,6 +61,8 @@ module water_tracers
   use water_isotopes, only: pwtspec, ispundef, isph2o, isphdo, isph218o
   use water_types,    only: pwtype, iwtundef, iwtvap, iwtliq, iwtice, iwtstrain, iwtstsnow, iwtcvrain, iwtcvsnow
   use water_tracer_vars
+  use perf_mod, only: t_startf, t_stopf
+  use ap_wtrc_mass_fixer_scheme, only: wtrc_mass_fixer_run
 
   implicit none
   
@@ -2804,15 +2806,12 @@ implicit none
 type(physics_state), intent(inout) :: state      ! Physics state variables
 
 !local variables:
-integer  :: i,k,p,m !loop control variables
+integer  :: p,m     !loop control variables
 integer  :: ncol    !number of horizontal variables
-real(r8) :: oval    !original value (used to calculate ratio).
-real(r8) :: diff    !mass difference between standard tracer and bulk water
-real(r8) :: R       !water tracer ratio
-
-real(r8)            :: wtlat, wtphis
 real(r8), parameter :: radtodeg = 180.0_r8/shr_const_pi
-real(r8)            :: diff_limit
+real(r8) :: rstd_by_wset(wtrc_nwset,pwtype)
+character(len=512) :: errmsg
+integer :: errflg
 
 !**************
 !set ncol value
@@ -2820,93 +2819,21 @@ real(r8)            :: diff_limit
 
 ncol = state%ncol
 
-!***************************
-!Correct water tracer values
-!***************************
-do i = 1,ncol
-  do k = 1,pver
-    do p = 1,pwtype
-      if(state%q(i,k,wtrc_iatype(1,p)) .ne. state%q(i,k,wtrc_bulk_indices(p))) then
-        !calculate difference:
-        diff = state%q(i,k,wtrc_iatype(1,p))-state%q(i,k,wtrc_bulk_indices(p))
-        !save original value:
-        oval = state%q(i,k,wtrc_iatype(1,p))
-        do m=1,wtrc_nwset
-          !calculate ratio:
-          R = wtrc_ratio(iwspec(wtrc_iatype(m,p)),state%q(i,k,wtrc_iatype(m,p)),&
-                         oval)
-          !Adjust value:
-          state%q(i,k,wtrc_iatype(m,p)) = state%q(i,k,wtrc_iatype(m,p)) - R*diff
-        end do
-      end if
-    end do
+do p = 1,pwtype
+  do m = 1,wtrc_nwset
+    rstd_by_wset(m,p) = wtrc_get_rstd(iwspec(wtrc_iatype(m,p)))
   end do
 end do
 
-!****************************
-!Correct water isotope values
-!NOTE:  Some parts of the isotopic physics appear to be causing non-physical numerical errors.
-!In order to fix these errors, H216O is corrected to match the bulk water, and all other water
-!isotopes are adjusted accordingly. -JN
-!****************************
-if(wisotope) then
-  do i = 1,ncol
-    do k = 1,pver
-      do p = 1,pwtype
-        if(state%q(i,k,wtrc_iatype(2,p)) .ne. state%q(i,k,wtrc_bulk_indices(p))) then
-          !calculate difference:
-          diff = state%q(i,k,wtrc_iatype(2,p))-state%q(i,k,wtrc_bulk_indices(p))
-          !save original value:
-          oval = state%q(i,k,wtrc_iatype(2,p))
-          do m=2,wtrc_nwset
-            !calculate ratio:
-             R = wtrc_ratio(iwspec(wtrc_iatype(m,p)),state%q(i,k,wtrc_iatype(m,p)),&
-                             oval)
-            !adjust value:
-            state%q(i,k,wtrc_iatype(m,p)) = state%q(i,k,wtrc_iatype(m,p)) - R*diff
-          end do
-        end if
-      end do
-    end do
-  end do
-end if
-
-!******************************
-!Additional limiter to take care out-of-bound values
-!******************************
-do i = 1,ncol
-  !Need to define lat/lon for water tracers:
-  wtlat = state%lat(i)*radtodeg
-  wtphis = state%phis(i)
-
-  do k= 1,pver
-    do p=1,pwtype
-      do m=2,wtrc_nwset
-        !Set limit value:
-        if(m == isphdo) then !HDO has higher limit
-          diff_limit = wtrc_limiter_HDO_hgh
-        else
-          diff_limit = wtrc_limiter_18O_hgh
-        end if
-        if(state%q(i,k,wtrc_iatype(m,p)) .gt. diff_limit*state%q(i,k,wtrc_iatype(1,p))) then !Increase limiter -JN
-          state%q(i,k,wtrc_iatype(m,p)) = state%q(i,k,wtrc_iatype(1,p))
-        else !This else is only for iHESP -JN
-          if(abs(wtlat) < 60._r8 .and. wtphis > wtrc_limiter_phis_crit) then !Only adjust values above topography and outside high latitudes
-            !Set limit value:
-            if(m == isphdo) then !HDO has higher limit
-              diff_limit = wtrc_limiter_HDO_low + 0.005_r8*(k - pver)  !reduce cut-off with height
-            else
-              diff_limit = wtrc_limiter_18O_low + 0.005_r8*(k - pver) !reduce cut-off with height
-            end if
-            if(state%q(i,k,wtrc_iatype(m,p)) < diff_limit*state%q(i,k,wtrc_iatype(1,p))) then
-              state%q(i,k,wtrc_iatype(m,p)) = state%q(i,k,wtrc_iatype(1,p))
-            end if
-          end if
-        end if
-      end do
-    end do
-  end do
-end do
+call t_startf('ap_wtrc_mass_fixer_run')
+call wtrc_mass_fixer_run(ncol, pver, pwtype, wtrc_nwset, isphdo, wisotope, &
+     wtrc_iatype, wtrc_bulk_indices, rstd_by_wset, wtrc_qmin, &
+     wtrc_limiter_HDO_hgh, wtrc_limiter_HDO_low, &
+     wtrc_limiter_18O_hgh, wtrc_limiter_18O_low, &
+     wtrc_limiter_phis_crit, radtodeg, state%lat, state%phis, state%q, &
+     errmsg, errflg)
+call t_stopf('ap_wtrc_mass_fixer_run')
+if (errflg /= 0) call endrun(trim(errmsg))
 
 end subroutine wtrc_mass_fixer
 

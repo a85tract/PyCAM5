@@ -1035,7 +1035,8 @@ subroutine phys_run1_adiabatic_or_ideal(ztodt, phys_state, phys_tend,  pbuf2d)
     use physics_buffer, only : physics_buffer_desc, pbuf_set_field, pbuf_get_chunk, pbuf_old_tim_idx
     use time_manager,     only: get_nstep
     use cam_diagnostics,  only: diag_phys_writeout
-    use check_energy,     only: check_energy_fix, check_energy_chng
+    use check_energy,     only: check_energy_fix, check_energy_chng, &
+         check_energy_zero_fluxes
     use dycore,           only: dycore_is
 
     !
@@ -1064,7 +1065,7 @@ subroutine phys_run1_adiabatic_or_ideal(ztodt, phys_state, phys_tend,  pbuf2d)
     !-----------------------------------------------------------------------
 
     nstep = get_nstep()
-    zero  = 0._r8
+    call check_energy_zero_fluxes(zero)
 
     ! Associate pointers with physics buffer fields
     if (first_exec_of_phys_run1_adiabatic_or_ideal) then
@@ -1284,7 +1285,9 @@ subroutine tphysac (ztodt,   cam_in,  &
     use aero_model,         only: aero_model_drydep
     use carma_intr,         only: carma_emission_tend, carma_timestep_tend
     use carma_flags_mod,    only: carma_do_aerosol, carma_do_emission
-    use check_energy,       only: check_energy_chng
+    use check_energy,       only: check_energy_chng, check_energy_zero_fluxes, &
+         check_energy_scaling, check_energy_save_teout, &
+         dycore_energy_consistency_adjust
     use check_energy,       only: check_tracers_data, check_tracers_init, check_tracers_chng
     use time_manager,       only: get_nstep
     use cam_abortutils,     only: endrun
@@ -1349,6 +1352,7 @@ subroutine tphysac (ztodt,   cam_in,  &
     real(r8) :: tmp_cldliq(pcols,pver) ! tmp space
     real(r8) :: tmp_cldice(pcols,pver) ! tmp space
     real(r8) :: tmp_t     (pcols,pver) ! tmp space
+    real(r8) :: scaling_dycore(pcols,pver) ! PI compatibility scaling (identity)
 
     !Water Tracers
     logical :: isOK                    ! Used to check that water tracer mass is being conserved.
@@ -1418,7 +1422,7 @@ subroutine tphysac (ztodt,   cam_in,  &
     end if
 
     ! get nstep and zero array for energy checker
-    zero = 0._r8
+    call check_energy_zero_fluxes(zero)
     nstep = get_nstep()
     call check_tracers_init(state, tracerint)
 
@@ -1608,7 +1612,13 @@ subroutine tphysac (ztodt,   cam_in,  &
     !-------------- Energy budget checks vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
     ! Save total energy for global fixer in next timestep (FV and SE dycores)
-    call pbuf_set_field(pbuf, teout_idx, state%te_cur, (/1,itim_old/),(/pcols,1/))       
+    call check_energy_save_teout(state, pbuf, itim_old)
+
+    ! Old PI-atm has no cp/cv dycore energy adjustment.  Execute the two
+    ! decoupled lifecycle boundaries in compatibility mode without changing
+    ! state or tendencies.
+    call check_energy_scaling(state, scaling_dycore)
+    call dycore_energy_consistency_adjust(state, tend, scaling_dycore)
 
     if (shallow_scheme .eq. 'UNICON') then
 
@@ -1721,7 +1731,8 @@ subroutine tphysbc (ztodt,               &
     use convect_deep,    only: convect_deep_tend, convect_deep_tend_2, deep_scheme_does_scav_trans
     use time_manager,    only: is_first_step, get_nstep
     use convect_shallow, only: convect_shallow_tend
-    use check_energy,    only: check_energy_chng, check_energy_fix, check_energy_timestep_init
+    use check_energy,    only: check_energy_chng, check_energy_fix, &
+         check_energy_timestep_init, check_energy_zero_fluxes
     use check_energy,    only: check_tracers_data, check_tracers_init, check_tracers_chng
     use dycore,          only: dycore_is
     use aero_model,      only: aero_model_wetdep
@@ -1881,7 +1892,7 @@ subroutine tphysbc (ztodt,               &
     
     !-----------------------------------------------------------------------
 
-    zero = 0._r8
+    call check_energy_zero_fluxes(zero)
     zero_tracers(:,:) = 0._r8
     zero_sc(:) = 0._r8
 

@@ -14,6 +14,8 @@ module physics_types
   use cam_abortutils,   only: endrun
   use phys_control,     only: waccmx_is
   use shr_const_mod,    only: shr_const_rwv
+  use perf_mod,         only: t_startf, t_stopf
+  use ap_set_dry_to_wet_scheme, only: set_dry_to_wet_run
 
   implicit none
   private          ! Make default type private to the module
@@ -1510,14 +1512,21 @@ subroutine set_dry_to_wet (state)
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
+  logical :: constituent_is_dry(pcnst)
+  character(len=512) :: errmsg
+  integer :: errflg
   
   ncol = state%ncol
 
   do m = 1,pcnst
-     if (cnst_type(m).eq.'dry') then
-        state%q(:ncol,:,m) = state%q(:ncol,:,m)*state%pdeldry(:ncol,:)/state%pdel(:ncol,:)
-     endif
+     constituent_is_dry(m) = cnst_type(m).eq.'dry'
   end do
+
+  call t_startf('ap_set_dry_to_wet_run')
+  call set_dry_to_wet_run(ncol, pver, pcnst, constituent_is_dry, &
+       state%pdel, state%pdeldry, state%q, errmsg, errflg)
+  call t_stopf('ap_set_dry_to_wet_run')
+  if (errflg /= 0) call endrun(trim(errmsg))
 
 end subroutine set_dry_to_wet
 
