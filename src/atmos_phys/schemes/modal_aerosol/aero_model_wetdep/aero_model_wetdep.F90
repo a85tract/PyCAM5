@@ -146,6 +146,13 @@ contains
                                            ! interstitial num (1), interstitial vol (2)
     real(r8) :: tmpa, tmpb
     real(r8) :: tmpdust, tmpnacl
+    ! The standalone wetdepa kernel returns the values that the legacy CAM
+    ! facade uses for negative-value diagnostics.  This caller does not emit
+    ! that diagnostic, but it must still provide storage for those outputs.
+    real(r8) :: negative_dblchek(pcols,pver)
+    real(r8) :: negative_srct(pcols,pver)
+    real(r8) :: negative_rat(pcols,pver)
+    real(r8) :: negative_fracev(pcols,pver)
     logical  :: isprx(pcols,pver) ! true if precipation
 
     prec(:ncol)=0._r8
@@ -320,7 +327,9 @@ contains
                      qqcw=qqcw_data(:,:,mm),  &
                      f_act_conv=f_act_conv, &
                      icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
-                     sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                     sol_facti_in=sol_facti, sol_factic_in=sol_factic, &
+                     negative_dblchek=negative_dblchek, negative_srct=negative_srct, &
+                     negative_rat=negative_rat, negative_fracev=negative_fracev)
                 call aero_model_wetdep_timer_stop('ap_wetdepa_v2_run')
 
                 ptend_q(1:ncol,:,mm) = ptend_q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
@@ -401,7 +410,9 @@ contains
                      scavcoefnv(:,:,jnv), &
                      is_strat_cloudborne=.true.,  &
                      icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
-                     sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                     sol_facti_in=sol_facti, sol_factic_in=sol_factic, &
+                     negative_dblchek=negative_dblchek, negative_srct=negative_srct, &
+                     negative_rat=negative_rat, negative_fracev=negative_fracev)
                 call aero_model_wetdep_timer_stop('ap_wetdepa_v2_run')
 
                 qqcw_data(1:ncol,:,mm) = qqcw_data(1:ncol,:,mm) + &
