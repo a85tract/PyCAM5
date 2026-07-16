@@ -1,0 +1,62 @@
+module radiation_host_hooks
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  implicit none
+  private
+
+  abstract interface
+     subroutine timer_hook(timer_name)
+       character(len=*), intent(in) :: timer_name
+     end subroutine timer_hook
+
+     subroutine outfld_real2d_hook(field_name, field, dim1, lchnk)
+       import :: r8
+       character(len=*), intent(in) :: field_name
+       real(r8), intent(in) :: field(:,:)
+       integer, intent(in) :: dim1, lchnk
+     end subroutine outfld_real2d_hook
+  end interface
+
+  procedure(timer_hook), pointer :: timer_start_impl => null()
+  procedure(timer_hook), pointer :: timer_stop_impl => null()
+  procedure(outfld_real2d_hook), pointer :: outfld_real2d_impl => null()
+
+  public :: register_radiation_host_hooks
+  public :: radiation_timer_start, radiation_timer_stop
+  public :: radiation_outfld_real2d
+
+contains
+
+  subroutine register_radiation_host_hooks(timer_start, timer_stop, outfld_real2d)
+    procedure(timer_hook) :: timer_start, timer_stop
+    procedure(outfld_real2d_hook) :: outfld_real2d
+
+    timer_start_impl => timer_start
+    timer_stop_impl => timer_stop
+    outfld_real2d_impl => outfld_real2d
+  end subroutine register_radiation_host_hooks
+
+  subroutine radiation_timer_start(timer_name)
+    character(len=*), intent(in) :: timer_name
+
+    if (associated(timer_start_impl)) call timer_start_impl(timer_name)
+  end subroutine radiation_timer_start
+
+  subroutine radiation_timer_stop(timer_name)
+    character(len=*), intent(in) :: timer_name
+
+    if (associated(timer_stop_impl)) call timer_stop_impl(timer_name)
+  end subroutine radiation_timer_stop
+
+  subroutine radiation_outfld_real2d(field_name, field, dim1, lchnk)
+    character(len=*), intent(in) :: field_name
+    real(r8), intent(in) :: field(:,:)
+    integer, intent(in) :: dim1, lchnk
+
+    if (associated(outfld_real2d_impl)) then
+       call outfld_real2d_impl(field_name, field, dim1, lchnk)
+    end if
+  end subroutine radiation_outfld_real2d
+
+end module radiation_host_hooks

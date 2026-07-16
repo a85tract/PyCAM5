@@ -8,6 +8,8 @@ module ap_rad_rrtmg_lw_scheme
 use shr_kind_mod,      only: r8 => shr_kind_r8
 use parrrtm,           only: nbndlw, ngptlw
 use rrtmg_lw_rad,      only: rrtmg_lw
+use radiation_host_hooks, only: radiation_timer_start, radiation_timer_stop, &
+                                radiation_outfld_real2d
 
 implicit none
 
@@ -26,6 +28,7 @@ CONTAINS
 !> \section arg_table_rad_rrtmg_lw_run Argument Table
 !! \htmlinclude rad_rrtmg_lw_run.html
 subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw, cpair, &
+                        single_column, scm_crm_mode, &
                         pmidmb, pintmb, tlay, tlev, h2ovmr, o3vmr, co2vmr, ch4vmr, &
                         o2vmr, n2ovmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, &
                         pmid    ,aer_lw_abs,cld       ,tauc_lw,       &
@@ -47,6 +50,7 @@ subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw,
    integer, intent(in) :: rrtmg_levs            ! number of levels rad is applied
    integer, intent(in) :: ntoplw                 ! top level to solve for longwave cooling
    real(r8), intent(in) :: cpair                 ! dry-air heat capacity
+   logical, intent(in) :: single_column, scm_crm_mode
 
 !
 ! Input arguments which are only passed to other routines
@@ -150,6 +154,8 @@ subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw,
    ! Call mcica sub-column generator for RRTMG_LW
 
    ! Call sub-column generator for McICA in radiation
+   call radiation_timer_start('mcica_subcol_lw')
+
    ! Select cloud overlap approach (1=random, 2=maximum-random, 3=maximum)
    icld = 2
    ! Set permute seed (must be offset between LW and SW by at least 140 to insure
@@ -165,6 +171,9 @@ subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw,
    call mcica_subcol_lw(lchnk, ncol, rrtmg_levs-1, icld, permuteseed, pmid(:, pverp-rrtmg_levs+1:pverp-1), &
       cld(:, pverp-rrtmg_levs+1:pverp-1), cicewp, cliqwp, rei, rel, tauc_lw(:, :ncol, pverp-rrtmg_levs+1:pverp-1), &
       cld_stolw, cicewp_stolw, cliqwp_stolw, rei_stolw, rel_stolw, tauc_stolw)
+
+   call radiation_timer_stop('mcica_subcol_lw')
+   call radiation_timer_start('rrtmg_lw')
 
    !
    ! Call RRTMG_LW model
@@ -246,6 +255,13 @@ subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw,
    fsul(:ncol,pverp-rrtmg_levs+1:pverp)=uflxc(:ncol,rrtmg_levs:1:-1)
    fsdl(:ncol,pverp-rrtmg_levs+1:pverp)=dflxc(:ncol,rrtmg_levs:1:-1)
 
+   if (single_column .and. scm_crm_mode) then
+      call radiation_outfld_real2d('FUL     ', ful, pcols, lchnk)
+      call radiation_outfld_real2d('FDL     ', fdl, pcols, lchnk)
+      call radiation_outfld_real2d('FULC    ', fsul, pcols, lchnk)
+      call radiation_outfld_real2d('FDLC    ', fsdl, pcols, lchnk)
+   end if
+
    fnl(:ncol,:) = ful(:ncol,:) - fdl(:ncol,:)
    ! mji/ cam excluded this?
    fcnl(:ncol,:) = fsul(:ncol,:) - fsdl(:ncol,:)
@@ -273,6 +289,8 @@ subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw,
       ld(:ncol,pverp-rrtmg_levs+1:pverp,:) = reshape(lwdflxs(:,:ncol,rrtmg_levs:1:-1), &
            (/ncol,rrtmg_levs,nbndlw/), order=(/3,1,2/))
    end if
+
+   call radiation_timer_stop('rrtmg_lw')
 
 end subroutine rad_rrtmg_lw_run
 

@@ -47,6 +47,18 @@
   type = real | kind = r8
   dimensions = ()
   intent = in
+[ single_column ]
+  standard_name = single_column_mode_enabled
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ scm_crm_mode ]
+  standard_name = single_column_cloud_resolving_model_mode_enabled
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
 [ pmidmb ]
   standard_name = rrtmg_layer_pressure
   units = hPa

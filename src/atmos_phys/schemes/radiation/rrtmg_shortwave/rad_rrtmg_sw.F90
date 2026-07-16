@@ -8,6 +8,8 @@ module ap_rad_rrtmg_sw_scheme
 use shr_kind_mod,    only: r8 => shr_kind_r8
 use parrrsw,         only: nbndsw, ngptsw
 use rrtmg_sw_rad,    only: rrtmg_sw
+use radiation_host_hooks, only: radiation_timer_start, radiation_timer_stop, &
+                                radiation_outfld_real2d
 
 implicit none
 
@@ -26,6 +28,7 @@ CONTAINS
 !> \section arg_table_rad_rrtmg_sw_run Argument Table
 !! \htmlinclude rad_rrtmg_sw_run.html
 subroutine rad_rrtmg_sw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair, &
+                    single_column, scm_crm_mode, &
                     pmidmb, pintmb, tlay, tlev, h2ovmr, o3vmr, co2vmr, &
                     ch4vmr, o2vmr, n2ovmr, solar_band_irrad, &
                     E_pmid   ,E_cld      ,                             &
@@ -45,6 +48,7 @@ subroutine rad_rrtmg_sw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair, 
    integer, intent(in) :: Nday, Nnite
    integer, intent(in) :: IdxDay(:), IdxNite(:)
    real(r8), intent(in) :: cpair
+   logical, intent(in) :: single_column, scm_crm_mode
    real(r8), intent(in) :: pmidmb(:,:), pintmb(:,:), tlay(:,:), tlev(:,:)
    real(r8), intent(in) :: h2ovmr(:,:), o3vmr(:,:), co2vmr(:,:)
    real(r8), intent(in) :: ch4vmr(:,:), o2vmr(:,:), n2ovmr(:,:)
@@ -82,6 +86,7 @@ subroutine rad_rrtmg_sw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair, 
 
    call rad_rrtmg_sw_core(                                          &
         pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,         &
+        single_column, scm_crm_mode,                                &
         pmidmb, pintmb, tlay, tlev, h2ovmr, o3vmr, co2vmr,          &
         ch4vmr, o2vmr, n2ovmr, solar_band_irrad, E_pmid, E_cld,     &
         E_aer_tau, E_aer_tau_w, E_aer_tau_w_g, E_aer_tau_w_f,      &
@@ -97,6 +102,7 @@ end subroutine rad_rrtmg_sw_run
 
 
 subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair, &
+                    single_column, scm_crm_mode, &
                     pmidmb_in, pintmb_in, tlay_in, tlev_in, h2ovmr_in, &
                     o3vmr_in, co2vmr_in, ch4vmr_in, o2vmr_in, n2ovmr_in, &
                     solar_band_irrad, &
@@ -162,6 +168,7 @@ subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,
    integer, intent(in) :: rrtmg_levs        ! number of levels rad is applied
 
    real(r8), intent(in) :: cpair
+   logical, intent(in) :: single_column, scm_crm_mode
    real(r8), intent(in) :: pmidmb_in(:,:), pintmb_in(:,:)
    real(r8), intent(in) :: tlay_in(:,:), tlev_in(:,:)
    real(r8), intent(in) :: h2ovmr_in(:,:), o3vmr_in(:,:), co2vmr_in(:,:)
@@ -366,10 +373,12 @@ subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,
    qrsc(1:ncol,1:pver) = 0.0_r8
    fns(1:ncol,1:pverp) = 0.0_r8
    fcns(1:ncol,1:pverp) = 0.0_r8
-   fus(1:ncol,1:pverp) = 0.0_r8
-   fds(1:ncol,1:pverp) = 0.0_r8
-   fusc(:ncol,:pverp) = 0.0_r8
-   fdsc(:ncol,:pverp) = 0.0_r8
+   if (single_column .and. scm_crm_mode) then
+      fus(1:ncol,1:pverp) = 0.0_r8
+      fds(1:ncol,1:pverp) = 0.0_r8
+      fusc(:ncol,:pverp) = 0.0_r8
+      fdsc(:ncol,:pverp) = 0.0_r8
+   end if
 
    if (associated(su)) su(1:ncol,:,:) = 0.0_r8
    if (associated(sd)) sd(1:ncol,:,:) = 0.0_r8
@@ -537,6 +546,8 @@ subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,
    ! Call mcica sub-column generator for RRTMG_SW
 
    ! Call sub-column generator for McICA in radiation
+   call radiation_timer_start('mcica_subcol_sw')
+
    ! Select cloud overlap approach (1=random, 2=maximum-random, 3=maximum)
    icld = 2
    ! Set permute seed (must be offset between LW and SW by at least 140 to insure
@@ -548,6 +559,9 @@ subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,
       cld, cicewp, cliqwp, rei, rel, tauc_sw, ssac_sw, asmc_sw, fsfc_sw, &
       cld_stosw, cicewp_stosw, cliqwp_stosw, rei_stosw, rel_stosw, &
       tauc_stosw, ssac_stosw, asmc_stosw, fsfc_stosw)
+
+   call radiation_timer_stop('mcica_subcol_sw')
+   call radiation_timer_start('rrtmg_sw')
 
    ! Call RRTMG_SW for all layers for daylight columns
 
@@ -647,6 +661,8 @@ subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,
            (/Nday,rrtmg_levs,nbndsw/), order=(/3,1,2/))
    end if
 
+   call radiation_timer_stop('rrtmg_sw')
+
    ! Rearrange output arrays.
    !
    ! intent(out)
@@ -681,10 +697,16 @@ subroutine rad_rrtmg_sw_core(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, cpair,
       call ExpDayNite(sd,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp, 1, nbndsw)
    end if
 
-   call ExpDayNite(fus,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-   call ExpDayNite(fds,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-   call ExpDayNite(fusc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-   call ExpDayNite(fdsc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+   if (single_column .and. scm_crm_mode) then
+      call ExpDayNite(fus,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+      call ExpDayNite(fds,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+      call ExpDayNite(fusc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+      call ExpDayNite(fdsc,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+      call radiation_outfld_real2d('FUS     ', fus * 1.e-3_r8, pcols, lchnk)
+      call radiation_outfld_real2d('FDS     ', fds * 1.e-3_r8, pcols, lchnk)
+      call radiation_outfld_real2d('FUSC    ', fusc, pcols, lchnk)
+      call radiation_outfld_real2d('FDSC    ', fdsc, pcols, lchnk)
+   end if
 
 end subroutine rad_rrtmg_sw_core
 

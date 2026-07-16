@@ -7,6 +7,7 @@ module radlw
   use ppgrid, only: pcols, pver, pverp
   use rrtmg_state, only: rrtmg_state_t
   use ap_rad_rrtmg_lw_scheme, only: rad_rrtmg_lw_run
+  use radiation_host_hooks, only: register_radiation_host_hooks
 
   implicit none
   private
@@ -22,7 +23,6 @@ contains
        pmid, aer_lw_abs, cld, tauc_lw, qrl, qrlc, flns, flnt, &
        flnsc, flntc, flwds, flut, flutc, fnl, fcnl, fldsc, lu, ld)
 
-    use cam_history, only: outfld
     use perf_mod, only: t_startf, t_stopf
     use physconst, only: cpair
     use scamMod, only: single_column, scm_crm_mode
@@ -37,24 +37,14 @@ contains
     real(r8) :: fdl(pcols,pverp), fsdl(pcols,pverp)
 
     call t_startf('ap_rad_rrtmg_lw_run')
-    call t_startf('mcica_subcol_lw')
-    call t_stopf('mcica_subcol_lw')
-    call t_startf('rrtmg_lw')
     call rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw, cpair, &
+         single_column, scm_crm_mode, &
          r_state%pmidmb, r_state%pintmb, r_state%tlay, r_state%tlev, &
          r_state%h2ovmr, r_state%o3vmr, r_state%co2vmr, r_state%ch4vmr, &
          r_state%o2vmr, r_state%n2ovmr, r_state%cfc11vmr, r_state%cfc12vmr, &
          r_state%cfc22vmr, r_state%ccl4vmr, pmid, aer_lw_abs, cld, tauc_lw, &
          qrl, qrlc, flns, flnt, flnsc, flntc, flwds, flut, flutc, fnl, fcnl, &
          fldsc, lu, ld, ful, fsul, fdl, fsdl)
-    call t_stopf('rrtmg_lw')
-
-    if (single_column .and. scm_crm_mode) then
-       call outfld('FUL     ',ful,pcols,lchnk)
-       call outfld('FDL     ',fdl,pcols,lchnk)
-       call outfld('FULC    ',fsul,pcols,lchnk)
-       call outfld('FDLC    ',fsdl,pcols,lchnk)
-    end if
     call t_stopf('ap_rad_rrtmg_lw_run')
   end subroutine rad_rrtmg_lw
 
@@ -64,6 +54,8 @@ contains
     use cam_logfile, only: iulog
     use rrtmg_lw_init, only: rrtmg_lw_ini
     integer :: k
+
+    call register_radiation_host_hooks(cam_timer_start, cam_timer_stop, cam_outfld_real2d)
 
     if (pref_mid(1) < 0.1_r8) then
        do k = 1, pver
@@ -75,5 +67,28 @@ contains
     if (masterproc) write(iulog,*) 'radlw_init: ntoplw =',ntoplw
     call rrtmg_lw_ini
   end subroutine radlw_init
+
+  subroutine cam_timer_start(timer_name)
+    use perf_mod, only: t_startf
+    character(len=*), intent(in) :: timer_name
+
+    call t_startf(timer_name)
+  end subroutine cam_timer_start
+
+  subroutine cam_timer_stop(timer_name)
+    use perf_mod, only: t_stopf
+    character(len=*), intent(in) :: timer_name
+
+    call t_stopf(timer_name)
+  end subroutine cam_timer_stop
+
+  subroutine cam_outfld_real2d(field_name, field, dim1, lchnk)
+    use cam_history, only: outfld
+    character(len=*), intent(in) :: field_name
+    real(r8), intent(in) :: field(:,:)
+    integer, intent(in) :: dim1, lchnk
+
+    call outfld(field_name, field, dim1, lchnk)
+  end subroutine cam_outfld_real2d
 
 end module radlw
