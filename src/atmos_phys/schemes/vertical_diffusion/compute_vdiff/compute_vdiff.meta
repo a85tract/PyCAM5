@@ -35,6 +35,12 @@
   type = integer
   dimensions = ()
   intent = in
+[ nfield ]
+  standard_name = vertical_diffusion_field_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
 [ ncol ]
   standard_name = horizontal_loop_extent
   units = count
@@ -163,15 +169,15 @@
   intent = in
 [ fieldlist ]
   standard_name = vertical_diffusion_field_selector
-  units = none
-  type = vdiff_selector
-  dimensions = ()
+  units = flag
+  type = logical
+  dimensions = (vertical_diffusion_field_dimension)
   intent = in
 [ fieldlistm ]
   standard_name = molecular_diffusion_field_selector
-  units = none
-  type = vdiff_selector
-  dimensions = ()
+  units = flag
+  type = logical
+  dimensions = (vertical_diffusion_field_dimension)
   intent = in
 [ u ]
   standard_name = eastward_wind_after_vertical_diffusion

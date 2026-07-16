@@ -1,7 +1,6 @@
 module ap_gw_drag_prof_scheme
 
   use gw_utils, only: r8
-  use coords_1d, only: Coords1D
 
   implicit none
   private
@@ -15,7 +14,8 @@ contains
   !!
 subroutine gw_drag_prof_run(pver, pverp, nconst, ngwv, nwave, ktop, &
      tau_0_ubc, dback, rog, alpha, taumin, tndmax, umcfac, ubmc2mn, &
-     gravit, kwv, effkwv, ncol, p, src_level, tend_level, dt, &
+     gravit, kwv, effkwv, ncol, pverm, p_del, p_rdel, p_rdst, &
+     src_level, tend_level, dt, &
      t,    &
      piln, rhoi,    nm,   ni,  ubm,  ubi,  xv,    yv,   &
      effgw,      c, kvtt, q,   dse,  tau,  utgw,  vtgw, &
@@ -33,19 +33,22 @@ subroutine gw_drag_prof_run(pver, pverp, nconst, ngwv, nwave, ktop, &
   !        tendency
   !-----------------------------------------------------------------------
 
-  use gw_diffusion, only: gw_ediff, gw_diff_tend
+  use gw_diffusion, only: gw_ediff_fields, gw_diff_tend
   use linear_1d_operators, only: TriDiagDecomp
 
   !------------------------------Arguments--------------------------------
-  integer, intent(in) :: pver, pverp, nconst, ngwv, nwave, ktop
+  integer, intent(in) :: pver, pverp, nconst, ngwv, nwave, ktop, pverm
   logical, intent(in) :: tau_0_ubc
   real(r8), intent(in) :: dback, rog, alpha(pverp)
   real(r8), intent(in) :: taumin, tndmax, umcfac, ubmc2mn
   real(r8), intent(in) :: gravit, kwv, effkwv
   ! Column dimension.
   integer, intent(in) :: ncol
-  ! Pressure coordinates.
-  type(Coords1D), intent(in) :: p
+  ! Layer pressure thickness, its inverse, and inverse distances between
+  ! midpoint pressures.
+  real(r8), intent(in) :: p_del(ncol,pver)
+  real(r8), intent(in) :: p_rdel(ncol,pver)
+  real(r8), intent(in) :: p_rdst(ncol,pverm)
   ! Level from which gravity waves are propagated upward.
   integer, intent(in) :: src_level(ncol)
   ! Lowest level where wind tendencies are calculated.
@@ -240,7 +243,7 @@ subroutine gw_drag_prof_run(pver, pverp, nconst, ngwv, nwave, ktop, &
 
         ! Determine the wind tendency, including excess stress carried down
         ! from above.
-        ubtl = gravit * (tau(:,l,k+1)-tau(:,l,k)) * p%rdel(:,k)
+        ubtl = gravit * (tau(:,l,k+1)-tau(:,l,k)) * p_rdel(:,k)
 
         ! Apply first tendency limit to maintain numerical stability.
         ! Enforce du/dt < |c-u|/dt  so u-c cannot change sign
@@ -280,7 +283,7 @@ subroutine gw_drag_prof_run(pver, pverp, nconst, ngwv, nwave, ktop, &
         ! divergences downward while conserving total stress.
         where (k <= tend_level)
            tau(:,l,k+1) = tau(:,l,k) + &
-                abs(gwut(:,k,l)) * p%del(:,k) / gravit
+                abs(gwut(:,k,l)) * p_del(:,k) / gravit
         end where
      end do
 
@@ -295,8 +298,8 @@ subroutine gw_drag_prof_run(pver, pverp, nconst, ngwv, nwave, ktop, &
 
   ! Calculate effective diffusivity and LU decomposition for the
   ! vertical diffusion solver.
-  call gw_ediff (ncol, pver, ngwv, kbot_tend, ktop, tend_level, &
-       gwut, ubm, nm, rhoi, dt, gravit, p, c, &
+  call gw_ediff_fields (ncol, pver, ngwv, kbot_tend, ktop, tend_level, &
+       gwut, ubm, nm, rhoi, dt, gravit, p_rdel, p_rdst, c, &
        egwdffi, decomp, ro_adjust=ro_adjust)
 
   ! Calculate tendency on each constituent.

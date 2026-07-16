@@ -66,7 +66,8 @@ subroutine gw_oro_src(ncol, band, p, &
 
   call t_startf('ap_gw_oro_src_run')
   call gw_oro_src_run(pver, pver+1, rair, band%ngwv, 2*band%ngwv+1, &
-       band%fcrit2, band%kwv, ncol, p, u, v, t, sgh, zm, nm, &
+       band%fcrit2, band%kwv, ncol, p%ifc, p%mid, p%del, &
+       u, v, t, sgh, zm, nm, &
        src_level, tend_level, tau, ubm, ubi, xv, yv, c)
   call t_stopf('ap_gw_oro_src_run')
 

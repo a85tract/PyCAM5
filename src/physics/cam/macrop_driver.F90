@@ -1230,6 +1230,7 @@ end subroutine macrop_driver_tend
 elemental subroutine ice_macro_tend(naai,t,p,qv,qi,ni,xxls,deltat,stend,qvtend,qitend,nitend) 
 
   use ap_ice_macro_tend_scheme, only: ice_macro_tend_run
+  use wv_sat_methods, only: wv_sat_qsat_ice
 
   real(r8), intent(in)  :: naai   !Activated number of ice nuclei 
   real(r8), intent(in)  :: t      !temperature (k)
@@ -1243,8 +1244,13 @@ elemental subroutine ice_macro_tend(naai,t,p,qv,qi,ni,xxls,deltat,stend,qvtend,q
   real(r8), intent(out) :: qvtend !vapor tendency
   real(r8), intent(out) :: qitend !ice mass tendency
   real(r8), intent(out) :: nitend !ice number tendency  
+
+  real(r8) :: esi
+  real(r8) :: qsi
+
+  call wv_sat_qsat_ice(t, p, esi, qsi)
  
-  call ice_macro_tend_run(naai, t, p, qv, qi, ni, xxls, deltat, &
+  call ice_macro_tend_run(naai, t, qsi, qv, qi, ni, xxls, deltat, &
        stend, qvtend, qitend, nitend)
 
 end subroutine ice_macro_tend

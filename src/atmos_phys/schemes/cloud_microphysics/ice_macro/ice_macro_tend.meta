@@ -17,9 +17,9 @@
   type = real | kind = r8
   dimensions = ()
   intent = in
-[ p ]
-  standard_name = cam_ice_macro_p
-  units = Pa
+[ qsi ]
+  standard_name = cam_ice_macro_qsi
+  units = kg kg-1
   type = real | kind = r8
   dimensions = ()
   intent = in

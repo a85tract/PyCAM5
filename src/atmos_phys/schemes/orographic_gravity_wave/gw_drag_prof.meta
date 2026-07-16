@@ -113,11 +113,29 @@
   type = integer
   dimensions = ()
   intent = in
-[ p ]
-  standard_name = vertical_pressure_coordinates_for_gravity_wave_drag
-  units = Pa
-  type = coords1d
+[ pverm ]
+  standard_name = vertical_midpoint_spacing_dimension
+  units = count
+  type = integer
   dimensions = ()
+  intent = in
+[ p_del ]
+  standard_name = air_pressure_thickness_for_gravity_wave_drag
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ p_rdel ]
+  standard_name = inverse_air_pressure_thickness_for_gravity_wave_drag
+  units = Pa-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ p_rdst ]
+  standard_name = inverse_distance_between_air_pressure_midpoints_for_gravity_wave_drag
+  units = Pa-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_midpoint_spacing_dimension)
   intent = in
 [ src_level ]
   standard_name = vertical_index_of_gravity_wave_source_level

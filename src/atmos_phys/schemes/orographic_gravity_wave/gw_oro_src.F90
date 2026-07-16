@@ -1,7 +1,6 @@
 module ap_gw_oro_src_scheme
 
   use gw_utils, only: r8
-  use coords_1d, only: Coords1D
 
   implicit none
   private
@@ -13,7 +12,8 @@ contains
   !> \section arg_table_gw_oro_src_run Argument Table
   !! \htmlinclude gw_oro_src_run.html
   !!
-subroutine gw_oro_src_run(pver, pverp, rair, ngwv, nwave, fcrit2, kwv, ncol, p, &
+subroutine gw_oro_src_run(pver, pverp, rair, ngwv, nwave, fcrit2, kwv, ncol, &
+     p_ifc, p_mid, p_del, &
      u, v, t, sgh, zm, nm, &
      src_level, tend_level, tau, ubm, ubi, xv, yv, c)
   use gw_utils, only: get_unit_vector, dot_2d, midpoint_interp
@@ -28,8 +28,10 @@ subroutine gw_oro_src_run(pver, pverp, rair, ngwv, nwave, fcrit2, kwv, ncol, p, 
   real(r8), intent(in) :: rair, fcrit2, kwv
   ! Column dimension.
   integer, intent(in) :: ncol
-  ! Pressure coordinates.
-  type(Coords1D), intent(in) :: p
+  ! Interface, midpoint, and layer pressure coordinates.
+  real(r8), intent(in) :: p_ifc(ncol,pverp)
+  real(r8), intent(in) :: p_mid(ncol,pver)
+  real(r8), intent(in) :: p_del(ncol,pver)
 
   ! Midpoint zonal/meridional winds.
   real(r8), intent(in) :: u(ncol,pver), v(ncol,pver)
@@ -94,20 +96,20 @@ subroutine gw_oro_src_run(pver, pverp, rair, ngwv, nwave, fcrit2, kwv, ncol, p, 
 
   k = pver
   src_level = k-1
-  rsrc = p%mid(:,k)/(rair*t(:,k)) * p%del(:,k)
-  usrc = u(:,k) * p%del(:,k)
-  vsrc = v(:,k) * p%del(:,k)
-  nsrc = nm(:,k)* p%del(:,k)
+  rsrc = p_mid(:,k)/(rair*t(:,k)) * p_del(:,k)
+  usrc = u(:,k) * p_del(:,k)
+  vsrc = v(:,k) * p_del(:,k)
+  nsrc = nm(:,k)* p_del(:,k)
 
   do k = pver-1, 1, -1
      do i = 1, ncol
         if (hdsp(i) > sqrt(zm(i,k)*zm(i,k+1))) then
            src_level(i) = k-1
            rsrc(i) = rsrc(i) + &
-                p%mid(i,k) / (rair*t(i,k)) * p%del(i,k)
-           usrc(i) = usrc(i) + u(i,k) * p%del(i,k)
-           vsrc(i) = vsrc(i) + v(i,k) * p%del(i,k)
-           nsrc(i) = nsrc(i) + nm(i,k)* p%del(i,k)
+                p_mid(i,k) / (rair*t(i,k)) * p_del(i,k)
+           usrc(i) = usrc(i) + u(i,k) * p_del(i,k)
+           vsrc(i) = vsrc(i) + v(i,k) * p_del(i,k)
+           nsrc(i) = nsrc(i) + nm(i,k)* p_del(i,k)
         end if
      end do
      ! Break the loop when all source levels found.
@@ -115,7 +117,7 @@ subroutine gw_oro_src_run(pver, pverp, rair, ngwv, nwave, fcrit2, kwv, ncol, p, 
   end do
 
   do i = 1, ncol
-     dpsrc(i) = p%ifc(i,pver+1) - p%ifc(i,src_level(i)+1)
+     dpsrc(i) = p_ifc(i,pver+1) - p_ifc(i,src_level(i)+1)
   end do
 
   rsrc = rsrc / dpsrc

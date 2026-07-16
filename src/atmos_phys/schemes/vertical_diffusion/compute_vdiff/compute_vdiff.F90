@@ -34,6 +34,7 @@
   public new_fieldlist_vdiff                             ! Returns an empty fieldlist
   public compute_vdiff_run                               ! CCPP-style process entry
   public vdiff_selector                                  ! Type for storing fields selected to be diffused
+  public vdiff_selector_to_flags                         ! CAM adapter for the legacy selector type
   public vdiff_select                                    ! Selects fields to be diffused
   public operator(.not.)                                 ! Extends .not. to operate on type vdiff_selector
   public any                                             ! Provides functionality of intrinsic any for type vdiff_selector
@@ -56,6 +57,13 @@
   interface any
        module procedure my_any
   end interface
+
+  ! Host-only path for the optional molecular-diffusion callbacks. The
+  ! public process entry remains an intrinsic-only interface.
+  interface compute_vdiff_cam_adapter
+       module procedure compute_vdiff_core
+  end interface
+  public compute_vdiff_cam_adapter
 
   ! ------------ !
   ! Private data !
@@ -124,6 +132,15 @@
 
   end function new_fieldlist_vdiff
 
+  subroutine vdiff_selector_to_flags(selector, flags)
+    ! Keep the legacy CAM selector representation outside the process API.
+    type(vdiff_selector), intent(in) :: selector
+    logical, intent(out) :: flags(:)
+
+    flags = selector%fields
+
+  end subroutine vdiff_selector_to_flags
+
   ! =============================================================================== !
   !                                                                                 !
   ! =============================================================================== !
@@ -131,20 +148,19 @@
   !> \section arg_table_compute_vdiff_run Argument Table
   !! \htmlinclude compute_vdiff_run.html
   !!
-  subroutine compute_vdiff_run( lchnk, pcols, pver, pverp, ncnst, ncol, pmid, &
+  subroutine compute_vdiff_run( lchnk, pcols, pver, pverp, ncnst, nfield, ncol, pmid, &
        pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, nbot, &
        kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, fieldlist, &
        fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, topflx, &
        tauresx, tauresy, itaures, cpairv, rairi, do_molec_diff, kvt, &
        errmsg, errflg )
 
-    use molec_diff, only : compute_molec_diff, vd_lu_qdecomp
-
     integer,  intent(in) :: lchnk
     integer,  intent(in) :: pcols
     integer,  intent(in) :: pver
     integer,  intent(in) :: pverp
     integer,  intent(in) :: ncnst
+    integer,  intent(in) :: nfield
     integer,  intent(in) :: ncol
     integer,  intent(in) :: ntop
     integer,  intent(in) :: nbot
@@ -166,8 +182,8 @@
     real(r8), intent(in) :: cpairv(pcols,pver)
     real(r8), intent(in) :: rairi(pcols,pverp)
     logical,  intent(in) :: do_molec_diff
-    type(vdiff_selector), intent(in) :: fieldlist
-    type(vdiff_selector), intent(in) :: fieldlistm
+    logical,  intent(in) :: fieldlist(nfield)
+    logical,  intent(in) :: fieldlistm(nfield)
 
     real(r8), intent(inout) :: kvm(pcols,pverp)
     real(r8), intent(inout) :: kvq(pcols,pverp)
@@ -194,25 +210,17 @@
     errflg = 0
 
     if (do_molec_diff) then
-       if (.not. present(kvt)) then
-          errmsg = 'compute_vdiff_run: molecular diffusion requires kvt'
-          errflg = 1
-          return
-       end if
-       call compute_vdiff_core( lchnk, pcols, pver, ncnst, ncol, pmid, &
-            pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
-            nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-            fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
-            topflx, errstring, tauresx, tauresy, itaures, cpairv, rairi, &
-            do_molec_diff, compute_molec_diff, vd_lu_qdecomp, kvt )
-    else
-       call compute_vdiff_core( lchnk, pcols, pver, ncnst, ncol, pmid, &
-            pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
-            nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-            fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
-            topflx, errstring, tauresx, tauresy, itaures, cpairv, rairi, &
-            do_molec_diff )
+       errmsg = 'compute_vdiff_run: molecular diffusion requires the CAM adapter'
+       errflg = 1
+       return
     end if
+
+    call compute_vdiff_core( lchnk, pcols, pver, ncnst, ncol, pmid, &
+         pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
+         nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
+         fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
+         topflx, errstring, tauresx, tauresy, itaures, cpairv, rairi, &
+         do_molec_diff )
 
     if (len_trim(errstring) > 0) then
        errmsg = trim(errstring)
@@ -292,8 +300,8 @@
 
     logical,  intent(in)    :: do_molec_diff             ! Flag indicating multiple constituent diffusivities
 
-    type(vdiff_selector), intent(in) :: fieldlist        ! Array of flags selecting which fields to diffuse
-    type(vdiff_selector), intent(in) :: fieldlistm       ! Array of flags selecting which fields for molecular diffusion
+    logical, intent(in) :: fieldlist(:)        ! Array of flags selecting which fields to diffuse
+    logical, intent(in) :: fieldlistm(:)       ! Array of flags selecting which fields for molecular diffusion
 
     ! ---------------------- !
     ! Input-Output Arguments !
@@ -1100,22 +1108,22 @@
     ! ---------------------------------------------------------------------------- !
     ! This function reports whether the field with incoming name is to be diffused !
     ! ---------------------------------------------------------------------------- !
-    type(vdiff_selector), intent(in)           :: fieldlist
+    logical,              intent(in)           :: fieldlist(:)
     character(*),         intent(in)           :: name
     integer,              intent(in), optional :: qindex
 
     select case (name)
     case ('u','U')
-       diffuse = fieldlist%fields(1)
+       diffuse = fieldlist(1)
     case ('v','V')
-       diffuse = fieldlist%fields(2)
+       diffuse = fieldlist(2)
     case ('s','S')
-       diffuse = fieldlist%fields(3)
+       diffuse = fieldlist(3)
     case ('q','Q')
        if( present(qindex) ) then
-           diffuse = fieldlist%fields(3 + qindex)
+           diffuse = fieldlist(3 + qindex)
        else
-           diffuse = fieldlist%fields(4)
+           diffuse = fieldlist(4)
        endif
     case default
        diffuse = .false.

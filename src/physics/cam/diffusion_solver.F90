@@ -1,8 +1,9 @@
 module diffusion_solver
 
   use ap_compute_vdiff_scheme, only : scheme_init_vdiff => init_vdiff, &
-       compute_vdiff_run, vdiff_selector, new_fieldlist_vdiff, &
-       vdiff_select, operator(.not.), any
+       compute_vdiff_run, compute_vdiff_cam_adapter, &
+       vdiff_selector, new_fieldlist_vdiff, &
+       vdiff_select, vdiff_selector_to_flags, operator(.not.), any
   use perf_mod, only : t_startf, t_stopf
 
   implicit none
@@ -41,6 +42,9 @@ contains
        u, v, q, dse, tautmsx, tautmsy, dtk, topflx, errstring, tauresx, &
        tauresy, itaures, cpairv, rairi, do_molec_diff, &
        compute_molec_diff, vd_lu_qdecomp, kvt )
+
+    use molec_diff, only : host_compute_molec_diff => compute_molec_diff, &
+         host_vd_lu_qdecomp => vd_lu_qdecomp
 
     integer,  intent(in) :: lchnk
     integer,  intent(in) :: pcols
@@ -91,21 +95,51 @@ contains
     procedure(), optional :: vd_lu_qdecomp
 
     character(len=512) :: errmsg
+    character(len=128) :: core_errstring
     integer :: errflg
+    logical :: field_flags(3+ncnst)
+    logical :: molecular_field_flags(3+ncnst)
+
+    call vdiff_selector_to_flags(fieldlist, field_flags)
+    call vdiff_selector_to_flags(fieldlistm, molecular_field_flags)
+
+    errmsg = ''
+    core_errstring = ''
+    errflg = 0
 
     call t_startf('ap_compute_vdiff_run')
-    if (present(kvt)) then
-       call compute_vdiff_run(lchnk, pcols, pver, pver+1, ncnst, ncol, pmid, &
+    if (do_molec_diff) then
+       if (present(kvt)) then
+          call compute_vdiff_cam_adapter(lchnk, pcols, pver, ncnst, ncol, &
+               pmid, pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, &
+               ntop, nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
+               field_flags, molecular_field_flags, u, v, q, dse, tautmsx, &
+               tautmsy, dtk, topflx, core_errstring, tauresx, tauresy, &
+               itaures, cpairv, rairi, do_molec_diff, &
+               host_compute_molec_diff, host_vd_lu_qdecomp, kvt)
+       else
+          call compute_vdiff_cam_adapter(lchnk, pcols, pver, ncnst, ncol, &
+               pmid, pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, &
+               ntop, nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
+               field_flags, molecular_field_flags, u, v, q, dse, tautmsx, &
+               tautmsy, dtk, topflx, core_errstring, tauresx, tauresy, &
+               itaures, cpairv, rairi, do_molec_diff, &
+               host_compute_molec_diff, host_vd_lu_qdecomp)
+       end if
+       errmsg = trim(core_errstring)
+       if (len_trim(core_errstring) > 0) errflg = 1
+    else if (present(kvt)) then
+       call compute_vdiff_run(lchnk, pcols, pver, pver+1, ncnst, 3+ncnst, ncol, pmid, &
             pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
             nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-            fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
+            field_flags, molecular_field_flags, u, v, q, dse, tautmsx, tautmsy, dtk, &
             topflx, tauresx, tauresy, itaures, cpairv, rairi, &
             do_molec_diff, kvt, errmsg, errflg)
     else
-       call compute_vdiff_run(lchnk, pcols, pver, pver+1, ncnst, ncol, pmid, &
+       call compute_vdiff_run(lchnk, pcols, pver, pver+1, ncnst, 3+ncnst, ncol, pmid, &
             pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
             nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-            fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
+            field_flags, molecular_field_flags, u, v, q, dse, tautmsx, tautmsy, dtk, &
             topflx, tauresx, tauresy, itaures, cpairv, rairi, &
             do_molec_diff, errmsg=errmsg, errflg=errflg)
     end if

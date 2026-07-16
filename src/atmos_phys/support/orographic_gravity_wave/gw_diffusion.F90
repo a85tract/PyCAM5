@@ -13,6 +13,7 @@ private
 save
 
 public :: gw_ediff
+public :: gw_ediff_fields
 public :: gw_diff_tend
 
 contains
@@ -27,9 +28,7 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
 !
 ! Author: F. Sassi, Jan 31, 2001
 !
-  use gw_utils, only: midpoint_interp
   use coords_1d, only: Coords1D
-  use vdiff_lu_solver, only: fin_vol_lu_decomp
 
 !-------------------------------Input Arguments----------------------------
 
@@ -67,6 +66,60 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
   ! LU decomposition.
   type(TriDiagDecomp), intent(out) :: decomp
 
+  call gw_ediff_fields(ncol, pver, ngwv, kbot, ktop, tend_level, &
+       gwut, ubm, nm, rho, dt, gravit, p%rdel, p%rdst, c, &
+       egwdffi, decomp, ro_adjust)
+
+end subroutine gw_ediff
+
+!==========================================================================
+
+subroutine gw_ediff_fields(ncol, pver, ngwv, kbot, ktop, tend_level, &
+     gwut, ubm, nm, rho, dt, gravit, p_rdel, p_rdst, c, &
+     egwdffi, decomp, ro_adjust)
+!
+! Calculate effective diffusivity associated with GW forcing from
+! intrinsic pressure-coordinate fields.
+!
+  use gw_utils, only: midpoint_interp
+  use coords_1d, only: Coords1D
+  use vdiff_lu_solver, only: fin_vol_lu_decomp
+
+!-------------------------------Input Arguments----------------------------
+
+  ! Column, level, and gravity wave spectrum dimensions.
+  integer, intent(in) :: ncol, pver, ngwv
+  ! Bottom and top levels to operate on.
+  integer, intent(in) :: kbot, ktop
+  ! Per-column bottom index where tendencies are applied.
+  integer, intent(in) :: tend_level(ncol)
+  ! GW zonal wind tendencies at midpoint.
+  real(r8), intent(in) :: gwut(ncol,pver,-ngwv:ngwv)
+  ! Projection of wind at midpoints.
+  real(r8), intent(in) :: ubm(ncol,pver)
+  ! Brunt-Vaisalla frequency.
+  real(r8), intent(in) :: nm(ncol,pver)
+  ! Density at interfaces.
+  real(r8), intent(in) :: rho(ncol,pver+1)
+  ! Time step and acceleration due to gravity.
+  real(r8), intent(in) :: dt, gravit
+  ! Inverse pressure-layer thicknesses and midpoint distances.
+  real(r8), intent(in) :: p_rdel(ncol,pver)
+  real(r8), intent(in) :: p_rdst(ncol,pver-1)
+  ! Wave phase speeds for each column.
+  real(r8), intent(in) :: c(ncol,-ngwv:ngwv)
+
+  ! Adjustment parameter for IGWs.
+  real(r8), intent(in), optional :: &
+       ro_adjust(ncol,-ngwv:ngwv,pver+1)
+
+!-----------------------------Output Arguments-----------------------------
+
+  ! Effective gw diffusivity at interfaces.
+  real(r8), intent(out) :: egwdffi(ncol,pver+1)
+  ! LU decomposition.
+  type(TriDiagDecomp), intent(out) :: decomp
+
 !-----------------------------Local Workspace------------------------------
 
   ! Effective gw diffusivity at midpoints.
@@ -75,12 +128,12 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
   real(r8) :: egwdff_lev(ncol)
   ! (dp/dz)^2 == (gravit*rho)^2
   real(r8) :: dpidz_sq(ncol,pver+1)
+  ! Pressure-coordinate section needed by the legacy LU implementation.
+  type(Coords1D) :: p_section
   ! Level and wave indices.
   integer :: k, l
   ! Inverse Prandtl number.
   real(r8), parameter :: prndl=0.25_r8
-  ! Density scale height.
-  real(r8), parameter :: dscale=7000._r8
 
 !--------------------------------------------------------------------------
 
@@ -104,7 +157,6 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
      end do
   end do
 
-
   ! Interpolate effective diffusivity to interfaces.
   ! Assume zero at top and bottom interfaces.
   egwdffi(:,ktop+1:kbot) = midpoint_interp(egwdffm(:,ktop:kbot))
@@ -119,11 +171,21 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
   dpidz_sq = rho*gravit
   dpidz_sq = dpidz_sq*dpidz_sq
 
+  ! Construct only the pressure fields consumed by diffusion_operator.
+  ! This reproduces the slices copied by Coords1D%section without exposing
+  ! Coords1D at the scheme boundary.
+  p_section%n = ncol
+  p_section%d = kbot-ktop+1
+  allocate(p_section%rdel(ncol,p_section%d))
+  allocate(p_section%rdst(ncol,p_section%d-1))
+  p_section%rdel = p_rdel(:,ktop:kbot)
+  p_section%rdst = p_rdst(:,ktop:kbot-1)
+
   ! Decompose the diffusion matrix.
-  decomp = fin_vol_lu_decomp(dt, p%section([1,ncol],[ktop,kbot]), &
+  decomp = fin_vol_lu_decomp(dt, p_section, &
        coef_q_diff=egwdffi(:,ktop:kbot+1)*dpidz_sq(:,ktop:kbot+1))
 
-end subroutine gw_ediff
+end subroutine gw_ediff_fields
 
 !==========================================================================
 

@@ -29,11 +29,11 @@
   type = real | kind = r8
   dimensions = ()
   intent = in
-[ p ]
-  standard_name = vertical_pressure_coordinates_for_gravity_wave_drag
+[ p_del ]
+  standard_name = air_pressure_thickness_for_gravity_wave_drag
   units = Pa
-  type = coords1d
-  dimensions = ()
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
 [ u ]
   standard_name = eastward_wind

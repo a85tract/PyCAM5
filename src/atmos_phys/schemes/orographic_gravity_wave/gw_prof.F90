@@ -1,7 +1,6 @@
 module ap_gw_prof_scheme
 
   use gw_utils, only: r8
-  use coords_1d, only: Coords1D
 
   implicit none
   private
@@ -13,7 +12,8 @@ contains
   !> \section arg_table_gw_prof_run Argument Table
   !! \htmlinclude gw_prof_run.html
   !!
-subroutine gw_prof_run(pver, pverp, rair, gravit, ncol, p, cpair, t, rhoi, nm, ni)
+subroutine gw_prof_run(pver, pverp, pverm, rair, gravit, ncol, p_ifc, p_rdst, &
+     cpair, t, rhoi, nm, ni)
   !-----------------------------------------------------------------------
   ! Compute profiles of background state quantities for the multiple
   ! gravity wave drag parameterization.
@@ -23,12 +23,13 @@ subroutine gw_prof_run(pver, pverp, rair, gravit, ncol, p, cpair, t, rhoi, nm, n
   !-----------------------------------------------------------------------
   use gw_utils, only: midpoint_interp
   !------------------------------Arguments--------------------------------
-  integer, intent(in) :: pver, pverp
+  integer, intent(in) :: pver, pverp, pverm
   real(r8), intent(in) :: rair, gravit
   ! Column dimension.
   integer, intent(in) :: ncol
-  ! Pressure coordinates.
-  type(Coords1D), intent(in) :: p
+  ! Interface pressures and inverse distances between midpoint pressures.
+  real(r8), intent(in) :: p_ifc(ncol,pverp)
+  real(r8), intent(in) :: p_rdst(ncol,pverm)
 
   ! Specific heat of dry air, constant pressure.
   real(r8), intent(in) :: cpair
@@ -64,7 +65,7 @@ subroutine gw_prof_run(pver, pverp, rair, gravit, ncol, p, cpair, t, rhoi, nm, n
   k = 1
   do i = 1, ncol
      ti(i,k) = t(i,k)
-     rhoi(i,k) = p%ifc(i,k) / (rair*ti(i,k))
+     rhoi(i,k) = p_ifc(i,k) / (rair*ti(i,k))
      ni(i,k) = sqrt(gravit*gravit / (cpair*ti(i,k)))
   end do
 
@@ -72,8 +73,8 @@ subroutine gw_prof_run(pver, pverp, rair, gravit, ncol, p, cpair, t, rhoi, nm, n
   ti(:,2:pver) = midpoint_interp(t)
   do k = 2, pver
      do i = 1, ncol
-        rhoi(i,k) = p%ifc(i,k) / (rair*ti(i,k))
-        dtdp = (t(i,k)-t(i,k-1)) * p%rdst(i,k-1)
+        rhoi(i,k) = p_ifc(i,k) / (rair*ti(i,k))
+        dtdp = (t(i,k)-t(i,k-1)) * p_rdst(i,k-1)
         n2 = gravit*gravit/ti(i,k) * (1._r8/cpair - rhoi(i,k)*dtdp)
         ni(i,k) = sqrt(max(n2min, n2))
      end do
@@ -84,7 +85,7 @@ subroutine gw_prof_run(pver, pverp, rair, gravit, ncol, p, cpair, t, rhoi, nm, n
   k = pver+1
   do i = 1, ncol
      ti(i,k) = t(i,k-1)
-     rhoi(i,k) = p%ifc(i,k) / (rair*ti(i,k))
+     rhoi(i,k) = p_ifc(i,k) / (rair*ti(i,k))
      ni(i,k) = ni(i,k-1)
   end do
 

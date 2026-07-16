@@ -197,7 +197,8 @@ subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
   real(r8), intent(out) :: nm(ncol,pver), ni(ncol,pver+1)
 
   call t_startf('ap_gw_prof_run')
-  call gw_prof_run(pver, pver+1, rair, gravit, ncol, p, cpair, t, rhoi, nm, ni)
+  call gw_prof_run(pver, pver+1, pver-1, rair, gravit, ncol, p%ifc, p%rdst, &
+       cpair, t, rhoi, nm, ni)
   call t_stopf('ap_gw_prof_run')
 
 end subroutine gw_prof
@@ -293,7 +294,8 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   call gw_drag_prof_run(pver, pver+1, size(q,3), band%ngwv, &
        2*band%ngwv+1, ktop, tau_0_ubc, dback, rog, alpha, &
        taumin, tndmax, umcfac, ubmc2mn, gravit, band%kwv, &
-       band%effkwv, ncol, p, src_level, tend_level, dt, t, &
+       band%effkwv, ncol, pver-1, p%del, p%rdel, p%rdst, &
+       src_level, tend_level, dt, t, &
        piln, rhoi, nm, ni, ubm, ubi, xv, yv, effgw, c, kvtt, q, &
        dse, tau, utgw, vtgw, ttgw, qtgw, egwdffi, gwut, dttdf, &
        dttke, ro_adjust)
@@ -470,7 +472,8 @@ subroutine energy_change(dt, p, u, v, dudt, dvdt, dsdt, de)
   real(r8), intent(out) :: de(:)
 
   call t_startf('ap_energy_change_run')
-  call energy_change_run(pver, size(de), gravit, dt, p, u, v, dudt, dvdt, dsdt, de)
+  call energy_change_run(pver, size(de), gravit, dt, p%del, u, v, dudt, &
+       dvdt, dsdt, de)
   call t_stopf('ap_energy_change_run')
 
 end subroutine energy_change
