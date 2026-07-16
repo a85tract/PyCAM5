@@ -3,7 +3,9 @@
 
 The JSON status file is the only editable source of truth.  The Markdown
 dashboard is generated from it.  A process may be marked ``bfb`` only through
-an evidence-complete, 50-step batch validation record.
+an evidence-complete, 50-step validation record containing execution proof for
+that process.  A batch may need multiple records when its processes occupy
+mutually exclusive runtime branches.
 """
 
 from __future__ import annotations
@@ -161,10 +163,9 @@ def _validate_bfb_run(run: dict, batch_entries: set[str], errors: list[str]) -> 
     if not isinstance(proof, dict):
         errors.append(f"{prefix}.execution_proof must be an object")
         return
-    missing = sorted(batch_entries.difference(proof))
+    if not proof:
+        errors.append(f"{prefix} cannot be BFB without at least one execution proof")
     extra = sorted(set(proof).difference(batch_entries))
-    if missing:
-        errors.append(f"{prefix} lacks execution proof for: {', '.join(missing)}")
     if extra:
         errors.append(f"{prefix} has proof for entries outside its batch: {', '.join(extra)}")
     for entry_point, evidence in proof.items():
@@ -576,15 +577,21 @@ def record_run(data: dict, run: dict, verify_paths: bool = True) -> dict:
         raise StatusError("a failed run requires a non-empty note")
 
     result.setdefault("runs", []).append(run)
-    for process in members:
-        process["last_run"] = run["run_id"]
-        if run["result"] == "bfb":
+    if run["result"] == "bfb":
+        proven_entries = set(run["execution_proof"])
+        for process in members:
+            if process["entry_point"] not in proven_entries:
+                continue
+            process["last_run"] = run["run_id"]
             process["status"] = "bfb"
             process["bfb_run"] = run["run_id"]
             process["commit"] = run["source_commit"]
-        elif process["status"] != "bfb":
-            process["status"] = "failed"
-            process["bfb_run"] = None
+    else:
+        for process in members:
+            process["last_run"] = run["run_id"]
+            if process["status"] != "bfb":
+                process["status"] = "failed"
+                process["bfb_run"] = None
     result["updated_at"] = utc_now()
     assert_valid_status(result)
     return result
@@ -734,7 +741,10 @@ def build_parser() -> argparse.ArgumentParser:
     update_parser.add_argument("--note")
     update_parser.set_defaults(func=command_update)
 
-    run_parser = subparsers.add_parser("record-run", help="record a batch 50-step result")
+    run_parser = subparsers.add_parser(
+        "record-run",
+        help="record a 50-step result for the proof-covered processes in a batch",
+    )
     add_common_paths(run_parser)
     run_parser.add_argument("--run-id", required=True)
     run_parser.add_argument("--batch", choices=tuple(EXPECTED_BATCH_SIZES), required=True)

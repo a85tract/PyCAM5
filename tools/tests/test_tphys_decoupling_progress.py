@@ -127,12 +127,31 @@ class ProgressTrackerTests(unittest.TestCase):
                 with self.assertRaisesRegex(tracker.StatusError, field):
                     tracker.record_run(self.data, run)
 
-    def test_bfb_rejects_missing_execution_proof(self) -> None:
+    def test_bfb_rejects_empty_execution_proof(self) -> None:
         run = self._bfb_run()
-        missing = next(iter(run["execution_proof"]))
-        del run["execution_proof"][missing]
-        with self.assertRaisesRegex(tracker.StatusError, "lacks execution proof"):
+        run["execution_proof"] = {}
+        with self.assertRaisesRegex(tracker.StatusError, "at least one execution proof"):
             tracker.record_run(self.data, run)
+
+    def test_partial_bfb_run_marks_only_proven_processes(self) -> None:
+        run = self._bfb_run("B05")
+        proven = next(iter(run["execution_proof"]))
+        run["execution_proof"] = {proven: run["execution_proof"][proven]}
+
+        updated = tracker.record_run(self.data, run)
+        members = tracker.processes_for_batch(updated, "B05")
+        by_entry = {item["entry_point"]: item for item in members}
+
+        self.assertEqual(by_entry[proven]["status"], "bfb")
+        self.assertEqual(by_entry[proven]["bfb_run"], run["run_id"])
+        self.assertEqual(by_entry[proven]["last_run"], run["run_id"])
+        for entry, process in by_entry.items():
+            if entry == proven:
+                continue
+            self.assertNotEqual(process["status"], "bfb")
+            self.assertIsNone(process["bfb_run"])
+            self.assertIsNone(process["last_run"])
+        tracker.assert_valid_status(updated)
 
     def test_complete_bfb_run_marks_entire_batch(self) -> None:
         run = self._bfb_run("B01")
