@@ -1,0 +1,72 @@
+[ccpp-table-properties]
+  name = qneg
+  type = scheme
+[ccpp-arg-table]
+  name = qneg_run
+  type = scheme
+[ num_columns ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ declared_columns ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_levels ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ qminimum ]
+  standard_name = constituent_minimum_value
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ constituent ]
+  standard_name = constituent_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = inout
+[ nvals ]
+  standard_name = number_of_constituent_minimum_violations
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
+[ worst ]
+  standard_name = worst_constituent_minimum_violation
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = out
+[ worst_column ]
+  standard_name = worst_constituent_violation_column
+  units = index
+  type = integer
+  dimensions = ()
+  intent = out
+[ worst_level ]
+  standard_name = worst_constituent_violation_level
+  units = index
+  type = integer
+  dimensions = ()
+  intent = out
+[ errcode ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out

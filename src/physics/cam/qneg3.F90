@@ -16,6 +16,9 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
 !-----------------------------------------------------------------------
    use shr_kind_mod, only: r8 => shr_kind_r8
    use cam_logfile,  only: iulog
+   use cam_abortutils, only: endrun
+   use qneg,         only: qneg_run
+   use perf_mod,     only: t_startf, t_stopf
    implicit none
 
 !------------------------------Arguments--------------------------------
@@ -40,70 +43,24 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
 !
 !---------------------------Local workspace-----------------------------
 !
-   integer indx(ncol,lver)  ! array of indices of points < qmin
-   integer nval(lver)       ! number of points < qmin for 1 level
    integer nvals            ! number of values found < qmin
-   integer nn
-   integer iwtmp
-   integer i,ii,k           ! longitude, level indices
    integer m                ! constituent index
    integer iw,kw            ! i,k indices of worst violator
-
-   logical found            ! true => at least 1 minimum violator found
-
+   integer errcode
    real(r8) worst           ! biggest violator
+   character(len=512) :: errmsg
 
 !
 !-----------------------------------------------------------------------
 !
 
    do m=lconst_beg,lconst_end
-      nvals = 0
-      found = .false.
-      worst = 1.e35_r8
-      iw = -1
-!
-! Test all field values for being less than minimum value. Set q = qmin
-! for all such points. Trace offenders and identify worst one.
-!
-!DIR$ preferstream
-      do k=1,lver
-         nval(k) = 0
-!DIR$ prefervector
-         nn = 0
-         do i=1,ncol
-            if (q(i,k,m) < qmin(m)) then
-               nn = nn + 1
-               indx(nn,k) = i
-            end if
-         end do
-         nval(k) = nn
-      end do
-
-      do k=1,lver
-         if (nval(k) > 0) then
-            found = .true.
-            nvals = nvals + nval(k)
-            iwtmp = -1
-!cdir nodep,altcode=loopcnt
-            do ii=1,nval(k)
-               i = indx(ii,k)
-               if (q(i,k,m) < worst) then
-                  worst = q(i,k,m)
-                  iwtmp = ii
-               end if
-            end do
-            if (iwtmp /= -1 ) kw = k
-            if (iwtmp /= -1 ) iw = indx(iwtmp,k)
-!cdir nodep,altcode=loopcnt
-            do ii=1,nval(k)
-               i = indx(ii,k)
-               q(i,k,m) = qmin(m)
-            end do
-         end if
-      end do
-
-      if (found .and. nvals>100 .and.  abs(worst)>max(qmin(m),1.e-12_r8)) then
+      call t_startf('ap_qneg_run')
+      call qneg_run(ncol, ncold, lver, qmin(m), q(:,:,m), nvals, worst, &
+           iw, kw, errcode, errmsg)
+      call t_stopf('ap_qneg_run')
+      if (errcode /= 0) call endrun(trim(errmsg))
+      if (nvals>100 .and. abs(worst)>max(qmin(m),1.e-12_r8)) then
          write(iulog,9000)subnam,m,idx,nvals,qmin(m),worst,iw,kw
       end if
    end do
@@ -113,6 +70,4 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
             ' Min. mixing ratio violated at ',i4,' points.  Reset to ', &
             1p,e8.1,' Worst =',e8.1,' at i,k=',i4,i3)
 end subroutine qneg3
-
-
 

@@ -212,6 +212,11 @@ contains
     use ppgrid,       only: begchunk, endchunk
     use water_tracer_vars, only: trace_water, wtrc_nwset, wtrc_iatype
     use water_types,  only: iwtliq, iwtice
+    use physics_tendency_updaters, only: apply_tendency_of_eastward_wind_run, &
+         apply_tendency_of_northward_wind_run, apply_heating_rate_run, &
+         apply_constituent_tendencies_run
+    use thermo_water_update, only: thermo_water_update_run
+    use perf_mod, only: t_startf, t_stopf
 
 !------------------------------Arguments--------------------------------
     type(physics_ptend), intent(inout)  :: ptend   ! Parameterization tendencies
@@ -225,6 +230,7 @@ contains
 !
 !---------------------------Local storage-------------------------------
     integer :: i,k,m                               ! column,level,constituent indices
+    integer :: scheme_errcode
     integer :: ixcldice, ixcldliq                  ! indices for CLDICE and CLDLIQ
     integer :: ixnumice, ixnumliq
     integer :: ixnumsnow, ixnumrain
@@ -234,6 +240,9 @@ contains
     integer :: ixo, ixo2, ixh, ixh2, ixn    ! indices for O, O2, H2, and N
 
     real(r8) :: zvirv(state%psetcols,pver)  ! Local zvir array pointer
+    real(r8) :: unused_total(state%psetcols,pver)
+
+    character(len=512) :: scheme_errmsg
 
     real(r8),allocatable :: cpairv_loc(:,:,:)
     real(r8),allocatable :: rairv_loc(:,:,:)
@@ -281,24 +290,14 @@ contains
     ! cpairv_loc and rairv_loc need to be allocated to a size which matches state and ptend
     ! If psetcols == pcols, the cpairv is the correct size and just copy
     ! If psetcols > pcols and all cpairv match cpair, then assign the constant cpair
-    if (state%psetcols == pcols) then
-       allocate (cpairv_loc(state%psetcols,pver,begchunk:endchunk))
-       cpairv_loc(:,:,:) = cpairv(:,:,:)
-    else if (state%psetcols > pcols .and. all(cpairv(:,:,:) == cpair)) then
-       allocate(cpairv_loc(state%psetcols,pver,begchunk:endchunk))
-       cpairv_loc(:,:,:) = cpair
-    else
-       call endrun('physics_update: cpairv is not allowed to vary when subcolumns are turned on')
-    end if
-    if (state%psetcols == pcols) then
-       allocate (rairv_loc(state%psetcols,pver,begchunk:endchunk))
-       rairv_loc(:,:,:) = rairv(:,:,:)
-    else if (state%psetcols > pcols .and. all(rairv(:,:,:) == rair)) then
-       allocate(rairv_loc(state%psetcols,pver,begchunk:endchunk))
-       rairv_loc(:,:,:) = rair
-    else
-       call endrun('physics_update: rairv_loc is not allowed to vary when subcolumns are turned on')
-    end if
+    allocate(cpairv_loc(state%psetcols,pver,begchunk:endchunk))
+    allocate(rairv_loc(state%psetcols,pver,begchunk:endchunk))
+    call t_startf('ap_thermo_water_update_run')
+    call thermo_water_update_run(state%psetcols, pcols, pver, begchunk, endchunk, &
+         cpair, rair, cpairv, rairv, cpairv_loc, rairv_loc, scheme_errcode, &
+         scheme_errmsg)
+    call t_stopf('ap_thermo_water_update_run')
+    if (scheme_errcode /= 0) call endrun(trim(scheme_errmsg))
 
     !-----------------------------------------------------------------------
     call phys_getopts(state_debug_checks_out=state_debug_checks)
@@ -307,19 +306,33 @@ contains
 
     ! Update u,v fields
     if(ptend%lu) then
-       do k = ptend%top_level, ptend%bot_level
-          state%u  (:ncol,k) = state%u  (:ncol,k) + ptend%u(:ncol,k) * dt
-          if (present(tend)) &
-               tend%dudt(:ncol,k) = tend%dudt(:ncol,k) + ptend%u(:ncol,k)
-       end do
+       call t_startf('ap_apply_tendency_of_eastward_wind_run')
+       if (present(tend)) then
+          call apply_tendency_of_eastward_wind_run(ncol, ptend%top_level, &
+               ptend%bot_level, ptend%u, state%u, tend%dudt, dt, .true., &
+               scheme_errcode, scheme_errmsg)
+       else
+          call apply_tendency_of_eastward_wind_run(ncol, ptend%top_level, &
+               ptend%bot_level, ptend%u, state%u, unused_total, dt, .false., &
+               scheme_errcode, scheme_errmsg)
+       end if
+       call t_stopf('ap_apply_tendency_of_eastward_wind_run')
+       if (scheme_errcode /= 0) call endrun(trim(scheme_errmsg))
     end if
 
     if(ptend%lv) then
-       do k = ptend%top_level, ptend%bot_level
-          state%v  (:ncol,k) = state%v  (:ncol,k) + ptend%v(:ncol,k) * dt
-          if (present(tend)) &
-               tend%dvdt(:ncol,k) = tend%dvdt(:ncol,k) + ptend%v(:ncol,k)
-       end do
+       call t_startf('ap_apply_tendency_of_northward_wind_run')
+       if (present(tend)) then
+          call apply_tendency_of_northward_wind_run(ncol, ptend%top_level, &
+               ptend%bot_level, ptend%v, state%v, tend%dvdt, dt, .true., &
+               scheme_errcode, scheme_errmsg)
+       else
+          call apply_tendency_of_northward_wind_run(ncol, ptend%top_level, &
+               ptend%bot_level, ptend%v, state%v, unused_total, dt, .false., &
+               scheme_errcode, scheme_errmsg)
+       end if
+       call t_stopf('ap_apply_tendency_of_northward_wind_run')
+       if (scheme_errcode /= 0) call endrun(trim(scheme_errmsg))
     end if
 
    ! Update constituents, all schemes use time split q: no tendency kept
@@ -334,9 +347,12 @@ contains
 
     do m = 1, pcnst
        if(ptend%lq(m)) then
-          do k = ptend%top_level, ptend%bot_level
-             state%q(:ncol,k,m) = state%q(:ncol,k,m) + ptend%q(:ncol,k,m) * dt
-          end do
+          call t_startf('ap_apply_constituent_tendencies_run')
+          call apply_constituent_tendencies_run(ncol, ptend%top_level, &
+               ptend%bot_level, ptend%q(:,:,m), state%q(:,:,m), dt, &
+               scheme_errcode, scheme_errmsg)
+          call t_stopf('ap_apply_constituent_tendencies_run')
+          if (scheme_errcode /= 0) call endrun(trim(scheme_errmsg))
 
           ! now test for mixing ratios which are too small
           ! don't call qneg3 for number concentration variables
@@ -461,11 +477,18 @@ contains
     ! Update dry static energy(moved from above for WACCM-X so updating after cpairv_loc update)
     !-------------------------------------------------------------------------------------------
     if(ptend%ls) then
-       do k = ptend%top_level, ptend%bot_level
-          state%s(:ncol,k)   = state%s(:ncol,k)   + ptend%s(:ncol,k) * dt
-          if (present(tend)) &
-               tend%dtdt(:ncol,k) = tend%dtdt(:ncol,k) + ptend%s(:ncol,k)/cpairv_loc(:ncol,k,state%lchnk)
-       end do
+       call t_startf('ap_apply_heating_rate_run')
+       if (present(tend)) then
+          call apply_heating_rate_run(ncol, ptend%top_level, ptend%bot_level, &
+               ptend%s, state%s, tend%dtdt, dt, &
+               cpairv_loc(:,:,state%lchnk), .true., scheme_errcode, scheme_errmsg)
+       else
+          call apply_heating_rate_run(ncol, ptend%top_level, ptend%bot_level, &
+               ptend%s, state%s, unused_total, dt, &
+               cpairv_loc(:,:,state%lchnk), .false., scheme_errcode, scheme_errmsg)
+       end if
+       call t_stopf('ap_apply_heating_rate_run')
+       if (scheme_errcode /= 0) call endrun(trim(scheme_errmsg))
     end if
 
     ! Derive new temperature and geopotential fields if heating or water tendency not 0.
