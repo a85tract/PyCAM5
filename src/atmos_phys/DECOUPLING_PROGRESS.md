@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T08:10:38Z`
+- 最近更新：`2026-07-16T08:12:44Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 49 | 6 | 10 | 0 | 0 | 4 |
+| 69 | 49 | 6 | 0 | 10 | 0 | 4 |
 
 ## 批次
 
@@ -20,7 +20,7 @@
 | B01 | 公共状态更新 | 9 | — | `bfb` | 9/9 |
 | B02 | 守恒与能量 | 10 | B01 | `bfb` | 10/10 |
 | B03 | 排放与气相化学 | 10 | B01, B02 | `bfb` | 10/10 |
-| B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `build_pass` | 0/10 |
+| B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `50step_running` | 0/10 |
 | B05 | 边界层与地形重力波 | 10 | B01, B02 | `bfb` | 10/10 |
 | B06 | 对流与柱沉降 | 10 | B01, B02 | `bfb` | 10/10 |
 | B07 | 云、微物理与辐射 | 10 | B04, B06 | `in_progress` | 0/10 |
@@ -58,16 +58,16 @@
 | B03 | tphysac | mozart_mam | `exp_sol_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
 | B03 | tphysac | mozart_mam | `imp_sol_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
 | B03 | tphysbc | tropopause_find | `tropopause_find_run` | `bfb` | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | B03-20260716-job6748380 | B03-20260716-job6748380 | Integrated dependency gate PASS: job 6748380.desched1 completed 50 steps; B01+B02+B03 timers 29/29; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B03 proof is B03-20260716-job6748380 with clean source bf46c7c6; gas_phase_chemdr and neu_wetdep retain CAM framework dependencies as documented. |
-| B04 | tphysac | modal_aerosol | `aero_model_gasaerexch_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysac | modal_aerosol | `modal_aero_gasaerexch_sub_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysac | modal_aerosol | `modal_aero_newnuc_sub_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysac | modal_aerosol | `modal_aero_coag_sub_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysac | modal_aerosol | `aero_model_drydep_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysac | modal_aerosol | `modal_aero_depvel_part_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysbc | modal_aerosol | `modal_aero_calcsize_sub_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysbc | modal_aerosol | `modal_aero_wateruptake_dr_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysbc | modal_aerosol | `aero_model_wetdep_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
-| B04 | tphysbc | modal_aerosol | `wetdepa_v2_run` | `build_pass` | 0aeeb444e9bd1e7c6215c5b1717fcb507f561a41 | — | — | Composed B05+B06+B04 staging source; metadata 30/30, production static compile 49/49, mkSrcfiles/VPATH/mkDepends/callgraph/timers all pass; fresh integrated 50-step pending. |
+| B04 | tphysac | modal_aerosol | `aero_model_gasaerexch_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysac | modal_aerosol | `modal_aero_gasaerexch_sub_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysac | modal_aerosol | `modal_aero_newnuc_sub_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysac | modal_aerosol | `modal_aero_coag_sub_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysac | modal_aerosol | `aero_model_drydep_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysac | modal_aerosol | `modal_aero_depvel_part_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysbc | modal_aerosol | `modal_aero_calcsize_sub_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysbc | modal_aerosol | `modal_aero_wateruptake_dr_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysbc | modal_aerosol | `aero_model_wetdep_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
+| B04 | tphysbc | modal_aerosol | `wetdepa_v2_run` | `50step_running` | 84ae4b8b7ffe01291233f0092d229482a460f5bb | — | — | Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16. |
 | B05 | tphysac | vertical_diffusion | `compute_tms_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | vertical_diffusion | `compute_eddy_diff_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | vertical_diffusion | `calc_obklen_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
