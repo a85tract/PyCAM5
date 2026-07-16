@@ -1,11 +1,11 @@
 module cmparray_mod
 
   use shr_kind_mod, only : r8 => shr_kind_r8
-  
+
   implicit none
   private
   save
-  
+
   public expdaynite, cmpdaynite
 
   interface CmpDayNite
@@ -146,7 +146,7 @@ module cmparray_mod
          do i=il1+Nday,il1+Nday+Nnite-1
             OutArray(i,j,k) = InArray(IdxNite(i-(il1+Nday)+1),j,k)
          enddo
-        
+
 
       end do
     end do
