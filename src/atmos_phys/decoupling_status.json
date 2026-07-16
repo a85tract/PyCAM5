@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T07:57:21Z",
+  "updated_at": "2026-07-16T08:10:38Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -791,10 +791,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "75b1853aaa820f0bc5a4cd415d595fcad1409eaa",
+      "last_run": "B05-positive-moisture-variant-20260716-job6748985",
+      "bfb_run": "B05-positive-moisture-variant-20260716-job6748985",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -1031,10 +1031,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "7135334db145ee9b95818eaa8552e8d8045f0e1a",
+      "last_run": "B06-d3-variant-20260716-job6748995",
+      "bfb_run": "B06-d3-variant-20260716-job6748995",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -1997,6 +1997,138 @@
       },
       "recorded_at": "2026-07-16T07:57:21Z",
       "note": "Default PI path: 50-step job completed; 790/790 numeric exact; normalized character equality excludes only date_written/time_written; nine B06 timers nonzero. d3ddflux is default-inactive and remains open for its matched selector variant pair."
+    },
+    {
+      "run_id": "B05-positive-moisture-variant-20260716-job6748985",
+      "batch": "B05",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748985.desched1",
+      "source_commit": "75b1853aaa820f0bc5a4cd415d595fcad1409eaa",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b05_pseudocon_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/bld/cesm.exe",
+          "size": 55012992,
+          "sha256": "90ee31aa582284fa4ad6da53b378714a4057a0e3cccdbcd08ae4c55873600cbe"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/run/run_environment.txt.job6748985",
+          "size": 4764,
+          "sha256": "7e6e600b3247fbb51f649dc0ac0384fee84c5a230ae8d17a5f9c03686b924f99"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b05_pseudocon_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 5766,
+          "sha256": "d1b31a3a69eff183c5a20423649c72fbfa70caf9022ae1236fae842fc7c5c2b0"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b05_pseudocon_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/B05_PSEUDOCON_VARIANT_COMPARE_NORMALIZED.txt",
+          "size": 845,
+          "sha256": "2203c0602d4c36b020d27ce285db21c8e2169b6bde58cb5648f1b1dee71b014e"
+        }
+      },
+      "execution_proof": {
+        "vertical_diffusion_positive_moisture_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b05_pseudocon_variant/b05/output/run/timing/cesm_timing_stats",
+            "size": 61944,
+            "sha256": "c8d6fc80fdfb002a2a7eab85b0af779322fb6011008a11115cb52ab98559009c"
+          },
+          "line": "ap_vertical_diffusion_positive_moisture_run global_calls=5.222400e+04"
+        }
+      },
+      "recorded_at": "2026-07-16T08:10:22Z",
+      "note": "Matched active-path variant: native job 6748984 and decoupled job 6748985 each uniquely submitted and completed 50 steps; target timer nonzero; 790/790 numeric exact; normalized character equality excludes only date_written/time_written. This record proves only vertical_diffusion_positive_moisture_run."
+    },
+    {
+      "run_id": "B06-d3-variant-20260716-job6748995",
+      "batch": "B06",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748995.desched1",
+      "source_commit": "7135334db145ee9b95818eaa8552e8d8045f0e1a",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b06_d3_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/bld/cesm.exe",
+          "size": 55041808,
+          "sha256": "feee5bacbbe8742e4ef59a9ab7a71fb3a4348da15080f9fcbc6b66ceff2d06d4"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/run/run_environment.txt.job6748995",
+          "size": 5674,
+          "sha256": "4ffa79de7a470f6876129efa3df13aa4150d23c8d13a541d1855e9f645a4281d"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b06_d3_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 5296,
+          "sha256": "5eff9dea6ed63d3c2eb05daeee593e04eaa4fedee034e97158f00ee7d9cb65fd"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b06_d3_decoupled_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/B06_D3_VARIANT_COMPARE.txt",
+          "size": 1423,
+          "sha256": "3d3f56bb01ad50b04b566ba421942c5054fef6ac414d21edf38ffa54c29e7fc0"
+        }
+      },
+      "execution_proof": {
+        "d3ddflux_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_d3_variant/b06/output/run/timing/cesm_timing_stats",
+            "size": 60143,
+            "sha256": "2b697b7ab9e96ba374217c1ffeca66d8d6b5dfd7604a227f912ff21a7ee8c154"
+          },
+          "line": "ap_d3ddflux_run global_calls=1.566720e+06"
+        }
+      },
+      "recorded_at": "2026-07-16T08:10:38Z",
+      "note": "Matched selector variant: native job 6748994 and decoupled job 6748995 each uniquely submitted and completed 50 steps; d3ddflux timer nonzero; 790/790 numeric exact; normalized character equality excludes only time_written. This record proves only d3ddflux_run."
     }
   ]
 }

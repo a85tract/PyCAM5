@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T07:57:21Z`
+- 最近更新：`2026-07-16T08:10:38Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 47 | 8 | 10 | 0 | 0 | 4 |
+| 69 | 49 | 6 | 10 | 0 | 0 | 4 |
 
 ## 批次
 
@@ -21,8 +21,8 @@
 | B02 | 守恒与能量 | 10 | B01 | `bfb` | 10/10 |
 | B03 | 排放与气相化学 | 10 | B01, B02 | `bfb` | 10/10 |
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `build_pass` | 0/10 |
-| B05 | 边界层与地形重力波 | 10 | B01, B02 | `in_progress` | 9/10 |
-| B06 | 对流与柱沉降 | 10 | B01, B02 | `in_progress` | 9/10 |
+| B05 | 边界层与地形重力波 | 10 | B01, B02 | `bfb` | 10/10 |
+| B06 | 对流与柱沉降 | 10 | B01, B02 | `bfb` | 10/10 |
 | B07 | 云、微物理与辐射 | 10 | B04, B06 | `in_progress` | 0/10 |
 
 ## Active入口
@@ -72,7 +72,7 @@
 | B05 | tphysac | vertical_diffusion | `compute_eddy_diff_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | vertical_diffusion | `calc_obklen_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | vertical_diffusion | `compute_vdiff_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
-| B05 | tphysac | vertical_diffusion | `vertical_diffusion_positive_moisture_run` | `in_progress` | 73b53227468566b52b9e322149fe55fc8fa44262 | — | — | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
+| B05 | tphysac | vertical_diffusion | `vertical_diffusion_positive_moisture_run` | `bfb` | 75b1853aaa820f0bc5a4cd415d595fcad1409eaa | B05-positive-moisture-variant-20260716-job6748985 | B05-positive-moisture-variant-20260716-job6748985 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | orographic_gravity_wave | `gw_prof_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | orographic_gravity_wave | `gw_oro_src_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
 | B05 | tphysac | orographic_gravity_wave | `gw_drag_prof_run` | `bfb` | 73b53227468566b52b9e322149fe55fc8fa44262 | B05-default-20260716-job6748795 | B05-default-20260716-job6748795 | Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build. |
@@ -87,7 +87,7 @@
 | B06 | tphysbc | uw_shallow | `compute_uwshcu_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B06 | tphysbc | cloud_fraction | `cloud_fraction_fice_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B06 | tphysbc | modal_aerosol | `dust_sediment_tend_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
-| B06 | tphysbc | modal_aerosol | `d3ddflux_run` | `in_progress` | d553772cab5b7bad4f600267c58e4529454004dc | — | — | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
+| B06 | tphysbc | modal_aerosol | `d3ddflux_run` | `bfb` | 7135334db145ee9b95818eaa8552e8d8045f0e1a | B06-d3-variant-20260716-job6748995 | B06-d3-variant-20260716-job6748995 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B07 | tphysbc | micro_mg/aerosol_activation | `nucleate_ice_cam_calc_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
 | B07 | tphysbc | micro_mg/aerosol_activation | `dropmixnuc_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
 | B07 | tphysbc | park_macrophysics | `ice_macro_tend_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
@@ -132,3 +132,5 @@
 | `B03-20260716-job6748380` | B03 | `bfb` | 6748380.desched1 | bf46c7c6e665a6e1491a86539cc3d3364f9071d5 | True | True | 10 | 2026-07-16T06:49:26Z |
 | `B05-default-20260716-job6748795` | B05 | `bfb` | 6748795.desched1 | 73b53227468566b52b9e322149fe55fc8fa44262 | True | True | 9 | 2026-07-16T07:56:57Z |
 | `B06-default-20260716-job6748818` | B06 | `bfb` | 6748818.desched1 | d553772cab5b7bad4f600267c58e4529454004dc | True | True | 9 | 2026-07-16T07:57:21Z |
+| `B05-positive-moisture-variant-20260716-job6748985` | B05 | `bfb` | 6748985.desched1 | 75b1853aaa820f0bc5a4cd415d595fcad1409eaa | True | True | 1 | 2026-07-16T08:10:22Z |
+| `B06-d3-variant-20260716-job6748995` | B06 | `bfb` | 6748995.desched1 | 7135334db145ee9b95818eaa8552e8d8045f0e1a | True | True | 1 | 2026-07-16T08:10:38Z |
