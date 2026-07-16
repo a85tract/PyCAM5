@@ -5,6 +5,8 @@ module seasalt_model
   use shr_kind_mod,   only: r8 => shr_kind_r8, cl => shr_kind_cl
   use ppgrid,         only: pcols, pver
   use modal_aero_data,only: ntot_amode
+  use perf_mod,       only: t_startf, t_stopf
+  use ap_seasalt_emis_scheme, only: seasalt_emis_run
 
   implicit none
   private
@@ -39,7 +41,7 @@ contains
   !=============================================================================
   !=============================================================================
   subroutine seasalt_init
-    use sslt_sections, only: sslt_sections_init
+    use ap_sslt_sections_private, only: ap_sslt_sections_init
     use constituents,  only: cnst_get_ind
 
     integer :: m
@@ -55,7 +57,7 @@ contains
 
     if (.not.seasalt_active) return
 
-    call sslt_sections_init()
+    call ap_sslt_sections_init()
 
   end subroutine seasalt_init
 
@@ -63,7 +65,6 @@ contains
   !=============================================================================
   subroutine seasalt_emis( u10cubed,  srf_temp, ocnfrc, ncol, cflx )
 
-    use sslt_sections, only: nsections, fluxes, Dg, rdry
     use mo_constants,  only: dns_aer_sst=>seasalt_density, pi
 
     ! dummy arguments
@@ -72,10 +73,8 @@ contains
     real(r8), intent(in) :: ocnfrc(:)
     integer,  intent(in) :: ncol
     real(r8), intent(inout) :: cflx(:,:)
-
-    ! local vars
-    integer  :: mn, mm, ibin, isec, i
-    real(r8) :: fi(ncol,nsections)
+    integer :: errflg
+    character(len=512) :: errmsg
 
 #if  ( defined MODAL_AERO_7MODE )
     real(r8), parameter :: emis_scale = 1.62_r8
@@ -87,29 +86,12 @@ contains
     real(r8), parameter :: sst_sz_range_hi (nslt) =  (/ 1.0e-6_r8,   0.08e-6_r8, 10.0e-6_r8 /)
 #endif
 
-    fi(:ncol,:nsections) = fluxes( srf_temp, u10cubed, ncol )
-
-    do ibin = 1,nslt
-       mm = seasalt_indices(ibin)
-       mn = seasalt_indices(nslt+ibin)
-       
-       if (mn>0) then
-          do i=1, nsections
-             if (Dg(i).ge.sst_sz_range_lo(ibin) .and. Dg(i).lt.sst_sz_range_hi(ibin)) then
-                cflx(:ncol,mn)=cflx(:ncol,mn)+fi(:ncol,i)*ocnfrc(:ncol)*emis_scale  !++ ag: scale sea-salt
-             endif
-          enddo
-       endif
-
-       cflx(:ncol,mm)=0.0_r8
-       do i=1, nsections
-          if (Dg(i).ge.sst_sz_range_lo(ibin) .and. Dg(i).lt.sst_sz_range_hi(ibin)) then
-             cflx(:ncol,mm)=cflx(:ncol,mm)+fi(:ncol,i)*ocnfrc(:ncol)*emis_scale  &   !++ ag: scale sea-salt
-                  *4._r8/3._r8*pi*rdry(i)**3*dns_aer_sst  ! should use dry size, convert from number to mass flux (kg/m2/s)
-          endif
-       enddo
-
-    enddo
+    call t_startf('ap_seasalt_emis_run')
+    call seasalt_emis_run(ncol, size(cflx,1), size(cflx,2), seasalt_nbin, &
+         size(seasalt_indices), u10cubed, srf_temp, ocnfrc, cflx, &
+         seasalt_indices, sst_sz_range_lo, sst_sz_range_hi, emis_scale, &
+         pi, dns_aer_sst, errmsg, errflg)
+    call t_stopf('ap_seasalt_emis_run')
 
   end subroutine seasalt_emis
 

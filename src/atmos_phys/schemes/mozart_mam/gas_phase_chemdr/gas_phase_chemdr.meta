@@ -1,0 +1,241 @@
+[ccpp-table-properties]
+  name = gas_phase_chemdr
+  type = scheme
+
+[ccpp-arg-table]
+  name = gas_phase_chemdr_run
+  type = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcnst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ imozart ]
+  standard_name = gas_phase_chemistry_constituent_start_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ q ]
+  standard_name = constituent_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = in
+[ phis ]
+  standard_name = surface_geopotential
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ zm ]
+  standard_name = geopotential_height_wrt_surface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ zi ]
+  standard_name = geopotential_height_wrt_surface_at_interface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ calday ]
+  standard_name = fractional_calendar_days_on_end_of_current_timestep
+  units = day
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tfld ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pint ]
+  standard_name = air_pressure_at_interface
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ cldw ]
+  standard_name = cloud_condensate_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ troplev ]
+  standard_name = tropopause_vertical_layer_index
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ncldwtr ]
+  standard_name = cloud_droplet_number_concentration
+  units = kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ ufld ]
+  standard_name = eastward_wind
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ vfld ]
+  standard_name = northward_wind
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ delt ]
+  standard_name = chemistry_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ps ]
+  standard_name = surface_air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ xactive_prates ]
+  standard_name = use_active_photolysis_rates
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ fsds ]
+  standard_name = surface_downwelling_shortwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ts ]
+  standard_name = surface_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ asdir ]
+  standard_name = surface_direct_shortwave_albedo
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ocnfrac ]
+  standard_name = ocean_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ icefrac ]
+  standard_name = sea_ice_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ precc ]
+  standard_name = convective_precipitation_rate
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ precl ]
+  standard_name = stratiform_precipitation_rate
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ snowhland ]
+  standard_name = land_snow_depth
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ghg_chem ]
+  standard_name = use_greenhouse_gas_chemistry
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ latmapback ]
+  standard_name = unique_latitude_reverse_map
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ chem_name ]
+  standard_name = chemistry_mechanism_name
+  units = none
+  type = character | kind = len=*
+  dimensions = ()
+  intent = in
+[ drydepflx ]
+  standard_name = constituent_dry_deposition_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out
+[ cflx ]
+  standard_name = constituent_surface_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = inout
+[ qtend ]
+  standard_name = constituent_tendency_due_to_gas_phase_chemistry
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = inout
+[ pbuf ]
+  standard_name = cam_physics_buffer
+  units = none
+  type = physics_buffer_desc
+  dimensions = (physics_chunk_dimension)
+  intent = inout

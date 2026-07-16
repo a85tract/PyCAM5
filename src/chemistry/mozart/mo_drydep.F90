@@ -25,6 +25,8 @@ module mo_drydep
 
   use seq_drydep_mod,   only : nddvels =>  n_drydep, drydep_list, mapping
   use physconst,        only : karman
+  use perf_mod,         only : t_startf, t_stopf
+  use ap_drydep_update_scheme, only : drydep_update_run
 
   implicit none
 
@@ -192,8 +194,15 @@ contains
     type(physics_state), intent(in) :: state           ! Physics state variables
     type(cam_in_t),  intent(in) :: cam_in 
 
-    if (nddvels<1) return
-    if (drydep_method /= DD_XLND) return
+    logical :: do_update
+    integer :: errflg
+    character(len=512) :: errmsg
+
+    call t_startf('ap_drydep_update_run')
+    call drydep_update_run(nddvels, drydep_method, DD_XLND, do_update, errmsg, errflg)
+    call t_stopf('ap_drydep_update_run')
+
+    if (.not. do_update) return
 
     lnd(state%lchnk)%dvel => cam_in%depvel
 

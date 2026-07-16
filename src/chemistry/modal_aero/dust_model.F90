@@ -5,6 +5,8 @@ module dust_model
   use shr_kind_mod,     only: r8 => shr_kind_r8, cl => shr_kind_cl
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
+  use perf_mod,         only: t_startf, t_stopf
+  use ap_dust_emis_scheme, only: dust_emis_run
 
   implicit none
   private
@@ -133,35 +135,22 @@ module dust_model
     real(r8), intent(out)   :: soil_erod(:)
 
   ! local vars
-    integer :: i, m, idst, inum
-    real(r8) :: x_mton
-    real(r8),parameter :: soil_erod_threshold = 0.1_r8
+    integer :: i
+    integer :: errflg
+    character(len=512) :: errmsg
 
     ! set dust emissions
 
-    col_loop: do i =1,ncol
-
+    do i = 1,ncol
        soil_erod(i) = soil_erodibility( i, lchnk )
+    end do
 
-       if( soil_erod(i) .lt. soil_erod_threshold ) soil_erod(i) = 0._r8
-
-       ! rebin and adjust dust emissons..
-       do m = 1,dust_nbin
-
-          idst = dust_indices(m)
-
-          cflx(i,idst) = sum( -dust_flux_in(i,:) ) &
-               * dust_emis_sclfctr(m)*soil_erod(i)/soil_erod_fact*1.15_r8
-
-          x_mton = 6._r8 / (pi * dust_density * (dust_dmt_vwr(m)**3._r8))                
-
-          inum = dust_indices(m+dust_nbin)
-
-          cflx(i,inum) = cflx(i,idst)*x_mton
-
-       enddo
-
-    end do col_loop
+    call t_startf('ap_dust_emis_run')
+    call dust_emis_run(ncol, size(cflx,1), size(dust_flux_in,2), size(cflx,2), &
+         dust_nbin, size(dust_indices), dust_flux_in, cflx, soil_erod, &
+         dust_indices, dust_emis_sclfctr, dust_dmt_vwr, soil_erod_fact, &
+         pi, dust_density, errmsg, errflg)
+    call t_stopf('ap_dust_emis_run')
 
   end subroutine dust_emis
 

@@ -12,6 +12,8 @@ module mo_srf_emissions
   use ppgrid,        only : pcols, begchunk, endchunk
   use cam_logfile,   only : iulog
   use tracer_data,   only : trfld,trfile
+  use perf_mod,      only : t_startf, t_stopf
+  use ap_set_srf_emissions_scheme, only : set_srf_emissions_run
 
   implicit none
 
@@ -293,29 +295,19 @@ contains
     !--------------------------------------------------------
     !	... local variables
     !--------------------------------------------------------
-    integer  ::  i, m, n
-    real(r8) ::  factor
-    real(r8) ::  dayfrac            ! fration of day in light
-    real(r8) ::  iso_off            ! time iso flux turns off
-    real(r8) ::  iso_on             ! time iso flux turns on
-
-    logical  :: polar_day,polar_night
-    real(r8) :: doy_loc
-    real(r8) :: sunon,sunoff
-    real(r8) :: loc_angle
-    real(r8) :: latitude
-    real(r8) :: declination
-    real(r8) :: tod
+    integer :: m, isec
+    integer :: max_sector_count, allocated_emission_files
+    integer :: errflg
     real(r8) :: calday
-
-    real(r8), parameter :: dayspy = 365._r8
     real(r8), parameter :: twopi = 2.0_r8 * pi
-    real(r8), parameter :: pid2  = 0.5_r8 * pi
+    real(r8), parameter :: pid2 = 0.5_r8 * pi
     real(r8), parameter :: dec_max = 23.45_r8 * pi/180._r8
-
-    real(r8) :: flux(ncol)
-    real(r8) :: mfactor
-    integer  :: isec
+    real(r8), allocatable :: sector_flux(:,:,:)
+    real(r8), allocatable :: emission_scale(:), molecular_weight(:)
+    integer, allocatable :: species_index(:), sector_count(:)
+    logical, allocatable :: units_are_mks(:)
+    logical :: has_c10h16_emission, has_isoprene_emission
+    character(len=512) :: errmsg
 
     character(len=12),parameter :: mks_units(4) = (/ "kg/m2/s     ", &
                                                      "kg/m2/sec   ", &
@@ -323,115 +315,63 @@ contains
                                                      "kg/m^2/sec  " /)
     character(len=12) :: units
 
-    real(r8), dimension(ncol) :: rlats, rlons 
+    real(r8), dimension(ncol) :: rlats, rlons
 
-    sflx(:,:) = 0._r8
+    allocated_emission_files = max(1,n_emis_files)
+    max_sector_count = 1
+    do m = 1,n_emis_files
+       max_sector_count = max(max_sector_count,emissions(m)%nsectors)
+    end do
 
-    !--------------------------------------------------------
-    !	... set non-zero emissions
-    !--------------------------------------------------------
-    emis_loop : do m = 1,n_emis_files
+    allocate(sector_flux(size(sflx,1),max_sector_count,allocated_emission_files))
+    allocate(emission_scale(allocated_emission_files))
+    allocate(molecular_weight(allocated_emission_files))
+    allocate(species_index(allocated_emission_files))
+    allocate(sector_count(allocated_emission_files))
+    allocate(units_are_mks(allocated_emission_files))
 
-       n = emissions(m)%spc_ndx
+    sector_flux = 0._r8
+    emission_scale = 0._r8
+    molecular_weight = 0._r8
+    species_index = 1
+    sector_count = 0
+    units_are_mks = .false.
 
-       flux(:) = 0._r8
+    ! Keep tracer-data pointers and unit-string handling on the CAM side.
+    do m = 1,n_emis_files
+       species_index(m) = emissions(m)%spc_ndx
+       sector_count(m) = emissions(m)%nsectors
+       emission_scale(m) = emissions(m)%scalefactor
+       molecular_weight(m) = emissions(m)%mw
        do isec = 1,emissions(m)%nsectors
-          flux(:ncol) = flux(:ncol) + emissions(m)%fields(isec)%data(:ncol,1,lchnk)
-       enddo
-
-       flux(:ncol) = emissions(m)%scalefactor*flux(:ncol)
+          sector_flux(:ncol,isec,m) = emissions(m)%fields(isec)%data(:ncol,1,lchnk)
+       end do
 
        units = to_lower(trim(emissions(m)%fields(1)%units(:GLC(emissions(m)%fields(1)%units))))
-       
-       if ( any( mks_units(:) == units ) ) then
-          sflx(:ncol,n) = sflx(:ncol,n) + flux(:ncol)
-       else
-          mfactor = amufac * emissions(m)%mw
-          sflx(:ncol,n) = sflx(:ncol,n) + flux(:ncol) * mfactor
-       endif
-
-    end do emis_loop
+       units_are_mks(m) = any(mks_units(:) == units)
+    end do
 
     call get_rlat_all_p( lchnk, ncol, rlats )
     call get_rlon_all_p( lchnk, ncol, rlons )
 
     calday = get_curr_calday()
-    doy_loc     = aint( calday )
-    declination = dec_max * cos((doy_loc - 172._r8)*twopi/dayspy)
-    tod = (calday - doy_loc) + .5_r8
 
-    do i = 1,ncol
-       !
-       polar_day   = .false.
-       polar_night = .false.
-       !
-       loc_angle = tod * twopi + rlons(i)
-       loc_angle = mod( loc_angle,twopi )
-       latitude =  rlats(i)
-       !
-       !------------------------------------------------------------------
-       !        determine if in polar day or night
-       !        if not in polar day or night then
-       !        calculate terminator longitudes
-       !------------------------------------------------------------------
-       if( abs(latitude) >= (pid2 - abs(declination)) ) then
-          if( sign(1._r8,declination) == sign(1._r8,latitude) ) then
-             polar_day = .true.
-             sunoff = 2._r8*twopi
-             sunon  = -twopi
-          else
-             polar_night = .true.
-          end if
-       else
-          sunoff = acos( -tan(declination)*tan(latitude) )
-          sunon  = twopi - sunoff
-       end if
+    has_c10h16_emission = .false.
+    if (c10h16_ndx > 0) has_c10h16_emission = has_emis(c10h16_ndx)
+    has_isoprene_emission = .false.
+    if (isop_ndx > 0) has_isoprene_emission = has_emis(isop_ndx)
 
-       !--------------------------------------------------------
-       !	... adjust alpha-pinene for diurnal variation
-       !--------------------------------------------------------
-       if( c10h16_ndx > 0 ) then
-          if( has_emis(c10h16_ndx) ) then
-             if( .not. polar_night .and. .not. polar_day ) then
-                dayfrac = sunoff / pi
-                sflx(i,c10h16_ndx) = sflx(i,c10h16_ndx) / (.7_r8 + .3_r8*dayfrac)
-                if( loc_angle >= sunoff .and. loc_angle <= sunon ) then
-                   sflx(i,c10h16_ndx) = sflx(i,c10h16_ndx) * .7_r8
-                endif
-             end if
-          end if
-       end if
+    call t_startf('ap_set_srf_emissions_run')
+    call set_srf_emissions_run(ncol, size(sflx,1), size(sflx,2), &
+         n_emis_files, allocated_emission_files, max_sector_count, &
+         species_index, sector_count, sector_flux, emission_scale, &
+         molecular_weight, units_are_mks, amufac, rlats, rlons, calday, &
+         pi, twopi, pid2, dec_max, c10h16_ndx, has_c10h16_emission, isop_ndx, &
+         has_isoprene_emission, sflx, errmsg, errflg)
+    call t_stopf('ap_set_srf_emissions_run')
 
-       !--------------------------------------------------------
-       !	... adjust isoprene for diurnal variation
-       !--------------------------------------------------------
-       if( isop_ndx > 0 ) then
-          if( has_emis(isop_ndx) ) then
-             if( .not. polar_night ) then
-                if( polar_day ) then
-                   iso_off = .8_r8 * pi
-                   iso_on  = 1.2_r8 * pi
-                else
-                   iso_off = .8_r8 * sunoff
-                   iso_on  = 2._r8 * pi - iso_off
-                end if
-                if( loc_angle >= iso_off .and. loc_angle <= iso_on ) then
-                   sflx(i,isop_ndx) = 0._r8
-                else
-                   factor = loc_angle - iso_on
-                   if( factor <= 0._r8 ) then
-                      factor = factor + 2._r8*pi
-                   end if
-                   factor = factor / (2._r8*iso_off + 1.e-6_r8)
-                   sflx(i,isop_ndx) = sflx(i,isop_ndx) * 2._r8 / iso_off * pi * (sin(pi*factor))**2
-                end if
-             else
-                sflx(i,isop_ndx) = 0._r8
-             end if
-          end if
-       end if
-
-    end do
+    deallocate(sector_flux, emission_scale, molecular_weight)
+    deallocate(species_index, sector_count, units_are_mks)
 
   end subroutine set_srf_emissions
 

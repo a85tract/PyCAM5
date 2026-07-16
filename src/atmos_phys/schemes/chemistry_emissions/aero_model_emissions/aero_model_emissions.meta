@@ -1,0 +1,61 @@
+[ccpp-table-properties]
+  name = aero_model_emissions
+  type = scheme
+
+[ccpp-arg-table]
+  name = aero_model_emissions_run
+  type = scheme
+[ num_columns ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ declared_columns ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ eastward_wind ]
+  standard_name = eastward_wind_at_lowest_model_layer
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ northward_wind ]
+  standard_name = northward_wind_at_lowest_model_layer
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ midpoint_height ]
+  standard_name = height_at_lowest_model_layer_midpoint
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ocean_roughness_length ]
+  standard_name = ocean_surface_roughness_length_for_seasalt_emissions
+  units = m
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ u10_emission_factor ]
+  standard_name = wind_speed_at_10m_raised_to_seasalt_emission_power
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

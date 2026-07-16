@@ -1,0 +1,109 @@
+[ccpp-table-properties]
+  name = dust_emis
+  type = scheme
+
+[ccpp-arg-table]
+  name = dust_emis_run
+  type = scheme
+[ num_columns ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ declared_columns ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_dust_flux_components ]
+  standard_name = dust_coupler_flux_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_constituents ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_dust_bins ]
+  standard_name = dust_emission_bin_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_dust_emission_tracers ]
+  standard_name = dust_emission_tracer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dust_flux_in ]
+  standard_name = surface_dust_flux_from_coupler
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, dust_coupler_flux_dimension)
+  intent = in
+[ constituent_flux ]
+  standard_name = surface_constituent_mass_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = inout
+[ soil_erodibility ]
+  standard_name = soil_erodibility_factor_at_columns
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = inout
+[ dust_indices ]
+  standard_name = constituent_indices_for_dust_emissions
+  units = index
+  type = integer
+  dimensions = (dust_emission_tracer_dimension)
+  intent = in
+[ dust_emission_scale ]
+  standard_name = dust_emission_scaling_factor_by_bin
+  units = 1
+  type = real | kind = r8
+  dimensions = (dust_emission_bin_dimension)
+  intent = in
+[ dust_volume_mean_diameter ]
+  standard_name = dust_volume_mean_diameter_by_bin
+  units = m
+  type = real | kind = r8
+  dimensions = (dust_emission_bin_dimension)
+  intent = in
+[ soil_erodibility_factor ]
+  standard_name = global_dust_soil_erodibility_scaling_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pi_value ]
+  standard_name = mathematical_constant_pi
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dust_density ]
+  standard_name = density_of_dust_aerosol
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

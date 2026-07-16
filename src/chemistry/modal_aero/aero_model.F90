@@ -15,6 +15,7 @@ module aero_model
   use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
   use physconst,      only: gravit, rair, rhoh2o
   use spmd_utils,     only: masterproc
+  use ap_aero_model_emissions_scheme, only: aero_model_emissions_run
 
   use cam_history,    only: outfld, fieldname_len
   use chem_mods,      only: gas_pcnst, adv_mass
@@ -1549,9 +1550,11 @@ contains
 
     integer :: lchnk, ncol
     integer :: m, mm
+    integer :: errflg
     real(r8) :: soil_erod_tmp(pcols)
     real(r8) :: sflx(pcols)   ! accumulate over all bins for output
     real(r8) :: u10cubed(pcols)
+    character(len=512) :: errmsg
     real (r8), parameter :: z0=0.0001_r8  ! m roughness length over oceans--from ocean model
 
     lchnk = state%lchnk
@@ -1573,14 +1576,10 @@ contains
     endif
 
     if (seasalt_active) then
-       u10cubed(:ncol)=sqrt(state%u(:ncol,pver)**2+state%v(:ncol,pver)**2)
-       ! move the winds to 10m high from the midpoint of the gridbox:
-       ! follows Tie and Seinfeld and Pandis, p.859 with math.
-
-       u10cubed(:ncol)=u10cubed(:ncol)*log(10._r8/z0)/log(state%zm(:ncol,pver)/z0)
-
-       ! we need them to the 3.41 power, according to Gong et al., 1997:
-       u10cubed(:ncol)=u10cubed(:ncol)**3.41_r8
+       call t_startf('ap_aero_model_emissions_run')
+       call aero_model_emissions_run(ncol, pcols, state%u(:,pver), &
+            state%v(:,pver), state%zm(:,pver), z0, u10cubed, errmsg, errflg)
+       call t_stopf('ap_aero_model_emissions_run')
 
        sflx(:)=0._r8
 

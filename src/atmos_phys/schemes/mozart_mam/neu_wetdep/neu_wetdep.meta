@@ -1,0 +1,109 @@
+[ccpp-table-properties]
+  name = neu_wetdep_tend
+  type = scheme
+
+[ccpp-arg-table]
+  name = neu_wetdep_tend_run
+  type = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcnst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ mmr ]
+  standard_name = constituent_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ zint ]
+  standard_name = geopotential_height_wrt_surface_at_interface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ tfld ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ delt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ prain ]
+  standard_name = stratiform_precipitation_production_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ nevapr ]
+  standard_name = stratiform_precipitation_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cld ]
+  standard_name = cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cmfdqr ]
+  standard_name = convective_precipitation_production_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ wd_tend ]
+  standard_name = constituent_tendency_due_to_neu_wet_deposition
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = inout

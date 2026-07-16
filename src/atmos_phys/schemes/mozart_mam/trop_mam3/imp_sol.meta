@@ -1,0 +1,175 @@
+[ccpp-table-properties]
+  name = imp_sol
+  type = scheme
+
+[ccpp-arg-table]
+  name = imp_sol_run
+  type = scheme
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_levels ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ number_gas_species ]
+  standard_name = number_of_gas_phase_species
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ number_reactions ]
+  standard_name = number_of_chemistry_reactions
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ number_external_forcings ]
+  standard_name = number_of_external_chemistry_forcings
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ number_implicit_species ]
+  standard_name = number_of_implicit_chemistry_species
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ number_jacobian_entries ]
+  standard_name = number_of_nonzero_chemistry_jacobian_entries
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ maximum_iterations ]
+  standard_name = maximum_number_of_newton_iterations
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ base_sol ]
+  standard_name = gas_phase_species_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_gas_phase_species)
+  intent = inout
+[ reaction_rates ]
+  standard_name = gas_phase_reaction_rate
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_chemistry_reactions)
+  intent = in
+[ het_rates ]
+  standard_name = heterogeneous_chemistry_loss_rate
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_gas_phase_species)
+  intent = in
+[ extfrc ]
+  standard_name = external_chemistry_forcing
+  units = mol mol-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_external_chemistry_forcings)
+  intent = in
+[ delt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ xhnm ]
+  standard_name = air_number_density
+  units = molecule cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ ltrop ]
+  standard_name = chemistry_troposphere_boundary_index
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ clsmap4 ]
+  standard_name = implicit_chemistry_species_map
+  units = index
+  type = integer
+  dimensions = (number_of_implicit_chemistry_species)
+  intent = in
+[ permute4 ]
+  standard_name = implicit_chemistry_species_permutation
+  units = index
+  type = integer
+  dimensions = (number_of_implicit_chemistry_species)
+  intent = in
+[ class_independent_reaction_count ]
+  standard_name = number_of_independent_implicit_chemistry_reactions
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ epsilon ]
+  standard_name = implicit_chemistry_relative_convergence_tolerance
+  units = 1
+  type = real | kind = r8
+  dimensions = (number_of_implicit_chemistry_species)
+  intent = in
+[ factor ]
+  standard_name = implicit_chemistry_jacobian_factorization_flag
+  units = 1
+  type = logical
+  dimensions = (maximum_number_of_newton_iterations)
+  intent = in
+[ small ]
+  standard_name = implicit_chemistry_absolute_convergence_threshold
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ prod_out ]
+  standard_name = implicit_species_chemical_production_rate
+  units = molecule cm-3 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_implicit_chemistry_species)
+  intent = out
+[ loss_out ]
+  standard_name = implicit_species_chemical_loss_rate
+  units = molecule cm-3 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_implicit_chemistry_species)
+  intent = out
+[ solver_failure_count ]
+  standard_name = number_of_failed_implicit_chemistry_newton_steps
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
+[ last_failure_dt ]
+  standard_name = last_failed_implicit_chemistry_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = out
+[ entry_count ]
+  standard_name = implicit_chemistry_solver_entry_count
+  units = count
+  type = integer
+  dimensions = ()
+  intent = inout
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

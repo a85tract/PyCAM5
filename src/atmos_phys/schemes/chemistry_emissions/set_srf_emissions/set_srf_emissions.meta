@@ -1,0 +1,169 @@
+[ccpp-table-properties]
+  name = set_srf_emissions
+  type = scheme
+
+[ccpp-arg-table]
+  name = set_srf_emissions_run
+  type = scheme
+[ num_columns ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ declared_columns ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_species ]
+  standard_name = gas_phase_chemical_species_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_emission_files ]
+  standard_name = number_of_active_surface_emission_files
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ allocated_emission_files ]
+  standard_name = allocated_surface_emission_file_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ max_sector_count ]
+  standard_name = surface_emission_sector_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ species_index ]
+  standard_name = chemical_species_index_by_surface_emission_file
+  units = index
+  type = integer
+  dimensions = (allocated_surface_emission_file_dimension)
+  intent = in
+[ sector_count ]
+  standard_name = number_of_sectors_by_surface_emission_file
+  units = count
+  type = integer
+  dimensions = (allocated_surface_emission_file_dimension)
+  intent = in
+[ sector_flux ]
+  standard_name = surface_emission_flux_by_sector_and_file
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, surface_emission_sector_dimension, allocated_surface_emission_file_dimension)
+  intent = in
+[ emission_scale ]
+  standard_name = scale_factor_by_surface_emission_file
+  units = 1
+  type = real | kind = r8
+  dimensions = (allocated_surface_emission_file_dimension)
+  intent = in
+[ molecular_weight ]
+  standard_name = molecular_weight_by_surface_emission_file
+  units = g mol-1
+  type = real | kind = r8
+  dimensions = (allocated_surface_emission_file_dimension)
+  intent = in
+[ units_are_mks ]
+  standard_name = surface_emission_file_units_are_mass_flux
+  units = flag
+  type = logical
+  dimensions = (allocated_surface_emission_file_dimension)
+  intent = in
+[ mass_conversion_factor ]
+  standard_name = molecular_to_mass_surface_emission_conversion_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ latitude ]
+  standard_name = latitude
+  units = rad
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ longitude ]
+  standard_name = longitude
+  units = rad
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ calendar_day ]
+  standard_name = current_calendar_day
+  units = d
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pi_value ]
+  standard_name = mathematical_constant_pi
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ twopi_value ]
+  standard_name = mathematical_constant_two_pi
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pid2_value ]
+  standard_name = mathematical_constant_pi_over_two
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dec_max_value ]
+  standard_name = maximum_solar_declination_angle
+  units = rad
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ c10h16_index ]
+  standard_name = chemical_species_index_for_c10h16
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ has_c10h16_emission ]
+  standard_name = c10h16_surface_emission_is_active
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ isoprene_index ]
+  standard_name = chemical_species_index_for_isoprene
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ has_isoprene_emission ]
+  standard_name = isoprene_surface_emission_is_active
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ surface_flux ]
+  standard_name = surface_chemical_species_mass_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, gas_phase_chemical_species_dimension)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

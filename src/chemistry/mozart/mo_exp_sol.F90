@@ -5,6 +5,9 @@ module mo_exp_sol
   public :: exp_sol
   public :: exp_sol_inti
 
+  integer, save :: exp_sol_scheme_entry_count = 0
+!$omp threadprivate(exp_sol_scheme_entry_count)
+
 contains
 
   subroutine exp_sol_inti
@@ -37,11 +40,13 @@ contains
 
     use chem_mods,     only : clscnt1, extcnt, gas_pcnst, clsmap, rxntot
     use ppgrid,        only : pcols, pver
-    use mo_prod_loss,  only : exp_prod_loss
-    use mo_indprd,     only : indprd
     use shr_kind_mod,  only : r8 => shr_kind_r8
     use cam_history,   only : outfld
     use mo_tracname,   only : solsym
+    use perf_mod,      only : t_startf, t_stopf
+    use cam_logfile,   only : iulog
+    use cam_abortutils, only : endrun
+    use ap_exp_sol_scheme, only : exp_sol_run
 
     implicit none
     !-----------------------------------------------------------------------
@@ -61,6 +66,8 @@ contains
     !     	... Local variables
     !-----------------------------------------------------------------------
     integer  ::  i, k, l, m
+    integer  ::  errflg
+    character(len=512) :: errmsg
     real(r8), dimension(ncol,pver,clscnt1) :: &
          prod, &
          loss, &
@@ -68,20 +75,16 @@ contains
 
     real(r8), dimension(ncol,pver) :: wrk
 
-    !-----------------------------------------------------------------------      
-    !        ... Put "independent" production in the forcing
-    !-----------------------------------------------------------------------      
-    call indprd( 1, ind_prd, clscnt1, base_sol, extfrc, &
-         reaction_rates, ncol )
+    call t_startf('ap_exp_sol_run')
+    call exp_sol_run(clscnt1, exp_sol_scheme_entry_count, errmsg, errflg)
+    call t_stopf('ap_exp_sol_run')
+    if (errflg /= 0) then
+       write(iulog,*) trim(errmsg)
+       call endrun
+    end if
 
-    !-----------------------------------------------------------------------      
-    !      	... Form F(y)
-    !-----------------------------------------------------------------------      
-    call exp_prod_loss( prod, loss, base_sol, reaction_rates, het_rates )
-
-    !-----------------------------------------------------------------------      
-    !    	... Solve for the mixing ratio at t(n+1)
-    !-----------------------------------------------------------------------      
+    ! Names and history remain CAM adapter responsibilities.  For the active
+    ! pp_trop_mam3 mechanism clscnt1=0, so this loop is intentionally empty.
     do m = 1,clscnt1
        l = clsmap(m,1)
        do i = 1,ncol

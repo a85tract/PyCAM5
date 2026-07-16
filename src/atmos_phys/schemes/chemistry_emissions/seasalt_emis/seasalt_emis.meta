@@ -1,0 +1,109 @@
+[ccpp-table-properties]
+  name = seasalt_emis
+  type = scheme
+
+[ccpp-arg-table]
+  name = seasalt_emis_run
+  type = scheme
+[ num_columns ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ declared_columns ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_constituents ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_seasalt_bins ]
+  standard_name = seasalt_emission_bin_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_seasalt_tracers ]
+  standard_name = seasalt_emission_tracer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ u10_power ]
+  standard_name = wind_speed_at_10m_raised_to_seasalt_emission_power
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ surface_temperature ]
+  standard_name = surface_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ocean_fraction ]
+  standard_name = ocean_area_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ constituent_flux ]
+  standard_name = surface_constituent_mass_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = inout
+[ seasalt_indices ]
+  standard_name = constituent_indices_for_seasalt_emissions
+  units = index
+  type = integer
+  dimensions = (seasalt_emission_tracer_dimension)
+  intent = in
+[ size_range_low ]
+  standard_name = lower_particle_diameter_for_seasalt_emission_bin
+  units = m
+  type = real | kind = r8
+  dimensions = (seasalt_emission_bin_dimension)
+  intent = in
+[ size_range_high ]
+  standard_name = upper_particle_diameter_for_seasalt_emission_bin
+  units = m
+  type = real | kind = r8
+  dimensions = (seasalt_emission_bin_dimension)
+  intent = in
+[ emission_scale ]
+  standard_name = seasalt_emission_scaling_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pi_value ]
+  standard_name = mathematical_constant_pi
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ seasalt_density ]
+  standard_name = density_of_seasalt_aerosol
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
