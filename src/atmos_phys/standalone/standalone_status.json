@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T00:00:00Z",
+  "updated_at": "2026-07-16T18:05:43Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -156,11 +156,11 @@
       "order": 7,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rrtmg_sw.F90",
       "module": "ap_rrtmg_sw_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "42a189d812066df30377eee43bc9891692bdf53d",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "active run closure direct+transitive PASS; inactive non-McICA variant kept outside standalone tree"
     },
     {
       "entry_point": "rrtmg_lw_run",
@@ -170,11 +170,11 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rrtmg_lw.F90",
       "module": "ap_rrtmg_lw_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "42a189d812066df30377eee43bc9891692bdf53d",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "active run closure direct+transitive PASS; inactive non-McICA variant kept outside standalone tree"
     },
     {
       "entry_point": "modal_aero_depvel_part_run",
@@ -184,11 +184,11 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_depvel_part/modal_aero_depvel_part.F90",
       "module": "ap_modal_aero_depvel_part_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "53f762a5826e11e9b6e8e4d3f0345dae7ad460c1",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic process interface; direct+transitive closure PASS"
     },
     {
       "entry_point": "compute_eddy_diff_run",
