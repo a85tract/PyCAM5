@@ -5,10 +5,16 @@
 [ccpp-arg-table]
   name = aero_model_wetdep_run
   type = scheme
-[ state ]
-  standard_name = cam_physics_state
-  units = none
-  type = physics_state
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
   dimensions = ()
   intent = in
 [ dt ]
@@ -23,48 +29,120 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
-[ cam_out ]
-  standard_name = cam_surface_exchange_output_state
+[ q ]
+  standard_name = constituent_mass_mixing_ratio
   units = none
-  type = cam_out_t
-  dimensions = ()
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ ptend_q ]
+  standard_name = constituent_tendency_due_to_modal_aerosol_wet_deposition
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
   intent = inout
-[ ptend ]
-  standard_name = cam_physics_parameterization_tendencies
-  units = none
-  type = physics_ptend
-  dimensions = ()
-  intent = out
-[ pbuf ]
-  standard_name = cam_physics_buffer
-  units = none
-  type = physics_buffer_desc
-  dimensions = (physics_chunk_dimension)
+[ ptend_lq ]
+  standard_name = constituent_tendency_flags_for_modal_aerosol_wet_deposition
+  units = flag
+  type = logical
+  dimensions = (number_of_constituents)
   intent = inout
-[ nmodes_in ]
-  standard_name = number_of_modal_aerosol_modes
-  units = count
-  type = integer
-  dimensions = ()
+[ cldt ]
+  standard_name = total_cloud_fraction_for_wet_deposition
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
-[ dgnumwet_idx_in ]
-  standard_name = physics_buffer_index_for_wet_geometric_mean_aerosol_diameter
-  units = index
-  type = integer
-  dimensions = ()
+[ cldcu ]
+  standard_name = convective_cloud_fraction_for_wet_deposition
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
-[ qaerwat_idx_in ]
-  standard_name = physics_buffer_index_for_aerosol_water_mixing_ratio
-  units = index
-  type = integer
-  dimensions = ()
+[ cmfdqr ]
+  standard_name = convective_precipitation_production_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
-[ fracis_idx_in ]
-  standard_name = physics_buffer_index_for_unscavenged_tracer_fraction
-  units = index
-  type = integer
-  dimensions = ()
+[ evapc ]
+  standard_name = convective_precipitation_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
+[ conicw ]
+  standard_name = convective_in_cloud_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ prain ]
+  standard_name = stratiform_precipitation_production_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qme ]
+  standard_name = cloud_condensation_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ evapr ]
+  standard_name = stratiform_precipitation_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ totcond ]
+  standard_name = total_cloud_condensate_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldvcu ]
+  standard_name = convective_precipitation_area_fraction_at_layer_top
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ cldvst ]
+  standard_name = stratiform_precipitation_area_fraction_at_layer_top
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ dgnumwet ]
+  standard_name = wet_geometric_mean_modal_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  intent = in
+[ fracis ]
+  standard_name = unscavenged_constituent_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = inout
+[ qqcw_data ]
+  standard_name = cloudborne_modal_aerosol_mixing_ratio
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
+  intent = inout
 [ sol_facti_cloud_borne_in ]
   standard_name = cloudborne_in_cloud_scavenging_solubility_factor
   units = 1
@@ -82,18 +160,6 @@
   units = 1
   type = real | kind = r8
   dimensions = ()
-  intent = in
-[ nwetdep_in ]
-  standard_name = number_of_wet_deposition_species
-  units = count
-  type = integer
-  dimensions = ()
-  intent = in
-[ wetdep_lq_in ]
-  standard_name = flag_for_constituent_wet_deposition_tendency
-  units = flag
-  type = logical
-  dimensions = (number_of_constituents)
   intent = in
 [ dlndg_nimptblgrow_in ]
   standard_name = log_aerosol_diameter_spacing_for_impaction_scavenging_table
@@ -113,3 +179,15 @@
   type = real | kind = r8
   dimensions = (aerosol_impaction_growth_bin_dimension, number_of_aerosol_modes)
   intent = in
+[ aerdepwetis ]
+  standard_name = interstitial_modal_aerosol_wet_deposition_flux
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out
+[ aerdepwetcw ]
+  standard_name = cloudborne_modal_aerosol_wet_deposition_flux
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out

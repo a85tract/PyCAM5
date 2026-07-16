@@ -1,71 +1,117 @@
 module ap_aero_model_wetdep_scheme
 
-  use shr_kind_mod,   only : r8 => shr_kind_r8
-  use constituents,   only : pcnst, cnst_name
-  use ppgrid,         only : pcols, pver
-  use camsrfexch,     only : cam_out_t
-  use aerodep_flx,    only : aerodep_flx_prescribed
-  use physics_types,  only : physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer, only : physics_buffer_desc, pbuf_get_field
-  use physconst,      only : gravit
-  use cam_history,    only : outfld
-  use perf_mod,       only : t_startf, t_stopf
-  use modal_aero_data
-  use modal_aero_deposition, only : set_srf_wetdep
-  use wetdep,                only : wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
-  use modal_aero_calcsize,   only : modal_aero_calcsize_sub
-  use modal_aero_wateruptake,only : modal_aero_wateruptake_dr
+  use shr_kind_mod, only : r8 => shr_kind_r8
+  use ap_wetdepa_v2_scheme, only : wetdepa_v2_run
+  use aero_model_wetdep_host_hooks, only : &
+       aero_model_wetdep_timer_start, aero_model_wetdep_timer_stop, &
+       aero_model_wetdep_outfld_real1d, aero_model_wetdep_outfld_real2d
 
   implicit none
   private
+  save
 
-  public :: aero_model_wetdep_run
+  public :: aero_model_wetdep_init, aero_model_wetdep_run
 
   integer, parameter :: nimptblgrow_mind=-7, nimptblgrow_maxd=12
 
+  integer :: pcols, pver, pcnst, ntot_amode, iulog
+  integer :: modeptr_coarse, modeptr_pcarbon, modeptr_finedust
+  integer :: modeptr_coardust
+  real(r8) :: gravit
+  integer, allocatable :: nspec_amode(:), numptr_amode(:)
+  integer, allocatable :: numptrcw_amode(:), lmassptr_amode(:,:)
+  integer, allocatable :: lmassptrcw_amode(:,:), lspectype_amode(:,:)
+  integer, allocatable :: lptr_dust_a_amode(:), lptr_nacl_a_amode(:)
+  real(r8), allocatable :: dgnum_amode(:), spechygro(:), specdens_amode(:)
+
 contains
+
+  subroutine aero_model_wetdep_init(pcols_in, pver_in, pcnst_in, &
+       gravit_in, iulog_in, nspec_amode_in, numptr_amode_in, &
+       numptrcw_amode_in, lmassptr_amode_in, lmassptrcw_amode_in, &
+       lspectype_amode_in, modeptr_coarse_in, modeptr_pcarbon_in, &
+       modeptr_finedust_in, modeptr_coardust_in, lptr_dust_a_amode_in, &
+       lptr_nacl_a_amode_in, dgnum_amode_in, spechygro_in, &
+       specdens_amode_in)
+
+    integer, intent(in) :: pcols_in, pver_in, pcnst_in, iulog_in
+    real(r8), intent(in) :: gravit_in
+    integer, intent(in) :: nspec_amode_in(:), numptr_amode_in(:)
+    integer, intent(in) :: numptrcw_amode_in(:)
+    integer, intent(in) :: lmassptr_amode_in(:,:), lmassptrcw_amode_in(:,:)
+    integer, intent(in) :: lspectype_amode_in(:,:)
+    integer, intent(in) :: modeptr_coarse_in, modeptr_pcarbon_in
+    integer, intent(in) :: modeptr_finedust_in, modeptr_coardust_in
+    integer, intent(in) :: lptr_dust_a_amode_in(:), lptr_nacl_a_amode_in(:)
+    real(r8), intent(in) :: dgnum_amode_in(:), spechygro_in(:)
+    real(r8), intent(in) :: specdens_amode_in(:)
+
+    pcols = pcols_in
+    pver = pver_in
+    pcnst = pcnst_in
+    gravit = gravit_in
+    iulog = iulog_in
+    ntot_amode = size(nspec_amode_in)
+    modeptr_coarse = modeptr_coarse_in
+    modeptr_pcarbon = modeptr_pcarbon_in
+    modeptr_finedust = modeptr_finedust_in
+    modeptr_coardust = modeptr_coardust_in
+
+    allocate(nspec_amode(ntot_amode), numptr_amode(ntot_amode), &
+         numptrcw_amode(ntot_amode), &
+         lmassptr_amode(size(lmassptr_amode_in,1),ntot_amode), &
+         lmassptrcw_amode(size(lmassptrcw_amode_in,1),ntot_amode), &
+         lspectype_amode(size(lspectype_amode_in,1),ntot_amode), &
+         lptr_dust_a_amode(ntot_amode), lptr_nacl_a_amode(ntot_amode), &
+         dgnum_amode(ntot_amode), spechygro(size(spechygro_in)), &
+         specdens_amode(size(specdens_amode_in)))
+
+    nspec_amode = nspec_amode_in
+    numptr_amode = numptr_amode_in
+    numptrcw_amode = numptrcw_amode_in
+    lmassptr_amode = lmassptr_amode_in
+    lmassptrcw_amode = lmassptrcw_amode_in
+    lspectype_amode = lspectype_amode_in
+    lptr_dust_a_amode = lptr_dust_a_amode_in
+    lptr_nacl_a_amode = lptr_nacl_a_amode_in
+    dgnum_amode = dgnum_amode_in
+    spechygro = spechygro_in
+    specdens_amode = specdens_amode_in
+  end subroutine aero_model_wetdep_init
 
   !> \section arg_table_aero_model_wetdep_run Argument Table
   !! \htmlinclude aero_model_wetdep_run.html
   !!
-  subroutine aero_model_wetdep_run(state, dt, dlf, cam_out, ptend, pbuf, &
-       nmodes_in, dgnumwet_idx_in, qaerwat_idx_in, fracis_idx_in, &
+  subroutine aero_model_wetdep_run(lchnk, ncol, dt, dlf, q, pmid, pdel, &
+       ptend_q, ptend_lq, cldt, cldcu, cmfdqr, evapc, conicw, prain, &
+       qme, evapr, totcond, cldvcu, cldvst, dgnumwet, fracis, qqcw_data, &
        sol_facti_cloud_borne_in, sol_factb_interstitial_in, &
-       sol_factic_interstitial_in, nwetdep_in, wetdep_lq_in, &
-       dlndg_nimptblgrow_in, scavimptblnum_in, scavimptblvol_in)
-
-    use modal_aero_deposition, only: set_srf_wetdep
-    use wetdep,                only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
-    use modal_aero_data
-    use modal_aero_calcsize,   only: modal_aero_calcsize_sub
-    use modal_aero_wateruptake,only: modal_aero_wateruptake_dr
-
+       sol_factic_interstitial_in, &
+       dlndg_nimptblgrow_in, scavimptblnum_in, scavimptblvol_in, &
+       aerdepwetis, aerdepwetcw)
 
     ! args
-
-    type(physics_state), intent(in)    :: state       ! Physics state variables
-    real(r8),            intent(in)    :: dt          ! time step
-    real(r8),            intent(in)    :: dlf(:,:)    ! shallow+deep convective detrainment [kg/kg/s]
-    type(cam_out_t),     intent(inout) :: cam_out     ! export state
-    type(physics_ptend), intent(out)   :: ptend       ! indivdual parameterization tendencies
-    type(physics_buffer_desc), pointer, intent(inout) :: pbuf(:)
-    integer,  intent(in) :: nmodes_in
-    integer,  intent(in) :: dgnumwet_idx_in, qaerwat_idx_in, fracis_idx_in
+    integer, intent(in) :: lchnk, ncol
+    real(r8), intent(in) :: dt
+    real(r8), intent(in) :: dlf(:,:), q(:,:,:), pmid(:,:), pdel(:,:)
+    real(r8), intent(inout) :: ptend_q(:,:,:), fracis(:,:,:)
+    logical, intent(inout) :: ptend_lq(:)
+    real(r8), intent(in) :: cldt(:,:), cldcu(:,:), cmfdqr(:,:), evapc(:,:)
+    real(r8), intent(in) :: conicw(:,:), prain(:,:), qme(:,:), evapr(:,:)
+    real(r8), intent(in) :: totcond(:,:), cldvcu(:,:), cldvst(:,:)
+    real(r8), intent(in) :: dgnumwet(:,:,:)
+    real(r8), intent(inout) :: qqcw_data(:,:,:)
     real(r8), intent(in) :: sol_facti_cloud_borne_in
     real(r8), intent(in) :: sol_factb_interstitial_in
     real(r8), intent(in) :: sol_factic_interstitial_in
-    integer,  intent(in) :: nwetdep_in
-    logical,  intent(in) :: wetdep_lq_in(:)
     real(r8), intent(in) :: dlndg_nimptblgrow_in
     real(r8), intent(in) :: scavimptblnum_in(-7:,:)
     real(r8), intent(in) :: scavimptblvol_in(-7:,:)
+    real(r8), intent(out) :: aerdepwetis(:,:), aerdepwetcw(:,:)
 
     ! local vars
 
     integer :: m ! tracer index
-
-    integer :: lchnk ! chunk identifier
-    integer :: ncol ! number of atmospheric columns
 
     real(r8) :: iscavt(pcols, pver)
 
@@ -100,45 +146,7 @@ contains
                                            ! interstitial num (1), interstitial vol (2)
     real(r8) :: tmpa, tmpb
     real(r8) :: tmpdust, tmpnacl
-    real(r8) :: water_old, water_new ! temporary old/new aerosol water mix-rat
     logical  :: isprx(pcols,pver) ! true if precipation
-    real(r8) :: aerdepwetis(pcols,pcnst) ! aerosol wet deposition (interstitial)
-    real(r8) :: aerdepwetcw(pcols,pcnst) ! aerosol wet deposition (cloud water)
-    real(r8), pointer :: fldcw(:,:)
-
-    real(r8), pointer :: dgnumwet(:,:,:)
-    real(r8), pointer :: qaerwat(:,:,:)  ! aerosol water
-
-    real(r8), pointer :: fracis(:,:,:)   ! fraction of transported species that are insoluble
-
-    type(wetdep_inputs_t) :: dep_inputs
-
-    lchnk = state%lchnk
-    ncol  = state%ncol
-
-    call physics_ptend_init(ptend, state%psetcols, 'aero_model_wetdep', lq=wetdep_lq_in)
-
-    ! Do calculations of mode radius and water uptake if:
-    ! 1) modal aerosols are affecting the climate, or
-    ! 2) prognostic modal aerosols are enabled
-
-    call t_startf('calcsize')
-    ! for prognostic modal aerosols the transfer of mass between aitken and accumulation
-    ! modes is done in conjunction with the dry radius calculation
-    call modal_aero_calcsize_sub(state, ptend, dt, pbuf)
-    call t_stopf('calcsize')
-
-    call t_startf('wateruptake')
-    call modal_aero_wateruptake_dr(state, pbuf)
-    call t_stopf('wateruptake')
-
-    if (nwetdep_in<1) return
-
-    call wetdep_inputs_set( state, pbuf, dep_inputs )
-
-    call pbuf_get_field(pbuf, dgnumwet_idx_in,       dgnumwet, start=(/1,1,1/), kount=(/pcols,pver,nmodes_in/) )
-    call pbuf_get_field(pbuf, qaerwat_idx_in,        qaerwat,  start=(/1,1,1/), kount=(/pcols,pver,nmodes_in/) )
-    call pbuf_get_field(pbuf, fracis_idx_in,         fracis, start=(/1,1,1/), kount=(/pcols, pver, pcnst/) )
 
     prec(:ncol)=0._r8
     do k=1,pver
@@ -147,8 +155,8 @@ contains
        elsewhere
           isprx(:ncol,k) = .false.
        endwhere
-       prec(:ncol) = prec(:ncol) + (dep_inputs%prain(:ncol,k) + dep_inputs%cmfdqr(:ncol,k) - dep_inputs%evapr(:ncol,k)) &
-            *state%pdel(:ncol,k)/gravit
+       prec(:ncol) = prec(:ncol) + (prain(:ncol,k) + cmfdqr(:ncol,k) - &
+            evapr(:ncol,k))*pdel(:ncol,k)/gravit
     end do
 
     ! calculate the mass-weighted sol_factic for coarse mode species
@@ -162,8 +170,10 @@ contains
        if ((lcoardust > 0) .and. (lcoarnacl > 0)) then
           do k = 1, pver
              do i = 1, ncol
-                tmpdust = max( 0.0_r8, state%q(i,k,lcoardust) + ptend%q(i,k,lcoardust)*dt )
-                tmpnacl = max( 0.0_r8, state%q(i,k,lcoarnacl) + ptend%q(i,k,lcoarnacl)*dt )
+                tmpdust = max(0.0_r8, q(i,k,lcoardust) + &
+                     ptend_q(i,k,lcoardust)*dt)
+                tmpnacl = max(0.0_r8, q(i,k,lcoarnacl) + &
+                     ptend_q(i,k,lcoarnacl)*dt)
                 if ((tmpdust+tmpnacl) > 1.0e-30_r8) then
                    ! sol_factic_coarse(i,k) = (0.2_r8*tmpdust + 0.4_r8*tmpnacl)/(tmpdust+tmpnacl) ! tuned 1/6
                    f_act_conv_coarse(i,k) = (f_act_conv_coarse_dust*tmpdust &
@@ -295,70 +305,79 @@ contains
 
 
              if ((lphase == 1) .and. (lspec <= nspec_amode(m))) then
-                ptend%lq(mm) = .TRUE.
+                ptend_lq(mm) = .true.
                 dqdt_tmp(:,:) = 0.0_r8
                 ! q_tmp reflects changes from modal_aero_calcsize and is the "most current" q
-                q_tmp(1:ncol,:) = state%q(1:ncol,:,mm) + ptend%q(1:ncol,:,mm)*dt
-                fldcw => qqcw_get_field(pbuf, mm,lchnk)
+                q_tmp(1:ncol,:) = q(1:ncol,:,mm) + ptend_q(1:ncol,:,mm)*dt
 
-                call wetdepa_v2( state%pmid, state%q(:,:,1), state%pdel, &
-                     dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
-                     dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
-                     dep_inputs%evapr, dep_inputs%totcond, q_tmp, dt, &
-                     dqdt_tmp, iscavt, dep_inputs%cldvcu, dep_inputs%cldvst, &
+                call aero_model_wetdep_timer_start('ap_wetdepa_v2_run')
+                call wetdepa_v2_run(pcols, pver, gravit, iulog, pmid, q(:,:,1), &
+                     pdel, cldt, cldcu, cmfdqr, evapc, conicw, prain, qme, &
+                     evapr, totcond, q_tmp, dt, dqdt_tmp, iscavt, cldvcu, cldvst, &
                      dlf, fracis(:,:,mm), sol_factb, ncol, &
                      scavcoefnv(:,:,jnv), &
                      is_strat_cloudborne=.false.,  &
-                     qqcw=fldcw,  &
+                     qqcw=qqcw_data(:,:,mm),  &
                      f_act_conv=f_act_conv, &
                      icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
                      sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                call aero_model_wetdep_timer_stop('ap_wetdepa_v2_run')
 
-                ptend%q(1:ncol,:,mm) = ptend%q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
+                ptend_q(1:ncol,:,mm) = ptend_q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
 
-                call outfld( trim(cnst_name(mm))//'WET', dqdt_tmp(:,:), pcols, lchnk)
-                call outfld( trim(cnst_name(mm))//'SIC', icscavt, pcols, lchnk)
-                call outfld( trim(cnst_name(mm))//'SIS', isscavt, pcols, lchnk)
-                call outfld( trim(cnst_name(mm))//'SBC', bcscavt, pcols, lchnk)
-                call outfld( trim(cnst_name(mm))//'SBS', bsscavt, pcols, lchnk)
+                call aero_model_wetdep_outfld_real2d(mm, .false., 'WET', &
+                     dqdt_tmp, pcols, lchnk)
+                call aero_model_wetdep_outfld_real2d(mm, .false., 'SIC', &
+                     icscavt, pcols, lchnk)
+                call aero_model_wetdep_outfld_real2d(mm, .false., 'SIS', &
+                     isscavt, pcols, lchnk)
+                call aero_model_wetdep_outfld_real2d(mm, .false., 'SBC', &
+                     bcscavt, pcols, lchnk)
+                call aero_model_wetdep_outfld_real2d(mm, .false., 'SBS', &
+                     bsscavt, pcols, lchnk)
 
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+dqdt_tmp(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+dqdt_tmp(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name(mm))//'SFWET', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .false., 'SFWET', &
+                     sflx, pcols, lchnk)
                 aerdepwetis(:ncol,mm) = sflx(:ncol)
 
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+icscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+icscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name(mm))//'SFSIC', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .false., 'SFSIC', &
+                     sflx, pcols, lchnk)
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+isscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+isscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name(mm))//'SFSIS', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .false., 'SFSIS', &
+                     sflx, pcols, lchnk)
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+bcscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+bcscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name(mm))//'SFSBC', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .false., 'SFSBC', &
+                     sflx, pcols, lchnk)
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+bsscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+bsscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name(mm))//'SFSBS', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .false., 'SFSBS', &
+                     sflx, pcols, lchnk)
 
                 if (lspec > 0) then
                    tmpa = spechygro(lspectype_amode(lspec,m))/ &
@@ -370,98 +389,66 @@ contains
                         + tmpb*dqdt_tmp(1:ncol,:)
                 end if
 
-             else if ((lphase == 1) .and. (lspec == nspec_amode(m)+1)) then
-                ! aerosol water -- because of how wetdepa treats evaporation of stratiform
-                ! precip, it is not appropriate to apply wetdepa to aerosol water
-                ! instead, "hygro_sum" = [sum of (mass*hygro/dens)] is calculated before and
-                ! after wet removal, and new water is calculated using
-                ! new_water = old_water*min(10,(hygro_sum_new/hygro_sum_old))
-                ! the "min(10,...)" is to avoid potential problems when hygro_sum_old ~= 0
-                ! also, individual wet removal terms (ic,is,bc,bs) are not output to history
-                ! ptend%lq(mm) = .TRUE.
-                ! dqdt_tmp(:,:) = 0.0_r8
-                do k = 1, pver
-                   do i = 1, ncol
-                      ! water_old = max( 0.0_r8, state%q(i,k,mm)+ptend%q(i,k,mm)*dt )
-                      water_old = max( 0.0_r8, qaerwat(i,k,mm) )
-                      hygro_sum_old_ik = max( 0.0_r8, hygro_sum_old(i,k) )
-                      hygro_sum_new_ik = max( 0.0_r8, hygro_sum_old_ik+hygro_sum_del(i,k) )
-                      if (hygro_sum_new_ik >= 10.0_r8*hygro_sum_old_ik) then
-                         water_new = 10.0_r8*water_old
-                      else
-                         water_new = water_old*(hygro_sum_new_ik/hygro_sum_old_ik)
-                      end if
-                      ! dqdt_tmp(i,k) = (water_new - water_old)/dt
-                      qaerwat(i,k,mm) = water_new
-                   end do
-                end do
-
-                ! ptend%q(1:ncol,:,mm) = ptend%q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
-
-                ! call outfld( trim(cnst_name(mm))
-
-                ! sflx(:)=0._r8
-                ! do k=1,pver
-                ! do i=1,ncol
-                ! sflx(i)=sflx(i)+dqdt_tmp(i,k)*state%pdel(i,k)/gravit
-                ! enddo
-                ! enddo
-                ! call outfld( trim(cnst_name(mm))
-
              else ! lphase == 2
                 dqdt_tmp(:,:) = 0.0_r8
-                fldcw => qqcw_get_field(pbuf, mm,lchnk)
 
-                call wetdepa_v2(state%pmid, state%q(:,:,1), state%pdel, &
-                     dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
-                     dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
-                     dep_inputs%evapr, dep_inputs%totcond, fldcw, dt, &
-                     dqdt_tmp, iscavt, dep_inputs%cldvcu, dep_inputs%cldvst, &
+                call aero_model_wetdep_timer_start('ap_wetdepa_v2_run')
+                call wetdepa_v2_run(pcols, pver, gravit, iulog, pmid, q(:,:,1), &
+                     pdel, cldt, cldcu, cmfdqr, evapc, conicw, prain, qme, &
+                     evapr, totcond, qqcw_data(:,:,mm), dt, &
+                     dqdt_tmp, iscavt, cldvcu, cldvst, &
                      dlf, fracis_cw, sol_factb, ncol, &
                      scavcoefnv(:,:,jnv), &
                      is_strat_cloudborne=.true.,  &
                      icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
                      sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                call aero_model_wetdep_timer_stop('ap_wetdepa_v2_run')
 
-                fldcw(1:ncol,:) = fldcw(1:ncol,:) + dqdt_tmp(1:ncol,:) * dt
+                qqcw_data(1:ncol,:,mm) = qqcw_data(1:ncol,:,mm) + &
+                     dqdt_tmp(1:ncol,:) * dt
 
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+dqdt_tmp(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+dqdt_tmp(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name_cw(mm))//'SFWET', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .true., 'SFWET', &
+                     sflx, pcols, lchnk)
                 aerdepwetcw(:ncol,mm) = sflx(:ncol)
 
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+icscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+icscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name_cw(mm))//'SFSIC', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .true., 'SFSIC', &
+                     sflx, pcols, lchnk)
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+isscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+isscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name_cw(mm))//'SFSIS', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .true., 'SFSIS', &
+                     sflx, pcols, lchnk)
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+bcscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+bcscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name_cw(mm))//'SFSBC', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .true., 'SFSBC', &
+                     sflx, pcols, lchnk)
                 sflx(:)=0._r8
                 do k=1,pver
                    do i=1,ncol
-                      sflx(i)=sflx(i)+bsscavt(i,k)*state%pdel(i,k)/gravit
+                      sflx(i)=sflx(i)+bsscavt(i,k)*pdel(i,k)/gravit
                    enddo
                 enddo
-                call outfld( trim(cnst_name_cw(mm))//'SFSBS', sflx, pcols, lchnk)
+                call aero_model_wetdep_outfld_real1d(mm, .true., 'SFSBS', &
+                     sflx, pcols, lchnk)
 
              endif
 
@@ -469,18 +456,11 @@ contains
        enddo ! lphase = 1, 2
     enddo ! m = 1, ntot_amode
 
-    ! if the user has specified prescribed aerosol dep fluxes then
-    ! do not set cam_out dep fluxes according to the prognostic aerosols
-    if (.not.aerodep_flx_prescribed()) then
-       call set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
-    endif
-
   end subroutine aero_model_wetdep_run
 
   subroutine modal_aero_bcscavcoef_get( m, ncol, isprx, dgn_awet, scavcoefnum, scavcoefvol, &
        dlndg_nimptblgrow_in, scavimptblnum_in, scavimptblvol_in )
 
-    use modal_aero_data
     !-----------------------------------------------------------------------
     implicit none
 

@@ -19,6 +19,10 @@ module aero_model
   use ap_aero_model_gasaerexch_scheme, only: aero_model_gasaerexch_run
   use ap_aero_model_drydep_scheme, only: aero_model_drydep_run
   use ap_modal_aerosol_timer_hooks, only: register_modal_aerosol_timer_hooks
+  use ap_aero_model_wetdep_scheme, only: aero_model_wetdep_init, &
+       aero_model_wetdep_run
+  use aero_model_wetdep_host_hooks, only: &
+       register_aero_model_wetdep_host_hooks
 
   use cam_history,    only: outfld, fieldname_len
   use chem_mods,      only: gas_pcnst, adv_mass
@@ -27,7 +31,10 @@ module aero_model
   use modal_aero_data,only: cnst_name_cw, qqcw_get_field
   use modal_aero_data,only: ntot_amode, modename_amode, maxd_aspectype, &
        alnsg_amode, sigmag_amode, nspec_amode, numptr_amode, &
-       numptrcw_amode, lmassptr_amode, lmassptrcw_amode
+       numptrcw_amode, lmassptr_amode, lmassptrcw_amode, lspectype_amode, &
+       modeptr_coarse, modeptr_pcarbon, modeptr_finedust, &
+       modeptr_coardust, lptr_dust_a_amode, lptr_nacl_a_amode, &
+       dgnum_amode, spechygro, specdens_amode
   use ref_pres,       only: top_lev => clim_modal_aero_top_lev
 
   use modal_aero_wateruptake, only: modal_strat_sulfate
@@ -215,6 +222,12 @@ contains
     call rad_cnst_get_info(0, nmodes=nmodes)
 
     call modal_aero_initialize(pbuf2d,modal_accum_coarse_exch)
+    call aero_model_wetdep_init(pcols, pver, pcnst, gravit, iulog, &
+         nspec_amode, numptr_amode, numptrcw_amode, lmassptr_amode, &
+         lmassptrcw_amode, lspectype_amode, modeptr_coarse, &
+         modeptr_pcarbon, modeptr_finedust, modeptr_coardust, &
+         lptr_dust_a_amode, lptr_nacl_a_amode, dgnum_amode, &
+         spechygro, specdens_amode)
     call modal_aero_bcscavcoef_init()
 
     call dust_init()
@@ -668,8 +681,11 @@ contains
   !=============================================================================
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
 
-    use ap_aero_model_wetdep_scheme, only : aero_model_wetdep_run
-
+    use modal_aero_calcsize, only: modal_aero_calcsize_sub
+    use modal_aero_data, only: qqcw_get_field
+    use modal_aero_deposition, only: set_srf_wetdep
+    use modal_aero_wateruptake, only: modal_aero_wateruptake_dr
+    use wetdep, only: wetdep_inputs_set, wetdep_inputs_t
 
     ! args
 
@@ -680,15 +696,147 @@ contains
     type(physics_ptend), intent(out)   :: ptend       ! indivdual parameterization tendencies
     type(physics_buffer_desc), pointer :: pbuf(:)
 
+    ! host-side views and storage
+    type(wetdep_inputs_t) :: dep_inputs
+    real(r8), pointer :: dgnumwet(:,:,:), fracis(:,:,:), fldcw(:,:)
+    real(r8), allocatable :: qqcw_data(:,:,:)
+    real(r8) :: aerdepwetis(pcols,pcnst), aerdepwetcw(pcols,pcnst)
+    integer :: l, lchnk, m, mm, ncol
 
     call t_startf('ap_aero_model_wetdep_run')
-    call aero_model_wetdep_run(state, dt, dlf, cam_out, ptend, pbuf, &
-         nmodes, dgnumwet_idx, qaerwat_idx, fracis_idx, &
+
+    lchnk = state%lchnk
+    ncol = state%ncol
+
+    call physics_ptend_init(ptend, state%psetcols, 'aero_model_wetdep', &
+         lq=wetdep_lq)
+
+    call t_startf('calcsize')
+    call modal_aero_calcsize_sub(state, ptend, dt, pbuf)
+    call t_stopf('calcsize')
+
+    call t_startf('wateruptake')
+    call modal_aero_wateruptake_dr(state, pbuf)
+    call t_stopf('wateruptake')
+
+    if (nwetdep < 1) then
+       call t_stopf('ap_aero_model_wetdep_run')
+       return
+    end if
+
+    call wetdep_inputs_set(state, pbuf, dep_inputs)
+    call pbuf_get_field(pbuf, dgnumwet_idx, dgnumwet, &
+         start=(/1,1,1/), kount=(/pcols,pver,nmodes/))
+    call pbuf_get_field(pbuf, fracis_idx, fracis, &
+         start=(/1,1,1/), kount=(/pcols,pver,pcnst/))
+
+    allocate(qqcw_data(pcols,pver,pcnst))
+    qqcw_data = 0._r8
+    do m = 1, ntot_amode
+       mm = numptr_amode(m)
+       fldcw => qqcw_get_field(pbuf, mm, lchnk)
+       qqcw_data(:,:,mm) = fldcw
+       if (numptrcw_amode(m) /= mm) then
+          mm = numptrcw_amode(m)
+          fldcw => qqcw_get_field(pbuf, mm, lchnk)
+          qqcw_data(:,:,mm) = fldcw
+       end if
+       do l = 1, nspec_amode(m)
+          mm = lmassptr_amode(l,m)
+          fldcw => qqcw_get_field(pbuf, mm, lchnk)
+          qqcw_data(:,:,mm) = fldcw
+          if (lmassptrcw_amode(l,m) /= mm) then
+             mm = lmassptrcw_amode(l,m)
+             fldcw => qqcw_get_field(pbuf, mm, lchnk)
+             qqcw_data(:,:,mm) = fldcw
+          end if
+       end do
+    end do
+
+    call register_aero_model_wetdep_host_hooks(wetdep_timer_start, &
+         wetdep_timer_stop, wetdep_outfld_real1d, wetdep_outfld_real2d)
+
+    call aero_model_wetdep_run(lchnk, ncol, dt, dlf, state%q, &
+         state%pmid, state%pdel, ptend%q, ptend%lq, dep_inputs%cldt, &
+         dep_inputs%cldcu, dep_inputs%cmfdqr, dep_inputs%evapc, &
+         dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
+         dep_inputs%evapr, dep_inputs%totcond, dep_inputs%cldvcu, &
+         dep_inputs%cldvst, dgnumwet, fracis, qqcw_data, &
          sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial, &
-         nwetdep, wetdep_lq, dlndg_nimptblgrow, scavimptblnum, scavimptblvol)
+         dlndg_nimptblgrow, scavimptblnum, scavimptblvol, &
+         aerdepwetis, aerdepwetcw)
+
+    do m = 1, ntot_amode
+       mm = numptr_amode(m)
+       fldcw => qqcw_get_field(pbuf, mm, lchnk)
+       fldcw(1:ncol,:) = qqcw_data(1:ncol,:,mm)
+       if (numptrcw_amode(m) /= mm) then
+          mm = numptrcw_amode(m)
+          fldcw => qqcw_get_field(pbuf, mm, lchnk)
+          fldcw(1:ncol,:) = qqcw_data(1:ncol,:,mm)
+       end if
+       do l = 1, nspec_amode(m)
+          mm = lmassptr_amode(l,m)
+          fldcw => qqcw_get_field(pbuf, mm, lchnk)
+          fldcw(1:ncol,:) = qqcw_data(1:ncol,:,mm)
+          if (lmassptrcw_amode(l,m) /= mm) then
+             mm = lmassptrcw_amode(l,m)
+             fldcw => qqcw_get_field(pbuf, mm, lchnk)
+             fldcw(1:ncol,:) = qqcw_data(1:ncol,:,mm)
+          end if
+       end do
+    end do
+
+    if (.not. aerodep_flx_prescribed()) then
+       call set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
+    end if
+
+    deallocate(qqcw_data)
     call t_stopf('ap_aero_model_wetdep_run')
 
   end subroutine aero_model_wetdep
+
+  subroutine wetdep_timer_start(timer_name)
+    character(len=*), intent(in) :: timer_name
+    call t_startf(timer_name)
+  end subroutine wetdep_timer_start
+
+  subroutine wetdep_timer_stop(timer_name)
+    character(len=*), intent(in) :: timer_name
+    call t_stopf(timer_name)
+  end subroutine wetdep_timer_stop
+
+  subroutine wetdep_outfld_real1d(field_index, cloudborne, suffix, field, &
+       dim1, lchnk)
+    integer, intent(in) :: field_index, dim1, lchnk
+    logical, intent(in) :: cloudborne
+    character(len=*), intent(in) :: suffix
+    real(r8), intent(in) :: field(:)
+    character(len=fieldname_len) :: field_name
+
+    if (cloudborne) then
+       field_name = trim(cnst_name_cw(field_index))//trim(suffix)
+    else
+       field_name = trim(cnst_name(field_index))//trim(suffix)
+    end if
+    call outfld(trim(field_name), field, dim1, lchnk)
+  end subroutine wetdep_outfld_real1d
+
+  subroutine wetdep_outfld_real2d(field_index, cloudborne, suffix, field, &
+       dim1, lchnk)
+    integer, intent(in) :: field_index, dim1, lchnk
+    logical, intent(in) :: cloudborne
+    character(len=*), intent(in) :: suffix
+    real(r8), intent(in) :: field(:,:)
+    character(len=fieldname_len) :: field_name
+
+    if (cloudborne) then
+       field_name = trim(cnst_name_cw(field_index))//trim(suffix)
+    else
+       field_name = trim(cnst_name(field_index))//trim(suffix)
+    end if
+    call outfld(trim(field_name), field, dim1, lchnk)
+  end subroutine wetdep_outfld_real2d
 
   !-------------------------------------------------------------------------
   ! provides wet tropospheric aerosol surface area info for modal aerosols

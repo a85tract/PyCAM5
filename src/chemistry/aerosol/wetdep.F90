@@ -352,7 +352,8 @@ subroutine wetdepa_v2(                                  &
 
 
    call t_startf('ap_wetdepa_v2_run')
-   call wetdepa_v2_run(pcols, pver, gravit, p, q, pdel, cldt, cldc, cmfdqr, evapc, conicw, precs, conds, &
+   call wetdepa_v2_run(pcols, pver, gravit, iulog, p, q, pdel, cldt, cldc, &
+        cmfdqr, evapc, conicw, precs, conds, &
         evaps, cwat, tracer, deltat, scavt, iscavt, cldvcu, cldvst, dlf, fracis, &
         sol_fact, ncol, scavcoef, is_strat_cloudborne, qqcw, f_act_conv, &
         icscavt, isscavt, bcscavt, bsscavt, sol_facti_in, sol_factic_in, &

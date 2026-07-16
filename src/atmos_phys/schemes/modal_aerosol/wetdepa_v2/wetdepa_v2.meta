@@ -17,10 +17,16 @@
   type = integer
   dimensions = ()
   intent = in
-[ gravity ]
+[ gravit ]
   standard_name = gravitational_acceleration
   units = m s-2
   type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ iulog ]
+  standard_name = model_log_output_unit
+  units = index
+  type = integer
   dimensions = ()
   intent = in
 [ p ]

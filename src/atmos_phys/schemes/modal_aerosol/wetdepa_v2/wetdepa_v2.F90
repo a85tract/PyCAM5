@@ -13,7 +13,7 @@ contains
   !! \htmlinclude wetdepa_v2_run.html
   !!
 subroutine wetdepa_v2_run(                                  &
-   pcols, pver, gravity, p, q, pdel, cldt, cldc,         &
+   pcols, pver, gravit, iulog, p, q, pdel, cldt, cldc,  &
    cmfdqr, evapc, conicw, precs, conds,                 &
    evaps, cwat, tracer, deltat, scavt,                  &
    iscavt, cldvcu, cldvst, dlf, fracis,                 &
@@ -28,8 +28,8 @@ subroutine wetdepa_v2_run(                                  &
    !
    !-----------------------------------------------------------------------
 
-   integer, intent(in) :: pcols, pver
-   real(r8), intent(in) :: gravity
+   integer, intent(in) :: pcols, pver, iulog
+   real(r8), intent(in) :: gravit
 
    real(r8), intent(in) ::&
       p(pcols,pver),        &! pressure
