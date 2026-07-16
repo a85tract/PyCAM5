@@ -276,7 +276,6 @@ elemental function wv_sat_svp_water(t, idx) result(es)
   integer,  intent(in), optional :: idx
   real(r8) :: es
 
-<<<<<<<< HEAD:src/atmos_phys/support/thermodynamics/wv_sat_methods.F90
   integer :: method_idx
 
   if (present(idx)) then
@@ -286,17 +285,6 @@ elemental function wv_sat_svp_water(t, idx) result(es)
   end if
 
   select case (method_idx)
-========
-  integer :: selected_idx
-
-  if (present(idx)) then
-     selected_idx = idx
-  else
-     selected_idx = default_idx
-  end if
-
-  select case (selected_idx)
->>>>>>>> 3dc75aa (Decouple MG1 microphysics runtime dependencies):src/atmos_phys/support/cloud_microphysics/wv_sat_methods.F90
   case(GoffGratch_idx)
      es = GoffGratch_svp_water(t)
   case(MurphyKoop_idx)
@@ -314,7 +302,6 @@ elemental function wv_sat_svp_ice(t, idx) result(es)
   integer,  intent(in), optional :: idx
   real(r8) :: es
 
-<<<<<<<< HEAD:src/atmos_phys/support/thermodynamics/wv_sat_methods.F90
   integer :: method_idx
 
   if (present(idx)) then
@@ -324,17 +311,6 @@ elemental function wv_sat_svp_ice(t, idx) result(es)
   end if
 
   select case (method_idx)
-========
-  integer :: selected_idx
-
-  if (present(idx)) then
-     selected_idx = idx
-  else
-     selected_idx = default_idx
-  end if
-
-  select case (selected_idx)
->>>>>>>> 3dc75aa (Decouple MG1 microphysics runtime dependencies):src/atmos_phys/support/cloud_microphysics/wv_sat_methods.F90
   case(GoffGratch_idx)
      es = GoffGratch_svp_ice(t)
   case(MurphyKoop_idx)
