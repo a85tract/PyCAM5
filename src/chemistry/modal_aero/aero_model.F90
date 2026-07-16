@@ -13,7 +13,7 @@ module aero_model
   use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer, only: physics_buffer_desc
   use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,      only: gravit, rair, rhoh2o
+  use physconst,      only: gravit, mwdry, rair, rhoh2o, tmelt
   use spmd_utils,     only: masterproc
   use ap_aero_model_emissions_scheme, only: aero_model_emissions_run
   use ap_aero_model_gasaerexch_scheme, only: aero_model_gasaerexch_run
@@ -671,6 +671,33 @@ contains
                                     airdens, invariants, del_h2so4_gasprod,  &
                                     vmr0, vmr, pbuf )
 
+    use modal_aero_data, only : maxd_aspectype, ntot_aspectype, &
+         modeptr_accum, modeptr_aitken, modeptr_pcarbon,        &
+         numptr_amode, mprognum_amode, nspec_amode,            &
+         lmassptr_amode, lspectype_amode,                       &
+         lptr_so4_a_amode, lptr_nh4_a_amode,                   &
+         lptr_soa_a_amode, lptr_pom_a_amode,                   &
+         sigmag_amode, alnsg_amode, specmw_amode,              &
+         specdens_amode, specmw_so4_amode,                     &
+         specmw_nh4_amode, specmw_soa_amode,                   &
+         specdens_so4_amode, specdens_nh4_amode,               &
+         specdens_soa_amode, dgnumlo_amode, dgnum_amode,       &
+         dgnumhi_amode, qqcw_get_field
+    use modal_aero_gasaerexch, only : maxspec_pcage,            &
+         modefrm_pcage, modetoo_pcage, nspecfrm_pcage,         &
+         lspecfrm_pcage, lspectoo_pcage,                        &
+         n_so4_monolayers_pcage, dr_so4_monolayers_pcage,     &
+         soa_equivso4_factor
+    use modal_aero_coag, only : pair_option_acoag,              &
+         maxpair_acoag, maxspec_acoag, npair_acoag,            &
+         modefrm_acoag, modetoo_acoag, nspecfrm_acoag,         &
+         lspecfrm_acoag, lspectoo_acoag
+    use modal_aero_newnuc, only : l_h2so4_sv, l_nh3_sv,        &
+         lnumait_sv, lnh4ait_sv, lso4ait_sv
+    use mo_setsox, only : setsox, has_sox
+    use time_manager, only : get_nstep
+    use wv_saturation, only : qsat
+
     integer,  intent(in) :: loffset
     integer,  intent(in) :: ncol
     integer,  intent(in) :: lchnk
@@ -694,14 +721,214 @@ contains
     real(r8), intent(inout) :: vmr(:,:,:)
     type(physics_buffer_desc), pointer :: pbuf(:)
 
+    integer :: i, k, l, lb, lmz, m, n, nstep
+    integer :: l_so4g, l_nh4g, l_msag, l_soag
+    integer :: mait, lptr_nh4_aitken
+    integer :: ga_ierr, rename_ierr, co_ierr
+    real(r8) :: dgnumlo_aitken, dgnum_aitken, dgnumhi_aitken
+    real(r8), pointer :: dgnum(:,:,:), dgnumwet(:,:,:)
+    real(r8), pointer :: wetdens(:,:,:), sulfeq_ptr(:,:,:)
+    real(r8), pointer :: pblh(:), fldcw(:,:)
+    real(r8), target :: sulfeq_zero(pcols,pver,ntot_amode)
+    real(r8) :: ev_sat(pcols,pver), qv_sat(pcols,pver)
+    real(r8) :: vmr_before_setsox(ncol,pver,gas_pcnst)
+    real(r8) :: vmrcw_before_setsox(ncol,pver,gas_pcnst)
+    real(r8) :: vmrcw(ncol,pver,gas_pcnst)
+    real(r8) :: gs_flux(pcols,gas_pcnst)
+    real(r8) :: aq_flux(pcols,gas_pcnst)
+    real(r8) :: ga_qsrflx(pcols,gas_pcnst,2)
+    real(r8) :: ga_qqcwsrflx(pcols,gas_pcnst,2)
+    real(r8) :: nn_qsrflx(pcols,pcnst)
+    real(r8) :: co_qsrflx(pcols,pcnst)
+    logical :: ga_dotend(gas_pcnst), ga_dotendqqcw(gas_pcnst)
+    logical :: ga_dotendrn(gas_pcnst), ga_dotendqqcwrn(gas_pcnst)
+    logical :: nn_dotend(pcnst), co_dotend(pcnst)
+    logical :: has_sulfeq_local
+    character(len=fieldname_len+3) :: fieldname
+    character(len=32) :: name
+
+    call pbuf_get_field(pbuf, dgnum_idx, dgnum)
+    call pbuf_get_field(pbuf, dgnumwet_idx, dgnumwet)
+    call pbuf_get_field(pbuf, wetdens_ap_idx, wetdens)
+    call pbuf_get_field(pbuf, pblh_idx, pblh)
+
+    do n = 1, ntot_amode
+       call outfld(dgnum_name(n), dgnum(1:ncol,1:pver,n), ncol, lchnk)
+       call outfld(dgnumwet_name(n), dgnumwet(1:ncol,1:pver,n), ncol, lchnk)
+    end do
+
+    nstep = get_nstep()
+
+    do m = 1, gas_pcnst
+       if (adv_mass(m) /= 0.0_r8) then
+          fldcw => qqcw_get_field(pbuf, m+loffset, lchnk, errorhandle=.true.)
+          if (associated(fldcw)) then
+             do k = 1, pver
+                vmrcw(:,k,m) = mbar(1:ncol,k) * fldcw(1:ncol,k) / adv_mass(m)
+             end do
+          else
+             vmrcw(:,:,m) = 0.0_r8
+          end if
+       end if
+    end do
+
+    vmr_before_setsox = vmr(1:ncol,1:pver,1:gas_pcnst)
+    vmrcw_before_setsox = vmrcw
+    if (has_sox) then
+       call setsox(ncol, lchnk, loffset, delt, pmid, pdel, tfld, &
+            mbar, cwat, cldfr, cldnum, airdens, invariants,    &
+            vmrcw, vmr)
+    end if
+
+    call qsat(tfld(1:ncol,1:pver), pmid(1:ncol,1:pver),        &
+         ev_sat(1:ncol,1:pver), qv_sat(1:ncol,1:pver))
+
+    call cnst_get_ind('H2SO4', l_so4g, .false.)
+    call cnst_get_ind('NH3', l_nh4g, .false.)
+    call cnst_get_ind('MSA', l_msag, .false.)
+    call cnst_get_ind('SOAG', l_soag, .false.)
+    l_so4g = l_so4g - loffset
+    l_nh4g = l_nh4g - loffset
+    l_msag = l_msag - loffset
+    l_soag = l_soag - loffset
+
+    mait = modeptr_aitken
+    lptr_nh4_aitken = 0
+    dgnumlo_aitken = 1.0_r8
+    dgnum_aitken = 1.0_r8
+    dgnumhi_aitken = 1.0_r8
+    if (mait > 0 .and. mait <= ntot_amode) then
+       lptr_nh4_aitken = lptr_nh4_a_amode(mait)
+       dgnumlo_aitken = dgnumlo_amode(mait)
+       dgnum_aitken = dgnum_amode(mait)
+       dgnumhi_aitken = dgnumhi_amode(mait)
+    end if
+
+    has_sulfeq_local = sulfeq_idx > 0
+    if (has_sulfeq_local) then
+       call pbuf_get_field(pbuf, sulfeq_idx, sulfeq_ptr)
+    else
+       sulfeq_zero = 0.0_r8
+       sulfeq_ptr => sulfeq_zero
+    end if
+
     call t_startf('ap_aero_model_gasaerexch_run')
-    call aero_model_gasaerexch_run(                            &
-         loffset, ncol, lchnk, troplev, delt, tfld, pmid, pdel, &
-         mbar, zm, qh2o, cwat, cldfr, cldnum, airdens,          &
-         invariants, del_h2so4_gasprod, vmr0, vmr, pbuf,        &
-         dgnum_idx, dgnumwet_idx, wetdens_ap_idx, pblh_idx,     &
-         sulfeq_idx, ndx_h2so4, dgnum_name, dgnumwet_name)
+    call t_startf('modal_gas-aer_exchng')
+    call t_startf('modal_nucl')
+    call t_startf('modal_coag')
+    call aero_model_gasaerexch_run(                              &
+         lchnk, ncol, nstep, pcols, pver, gas_pcnst, pcnst,     &
+         ntot_amode, top_lev, maxd_aspectype, ntot_aspectype,   &
+         maxpair_acoag, loffset, delt,                          &
+         l_so4g, l_nh4g, l_msag, l_soag,                       &
+         modefrm_pcage, modetoo_pcage, nspecfrm_pcage,         &
+         lspecfrm_pcage, lspectoo_pcage,                       &
+         modeptr_accum, modeptr_aitken, modeptr_pcarbon,       &
+         numptr_amode, mprognum_amode, nspec_amode,            &
+         lmassptr_amode, lspectype_amode,                      &
+         lptr_so4_a_amode, lptr_nh4_a_amode,                  &
+         lptr_soa_a_amode, lptr_pom_a_amode,                  &
+         sigmag_amode, alnsg_amode, specmw_amode,             &
+         specdens_amode, specmw_so4_amode,                    &
+         specmw_nh4_amode, specmw_soa_amode,                  &
+         specdens_so4_amode, specdens_nh4_amode,              &
+         specdens_soa_amode, dr_so4_monolayers_pcage,         &
+         n_so4_monolayers_pcage, soa_equivso4_factor,         &
+         pair_option_acoag, npair_acoag,                      &
+         modefrm_acoag, modetoo_acoag, nspecfrm_acoag,        &
+         lspecfrm_acoag, lspectoo_acoag,                      &
+         l_h2so4_sv, l_nh3_sv, lnumait_sv, lnh4ait_sv,       &
+         lso4ait_sv, lptr_nh4_aitken,                         &
+         dgnumlo_aitken, dgnum_aitken, dgnumhi_aitken,       &
+         gravit, mwdry, rair, tmelt, adv_mass,               &
+         tfld, pmid, pdel, mbar, zm, pblh, qh2o, qv_sat,     &
+         cldfr(1:ncol,1:pver), troplev,                       &
+         vmr0(1:ncol,1:pver,1:gas_pcnst), vmr_before_setsox, &
+         vmrcw_before_setsox, vmr, vmrcw,                    &
+         del_h2so4_gasprod(1:ncol,1:pver), dgnum, dgnumwet,  &
+         wetdens, has_sulfeq_local, sulfeq_ptr,              &
+         gs_flux, aq_flux, ga_qsrflx, ga_qqcwsrflx,          &
+         ga_dotend, ga_dotendqqcw, ga_dotendrn,              &
+         ga_dotendqqcwrn, nn_qsrflx, nn_dotend,              &
+         co_qsrflx, co_dotend, ga_ierr, rename_ierr, co_ierr)
+    call t_stopf('modal_coag')
+    call t_stopf('modal_nucl')
+    call t_stopf('modal_gas-aer_exchng')
     call t_stopf('ap_aero_model_gasaerexch_run')
+
+    if (ga_ierr /= 0) then
+       write(*,'(/a/a,2i7)') &
+            '*** aero_model_gasaerexch -- cannot find H2SO4 species', &
+            '    l_so4g, loffset =', l_so4g, loffset
+       call endrun('aero_model_gasaerexch error')
+    end if
+    if (rename_ierr /= 0) then
+       write(*,'(/a,1x,i7)') &
+            '*** aero_model_gasaerexch -- renaming error pair =', rename_ierr
+       call endrun('aero_model_gasaerexch error')
+    end if
+    if (co_ierr /= 0) then
+       write(*,*) '*** aero_model_gasaerexch coagulation error'
+       write(*,*) '    pair_option_acoag =', pair_option_acoag
+       call endrun('aero_model_gasaerexch coagulation error')
+    end if
+
+    do m = 1, gas_pcnst
+       name = 'GS_' // trim(solsym(m))
+       call outfld(name, gs_flux(:,m), ncol, lchnk)
+       name = 'AQ_' // trim(solsym(m))
+       call outfld(name, aq_flux(:,m), ncol, lchnk)
+    end do
+
+    do l = 1, gas_pcnst
+       lb = l + loffset
+       if (ga_dotend(l)) then
+          fieldname = trim(cnst_name(lb)) // '_sfgaex1'
+          call outfld(fieldname, ga_qsrflx(:,l,1), pcols, lchnk)
+       end if
+       if (ga_dotendrn(l)) then
+          fieldname = trim(cnst_name(lb)) // '_sfgaex2'
+          call outfld(fieldname, ga_qsrflx(:,l,2), pcols, lchnk)
+       end if
+       if (ga_dotendqqcwrn(l)) then
+          fieldname = trim(cnst_name_cw(lb)) // '_sfgaex2'
+          call outfld(fieldname, ga_qqcwsrflx(:,l,2), pcols, lchnk)
+       end if
+    end do
+
+    do l = loffset+1, pcnst
+       lmz = l - loffset
+       if (nn_dotend(lmz)) then
+          do i = 1, ncol
+             nn_qsrflx(i,lmz) = nn_qsrflx(i,lmz) * &
+                  (adv_mass(lmz) / mwdry)
+          end do
+          fieldname = trim(cnst_name(l)) // '_sfnnuc1'
+          call outfld(fieldname, nn_qsrflx(:,lmz), pcols, lchnk)
+       end if
+       if (co_dotend(lmz)) then
+          co_qsrflx(:,lmz) = co_qsrflx(:,lmz) * &
+               (adv_mass(lmz) / (gravit*mwdry))
+          fieldname = trim(cnst_name(l)) // '_sfcoag1'
+          call outfld(fieldname, co_qsrflx(:,lmz), pcols, lchnk)
+       end if
+    end do
+
+    do m = 1, gas_pcnst
+       fldcw => qqcw_get_field(pbuf, m+loffset, lchnk, errorhandle=.true.)
+       if (adv_mass(m) /= 0.0_r8 .and. associated(fldcw)) then
+          do k = 1, pver
+             fldcw(1:ncol,k) = adv_mass(m) * vmrcw(:,k,m) / mbar(1:ncol,k)
+          end do
+       end if
+    end do
+
+    do n = 1, pcnst
+       fldcw => qqcw_get_field(pbuf, n, lchnk, errorhandle=.true.)
+       if (associated(fldcw)) then
+          call outfld(cnst_name_cw(n), fldcw(:,:), pcols, lchnk)
+       end if
+    end do
 
   end subroutine aero_model_gasaerexch
 

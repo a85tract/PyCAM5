@@ -19,6 +19,9 @@ module modal_aero_newnuc
   integer :: lso4ait_sv = 0
 
   public :: modal_aero_newnuc_sub, modal_aero_newnuc_init
+  ! Read-only process configuration consumed by the parent standalone driver.
+  ! These values are still initialized by the CAM facade above.
+  public :: l_h2so4_sv, l_nh3_sv, lnumait_sv, lnh4ait_sv, lso4ait_sv
 
 contains
 
