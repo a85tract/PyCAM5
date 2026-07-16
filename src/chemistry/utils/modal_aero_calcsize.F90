@@ -278,11 +278,149 @@ subroutine modal_aero_calcsize_sub(state, ptend, deltat, pbuf, do_adjust_in, &
    logical, optional :: do_adjust_in
    logical, optional :: do_aitacc_transfer_in
 
-
    call t_startf('ap_modal_aero_calcsize_sub_run')
-   call modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
-        do_adjust_default, do_aitacc_transfer_default, dgnum_idx, &
-        do_adjust_in, do_aitacc_transfer_in)
+
+#ifdef MODAL_AERO
+   block
+      integer :: ipair, iq, j, jac, l, lchnk, lsfrm, lstoo
+      logical :: do_adjust, do_aitacc_transfer, emit_diagnostic
+      integer :: errflg
+      character(len=512) :: errmsg
+      character(len=fieldname_len) :: tmpnamea, tmpnameb
+      character(len=fieldname_len+3) :: fieldname
+      real(r8), pointer :: dgncur_a(:,:,:), fldcw(:,:)
+      real(r8) :: qqcw_flat(pcols,pver,pcnst)
+      real(r8) :: qsrflx(pcols,pcnst,4,2)
+
+      if (present(do_adjust_in)) then
+         do_adjust = do_adjust_in
+      else
+         do_adjust = do_adjust_default
+      end if
+      if (present(do_aitacc_transfer_in)) then
+         do_aitacc_transfer = do_aitacc_transfer_in
+      else
+         do_aitacc_transfer = do_aitacc_transfer_default
+      end if
+
+      lchnk = state%lchnk
+      call pbuf_get_field(pbuf, dgnum_idx, dgncur_a)
+
+      qqcw_flat = 0._r8
+      do l = 1, pcnst
+         fldcw => qqcw_get_field(pbuf, l, lchnk, errorhandle=.true.)
+         if (associated(fldcw)) qqcw_flat(:,:,l) = fldcw(:,:)
+      end do
+
+      call modal_aero_calcsize_sub_run(                           &
+           state%ncol, pcols, pver, pcnst, top_lev, ntot_amode,  &
+           size(lmassptr_amode,1), ntot_aspectype,               &
+           size(lspecfrma_renamexf,1), size(modefrm_renamexf),   &
+           4, 2, deltat, pi, gravit, do_adjust, do_aitacc_transfer, &
+           nspec_amode, numptr_amode, numptrcw_amode,            &
+           mprognum_amode, alnsg_amode, voltonumbhi_amode,      &
+           voltonumblo_amode, dgnum_amode, dgnumhi_amode,       &
+           dgnumlo_amode, voltonumb_amode, lmassptrcw_amode,    &
+           lmassptr_amode, modeptr_accum, modeptr_aitken,       &
+           lspectype_amode, specdens_amode, npair_renamexf,     &
+           modefrm_renamexf, modetoo_renamexf,                  &
+           nspecfrm_renamexf, lspecfrma_renamexf,               &
+           lspecfrmc_renamexf, lspectooa_renamexf,              &
+           lspectooc_renamexf, state%pdel, state%q, ptend%lq,   &
+           ptend%q, qqcw_flat, dgncur_a, qsrflx,                &
+           emit_diagnostic, errmsg, errflg)
+
+      if (errflg /= 0) then
+         write(6,'(a)') trim(errmsg)
+         call endrun('modal_aero_calcaersize_sub error')
+      end if
+
+      do l = 1, pcnst
+         fldcw => qqcw_get_field(pbuf, l, lchnk, errorhandle=.true.)
+         if (associated(fldcw)) fldcw(:,:) = qqcw_flat(:,:,l)
+      end do
+
+      if (emit_diagnostic .and. masterproc) then
+         ipair = 1
+         do j = 1, 2
+            do iq = 1, nspecfrm_renamexf(ipair)
+               do jac = 1, 2
+                  if (j == 1) then
+                     if (jac == 1) then
+                        lsfrm = lspecfrma_renamexf(iq,ipair)
+                        lstoo = lspectooa_renamexf(iq,ipair)
+                     else
+                        lsfrm = lspecfrmc_renamexf(iq,ipair)
+                        lstoo = lspectooc_renamexf(iq,ipair)
+                     end if
+                  else
+                     if (jac == 1) then
+                        lsfrm = lspectooa_renamexf(iq,ipair)
+                        lstoo = lspecfrma_renamexf(iq,ipair)
+                     else
+                        lsfrm = lspectooc_renamexf(iq,ipair)
+                        lstoo = lspecfrmc_renamexf(iq,ipair)
+                     end if
+                  end if
+                  write(6,'(a,3i3,2i4)') 'calcsize j,iq,jac, lsfrm,lstoo', &
+                       j, iq, jac, lsfrm, lstoo
+               end do
+            end do
+         end do
+      end if
+
+      if (do_adjust) then
+         do j = 1, ntot_amode
+            if (mprognum_amode(j) <= 0) cycle
+            do jac = 1, 2
+               if (jac == 1) then
+                  l = numptr_amode(j)
+                  tmpnamea = cnst_name(l)
+               else
+                  l = numptrcw_amode(j)
+                  tmpnamea = cnst_name_cw(l)
+               end if
+               fieldname = trim(tmpnamea) // '_sfcsiz1'
+               call outfld(fieldname, qsrflx(:,l,1,jac), pcols, lchnk)
+               fieldname = trim(tmpnamea) // '_sfcsiz2'
+               call outfld(fieldname, qsrflx(:,l,2,jac), pcols, lchnk)
+            end do
+         end do
+
+         if (do_aitacc_transfer) then
+            ipair = 1
+            do iq = 1, nspecfrm_renamexf(ipair)
+               do jac = 1, 2
+                  if (jac == 1) then
+                     lsfrm = lspecfrma_renamexf(iq,ipair)
+                     lstoo = lspectooa_renamexf(iq,ipair)
+                  else
+                     lsfrm = lspecfrmc_renamexf(iq,ipair)
+                     lstoo = lspectooc_renamexf(iq,ipair)
+                  end if
+                  if ((lsfrm <= 0) .or. (lstoo <= 0)) cycle
+                  if (jac == 1) then
+                     tmpnamea = cnst_name(lsfrm)
+                     tmpnameb = cnst_name(lstoo)
+                  else
+                     tmpnamea = cnst_name_cw(lsfrm)
+                     tmpnameb = cnst_name_cw(lstoo)
+                  end if
+                  fieldname = trim(tmpnamea) // '_sfcsiz3'
+                  call outfld(fieldname, qsrflx(:,lsfrm,3,jac), pcols, lchnk)
+                  fieldname = trim(tmpnameb) // '_sfcsiz3'
+                  call outfld(fieldname, qsrflx(:,lstoo,3,jac), pcols, lchnk)
+                  fieldname = trim(tmpnamea) // '_sfcsiz4'
+                  call outfld(fieldname, qsrflx(:,lsfrm,4,jac), pcols, lchnk)
+                  fieldname = trim(tmpnameb) // '_sfcsiz4'
+                  call outfld(fieldname, qsrflx(:,lstoo,4,jac), pcols, lchnk)
+               end do
+            end do
+         end if
+      end if
+   end block
+#endif
+
    call t_stopf('ap_modal_aero_calcsize_sub_run')
 
 end subroutine modal_aero_calcsize_sub

@@ -1,43 +1,34 @@
 module ap_modal_aero_calcsize_sub_scheme
 
-  use shr_kind_mod,     only : r8 => shr_kind_r8
-  use physconst,        only : pi, rhoh2o, gravit
-  use ppgrid,           only : pcols, pver
-  use physics_types,    only : physics_state, physics_ptend
-  use physics_buffer,   only : physics_buffer_desc, pbuf_get_field
-  use cam_logfile,      only : iulog
-  use cam_abortutils,   only : endrun
-  use spmd_utils,       only : masterproc
-  use cam_history,      only : outfld, fieldname_len
-  use constituents,     only : pcnst, cnst_name
-  use ref_pres,         only : top_lev => clim_modal_aero_top_lev
-
-#ifdef MODAL_AERO
-  use modal_aero_data, only: ntot_amode, nspec_amode, &
-       numptr_amode, alnsg_amode, voltonumbhi_amode, voltonumblo_amode, &
-       dgnum_amode, dgnumhi_amode, dgnumlo_amode
-  use modal_aero_data, only: numptrcw_amode, mprognum_amode, qqcw_get_field, &
-       lmassptrcw_amode, lmassptr_amode, modeptr_accum, modeptr_aitken, &
-       ntot_aspectype, lspectype_amode, specmw_amode, specdens_amode, &
-       voltonumb_amode, cnst_name_cw
-  use modal_aero_rename, only: lspectooa_renamexf, lspecfrma_renamexf, &
-       lspectooc_renamexf, lspecfrmc_renamexf, modetoo_renamexf, &
-       nspecfrm_renamexf, npair_renamexf, modefrm_renamexf
-#endif
+  use shr_kind_mod, only : r8 => shr_kind_r8
 
   implicit none
   private
+  save
 
   public :: modal_aero_calcsize_sub_run
+
+  integer :: idiagaa = 1
 
 contains
 
   !> \section arg_table_modal_aero_calcsize_sub_run Argument Table
   !! \htmlinclude modal_aero_calcsize_sub_run.html
   !!
-subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
-   do_adjust_default_in, do_aitacc_transfer_default_in, dgnum_idx_in, &
-   do_adjust_in, do_aitacc_transfer_in)
+subroutine modal_aero_calcsize_sub_run(                              &
+   ncol, pcols, pver, pcnst, top_lev, ntot_amode, maxd_aspectype,   &
+   ntot_aspectype, maxspec_renamexf, maxpair_renamexf, nsrflx,      &
+   naero_phase, deltat, pi, gravit, do_adjust,                      &
+   do_aitacc_transfer, nspec_amode,                                 &
+   numptr_amode, numptrcw_amode, mprognum_amode, alnsg_amode,      &
+   voltonumbhi_amode, voltonumblo_amode, dgnum_amode,              &
+   dgnumhi_amode, dgnumlo_amode, voltonumb_amode,                  &
+   lmassptrcw_amode, lmassptr_amode, modeptr_accum, modeptr_aitken,&
+   lspectype_amode, specdens_amode, npair_renamexf,                 &
+   modefrm_renamexf, modetoo_renamexf, nspecfrm_renamexf,           &
+   lspecfrma_renamexf, lspecfrmc_renamexf, lspectooa_renamexf,     &
+   lspectooc_renamexf, pdel, q, dotend, dqdt, qqcw, dgncur_a,      &
+   qsrflx, emit_diagnostic, errmsg, errflg)
 
    !-----------------------------------------------------------------------
    !
@@ -54,37 +45,48 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
    !
    !-----------------------------------------------------------------------
 
-   ! arguments
-   type(physics_state), target, intent(in)    :: state       ! Physics state variables
-   type(physics_ptend), target, intent(inout) :: ptend       ! indivdual parameterization tendencies
-   real(r8),                    intent(in)    :: deltat      ! model time-step size (s)
-   type(physics_buffer_desc),   pointer, intent(inout) :: pbuf(:) ! physics buffer
-   logical,                     intent(in)    :: do_adjust_default_in
-   logical,                     intent(in)    :: do_aitacc_transfer_default_in
-   integer,                     intent(in)    :: dgnum_idx_in
-
-   logical, intent(in), optional :: do_adjust_in
-   logical, intent(in), optional :: do_aitacc_transfer_in
-
-#ifdef MODAL_AERO
+   integer, intent(in) :: ncol, pcols, pver, pcnst, top_lev
+   integer, intent(in) :: ntot_amode, maxd_aspectype, ntot_aspectype
+   integer, intent(in) :: maxspec_renamexf, maxpair_renamexf
+   integer, intent(in) :: nsrflx, naero_phase
+   real(r8), intent(in) :: deltat, pi, gravit
+   logical, intent(in) :: do_adjust, do_aitacc_transfer
+   integer, intent(in) :: nspec_amode(ntot_amode)
+   integer, intent(in) :: numptr_amode(ntot_amode)
+   integer, intent(in) :: numptrcw_amode(ntot_amode)
+   integer, intent(in) :: mprognum_amode(ntot_amode)
+   real(r8), intent(in) :: alnsg_amode(ntot_amode)
+   real(r8), intent(in) :: voltonumbhi_amode(ntot_amode)
+   real(r8), intent(in) :: voltonumblo_amode(ntot_amode)
+   real(r8), intent(in) :: dgnum_amode(ntot_amode)
+   real(r8), intent(in) :: dgnumhi_amode(ntot_amode)
+   real(r8), intent(in) :: dgnumlo_amode(ntot_amode)
+   real(r8), intent(in) :: voltonumb_amode(ntot_amode)
+   integer, intent(in) :: lmassptrcw_amode(maxd_aspectype,ntot_amode)
+   integer, intent(in) :: lmassptr_amode(maxd_aspectype,ntot_amode)
+   integer, intent(in) :: modeptr_accum, modeptr_aitken
+   integer, intent(in) :: lspectype_amode(maxd_aspectype,ntot_amode)
+   real(r8), intent(in) :: specdens_amode(maxd_aspectype)
+   integer, intent(in) :: npair_renamexf
+   integer, intent(in) :: modefrm_renamexf(maxpair_renamexf)
+   integer, intent(in) :: modetoo_renamexf(maxpair_renamexf)
+   integer, intent(in) :: nspecfrm_renamexf(maxpair_renamexf)
+   integer, intent(in) :: lspecfrma_renamexf(maxspec_renamexf,maxpair_renamexf)
+   integer, intent(in) :: lspecfrmc_renamexf(maxspec_renamexf,maxpair_renamexf)
+   integer, intent(in) :: lspectooa_renamexf(maxspec_renamexf,maxpair_renamexf)
+   integer, intent(in) :: lspectooc_renamexf(maxspec_renamexf,maxpair_renamexf)
+   real(r8), intent(in) :: pdel(pcols,pver)
+   real(r8), intent(in) :: q(pcols,pver,pcnst)
+   logical, intent(inout) :: dotend(pcnst)
+   real(r8), intent(inout) :: dqdt(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: qqcw(pcols,pver,pcnst)
+   real(r8), intent(inout) :: dgncur_a(pcols,pver,ntot_amode)
+   real(r8), intent(out) :: qsrflx(pcols,pcnst,nsrflx,naero_phase)
+   logical, intent(out) :: emit_diagnostic
+   character(len=512), intent(out) :: errmsg
+   integer, intent(out) :: errflg
 
    ! local
-
-   logical :: do_adjust
-   logical :: do_aitacc_transfer
-
-   integer  :: lchnk                ! chunk identifier
-   integer  :: ncol                 ! number of columns
-
-   real(r8), pointer :: t(:,:)      ! Temperature in Kelvin
-   real(r8), pointer :: pmid(:,:)   ! pressure at model levels (Pa)
-   real(r8), pointer :: pdel(:,:)   ! pressure thickness of levels
-   real(r8), pointer :: q(:,:,:)    ! Tracer MR array
-
-   logical,  pointer :: dotend(:)   ! flag for doing tendency
-   real(r8), pointer :: dqdt(:,:,:) ! TMR tendency array
-
-   real(r8), pointer :: dgncur_a(:,:,:)
 
    integer  :: i, icol_diag, iduma, ipair, iq
    integer  :: ixfer_acc2ait, ixfer_ait2acc
@@ -93,13 +95,8 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
    integer  :: l, l1, la, lc, lna, lnc, lsfrm, lstoo
    integer  :: n, nacc, nait
 
-   integer, save  :: idiagaa = 1
-
    logical  :: dotendqqcw(pcnst)
    logical  :: noxf_acc2ait(ntot_aspectype)
-
-   character(len=fieldname_len)   :: tmpnamea, tmpnameb
-   character(len=fieldname_len+3) :: fieldname
 
    real(r8), parameter :: third = 1.0_r8/3.0_r8
    real(r8), pointer :: fldcw(:,:)
@@ -148,8 +145,6 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
    real(r8) :: xferfrac_num_ait2acc, xferfrac_vol_ait2acc
    real(r8) :: xfertend, xfertend_num(2,2)
 
-   integer, parameter :: nsrflx = 4    ! last dimension of qsrflx
-   real(r8) :: qsrflx(pcols,pcnst,nsrflx,2)
    ! process-specific column tracer tendencies
    ! 3rd index --
    !    1="standard" number adjust gain;
@@ -159,31 +154,14 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
    !    1="a" species; 2="c" species
    !-----------------------------------------------------------------------
 
-   if (present(do_adjust_in)) then
-      do_adjust = do_adjust_in
-   else
-      do_adjust = do_adjust_default_in
+   errmsg = ''
+   errflg = 0
+   emit_diagnostic = .false.
+   if (nsrflx < 4 .or. naero_phase < 2) then
+      errmsg = 'modal_aero_calcsize_sub_run: invalid surface-flux dimensions'
+      errflg = 3
+      return
    end if
-
-   if (present(do_aitacc_transfer_in)) then
-      do_aitacc_transfer = do_aitacc_transfer_in
-   else
-      do_aitacc_transfer = do_aitacc_transfer_default_in
-   end if
-
-   lchnk = state%lchnk
-   ncol  = state%ncol
-
-   t    => state%t
-   pmid => state%pmid
-   pdel => state%pdel
-   q    => state%q
-
-   dotend => ptend%lq
-   dqdt   => ptend%q
-
-   call pbuf_get_field(pbuf, dgnum_idx_in, dgncur_a)
-
    dotendqqcw(:) = .false.
    dqqcwdt(:,:,:) = 0.0_r8
    qsrflx(:,:,:,:) = 0.0_r8
@@ -240,7 +218,7 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
             end do
          end do
 
-         fldcw => qqcw_get_field(pbuf,lmassptrcw_amode(l1,n),lchnk)
+         fldcw => qqcw(:,:,lmassptrcw_amode(l1,n))
          do k=top_lev,pver
             do i=1,ncol
                dryvol_c(i,k) = dryvol_c(i,k)    &
@@ -252,7 +230,7 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
       ! set "short-hand" number pointers
       lna = numptr_amode(n)
       lnc = numptrcw_amode(n)
-      fldcw => qqcw_get_field(pbuf,numptrcw_amode(n),lchnk,.true.)
+      fldcw => qqcw(:,:,numptrcw_amode(n))
 
 
       ! go to section for appropriate number/surface diagnosed/prognosed options
@@ -530,23 +508,18 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
       !       in which case need to do modal_aero_rename_init
       ! new - init is now done through chem_init and things below it
       if (npair_renamexf .le. 0) then
-         npair_renamexf = 0
-         !        call modal_aero_rename_init
-         if (npair_renamexf .le. 0) then
-            write( 6, '(//a//)' )   &
-               '*** modal_aero_calcaersize_sub error -- npair_renamexf <= 0'
-            call endrun( 'modal_aero_calcaersize_sub error' )
-         end if
+         errmsg = 'modal_aero_calcaersize_sub error: npair_renamexf <= 0'
+         errflg = 1
+         return
       end if
 
       ! check that renaming ipair=1 is aitken-->accum
       ipair = 1
       if ((modefrm_renamexf(ipair) .ne. nait) .or.   &
          (modetoo_renamexf(ipair) .ne. nacc)) then
-         write( 6, '(//2a//)' )   &
-            '*** modal_aero_calcaersize_sub error -- ',   &
-            'modefrm/too_renamexf(1) are wrong'
-         call endrun( 'modal_aero_calcaersize_sub error' )
+         errmsg = 'modal_aero_calcaersize_sub error: rename pair 1 is not aitken to accum'
+         errflg = 2
+         return
       end if
 
       ! set dotend() for species that will be transferred
@@ -648,7 +621,7 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
                            + max(0.0_r8,q(i,k,la))*dummwdens
                         lc = lmassptrcw_amode(l1,nacc)
 
-                        fldcw => qqcw_get_field(pbuf,lmassptrcw_amode(l1,nacc),lchnk)
+                        fldcw => qqcw(:,:,lmassptrcw_amode(l1,nacc))
                         drv_c_noxf = drv_c_noxf    &
                            + max(0.0_r8,fldcw(i,k))*dummwdens
                      end if
@@ -764,35 +737,7 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
                ! compute tendency amounts for aitken <--> accum transfer
                !
 
-               if ( masterproc ) then
-                  if (idiagaa > 0) then
-                     do j = 1, 2
-                        do iq = 1, nspecfrm_renamexf(ipair)
-                           do jac = 1, 2
-                              if (j .eq. 1) then
-                                 if (jac .eq. 1) then
-                                    lsfrm = lspecfrma_renamexf(iq,ipair)
-                                    lstoo = lspectooa_renamexf(iq,ipair)
-                                 else
-                                    lsfrm = lspecfrmc_renamexf(iq,ipair)
-                                    lstoo = lspectooc_renamexf(iq,ipair)
-                                 end if
-                              else
-                                 if (jac .eq. 1) then
-                                    lsfrm = lspectooa_renamexf(iq,ipair)
-                                    lstoo = lspecfrma_renamexf(iq,ipair)
-                                 else
-                                    lsfrm = lspectooc_renamexf(iq,ipair)
-                                    lstoo = lspecfrmc_renamexf(iq,ipair)
-                                 end if
-                              end if
-                              write( 6, '(a,3i3,2i4)' ) 'calcsize j,iq,jac, lsfrm,lstoo',   &
-                                 j,iq,jac, lsfrm,lstoo
-                           end do
-                        end do
-                     end do
-                  end if
-               end if
+               if (idiagaa > 0) emit_diagnostic = .true.
                idiagaa = -1
 
 
@@ -849,7 +794,7 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
                                  if (iq .eq. 1) then
                                     xfertend = xfertend_num(j,jac)
                                  else
-                                    fldcw => qqcw_get_field(pbuf,lsfrm,lchnk)
+                                    fldcw => qqcw(:,:,lsfrm)
                                     xfertend = max(0.0_r8,fldcw(i,k))*xfercoef
                                  end if
                                  dqqcwdt(i,k,lsfrm) = dqqcwdt(i,k,lsfrm) - xfertend
@@ -879,7 +824,7 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
    do l = 1, pcnst
       lc = l
       if ( lc>0 .and. dotendqqcw(lc) ) then
-         fldcw=> qqcw_get_field(pbuf,l,lchnk)
+         fldcw => qqcw(:,:,l)
          do k = top_lev, pver
             do i = 1, ncol
                fldcw(i,k) = max( 0.0_r8,   &
@@ -888,79 +833,6 @@ subroutine modal_aero_calcsize_sub_run(state, ptend, deltat, pbuf, &
          end do
       end if
    end do
-
-   !
-   ! do outfld calls
-   !
-
-   ! history fields for number-adjust source-sink for all modes
-   if ( .not. do_adjust ) return
-
-   do n = 1, ntot_amode
-      if (mprognum_amode(n) <= 0) cycle
-
-      do jac = 1, 2
-         if (jac == 1) then
-            l = numptr_amode(n)
-            tmpnamea = cnst_name(l)
-         else
-            l = numptrcw_amode(n)
-            tmpnamea = cnst_name_cw(l)
-         end if
-         fieldname = trim(tmpnamea) // '_sfcsiz1'
-         call outfld( fieldname, qsrflx(:,l,1,jac), pcols, lchnk)
-
-         fieldname = trim(tmpnamea) // '_sfcsiz2'
-         call outfld( fieldname, qsrflx(:,l,2,jac), pcols, lchnk)
-      end do   ! jac = ...
-
-   end do   ! n = ...
-
-
-   ! history fields for aitken-accum transfer
-   if ( .not. do_aitacc_transfer ) return
-
-   do iq = 1, nspecfrm_renamexf(ipair)
-
-      ! jac=1 does interstitial ("_a"); jac=2 does activated ("_c");
-      do jac = 1, 2
-
-         ! the lspecfrma_renamexf (and lspecfrmc_renamexf) are aitken species
-         ! the lspectooa_renamexf (and lspectooc_renamexf) are accum  species
-         if (jac .eq. 1) then
-            lsfrm = lspecfrma_renamexf(iq,ipair)
-            lstoo = lspectooa_renamexf(iq,ipair)
-         else
-            lsfrm = lspecfrmc_renamexf(iq,ipair)
-            lstoo = lspectooc_renamexf(iq,ipair)
-         end if
-         if ((lsfrm <= 0) .or. (lstoo <= 0)) cycle
-
-         if (jac .eq. 1) then
-            tmpnamea = cnst_name(lsfrm)
-            tmpnameb = cnst_name(lstoo)
-         else
-            tmpnamea = cnst_name_cw(lsfrm)
-            tmpnameb = cnst_name_cw(lstoo)
-         end if
-         if ((lsfrm <= 0) .or. (lstoo <= 0)) cycle
-
-         fieldname = trim(tmpnamea) // '_sfcsiz3'
-         call outfld( fieldname, qsrflx(:,lsfrm,3,jac), pcols, lchnk)
-
-         fieldname = trim(tmpnameb) // '_sfcsiz3'
-         call outfld( fieldname, qsrflx(:,lstoo,3,jac), pcols, lchnk)
-
-         fieldname = trim(tmpnamea) // '_sfcsiz4'
-         call outfld( fieldname, qsrflx(:,lsfrm,4,jac), pcols, lchnk)
-
-         fieldname = trim(tmpnameb) // '_sfcsiz4'
-         call outfld( fieldname, qsrflx(:,lstoo,4,jac), pcols, lchnk)
-
-      end do   ! jac = ...
-   end do   ! iq = ...
-
-#endif
 
 end subroutine modal_aero_calcsize_sub_run
 
