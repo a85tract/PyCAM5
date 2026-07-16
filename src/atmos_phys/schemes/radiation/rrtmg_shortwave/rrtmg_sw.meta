@@ -1,0 +1,319 @@
+[ccpp-table-properties]
+  name = rrtmg_sw
+  type = scheme
+
+[ccpp-arg-table]
+  name  = rrtmg_sw_run
+  type  = scheme
+[ lchnk ]
+  standard_name = rrtmg_sw_lchnk
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = rrtmg_sw_ncol
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ nlay ]
+  standard_name = rrtmg_sw_nlay
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ icld ]
+  standard_name = rrtmg_sw_icld
+  units = none
+  type = integer
+  dimensions = ()
+  intent = inout
+[ play ]
+  standard_name = rrtmg_sw_play
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_53:rrtmg_sw_auxiliary_dimension_54,rrtmg_sw_auxiliary_dimension_55:rrtmg_sw_auxiliary_dimension_56)
+  intent = in
+[ plev ]
+  standard_name = rrtmg_sw_plev
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_57:rrtmg_sw_auxiliary_dimension_58,rrtmg_sw_auxiliary_dimension_59:rrtmg_sw_auxiliary_dimension_60)
+  intent = in
+[ tlay ]
+  standard_name = rrtmg_sw_tlay
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_61:rrtmg_sw_auxiliary_dimension_62,rrtmg_sw_auxiliary_dimension_63:rrtmg_sw_auxiliary_dimension_64)
+  intent = in
+[ tlev ]
+  standard_name = rrtmg_sw_tlev
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_65:rrtmg_sw_auxiliary_dimension_66,rrtmg_sw_auxiliary_dimension_67:rrtmg_sw_auxiliary_dimension_68)
+  intent = in
+[ tsfc ]
+  standard_name = rrtmg_sw_tsfc
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_69:rrtmg_sw_auxiliary_dimension_70)
+  intent = in
+[ h2ovmr ]
+  standard_name = rrtmg_sw_h2ovmr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_71:rrtmg_sw_auxiliary_dimension_72,rrtmg_sw_auxiliary_dimension_73:rrtmg_sw_auxiliary_dimension_74)
+  intent = in
+[ o3vmr ]
+  standard_name = rrtmg_sw_o3vmr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_75:rrtmg_sw_auxiliary_dimension_76,rrtmg_sw_auxiliary_dimension_77:rrtmg_sw_auxiliary_dimension_78)
+  intent = in
+[ co2vmr ]
+  standard_name = rrtmg_sw_co2vmr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_79:rrtmg_sw_auxiliary_dimension_80,rrtmg_sw_auxiliary_dimension_81:rrtmg_sw_auxiliary_dimension_82)
+  intent = in
+[ ch4vmr ]
+  standard_name = rrtmg_sw_ch4vmr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_83:rrtmg_sw_auxiliary_dimension_84,rrtmg_sw_auxiliary_dimension_85:rrtmg_sw_auxiliary_dimension_86)
+  intent = in
+[ o2vmr ]
+  standard_name = rrtmg_sw_o2vmr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_87:rrtmg_sw_auxiliary_dimension_88,rrtmg_sw_auxiliary_dimension_89:rrtmg_sw_auxiliary_dimension_90)
+  intent = in
+[ n2ovmr ]
+  standard_name = rrtmg_sw_n2ovmr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_91:rrtmg_sw_auxiliary_dimension_92,rrtmg_sw_auxiliary_dimension_93:rrtmg_sw_auxiliary_dimension_94)
+  intent = in
+[ asdir ]
+  standard_name = rrtmg_sw_asdir
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_95:rrtmg_sw_auxiliary_dimension_96)
+  intent = in
+[ asdif ]
+  standard_name = rrtmg_sw_asdif
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_97:rrtmg_sw_auxiliary_dimension_98)
+  intent = in
+[ aldir ]
+  standard_name = rrtmg_sw_aldir
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_99:rrtmg_sw_auxiliary_dimension_100)
+  intent = in
+[ aldif ]
+  standard_name = rrtmg_sw_aldif
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_101:rrtmg_sw_auxiliary_dimension_102)
+  intent = in
+[ coszen ]
+  standard_name = rrtmg_sw_coszen
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_103:rrtmg_sw_auxiliary_dimension_104)
+  intent = in
+[ adjes ]
+  standard_name = rrtmg_sw_adjes
+  units = none
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dyofyr ]
+  standard_name = rrtmg_sw_dyofyr
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ solvar ]
+  standard_name = rrtmg_sw_solvar
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_105:rrtmg_sw_auxiliary_dimension_106)
+  intent = in
+[ inflgsw ]
+  standard_name = rrtmg_sw_inflgsw
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ iceflgsw ]
+  standard_name = rrtmg_sw_iceflgsw
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ liqflgsw ]
+  standard_name = rrtmg_sw_liqflgsw
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ cldfmcl ]
+  standard_name = rrtmg_sw_cldfmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_107:rrtmg_sw_auxiliary_dimension_108,rrtmg_sw_auxiliary_dimension_109:rrtmg_sw_auxiliary_dimension_110,rrtmg_sw_auxiliary_dimension_111:rrtmg_sw_auxiliary_dimension_112)
+  intent = in
+[ taucmcl ]
+  standard_name = rrtmg_sw_taucmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_113:rrtmg_sw_auxiliary_dimension_114,rrtmg_sw_auxiliary_dimension_115:rrtmg_sw_auxiliary_dimension_116,rrtmg_sw_auxiliary_dimension_117:rrtmg_sw_auxiliary_dimension_118)
+  intent = in
+[ ssacmcl ]
+  standard_name = rrtmg_sw_ssacmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_119:rrtmg_sw_auxiliary_dimension_120,rrtmg_sw_auxiliary_dimension_121:rrtmg_sw_auxiliary_dimension_122,rrtmg_sw_auxiliary_dimension_123:rrtmg_sw_auxiliary_dimension_124)
+  intent = in
+[ asmcmcl ]
+  standard_name = rrtmg_sw_asmcmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_125:rrtmg_sw_auxiliary_dimension_126,rrtmg_sw_auxiliary_dimension_127:rrtmg_sw_auxiliary_dimension_128,rrtmg_sw_auxiliary_dimension_129:rrtmg_sw_auxiliary_dimension_130)
+  intent = in
+[ fsfcmcl ]
+  standard_name = rrtmg_sw_fsfcmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_131:rrtmg_sw_auxiliary_dimension_132,rrtmg_sw_auxiliary_dimension_133:rrtmg_sw_auxiliary_dimension_134,rrtmg_sw_auxiliary_dimension_135:rrtmg_sw_auxiliary_dimension_136)
+  intent = in
+[ ciwpmcl ]
+  standard_name = rrtmg_sw_ciwpmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_137:rrtmg_sw_auxiliary_dimension_138,rrtmg_sw_auxiliary_dimension_139:rrtmg_sw_auxiliary_dimension_140,rrtmg_sw_auxiliary_dimension_141:rrtmg_sw_auxiliary_dimension_142)
+  intent = in
+[ clwpmcl ]
+  standard_name = rrtmg_sw_clwpmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_143:rrtmg_sw_auxiliary_dimension_144,rrtmg_sw_auxiliary_dimension_145:rrtmg_sw_auxiliary_dimension_146,rrtmg_sw_auxiliary_dimension_147:rrtmg_sw_auxiliary_dimension_148)
+  intent = in
+[ reicmcl ]
+  standard_name = rrtmg_sw_reicmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_149:rrtmg_sw_auxiliary_dimension_150,rrtmg_sw_auxiliary_dimension_151:rrtmg_sw_auxiliary_dimension_152)
+  intent = in
+[ relqmcl ]
+  standard_name = rrtmg_sw_relqmcl
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_153:rrtmg_sw_auxiliary_dimension_154,rrtmg_sw_auxiliary_dimension_155:rrtmg_sw_auxiliary_dimension_156)
+  intent = in
+[ tauaer ]
+  standard_name = rrtmg_sw_tauaer
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_157:rrtmg_sw_auxiliary_dimension_158,rrtmg_sw_auxiliary_dimension_159:rrtmg_sw_auxiliary_dimension_160,rrtmg_sw_auxiliary_dimension_161:rrtmg_sw_auxiliary_dimension_162)
+  intent = in
+[ ssaaer ]
+  standard_name = rrtmg_sw_ssaaer
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_163:rrtmg_sw_auxiliary_dimension_164,rrtmg_sw_auxiliary_dimension_165:rrtmg_sw_auxiliary_dimension_166,rrtmg_sw_auxiliary_dimension_167:rrtmg_sw_auxiliary_dimension_168)
+  intent = in
+[ asmaer ]
+  standard_name = rrtmg_sw_asmaer
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_169:rrtmg_sw_auxiliary_dimension_170,rrtmg_sw_auxiliary_dimension_171:rrtmg_sw_auxiliary_dimension_172,rrtmg_sw_auxiliary_dimension_173:rrtmg_sw_auxiliary_dimension_174)
+  intent = in
+[ swuflx ]
+  standard_name = rrtmg_sw_swuflx
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_175:rrtmg_sw_auxiliary_dimension_176,rrtmg_sw_auxiliary_dimension_177:rrtmg_sw_auxiliary_dimension_178)
+  intent = out
+[ swdflx ]
+  standard_name = rrtmg_sw_swdflx
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_179:rrtmg_sw_auxiliary_dimension_180,rrtmg_sw_auxiliary_dimension_181:rrtmg_sw_auxiliary_dimension_182)
+  intent = out
+[ swhr ]
+  standard_name = rrtmg_sw_swhr
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_183:rrtmg_sw_auxiliary_dimension_184,rrtmg_sw_auxiliary_dimension_185:rrtmg_sw_auxiliary_dimension_186)
+  intent = out
+[ swuflxc ]
+  standard_name = rrtmg_sw_swuflxc
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_187:rrtmg_sw_auxiliary_dimension_188,rrtmg_sw_auxiliary_dimension_189:rrtmg_sw_auxiliary_dimension_190)
+  intent = out
+[ swdflxc ]
+  standard_name = rrtmg_sw_swdflxc
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_191:rrtmg_sw_auxiliary_dimension_192,rrtmg_sw_auxiliary_dimension_193:rrtmg_sw_auxiliary_dimension_194)
+  intent = out
+[ swhrc ]
+  standard_name = rrtmg_sw_swhrc
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_195:rrtmg_sw_auxiliary_dimension_196,rrtmg_sw_auxiliary_dimension_197:rrtmg_sw_auxiliary_dimension_198)
+  intent = out
+[ dirdnuv ]
+  standard_name = rrtmg_sw_dirdnuv
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_199:rrtmg_sw_auxiliary_dimension_200,rrtmg_sw_auxiliary_dimension_201:rrtmg_sw_auxiliary_dimension_202)
+  intent = out
+[ dirdnir ]
+  standard_name = rrtmg_sw_dirdnir
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_203:rrtmg_sw_auxiliary_dimension_204,rrtmg_sw_auxiliary_dimension_205:rrtmg_sw_auxiliary_dimension_206)
+  intent = out
+[ difdnuv ]
+  standard_name = rrtmg_sw_difdnuv
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_207:rrtmg_sw_auxiliary_dimension_208,rrtmg_sw_auxiliary_dimension_209:rrtmg_sw_auxiliary_dimension_210)
+  intent = out
+[ difdnir ]
+  standard_name = rrtmg_sw_difdnir
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_211:rrtmg_sw_auxiliary_dimension_212,rrtmg_sw_auxiliary_dimension_213:rrtmg_sw_auxiliary_dimension_214)
+  intent = out
+[ ninflx ]
+  standard_name = rrtmg_sw_ninflx
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_215:rrtmg_sw_auxiliary_dimension_216,rrtmg_sw_auxiliary_dimension_217:rrtmg_sw_auxiliary_dimension_218)
+  intent = out
+[ ninflxc ]
+  standard_name = rrtmg_sw_ninflxc
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_219:rrtmg_sw_auxiliary_dimension_220,rrtmg_sw_auxiliary_dimension_221:rrtmg_sw_auxiliary_dimension_222)
+  intent = out
+[ swuflxs ]
+  standard_name = rrtmg_sw_swuflxs
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_223:rrtmg_sw_auxiliary_dimension_224,rrtmg_sw_auxiliary_dimension_225:rrtmg_sw_auxiliary_dimension_226,rrtmg_sw_auxiliary_dimension_227:rrtmg_sw_auxiliary_dimension_228)
+  intent = out
+[ swdflxs ]
+  standard_name = rrtmg_sw_swdflxs
+  units = none
+  type = real | kind = r8
+  dimensions = (rrtmg_sw_auxiliary_dimension_229:rrtmg_sw_auxiliary_dimension_230,rrtmg_sw_auxiliary_dimension_231:rrtmg_sw_auxiliary_dimension_232,rrtmg_sw_auxiliary_dimension_233:rrtmg_sw_auxiliary_dimension_234)
+  intent = out

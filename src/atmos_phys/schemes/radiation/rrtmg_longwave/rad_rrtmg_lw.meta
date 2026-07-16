@@ -1,0 +1,139 @@
+[ccpp-table-properties]
+  name = rad_rrtmg_lw
+  type = scheme
+
+[ccpp-arg-table]
+  name  = rad_rrtmg_lw_run
+  type  = scheme
+[ lchnk ]
+  standard_name = rad_rrtmg_lw_lchnk
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = rad_rrtmg_lw_ncol
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ rrtmg_levs ]
+  standard_name = rad_rrtmg_lw_rrtmg_levs
+  units = none
+  type = integer
+  dimensions = ()
+  intent = in
+[ r_state ]
+  standard_name = rad_rrtmg_lw_r_state
+  units = none
+  type = rrtmg_state_t
+  dimensions = ()
+  intent = in
+[ pmid ]
+  standard_name = rad_rrtmg_lw_pmid
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_23:rad_rrtmg_lw_auxiliary_dimension_24,rad_rrtmg_lw_auxiliary_dimension_25:rad_rrtmg_lw_auxiliary_dimension_26)
+  intent = in
+[ aer_lw_abs ]
+  standard_name = rad_rrtmg_lw_aer_lw_abs
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_27:rad_rrtmg_lw_auxiliary_dimension_28,rad_rrtmg_lw_auxiliary_dimension_29:rad_rrtmg_lw_auxiliary_dimension_30,rad_rrtmg_lw_auxiliary_dimension_31:rad_rrtmg_lw_auxiliary_dimension_32)
+  intent = in
+[ cld ]
+  standard_name = rad_rrtmg_lw_cld
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_33:rad_rrtmg_lw_auxiliary_dimension_34,rad_rrtmg_lw_auxiliary_dimension_35:rad_rrtmg_lw_auxiliary_dimension_36)
+  intent = in
+[ tauc_lw ]
+  standard_name = rad_rrtmg_lw_tauc_lw
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_37:rad_rrtmg_lw_auxiliary_dimension_38,rad_rrtmg_lw_auxiliary_dimension_39:rad_rrtmg_lw_auxiliary_dimension_40,rad_rrtmg_lw_auxiliary_dimension_41:rad_rrtmg_lw_auxiliary_dimension_42)
+  intent = in
+[ qrl ]
+  standard_name = rad_rrtmg_lw_qrl
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_43:rad_rrtmg_lw_auxiliary_dimension_44,rad_rrtmg_lw_auxiliary_dimension_45:rad_rrtmg_lw_auxiliary_dimension_46)
+  intent = out
+[ qrlc ]
+  standard_name = rad_rrtmg_lw_qrlc
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_47:rad_rrtmg_lw_auxiliary_dimension_48,rad_rrtmg_lw_auxiliary_dimension_49:rad_rrtmg_lw_auxiliary_dimension_50)
+  intent = out
+[ flns ]
+  standard_name = rad_rrtmg_lw_flns
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_51:rad_rrtmg_lw_auxiliary_dimension_52)
+  intent = out
+[ flnt ]
+  standard_name = rad_rrtmg_lw_flnt
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_53:rad_rrtmg_lw_auxiliary_dimension_54)
+  intent = out
+[ flnsc ]
+  standard_name = rad_rrtmg_lw_flnsc
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_55:rad_rrtmg_lw_auxiliary_dimension_56)
+  intent = out
+[ flntc ]
+  standard_name = rad_rrtmg_lw_flntc
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_57:rad_rrtmg_lw_auxiliary_dimension_58)
+  intent = out
+[ flwds ]
+  standard_name = rad_rrtmg_lw_flwds
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_59:rad_rrtmg_lw_auxiliary_dimension_60)
+  intent = out
+[ flut ]
+  standard_name = rad_rrtmg_lw_flut
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_61:rad_rrtmg_lw_auxiliary_dimension_62)
+  intent = out
+[ flutc ]
+  standard_name = rad_rrtmg_lw_flutc
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_63:rad_rrtmg_lw_auxiliary_dimension_64)
+  intent = out
+[ fnl ]
+  standard_name = rad_rrtmg_lw_fnl
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_65:rad_rrtmg_lw_auxiliary_dimension_66,rad_rrtmg_lw_auxiliary_dimension_67:rad_rrtmg_lw_auxiliary_dimension_68)
+  intent = out
+[ fcnl ]
+  standard_name = rad_rrtmg_lw_fcnl
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_69:rad_rrtmg_lw_auxiliary_dimension_70,rad_rrtmg_lw_auxiliary_dimension_71:rad_rrtmg_lw_auxiliary_dimension_72)
+  intent = out
+[ fldsc ]
+  standard_name = rad_rrtmg_lw_fldsc
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_73:rad_rrtmg_lw_auxiliary_dimension_74)
+  intent = out
+[ lu ]
+  standard_name = rad_rrtmg_lw_lu
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_75:rad_rrtmg_lw_auxiliary_dimension_76,rad_rrtmg_lw_auxiliary_dimension_77:rad_rrtmg_lw_auxiliary_dimension_78,rad_rrtmg_lw_auxiliary_dimension_79:rad_rrtmg_lw_auxiliary_dimension_80)
+  intent = inout
+[ ld ]
+  standard_name = rad_rrtmg_lw_ld
+  units = none
+  type = real | kind = r8
+  dimensions = (rad_rrtmg_lw_auxiliary_dimension_81:rad_rrtmg_lw_auxiliary_dimension_82,rad_rrtmg_lw_auxiliary_dimension_83:rad_rrtmg_lw_auxiliary_dimension_84,rad_rrtmg_lw_auxiliary_dimension_85:rad_rrtmg_lw_auxiliary_dimension_86)
+  intent = inout

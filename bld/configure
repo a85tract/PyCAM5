@@ -2808,6 +2808,8 @@ sub write_filepath
     # Decoupled atmospheric-physics schemes. Keep every scheme directory
     # ahead of the legacy chemistry and physics host directories.
     print $fh "$srcdir/cam/src/atmos_phys/phys_utils\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/radiation/rrtmg_shortwave\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/radiation/rrtmg_longwave\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/utilities\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/thermo_water_update\n";
     print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/check_energy\n";
