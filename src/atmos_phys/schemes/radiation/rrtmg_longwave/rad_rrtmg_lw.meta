@@ -3,137 +3,269 @@
   type = scheme
 
 [ccpp-arg-table]
-  name  = rad_rrtmg_lw_run
-  type  = scheme
+  name = rad_rrtmg_lw_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
 [ lchnk ]
-  standard_name = rad_rrtmg_lw_lchnk
-  units = none
+  standard_name = physics_chunk_index
+  units = index
   type = integer
   dimensions = ()
   intent = in
 [ ncol ]
-  standard_name = rad_rrtmg_lw_ncol
-  units = none
+  standard_name = horizontal_loop_extent
+  units = count
   type = integer
   dimensions = ()
   intent = in
 [ rrtmg_levs ]
-  standard_name = rad_rrtmg_lw_rrtmg_levs
-  units = none
+  standard_name = number_of_rrtmg_levels
+  units = count
   type = integer
   dimensions = ()
   intent = in
-[ r_state ]
-  standard_name = rad_rrtmg_lw_r_state
-  units = none
-  type = rrtmg_state_t
+[ ntoplw ]
+  standard_name = top_longwave_cooling_level_index
+  units = index
+  type = integer
   dimensions = ()
   intent = in
-[ pmid ]
-  standard_name = rad_rrtmg_lw_pmid
-  units = none
+[ cpair ]
+  standard_name = specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_23:rad_rrtmg_lw_auxiliary_dimension_24,rad_rrtmg_lw_auxiliary_dimension_25:rad_rrtmg_lw_auxiliary_dimension_26)
+  dimensions = ()
+  intent = in
+[ pmidmb ]
+  standard_name = rrtmg_layer_pressure
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ pintmb ]
+  standard_name = rrtmg_interface_pressure
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels_plus_one)
+  intent = in
+[ tlay ]
+  standard_name = rrtmg_layer_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ tlev ]
+  standard_name = rrtmg_interface_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels_plus_one)
+  intent = in
+[ h2ovmr ]
+  standard_name = rrtmg_water_vapor_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ o3vmr ]
+  standard_name = rrtmg_ozone_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ co2vmr ]
+  standard_name = rrtmg_carbon_dioxide_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ ch4vmr ]
+  standard_name = rrtmg_methane_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ o2vmr ]
+  standard_name = rrtmg_oxygen_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ n2ovmr ]
+  standard_name = rrtmg_nitrous_oxide_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ cfc11vmr ]
+  standard_name = rrtmg_cfc11_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ cfc12vmr ]
+  standard_name = rrtmg_cfc12_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ cfc22vmr ]
+  standard_name = rrtmg_cfc22_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ ccl4vmr ]
+  standard_name = rrtmg_carbon_tetrachloride_volume_mixing_ratio
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, number_of_rrtmg_levels)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
   intent = in
 [ aer_lw_abs ]
-  standard_name = rad_rrtmg_lw_aer_lw_abs
-  units = none
+  standard_name = longwave_aerosol_absorption_optical_depth
+  units = 1
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_27:rad_rrtmg_lw_auxiliary_dimension_28,rad_rrtmg_lw_auxiliary_dimension_29:rad_rrtmg_lw_auxiliary_dimension_30,rad_rrtmg_lw_auxiliary_dimension_31:rad_rrtmg_lw_auxiliary_dimension_32)
+  dimensions = (horizontal_dimension, vertical_layer_dimension, longwave_band_dimension)
   intent = in
 [ cld ]
-  standard_name = rad_rrtmg_lw_cld
-  units = none
+  standard_name = cloud_fraction
+  units = 1
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_33:rad_rrtmg_lw_auxiliary_dimension_34,rad_rrtmg_lw_auxiliary_dimension_35:rad_rrtmg_lw_auxiliary_dimension_36)
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
   intent = in
 [ tauc_lw ]
-  standard_name = rad_rrtmg_lw_tauc_lw
-  units = none
+  standard_name = longwave_cloud_optical_depth
+  units = 1
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_37:rad_rrtmg_lw_auxiliary_dimension_38,rad_rrtmg_lw_auxiliary_dimension_39:rad_rrtmg_lw_auxiliary_dimension_40,rad_rrtmg_lw_auxiliary_dimension_41:rad_rrtmg_lw_auxiliary_dimension_42)
+  dimensions = (longwave_band_dimension, horizontal_dimension, vertical_layer_dimension)
   intent = in
 [ qrl ]
-  standard_name = rad_rrtmg_lw_qrl
-  units = none
+  standard_name = longwave_heating_rate
+  units = W kg-1
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_43:rad_rrtmg_lw_auxiliary_dimension_44,rad_rrtmg_lw_auxiliary_dimension_45:rad_rrtmg_lw_auxiliary_dimension_46)
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
   intent = out
 [ qrlc ]
-  standard_name = rad_rrtmg_lw_qrlc
-  units = none
+  standard_name = clear_sky_longwave_heating_rate
+  units = W kg-1
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_47:rad_rrtmg_lw_auxiliary_dimension_48,rad_rrtmg_lw_auxiliary_dimension_49:rad_rrtmg_lw_auxiliary_dimension_50)
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
   intent = out
 [ flns ]
-  standard_name = rad_rrtmg_lw_flns
-  units = none
+  standard_name = surface_net_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_51:rad_rrtmg_lw_auxiliary_dimension_52)
+  dimensions = (horizontal_dimension)
   intent = out
 [ flnt ]
-  standard_name = rad_rrtmg_lw_flnt
-  units = none
+  standard_name = top_net_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_53:rad_rrtmg_lw_auxiliary_dimension_54)
+  dimensions = (horizontal_dimension)
   intent = out
 [ flnsc ]
-  standard_name = rad_rrtmg_lw_flnsc
-  units = none
+  standard_name = clear_sky_surface_net_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_55:rad_rrtmg_lw_auxiliary_dimension_56)
+  dimensions = (horizontal_dimension)
   intent = out
 [ flntc ]
-  standard_name = rad_rrtmg_lw_flntc
-  units = none
+  standard_name = clear_sky_top_net_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_57:rad_rrtmg_lw_auxiliary_dimension_58)
+  dimensions = (horizontal_dimension)
   intent = out
 [ flwds ]
-  standard_name = rad_rrtmg_lw_flwds
-  units = none
+  standard_name = surface_downwelling_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_59:rad_rrtmg_lw_auxiliary_dimension_60)
+  dimensions = (horizontal_dimension)
   intent = out
 [ flut ]
-  standard_name = rad_rrtmg_lw_flut
-  units = none
+  standard_name = top_upwelling_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_61:rad_rrtmg_lw_auxiliary_dimension_62)
+  dimensions = (horizontal_dimension)
   intent = out
 [ flutc ]
-  standard_name = rad_rrtmg_lw_flutc
-  units = none
+  standard_name = clear_sky_top_upwelling_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_63:rad_rrtmg_lw_auxiliary_dimension_64)
+  dimensions = (horizontal_dimension)
   intent = out
 [ fnl ]
-  standard_name = rad_rrtmg_lw_fnl
-  units = none
+  standard_name = net_longwave_flux_at_interfaces
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_65:rad_rrtmg_lw_auxiliary_dimension_66,rad_rrtmg_lw_auxiliary_dimension_67:rad_rrtmg_lw_auxiliary_dimension_68)
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
   intent = out
 [ fcnl ]
-  standard_name = rad_rrtmg_lw_fcnl
-  units = none
+  standard_name = clear_sky_net_longwave_flux_at_interfaces
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_69:rad_rrtmg_lw_auxiliary_dimension_70,rad_rrtmg_lw_auxiliary_dimension_71:rad_rrtmg_lw_auxiliary_dimension_72)
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
   intent = out
 [ fldsc ]
-  standard_name = rad_rrtmg_lw_fldsc
-  units = none
+  standard_name = clear_sky_surface_downwelling_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_73:rad_rrtmg_lw_auxiliary_dimension_74)
+  dimensions = (horizontal_dimension)
   intent = out
 [ lu ]
-  standard_name = rad_rrtmg_lw_lu
-  units = none
+  standard_name = spectral_upwelling_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_75:rad_rrtmg_lw_auxiliary_dimension_76,rad_rrtmg_lw_auxiliary_dimension_77:rad_rrtmg_lw_auxiliary_dimension_78,rad_rrtmg_lw_auxiliary_dimension_79:rad_rrtmg_lw_auxiliary_dimension_80)
+  dimensions = (horizontal_dimension, vertical_interface_dimension, longwave_band_dimension)
   intent = inout
 [ ld ]
-  standard_name = rad_rrtmg_lw_ld
-  units = none
+  standard_name = spectral_downwelling_longwave_flux
+  units = W m-2
   type = real | kind = r8
-  dimensions = (rad_rrtmg_lw_auxiliary_dimension_81:rad_rrtmg_lw_auxiliary_dimension_82,rad_rrtmg_lw_auxiliary_dimension_83:rad_rrtmg_lw_auxiliary_dimension_84,rad_rrtmg_lw_auxiliary_dimension_85:rad_rrtmg_lw_auxiliary_dimension_86)
+  dimensions = (horizontal_dimension, vertical_interface_dimension, longwave_band_dimension)
   intent = inout
+[ ful ]
+  standard_name = diagnostic_upwelling_longwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ fsul ]
+  standard_name = diagnostic_clear_sky_upwelling_longwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ fdl ]
+  standard_name = diagnostic_downwelling_longwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
+[ fsdl ]
+  standard_name = diagnostic_clear_sky_downwelling_longwave_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_interface_dimension)
+  intent = out
