@@ -6,24 +6,20 @@
 module neu_wetdep_scheme
 !
   use shr_kind_mod,     only : r8 => shr_kind_r8
-  use cam_logfile,      only : iulog
-  use spmd_utils,       only : masterproc
-  use cam_abortutils,   only : endrun
-  use seq_drydep_mod,   only : n_species_table, species_name_table, dheff
-  use gas_wetdep_opts,  only : gas_wetdep_method, gas_wetdep_list, gas_wetdep_cnt
 !
   implicit none
 !
   private
-  public :: neu_wetdep_init
+  public :: neu_wetdep_configure
   public :: neu_wetdep_tend_run
-  public :: do_neu_wetdep
 !
   save
 !
   integer, allocatable, dimension(:) :: mapping_to_heff,mapping_to_mmr
   real(r8),allocatable, dimension(:) :: mol_weight
+  real(r8),allocatable, dimension(:) :: dheff_coeff
   logical ,allocatable, dimension(:) :: ice_uptake
+  integer                     :: gas_wetdep_cnt = 0
   integer                     :: index_cldice,index_cldliq,nh3_ndx,co2_ndx
   logical                     :: debug   = .false.
   integer                     :: hno3_ndx = 0
@@ -36,7 +32,7 @@ module neu_wetdep_scheme
   real(r8), parameter :: zero = 0._r8
   real(r8), parameter :: one  = 1._r8
 !
-  logical :: do_neu_wetdep
+  logical :: do_neu_wetdep = .false.
 !
   real(r8), parameter  :: TICE=263._r8
 
@@ -45,172 +41,58 @@ contains
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
 !
-subroutine neu_wetdep_init
-!
-  use constituents, only : cnst_get_ind,cnst_mw
-  use cam_history,  only : addfld, add_default, phys_decomp
-  use ppgrid,       only : pver
-  use phys_control, only : phys_getopts
-!
-  integer :: m,l
-  character*20 :: test_name
+subroutine neu_wetdep_configure(do_wetdep_in, mapping_to_heff_in, mapping_to_mmr_in, &
+     mol_weight_in, ice_uptake_in, index_cldice_in, index_cldliq_in, &
+     nh3_ndx_in, co2_ndx_in, hno3_ndx_in, dheff_in)
 
-  logical :: history_chemistry
+  logical, intent(in) :: do_wetdep_in
+  integer, intent(in) :: mapping_to_heff_in(:), mapping_to_mmr_in(:)
+  real(r8), intent(in) :: mol_weight_in(:), dheff_in(:)
+  logical, intent(in) :: ice_uptake_in(:)
+  integer, intent(in) :: index_cldice_in, index_cldliq_in
+  integer, intent(in) :: nh3_ndx_in, co2_ndx_in, hno3_ndx_in
 
-  call phys_getopts(history_chemistry_out=history_chemistry)
+  gas_wetdep_cnt = size(mapping_to_mmr_in)
+  do_neu_wetdep = do_wetdep_in
 
-  do_neu_wetdep = gas_wetdep_method == 'NEU' .and. gas_wetdep_cnt>0
+  if (allocated(mapping_to_heff)) deallocate(mapping_to_heff)
+  if (allocated(mapping_to_mmr)) deallocate(mapping_to_mmr)
+  if (allocated(mol_weight)) deallocate(mol_weight)
+  if (allocated(ice_uptake)) deallocate(ice_uptake)
+  if (allocated(dheff_coeff)) deallocate(dheff_coeff)
 
-  if (.not.do_neu_wetdep) return
+  allocate(mapping_to_heff(gas_wetdep_cnt), mapping_to_mmr(gas_wetdep_cnt))
+  allocate(mol_weight(gas_wetdep_cnt), ice_uptake(gas_wetdep_cnt))
+  allocate(dheff_coeff(size(dheff_in)))
 
-  allocate( mapping_to_heff(gas_wetdep_cnt) )
-  allocate( mapping_to_mmr(gas_wetdep_cnt) )
-  allocate( ice_uptake(gas_wetdep_cnt) )
-  allocate( mol_weight(gas_wetdep_cnt) )
+  mapping_to_heff = mapping_to_heff_in
+  mapping_to_mmr = mapping_to_mmr_in
+  mol_weight = mol_weight_in
+  ice_uptake = ice_uptake_in
+  dheff_coeff = dheff_in
+  index_cldice = index_cldice_in
+  index_cldliq = index_cldliq_in
+  nh3_ndx = nh3_ndx_in
+  co2_ndx = co2_ndx_in
+  hno3_ndx = hno3_ndx_in
 
-!
-! find mapping to heff table
-!
-  if ( debug ) then
-    print '(a,i4)','gas_wetdep_cnt=',gas_wetdep_cnt
-    print '(a,i4)','n_species_table=',n_species_table
-  end if
-  mapping_to_heff = -99
-  do m=1,gas_wetdep_cnt
-!
-    test_name = gas_wetdep_list(m)
-    if ( debug ) print '(i4,a)',m,trim(test_name)
-!
-! mapping based on the MOZART4 wet removal subroutine;
-! this might need to be redone (JFL: Sep 2010)
-!
-    select case( trim(test_name) )
-!
-! CCMI: added SO2t and NH_50W
-!
-      case( 'HYAC', 'CH3COOH' , 'HCOOH', 'EOOH' )
-         test_name = 'CH2O'
-      case ( 'SOGB','SOGI','SOGM','SOGT','SOGX' )
-         test_name = 'H2O2'
-      case ( 'SO2t' )
-         test_name = 'SO2'
-      case ( 'CLONO2','BRONO2','HCL','HOCL','HOBR','HBR', 'Pb', 'MACROOH', 'ISOPOOH', 'XOOH', 'H2SO4', 'HF', 'COF2', 'COFCL')
-         test_name = 'HNO3'
-      case ( 'NH_50W' )
-         test_name = 'HNO3'
-      case ( 'ALKOOH', 'MEKOOH', 'TOLOOH', 'TERPOOH' )
-         test_name = 'CH3OOH'
-
-    end select
-!
-    do l = 1,n_species_table
-!
-!      if ( debug ) print '(i4,a)',l,trim(species_name_table(l))
-!
-       if( trim(test_name) == trim( species_name_table(l) ) ) then
-          mapping_to_heff(m)  = l
-          if ( debug ) print '(a,a,i4)','mapping to heff of ',trim(species_name_table(l)),l
-          exit
-       end if
-    end do
-    if ( mapping_to_heff(m) == -99 ) then
-      if (masterproc) print *,'problem with mapping_to_heff of ',trim(test_name)
-!      call endrun()
-    end if
-!
-! special cases for NH3 and CO2
-!
-    if ( trim(test_name) == 'NH3' ) then
-      nh3_ndx = m
-    end if
-    if ( trim(test_name) == 'CO2' ) then
-      co2_ndx = m
-    end if
-    if ( trim(test_name) == 'HNO3' ) then
-      hno3_ndx = m
-    end if
-!
-  end do
-
-   if (any ( mapping_to_heff(:) == -99 ))  call endrun('mo_neu_wet->depwetdep_init: unmapped species error' )
-!
-  if ( debug ) then
-    print '(a,i4)','co2_ndx',co2_ndx
-    print '(a,i4)','nh3_ndx',nh3_ndx
-  end if
-!
-! find mapping to species
-!
-  mapping_to_mmr = -99
-  do m=1,gas_wetdep_cnt
-    if ( debug ) print '(i4,a)',m,trim(gas_wetdep_list(m))
-    call cnst_get_ind(gas_wetdep_list(m), mapping_to_mmr(m), abort=.false. )
-    if ( debug ) print '(a,i4)','mapping_to_mmr ',mapping_to_mmr(m)
-    if ( mapping_to_mmr(m) <= 0 ) then
-      print *,'problem with mapping_to_mmr of ',gas_wetdep_list(m)
-      call endrun('problem with mapping_to_mmr of '//trim(gas_wetdep_list(m)))
-    end if
-  end do
-!
-! define specie-dependent arrays
-!
-  do m=1,gas_wetdep_cnt
-!
-    mol_weight     (m) = cnst_mw(mapping_to_mmr(m))
-    if ( debug ) print '(i4,a,f8.4)',m,' mol_weight ',mol_weight(m)
-    ice_uptake(m) = .false.
-    if ( trim(gas_wetdep_list(m)) == 'HNO3' ) then
-      ice_uptake(m) = .true.
-    end if
-!
-  end do
-!
-! indices for cloud quantities
-!
-  call cnst_get_ind( 'CLDICE', index_cldice )
-  call cnst_get_ind( 'CLDLIQ', index_cldliq )
-!
-! define output
-!
-  do m=1,gas_wetdep_cnt
-    call addfld     ('DTWR_'//trim(gas_wetdep_list(m)),'mol/mol/s',pver, 'A','wet removal Neu scheme tendency',phys_decomp)
-    if (history_chemistry) then
-       call add_default('DTWR_'//trim(gas_wetdep_list(m)), 1, ' ')
-    end if
-  end do
-!
-  if ( do_diag ) then
-    call addfld     ('QT_RAIN_HNO3','mol/mol/s',pver, 'A','wet removal Neu scheme rain tendency',phys_decomp)
-    call addfld     ('QT_RIME_HNO3','mol/mol/s',pver, 'A','wet removal Neu scheme rain tendency',phys_decomp)
-    call addfld     ('QT_WASH_HNO3','mol/mol/s',pver, 'A','wet removal Neu scheme rain tendency',phys_decomp)
-    call addfld     ('QT_EVAP_HNO3','mol/mol/s',pver, 'A','wet removal Neu scheme rain tendency',phys_decomp)
-    if (history_chemistry) then
-       call add_default('QT_RAIN_HNO3',1,' ')
-       call add_default('QT_RIME_HNO3',1,' ')
-       call add_default('QT_WASH_HNO3',1,' ')
-       call add_default('QT_EVAP_HNO3',1,' ')
-    end if
-  end if
-!
-  return
-!
-end subroutine neu_wetdep_init
+end subroutine neu_wetdep_configure
 !
 !> \section arg_table_neu_wetdep_tend_run Argument Table
 !! \htmlinclude neu_wetdep_tend_run.html
 subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
-     mmr,pmid,pdel,zint,tfld,delt, &
-     prain, nevapr, cld, cmfdqr, wd_tend)
+     area_in,lats,mmr,pmid,pdel,zint,tfld,delt, &
+     prain, nevapr, cld, cmfdqr, wd_tend, dtwr_out, &
+     qt_rain, qt_rime, qt_wash, qt_evap)
 !
 !!DEK
-  use phys_grid,        only : get_area_all_p, get_rlat_all_p
   use shr_const_mod,    only : SHR_CONST_REARTH,SHR_CONST_G
-  use cam_history,      only : outfld
 !
   implicit none
 !
   integer,        intent(in)    :: lchnk,ncol
   integer,        intent(in)    :: pcols,pver,pverp,pcnst
+  real(r8),       intent(in)    :: area_in(pcols), lats(pcols)
   real(r8),       intent(in)    :: mmr(pcols,pver,pcnst)    ! mass mixing ratio (kg/kg)
   real(r8),       intent(in)    :: pmid(pcols,pver)         ! midpoint pressures (Pa)
   real(r8),       intent(in)    :: pdel(pcols,pver)         ! pressure delta about midpoints (Pa)
@@ -225,6 +107,9 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
   real(r8),       intent(in)    :: cmfdqr(ncol, pver)
 
   real(r8),       intent(inout) :: wd_tend(pcols,pver,pcnst)
+  real(r8),       intent(out)   :: dtwr_out(pcols,pver,gas_wetdep_cnt)
+  real(r8),       intent(out)   :: qt_rain(ncol,pver),qt_rime(ncol,pver)
+  real(r8),       intent(out)   :: qt_wash(ncol,pver),qt_evap(ncol,pver)
 
 
 
@@ -242,10 +127,6 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
   logical , dimension(gas_wetdep_cnt)           :: tckaqb
   integer , dimension(ncol)                 :: test_flag
 !
-! arrays for HNO3 diagnostics
-!
-  real(r8), dimension(ncol,pver)            :: qt_rain,qt_rime,qt_wash,qt_evap
-!
 ! for Henry's law calculations
 !
   real(r8), parameter       :: t0     = 298._r8
@@ -255,12 +136,17 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
   real(r8), dimension(ncol) :: dk1s,dk2s,wrk
 !!DEK
   real(r8) :: pi
-  real(r8) :: lats(pcols)
 !
 ! from cam/src/physics/cam/stratiform.F90
 !
 !!DEK
   pi = 4._r8*atan(1.0_r8)
+
+  dtwr_out = 0._r8
+  qt_rain = 0._r8
+  qt_rime = 0._r8
+  qt_wash = 0._r8
+  qt_evap = 0._r8
 
   if (.not.do_neu_wetdep) return
 !
@@ -274,8 +160,7 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
 !
 ! get area (in radians square)
 !
-  call get_area_all_p(lchnk, ncol, area)
-  area = area * rearth**2                     ! in m^2
+  area = area_in(1:ncol) * rearth**2          ! in m^2
 !
 ! reverse order along the vertical before calling
 ! J. Neu's wet removal subroutine
@@ -337,13 +222,13 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
 !
       l    = mapping_to_heff(m)
       id   = 6*(l - 1)
-      e298 = dheff(id+1)
-      dhr  = dheff(id+2)
+      e298 = dheff_coeff(id+1)
+      dhr  = dheff_coeff(id+2)
       heff(:,k,m) = e298*exp( dhr*wrk(:) )
       test_flag = -99
-      if( dheff(id+3) /= 0._r8 .and. dheff(id+5) == 0._r8 ) then
-        e298 = dheff(id+3)
-        dhr  = dheff(id+4)
+      if( dheff_coeff(id+3) /= 0._r8 .and. dheff_coeff(id+5) == 0._r8 ) then
+        e298 = dheff_coeff(id+3)
+        dhr  = dheff_coeff(id+4)
         dk1s(:) = e298*exp( dhr*wrk(:) )
         where( heff(:,k,m) /= 0._r8 )
           heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph_inv)
@@ -355,21 +240,21 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
 !
       if (k.eq.1 .and. maxval(test_flag) > 0 .and. debug ) print '(a,i4)','heff for m=',m
 !
-      if( dheff(id+5) /= 0._r8 ) then
+      if( dheff_coeff(id+5) /= 0._r8 ) then
         if( nh3_ndx > 0 .or. co2_ndx > 0 ) then
-          e298 = dheff(id+3)
-          dhr  = dheff(id+4)
+          e298 = dheff_coeff(id+3)
+          dhr  = dheff_coeff(id+4)
           dk1s(:) = e298*exp( dhr*wrk(:) )
-          e298 = dheff(id+5)
-          dhr  = dheff(id+6)
+          e298 = dheff_coeff(id+5)
+          dhr  = dheff_coeff(id+6)
           dk2s(:) = e298*exp( dhr*wrk(:) )
           if( m == co2_ndx ) then
              heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph_inv)*(1._r8 + dk2s(:)*ph_inv)
           else if( m == nh3_ndx ) then
              heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph/dk2s(:))
           else
-             write(iulog,*) 'error in assigning henrys law coefficients'
-             write(iulog,*) 'species ',m
+             write(*,*) 'error in assigning henrys law coefficients'
+             write(*,*) 'species ',m
           end if
         end if
       end if
@@ -427,7 +312,6 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
   dtwr(1:ncol,:,:) = dtwr(1:ncol,:,:) / delt
 
 !!DEK polarward of 60S, 60N and <200hPa set to zero!
-  call get_rlat_all_p(lchnk, pcols, lats )
   do k = 1, pver
     do i= 1, ncol
       if ( abs( lats(i)*180._r8/pi ) > 60._r8 ) then
@@ -442,15 +326,8 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
 !
   do m=1,gas_wetdep_cnt
     wd_tend(1:ncol,:,mapping_to_mmr(m)) = wd_tend(1:ncol,:,mapping_to_mmr(m)) + dtwr(1:ncol,:,m)
-    call outfld( 'DTWR_'//trim(gas_wetdep_list(m)),dtwr(:,:,m),ncol,lchnk )
   end do
-!
-  if ( do_diag ) then
-    call outfld('QT_RAIN_HNO3', qt_rain, ncol, lchnk )
-    call outfld('QT_RIME_HNO3', qt_rime, ncol, lchnk )
-    call outfld('QT_WASH_HNO3', qt_wash, ncol, lchnk )
-    call outfld('QT_EVAP_HNO3', qt_evap, ncol, lchnk )
-  end if
+  dtwr_out(1:ncol,:,:) = dtwr(1:ncol,:,:)
 !
   return
 end subroutine neu_wetdep_tend_run

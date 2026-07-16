@@ -41,6 +41,18 @@
   type = integer
   dimensions = ()
   intent = in
+[ area_in ]
+  standard_name = grid_cell_area_on_unit_sphere
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension)
+  intent = in
+[ lats ]
+  standard_name = latitude
+  units = rad
+  type = real | kind = r8
+  dimensions = (horizontal_dimension)
+  intent = in
 [ mmr ]
   standard_name = constituent_mass_mixing_ratio
   units = kg kg-1
@@ -107,3 +119,33 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
   intent = inout
+[ dtwr_out ]
+  standard_name = neu_wet_deposition_tendency_by_species
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension, number_of_neu_wet_deposition_species)
+  intent = out
+[ qt_rain ]
+  standard_name = hno3_tracer_mass_in_rain
+  units = kg
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qt_rime ]
+  standard_name = hno3_tracer_mass_in_rimed_cloud_water
+  units = kg
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qt_wash ]
+  standard_name = hno3_tracer_mass_removed_by_washout
+  units = kg
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ qt_evap ]
+  standard_name = hno3_tracer_mass_released_by_evaporation
+  units = kg
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
