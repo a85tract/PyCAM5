@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T08:12:44Z`
+- 最近更新：`2026-07-16T08:13:27Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 49 | 6 | 0 | 10 | 0 | 4 |
+| 69 | 49 | 0 | 6 | 10 | 0 | 4 |
 
 ## 批次
 
@@ -23,7 +23,7 @@
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `50step_running` | 0/10 |
 | B05 | 边界层与地形重力波 | 10 | B01, B02 | `bfb` | 10/10 |
 | B06 | 对流与柱沉降 | 10 | B01, B02 | `bfb` | 10/10 |
-| B07 | 云、微物理与辐射 | 10 | B04, B06 | `in_progress` | 0/10 |
+| B07 | 云、微物理与辐射 | 10 | B04, B06 | `build_pass` | 0/10 |
 
 ## Active入口
 
@@ -88,12 +88,12 @@
 | B06 | tphysbc | cloud_fraction | `cloud_fraction_fice_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B06 | tphysbc | modal_aerosol | `dust_sediment_tend_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B06 | tphysbc | modal_aerosol | `d3ddflux_run` | `bfb` | 7135334db145ee9b95818eaa8552e8d8045f0e1a | B06-d3-variant-20260716-job6748995 | B06-d3-variant-20260716-job6748995 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
-| B07 | tphysbc | micro_mg/aerosol_activation | `nucleate_ice_cam_calc_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
-| B07 | tphysbc | micro_mg/aerosol_activation | `dropmixnuc_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
-| B07 | tphysbc | park_macrophysics | `ice_macro_tend_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
-| B07 | tphysbc | park_macrophysics | `cldfrc_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
-| B07 | tphysbc | park_macrophysics | `mmacro_pcond_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
-| B07 | tphysbc | micro_mg | `micro_mg_tend_run` | `in_progress` | — | — | — | B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet. |
+| B07 | tphysbc | micro_mg/aerosol_activation | `nucleate_ice_cam_calc_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
+| B07 | tphysbc | micro_mg/aerosol_activation | `dropmixnuc_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
+| B07 | tphysbc | park_macrophysics | `ice_macro_tend_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
+| B07 | tphysbc | park_macrophysics | `cldfrc_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
+| B07 | tphysbc | park_macrophysics | `mmacro_pcond_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
+| B07 | tphysbc | micro_mg | `micro_mg_tend_run` | `build_pass` | bf82e8185b675e30f7d775a4606d7998c4d24b01 | — | — | B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run. |
 | B07 | tphysbc | rrtmg | `rad_rrtmg_sw_run` | `planned` | — | — | — | — |
 | B07 | tphysbc | rrtmg | `rad_rrtmg_lw_run` | `planned` | — | — | — | — |
 | B07 | tphysbc | rrtmg | `rrtmg_sw_run` | `planned` | — | — | — | — |

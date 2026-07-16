@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T08:12:44Z",
+  "updated_at": "2026-07-16T08:13:27Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -1047,11 +1047,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
+      "status": "build_pass",
+      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
+      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
     },
     {
       "entry_point": "dropmixnuc_run",
@@ -1063,11 +1063,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
+      "status": "build_pass",
+      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
+      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
     },
     {
       "entry_point": "ice_macro_tend_run",
@@ -1079,11 +1079,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
+      "status": "build_pass",
+      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
+      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
     },
     {
       "entry_point": "cldfrc_run",
@@ -1095,11 +1095,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
+      "status": "build_pass",
+      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
+      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
     },
     {
       "entry_point": "mmacro_pcond_run",
@@ -1111,11 +1111,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
+      "status": "build_pass",
+      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
+      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
     },
     {
       "entry_point": "micro_mg_tend_run",
@@ -1127,11 +1127,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
+      "status": "build_pass",
+      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 active PI cloud/microphysics lane started from composed source 579e795; implementation and static audit in progress; no B07 runtime claim yet."
+      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
     },
     {
       "entry_point": "rad_rrtmg_sw_run",
