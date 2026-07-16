@@ -1,8 +1,6 @@
 module ap_wetdepa_v2_scheme
 
   use shr_kind_mod, only : r8 => shr_kind_r8
-  use physconst,    only : gravit
-  use cam_logfile,  only : iulog
 
   implicit none
   private
@@ -15,13 +13,14 @@ contains
   !! \htmlinclude wetdepa_v2_run.html
   !!
 subroutine wetdepa_v2_run(                                  &
-   pcols, pver, p, q, pdel, cldt, cldc,                 &
+   pcols, pver, gravity, p, q, pdel, cldt, cldc,         &
    cmfdqr, evapc, conicw, precs, conds,                 &
    evaps, cwat, tracer, deltat, scavt,                  &
    iscavt, cldvcu, cldvst, dlf, fracis,                 &
    sol_fact, ncol, scavcoef, is_strat_cloudborne, qqcw, &
    f_act_conv, icscavt, isscavt, bcscavt, bsscavt,      &
-   sol_facti_in, sol_factic_in )
+   sol_facti_in, sol_factic_in, negative_dblchek,         &
+   negative_srct, negative_rat, negative_fracev )
 
    !-----------------------------------------------------------------------
    !
@@ -30,6 +29,7 @@ subroutine wetdepa_v2_run(                                  &
    !-----------------------------------------------------------------------
 
    integer, intent(in) :: pcols, pver
+   real(r8), intent(in) :: gravity
 
    real(r8), intent(in) ::&
       p(pcols,pver),        &! pressure
@@ -83,6 +83,13 @@ subroutine wetdepa_v2_run(                                  &
    real(r8), intent(out), optional :: bcscavt(pcols,pver)     ! below cloud, convective
    real(r8), intent(out), optional :: bsscavt(pcols,pver)     ! below cloud, stratiform
 
+   ! Diagnostic values are returned to the CAM host facade so the standalone
+   ! science kernel does not depend on CAM logging infrastructure.
+   real(r8), intent(out) :: negative_dblchek(pcols,pver)
+   real(r8), intent(out) :: negative_srct(pcols,pver)
+   real(r8), intent(out) :: negative_rat(pcols,pver)
+   real(r8), intent(out) :: negative_fracev(pcols,pver)
+
    ! local variables
 
    integer :: i, k
@@ -112,8 +119,6 @@ subroutine wetdepa_v2_run(                                  &
 
    real(r8) :: odds(pcols)          ! limit on removal rate (proportional to prec)
    real(r8) :: dblchek(pcols)
-   logical :: found
-
    real(r8) :: trac_qqcw(pcols)
    real(r8) :: tracer_incu(pcols)
    real(r8) :: tracer_mean(pcols)
@@ -158,8 +163,8 @@ subroutine wetdepa_v2_run(                                  &
       do i = 1, ncol
 
          clds(i)  = cldt(i,k) - cldc(i,k)
-         pdog(i)  = pdel(i,k)/gravit
-         rpdog(i) = gravit/pdel(i,k)
+         pdog(i)  = pdel(i,k)/gravity
+         rpdog(i) = gravity/pdel(i,k)
          rdeltat  = 1.0_r8/deltat
 
          ! ****************** Evaporation **************************
@@ -311,6 +316,10 @@ subroutine wetdepa_v2_run(                                  &
          if ( present(bsscavt) ) bsscavt(i,k) = -(srcs(i) * (1-fins(i))) * omsm +  &
             fracev(i)*scavab(i)*rpdog(i)
          dblchek(i) = tracer(i,k) + deltat*scavt(i,k)
+         negative_dblchek(i,k) = dblchek(i)
+         negative_srct(i,k) = srct(i)
+         negative_rat(i,k) = rat(i)
+         negative_fracev(i,k) = fracev(i)
 
          ! now keep track of scavenged mass and precip
          scavab(i) = scavab(i)*(1-fracev(i)) + srcs(i)*pdog(i)
@@ -319,23 +328,6 @@ subroutine wetdepa_v2_run(                                  &
          precabc(i) = precabc(i) + (cmfdqr(i,k) - evapc(i,k))*pdog(i)
 
       end do ! End of i = 1, ncol
-
-      found = .false.
-      do i = 1,ncol
-         if ( dblchek(i) < 0._r8 ) then
-            found = .true.
-            exit
-         end if
-      end do
-
-      if ( found ) then
-         do i = 1,ncol
-            if (dblchek(i) .lt. 0._r8) then
-               write(iulog,*) ' wetdapa: negative value ', i, k, tracer(i,k), &
-                  dblchek(i), scavt(i,k), srct(i), rat(i), fracev(i)
-            endif
-         end do
-      endif
 
    end do ! End of k = 1, pver
 

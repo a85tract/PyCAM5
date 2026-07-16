@@ -17,6 +17,12 @@
   type = integer
   dimensions = ()
   intent = in
+[ gravity ]
+  standard_name = gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
 [ p ]
   standard_name = air_pressure
   units = Pa
@@ -218,3 +224,27 @@
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = in
   optional = True
+[ negative_dblchek ]
+  standard_name = wet_deposition_negative_check_value
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ negative_srct ]
+  standard_name = wet_deposition_total_removal_rate_diagnostic
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ negative_rat ]
+  standard_name = wet_deposition_available_to_removed_ratio_diagnostic
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ negative_fracev ]
+  standard_name = wet_deposition_stratiform_evaporation_fraction_diagnostic
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out

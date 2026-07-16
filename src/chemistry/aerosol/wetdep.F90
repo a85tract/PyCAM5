@@ -344,13 +344,30 @@ subroutine wetdepa_v2(                                  &
    real(r8), intent(out), optional :: bcscavt(pcols,pver)     ! below cloud, convective
    real(r8), intent(out), optional :: bsscavt(pcols,pver)     ! below cloud, stratiform
 
+   real(r8) :: negative_dblchek(pcols,pver)
+   real(r8) :: negative_srct(pcols,pver)
+   real(r8) :: negative_rat(pcols,pver)
+   real(r8) :: negative_fracev(pcols,pver)
+   integer :: i, k
+
 
    call t_startf('ap_wetdepa_v2_run')
-   call wetdepa_v2_run(pcols, pver, p, q, pdel, cldt, cldc, cmfdqr, evapc, conicw, precs, conds, &
+   call wetdepa_v2_run(pcols, pver, gravit, p, q, pdel, cldt, cldc, cmfdqr, evapc, conicw, precs, conds, &
         evaps, cwat, tracer, deltat, scavt, iscavt, cldvcu, cldvst, dlf, fracis, &
         sol_fact, ncol, scavcoef, is_strat_cloudborne, qqcw, f_act_conv, &
-        icscavt, isscavt, bcscavt, bsscavt, sol_facti_in, sol_factic_in)
+        icscavt, isscavt, bcscavt, bsscavt, sol_facti_in, sol_factic_in, &
+        negative_dblchek, negative_srct, negative_rat, negative_fracev)
    call t_stopf('ap_wetdepa_v2_run')
+
+   do k = 1, pver
+      do i = 1, ncol
+         if (negative_dblchek(i,k) < 0._r8) then
+            write(iulog,*) ' wetdapa: negative value ', i, k, tracer(i,k), &
+               negative_dblchek(i,k), scavt(i,k), negative_srct(i,k), &
+               negative_rat(i,k), negative_fracev(i,k)
+         end if
+      end do
+   end do
 
 end subroutine wetdepa_v2
 
