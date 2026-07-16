@@ -1,5 +1,5 @@
 [ccpp-table-properties]
-  name  = modal_aero_gasaerexch_sub
+  name = modal_aero_gasaerexch_sub
   type = scheme
 
 [ccpp-arg-table]
@@ -47,6 +47,30 @@
   type = integer
   dimensions = ()
   intent = in
+[ pcnst_in ]
+  standard_name = constituent_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ top_lev_in ]
+  standard_name = modal_aerosol_top_active_level_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ maxspec_in ]
+  standard_name = aerosol_species_per_mode_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ntot_aspectype_in ]
+  standard_name = aerosol_species_type_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
 [ loffset ]
   standard_name = modal_aerosol_constituent_offset
   units = index
@@ -59,29 +83,233 @@
   type = real | kind = r8
   dimensions = ()
   intent = in
+[ l_so4g_in ]
+  standard_name = modal_aerosol_l_so4g
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ l_nh4g_in ]
+  standard_name = modal_aerosol_l_nh4g
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ l_msag_in ]
+  standard_name = modal_aerosol_l_msag
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ l_soag_in ]
+  standard_name = modal_aerosol_l_soag
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ modefrm_pcage_in ]
+  standard_name = modal_aerosol_modefrm_pcage
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ modetoo_pcage_in ]
+  standard_name = modal_aerosol_modetoo_pcage
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ nspecfrm_pcage_in ]
+  standard_name = modal_aerosol_nspecfrm_pcage
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ lspecfrm_pcage_in ]
+  standard_name = modal_aerosol_lspecfrm_pcage
+  units = index
+  type = integer
+  dimensions = (aerosol_species_per_mode_dimension)
+  intent = in
+[ lspectoo_pcage_in ]
+  standard_name = modal_aerosol_lspectoo_pcage
+  units = index
+  type = integer
+  dimensions = (aerosol_species_per_mode_dimension)
+  intent = in
+[ modeptr_pcarbon_in ]
+  standard_name = modal_aerosol_modeptr_pcarbon
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ numptr_amode_in ]
+  standard_name = modal_aerosol_numptr_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ nspec_amode_in ]
+  standard_name = modal_aerosol_nspec_amode
+  units = count
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lmassptr_amode_in ]
+  standard_name = modal_aerosol_lmassptr_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_species_per_mode_dimension,aerosol_mode_dimension)
+  intent = in
+[ lspectype_amode_in ]
+  standard_name = modal_aerosol_lspectype_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_species_per_mode_dimension,aerosol_mode_dimension)
+  intent = in
+[ lptr_so4_a_amode_in ]
+  standard_name = modal_aerosol_lptr_so4_a_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lptr_nh4_a_amode_in ]
+  standard_name = modal_aerosol_lptr_nh4_a_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lptr_soa_a_amode_in ]
+  standard_name = modal_aerosol_lptr_soa_a_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lptr_pom_a_amode_in ]
+  standard_name = modal_aerosol_lptr_pom_a_amode
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ sigmag_amode_in ]
+  standard_name = modal_aerosol_sigmag_amode
+  units = 1
+  type = real | kind = r8
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ alnsg_amode_in ]
+  standard_name = modal_aerosol_alnsg_amode
+  units = 1
+  type = real | kind = r8
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ specmw_amode_in ]
+  standard_name = modal_aerosol_specmw_amode
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = (aerosol_species_type_dimension)
+  intent = in
+[ specdens_amode_in ]
+  standard_name = modal_aerosol_specdens_amode
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (aerosol_species_type_dimension)
+  intent = in
+[ specmw_so4_amode_in ]
+  standard_name = modal_aerosol_specmw_so4_amode
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specmw_nh4_amode_in ]
+  standard_name = modal_aerosol_specmw_nh4_amode
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specmw_soa_amode_in ]
+  standard_name = modal_aerosol_specmw_soa_amode
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_so4_amode_in ]
+  standard_name = modal_aerosol_specdens_so4_amode
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_nh4_amode_in ]
+  standard_name = modal_aerosol_specdens_nh4_amode
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_soa_amode_in ]
+  standard_name = modal_aerosol_specdens_soa_amode
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ dr_so4_monolayers_pcage_in ]
+  standard_name = modal_aerosol_dr_so4_monolayers_pcage
+  units = m
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ soa_equivso4_factor_in ]
+  standard_name = modal_aerosol_soa_equivso4_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravity_in ]
+  standard_name = modal_aerosol_gravity
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ mwdry_in ]
+  standard_name = modal_aerosol_mwdry
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rair_in ]
+  standard_name = modal_aerosol_rair
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ adv_mass_in ]
+  standard_name = modal_aerosol_adv_mass
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = (gas_phase_chemical_species_dimension)
+  intent = in
 [ t ]
   standard_name = air_temperature
   units = K
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   intent = in
 [ pmid ]
   standard_name = air_pressure
   units = Pa
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   intent = in
 [ pdel ]
   standard_name = air_pressure_thickness
   units = Pa
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   intent = in
 [ qh2o ]
   standard_name = water_vapor_specific_humidity
   units = kg kg-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   intent = in
 [ troplev ]
   standard_name = tropopause_vertical_layer_index
@@ -93,41 +321,95 @@
   standard_name = gas_phase_species_mole_fraction
   units = mol mol-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,gas_phase_chemical_species_dimension)
   intent = inout
 [ qqcw ]
   standard_name = cloud_borne_gas_phase_species_mole_fraction
   units = mol mol-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,gas_phase_chemical_species_dimension)
   intent = inout
 [ dqdt_other ]
   standard_name = gas_phase_species_other_process_tendency
   units = mol mol-1 s-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,gas_phase_chemical_species_dimension)
   intent = in
 [ dqqcwdt_other ]
   standard_name = cloud_borne_species_other_process_tendency
   units = mol mol-1 s-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, gas_phase_chemical_species_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,gas_phase_chemical_species_dimension)
   intent = in
 [ dgncur_a ]
   standard_name = dry_geometric_mean_aerosol_diameter
   units = m
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,aerosol_mode_dimension)
   intent = in
 [ dgncur_awet ]
   standard_name = wet_geometric_mean_aerosol_diameter
   units = m
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,aerosol_mode_dimension)
+  intent = in
+[ has_sulfeq ]
+  standard_name = modal_aerosol_has_sulfeq
+  units = 1
+  type = logical
+  dimensions = ()
   intent = in
 [ sulfeq ]
   standard_name = equilibrium_sulfate_mole_fraction_by_mode
   units = mol mol-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,aerosol_mode_dimension)
   intent = in
+[ qsrflx ]
+  standard_name = modal_aerosol_qsrflx
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,gas_phase_chemical_species_dimension,2)
+  intent = out
+[ qqcwsrflx ]
+  standard_name = modal_aerosol_qqcwsrflx
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,gas_phase_chemical_species_dimension,2)
+  intent = out
+[ dotend ]
+  standard_name = modal_aerosol_dotend
+  units = 1
+  type = logical
+  dimensions = (gas_phase_chemical_species_dimension)
+  intent = out
+[ dotendqqcw ]
+  standard_name = modal_aerosol_dotendqqcw
+  units = 1
+  type = logical
+  dimensions = (gas_phase_chemical_species_dimension)
+  intent = out
+[ dotendrn ]
+  standard_name = modal_aerosol_dotendrn
+  units = 1
+  type = logical
+  dimensions = (gas_phase_chemical_species_dimension)
+  intent = out
+[ dotendqqcwrn ]
+  standard_name = modal_aerosol_dotendqqcwrn
+  units = 1
+  type = logical
+  dimensions = (gas_phase_chemical_species_dimension)
+  intent = out
+[ ierr_out ]
+  standard_name = modal_aerosol_ierr_out
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
+[ rename_error_out ]
+  standard_name = modal_aerosol_rename_error_out
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
