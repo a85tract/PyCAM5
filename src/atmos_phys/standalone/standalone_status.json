@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T18:10:19Z",
+  "updated_at": "2026-07-16T18:21:06Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -86,11 +86,11 @@
       "order": 2,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_prof.F90",
       "module": "ap_gw_prof_scheme",
-      "status": "dependency_pass",
-      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "gw_oro_src_run",
@@ -100,11 +100,11 @@
       "order": 3,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_oro_src.F90",
       "module": "ap_gw_oro_src_scheme",
-      "status": "dependency_pass",
-      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "gw_drag_prof_run",
@@ -114,11 +114,11 @@
       "order": 4,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_drag_prof.F90",
       "module": "ap_gw_drag_prof_scheme",
-      "status": "dependency_pass",
-      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "energy_change_run",
@@ -128,11 +128,11 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/energy_change.F90",
       "module": "ap_energy_change_scheme",
-      "status": "dependency_pass",
-      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "ice_macro_tend_run",
@@ -142,11 +142,11 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/cloud_microphysics/ice_macro/ice_macro_tend.F90",
       "module": "ap_ice_macro_tend_scheme",
-      "status": "dependency_pass",
-      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "rrtmg_sw_run",
@@ -156,11 +156,11 @@
       "order": 7,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rrtmg_sw.F90",
       "module": "ap_rrtmg_sw_scheme",
-      "status": "dependency_pass",
-      "commit": "42a189d812066df30377eee43bc9891692bdf53d",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "active run closure direct+transitive PASS; inactive non-McICA variant kept outside standalone tree"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "rrtmg_lw_run",
@@ -170,11 +170,11 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rrtmg_lw.F90",
       "module": "ap_rrtmg_lw_scheme",
-      "status": "dependency_pass",
-      "commit": "42a189d812066df30377eee43bc9891692bdf53d",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "active run closure direct+transitive PASS; inactive non-McICA variant kept outside standalone tree"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "modal_aero_depvel_part_run",
@@ -184,11 +184,11 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_depvel_part/modal_aero_depvel_part.F90",
       "module": "ap_modal_aero_depvel_part_scheme",
-      "status": "dependency_pass",
-      "commit": "53f762a5826e11e9b6e8e4d3f0345dae7ad460c1",
+      "status": "build_pass",
+      "commit": "96d29009aa78c01e509789e2d8eae3f974e2e713",
       "last_run": null,
       "bfb_run": null,
-      "note": "intrinsic process interface; direct+transitive closure PASS"
+      "note": "fresh standalone CMake closure build PASS (72 sources, no CAM EXEROOT modules); clean full CAM build PASS"
     },
     {
       "entry_point": "compute_eddy_diff_run",
