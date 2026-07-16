@@ -1,0 +1,31 @@
+[ccpp-table-properties]
+  name = check_energy_zero_fluxes
+  type = scheme
+
+[ccpp-arg-table]
+  name = check_energy_zero_fluxes_run
+  type = scheme
+[ nvalues ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ zero_flux ]
+  standard_name = zero_boundary_flux_work_array
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

@@ -2838,6 +2838,8 @@ sub write_filepath
 	print $fh "$srcdir/cam/src/physics/rrtmg/ext/rrtmg_sw\n";
     }
 
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/check_energy\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/conservation_adjust/water\n";
     print $fh "$srcdir/cam/src/physics/cam\n";
     if ($clubb_sgs eq '1') {
        print $fh "$srcdir/cam/src/physics/clubb\n";

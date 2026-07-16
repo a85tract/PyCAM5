@@ -1,0 +1,37 @@
+[ccpp-table-properties]
+  name = check_energy_save_teout
+  type = scheme
+
+[ccpp-arg-table]
+  name = check_energy_save_teout_run
+  type = scheme
+[ nvalues ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ te_cur ]
+  standard_name = vertically_integrated_total_energy
+  units = J m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ teout ]
+  standard_name = total_energy_for_global_fixer_next_timestep
+  units = J m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out

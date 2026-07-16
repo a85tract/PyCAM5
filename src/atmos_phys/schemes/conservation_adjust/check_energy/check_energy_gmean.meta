@@ -1,0 +1,97 @@
+[ccpp-table-properties]
+  name = check_energy_gmean
+  type = scheme
+
+[ccpp-arg-table]
+  name = check_energy_gmean_run
+  type = scheme
+[ has_chunks ]
+  standard_name = local_process_owns_atmosphere_chunks
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ dtime ]
+  standard_name = timestep_for_physics
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = standard_gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ teinp_local ]
+  standard_name = reduced_global_mean_total_energy_of_physics_input
+  units = J m-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ teout_local ]
+  standard_name = reduced_global_mean_total_energy_of_physics_output
+  units = J m-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ psurf_local ]
+  standard_name = reduced_global_mean_surface_air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ptopb ]
+  standard_name = air_pressure_at_top_of_atmosphere_model
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ teinp_glob ]
+  standard_name = global_mean_total_energy_of_physics_input
+  units = J m-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = inout
+[ teout_glob ]
+  standard_name = global_mean_total_energy_of_physics_output
+  units = J m-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = inout
+[ psurf_glob ]
+  standard_name = global_mean_surface_air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = inout
+[ ptopb_glob ]
+  standard_name = global_mean_top_boundary_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = ()
+  intent = inout
+[ tedif_glob ]
+  standard_name = global_mean_total_energy_correction
+  units = J m-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = inout
+[ heat_glob ]
+  standard_name = global_mean_heating_rate_correction
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = inout
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
