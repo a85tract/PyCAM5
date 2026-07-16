@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T07:06:07Z",
+  "updated_at": "2026-07-16T07:06:31Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -887,11 +887,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
     },
     {
       "entry_point": "zm_convr_run",
@@ -903,11 +903,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
     },
     {
       "entry_point": "zm_conv_evap_run",
@@ -919,11 +919,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
     },
     {
       "entry_point": "zm_conv_momtran_run",
@@ -935,11 +935,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
     },
     {
       "entry_point": "zm_conv_convtran_run",
@@ -951,11 +951,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "commit": null,
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "B06 deep-convection implementation lane active in isolated worktree; no integration or 50-step claim yet"
     },
     {
       "entry_point": "compute_uwshcu_inv_run",
