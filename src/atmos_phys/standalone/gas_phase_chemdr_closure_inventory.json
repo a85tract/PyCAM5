@@ -1,0 +1,4934 @@
+{
+  "schema_version": 1,
+  "entry_point": "gas_phase_chemdr_run",
+  "baseline_source": "src/atmos_phys/schemes/mozart_mam/gas_phase_chemdr/gas_phase_chemdr.F90",
+  "generated_utc": "2026-07-16",
+  "provider_selection": {
+    "file": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/output/s01_final/bld/atm/obj/Filepath",
+    "active_mechanism": "src/chemistry/pp_trop_mam3",
+    "rule": "first module provider in active CAM Filepath; whole-tree fallback only when unique"
+  },
+  "baseline": {
+    "direct_use_statements": 68,
+    "direct_unique_modules": 56,
+    "recursive_modules_resolved": 242,
+    "recursive_unique_provider_files": 242,
+    "recursive_unique_provider_loc": 150295,
+    "unresolved_modules": 19,
+    "standalone_checker_direct_violations": 65,
+    "standalone_checker_transitive_violations": 65
+  },
+  "classification_summary": {
+    "already_atmos_phys": {
+      "modules": 30,
+      "unique_files": 30,
+      "unique_file_loc": 15336
+    },
+    "host_diagnostics": {
+      "modules": 2,
+      "unique_files": 2,
+      "unique_file_loc": 1005
+    },
+    "host_framework": {
+      "modules": 35,
+      "unique_files": 35,
+      "unique_file_loc": 31257
+    },
+    "science_common": {
+      "modules": 117,
+      "unique_files": 117,
+      "unique_file_loc": 76518
+    },
+    "science_drydep": {
+      "modules": 2,
+      "unique_files": 2,
+      "unique_file_loc": 3467
+    },
+    "science_gas_phase": {
+      "modules": 21,
+      "unique_files": 21,
+      "unique_file_loc": 6204
+    },
+    "science_photolysis": {
+      "modules": 22,
+      "unique_files": 22,
+      "unique_file_loc": 9488
+    },
+    "science_stratosphere": {
+      "modules": 13,
+      "unique_files": 13,
+      "unique_file_loc": 7020
+    }
+  },
+  "direct_uses": [
+    {
+      "module": "shr_kind_mod",
+      "line": 3,
+      "provider": null,
+      "classification": "allowed_external",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "shr_const_mod",
+      "line": 4,
+      "provider": null,
+      "classification": "allowed_external",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "constituents",
+      "line": 5,
+      "provider": "src/physics/cam/constituents.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "cam_history",
+      "line": 6,
+      "provider": "src/control/cam_history.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "chem_mods",
+      "line": 7,
+      "provider": "src/chemistry/pp_trop_mam3/chem_mods.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "chem_mods",
+      "line": 8,
+      "provider": "src/chemistry/pp_trop_mam3/chem_mods.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "dust_model",
+      "line": 9,
+      "provider": "src/chemistry/modal_aero/dust_model.F90",
+      "classification": "science_common",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "ppgrid",
+      "line": 10,
+      "provider": "src/physics/cam/ppgrid.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "spmd_utils",
+      "line": 11,
+      "provider": "src/utils/spmd_utils.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "phys_control",
+      "line": 12,
+      "provider": "src/physics/cam/phys_control.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "carma_flags_mod",
+      "line": 13,
+      "provider": "src/physics/cam/carma_flags_mod.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_chem_utls",
+      "line": 55,
+      "provider": "src/chemistry/mozart/mo_chem_utls.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "cam_history",
+      "line": 56,
+      "provider": "src/control/cam_history.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "cam_abortutils",
+      "line": 57,
+      "provider": "src/utils/cam_abortutils.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_chm_diags",
+      "line": 58,
+      "provider": "src/chemistry/mozart/mo_chm_diags.F90",
+      "classification": "host_diagnostics",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_tracname",
+      "line": 59,
+      "provider": "src/chemistry/mozart/mo_tracname.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "constituents",
+      "line": 60,
+      "provider": "src/physics/cam/constituents.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "physics_buffer",
+      "line": 61,
+      "provider": null,
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "rate_diags",
+      "line": 62,
+      "provider": "src/chemistry/mozart/rate_diags.F90",
+      "classification": "host_diagnostics",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "rad_constituents",
+      "line": 63,
+      "provider": "src/physics/cam/rad_constituents.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "chem_mods",
+      "line": 234,
+      "provider": "src/chemistry/pp_trop_mam3/chem_mods.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "physconst",
+      "line": 235,
+      "provider": "src/utils/physconst.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_photo",
+      "line": 236,
+      "provider": "src/chemistry/mozart/mo_photo.F90",
+      "classification": "science_photolysis",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_exp_sol",
+      "line": 237,
+      "provider": "src/chemistry/mozart/mo_exp_sol.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_imp_sol",
+      "line": 238,
+      "provider": "src/chemistry/pp_trop_mam3/mo_imp_sol.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_setrxt",
+      "line": 239,
+      "provider": "src/chemistry/pp_trop_mam3/mo_setrxt.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_adjrxt",
+      "line": 240,
+      "provider": "src/chemistry/pp_trop_mam3/mo_adjrxt.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_phtadj",
+      "line": 241,
+      "provider": "src/chemistry/pp_trop_mam3/mo_phtadj.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "llnl_o1d_to_2oh_adj",
+      "line": 242,
+      "provider": "src/chemistry/mozart/llnl_O1D_to_2OH_adj.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_usrrxt",
+      "line": 243,
+      "provider": "src/chemistry/mozart/mo_usrrxt.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_setinv",
+      "line": 244,
+      "provider": "src/chemistry/mozart/mo_setinv.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_negtrc",
+      "line": 245,
+      "provider": "src/chemistry/mozart/mo_negtrc.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_sulf",
+      "line": 246,
+      "provider": "src/chemistry/mozart/mo_sulf.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_lightning",
+      "line": 247,
+      "provider": "src/chemistry/mozart/mo_lightning.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_setext",
+      "line": 248,
+      "provider": "src/chemistry/mozart/mo_setext.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_sethet",
+      "line": 249,
+      "provider": "src/chemistry/mozart/mo_sethet.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_drydep",
+      "line": 250,
+      "provider": "src/chemistry/mozart/mo_drydep.F90",
+      "classification": "science_drydep",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "seq_drydep_mod",
+      "line": 251,
+      "provider": null,
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_fstrat",
+      "line": 252,
+      "provider": "src/chemistry/mozart/mo_fstrat.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "noy_ubc",
+      "line": 253,
+      "provider": "src/chemistry/mozart/noy_ubc.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_flbc",
+      "line": 254,
+      "provider": "src/chemistry/utils/mo_flbc.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "phys_grid",
+      "line": 255,
+      "provider": "src/physics/cam/phys_grid.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_mean_mass",
+      "line": 256,
+      "provider": "src/chemistry/mozart/mo_mean_mass.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "cam_history",
+      "line": 257,
+      "provider": "src/control/cam_history.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "wv_saturation",
+      "line": 258,
+      "provider": "src/physics/cam/wv_saturation.F90",
+      "classification": "science_common",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "constituents",
+      "line": 259,
+      "provider": "src/physics/cam/constituents.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_drydep",
+      "line": 260,
+      "provider": "src/chemistry/mozart/mo_drydep.F90",
+      "classification": "science_drydep",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "time_manager",
+      "line": 261,
+      "provider": "src/utils/time_manager.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_ghg_chem",
+      "line": 262,
+      "provider": "src/chemistry/mozart/mo_ghg_chem.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_sad",
+      "line": 263,
+      "provider": "src/chemistry/mozart/mo_sad.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "charge_neutrality",
+      "line": 264,
+      "provider": "src/chemistry/mozart/charge_neutrality.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_strato_rates",
+      "line": 265,
+      "provider": "src/chemistry/mozart/mo_strato_rates.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_aero_settling",
+      "line": 266,
+      "provider": "src/chemistry/mozart/mo_aero_settling.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "shr_orb_mod",
+      "line": 267,
+      "provider": null,
+      "classification": "allowed_external",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "cam_control_mod",
+      "line": 268,
+      "provider": "src/control/cam_control_mod.F90",
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_strato_rates",
+      "line": 269,
+      "provider": "src/chemistry/mozart/mo_strato_rates.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "short_lived_species",
+      "line": 270,
+      "provider": "src/chemistry/mozart/short_lived_species.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_chm_diags",
+      "line": 271,
+      "provider": "src/chemistry/mozart/mo_chm_diags.F90",
+      "classification": "host_diagnostics",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "perf_mod",
+      "line": 272,
+      "provider": null,
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_neu_wetdep",
+      "line": 273,
+      "provider": "src/chemistry/mozart/mo_neu_wetdep.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "physics_buffer",
+      "line": 274,
+      "provider": null,
+      "classification": "host_framework",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "infnan",
+      "line": 275,
+      "provider": "src/utils/infnan.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "rate_diags",
+      "line": 276,
+      "provider": "src/chemistry/mozart/rate_diags.F90",
+      "classification": "host_diagnostics",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "mo_mass_xforms",
+      "line": 277,
+      "provider": "src/chemistry/mozart/mo_mass_xforms.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "lin_strat_chem",
+      "line": 281,
+      "provider": "src/chemistry/mozart/lin_strat_chem.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "linoz_data",
+      "line": 282,
+      "provider": "src/chemistry/mozart/linoz_data.F90",
+      "classification": "science_stratosphere",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "aero_model",
+      "line": 286,
+      "provider": "src/chemistry/modal_aero/aero_model.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    },
+    {
+      "module": "aero_model",
+      "line": 288,
+      "provider": "src/chemistry/modal_aero/aero_model.F90",
+      "classification": "science_gas_phase",
+      "alternatives": [],
+      "intrinsic_nature": null
+    }
+  ],
+  "recursive_closure": [
+    {
+      "module": "ap_aero_model_emissions_scheme",
+      "provider": "src/atmos_phys/schemes/chemistry_emissions/aero_model_emissions/aero_model_emissions.F90",
+      "loc": 44,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_dust_emis_scheme",
+      "provider": "src/atmos_phys/schemes/chemistry_emissions/dust_emis/dust_emis.F90",
+      "loc": 64,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_seasalt_emis_scheme",
+      "provider": "src/atmos_phys/schemes/chemistry_emissions/seasalt_emis/seasalt_emis.F90",
+      "loc": 75,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "ap_sslt_sections_private",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_sslt_sections_private",
+      "provider": "src/atmos_phys/schemes/chemistry_emissions/seasalt_emis/sslt_sections_private.F90",
+      "loc": 97,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_set_dry_to_wet_scheme",
+      "provider": "src/atmos_phys/schemes/conservation_adjust/water/set_dry_to_wet.F90",
+      "loc": 34,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_aero_model_wetdep_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/aero_model_wetdep/aero_model_wetdep.F90",
+      "loc": 554,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "aerodep_flx",
+        "cam_history",
+        "camsrfexch",
+        "constituents",
+        "modal_aero_calcsize",
+        "modal_aero_data",
+        "modal_aero_deposition",
+        "modal_aero_wateruptake",
+        "perf_mod",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "wetdep"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_calcsize_sub_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/modal_aero_calcsize_sub/modal_aero_calcsize_sub.F90",
+      "loc": 967,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "constituents",
+        "modal_aero_data",
+        "modal_aero_rename",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_depvel_part_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/modal_aero_depvel_part/modal_aero_depvel_part.F90",
+      "loc": 190,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_wateruptake_dr_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/modal_aero_wateruptake_dr/modal_aero_wateruptake_dr.F90",
+      "loc": 1032,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "rad_constituents",
+        "ref_pres",
+        "shr_kind_mod",
+        "time_manager",
+        "tropopause",
+        "wv_saturation"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_d3ddflux_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/sedimentation/d3ddflux.F90",
+      "loc": 47,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_dust_sediment_tend_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/sedimentation/dust_sediment_tend.F90",
+      "loc": 507,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "perf_mod",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_wetdepa_v2_scheme",
+      "provider": "src/atmos_phys/schemes/modal_aerosol/wetdepa_v2/wetdepa_v2.F90",
+      "loc": 336,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_drydep_update_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/drydep_update/drydep_update.F90",
+      "loc": 27,
+      "classification": "already_atmos_phys",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_exp_sol_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/exp_sol.F90",
+      "loc": 33,
+      "classification": "already_atmos_phys",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_coag_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/modal_aero/coag/modal_aero_coag_scheme.F90",
+      "loc": 106,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "ap_modal_aero_coag_kernels",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_aero_model_drydep_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/modal_aero/drydep/aero_model_drydep.F90",
+      "loc": 332,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "aerodep_flx",
+        "ap_modal_aero_depvel_part_scheme",
+        "cam_history",
+        "camsrfexch",
+        "constituents",
+        "drydep_mod",
+        "dust_sediment_mod",
+        "mo_drydep",
+        "modal_aero_data",
+        "modal_aero_deposition",
+        "perf_mod",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_aero_model_gasaerexch_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch/aero_model_gasaerexch.F90",
+      "loc": 239,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "ap_modal_aero_coag_scheme",
+        "ap_modal_aero_gasaerexch_scheme",
+        "ap_modal_aero_newnuc_scheme",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_gasaerexch_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch/modal_aero_gasaerexch_scheme.F90",
+      "loc": 121,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "ap_modal_aero_gasaerexch_kernels",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_newnuc_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/modal_aero/newnuc/modal_aero_newnuc_scheme.F90",
+      "loc": 79,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "ap_modal_aero_newnuc_kernels",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "neu_wetdep_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/neu_wetdep/neu_wetdep.F90",
+      "loc": 1746,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "constituents",
+        "gas_wetdep_opts",
+        "phys_control",
+        "phys_grid",
+        "ppgrid",
+        "seq_drydep_mod",
+        "shr_const_mod",
+        "shr_kind_mod",
+        "shr_spfn_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_imp_sol_trop_mam3_scheme",
+      "provider": "src/atmos_phys/schemes/mozart_mam/trop_mam3/imp_sol.F90",
+      "loc": 517,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_calcram_scheme",
+      "provider": "src/atmos_phys/schemes/orographic_gravity_wave/calcram.F90",
+      "loc": 104,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "thermo_water_update",
+      "provider": "src/atmos_phys/schemes/thermo_water_update/thermo_water_update.F90",
+      "loc": 51,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "tropopause_find_scheme",
+      "provider": "src/atmos_phys/schemes/tropopause_find/tropopause_find.F90",
+      "loc": 1223,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "geopotential_temp",
+      "provider": "src/atmos_phys/schemes/utilities/geopotential_temp.F90",
+      "loc": 74,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "physics_tendency_updaters",
+      "provider": "src/atmos_phys/schemes/utilities/physics_tendency_updaters.F90",
+      "loc": 107,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_coag_kernels",
+      "provider": "src/atmos_phys/support/modal_aerosol/modal_aero_coag_kernels.F90",
+      "loc": 2638,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_const_mod",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_gasaerexch_kernels",
+      "provider": "src/atmos_phys/support/modal_aerosol/modal_aero_gasaerexch_kernels.F90",
+      "loc": 1179,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "ap_modal_aero_rename_kernels",
+        "shr_const_mod",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_newnuc_kernels",
+      "provider": "src/atmos_phys/support/modal_aerosol/modal_aero_newnuc_kernels.F90",
+      "loc": 1570,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_const_mod",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ap_modal_aero_rename_kernels",
+      "provider": "src/atmos_phys/support/modal_aerosol/modal_aero_rename_kernels.F90",
+      "loc": 1243,
+      "classification": "already_atmos_phys",
+      "uses": [
+        "shr_const_mod",
+        "shr_kind_mod",
+        "shr_spfn_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_chm_diags",
+      "provider": "src/chemistry/mozart/mo_chm_diags.F90",
+      "loc": 757,
+      "classification": "host_diagnostics",
+      "uses": [
+        "cam_history",
+        "cam_history_support",
+        "chem_mods",
+        "constituents",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_jeuv",
+        "mo_tracname",
+        "phys_control",
+        "phys_grid",
+        "physics_buffer",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "rate_diags",
+      "provider": "src/chemistry/mozart/rate_diags.F90",
+      "loc": 248,
+      "classification": "host_diagnostics",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "chem_mods",
+        "mo_rxt_rates_conv",
+        "mpishorthand",
+        "namelist_utils",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "tracer_cnst",
+      "provider": "src/chemistry/mozart/tracer_cnst.F90",
+      "loc": 372,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "error_messages",
+        "mo_chem_utls",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "string_utils",
+        "tracer_data"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "solar_data",
+      "provider": "src/chemistry/utils/solar_data.F90",
+      "loc": 489,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "infnan",
+        "iofilemod",
+        "mpishorthand",
+        "namelist_utils",
+        "physconst",
+        "pio",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "tracer_data",
+      "provider": "src/chemistry/utils/tracer_data.F90",
+      "loc": 2403,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_logfile",
+        "cam_pio_utils",
+        "dycore",
+        "dyn_grid",
+        "horizontal_interpolate",
+        "interpolate_data",
+        "intp_util",
+        "iofilemod",
+        "mo_constants",
+        "mo_util",
+        "mpishorthand",
+        "perf_mod",
+        "phys_grid",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "pio",
+        "polar_avg",
+        "ppgrid",
+        "ref_pres",
+        "shr_file_mod",
+        "shr_kind_mod",
+        "shr_sys_mod",
+        "spmd_utils",
+        "string_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_control_mod",
+      "provider": "src/control/cam_control_mod.F90",
+      "loc": 55,
+      "classification": "host_framework",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_history",
+      "provider": "src/control/cam_history.F90",
+      "loc": 5662,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_history_buffers",
+        "cam_history_support",
+        "cam_instance",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_surfvals",
+        "datetime_mod",
+        "dycore",
+        "dyn_grid",
+        "filenames",
+        "interp_mod",
+        "iofilemod",
+        "mo_solar_parms",
+        "perf_mod",
+        "phys_grid",
+        "physconst",
+        "pio",
+        "pmgrid",
+        "ppgrid",
+        "pspect",
+        "rgrid",
+        "sat_hist",
+        "scammod",
+        "shr_kind_mod",
+        "shr_sys_mod",
+        "solar_data",
+        "spmd_utils",
+        "string_utils",
+        "subcol_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_history_support",
+      "provider": "src/control/cam_history_support.F90",
+      "loc": 1238,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "pio",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_logfile",
+      "provider": "src/control/cam_logfile.F90",
+      "loc": 37,
+      "classification": "host_framework",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "camsrfexch",
+      "provider": "src/control/camsrfexch.F90",
+      "loc": 655,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_cpl_indices",
+        "cam_history",
+        "cam_logfile",
+        "chem_surfvals",
+        "co2_cycle",
+        "comsrf",
+        "constituents",
+        "infnan",
+        "phys_grid",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "seq_drydep_mod",
+        "shr_kind_mod",
+        "shr_megan_mod",
+        "water_isotopes",
+        "water_tracer_vars",
+        "water_types"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "filenames",
+      "provider": "src/control/filenames.F90",
+      "loc": 214,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "shr_kind_mod",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ncdio_atm",
+      "provider": "src/control/ncdio_atm.F90",
+      "loc": 816,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "constituents",
+        "dycore",
+        "dyn_grid",
+        "phys_grid",
+        "pio",
+        "ppgrid",
+        "scammod",
+        "shr_kind_mod",
+        "shr_scam_mod",
+        "shr_sys_mod",
+        "spmd_utils",
+        "string_utils",
+        "xpavg_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "scammod",
+      "provider": "src/control/scamMod.F90",
+      "loc": 352,
+      "classification": "host_framework",
+      "uses": [
+        "_camiop",
+        "_iop",
+        "cam_logfile",
+        "constituents",
+        "pmgrid",
+        "shr_kind_mod",
+        "shr_scam_mod",
+        "wrap_nf"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dycore",
+      "provider": "src/dynamics/se/dycore.F90",
+      "loc": 56,
+      "classification": "host_framework",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dyn_grid",
+      "provider": "src/dynamics/se/dyn_grid.F90",
+      "loc": 1033,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "dimensions_mod",
+        "dof_mod",
+        "element_mod",
+        "fvm_control_volume_mod",
+        "hycoef",
+        "interpolate_mod",
+        "kinds",
+        "parallel_mod",
+        "physconst",
+        "pio",
+        "pmgrid",
+        "shr_const_mod",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "pmgrid",
+      "provider": "src/dynamics/se/pmgrid.F90",
+      "loc": 61,
+      "classification": "host_framework",
+      "uses": [
+        "dimensions_mod",
+        "edgetype_mod",
+        "reduction_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "boundarydata",
+      "provider": "src/physics/cam/boundarydata.F90",
+      "loc": 936,
+      "classification": "host_framework",
+      "uses": [
+        "bnddyi_mod",
+        "cam_abortutils",
+        "cam_logfile",
+        "error_messages",
+        "interpolate_data",
+        "iofilemod",
+        "mpishorthand",
+        "netcdf",
+        "physconst",
+        "physics_types",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "carma_flags_mod",
+      "provider": "src/physics/cam/carma_flags_mod.F90",
+      "loc": 191,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "carma_model_flags_mod",
+        "mpishorthand",
+        "namelist_utils",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "constituents",
+      "provider": "src/physics/cam/constituents.F90",
+      "loc": 438,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "physconst",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "phys_control",
+      "provider": "src/physics/cam/phys_control.F90",
+      "loc": 365,
+      "classification": "host_framework",
+      "uses": [
+        "_gw_front_igw",
+        "_subcol_microp",
+        "cam_abortutils",
+        "cam_logfile",
+        "mpishorthand",
+        "namelist_utils",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "phys_grid",
+      "provider": "src/physics/cam/phys_grid.F90",
+      "loc": 4832,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "dycore",
+        "dyn_grid",
+        "m_mergesorts",
+        "mod_comm",
+        "mpishorthand",
+        "perf_mod",
+        "physconst",
+        "pmgrid",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_dyn",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "physics_types",
+      "provider": "src/physics/cam/physics_types.F90",
+      "loc": 1997,
+      "classification": "host_framework",
+      "uses": [
+        "ap_set_dry_to_wet_scheme",
+        "cam_abortutils",
+        "cam_logfile",
+        "constituents",
+        "dycore",
+        "geopotential",
+        "infnan",
+        "perf_mod",
+        "phys_control",
+        "phys_grid",
+        "physconst",
+        "physics_tendency_updaters",
+        "pmgrid",
+        "ppgrid",
+        "scammod",
+        "shr_assert_mod",
+        "shr_const_mod",
+        "shr_infnan_mod",
+        "shr_kind_mod",
+        "shr_sys_mod",
+        "thermo_water_update",
+        "water_tracer_vars",
+        "water_types"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ppgrid",
+      "provider": "src/physics/cam/ppgrid.F90",
+      "loc": 44,
+      "classification": "host_framework",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "rad_constituents",
+      "provider": "src/physics/cam/rad_constituents.F90",
+      "loc": 2462,
+      "classification": "host_framework",
+      "uses": [
+        "_data_o3",
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "constituents",
+        "error_messages",
+        "mpishorthand",
+        "namelist_utils",
+        "phys_prop",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "radconstants",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ref_pres",
+      "provider": "src/physics/cam/ref_pres.F90",
+      "loc": 168,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "dyn_grid",
+        "mpishorthand",
+        "namelist_utils",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_abortutils",
+      "provider": "src/utils/cam_abortutils.F90",
+      "loc": 11,
+      "classification": "host_framework",
+      "uses": [
+        "shr_sys_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_pio_utils",
+      "provider": "src/utils/cam_pio_utils.F90",
+      "loc": 887,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_history_support",
+        "cam_instance",
+        "cam_logfile",
+        "dycore",
+        "dyn_grid",
+        "perf_mod",
+        "phys_grid",
+        "pio",
+        "pio_support",
+        "ppgrid",
+        "shr_kind_mod",
+        "shr_pio_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "error_messages",
+      "provider": "src/utils/error_messages.F90",
+      "loc": 151,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "netcdf"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "interpolate_data",
+      "provider": "src/utils/interpolate_data.F90",
+      "loc": 1309,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "physconst",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "iofilemod",
+      "provider": "src/utils/ioFileMod.F90",
+      "loc": 182,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mpishorthand",
+      "provider": "src/utils/mpishorthand.F",
+      "loc": 45,
+      "classification": "host_framework",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "namelist_utils",
+      "provider": "src/utils/namelist_utils.F90",
+      "loc": 6,
+      "classification": "host_framework",
+      "uses": [
+        "shr_nl_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "physconst",
+      "provider": "src/utils/physconst.F90",
+      "loc": 339,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "mpishorthand",
+        "namelist_utils",
+        "ppgrid",
+        "shr_const_mod",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "spmd_utils",
+      "provider": "src/utils/spmd_utils.F90",
+      "loc": 1668,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "mpishorthand",
+        "namelist_utils",
+        "perf_mod",
+        "shr_kind_mod",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "string_utils",
+      "provider": "src/utils/string_utils.F90",
+      "loc": 243,
+      "classification": "host_framework",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "time_manager",
+      "provider": "src/utils/time_manager.F90",
+      "loc": 1499,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "day",
+        "dycore",
+        "esmf",
+        "mpishorthand",
+        "pio",
+        "shr_cal_mod",
+        "shr_kind_mod",
+        "spmd_utils",
+        "string_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "units",
+      "provider": "src/utils/units.F90",
+      "loc": 41,
+      "classification": "host_framework",
+      "uses": [
+        "cam_abortutils",
+        "shr_file_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cldaero_mod",
+      "provider": "src/chemistry/aerosol/cldaero_mod.F90",
+      "loc": 148,
+      "classification": "science_common",
+      "uses": [
+        "mo_constants",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dust_common",
+      "provider": "src/chemistry/aerosol/dust_common.F90",
+      "loc": 253,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "infnan",
+        "mo_constants",
+        "physconst",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dust_sediment_mod",
+      "provider": "src/chemistry/aerosol/dust_sediment_mod.F90",
+      "loc": 12,
+      "classification": "science_common",
+      "uses": [
+        "ap_dust_sediment_tend_scheme"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setsox",
+      "provider": "src/chemistry/aerosol/mo_setsox.F90",
+      "loc": 867,
+      "classification": "science_common",
+      "uses": [
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "cldaero_mod",
+        "mo_chem_utls",
+        "mo_constants",
+        "phys_control",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "sox_cldaero_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "soil_erod_mod",
+      "provider": "src/chemistry/aerosol/soil_erod_mod.F90",
+      "loc": 121,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "interpolate_data",
+        "iofilemod",
+        "mo_constants",
+        "phys_grid",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "wetdep",
+      "provider": "src/chemistry/aerosol/wetdep.F90",
+      "loc": 935,
+      "classification": "science_common",
+      "uses": [
+        "ap_wetdepa_v2_scheme",
+        "cam_logfile",
+        "constituents",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dust_model",
+      "provider": "src/chemistry/modal_aero/dust_model.F90",
+      "loc": 157,
+      "classification": "science_common",
+      "uses": [
+        "ap_dust_emis_scheme",
+        "cam_abortutils",
+        "constituents",
+        "dust_common",
+        "mo_constants",
+        "mpishorthand",
+        "namelist_utils",
+        "perf_mod",
+        "physconst",
+        "shr_kind_mod",
+        "soil_erod_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_coag",
+      "provider": "src/chemistry/modal_aero/modal_aero_coag.F90",
+      "loc": 295,
+      "classification": "science_common",
+      "uses": [
+        "ap_modal_aero_coag_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "chem_mods",
+        "constituents",
+        "modal_aero_data",
+        "modal_aero_gasaerexch",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_data",
+      "provider": "src/chemistry/modal_aero/modal_aero_data.F90",
+      "loc": 408,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "constituents",
+        "physics_buffer",
+        "radconstants",
+        "shr_kind_mod",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_gasaerexch",
+      "provider": "src/chemistry/modal_aero/modal_aero_gasaerexch.F90",
+      "loc": 352,
+      "classification": "science_common",
+      "uses": [
+        "ap_modal_aero_gasaerexch_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "chem_mods",
+        "constituents",
+        "modal_aero_data",
+        "modal_aero_rename",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_initialize_data",
+      "provider": "src/chemistry/modal_aero/modal_aero_initialize_data.F90",
+      "loc": 986,
+      "classification": "science_common",
+      "uses": [
+        "aerodep_flx",
+        "cam_abortutils",
+        "cam_logfile",
+        "constituents",
+        "modal_aero_calcsize",
+        "modal_aero_coag",
+        "modal_aero_data",
+        "modal_aero_deposition",
+        "modal_aero_gasaerexch",
+        "modal_aero_newnuc",
+        "modal_aero_rename",
+        "physconst",
+        "physics_buffer",
+        "pmgrid",
+        "ppgrid",
+        "rad_constituents",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_newnuc",
+      "provider": "src/chemistry/modal_aero/modal_aero_newnuc.F90",
+      "loc": 188,
+      "classification": "science_common",
+      "uses": [
+        "ap_modal_aero_newnuc_scheme",
+        "cam_history",
+        "chem_mods",
+        "constituents",
+        "modal_aero_data",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils",
+        "wv_saturation"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_rename",
+      "provider": "src/chemistry/modal_aero/modal_aero_rename.F90",
+      "loc": 1803,
+      "classification": "science_common",
+      "uses": [
+        "ap_modal_aero_rename_kernels",
+        "cam_abortutils",
+        "cam_logfile",
+        "chem_mods",
+        "constituents",
+        "mo_constants",
+        "modal_aero_data",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "shr_spfn_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "seasalt_model",
+      "provider": "src/chemistry/modal_aero/seasalt_model.F90",
+      "loc": 98,
+      "classification": "science_common",
+      "uses": [
+        "ap_seasalt_emis_scheme",
+        "ap_sslt_sections_private",
+        "constituents",
+        "mo_constants",
+        "modal_aero_data",
+        "perf_mod",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "sox_cldaero_mod",
+      "provider": "src/chemistry/modal_aero/sox_cldaero_mod.F90",
+      "loc": 523,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "chem_mods",
+        "cldaero_mod",
+        "mo_chem_utls",
+        "modal_aero_data",
+        "phys_control",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "gas_wetdep_opts",
+      "provider": "src/chemistry/mozart/gas_wetdep_opts.F90",
+      "loc": 75,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "constituents",
+        "mpishorthand",
+        "namelist_utils",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "gcr_ionization",
+      "provider": "src/chemistry/mozart/gcr_ionization.F90",
+      "loc": 196,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "mpishorthand",
+        "namelist_utils",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "spehox",
+        "spmd_utils",
+        "tracer_data",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "m_sad_data",
+      "provider": "src/chemistry/mozart/m_sad_data.F90",
+      "loc": 53,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mag_parms",
+      "provider": "src/chemistry/mozart/mag_parms.F90",
+      "loc": 62,
+      "classification": "science_common",
+      "uses": [
+        "mo_solar_parms",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_airmas",
+      "provider": "src/chemistry/mozart/mo_airmas.F90",
+      "loc": 94,
+      "classification": "science_common",
+      "uses": [
+        "mo_params",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_airplane",
+      "provider": "src/chemistry/mozart/mo_airplane.F90",
+      "loc": 350,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_mods",
+        "interpolate_data",
+        "iofilemod",
+        "mo_chem_utls",
+        "mo_constants",
+        "phys_gmean",
+        "phys_grid",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_apex",
+      "provider": "src/chemistry/mozart/mo_apex.F90",
+      "loc": 434,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_logfile",
+        "dyn_grid",
+        "phys_grid",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_aurora",
+      "provider": "src/chemistry/mozart/mo_aurora.F90",
+      "loc": 1436,
+      "classification": "science_common",
+      "uses": [
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "constituents",
+        "dyn_grid",
+        "mag_parms",
+        "mo_apex",
+        "mo_chem_utls",
+        "mo_constants",
+        "phys_grid",
+        "physics_buffer",
+        "pmgrid",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_calcoe",
+      "provider": "src/chemistry/mozart/mo_calcoe.F90",
+      "loc": 45,
+      "classification": "science_common",
+      "uses": [
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_extfrc",
+      "provider": "src/chemistry/mozart/mo_extfrc.F90",
+      "loc": 383,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_mods",
+        "mo_chem_utls",
+        "mo_tracname",
+        "phys_control",
+        "physics_buffer",
+        "physics_types",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "string_utils",
+        "tracer_data"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_inter",
+      "provider": "src/chemistry/mozart/mo_inter.F90",
+      "loc": 332,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_lymana",
+      "provider": "src/chemistry/mozart/mo_lymana.F90",
+      "loc": 97,
+      "classification": "science_common",
+      "uses": [
+        "mo_params",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_params",
+      "provider": "src/chemistry/mozart/mo_params.F90",
+      "loc": 34,
+      "classification": "science_common",
+      "uses": [
+        "physconst",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_ps2str",
+      "provider": "src/chemistry/mozart/mo_ps2str.F90",
+      "loc": 331,
+      "classification": "science_common",
+      "uses": [
+        "mo_constants",
+        "mo_params",
+        "mo_trislv",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_schu",
+      "provider": "src/chemistry/mozart/mo_schu.F90",
+      "loc": 289,
+      "classification": "science_common",
+      "uses": [
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_solarproton",
+      "provider": "src/chemistry/mozart/mo_solarproton.F90",
+      "loc": 103,
+      "classification": "science_common",
+      "uses": [
+        "mo_apex",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "spedata",
+        "spehox"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_synoz",
+      "provider": "src/chemistry/mozart/mo_synoz.F90",
+      "loc": 233,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "chem_mods",
+        "dyn_grid",
+        "mo_chem_utls",
+        "phys_grid",
+        "physconst",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_trislv",
+      "provider": "src/chemistry/mozart/mo_trislv.F90",
+      "loc": 156,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_xsections",
+      "provider": "src/chemistry/mozart/mo_xsections.F90",
+      "loc": 1392,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "mo_params",
+        "mo_waveall",
+        "mo_waveo3",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_zadj",
+      "provider": "src/chemistry/mozart/mo_zadj.F90",
+      "loc": 10,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "spedata",
+      "provider": "src/chemistry/mozart/spedata.F90",
+      "loc": 736,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_logfile",
+        "cam_pio_utils",
+        "interpolate_data",
+        "iofilemod",
+        "mo_apex",
+        "mpishorthand",
+        "perf_mod",
+        "pio",
+        "ppgrid",
+        "shr_cal_mod",
+        "shr_kind_mod",
+        "shr_sys_mod",
+        "spmd_utils",
+        "string_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "spehox",
+      "provider": "src/chemistry/mozart/spehox.F90",
+      "loc": 189,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "tracer_srcs",
+      "provider": "src/chemistry/mozart/tracer_srcs.F90",
+      "loc": 298,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "mo_chem_utls",
+        "physics_buffer",
+        "physics_types",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "tracer_data"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "m_spc_id",
+      "provider": "src/chemistry/pp_trop_mam3/m_spc_id.F90",
+      "loc": 32,
+      "classification": "science_common",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_rxt_rates_conv",
+      "provider": "src/chemistry/pp_trop_mam3/mo_rxt_rates_conv.F90",
+      "loc": 19,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "aerodep_flx",
+      "provider": "src/chemistry/utils/aerodep_flx.F90",
+      "loc": 499,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "camsrfexch",
+        "modal_aero_deposition",
+        "mpishorthand",
+        "namelist_utils",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "tracer_data",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "horizontal_interpolate",
+      "provider": "src/chemistry/utils/horizontal_interpolate.F90",
+      "loc": 246,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "scammod",
+        "shr_const_mod",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "m_types",
+      "provider": "src/chemistry/utils/m_types.F90",
+      "loc": 25,
+      "classification": "science_common",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_constants",
+      "provider": "src/chemistry/utils/mo_constants.F90",
+      "loc": 44,
+      "classification": "science_common",
+      "uses": [
+        "physconst",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_solar_parms",
+      "provider": "src/chemistry/utils/mo_solar_parms.F90",
+      "loc": 255,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "error_messages",
+        "iofilemod",
+        "mpishorthand",
+        "namelist_utils",
+        "pio",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "time_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_util",
+      "provider": "src/chemistry/utils/mo_util.F90",
+      "loc": 81,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_calcsize",
+      "provider": "src/chemistry/utils/modal_aero_calcsize.F90",
+      "loc": 432,
+      "classification": "science_common",
+      "uses": [
+        "ap_modal_aero_calcsize_sub_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "constituents",
+        "modal_aero_data",
+        "modal_aero_rename",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "rad_constituents",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_deposition",
+      "provider": "src/chemistry/utils/modal_aero_deposition.F90",
+      "loc": 265,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "camsrfexch",
+        "constituents",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "modal_aero_wateruptake",
+      "provider": "src/chemistry/utils/modal_aero_wateruptake.F90",
+      "loc": 169,
+      "classification": "science_common",
+      "uses": [
+        "ap_modal_aero_wateruptake_dr_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "infnan",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "rad_constituents",
+        "ref_pres",
+        "shr_kind_mod",
+        "time_manager",
+        "tropopause",
+        "wv_saturation"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "time_utils",
+      "provider": "src/chemistry/utils/time_utils.F90",
+      "loc": 71,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "shr_kind_mod",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_history_buffers",
+      "provider": "src/control/cam_history_buffers.F90",
+      "loc": 530,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history_support",
+        "cam_pio_utils",
+        "dyn_grid",
+        "phys_grid",
+        "physconst",
+        "pio",
+        "shr_kind_mod",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_instance",
+      "provider": "src/control/cam_instance.F90",
+      "loc": 31,
+      "classification": "science_common",
+      "uses": [
+        "seq_comm_mct"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "pspect",
+      "provider": "src/control/pspect.F90",
+      "loc": 23,
+      "classification": "science_common",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "rgrid",
+      "provider": "src/control/rgrid.F90",
+      "loc": 15,
+      "classification": "science_common",
+      "uses": [
+        "pmgrid",
+        "pspect"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "sat_hist",
+      "provider": "src/control/sat_hist.F90",
+      "loc": 1081,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history_support",
+        "cam_instance",
+        "cam_logfile",
+        "cam_pio_utils",
+        "dyn_grid",
+        "iofilemod",
+        "mpishorthand",
+        "namelist_utils",
+        "perf_mod",
+        "phys_grid",
+        "physconst",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "string_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cam_cpl_indices",
+      "provider": "src/cpl/cam_cpl_indices.F90",
+      "loc": 228,
+      "classification": "science_common",
+      "uses": [
+        "mct_mod",
+        "seq_drydep_mod",
+        "seq_flds_mod",
+        "shr_megan_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dynamics_vars",
+      "provider": "src/dynamics/fv/dynamics_vars.F90",
+      "loc": 2515,
+      "classification": "science_common",
+      "uses": [
+        "cam_logfile",
+        "decompmodule",
+        "fv_control_mod",
+        "ghostmodule",
+        "mod_comm",
+        "mpishorthand",
+        "parutilitiesmodule",
+        "pft_module",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "fv_control_mod",
+      "provider": "src/dynamics/fv/fv_control_mod.F90",
+      "loc": 120,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "mpishorthand",
+        "namelist_utils",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "metdata",
+      "provider": "src/dynamics/fv/metdata.F90",
+      "loc": 1952,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "cam_history",
+        "cam_logfile",
+        "cam_pio_utils",
+        "camsrfexch",
+        "dynamics_vars",
+        "hycoef",
+        "infnan",
+        "iofilemod",
+        "mod_comm",
+        "mpishorthand",
+        "namelist_utils",
+        "ncdio_atm",
+        "perf_mod",
+        "phys_grid",
+        "physics_types",
+        "pio",
+        "pmgrid",
+        "ppgrid",
+        "shr_cal_mod",
+        "shr_const_mod",
+        "shr_file_mod",
+        "shr_kind_mod",
+        "shr_sys_mod",
+        "spmd_utils",
+        "string_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "pft_module",
+      "provider": "src/dynamics/fv/pft_module.F90",
+      "loc": 462,
+      "classification": "science_common",
+      "uses": [
+        "fv_control_mod",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "interp_mod",
+      "provider": "src/dynamics/se/interp_mod.F90",
+      "loc": 501,
+      "classification": "science_common",
+      "uses": [
+        "bndry_mod",
+        "cam_abortutils",
+        "cam_instance",
+        "cam_logfile",
+        "cam_pio_utils",
+        "dimensions_mod",
+        "dof_mod",
+        "dyn_grid",
+        "edge_mod",
+        "edgetype_mod",
+        "element_mod",
+        "fillvalues",
+        "hybrid_mod",
+        "interpolate_mod",
+        "parallel_mod",
+        "phys_grid",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "shr_pio_mod",
+        "spmd_dyn",
+        "spmd_utils",
+        "thread_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "bndry_mod",
+      "provider": "src/dynamics/se/share/bndry_mod.F90",
+      "loc": 1701,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "edge_mod",
+        "edgetype_mod",
+        "element_mod",
+        "gbarrier_mod",
+        "hybrid_mod",
+        "kinds",
+        "parallel_mod",
+        "perf_mod",
+        "schedtype_mod",
+        "thread_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "control_mod",
+      "provider": "src/dynamics/se/share/control_mod.F90",
+      "loc": 205,
+      "classification": "science_common",
+      "uses": [
+        "kinds"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "coordinate_systems_mod",
+      "provider": "src/dynamics/se/share/coordinate_systems_mod.F90",
+      "loc": 858,
+      "classification": "science_common",
+      "uses": [
+        "kinds",
+        "parallel_mod",
+        "physical_constants"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "cube_mod",
+      "provider": "src/dynamics/se/share/cube_mod.F90",
+      "loc": 2604,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "element_mod",
+        "gridgraph_mod",
+        "kinds",
+        "parallel_mod",
+        "physical_constants",
+        "spacecurve_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "derivative_mod",
+      "provider": "src/dynamics/se/share/derivative_mod.F90",
+      "loc": 2532,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "dimensions_mod",
+        "element_mod",
+        "kinds",
+        "parallel_mod",
+        "physical_constants",
+        "quadrature_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dimensions_mod",
+      "provider": "src/dynamics/se/share/dimensions_mod.F90",
+      "loc": 115,
+      "classification": "science_common",
+      "uses": [
+        "constituents"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "dof_mod",
+      "provider": "src/dynamics/se/share/dof_mod.F90",
+      "loc": 442,
+      "classification": "science_common",
+      "uses": [
+        "bndry_mod",
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "edge_mod",
+        "edgetype_mod",
+        "element_mod",
+        "kinds",
+        "parallel_mod",
+        "quadrature_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "edge_mod",
+      "provider": "src/dynamics/se/share/edge_mod.F90",
+      "loc": 5059,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "edgetype_mod",
+        "element_mod",
+        "gbarrier_mod",
+        "kinds",
+        "mpi",
+        "parallel_mod",
+        "perf_mod",
+        "schedtype_mod",
+        "thread_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "edgetype_mod",
+      "provider": "src/dynamics/se/share/edgetype_mod.F90",
+      "loc": 105,
+      "classification": "science_common",
+      "uses": [
+        "coordinate_systems_mod",
+        "gbarriertype_mod",
+        "kinds"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "element_mod",
+      "provider": "src/dynamics/se/share/element_mod.F90",
+      "loc": 482,
+      "classification": "science_common",
+      "uses": [
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "edgetype_mod",
+        "gridgraph_mod",
+        "kinds"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "fvm_control_volume_mod",
+      "provider": "src/dynamics/se/share/fvm_control_volume_mod.F90",
+      "loc": 1250,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "cube_mod",
+        "dimensions_mod",
+        "element_mod",
+        "kinds",
+        "parallel_mod",
+        "time_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "fvm_filter_mod",
+      "provider": "src/dynamics/se/share/fvm_filter_mod.F90",
+      "loc": 779,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "edgetype_mod",
+        "fvm_control_volume_mod",
+        "kinds",
+        "parallel_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "fvm_reconstruction_mod",
+      "provider": "src/dynamics/se/share/fvm_reconstruction_mod.F90",
+      "loc": 1997,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "dimensions_mod",
+        "fvm_control_volume_mod",
+        "kinds",
+        "parallel_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "gbarrier_mod",
+      "provider": "src/dynamics/se/share/gbarrier_mod.F90",
+      "loc": 79,
+      "classification": "science_common",
+      "uses": [
+        "gbarriertype_mod",
+        "iso_c_binding"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "gbarriertype_mod",
+      "provider": "src/dynamics/se/share/gbarriertype_mod.F90",
+      "loc": 8,
+      "classification": "science_common",
+      "uses": [
+        "iso_c_binding"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "gridgraph_mod",
+      "provider": "src/dynamics/se/share/gridgraph_mod.F90",
+      "loc": 617,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "dimensions_mod",
+        "kinds",
+        "parallel_mod",
+        "params_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "hybrid_mod",
+      "provider": "src/dynamics/se/share/hybrid_mod.F90",
+      "loc": 613,
+      "classification": "science_common",
+      "uses": [
+        "dimensions_mod",
+        "parallel_mod",
+        "thread_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "interpolate_mod",
+      "provider": "src/dynamics/se/share/interpolate_mod.F90",
+      "loc": 2283,
+      "classification": "science_common",
+      "uses": [
+        "bndry_mod",
+        "control_mod",
+        "coordinate_systems_mod",
+        "cube_mod",
+        "dimensions_mod",
+        "edge_mod",
+        "edgetype_mod",
+        "element_mod",
+        "fvm_control_volume_mod",
+        "fvm_filter_mod",
+        "fvm_reconstruction_mod",
+        "hybrid_mod",
+        "kinds",
+        "mesh_mod",
+        "parallel_mod",
+        "physical_constants",
+        "quadrature_mod",
+        "spelt_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "kinds",
+      "provider": "src/dynamics/se/share/kinds.F90",
+      "loc": 41,
+      "classification": "science_common",
+      "uses": [
+        "cam_logfile",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ll_mod",
+      "provider": "src/dynamics/se/share/ll_mod.F90",
+      "loc": 151,
+      "classification": "science_common",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mesh_mod",
+      "provider": "src/dynamics/se/share/mesh_mod.F90",
+      "loc": 1352,
+      "classification": "science_common",
+      "uses": [
+        "control_mod",
+        "coordinate_systems_mod",
+        "cube_mod",
+        "dimensions_mod",
+        "element_mod",
+        "gridgraph_mod",
+        "kinds",
+        "netcdf",
+        "parallel_mod",
+        "physical_constants",
+        "spacecurve_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "metagraph_mod",
+      "provider": "src/dynamics/se/share/metagraph_mod.F90",
+      "loc": 477,
+      "classification": "science_common",
+      "uses": [
+        "gridgraph_mod",
+        "kinds",
+        "ll_mod",
+        "pio_types"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "parallel_mod",
+      "provider": "src/dynamics/se/share/parallel_mod.F90",
+      "loc": 666,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "dimensions_mod",
+        "kinds",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "params_mod",
+      "provider": "src/dynamics/se/share/params_mod.F90",
+      "loc": 15,
+      "classification": "science_common",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "physical_constants",
+      "provider": "src/dynamics/se/share/physical_constants.F90",
+      "loc": 70,
+      "classification": "science_common",
+      "uses": [
+        "kinds",
+        "physconst"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "quadrature_mod",
+      "provider": "src/dynamics/se/share/quadrature_mod.F90",
+      "loc": 976,
+      "classification": "science_common",
+      "uses": [
+        "kinds",
+        "physical_constants"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "reduction_mod",
+      "provider": "src/dynamics/se/share/reduction_mod.F90",
+      "loc": 546,
+      "classification": "science_common",
+      "uses": [
+        "dimensions_mod",
+        "hybrid_mod",
+        "kinds",
+        "parallel_mod",
+        "thread_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "schedtype_mod",
+      "provider": "src/dynamics/se/share/schedtype_mod.F90",
+      "loc": 55,
+      "classification": "science_common",
+      "uses": [
+        "metagraph_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "spacecurve_mod",
+      "provider": "src/dynamics/se/share/spacecurve_mod.F90",
+      "loc": 1275,
+      "classification": "science_common",
+      "uses": [
+        "dimensions_mod",
+        "gridgraph_mod",
+        "kinds"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "spelt_mod",
+      "provider": "src/dynamics/se/share/spelt_mod.F90",
+      "loc": 3386,
+      "classification": "science_common",
+      "uses": [
+        "bndry_mod",
+        "control_mod",
+        "coordinate_systems_mod",
+        "cube_mod",
+        "derivative_mod",
+        "dimensions_mod",
+        "edge_mod",
+        "edgetype_mod",
+        "element_mod",
+        "fvm_control_volume_mod",
+        "hybrid_mod",
+        "kinds",
+        "parallel_mod",
+        "perf_mod",
+        "physical_constants",
+        "quadrature_mod",
+        "time_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "thread_mod",
+      "provider": "src/dynamics/se/share/thread_mod.F90",
+      "loc": 78,
+      "classification": "science_common",
+      "uses": [
+        "omp_lib"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "time_mod",
+      "provider": "src/dynamics/se/share/time_mod.F90",
+      "loc": 141,
+      "classification": "science_common",
+      "uses": [
+        "kinds"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "spmd_dyn",
+      "provider": "src/dynamics/se/spmd_dyn.F90",
+      "loc": 101,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "mpishorthand",
+        "namelist_utils",
+        "parallel_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "carma_model_flags_mod",
+      "provider": "src/physics/cam/carma_model_flags_mod.F90",
+      "loc": 85,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "mpishorthand",
+        "namelist_utils",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "co2_cycle",
+      "provider": "src/physics/cam/co2_cycle.F90",
+      "loc": 316,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "chem_surfvals",
+        "co2_data_flux",
+        "constituents",
+        "mpishorthand",
+        "namelist_utils",
+        "physconst",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "co2_data_flux",
+      "provider": "src/physics/cam/co2_data_flux.F90",
+      "loc": 409,
+      "classification": "science_common",
+      "uses": [
+        "bnddyi_mod",
+        "cam_abortutils",
+        "cam_logfile",
+        "error_messages",
+        "interpolate_data",
+        "iofilemod",
+        "mpishorthand",
+        "netcdf",
+        "phys_grid",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "comsrf",
+      "provider": "src/physics/cam/comsrf.F90",
+      "loc": 140,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_control_mod",
+        "infnan",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "geopotential",
+      "provider": "src/physics/cam/geopotential.F90",
+      "loc": 184,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "dycore",
+        "geopotential_temp",
+        "perf_mod",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "phys_gmean",
+      "provider": "src/physics/cam/phys_gmean.F90",
+      "loc": 425,
+      "classification": "science_common",
+      "uses": [
+        "cam_logfile",
+        "constituents",
+        "dycore",
+        "dyn_grid",
+        "mpishorthand",
+        "perf_mod",
+        "phys_grid",
+        "physconst",
+        "physics_types",
+        "ppgrid",
+        "rgrid",
+        "shr_kind_mod",
+        "shr_reprosum_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "phys_prop",
+      "provider": "src/physics/cam/phys_prop.F90",
+      "loc": 1314,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "iofilemod",
+        "pio",
+        "radconstants",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "polar_avg",
+      "provider": "src/physics/cam/polar_avg.F90",
+      "loc": 215,
+      "classification": "science_common",
+      "uses": [
+        "dycore",
+        "dyn_grid",
+        "mpishorthand",
+        "phys_grid",
+        "ppgrid",
+        "shr_kind_mod",
+        "shr_reprosum_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "tropopause",
+      "provider": "src/physics/cam/tropopause.F90",
+      "loc": 530,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_history_support",
+        "cam_logfile",
+        "cam_pio_utils",
+        "dyn_grid",
+        "interpolate_data",
+        "iofilemod",
+        "mpishorthand",
+        "namelist_utils",
+        "perf_mod",
+        "phys_grid",
+        "physconst",
+        "physics_types",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "tropopause_find_scheme",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "water_tracer_vars",
+      "provider": "src/physics/cam/water_tracer_vars.F90",
+      "loc": 128,
+      "classification": "science_common",
+      "uses": [
+        "constituents",
+        "shr_kind_mod",
+        "water_isotopes",
+        "water_types"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "wv_sat_methods",
+      "provider": "src/physics/cam/wv_sat_methods.F90",
+      "loc": 484,
+      "classification": "science_common",
+      "uses": [
+        "_idx"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "wv_saturation",
+      "provider": "src/physics/cam/wv_saturation.F90",
+      "loc": 802,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "error_messages",
+        "mpishorthand",
+        "namelist_utils",
+        "physconst",
+        "shr_assert_mod",
+        "shr_kind_mod",
+        "spmd_utils",
+        "units",
+        "wv_sat_methods"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "radconstants",
+      "provider": "src/physics/rrtmg/radconstants.F90",
+      "loc": 255,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 1
+    },
+    {
+      "module": "bnddyi_mod",
+      "provider": "src/utils/bnddyi.F90",
+      "loc": 60,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "datetime_mod",
+      "provider": "src/utils/datetime.F90",
+      "loc": 53,
+      "classification": "science_common",
+      "uses": [],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "hycoef",
+      "provider": "src/utils/hycoef.F90",
+      "loc": 321,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_history_support",
+        "cam_logfile",
+        "pio",
+        "pmgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "intp_util",
+      "provider": "src/utils/intp_util.F90",
+      "loc": 53,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "decompmodule",
+      "provider": "src/utils/pilgrim/decompmodule.F90",
+      "loc": 1767,
+      "classification": "science_common",
+      "uses": [
+        "cam_logfile"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "ghostmodule",
+      "provider": "src/utils/pilgrim/ghostmodule.F90",
+      "loc": 1049,
+      "classification": "science_common",
+      "uses": [
+        "decompmodule"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mod_comm",
+      "provider": "src/utils/pilgrim/mod_comm.F90",
+      "loc": 6717,
+      "classification": "science_common",
+      "uses": [
+        "cam_logfile",
+        "perf_mod",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "parutilitiesmodule",
+      "provider": "src/utils/pilgrim/parutilitiesmodule.F90",
+      "loc": 5104,
+      "classification": "science_common",
+      "uses": [
+        "cam_logfile",
+        "decompmodule",
+        "ghostmodule",
+        "mod_comm",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "wrap_nf",
+      "provider": "src/utils/wrap_nf.F90",
+      "loc": 921,
+      "classification": "science_common",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "netcdf",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "xpavg_mod",
+      "provider": "src/utils/xpavg_mod.F90",
+      "loc": 57,
+      "classification": "science_common",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "drydep_mod",
+      "provider": "src/chemistry/aerosol/drydep_mod.F90",
+      "loc": 203,
+      "classification": "science_drydep",
+      "uses": [
+        "ap_calcram_scheme",
+        "ap_d3ddflux_scheme",
+        "perf_mod",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_drydep",
+      "provider": "src/chemistry/mozart/mo_drydep.F90",
+      "loc": 3264,
+      "classification": "science_drydep",
+      "uses": [
+        "ap_drydep_update_scheme",
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "camsrfexch",
+        "chem_mods",
+        "constituents",
+        "dycore",
+        "dyn_grid",
+        "filenames",
+        "interpolate_data",
+        "iofilemod",
+        "metdata",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_tracname",
+        "mpishorthand",
+        "ncdio_atm",
+        "perf_mod",
+        "phys_control",
+        "phys_grid",
+        "physconst",
+        "physics_types",
+        "pio",
+        "pmgrid",
+        "ppgrid",
+        "scammod",
+        "seq_drydep_mod",
+        "shr_kind_mod",
+        "shr_scam_mod",
+        "spmd_utils",
+        "string_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "aero_model",
+      "provider": "src/chemistry/modal_aero/aero_model.F90",
+      "loc": 1423,
+      "classification": "science_gas_phase",
+      "uses": [
+        "aerodep_flx",
+        "ap_aero_model_drydep_scheme",
+        "ap_aero_model_emissions_scheme",
+        "ap_aero_model_gasaerexch_scheme",
+        "ap_aero_model_wetdep_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "camsrfexch",
+        "chem_mods",
+        "constituents",
+        "drydep_mod",
+        "dust_model",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_setsox",
+        "mo_tracname",
+        "modal_aero_coag",
+        "modal_aero_data",
+        "modal_aero_gasaerexch",
+        "modal_aero_initialize_data",
+        "modal_aero_newnuc",
+        "modal_aero_wateruptake",
+        "mpishorthand",
+        "namelist_utils",
+        "perf_mod",
+        "phys_control",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "rad_constituents",
+        "ref_pres",
+        "seasalt_model",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "units",
+        "wetdep",
+        "wv_saturation"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "llnl_o1d_to_2oh_adj",
+      "provider": "src/chemistry/mozart/llnl_O1D_to_2OH_adj.F90",
+      "loc": 85,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_logfile",
+        "chem_mods",
+        "mo_chem_utls",
+        "mo_setinv",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_chem_utls",
+      "provider": "src/chemistry/mozart/mo_chem_utls.F90",
+      "loc": 162,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods",
+        "gas_wetdep_opts",
+        "mo_tracname"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_exp_sol",
+      "provider": "src/chemistry/mozart/mo_exp_sol.F90",
+      "loc": 105,
+      "classification": "science_gas_phase",
+      "uses": [
+        "ap_exp_sol_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "mo_tracname",
+        "perf_mod",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_lightning",
+      "provider": "src/chemistry/mozart/mo_lightning.F90",
+      "loc": 395,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "camsrfexch",
+        "dyn_grid",
+        "iofilemod",
+        "mo_chem_utls",
+        "mo_constants",
+        "phys_grid",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "shr_reprosum_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_mass_xforms",
+      "provider": "src/chemistry/mozart/mo_mass_xforms.F90",
+      "loc": 222,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods",
+        "m_spc_id",
+        "mo_chem_utls",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_mean_mass",
+      "provider": "src/chemistry/mozart/mo_mean_mass.F90",
+      "loc": 94,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_abortutils",
+        "chem_mods",
+        "mo_chem_utls",
+        "phys_control",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_negtrc",
+      "provider": "src/chemistry/mozart/mo_negtrc.F90",
+      "loc": 45,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_neu_wetdep",
+      "provider": "src/chemistry/mozart/mo_neu_wetdep.F90",
+      "loc": 43,
+      "classification": "science_gas_phase",
+      "uses": [
+        "constituents",
+        "neu_wetdep_scheme",
+        "perf_mod",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setext",
+      "provider": "src/chemistry/mozart/mo_setext.F90",
+      "loc": 304,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "gcr_ionization",
+        "mo_airplane",
+        "mo_aurora",
+        "mo_chem_utls",
+        "mo_extfrc",
+        "mo_lightning",
+        "mo_solarproton",
+        "mo_synoz",
+        "physics_buffer",
+        "ppgrid",
+        "shr_const_mod",
+        "shr_kind_mod",
+        "spmd_utils",
+        "tracer_srcs"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_sethet",
+      "provider": "src/chemistry/mozart/mo_sethet.F90",
+      "loc": 883,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "chem_mods",
+        "gas_wetdep_opts",
+        "mo_chem_utls",
+        "mo_constants",
+        "phys_control",
+        "phys_grid",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setinv",
+      "provider": "src/chemistry/mozart/mo_setinv.F90",
+      "loc": 153,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "mo_chem_utls",
+        "mo_constants",
+        "physics_buffer",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "tracer_cnst"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_sulf",
+      "provider": "src/chemistry/mozart/mo_sulf.F90",
+      "loc": 235,
+      "classification": "science_gas_phase",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "interpolate_data",
+        "mo_chem_utls",
+        "mpishorthand",
+        "namelist_utils",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "tracer_data",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_tracname",
+      "provider": "src/chemistry/mozart/mo_tracname.F90",
+      "loc": 14,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_usrrxt",
+      "provider": "src/chemistry/mozart/mo_usrrxt.F90",
+      "loc": 1256,
+      "classification": "science_gas_phase",
+      "uses": [
+        "aero_model",
+        "cam_abortutils",
+        "cam_logfile",
+        "carma_flags_mod",
+        "chem_mods",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_setinv",
+        "physics_buffer",
+        "ppgrid",
+        "rad_constituents",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "chem_mods",
+      "provider": "src/chemistry/pp_trop_mam3/chem_mods.F90",
+      "loc": 66,
+      "classification": "science_gas_phase",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_adjrxt",
+      "provider": "src/chemistry/pp_trop_mam3/mo_adjrxt.F90",
+      "loc": 45,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_imp_sol",
+      "provider": "src/chemistry/pp_trop_mam3/mo_imp_sol.F90",
+      "loc": 528,
+      "classification": "science_gas_phase",
+      "uses": [
+        "ap_imp_sol_trop_mam3_scheme",
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "chem_mods",
+        "mo_chem_utls",
+        "mo_tracname",
+        "perf_mod",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_phtadj",
+      "provider": "src/chemistry/pp_trop_mam3/mo_phtadj.F90",
+      "loc": 40,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setrxt",
+      "provider": "src/chemistry/pp_trop_mam3/mo_setrxt.F90",
+      "loc": 73,
+      "classification": "science_gas_phase",
+      "uses": [
+        "chem_mods",
+        "mo_jpl",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "infnan",
+      "provider": "src/utils/infnan.F90",
+      "loc": 33,
+      "classification": "science_gas_phase",
+      "uses": [
+        "shr_infnan_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "euvac",
+      "provider": "src/chemistry/mozart/euvac.F90",
+      "loc": 158,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "error_messages",
+        "iofilemod",
+        "pio",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_jeuv",
+      "provider": "src/chemistry/mozart/mo_jeuv.F90",
+      "loc": 654,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "euvac",
+        "iofilemod",
+        "mo_chem_utls",
+        "mo_jshort",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_jlong",
+      "provider": "src/chemistry/mozart/mo_jlong.F90",
+      "loc": 963,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "chem_mods",
+        "error_messages",
+        "iofilemod",
+        "mo_util",
+        "mpishorthand",
+        "netcdf",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "solar_data",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_jpl",
+      "provider": "src/chemistry/mozart/mo_jpl.F90",
+      "loc": 41,
+      "classification": "science_photolysis",
+      "uses": [
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_jshort",
+      "provider": "src/chemistry/mozart/mo_jshort.F90",
+      "loc": 1877,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_mods",
+        "error_messages",
+        "iofilemod",
+        "mo_constants",
+        "mo_util",
+        "phys_control",
+        "physconst",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "solar_data",
+        "spmd_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_pchem",
+      "provider": "src/chemistry/mozart/mo_pchem.F90",
+      "loc": 137,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_logfile",
+        "mo_params",
+        "mo_xsections",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_photo",
+      "provider": "src/chemistry/mozart/mo_photo.F90",
+      "loc": 1757,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_mods",
+        "dust_model",
+        "dyn_grid",
+        "euvac",
+        "infnan",
+        "interpolate_data",
+        "iofilemod",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_jeuv",
+        "mo_jlong",
+        "mo_jshort",
+        "mo_params",
+        "mo_photoin",
+        "mo_seto2",
+        "mo_solar_parms",
+        "mo_tuv_inti",
+        "mo_wavelen",
+        "photo_bkgrnd",
+        "phys_control",
+        "phys_grid",
+        "physics_buffer",
+        "pio",
+        "ppgrid",
+        "ref_pres",
+        "seasalt_model",
+        "shr_kind_mod",
+        "solar_data",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_photoin",
+      "provider": "src/chemistry/mozart/mo_photoin.F90",
+      "loc": 463,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "chem_mods",
+        "mo_airmas",
+        "mo_params",
+        "mo_pchem",
+        "mo_rtlink",
+        "mo_setaer",
+        "mo_setair",
+        "mo_setcld",
+        "mo_seto2",
+        "mo_setozo",
+        "mo_setz",
+        "mo_sphers",
+        "mo_tuv_inti",
+        "mo_wavelab",
+        "mo_wavelen",
+        "mo_zadj",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_rtlink",
+      "provider": "src/chemistry/mozart/mo_rtlink.F90",
+      "loc": 265,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "mo_ps2str",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setaer",
+      "provider": "src/chemistry/mozart/mo_setaer.F90",
+      "loc": 1191,
+      "classification": "science_photolysis",
+      "uses": [
+        "chem_mods",
+        "dust_model",
+        "mo_chem_utls",
+        "mo_constants",
+        "ppgrid",
+        "seasalt_model",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setair",
+      "provider": "src/chemistry/mozart/mo_setair.F90",
+      "loc": 105,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setcld",
+      "provider": "src/chemistry/mozart/mo_setcld.F90",
+      "loc": 480,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_logfile",
+        "mo_params",
+        "mo_waveo3",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_seto2",
+      "provider": "src/chemistry/mozart/mo_seto2.F90",
+      "loc": 394,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "iofilemod",
+        "mo_inter",
+        "mo_lymana",
+        "mo_params",
+        "mo_schu",
+        "mo_wavelen",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setozo",
+      "provider": "src/chemistry/mozart/mo_setozo.F90",
+      "loc": 111,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "mo_waveo3",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_setz",
+      "provider": "src/chemistry/mozart/mo_setz.F90",
+      "loc": 160,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "chem_mods",
+        "mo_calcoe",
+        "mo_params",
+        "mo_tuv_inti",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_sphers",
+      "provider": "src/chemistry/mozart/mo_sphers.F90",
+      "loc": 121,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_constants",
+        "mo_params",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_tuv_inti",
+      "provider": "src/chemistry/mozart/mo_tuv_inti.F90",
+      "loc": 341,
+      "classification": "science_photolysis",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_mods",
+        "iofilemod",
+        "mo_params",
+        "mo_schu",
+        "mo_waveall",
+        "mo_wavelab",
+        "mo_wavelen",
+        "mo_waveo3",
+        "mo_xsections",
+        "mo_zadj",
+        "pio",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_waveall",
+      "provider": "src/chemistry/mozart/mo_waveall.F90",
+      "loc": 18,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_wavelab",
+      "provider": "src/chemistry/mozart/mo_wavelab.F90",
+      "loc": 11,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_wavelen",
+      "provider": "src/chemistry/mozart/mo_wavelen.F90",
+      "loc": 15,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_waveo3",
+      "provider": "src/chemistry/mozart/mo_waveo3.F90",
+      "loc": 11,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_params",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "photo_bkgrnd",
+      "provider": "src/chemistry/mozart/photo_bkgrnd.F90",
+      "loc": 215,
+      "classification": "science_photolysis",
+      "uses": [
+        "mo_chem_utls",
+        "mo_solar_parms",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "charge_neutrality",
+      "provider": "src/chemistry/mozart/charge_neutrality.F90",
+      "loc": 242,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_logfile",
+        "chem_mods",
+        "constituents",
+        "mo_chem_utls",
+        "phys_control",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "short_lived_species",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "chlorine_loading_data",
+      "provider": "src/chemistry/mozart/chlorine_loading_data.F90",
+      "loc": 298,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "iofilemod",
+        "linoz_data",
+        "physconst",
+        "pio",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "lin_strat_chem",
+      "provider": "src/chemistry/mozart/lin_strat_chem.F90",
+      "loc": 303,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "chlorine_loading_data",
+        "linoz_data",
+        "mo_chem_utls",
+        "phys_control",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "linoz_data",
+      "provider": "src/chemistry/mozart/linoz_data.F90",
+      "loc": 315,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "error_messages",
+        "physconst",
+        "physics_buffer",
+        "physics_types",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "string_utils",
+        "tracer_data"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_aero_settling",
+      "provider": "src/chemistry/mozart/mo_aero_settling.F90",
+      "loc": 234,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_history",
+        "chem_mods",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_fstrat",
+      "provider": "src/chemistry/mozart/mo_fstrat.F90",
+      "loc": 1014,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "chem_mods",
+        "constituents",
+        "dyn_grid",
+        "interpolate_data",
+        "iofilemod",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_synoz",
+        "mo_tracname",
+        "mpishorthand",
+        "phys_grid",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_ghg_chem",
+      "provider": "src/chemistry/mozart/mo_ghg_chem.F90",
+      "loc": 214,
+      "classification": "science_stratosphere",
+      "uses": [
+        "boundarydata",
+        "cam_abortutils",
+        "cam_history",
+        "chem_mods",
+        "chem_surfvals",
+        "mo_chem_utls",
+        "mo_constants",
+        "mo_flbc",
+        "physics_types",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_sad",
+      "provider": "src/chemistry/mozart/mo_sad.F90",
+      "loc": 1644,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "m_sad_data",
+        "physconst",
+        "physics_buffer",
+        "ppgrid",
+        "ref_pres",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_strato_rates",
+      "provider": "src/chemistry/mozart/mo_strato_rates.F90",
+      "loc": 893,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_logfile",
+        "chem_mods",
+        "mo_aero_settling",
+        "mo_chem_utls",
+        "mo_sad",
+        "ppgrid",
+        "shr_kind_mod"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "noy_ubc",
+      "provider": "src/chemistry/mozart/noy_ubc.F90",
+      "loc": 247,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_history",
+        "cam_logfile",
+        "mo_chem_utls",
+        "namelist_utils",
+        "physics_buffer",
+        "physics_types",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "tracer_data",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "short_lived_species",
+      "provider": "src/chemistry/mozart/short_lived_species.F90",
+      "loc": 179,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_logfile",
+        "chem_mods",
+        "dycore",
+        "error_messages",
+        "iofilemod",
+        "mo_tracname",
+        "ncdio_atm",
+        "physics_buffer",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "mo_flbc",
+      "provider": "src/chemistry/utils/mo_flbc.F90",
+      "loc": 797,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "cam_pio_utils",
+        "constituents",
+        "interpolate_data",
+        "intp_util",
+        "iofilemod",
+        "m_types",
+        "mo_constants",
+        "phys_gmean",
+        "phys_grid",
+        "pio",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "string_utils",
+        "time_manager",
+        "time_utils"
+      ],
+      "alternative_provider_count": 0
+    },
+    {
+      "module": "chem_surfvals",
+      "provider": "src/physics/cam/chem_surfvals.F90",
+      "loc": 640,
+      "classification": "science_stratosphere",
+      "uses": [
+        "cam_abortutils",
+        "cam_logfile",
+        "constituents",
+        "error_messages",
+        "infnan",
+        "interpolate_data",
+        "iofilemod",
+        "m_types",
+        "mo_flbc",
+        "mpishorthand",
+        "namelist_utils",
+        "netcdf",
+        "physconst",
+        "ppgrid",
+        "shr_kind_mod",
+        "spmd_utils",
+        "time_manager",
+        "units"
+      ],
+      "alternative_provider_count": 0
+    }
+  ],
+  "unresolved": [
+    {
+      "module": "perf_mod",
+      "candidate_providers": []
+    },
+    {
+      "module": "physics_buffer",
+      "candidate_providers": []
+    },
+    {
+      "module": "seq_drydep_mod",
+      "candidate_providers": []
+    },
+    {
+      "module": "subcol_utils",
+      "candidate_providers": []
+    },
+    {
+      "module": "_subcol_microp",
+      "candidate_providers": []
+    },
+    {
+      "module": "_gw_front_igw",
+      "candidate_providers": []
+    },
+    {
+      "module": "m_mergesorts",
+      "candidate_providers": []
+    },
+    {
+      "module": "_data_o3",
+      "candidate_providers": []
+    },
+    {
+      "module": "esmf",
+      "candidate_providers": []
+    },
+    {
+      "module": "day",
+      "candidate_providers": []
+    },
+    {
+      "module": "water_types",
+      "candidate_providers": []
+    },
+    {
+      "module": "water_isotopes",
+      "candidate_providers": []
+    },
+    {
+      "module": "seq_comm_mct",
+      "candidate_providers": []
+    },
+    {
+      "module": "_iop",
+      "candidate_providers": []
+    },
+    {
+      "module": "_camiop",
+      "candidate_providers": []
+    },
+    {
+      "module": "fillvalues",
+      "candidate_providers": []
+    },
+    {
+      "module": "_idx",
+      "candidate_providers": []
+    },
+    {
+      "module": "seq_flds_mod",
+      "candidate_providers": []
+    },
+    {
+      "module": "mct_mod",
+      "candidate_providers": []
+    }
+  ],
+  "host_boundary_rule": "pbuf, history, grid lookup, clock/date, timers, abort/logging, registration, and I/O remain in CAM facade; numerical chemistry modules migrate under src/atmos_phys/support/chemistry",
+  "planned_support_groups": [
+    "chemistry/common",
+    "chemistry/gas_phase",
+    "chemistry/photolysis",
+    "chemistry/drydep",
+    "chemistry/stratosphere"
+  ],
+  "migration_frontier": {
+    "rule": "recursive science closure with traversal stopped at host_framework, host_diagnostics, already_atmos_phys, and allowed_external boundaries",
+    "resolved_modules": 180,
+    "unique_provider_files": 180,
+    "unique_provider_loc": 106356,
+    "classification_summary": {
+      "already_atmos_phys": {
+        "modules": 21,
+        "unique_files": 21,
+        "unique_file_loc": 8986
+      },
+      "host_diagnostics": {
+        "modules": 2,
+        "unique_files": 2,
+        "unique_file_loc": 1005
+      },
+      "host_framework": {
+        "modules": 35,
+        "unique_files": 35,
+        "unique_file_loc": 31257
+      },
+      "science_common": {
+        "modules": 64,
+        "unique_files": 64,
+        "unique_file_loc": 38929
+      },
+      "science_drydep": {
+        "modules": 2,
+        "unique_files": 2,
+        "unique_file_loc": 3467
+      },
+      "science_gas_phase": {
+        "modules": 21,
+        "unique_files": 21,
+        "unique_file_loc": 6204
+      },
+      "science_photolysis": {
+        "modules": 22,
+        "unique_files": 22,
+        "unique_file_loc": 9488
+      },
+      "science_stratosphere": {
+        "modules": 13,
+        "unique_files": 13,
+        "unique_file_loc": 7020
+      }
+    },
+    "modules": [
+      "_idx",
+      "aero_model",
+      "aerodep_flx",
+      "ap_aero_model_drydep_scheme",
+      "ap_aero_model_emissions_scheme",
+      "ap_aero_model_gasaerexch_scheme",
+      "ap_aero_model_wetdep_scheme",
+      "ap_calcram_scheme",
+      "ap_d3ddflux_scheme",
+      "ap_drydep_update_scheme",
+      "ap_dust_emis_scheme",
+      "ap_exp_sol_scheme",
+      "ap_imp_sol_trop_mam3_scheme",
+      "ap_modal_aero_calcsize_sub_scheme",
+      "ap_modal_aero_coag_scheme",
+      "ap_modal_aero_gasaerexch_scheme",
+      "ap_modal_aero_newnuc_scheme",
+      "ap_modal_aero_rename_kernels",
+      "ap_modal_aero_wateruptake_dr_scheme",
+      "ap_seasalt_emis_scheme",
+      "ap_sslt_sections_private",
+      "ap_wetdepa_v2_scheme",
+      "boundarydata",
+      "cam_abortutils",
+      "cam_control_mod",
+      "cam_history",
+      "cam_history_support",
+      "cam_logfile",
+      "cam_pio_utils",
+      "camsrfexch",
+      "carma_flags_mod",
+      "charge_neutrality",
+      "chem_mods",
+      "chem_surfvals",
+      "chlorine_loading_data",
+      "cldaero_mod",
+      "constituents",
+      "decompmodule",
+      "drydep_mod",
+      "dust_common",
+      "dust_model",
+      "dycore",
+      "dyn_grid",
+      "dynamics_vars",
+      "error_messages",
+      "euvac",
+      "filenames",
+      "fv_control_mod",
+      "gas_wetdep_opts",
+      "gcr_ionization",
+      "ghostmodule",
+      "hycoef",
+      "infnan",
+      "interpolate_data",
+      "intp_util",
+      "iofilemod",
+      "lin_strat_chem",
+      "linoz_data",
+      "llnl_o1d_to_2oh_adj",
+      "m_sad_data",
+      "m_spc_id",
+      "m_types",
+      "mag_parms",
+      "metdata",
+      "mo_adjrxt",
+      "mo_aero_settling",
+      "mo_airmas",
+      "mo_airplane",
+      "mo_apex",
+      "mo_aurora",
+      "mo_calcoe",
+      "mo_chem_utls",
+      "mo_chm_diags",
+      "mo_constants",
+      "mo_drydep",
+      "mo_exp_sol",
+      "mo_extfrc",
+      "mo_flbc",
+      "mo_fstrat",
+      "mo_ghg_chem",
+      "mo_imp_sol",
+      "mo_inter",
+      "mo_jeuv",
+      "mo_jlong",
+      "mo_jpl",
+      "mo_jshort",
+      "mo_lightning",
+      "mo_lymana",
+      "mo_mass_xforms",
+      "mo_mean_mass",
+      "mo_negtrc",
+      "mo_neu_wetdep",
+      "mo_params",
+      "mo_pchem",
+      "mo_photo",
+      "mo_photoin",
+      "mo_phtadj",
+      "mo_ps2str",
+      "mo_rtlink",
+      "mo_sad",
+      "mo_schu",
+      "mo_setaer",
+      "mo_setair",
+      "mo_setcld",
+      "mo_setext",
+      "mo_sethet",
+      "mo_setinv",
+      "mo_seto2",
+      "mo_setozo",
+      "mo_setrxt",
+      "mo_setsox",
+      "mo_setz",
+      "mo_solar_parms",
+      "mo_solarproton",
+      "mo_sphers",
+      "mo_strato_rates",
+      "mo_sulf",
+      "mo_synoz",
+      "mo_tracname",
+      "mo_trislv",
+      "mo_tuv_inti",
+      "mo_usrrxt",
+      "mo_util",
+      "mo_waveall",
+      "mo_wavelab",
+      "mo_wavelen",
+      "mo_waveo3",
+      "mo_xsections",
+      "mo_zadj",
+      "mod_comm",
+      "modal_aero_calcsize",
+      "modal_aero_coag",
+      "modal_aero_data",
+      "modal_aero_deposition",
+      "modal_aero_gasaerexch",
+      "modal_aero_initialize_data",
+      "modal_aero_newnuc",
+      "modal_aero_rename",
+      "modal_aero_wateruptake",
+      "mpishorthand",
+      "namelist_utils",
+      "ncdio_atm",
+      "netcdf",
+      "neu_wetdep_scheme",
+      "noy_ubc",
+      "parutilitiesmodule",
+      "perf_mod",
+      "pft_module",
+      "photo_bkgrnd",
+      "phys_control",
+      "phys_gmean",
+      "phys_grid",
+      "physconst",
+      "physics_buffer",
+      "physics_types",
+      "pio",
+      "pmgrid",
+      "ppgrid",
+      "pspect",
+      "rad_constituents",
+      "radconstants",
+      "rate_diags",
+      "ref_pres",
+      "rgrid",
+      "scammod",
+      "seasalt_model",
+      "seq_drydep_mod",
+      "short_lived_species",
+      "shr_assert_mod",
+      "shr_cal_mod",
+      "shr_const_mod",
+      "shr_file_mod",
+      "shr_infnan_mod",
+      "shr_kind_mod",
+      "shr_orb_mod",
+      "shr_reprosum_mod",
+      "shr_scam_mod",
+      "shr_spfn_mod",
+      "shr_sys_mod",
+      "soil_erod_mod",
+      "solar_data",
+      "sox_cldaero_mod",
+      "spedata",
+      "spehox",
+      "spmd_utils",
+      "string_utils",
+      "time_manager",
+      "time_utils",
+      "tracer_cnst",
+      "tracer_data",
+      "tracer_srcs",
+      "tropopause",
+      "tropopause_find_scheme",
+      "units",
+      "wetdep",
+      "wv_sat_methods",
+      "wv_saturation"
+    ]
+  },
+  "baseline_commit": "774164a565ec84fc9be75623f01059af8ec4f070"
+}
