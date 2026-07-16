@@ -89,9 +89,39 @@
   type = integer
   dimensions = ()
   intent = in
-[ lchnk ]
-  standard_name = physics_chunk_index
-  units = index
+[ n_land_type ]
+  standard_name = number_of_surface_land_types
+  units = count
   type = integer
+  dimensions = ()
+  intent = in
+[ fraction_landuse ]
+  standard_name = surface_land_type_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_surface_land_types)
+  intent = in
+[ pi ]
+  standard_name = mathematical_constant_pi
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ boltz ]
+  standard_name = boltzmann_constant
+  units = J K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rair ]
+  standard_name = gas_constant_of_dry_air
+  units = J kg-1 K-1
+  type = real | kind = r8
   dimensions = ()
   intent = in

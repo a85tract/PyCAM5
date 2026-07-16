@@ -12,7 +12,8 @@ contains
   !! \htmlinclude modal_aero_depvel_part_run.html
   !!
   subroutine modal_aero_depvel_part_run( pcols, pver, ncol, t, pmid, ram1, fv, vlc_dry, vlc_trb, vlc_grv,  &
-                                     radius_part, density_part, sig_part, moment, lchnk )
+                                     radius_part, density_part, sig_part, moment, n_land_type,              &
+                                     fraction_landuse, pi, boltz, gravit, rair )
 
 !    calculates surface deposition velocity of particles
 !    L. Zhang, S. Gong, J. Padro, and L. Barrie
@@ -20,12 +21,6 @@ contains
 !    Atmospheric Environment, 35, 549-560, 2001.
 !
 !    Authors: X. Liu
-
-    !
-    ! !USES
-    !
-    use physconst,     only: pi,boltz, gravit, rair
-    use mo_drydep,     only: n_land_type, fraction_landuse
 
     ! !ARGUMENTS:
     !
@@ -42,7 +37,12 @@ contains
     real(r8), intent(in) :: sig_part(pcols,pver)       ! geometric standard deviation of particles
     integer,  intent(in) :: moment ! moment of size distribution (0 for number, 2 for surface area, 3 for volume)
     integer,  intent(in) :: ncol
-    integer,  intent(in) :: lchnk
+    integer,  intent(in) :: n_land_type
+    real(r8), intent(in) :: fraction_landuse(pcols,n_land_type)
+    real(r8), intent(in) :: pi
+    real(r8), intent(in) :: boltz
+    real(r8), intent(in) :: gravit
+    real(r8), intent(in) :: rair
 
     real(r8), intent(out) :: vlc_trb(pcols)       !Turbulent deposn velocity (m/s)
     real(r8), intent(out) :: vlc_grv(pcols,pver)       !grav deposn velocity (m/s)
@@ -152,7 +152,7 @@ contains
        wrk2 = 0._r8
        wrk3 = 0._r8
        do lt = 1,n_land_type
-          lnd_frc = fraction_landuse(i,lt,lchnk)
+          lnd_frc = fraction_landuse(i,lt)
           if ( lnd_frc /= 0._r8 ) then
              brownian = shm_nbr**(-gamma(lt))
              if (radius_collector(lt) > 0.0_r8) then

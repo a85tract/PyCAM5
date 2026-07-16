@@ -310,6 +310,8 @@ contains
        radius_part, density_part, sig_part, moment, lchnk)
     use perf_mod, only: t_startf, t_stopf
     use ap_modal_aero_depvel_part_scheme, only: modal_aero_depvel_part_run
+    use mo_drydep, only: n_land_type, fraction_landuse
+    use physconst, only: pi, boltz, gravit, rair
     implicit none
     integer, intent(in) :: ncol, moment, lchnk
     real(r8), intent(in) :: t(pcols,pver), pmid(pcols,pver)
@@ -324,7 +326,7 @@ contains
     call t_startf('ap_modal_aero_depvel_part_run')
     call modal_aero_depvel_part_run(pcols, pver, ncol, t, pmid, ram1, fv, &
          vlc_dry, vlc_trb, vlc_grv, radius_part, density_part, sig_part, &
-         moment, lchnk)
+         moment, n_land_type, fraction_landuse(:,:,lchnk), pi, boltz, gravit, rair)
     call t_stopf('ap_modal_aero_depvel_part_run')
   end subroutine modal_aero_depvel_part
 end module ap_aero_model_drydep_scheme
