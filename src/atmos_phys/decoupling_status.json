@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T08:30:44Z",
+  "updated_at": "2026-07-16T08:36:17Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -1047,11 +1047,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
-      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
+      "status": "50step_running",
+      "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "dropmixnuc_run",
@@ -1063,11 +1063,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
-      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
+      "status": "50step_running",
+      "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "ice_macro_tend_run",
@@ -1079,11 +1079,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
-      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
+      "status": "50step_running",
+      "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "cldfrc_run",
@@ -1095,11 +1095,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
-      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
+      "status": "50step_running",
+      "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "mmacro_pcond_run",
@@ -1111,11 +1111,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
-      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
+      "status": "50step_running",
+      "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "micro_mg_tend_run",
@@ -1127,11 +1127,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
-      "commit": "bf82e8185b675e30f7d775a4606d7998c4d24b01",
+      "status": "50step_running",
+      "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 cloud/microphysics atomic integration: metadata 6/6, production ifx scheme/facade/caller compile 15/15, configure/Filepath/mkSrcfiles/mkDepends and basename audits PASS; executable-statement order exact 6/6. Integrated 50-step not yet run."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "rad_rrtmg_sw_run",
@@ -1143,11 +1143,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
+      "status": "50step_running",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 RRTMG atomic integration: official metadata 4/4, executable-statement order exact 4/4, configure/Filepath/mkSrcfiles/mkDepends PASS, production ifx compile 4 scheme + 4 facade + radiation caller = 9/9. Integrated clean full build is running; no 50-step claim yet."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "rad_rrtmg_lw_run",
@@ -1159,11 +1159,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
+      "status": "50step_running",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 RRTMG atomic integration: official metadata 4/4, executable-statement order exact 4/4, configure/Filepath/mkSrcfiles/mkDepends PASS, production ifx compile 4 scheme + 4 facade + radiation caller = 9/9. Integrated clean full build is running; no 50-step claim yet."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "rrtmg_sw_run",
@@ -1175,11 +1175,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
+      "status": "50step_running",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 RRTMG atomic integration: official metadata 4/4, executable-statement order exact 4/4, configure/Filepath/mkSrcfiles/mkDepends PASS, production ifx compile 4 scheme + 4 facade + radiation caller = 9/9. Integrated clean full build is running; no 50-step claim yet."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
       "entry_point": "rrtmg_lw_run",
@@ -1191,11 +1191,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "build_pass",
+      "status": "50step_running",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
       "last_run": null,
       "bfb_run": null,
-      "note": "B07 RRTMG atomic integration: official metadata 4/4, executable-statement order exact 4/4, configure/Filepath/mkSrcfiles/mkDepends PASS, production ifx compile 4 scheme + 4 facade + radiation caller = 9/9. Integrated clean full build is running; no 50-step claim yet."
+      "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     }
   ],
   "deferred": [
