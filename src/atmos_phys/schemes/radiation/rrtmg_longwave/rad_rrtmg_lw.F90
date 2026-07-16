@@ -92,10 +92,10 @@ subroutine rad_rrtmg_lw_run(pcols, pver, pverp, lchnk, ncol, rrtmg_levs, ntoplw,
 !
    integer :: i, k, kk, nbnd         ! indices
 
-   real(r8), intent(out) :: ful(pcols,pverp)     ! Total upwards longwave flux
-   real(r8), intent(out) :: fsul(pcols,pverp)    ! Clear sky upwards longwave flux
-   real(r8), intent(out) :: fdl(pcols,pverp)     ! Total downwards longwave flux
-   real(r8), intent(out) :: fsdl(pcols,pverp)    ! Clear sky downwards longwv flux
+   real(r8), intent(out) :: ful(:,:)     ! Total upwards longwave flux
+   real(r8), intent(out) :: fsul(:,:)    ! Clear sky upwards longwave flux
+   real(r8), intent(out) :: fdl(:,:)     ! Total downwards longwave flux
+   real(r8), intent(out) :: fsdl(:,:)    ! Clear sky downwards longwv flux
 
    integer :: inflglw               ! Flag for cloud parameterization method
    integer :: iceflglw              ! Flag for ice cloud param method

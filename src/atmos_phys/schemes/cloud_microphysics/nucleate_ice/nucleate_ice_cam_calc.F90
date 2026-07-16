@@ -10,6 +10,8 @@ module ap_nucleate_ice_cam_calc_scheme
 
 contains
 
+  !> \section arg_table_nucleate_ice_cam_calc_run Argument Table
+  !! \htmlinclude nucleate_ice_cam_calc_run.html
   subroutine nucleate_ice_cam_calc_run( &
        pcols, pver, ncol, top_lev, tmelt, preexisting_ice_enabled, &
        wsubi, t, pmid, relhum, icldm, qc, qi, ni, rho, &
@@ -21,21 +23,21 @@ contains
     integer, intent(in) :: pcols, pver, ncol, top_lev
     real(r8), intent(in) :: tmelt
     logical, intent(in) :: preexisting_ice_enabled
-    real(r8), intent(in) :: wsubi(pcols,pver), t(pcols,pver)
-    real(r8), intent(in) :: pmid(pcols,pver), relhum(pcols,pver)
-    real(r8), intent(in) :: icldm(pcols,pver), qc(pcols,pver)
-    real(r8), intent(in) :: qi(pcols,pver), ni(pcols,pver)
-    real(r8), intent(in) :: rho(pcols,pver)
-    real(r8), intent(in) :: so4_num(pcols,pver)
-    real(r8), intent(in) :: dst_num(pcols,pver), soot_num(pcols,pver)
-    real(r8), intent(out) :: naai(pcols,pver), naai_hom(pcols,pver)
-    real(r8), intent(out) :: nihf(pcols,pver), niimm(pcols,pver)
-    real(r8), intent(out) :: nidep(pcols,pver), nimey(pcols,pver)
-    real(r8), intent(out) :: fhom(pcols,pver), wice(pcols,pver)
-    real(r8), intent(out) :: weff(pcols,pver), innso4(pcols,pver)
-    real(r8), intent(out) :: innbc(pcols,pver), inndust(pcols,pver)
-    real(r8), intent(out) :: inhet(pcols,pver), inhom(pcols,pver)
-    real(r8), intent(out) :: infrehom(pcols,pver), infrein(pcols,pver)
+    real(r8), intent(in) :: wsubi(:,:), t(:,:)
+    real(r8), intent(in) :: pmid(:,:), relhum(:,:)
+    real(r8), intent(in) :: icldm(:,:), qc(:,:)
+    real(r8), intent(in) :: qi(:,:), ni(:,:)
+    real(r8), intent(in) :: rho(:,:)
+    real(r8), intent(in) :: so4_num(:,:)
+    real(r8), intent(in) :: dst_num(:,:), soot_num(:,:)
+    real(r8), intent(out) :: naai(:,:), naai_hom(:,:)
+    real(r8), intent(out) :: nihf(:,:), niimm(:,:)
+    real(r8), intent(out) :: nidep(:,:), nimey(:,:)
+    real(r8), intent(out) :: fhom(:,:), wice(:,:)
+    real(r8), intent(out) :: weff(:,:), innso4(:,:)
+    real(r8), intent(out) :: innbc(:,:), inndust(:,:)
+    real(r8), intent(out) :: inhet(:,:), inhom(:,:)
+    real(r8), intent(out) :: infrehom(:,:), infrein(:,:)
 
     integer :: i, k
 
