@@ -76,7 +76,11 @@ module entry_mod
   use shr_kind_mod, only: r8 => shr_kind_r8 ! comment
   use science_mod, &
        only: kernel
-contains; subroutine entry_run(); end subroutine entry_run
+  integer :: use_idx
+contains
+  subroutine entry_run()
+    use_idx = 1
+  end subroutine entry_run
 end module entry_mod
 """,
         )

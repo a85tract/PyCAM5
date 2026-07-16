@@ -33,7 +33,7 @@ MODULE_DEFINITION_RE = re.compile(
     re.IGNORECASE,
 )
 USE_RE = re.compile(
-    r"^\s*use(?:\s*,\s*((?:non_)?intrinsic))?\s*(?:::\s*)?([a-z_]\w*)",
+    r"^\s*use\b(?:\s*,\s*((?:non_)?intrinsic))?\s*(?:::\s*)?([a-z_]\w*)",
     re.IGNORECASE,
 )
 
