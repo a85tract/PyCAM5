@@ -5,20 +5,20 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T06:07:11Z`
+- 最近更新：`2026-07-16T06:32:54Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 9 | 17 | 0 | 0 | 0 | 43 |
+| 69 | 19 | 7 | 0 | 0 | 0 | 43 |
 
 ## 批次
 
 | 批次 | 模块组 | 入口数 | 依赖 | 当前状态 | BFB入口 |
 |---|---|---:|---|---|---:|
 | B01 | 公共状态更新 | 9 | — | `bfb` | 9/9 |
-| B02 | 守恒与能量 | 10 | B01 | `in_progress` | 0/10 |
+| B02 | 守恒与能量 | 10 | B01 | `bfb` | 10/10 |
 | B03 | 排放与气相化学 | 10 | B01, B02 | `in_progress` | 0/10 |
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `planned` | 0/10 |
 | B05 | 边界层与地形重力波 | 10 | B01, B02 | `planned` | 0/10 |
@@ -38,16 +38,16 @@
 | B01 | tphysac, tphysbc | phys_utils | `update_dry_static_energy_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
 | B01 | tphysac | phys_utils | `thermo_water_update_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
 | B01 | tphysac | phys_utils | `qneg4_run` | `bfb` | 93da2d05049841a54ae3c6310c089e924c99c458 | B01-20260715-job6748173 | B01-20260715-job6748173 | clean build PASS 2026-07-15T22:50:34-06:00; PBS 6747875.desched1; pre-submit source diff sha256 c6f643ed65f903099ba7dae20d845748509984faec47554878aff6d7856a3428 |
-| B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_chng_timestep_init` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysbc | conservation_adjust/check_energy | `check_energy_zero_fluxes_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysbc | conservation_adjust/check_energy | `check_energy_gmean_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysbc | conservation_adjust/check_energy | `check_energy_fix_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_scaling_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_chng_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysac | conservation_adjust/check_energy | `check_energy_save_teout_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysac | conservation_adjust/check_energy | `dycore_energy_consistency_adjust_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysbc | conservation_adjust/water | `wtrc_mass_fixer_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
-| B02 | tphysac | conservation_adjust/water | `set_dry_to_wet_run` | `in_progress` | — | — | — | isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active |
+| B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_chng_timestep_init` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysbc | conservation_adjust/check_energy | `check_energy_zero_fluxes_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysbc | conservation_adjust/check_energy | `check_energy_gmean_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysbc | conservation_adjust/check_energy | `check_energy_fix_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_scaling_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysac, tphysbc | conservation_adjust/check_energy | `check_energy_chng_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysac | conservation_adjust/check_energy | `check_energy_save_teout_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysac | conservation_adjust/check_energy | `dycore_energy_consistency_adjust_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysbc | conservation_adjust/water | `wtrc_mass_fixer_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
+| B02 | tphysac | conservation_adjust/water | `set_dry_to_wet_run` | `bfb` | a6753f460534a8f7d246e81b02424ababf3ab539 | B02-20260716-job6748264 | B02-20260716-job6748264 | Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a. |
 | B03 | tphysac | chemistry_emissions | `aero_model_emissions_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
 | B03 | tphysac | chemistry_emissions | `dust_emis_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
 | B03 | tphysac | chemistry_emissions | `seasalt_emis_run` | `in_progress` | — | — | — | isolated B03 implementation lanes started at b03_emissions and b03_solvers from integration a6753f460534a8f7d246e81b02424ababf3ab539; static validation only until B02 integrated gate passes |
@@ -128,3 +128,4 @@
 | Run ID | 批次 | 结果 | Job ID | Commit | Numeric | Char | 执行证据 | 时间 |
 |---|---|---|---|---|---|---|---:|---|
 | `B01-20260715-job6748173` | B01 | `bfb` | 6748173.desched1 | 93da2d05049841a54ae3c6310c089e924c99c458 | True | True | 9 | 2026-07-16T06:05:09Z |
+| `B02-20260716-job6748264` | B02 | `bfb` | 6748264.desched1 | a6753f460534a8f7d246e81b02424ababf3ab539 | True | True | 10 | 2026-07-16T06:21:15Z |

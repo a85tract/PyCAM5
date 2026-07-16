@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T06:07:11Z",
+  "updated_at": "2026-07-16T06:32:54Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -245,11 +245,11 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "check_energy_zero_fluxes_run",
@@ -261,11 +261,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "check_energy_gmean_run",
@@ -277,11 +277,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "check_energy_fix_run",
@@ -293,11 +293,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "check_energy_scaling_run",
@@ -310,11 +310,11 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "check_energy_chng_run",
@@ -327,11 +327,11 @@
         "tphysac",
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "check_energy_save_teout_run",
@@ -343,11 +343,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "dycore_energy_consistency_adjust_run",
@@ -359,11 +359,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "wtrc_mass_fixer_run",
@@ -375,11 +375,11 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "set_dry_to_wet_run",
@@ -391,11 +391,11 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": "isolated implementation lane active at /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b02/cam; independent semantic review active"
+      "status": "bfb",
+      "commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "last_run": "B02-20260716-job6748264",
+      "bfb_run": "B02-20260716-job6748264",
+      "note": "Integrated dependency gate PASS: job 6748264.desched1 completed 50 steps; B01+B02 timers 19/19; 790 numeric variables exact; normalized character equality excludes only volatile date_written/time_written; B02 proof is B02-20260716-job6748264 with effective source a6753f4 and tracker-only checkout delta 28df74a."
     },
     {
       "entry_point": "aero_model_emissions_run",
@@ -1461,6 +1461,144 @@
       },
       "recorded_at": "2026-07-16T06:05:09Z",
       "note": "50-step numeric BFB; all scientific character fields equal after excluding volatile time_written; official metadata check passed"
+    },
+    {
+      "run_id": "B02-20260716-job6748264",
+      "batch": "B02",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748264.desched1",
+      "source_commit": "a6753f460534a8f7d246e81b02424ababf3ab539",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b02/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b02/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b02/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b02/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b02/bld/cesm.exe",
+          "size": 54877208,
+          "sha256": "ab5c0c18be852f761cc662cdb2788e8762addc2e0f06aea1e08a4f942ab6319e"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b02/run/run_environment.txt.job6748264",
+          "size": 45837,
+          "sha256": "2e8d2458265ecbd5d68478c5f7dce7c25a5b19f161b3fe305a713abc236a25ef"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 2847,
+          "sha256": "cc3a6f89f973b47f692a6c3f2ba39fa583471942c619c2fa1b0c6858c48d599e"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/B02_INTEGRATED_COMPARE.txt",
+          "size": 901,
+          "sha256": "5beed5e77b1a18c189561bbd2e41cfb707e030539f6f6e23f5b568467ec9f117"
+        }
+      },
+      "execution_proof": {
+        "check_energy_chng_timestep_init": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_chng_timestep_init global_calls=53248"
+        },
+        "check_energy_zero_fluxes_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_zero_fluxes_run global_calls=105472"
+        },
+        "check_energy_gmean_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_gmean_run global_calls=13312"
+        },
+        "check_energy_fix_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_fix_run global_calls=53248"
+        },
+        "check_energy_scaling_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_scaling_run global_calls=52224"
+        },
+        "check_energy_chng_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_chng_run global_calls=632832"
+        },
+        "check_energy_save_teout_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_check_energy_save_teout_run global_calls=52224"
+        },
+        "dycore_energy_consistency_adjust_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_dycore_energy_consistency_adjust_run global_calls=52224"
+        },
+        "wtrc_mass_fixer_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_wtrc_mass_fixer_run global_calls=212992"
+        },
+        "set_dry_to_wet_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b02_integrated_20260715/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748264.desched1.260716-002008",
+            "size": 57388,
+            "sha256": "60530352554a7144793beb70d9b967a3dc152b84d3ca32b94a9a7e5ae8919e8f"
+          },
+          "line": "ap_set_dry_to_wet_run global_calls=52224"
+        }
+      },
+      "recorded_at": "2026-07-16T06:21:15Z",
+      "note": "Integrated B01+B02 50-step numeric BFB; normalized character BFB after excluding volatile date_written/time_written; 19/19 dependency timers executed; B02 record contains exactly its ten proofs; executable checkout 28df74a1b533d2cd3980c0a1ea91838e4a469ff1 differs from effective source a6753f460534a8f7d246e81b02424ababf3ab539 only by tracker Markdown/JSON."
     }
   ]
 }

@@ -144,6 +144,12 @@ class ProgressTrackerTests(unittest.TestCase):
         tracker.assert_valid_status(updated)
 
     def test_failed_run_is_visible_but_not_bfb(self) -> None:
+        data = copy.deepcopy(self.data)
+        for item in tracker.processes_for_batch(data, "B02"):
+            item["status"] = "in_progress"
+            item["commit"] = None
+            item["last_run"] = None
+            item["bfb_run"] = None
         run = {
             "run_id": "B02-failed-test",
             "batch": "B02",
@@ -161,7 +167,7 @@ class ProgressTrackerTests(unittest.TestCase):
             "recorded_at": "2026-07-15T00:00:00Z",
             "note": "numeric comparison failed",
         }
-        updated = tracker.record_run(self.data, run)
+        updated = tracker.record_run(data, run)
         members = tracker.processes_for_batch(updated, "B02")
         self.assertTrue(all(item["status"] == "failed" for item in members))
         self.assertTrue(all(item["bfb_run"] is None for item in members))
