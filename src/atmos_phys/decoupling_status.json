@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T08:13:27Z",
+  "updated_at": "2026-07-16T08:18:05Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -567,10 +567,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -583,10 +583,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -599,10 +599,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -615,10 +615,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -631,10 +631,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -647,10 +647,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -663,10 +663,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -679,10 +679,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -695,10 +695,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -711,10 +711,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B04-integrated-20260716-job6749054",
+      "bfb_run": "B04-integrated-20260716-job6749054",
       "note": "Clean full CESM build and final link PASS at source 84ae4b8; B04 executable contains 10/10 scheme objects and 10/10 timer strings; fresh 50-step job 6749054.desched1 submitted once on 2026-07-16."
     },
     {
@@ -2129,6 +2129,144 @@
       },
       "recorded_at": "2026-07-16T08:10:38Z",
       "note": "Matched selector variant: native job 6748994 and decoupled job 6748995 each uniquely submitted and completed 50 steps; d3ddflux timer nonzero; 790/790 numeric exact; normalized character equality excludes only time_written. This record proves only d3ddflux_run."
+    },
+    {
+      "run_id": "B04-integrated-20260716-job6749054",
+      "batch": "B04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6749054.desched1",
+      "source_commit": "84ae4b8b7ffe01291233f0092d229482a460f5bb",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b04/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b04/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b04/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b04/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b04/bld/cesm.exe",
+          "size": 55123224,
+          "sha256": "f991b13903930a37c0336301e546cf3b5da25eb573a78430c40f310b206e24ef"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b04/run/run_environment.txt.job6749054",
+          "size": 4710,
+          "sha256": "d35a0c9addd6720997835805d146f68a229274ae01bf0e2c42e14fa7bf2972f7"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 7318,
+          "sha256": "69d5be60aa3cbf02a320ea31a22c8a9f34e453e25d2caf1d97c00e6fddf9a852"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/B04_INTEGRATED_COMPARE.txt",
+          "size": 1383,
+          "sha256": "51c1fd0108e11afd05fbf5295c267ccbf9830844ca24a28d869f4e08d9f95799"
+        }
+      },
+      "execution_proof": {
+        "aero_model_gasaerexch_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_aero_model_gasaerexch_run global_calls=5.222400e+04"
+        },
+        "modal_aero_gasaerexch_sub_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_modal_aero_gasaerexch_sub_run global_calls=5.222400e+04"
+        },
+        "modal_aero_newnuc_sub_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_modal_aero_newnuc_sub_run global_calls=5.222400e+04"
+        },
+        "modal_aero_coag_sub_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_modal_aero_coag_sub_run global_calls=5.222400e+04"
+        },
+        "aero_model_drydep_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_aero_model_drydep_run global_calls=5.222400e+04"
+        },
+        "modal_aero_depvel_part_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_modal_aero_depvel_part_run global_calls=4.177920e+05"
+        },
+        "modal_aero_calcsize_sub_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_modal_aero_calcsize_sub_run global_calls=5.324800e+04"
+        },
+        "modal_aero_wateruptake_dr_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_modal_aero_wateruptake_dr_run global_calls=5.324800e+04"
+        },
+        "aero_model_wetdep_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_aero_model_wetdep_run global_calls=5.324800e+04"
+        },
+        "wetdepa_v2_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b04_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749054.desched1.260716-021251",
+            "size": 62898,
+            "sha256": "8b588035f420998f304562c47ae3fe6854fefbb94e743b1b189035d05bf84f74"
+          },
+          "line": "ap_wetdepa_v2_run global_calls=1.597440e+06"
+        }
+      },
+      "recorded_at": "2026-07-16T08:18:05Z",
+      "note": "Authoritative clean full CESM build at source 84ae4b8; fresh run directory; one submit; PBS Exit_status 0; 50 completed steps and CPL success; all ten B04 timers nonzero; 790/790 numeric exact; normalized character equality excludes only date_written/time_written."
     }
   ]
 }
