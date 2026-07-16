@@ -282,3 +282,150 @@
   type = integer
   dimensions = ()
   intent = out
+[ molec_ntop ]
+  standard_name = top_molecular_diffusion_interface_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_nbot ]
+  standard_name = bottom_molecular_diffusion_interface_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_waccmx_mode ]
+  standard_name = extended_waccm_molecular_diffusion_mode
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_d0 ]
+  standard_name = molecular_diffusion_binary_coefficient_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_km_fac ]
+  standard_name = molecular_viscosity_temperature_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_pr_num ]
+  standard_name = molecular_prandtl_number
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_pwr ]
+  standard_name = molecular_viscosity_temperature_exponent
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_n_avog ]
+  standard_name = avogadro_constant_for_molecular_diffusion
+  units = molec kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_mw_dry ]
+  standard_name = molecular_weight_of_dry_air_for_molecular_diffusion
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+  optional = True
+[ molec_cnst_mw ]
+  standard_name = constituent_molecular_weight_for_molecular_diffusion
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = (constituent_dimension)
+  intent = in
+  optional = True
+[ molec_fixed_ubc ]
+  standard_name = constituent_fixed_upper_boundary_condition_flag
+  units = flag
+  type = logical
+  dimensions = (constituent_dimension)
+  intent = in
+  optional = True
+[ molec_fixed_ubflx ]
+  standard_name = constituent_fixed_upper_boundary_flux_flag
+  units = flag
+  type = logical
+  dimensions = (constituent_dimension)
+  intent = in
+  optional = True
+[ molec_mw_fac ]
+  standard_name = constituent_molecular_diffusion_weight_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = (constituent_dimension)
+  intent = in
+  optional = True
+[ molec_alphath ]
+  standard_name = constituent_thermal_diffusion_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = (constituent_dimension)
+  intent = in
+  optional = True
+[ molec_mbarv ]
+  standard_name = mean_air_molecular_weight_for_molecular_diffusion
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+  optional = True
+[ molec_rairv ]
+  standard_name = gas_constant_of_air_for_molecular_diffusion
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension)
+  intent = in
+  optional = True
+[ molec_kmvis ]
+  standard_name = dynamic_molecular_viscosity_for_molecular_diffusion
+  units = kg m-1 s-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = in
+  optional = True
+[ molec_kmcnd ]
+  standard_name = molecular_thermal_conductivity_for_molecular_diffusion
+  units = W m-1 K-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_interface_dimension)
+  intent = in
+  optional = True
+[ molec_ubc_t ]
+  standard_name = upper_boundary_air_temperature_for_molecular_diffusion
+  units = K
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension)
+  intent = in
+  optional = True
+[ molec_ubc_mmr ]
+  standard_name = constituent_upper_boundary_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, constituent_dimension)
+  intent = in
+  optional = True
+[ molec_ubc_flux ]
+  standard_name = constituent_upper_boundary_mass_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (constituent_dimension)
+  intent = in
+  optional = True

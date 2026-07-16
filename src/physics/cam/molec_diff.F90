@@ -32,6 +32,7 @@ module molec_diff
   public init_timestep_molec_diff
   public compute_molec_diff
   public vd_lu_qdecomp
+  public molec_diff_get_inputs
 
   ! ---------- !
   ! Parameters !
@@ -161,6 +162,73 @@ contains
   !                                                                             !
   !============================================================================ !
 
+  subroutine molec_diff_get_inputs( &
+       lchnk, pcols_in, pver_in, ncnst, ncol, pint, zi, &
+       waccmx_mode_out, ntop_molec_out, nbot_molec_out, &
+       d0_out, km_fac_out, pr_num_out, pwr_out, n_avog_out, mw_dry_out, &
+       mbarv_out, rairv_out, kmvis_out, kmcnd_out, cnst_mw_out, &
+       cnst_fixed_ubc_out, cnst_fixed_ubflx_out, mw_fac_out, &
+       alphath_out, ubc_t_out, ubc_mmr_out, ubc_flux_out)
+
+    use upper_bc, only: ubc_get_vals
+    use constituents, only: cnst_mw, cnst_fixed_ubc, cnst_fixed_ubflx
+    use physconst, only: rairv, kmvis, kmcnd
+
+    integer, intent(in) :: lchnk, pcols_in, pver_in, ncnst, ncol
+    real(r8), intent(in) :: pint(pcols_in,pver_in+1)
+    real(r8), intent(in) :: zi(pcols_in,pver_in+1)
+    logical, intent(out) :: waccmx_mode_out
+    integer, intent(out) :: ntop_molec_out, nbot_molec_out
+    real(r8), intent(out) :: d0_out, km_fac_out, pr_num_out, pwr_out
+    real(r8), intent(out) :: n_avog_out, mw_dry_out
+    real(r8), intent(out) :: mbarv_out(pcols_in,pver_in)
+    real(r8), intent(out) :: rairv_out(pcols_in,pver_in)
+    real(r8), intent(out) :: kmvis_out(pcols_in,pver_in+1)
+    real(r8), intent(out) :: kmcnd_out(pcols_in,pver_in+1)
+    real(r8), intent(out) :: cnst_mw_out(ncnst)
+    logical, intent(out) :: cnst_fixed_ubc_out(ncnst)
+    logical, intent(out) :: cnst_fixed_ubflx_out(ncnst)
+    real(r8), intent(out) :: mw_fac_out(ncnst)
+    real(r8), intent(out) :: alphath_out(ncnst)
+    real(r8), intent(out) :: ubc_t_out(pcols_in)
+    real(r8), intent(out) :: ubc_mmr_out(pcols_in,ncnst)
+    real(r8), intent(out) :: ubc_flux_out(ncnst)
+
+    call ubc_get_vals(lchnk, ncol, ntop_molec, pint, zi, ubc_t_out, &
+         ubc_mmr_out, ubc_flux_out)
+
+    waccmx_mode_out = waccmx_mode
+    ntop_molec_out = ntop_molec
+    nbot_molec_out = nbot_molec
+    d0_out = d0
+    km_fac_out = km_fac
+    pr_num_out = pr_num
+    pwr_out = pwr
+    n_avog_out = n_avog
+    mw_dry_out = mw_dry
+
+    mbarv_out = mbarv(:,:,lchnk)
+    rairv_out = rairv(:,:,lchnk)
+    cnst_mw_out = cnst_mw(:ncnst)
+    cnst_fixed_ubc_out = cnst_fixed_ubc(:ncnst)
+    cnst_fixed_ubflx_out = cnst_fixed_ubflx(:ncnst)
+    mw_fac_out = mw_fac(:ncnst)
+
+    alphath_out = 0._r8
+    kmvis_out = 0._r8
+    kmcnd_out = 0._r8
+    if (waccmx_mode) then
+       alphath_out = alphath(:ncnst)
+       kmvis_out = kmvis(:,:,lchnk)
+       kmcnd_out = kmcnd(:,:,lchnk)
+    end if
+
+  end subroutine molec_diff_get_inputs
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
   integer function compute_molec_diff( lchnk             ,                                          &
        pcols             , pver                , ncnst     , ncol     , t      , pmid   , pint   ,  &
        zi                , ztodt               , kvm       , kvt      , tint   , rhoi   , tmpi2  ,  &
@@ -168,9 +236,8 @@ contains
        cnst_mw_out       , cnst_fixed_ubc_out  , cnst_fixed_ubflx_out , mw_fac_out      ,           &
        ntop_molec_out    , nbot_molec_out      , kvt_returned )
 
-    use upper_bc,        only : ubc_get_vals
-    use constituents,    only : cnst_mw, cnst_fixed_ubc, cnst_fixed_ubflx
-    use physconst,       only : cpairv, rairv, kmvis, kmcnd
+    use molec_diff_kernel, only: compute_molec_diff_kernel
+    use physconst, only: cpairv
 
     ! --------------------- !
     ! Input-Output Argument !
@@ -211,120 +278,48 @@ contains
     ! Local variables !
     ! --------------- !
 
-    integer                 :: m                          ! Constituent index
-    integer                 :: i                          ! Column index
-    integer                 :: k                          ! Level index
-
-    real(r8)                :: mbarvi                     ! mbarv on interface level
-    real(r8)                :: km_top(pcols)              ! molecular conductivity at the top
-
-    real(r8)                :: mkvisc                     ! Molecular kinematic viscosity c*tint**(2/3)/rho
+    logical :: waccmx_mode_in
+    integer :: ntop_molec_in, nbot_molec_in
+    real(r8) :: d0_in, km_fac_in, pr_num_in, pwr_in
+    real(r8) :: n_avog_in, mw_dry_in
+    real(r8) :: mbarv_in(pcols,pver)
+    real(r8) :: rairv_in(pcols,pver)
+    real(r8) :: kmvis_in(pcols,pver+1)
+    real(r8) :: kmcnd_in(pcols,pver+1)
+    real(r8) :: cnst_mw_in(ncnst)
+    logical :: cnst_fixed_ubc_in(ncnst)
+    logical :: cnst_fixed_ubflx_in(ncnst)
+    real(r8) :: mw_fac_in(ncnst)
+    real(r8) :: alphath_in(ncnst)
+    real(r8) :: ubc_t_in(pcols)
+    real(r8) :: ubc_mmr_in(pcols,ncnst)
+    real(r8) :: ubc_flux_in(ncnst)
 
     ! ----------------------- !
     ! Main Computation Begins !
     ! ----------------------- !
 
-    ! We don't apply cpairv to kvt if WACCM-X is on.
-    kvt_returned = waccmx_mode
+    call molec_diff_get_inputs( &
+         lchnk, pcols, pver, ncnst, ncol, pint, zi, &
+         waccmx_mode_in, ntop_molec_in, nbot_molec_in, &
+         d0_in, km_fac_in, pr_num_in, pwr_in, n_avog_in, mw_dry_in, &
+         mbarv_in, rairv_in, kmvis_in, kmcnd_in, cnst_mw_in, &
+         cnst_fixed_ubc_in, cnst_fixed_ubflx_in, mw_fac_in, &
+         alphath_in, ubc_t_in, ubc_mmr_in, ubc_flux_in)
 
-  ! Get upper boundary values
+    ntop_molec_out = ntop_molec_in
+    nbot_molec_out = nbot_molec_in
 
-    call ubc_get_vals( lchnk, ncol, ntop_molec, pint, zi, ubc_t, ubc_mmr, ubc_flux )
-
-  ! Below are already computed, just need to be copied for output
-
-    cnst_mw_out(:ncnst)          = cnst_mw(:ncnst)
-    cnst_fixed_ubc_out(:ncnst)   = cnst_fixed_ubc(:ncnst)
-    cnst_fixed_ubflx_out(:ncnst) = cnst_fixed_ubflx(:ncnst)
-    ntop_molec_out               = ntop_molec
-    nbot_molec_out               = nbot_molec
-
-    ! Zero out constituent ubc's that are not used.
-    do m = 1, ncnst
-       if (.not. cnst_fixed_ubc(m)) then
-          ubc_mmr(:,m) = 0._r8
-       end if
-    end do
-
-    !
-    !  Need variable mw_fac for kvt and constant otherwise
-    !
-    if ( kvt_returned ) then
-      do m = 1, ncnst
-        do k = ntop_molec+1, nbot_molec
-          do i = 1, ncol
-             mbarvi = 0.5_r8 * (mbarv(i,k-1,lchnk)+mbarv(i,k,lchnk))
-             mw_fac_out(i,k,m) = d0 * mbarvi * sqrt(1._r8/mbarvi + 1._r8/cnst_mw(m)) / n_avog
-          enddo
-        enddo
-        mw_fac_out(:ncol,ntop_molec,m) = 1.5_r8*mw_fac_out(:ncol,ntop_molec+1,m)-.5_r8*mw_fac_out(:ncol,ntop_molec+2,m)
-        do k = nbot_molec+1, pver+1
-          mw_fac_out(:ncol,k,m) = mw_fac_out(:ncol,nbot_molec,m)
-        enddo
-      end do
-    else
-      do k = 1, pver+1
-        do i = 1, ncol
-          mw_fac_out(i,k,:ncnst) = mw_fac(:ncnst)
-        enddo
-      enddo
-    endif
-
-  ! Density and related factors for molecular diffusion and ubc.
-  ! Always have a fixed upper boundary T if molecular diffusion is active. Why ?
-  ! For kvt, set ubc temperature to average of next two lower interface level temperatures
-
-    if ( kvt_returned ) then
-      tint(:ncol,ntop_molec) = 1.5_r8*tint(:ncol,ntop_molec+1)-.5_r8*tint(:ncol,ntop_molec+2)
-    else
-      tint (:ncol,ntop_molec) = ubc_t(:ncol)
-    endif
-
-    rhoi (:ncol,ntop_molec) = pint(:ncol,ntop_molec) / ( rairv(:ncol,ntop_molec,lchnk) * tint(:ncol,ntop_molec) )
-    tmpi2(:ncol,ntop_molec) = ztodt * ( gravit * rhoi(:ncol,ntop_molec))**2 &
-                                    / ( pmid(:ncol,ntop_molec) - pint(:ncol,ntop_molec) )
-
-  ! Compute molecular kinematic viscosity, heat diffusivity and factor for constituent diffusivity
-  ! This is a key part of the code.  For WACCM-X, use constituent dependent molecular viscosity and conductivity
-
-    kvt     = 0._r8
-    kq_scal = 0._r8
-    if ( kvt_returned ) then
-      do k = ntop_molec, nbot_molec
-         do i = 1, ncol
-           mkvisc  = kmvis(i,k,lchnk) / rhoi(i,k)
-           kvm(i,k) = kvm(i,k) + mkvisc
-           mkvisc  = kmcnd(i,k,lchnk) / rhoi(i,k)
-           kvt(i,k) = mkvisc
-           kq_scal(i,k) = sqrt(tint(i,k)) / rhoi(i,k)
-         end do
-      end do
-    else
-      do k = ntop_molec, nbot_molec
-        do i = 1, ncol
-          mkvisc   = km_fac * tint(i,k)**pwr / rhoi(i,k)
-          kvm(i,k) = kvm(i,k) + mkvisc
-          kvt(i,k) = mkvisc * pr_num * cpairv(i,k,lchnk)
-          kq_scal(i,k) = sqrt(tint(i,k)) / rhoi(i,k)
-        end do
-      end do
-    endif
-
-  ! Top boundary condition for dry static energy
-
-    dse_top(:ncol) = cpairv(:ncol,ntop_molec,lchnk) * tint(:ncol,ntop_molec) + gravit * zi(:ncol,ntop_molec)
-
-  ! Top value of cc for dry static energy
-
-    if (kvt_returned) then
-       do i = 1, ncol
-          cc_top(i) = ztodt * gravit**2 * rhoi(i,ntop_molec) * km_fac * &
-               ubc_t(i)**pwr / ( pmid(i,1) - pint(i,1) )
-       enddo
-
-    else
-       cc_top = 0._r8
-    end if
+    call compute_molec_diff_kernel( &
+         pcols, pver, ncnst, ncol, t, pmid, pint, zi, ztodt, &
+         waccmx_mode_in, ntop_molec_in, nbot_molec_in, gravit, &
+         d0_in, km_fac_in, pr_num_in, pwr_in, n_avog_in, mw_dry_in, &
+         mbarv_in, rairv_in, kmvis_in, kmcnd_in, cpairv(:,:,lchnk), &
+         cnst_mw_in, cnst_fixed_ubc_in, cnst_fixed_ubflx_in, &
+         mw_fac_in, ubc_t_in, ubc_mmr_in, ubc_flux_in, kvm, kvt, &
+         tint, rhoi, tmpi2, kq_scal, ubc_t, ubc_mmr, ubc_flux, &
+         dse_top, cc_top, cnst_mw_out, cnst_fixed_ubc_out, &
+         cnst_fixed_ubflx_out, mw_fac_out, kvt_returned)
 
     compute_molec_diff = 1
     return
@@ -341,10 +336,9 @@ contains
        tint  , ztodt  , ntop_molec , nbot_molec , nbot   , &
        lchnk , t          , m      , no_molec_decomp)      result(decomp)
 
-    use infnan, only: nan, assignment(=)
     use coords_1d, only: Coords1D
     use linear_1d_operators, only: BoundaryType, TriDiagDecomp
-    use vdiff_lu_solver, only: fin_vol_lu_decomp
+    use molec_diff_kernel, only: vd_lu_qdecomp_kernel
 
     !------------------------------------------------------------------------------ !
     ! Add the molecular diffusivity to the turbulent diffusivity for a consitutent. !
@@ -391,28 +385,7 @@ contains
     ! Local Variables !
     ! --------------- !
 
-    ! Level index.
-    integer :: k
-
-    ! Molecular diffusivity for constituent.
-    real(r8)                :: kmq(ncol,nbot_molec+1)
-
-    ! Term for drift due to molecular separation: (m_i/m - 1) / p
-    real(r8)                :: mw_term(ncol,nbot_molec+1)
-
-    ! Diffusion coefficient.
-    real(r8)                :: diff_coef(ncol,nbot_molec+1)
-    ! Advection velocity.
-    real(r8)                :: advect_v(ncol,nbot_molec+1)
-
-    ! 1/mbar * d(mbar)/dp
-    real(r8)                :: gradm(ncol,nbot_molec+1)
-
-    ! alphaTh/T * dT/dp, for now alphaTh is non-zero only for H.
-    real(r8)                :: gradt(ncol,nbot_molec+1)
-
-    ! mbarv at interface
-    real(r8)                :: mbarvi(ncol)
+    real(r8) :: alphath_m
 
     ! ----------------------- !
     ! Main Computation Begins !
@@ -426,92 +399,14 @@ contains
 
     call t_startf('vd_lu_qdecomp')
 
-    kmq  = 0._r8
-    mw_term = 0._r8
-    gradm = 0._r8
-    gradt = 0._r8
+    alphath_m = 0._r8
+    if (waccmx_mode) alphath_m = alphath(m)
 
-    ! Compute difference between scale heights of constituent and dry air
-
-    if ( waccmx_mode ) then
-
-       ! Top level first.
-       k = ntop_molec
-       mbarvi = .75_r8*mbarv(:ncol,k,lchnk)+0.5_r8*mbarv(:ncol,k+1,lchnk) &
-            -.25_r8*mbarv(:ncol,k+2,lchnk)
-       mw_term(:,k) = (mw/mbarvi - 1._r8) / p%ifc(:,k)
-       gradm(:,k) = (mbarv(:ncol,k,lchnk)-mbarvi)/ &
-            (p%mid(:,k)-p%ifc(:,k))/ &
-            (mbarv(:ncol,k,lchnk)+mbarvi)*2._r8
-
-       if (alphath(m) /= 0._r8) then
-          gradt(:,k) = alphath(m)*(t(:ncol,k)-tint(:ncol,k))/ &
-               (p%mid(:ncol,k)-p%ifc(:ncol,k))/ &
-               (t(:ncol,k)+tint(:ncol,k))*2._r8
-       end if
-
-       ! Interior of molecular diffusion region.
-       do k = ntop_molec+1, nbot_molec
-          mbarvi = 0.5_r8 * (mbarv(:ncol,k-1,lchnk)+mbarv(:ncol,k,lchnk))
-          mw_term(:,k) = (mw/mbarvi - 1._r8) / p%ifc(:,k)
-          gradm(:,k) = (mbarv(:ncol,k,lchnk)-mbarv(:ncol,k-1,lchnk)) * &
-               p%rdst(:,k-1)/mbarvi
-       enddo
-
-       if (alphath(m) /= 0._r8) then
-          do k = ntop_molec+1, nbot_molec
-             gradt(:,k) = alphath(m)*(t(:ncol,k)-t(:ncol,k-1)) &
-                  *p%rdst(:,k-1)/tint(:ncol,k)
-          end do
-       end if
-
-       ! Leave nbot_molec+1 terms as zero, because molecular diffusion is
-       ! small at the lower boundary.
-
-    else
-
-       do k = ntop_molec, nbot_molec
-          mw_term(:,k) = (mw/mw_dry - 1._r8) / p%ifc(:ncol,k)
-       enddo
-
-    endif
-
-    !-------------------- !
-    ! Molecular diffusion !
-    !-------------------- !
-
-    ! Start with non-molecular portion of diffusion.
-
-    ! Molecular diffusion coefficient.
-    do k = ntop_molec, nbot_molec
-       kmq(:,k)  = kq_scal(:ncol,k) * mw_facm(:ncol,k)
-    end do
-
-    diff_coef = kv(:ncol,:nbot_molec+1) + kmq
-
-    ! "Drift" terms.
-    advect_v = kmq*mw_term
-    if ( waccmx_mode ) then
-       advect_v = advect_v - kmq*gradt - &
-            (kv(:ncol,:nbot_molec+1) + kmq)*gradm
-    end if
-
-    ! Convert from z to pressure representation.
-    diff_coef = dpidz_sq(:,:nbot_molec+1) * diff_coef
-    advect_v = dpidz_sq(:,:nbot_molec+1) * advect_v
-
-    if( fixed_ubc ) then
-       decomp = fin_vol_lu_decomp(ztodt, p, &
-            coef_q_diff=diff_coef, coef_q_adv=advect_v, &
-            upper_bndry=interface_boundary, &
-            lower_bndry=molec_boundary, &
-            graft_decomp=no_molec_decomp)
-    else
-       decomp = fin_vol_lu_decomp(ztodt, p, &
-            coef_q_diff=diff_coef, coef_q_adv=advect_v, &
-            lower_bndry=molec_boundary, &
-            graft_decomp=no_molec_decomp)
-    end if
+    decomp = vd_lu_qdecomp_kernel( &
+         pcols, pver, ncol, fixed_ubc, mw, kv, kq_scal, mw_facm, &
+         dpidz_sq, p, interface_boundary, molec_boundary, rhoi, tint, &
+         ztodt, ntop_molec, nbot_molec, nbot, t, waccmx_mode, &
+         mw_dry, mbarv(:,:,lchnk), alphath_m, no_molec_decomp)
 
     call t_stopf('vd_lu_qdecomp')
 

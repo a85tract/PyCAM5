@@ -58,13 +58,6 @@
        module procedure my_any
   end interface
 
-  ! Host-only path for the optional molecular-diffusion callbacks. The
-  ! public process entry remains an intrinsic-only interface.
-  interface compute_vdiff_cam_adapter
-       module procedure compute_vdiff_core
-  end interface
-  public compute_vdiff_cam_adapter
-
   ! ------------ !
   ! Private data !
   ! ------------ !
@@ -153,7 +146,12 @@
        kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, fieldlist, &
        fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, topflx, &
        tauresx, tauresy, itaures, cpairv, rairi, do_molec_diff, kvt, &
-       errmsg, errflg )
+       errmsg, errflg, molec_ntop, molec_nbot, molec_waccmx_mode, &
+       molec_d0, molec_km_fac, molec_pr_num, molec_pwr, molec_n_avog, &
+       molec_mw_dry, molec_cnst_mw, molec_fixed_ubc, &
+       molec_fixed_ubflx, molec_mw_fac, molec_alphath, molec_mbarv, &
+       molec_rairv, molec_kmvis, molec_kmcnd, molec_ubc_t, &
+       molec_ubc_mmr, molec_ubc_flux )
 
     integer,  intent(in) :: lchnk
     integer,  intent(in) :: pcols
@@ -204,23 +202,67 @@
     character(len=512), intent(out) :: errmsg
     integer,            intent(out) :: errflg
 
+    integer, intent(in), optional :: molec_ntop, molec_nbot
+    logical, intent(in), optional :: molec_waccmx_mode
+    real(r8), intent(in), optional :: molec_d0, molec_km_fac
+    real(r8), intent(in), optional :: molec_pr_num, molec_pwr
+    real(r8), intent(in), optional :: molec_n_avog, molec_mw_dry
+    real(r8), intent(in), optional :: molec_cnst_mw(ncnst)
+    logical, intent(in), optional :: molec_fixed_ubc(ncnst)
+    logical, intent(in), optional :: molec_fixed_ubflx(ncnst)
+    real(r8), intent(in), optional :: molec_mw_fac(ncnst)
+    real(r8), intent(in), optional :: molec_alphath(ncnst)
+    real(r8), intent(in), optional :: molec_mbarv(pcols,pver)
+    real(r8), intent(in), optional :: molec_rairv(pcols,pver)
+    real(r8), intent(in), optional :: molec_kmvis(pcols,pverp)
+    real(r8), intent(in), optional :: molec_kmcnd(pcols,pverp)
+    real(r8), intent(in), optional :: molec_ubc_t(pcols)
+    real(r8), intent(in), optional :: molec_ubc_mmr(pcols,ncnst)
+    real(r8), intent(in), optional :: molec_ubc_flux(ncnst)
+
     character(len=128) :: errstring
+    logical :: molec_inputs_present
 
     errmsg = ''
     errflg = 0
 
     if (do_molec_diff) then
-       errmsg = 'compute_vdiff_run: molecular diffusion requires the CAM adapter'
-       errflg = 1
-       return
-    end if
+       molec_inputs_present = present(kvt) .and. present(molec_ntop) .and. &
+            present(molec_nbot) .and. present(molec_waccmx_mode) .and. &
+            present(molec_d0) .and. present(molec_km_fac) .and. &
+            present(molec_pr_num) .and. present(molec_pwr) .and. &
+            present(molec_n_avog) .and. present(molec_mw_dry) .and. &
+            present(molec_cnst_mw) .and. present(molec_fixed_ubc) .and. &
+            present(molec_fixed_ubflx) .and. present(molec_mw_fac) .and. &
+            present(molec_alphath) .and. present(molec_mbarv) .and. &
+            present(molec_rairv) .and. present(molec_kmvis) .and. &
+            present(molec_kmcnd) .and. present(molec_ubc_t) .and. &
+            present(molec_ubc_mmr) .and. present(molec_ubc_flux)
+       if (.not. molec_inputs_present) then
+          errmsg = 'compute_vdiff_run: molecular diffusion inputs are incomplete'
+          errflg = 1
+          return
+       end if
 
-    call compute_vdiff_core( lchnk, pcols, pver, ncnst, ncol, pmid, &
-         pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
-         nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-         fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
-         topflx, errstring, tauresx, tauresy, itaures, cpairv, rairi, &
-         do_molec_diff )
+       call compute_vdiff_core( lchnk, pcols, pver, ncnst, ncol, pmid, &
+            pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
+            nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
+            fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
+            topflx, errstring, tauresx, tauresy, itaures, cpairv, rairi, &
+            do_molec_diff, kvt, molec_ntop, molec_nbot, &
+            molec_waccmx_mode, molec_d0, molec_km_fac, molec_pr_num, &
+            molec_pwr, molec_n_avog, molec_mw_dry, molec_cnst_mw, &
+            molec_fixed_ubc, molec_fixed_ubflx, molec_mw_fac, &
+            molec_alphath, molec_mbarv, molec_rairv, molec_kmvis, &
+            molec_kmcnd, molec_ubc_t, molec_ubc_mmr, molec_ubc_flux )
+    else
+       call compute_vdiff_core( lchnk, pcols, pver, ncnst, ncol, pmid, &
+            pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
+            nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
+            fieldlist, fieldlistm, u, v, q, dse, tautmsx, tautmsy, dtk, &
+            topflx, errstring, tauresx, tauresy, itaures, cpairv, rairi, &
+            do_molec_diff )
+    end if
 
     if (len_trim(errstring) > 0) then
        errmsg = trim(errstring)
@@ -242,7 +284,12 @@
                             u               , v                  , q             , dse          ,               &
                             tautmsx         , tautmsy            , dtk           , topflx       , errstring   , &
                             tauresx         , tauresy            , itaures       , cpairv       , rairi       , &
-                            do_molec_diff  , compute_molec_diff, vd_lu_qdecomp, kvt )
+                            do_molec_diff   , kvt                 , molec_ntop    , molec_nbot   , &
+                            molec_waccmx_mode, molec_d0          , molec_km_fac  , molec_pr_num , &
+                            molec_pwr       , molec_n_avog       , molec_mw_dry  , molec_cnst_mw, &
+                            molec_fixed_ubc , molec_fixed_ubflx  , molec_mw_fac  , molec_alphath, &
+                            molec_mbarv     , molec_rairv        , molec_kmvis   , molec_kmcnd  , &
+                            molec_ubc_t     , molec_ubc_mmr      , molec_ubc_flux )
 
     !-------------------------------------------------------------------------- !
     ! Driver routine to compute vertical diffusion of momentum, moisture, trace !
@@ -260,6 +307,9 @@
     use linear_1d_operators, only : BoundaryType, BoundaryFixedLayer, &
          BoundaryData, BoundaryFlux, TriDiagDecomp
     use vdiff_lu_solver,     only : fin_vol_lu_decomp
+    use molec_diff_kernel,   only : compute_molec_diff_kernel, &
+         vd_lu_qdecomp_kernel
+    use vdiff_timer_hooks,   only : vdiff_timer_start, vdiff_timer_stop
 
   ! Modification : Ideally, we should diffuse 'liquid-ice static energy' (sl), not the dry static energy.
   !                Also, vertical diffusion of cloud droplet number concentration and aerosol number
@@ -338,91 +388,33 @@
     ! Optional Arguments !
     ! ------------------ !
 
-    ! The molecular diffusion module will likely change significantly in
-    ! the future, and this module may directly depend on it after that.
-    ! Until then, we have these highly specific interfaces hard-coded.
-
-    optional :: compute_molec_diff   ! Constituent-independent molecular diffusivity routine
-    optional :: vd_lu_qdecomp        ! Constituent-dependent molecular diffusivity routine
-
-    interface
-       integer function compute_molec_diff( lchnk             ,                                          &
-            pcols             , pver                , ncnst     , ncol     , t      , pmid   , pint   ,  &
-            zi                , ztodt               , kvm       , kvt      , tint   , rhoi   , tmpi2  ,  &
-            kq_scal           , ubc_t               , ubc_mmr   , ubc_flux , dse_top, cc_top ,           &
-            cnst_mw_out       , cnst_fixed_ubc_out  , cnst_fixed_ubflx_out , mw_fac_out      ,           &
-            ntop_molec_out    , nbot_molec_out      , kvt_returned )
-         import :: r8
-         integer,  intent(in)    :: pcols
-         integer,  intent(in)    :: pver
-         integer,  intent(in)    :: ncnst
-         integer,  intent(in)    :: ncol
-         integer,  intent(in)    :: lchnk
-         real(r8), intent(in)    :: t(pcols,pver)
-         real(r8), intent(in)    :: pmid(pcols,pver)
-         real(r8), intent(in)    :: pint(pcols,pver+1)
-         real(r8), intent(in)    :: zi(pcols,pver+1)
-         real(r8), intent(in)    :: ztodt
-         real(r8), intent(inout) :: kvm(pcols,pver+1)
-         real(r8), intent(out)   :: kvt(pcols,pver+1)
-         real(r8), intent(inout) :: tint(pcols,pver+1)
-         real(r8), intent(inout) :: rhoi(pcols,pver+1)
-         real(r8), intent(inout) :: tmpi2(pcols,pver+1)
-         real(r8), intent(out)   :: kq_scal(pcols,pver+1)
-         real(r8), intent(out)   :: ubc_t(pcols)
-         real(r8), intent(out)   :: ubc_mmr(pcols,ncnst)
-         real(r8), intent(out)   :: ubc_flux(ncnst)
-         real(r8), intent(out)   :: cnst_mw_out(ncnst)
-         logical,  intent(out)   :: cnst_fixed_ubc_out(ncnst)
-         logical,  intent(out)   :: cnst_fixed_ubflx_out(ncnst)
-         real(r8), intent(out)   :: mw_fac_out(pcols,pver+1,ncnst)
-         real(r8), intent(out)   :: dse_top(pcols)
-         real(r8), intent(out)   :: cc_top(pcols)
-         integer,  intent(out)   :: ntop_molec_out
-         integer,  intent(out)   :: nbot_molec_out
-         logical,  intent(out)   :: kvt_returned
-       end function compute_molec_diff
-       function vd_lu_qdecomp( &
-            pcols , pver   , ncol       , fixed_ubc  , mw     , &
-            kv    , kq_scal, mw_facm    , dpidz_sq   , coords , &
-            interface_boundary, molec_boundary, rhoi   ,        &
-            tint  , ztodt  , ntop_molec , nbot_molec , nbot   , &
-            lchnk , t          , m      , no_molec_decomp) result(decomp)
-         import
-         integer,  intent(in)    :: pcols
-         integer,  intent(in)    :: pver
-         integer,  intent(in)    :: ncol
-         integer,  intent(in)    :: ntop_molec
-         integer,  intent(in)    :: nbot_molec
-         integer,  intent(in)    :: nbot
-         logical,  intent(in)    :: fixed_ubc
-         real(r8), intent(in)    :: kv(pcols,pver+1)
-         real(r8), intent(in)    :: kq_scal(pcols,pver+1)
-         real(r8), intent(in)    :: mw
-         real(r8), intent(in)    :: mw_facm(pcols,pver+1)
-         real(r8), intent(in)    :: dpidz_sq(ncol,pver+1)
-         type(Coords1D), intent(in) :: coords
-         type(BoundaryType), intent(in) :: interface_boundary
-         type(BoundaryType), intent(in) :: molec_boundary
-         real(r8), intent(in)    :: rhoi(pcols,pver+1)
-         real(r8), intent(in)    :: tint(pcols,pver+1)
-         real(r8), intent(in)    :: ztodt
-         integer,  intent(in)    :: lchnk
-         real(r8), intent(in)    :: t(pcols,pver)
-         integer,  intent(in)    :: m
-         type(TriDiagDecomp), intent(in) :: no_molec_decomp
-         type(TriDiagDecomp) :: decomp
-       end function vd_lu_qdecomp
-    end interface
+    ! The default path omits these arguments.  The public entry verifies the
+    ! complete intrinsic molecular input set before this branch is entered.
 
     real(r8), intent(out), optional :: kvt(pcols,pver+1) ! Kinematic molecular conductivity
+    integer, intent(in), optional :: molec_ntop, molec_nbot
+    logical, intent(in), optional :: molec_waccmx_mode
+    real(r8), intent(in), optional :: molec_d0, molec_km_fac
+    real(r8), intent(in), optional :: molec_pr_num, molec_pwr
+    real(r8), intent(in), optional :: molec_n_avog, molec_mw_dry
+    real(r8), intent(in), optional :: molec_cnst_mw(ncnst)
+    logical, intent(in), optional :: molec_fixed_ubc(ncnst)
+    logical, intent(in), optional :: molec_fixed_ubflx(ncnst)
+    real(r8), intent(in), optional :: molec_mw_fac(ncnst)
+    real(r8), intent(in), optional :: molec_alphath(ncnst)
+    real(r8), intent(in), optional :: molec_mbarv(pcols,pver)
+    real(r8), intent(in), optional :: molec_rairv(pcols,pver)
+    real(r8), intent(in), optional :: molec_kmvis(pcols,pver+1)
+    real(r8), intent(in), optional :: molec_kmcnd(pcols,pver+1)
+    real(r8), intent(in), optional :: molec_ubc_t(pcols)
+    real(r8), intent(in), optional :: molec_ubc_mmr(pcols,ncnst)
+    real(r8), intent(in), optional :: molec_ubc_flux(ncnst)
 
     ! --------------- !
     ! Local Variables !
     ! --------------- !
 
     integer  :: i, k, m, icol                            ! Longitude, level, constituent indices
-    integer  :: status                                   ! Status indicator
     integer  :: nbot_molec                               ! Bottom level where molecular diffusivity is applied
     integer  :: ntop_molec                               ! Top level where molecular diffusivity is applied
     logical  :: lqtst(pcols)                             ! Adjust vertical profiles
@@ -464,7 +456,6 @@
 
     real(r8) :: qtm(pcols,pver)                          ! Temporary copy of q
     real(r8) :: kq_scal(pcols,pver+1)                    ! kq_fac*sqrt(T)*m_d/rho for molecular diffusivity
-    real(r8) :: mw_fac(ncnst)                            ! sqrt(1/M_q + 1/M_d) for this constituent
     real(r8) :: cnst_mw(ncnst)                           ! Molecular weight [ kg/kmole ]
     real(r8) :: ubc_mmr(pcols,ncnst)                     ! Upper boundary mixing ratios [ kg/kg ]
     real(r8) :: ubc_flux(ncnst)                          ! Upper boundary flux [ kg/s/m^2 ]
@@ -569,11 +560,6 @@
 
     if( do_molec_diff ) then
 
-        if( (.not.present(compute_molec_diff)) .or. (.not.present(vd_lu_qdecomp)) .or. (.not.present(kvt)) ) then
-              errstring = 'compute_vdiff: do_molec_diff true but compute_molec_diff or vd_lu_qdecomp or kvt missing'
-              return
-        endif
-
       ! The next subroutine 'compute_molec_diff' :
       !     Modifies : kvh, kvm, tint, rhoi, and tmpi2
       !     Returns  : kq_scal, ubc_t, ubc_mmr, dse_top, cc_top, cnst_mw,
@@ -586,11 +572,20 @@
         ! temperature, while eddy diffusion operates on dse.  Also, pass in constituent dependent "constants"
         !--------------------------------------------------------------------------------------------------------
 
-        status = compute_molec_diff( lchnk         ,                                                                              &
-                                     pcols         , pver            , ncnst      , ncol      , t      , pmid   , pint   ,        &
-                                     zi            , ztodt           , kvm        , kvt       , tint   , rhoi   , tmpi2  ,        &
-                                     kq_scal       , ubc_t           , ubc_mmr    , ubc_flux  , dse_top, cc_top , cnst_mw,        &
-                                     cnst_fixed_ubc, cnst_fixed_ubflx, mw_fac_loc , ntop_molec, nbot_molec,       kvt_returned )
+        call compute_molec_diff_kernel( &
+             pcols, pver, ncnst, ncol, t, pmid, pint, zi, ztodt, &
+             molec_waccmx_mode, molec_ntop, molec_nbot, gravit, &
+             molec_d0, molec_km_fac, molec_pr_num, molec_pwr, &
+             molec_n_avog, molec_mw_dry, molec_mbarv, molec_rairv, &
+             molec_kmvis, molec_kmcnd, cpairv, molec_cnst_mw, &
+             molec_fixed_ubc, molec_fixed_ubflx, molec_mw_fac, &
+             molec_ubc_t, molec_ubc_mmr, molec_ubc_flux, kvm, kvt, &
+             tint, rhoi, tmpi2, kq_scal, ubc_t, ubc_mmr, ubc_flux, &
+             dse_top, cc_top, cnst_mw, cnst_fixed_ubc, &
+             cnst_fixed_ubflx, mw_fac_loc, kvt_returned)
+
+        ntop_molec = molec_ntop
+        nbot_molec = molec_nbot
 
         p_molec = p%section([1, ncol], [1, nbot_molec])
         molec_boundary = BoundaryFixedLayer(p%del(:,nbot_molec+1))
@@ -1011,11 +1006,17 @@
 
            if( do_molec_diff .and. diffuse(fieldlistm,'q',m)) then
 
-              decomp = vd_lu_qdecomp( pcols , pver   , ncol              , cnst_fixed_ubc(m), cnst_mw(m), &
-                   kvq   , kq_scal, mw_fac_loc(:,:,m) ,dpidz_sq          , p_molec, &
-                   interface_boundary, molec_boundary, rhoi      ,               &
-                   tint  , ztodt  , ntop_molec        , nbot_molec       , nbot      , &
-                   lchnk , t                , m         , no_molec_decomp)
+              call vdiff_timer_start('vd_lu_qdecomp')
+
+              decomp = vd_lu_qdecomp_kernel( &
+                   pcols, pver, ncol, cnst_fixed_ubc(m), cnst_mw(m), &
+                   kvq, kq_scal, mw_fac_loc(:,:,m), dpidz_sq, p_molec, &
+                   interface_boundary, molec_boundary, rhoi, tint, &
+                   ztodt, ntop_molec, nbot_molec, nbot, t, &
+                   molec_waccmx_mode, molec_mw_dry, molec_mbarv, &
+                   molec_alphath(m), no_molec_decomp)
+
+              call vdiff_timer_stop('vd_lu_qdecomp')
 
               ! This to calculate the upper boundary flux of H.    -Hanli Liu
               if ((cnst_fixed_ubflx(m))) then

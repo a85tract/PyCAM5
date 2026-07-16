@@ -1,10 +1,11 @@
 module diffusion_solver
 
   use ap_compute_vdiff_scheme, only : scheme_init_vdiff => init_vdiff, &
-       compute_vdiff_run, compute_vdiff_cam_adapter, &
+       compute_vdiff_run, &
        vdiff_selector, new_fieldlist_vdiff, &
        vdiff_select, vdiff_selector_to_flags, operator(.not.), any
   use perf_mod, only : t_startf, t_stopf
+  use vdiff_timer_hooks, only : register_vdiff_timer_hooks
 
   implicit none
   private
@@ -31,6 +32,8 @@ contains
     logical,        intent(in)  :: do_iss_in
     character(128), intent(out) :: errstring
 
+    call register_vdiff_timer_hooks(t_startf, t_stopf)
+
     call scheme_init_vdiff(kind, iulog_in, rair_in, gravit_in, do_iss_in, &
          errstring)
 
@@ -43,8 +46,7 @@ contains
        tauresy, itaures, cpairv, rairi, do_molec_diff, &
        compute_molec_diff, vd_lu_qdecomp, kvt )
 
-    use molec_diff, only : host_compute_molec_diff => compute_molec_diff, &
-         host_vd_lu_qdecomp => vd_lu_qdecomp
+    use molec_diff, only : molec_diff_get_inputs
 
     integer,  intent(in) :: lchnk
     integer,  intent(in) :: pcols
@@ -95,39 +97,56 @@ contains
     procedure(), optional :: vd_lu_qdecomp
 
     character(len=512) :: errmsg
-    character(len=128) :: core_errstring
     integer :: errflg
     logical :: field_flags(3+ncnst)
     logical :: molecular_field_flags(3+ncnst)
+    integer :: molec_ntop, molec_nbot
+    logical :: molec_waccmx_mode
+    real(r8) :: molec_d0, molec_km_fac, molec_pr_num, molec_pwr
+    real(r8) :: molec_n_avog, molec_mw_dry
+    real(r8) :: molec_cnst_mw(ncnst)
+    logical :: molec_fixed_ubc(ncnst), molec_fixed_ubflx(ncnst)
+    real(r8) :: molec_mw_fac(ncnst), molec_alphath(ncnst)
+    real(r8) :: molec_mbarv(pcols,pver), molec_rairv(pcols,pver)
+    real(r8) :: molec_kmvis(pcols,pver+1), molec_kmcnd(pcols,pver+1)
+    real(r8) :: molec_ubc_t(pcols), molec_ubc_mmr(pcols,ncnst)
+    real(r8) :: molec_ubc_flux(ncnst)
 
     call vdiff_selector_to_flags(fieldlist, field_flags)
     call vdiff_selector_to_flags(fieldlistm, molecular_field_flags)
 
     errmsg = ''
-    core_errstring = ''
     errflg = 0
 
     call t_startf('ap_compute_vdiff_run')
     if (do_molec_diff) then
        if (present(kvt)) then
-          call compute_vdiff_cam_adapter(lchnk, pcols, pver, ncnst, ncol, &
-               pmid, pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, &
-               ntop, nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-               field_flags, molecular_field_flags, u, v, q, dse, tautmsx, &
-               tautmsy, dtk, topflx, core_errstring, tauresx, tauresy, &
-               itaures, cpairv, rairi, do_molec_diff, &
-               host_compute_molec_diff, host_vd_lu_qdecomp, kvt)
+          call molec_diff_get_inputs( &
+               lchnk, pcols, pver, ncnst, ncol, pint, zi, &
+               molec_waccmx_mode, molec_ntop, molec_nbot, &
+               molec_d0, molec_km_fac, molec_pr_num, molec_pwr, &
+               molec_n_avog, molec_mw_dry, molec_mbarv, molec_rairv, &
+               molec_kmvis, molec_kmcnd, molec_cnst_mw, &
+               molec_fixed_ubc, molec_fixed_ubflx, molec_mw_fac, &
+               molec_alphath, molec_ubc_t, molec_ubc_mmr, &
+               molec_ubc_flux)
+
+          call compute_vdiff_run(lchnk, pcols, pver, pver+1, ncnst, &
+               3+ncnst, ncol, pmid, pint, pdel, rpdel, t, ztodt, taux, &
+               tauy, shflx, cflx, ntop, nbot, kvh, kvm, kvq, cgs, cgh, &
+               zi, ksrftms, qmincg, field_flags, molecular_field_flags, &
+               u, v, q, dse, tautmsx, tautmsy, dtk, topflx, tauresx, &
+               tauresy, itaures, cpairv, rairi, do_molec_diff, kvt, &
+               errmsg, errflg, molec_ntop, molec_nbot, &
+               molec_waccmx_mode, molec_d0, molec_km_fac, molec_pr_num, &
+               molec_pwr, molec_n_avog, molec_mw_dry, molec_cnst_mw, &
+               molec_fixed_ubc, molec_fixed_ubflx, molec_mw_fac, &
+               molec_alphath, molec_mbarv, molec_rairv, molec_kmvis, &
+               molec_kmcnd, molec_ubc_t, molec_ubc_mmr, molec_ubc_flux)
        else
-          call compute_vdiff_cam_adapter(lchnk, pcols, pver, ncnst, ncol, &
-               pmid, pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, &
-               ntop, nbot, kvh, kvm, kvq, cgs, cgh, zi, ksrftms, qmincg, &
-               field_flags, molecular_field_flags, u, v, q, dse, tautmsx, &
-               tautmsy, dtk, topflx, core_errstring, tauresx, tauresy, &
-               itaures, cpairv, rairi, do_molec_diff, &
-               host_compute_molec_diff, host_vd_lu_qdecomp)
+          errmsg = 'diffusion_solver.compute_vdiff: molecular diffusion requires kvt'
+          errflg = 1
        end if
-       errmsg = trim(core_errstring)
-       if (len_trim(core_errstring) > 0) errflg = 1
     else if (present(kvt)) then
        call compute_vdiff_run(lchnk, pcols, pver, pver+1, ncnst, 3+ncnst, ncol, pmid, &
             pint, pdel, rpdel, t, ztodt, taux, tauy, shflx, cflx, ntop, &
