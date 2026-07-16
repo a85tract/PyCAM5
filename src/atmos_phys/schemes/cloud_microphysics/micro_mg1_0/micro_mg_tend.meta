@@ -611,6 +611,12 @@
   type = logical
   dimensions = ()
   intent = in
+[ do_clubb_sgs ]
+  standard_name = cam_micro_mg1_0_do_clubb_sgs
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
 [ errstring ]
   standard_name = ccpp_error_message
   units = none

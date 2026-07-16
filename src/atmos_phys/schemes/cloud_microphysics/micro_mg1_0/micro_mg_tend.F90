@@ -49,8 +49,6 @@ use shr_spfn_mod, only: gamma => shr_spfn_gamma
        svp_ice => wv_sat_svp_ice, &
        svp_to_qsat => wv_sat_svp_to_qsat
 
-  use phys_control, only: phys_getopts
-
 implicit none
 private
 save
@@ -134,7 +132,7 @@ real(r8) :: csmin,csmax,minrefl,mindbz
 
 real(r8) :: rhmini     ! Minimum rh for ice cloud fraction > 0.
 
-logical :: use_hetfrz_classnuc ! option to use heterogeneous freezing
+logical :: hetfrz_classnuc_enabled ! option to use heterogeneous freezing
 
 character(len=16)  :: micro_mg_precip_frac_method  ! type of precipitation fraction method
 real(r8)           :: micro_mg_berg_eff_factor     ! berg efficiency factor
@@ -209,7 +207,7 @@ xlf = latice          ! latent heat freezing
 xxls = xxlv + xlf     ! latent heat of sublimation
 
 ! flags
-use_hetfrz_classnuc = use_hetfrz_classnuc_in
+hetfrz_classnuc_enabled = use_hetfrz_classnuc_in
 
 ! parameters for snow/rain fraction for convective clouds
 
@@ -375,12 +373,10 @@ subroutine micro_mg_tend_run ( &
      frefl, csrfl, acsrfl, fcsrfl, rercld,            &
      ncai, ncal, qrout2, qsout2, nrout2,              &
      nsout2, drout2, dsout2, freqs, freqr,            &
-     nfice, prer_evap, do_cldice, errstring,          &
+     nfice, prer_evap, do_cldice, do_clubb_sgs, errstring, &
      tnd_qsnow, tnd_nsnow, re_ice,                    &
      frzimm, frzcnt, frzdep, preo, prdso,             &
      frzro, meltso, wtfc, wtfi, wtprelat, wtpostlat )
-
-use perf_mod, only: t_startf, t_stopf
 
 ! input arguments
 logical,  intent(in) :: microp_uniform  ! True = configure uniform for sub-columns  False = use w/o sub-columns (standard)
@@ -416,6 +412,7 @@ real(r8), intent(in) :: nacon(pcols,pver,4)   ! number in 4 dust bins for contac
 ! Used with CARMA cirrus microphysics
 ! (or similar external microphysics model)
 logical,  intent(in) :: do_cldice             ! Prognosing cldice
+logical,  intent(in) :: do_clubb_sgs           ! CLUBB subgrid cloud state is active
 
 ! output arguments
 
@@ -845,13 +842,9 @@ real(r8) :: r3lx ! Mean volume radius (m)
 real(r8) :: mi0l
 real(r8) :: frztmp
 
-logical  :: do_clubb_sgs
-
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 ! Return error message
-call t_startf('ap_micro_mg_tend_run')
-
 errstring = ' '
 
 if (.not. (do_cldice .or. &
@@ -860,13 +853,11 @@ if (.not. (do_cldice .or. &
         &no replacement values were passed in."
 end if
 
-if (use_hetfrz_classnuc .and. (.not. &
+if (hetfrz_classnuc_enabled .and. (.not. &
      (associated(frzimm) .and. associated(frzcnt) .and. associated(frzdep)))) then
    errstring = "Hoose heterogeneous freezing is enabled, but the &
         &required tendencies were not all passed in."
 end if
-
-call phys_getopts(do_clubb_sgs_out = do_clubb_sgs)
 
 ! initialize  output fields for number conc qand ice nucleation
 ncai(1:ncol,1:pver)=0._r8
@@ -1906,7 +1897,7 @@ do i=1,ncol
 
          ! heterogeneous freezing of cloud water
 
-         if (.not. use_hetfrz_classnuc) then
+         if (.not. hetfrz_classnuc_enabled) then
 
             if (do_cldice .and. qcic(i,k).ge.qsmall .and. t(i,k).lt.269.15_r8) then
 
@@ -2396,13 +2387,13 @@ do i=1,ncol
          if (do_cldice) then
 
             frztmp = -mnuccc(k) - mnucct(k) - msacwi(k)
-            if (use_hetfrz_classnuc) frztmp = -mnuccc(k)-mnucct(k)-mnudep(k)-msacwi(k)
+            if (hetfrz_classnuc_enabled) frztmp = -mnuccc(k)-mnucct(k)-mnudep(k)-msacwi(k)
             dum = ( frztmp*lcldm(i,k) + (prci(k)+prai(k))*icldm(i,k) )*deltat
 
             if (dum.gt.qie) then
 
                frztmp = mnuccc(k) + mnucct(k) + msacwi(k)
-               if (use_hetfrz_classnuc) frztmp = mnuccc(k) + mnucct(k) + mnudep(k) + msacwi(k)
+               if (hetfrz_classnuc_enabled) frztmp = mnuccc(k) + mnucct(k) + mnudep(k) + msacwi(k)
                ratio = (qie/deltat + frztmp*lcldm(i,k))/((prci(k)+prai(k))*icldm(i,k))*omsm
                prci(k) = prci(k)*ratio
                prai(k) = prai(k)*ratio
@@ -2410,13 +2401,13 @@ do i=1,ncol
 
             ! conservation of ni
             frztmp = -nnucct(k) - nsacwi(k)
-            if (use_hetfrz_classnuc) frztmp = -nnucct(k) - nnuccc(k) - nnudep(k) - nsacwi(k)
+            if (hetfrz_classnuc_enabled) frztmp = -nnucct(k) - nnuccc(k) - nnudep(k) - nsacwi(k)
             dum = ( frztmp*lcldm(i,k) + (nprci(k)+nprai(k)-nsubi(k))*icldm(i,k) )*deltat
 
             if (dum.gt.nie) then
 
                frztmp = nnucct(k) + nsacwi(k)
-               if (use_hetfrz_classnuc) frztmp = nnucct(k) + nnuccc(k) + nnudep(k) + nsacwi(k)
+               if (hetfrz_classnuc_enabled) frztmp = nnucct(k) + nnuccc(k) + nnudep(k) + nsacwi(k)
                ratio = (nie/deltat + frztmp*lcldm(i,k))/ &
                      ((nprci(k)+nprai(k)-nsubi(k))*icldm(i,k))*omsm
                nprci(k) = nprci(k)*ratio
@@ -2515,7 +2506,7 @@ do i=1,ncol
          if (do_cldice) then
 
             frztmp = mnuccc(k) + mnucct(k) + msacwi(k)
-            if (use_hetfrz_classnuc) frztmp = mnuccc(k) + mnucct(k) + mnudep(k) + msacwi(k)
+            if (hetfrz_classnuc_enabled) frztmp = mnuccc(k) + mnucct(k) + mnudep(k) + msacwi(k)
             qitend(i,k) = qitend(i,k) + frztmp*lcldm(i,k) + &
                (-prci(k)-prai(k))*icldm(i,k) + cmei(i,k) + berg(i,k)
 
@@ -2588,7 +2579,7 @@ do i=1,ncol
          if (do_cldice) then
 
             frztmp = nnucct(k) + nsacwi(k)
-            if (use_hetfrz_classnuc) frztmp = nnucct(k) + nnuccc(k) + nnudep(k) + nsacwi(k)
+            if (hetfrz_classnuc_enabled) frztmp = nnucct(k) + nnuccc(k) + nnudep(k) + nsacwi(k)
             nitend(i,k) = nitend(i,k) + nnuccd(k)*mtime + &
                   frztmp*lcldm(i,k) + (nsubi(k)-nprci(k)-nprai(k))*icldm(i,k)
 
@@ -3698,8 +3689,6 @@ do k=top_lev,pver
 
    enddo
 enddo
-
-call t_stopf('ap_micro_mg_tend_run')
 
 end subroutine micro_mg_tend_run
 

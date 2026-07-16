@@ -996,6 +996,8 @@ end subroutine micro_mg_cam_init
 
 subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
+   use perf_mod, only: t_startf, t_stopf
+
    use micro_mg_utils, only: size_dist_param_basic, size_dist_param_liq, &
         mg_liq_props, mg_ice_props, avg_diameter, rhoi, rhosn, rhow, rhows, &
         qsmall, mincld
@@ -1487,6 +1489,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    integer, allocatable :: mgcols(:) ! Columns with microphysics performed
 
    logical :: use_subcol_microp
+   logical :: do_clubb_sgs
    integer :: col_type ! Flag to store whether accessing grid or sub-columns in pbuf_get_field
 
    character(128) :: errstring   ! return status (non-blank for error return)
@@ -1560,7 +1563,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    itim_old = pbuf_old_tim_idx()
 
-   call phys_getopts(use_subcol_microp_out=use_subcol_microp)
+   call phys_getopts(use_subcol_microp_out=use_subcol_microp, &
+                     do_clubb_sgs_out=do_clubb_sgs)
 
    ! Set the col_type flag to grid or subcolumn dependent on the value of use_subcol_microp
    call pbuf_col_type_index(use_subcol_microp, col_type=col_type)
@@ -2089,6 +2093,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
          select case (micro_mg_sub_version)
          case (0)
 
+            call t_startf('ap_micro_mg_tend_run')
             call micro_mg_tend1_0( &
                  microp_uniform, mgncol, nlev, mgncol, 1, dtime/num_steps, &
                  packed_t, packed_q, packed_qc, packed_qi, packed_nc,     &
@@ -2110,11 +2115,12 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
                  packed_frefl, packed_csrfl, packed_acsrfl, packed_fcsrfl, packed_rercld,            &
                  packed_ncai, packed_ncal, packed_qrout2, packed_qsout2, packed_nrout2,              &
                  packed_nsout2, drout_dum, dsout2_dum, packed_freqs,packed_freqr,            &
-                 packed_nfice, packed_prer_evap, do_cldice, errstring, &
+                 packed_nfice, packed_prer_evap, do_cldice, do_clubb_sgs, errstring, &
                  packed_tnd_qsnow, packed_tnd_nsnow, packed_re_ice, &
                  packed_frzimm, packed_frzcnt, packed_frzdep, packed_preo, packed_prdso,     &
                  packed_frzro, packed_meltso, packed_wtfc, packed_wtfi, packed_wtprelat,     &
                  packed_wtpostlat)
+            call t_stopf('ap_micro_mg_tend_run')
 
          case (5)
 
