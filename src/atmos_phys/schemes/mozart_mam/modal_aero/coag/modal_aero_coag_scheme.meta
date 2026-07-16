@@ -47,6 +47,36 @@
   type = integer
   dimensions = ()
   intent = in
+[ pcnst_in ]
+  standard_name = physics_constituent_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ top_lev_in ]
+  standard_name = modal_aerosol_top_level_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ maxspec_in ]
+  standard_name = aerosol_species_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ntot_aspectype_in ]
+  standard_name = aerosol_species_type_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ maxpair_in ]
+  standard_name = coagulation_pair_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
 [ loffset ]
   standard_name = modal_aerosol_constituent_offset
   units = index
@@ -56,6 +86,192 @@
 [ deltat_main ]
   standard_name = physics_timestep
   units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pair_option_in ]
+  standard_name = coagulation_pair_option
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = in
+[ npair_in ]
+  standard_name = active_coagulation_pair_count
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ modefrm_in ]
+  standard_name = coagulation_source_mode_indices
+  units = index
+  type = integer
+  dimensions = (coagulation_pair_dimension)
+  intent = in
+[ modetoo_in ]
+  standard_name = coagulation_destination_mode_indices
+  units = index
+  type = integer
+  dimensions = (coagulation_pair_dimension)
+  intent = in
+[ nspecfrm_in ]
+  standard_name = coagulation_source_species_counts
+  units = count
+  type = integer
+  dimensions = (coagulation_pair_dimension)
+  intent = in
+[ lspecfrm_in ]
+  standard_name = coagulation_source_species_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_species_dimension, coagulation_pair_dimension)
+  intent = in
+[ lspectoo_in ]
+  standard_name = coagulation_destination_species_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_species_dimension, coagulation_pair_dimension)
+  intent = in
+[ modeptr_accum_in ]
+  standard_name = accumulation_mode_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ modeptr_aitken_in ]
+  standard_name = aitken_mode_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ modeptr_pcarbon_in ]
+  standard_name = primary_carbon_mode_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ numptr_amode_in ]
+  standard_name = modal_aerosol_number_constituent_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ mprognum_amode_in ]
+  standard_name = modal_aerosol_prognostic_number_flags
+  units = flag
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ nspec_amode_in ]
+  standard_name = modal_aerosol_species_counts
+  units = count
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lmassptr_amode_in ]
+  standard_name = modal_aerosol_mass_constituent_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_species_dimension, aerosol_mode_dimension)
+  intent = in
+[ lspectype_amode_in ]
+  standard_name = modal_aerosol_species_type_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_species_dimension, aerosol_mode_dimension)
+  intent = in
+[ sigmag_amode_in ]
+  standard_name = modal_aerosol_geometric_standard_deviation
+  units = 1
+  type = real | kind = r8
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ alnsg_amode_in ]
+  standard_name = log_modal_aerosol_geometric_standard_deviation
+  units = 1
+  type = real | kind = r8
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lptr_so4_a_amode_in ]
+  standard_name = modal_aerosol_sulfate_constituent_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lptr_nh4_a_amode_in ]
+  standard_name = modal_aerosol_ammonium_constituent_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ lptr_soa_a_amode_in ]
+  standard_name = modal_aerosol_secondary_organic_constituent_indices
+  units = index
+  type = integer
+  dimensions = (aerosol_mode_dimension)
+  intent = in
+[ specmw_amode_in ]
+  standard_name = modal_aerosol_species_molecular_weights
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = (aerosol_species_type_dimension)
+  intent = in
+[ specdens_amode_in ]
+  standard_name = modal_aerosol_species_densities
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (aerosol_species_type_dimension)
+  intent = in
+[ specmw_so4_amode_in ]
+  standard_name = sulfate_aerosol_molecular_weight
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_so4_amode_in ]
+  standard_name = sulfate_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specmw_nh4_amode_in ]
+  standard_name = ammonium_aerosol_molecular_weight
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_nh4_amode_in ]
+  standard_name = ammonium_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specmw_soa_amode_in ]
+  standard_name = secondary_organic_aerosol_molecular_weight
+  units = kg kmol-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ specdens_soa_amode_in ]
+  standard_name = secondary_organic_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ n_so4_monolayers_pcage_in ]
+  standard_name = primary_carbon_aging_sulfate_monolayer_count
+  units = count
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ soa_equivso4_factor_in ]
+  standard_name = secondary_organic_to_equivalent_sulfate_factor
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tmelt_in ]
+  standard_name = water_melting_temperature
+  units = K
   type = real | kind = r8
   dimensions = ()
   intent = in
@@ -101,3 +317,21 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension, aerosol_mode_dimension)
   intent = in
+[ qsrflx_out ]
+  standard_name = modal_aerosol_coagulation_column_tendency_unscaled
+  units = mol Pa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, physics_constituent_dimension)
+  intent = out
+[ dotend_out ]
+  standard_name = modal_aerosol_coagulation_tendency_flags
+  units = flag
+  type = logical
+  dimensions = (physics_constituent_dimension)
+  intent = out
+[ ierr_out ]
+  standard_name = modal_aerosol_coagulation_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
