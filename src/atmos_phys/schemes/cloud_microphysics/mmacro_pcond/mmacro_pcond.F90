@@ -11,24 +11,24 @@
   !--------------------------------------------------- !
 
    use shr_kind_mod,     only: r8=>shr_kind_r8
-   use spmd_utils,       only: masterproc
-   use ppgrid,           only: pcols, pver, pverp
-   use cam_abortutils,   only: endrun
-   use physconst,        only: cpair, latvap, latice, rh2o, gravit, rair
-   use wv_saturation,    only: qsat_water, svp_water, svp_ice, qsat_ice
-   use cam_history,      only: addfld, phys_decomp, outfld, hist_fld_active
-   use cam_logfile,      only: iulog
-   use ref_pres,         only: top_lev=>trop_cloud_top_lev
-   use cldfrc2m,         only: astG_PDF_single, astG_PDF, astG_RHU_single, &
-                               astG_RHU, aist_single, aist_vector,         &
-                               rhmini_const, rhmaxi=>rhmaxi_const
+   use wv_saturation_portable, only: wv_saturation_portable_init, &
+                                      qsat_water, svp_water, svp_ice, &
+                                      qsat_ice, findsp_vc
+   use cldfrc2m_portable, only: astG_PDF_single, astG_PDF, astG_RHU_single, &
+                                astG_RHU, aist_single, aist_vector,         &
+                                rhmini_const, rhmaxi=>rhmaxi_const,        &
+                                cldfrc2m_portable_init
+   use cloud_microphysics_host_hooks, only: &
+        cloud_microphysics_timer_start, cloud_microphysics_timer_stop, &
+        cloud_microphysics_outfld_real2d, cloud_microphysics_history_active, &
+        cloud_microphysics_endrun
 
    implicit none
    private
    save
 
    public ::           &
-      ini_macro,       &
+      mmacro_pcond_init, &
       mmacro_pcond_run
 
    ! -------------- !
@@ -82,13 +82,23 @@
 
    real(r8), parameter :: qsmall = 1.e-18_r8         ! Smallest mixing ratio considered in the macrophysics
 
+   integer, private :: pcols, pver, pverp, top_lev
+   integer, private :: iulog
+   real(r8), private :: cpair, latvap, latice, rh2o, gravit, rair
+   real(r8), private :: qmin_vapor, qmin_liquid, qmin_ice
+
    contains
 
    ! -------------- !
    ! Initialization !
    ! -------------- !
 
-   subroutine ini_macro(rhminl_opt_in, rhmini_opt_in)
+   subroutine mmacro_pcond_init(rhminl_opt_in, rhmini_opt_in, pcols_in, &
+        pver_in, pverp_in, top_lev_in, &
+        iulog_in, cpair_in, latvap_in, latice_in, rh2o_in, gravit_in, rair_in, &
+        qmin_vapor_in, qmin_liquid_in, qmin_ice_in, rhmini_in, rhmaxi_in, &
+        rhminl_in, rhminl_adj_land_in, rhminh_in, premit_in, premib_in, &
+        iceopt_in, icecrit_in, epsilo_in, tmelt_in, h2otrip_in, errmsg, errflg)
 
    !--------------------------------------------------------------------- !
    !                                                                      !
@@ -98,38 +108,51 @@
    !                                                                      !
    !--------------------------------------------------------------------- !
 
-   use cloud_fraction, only: cldfrc_getparams
-   use cam_history,    only: addfld, phys_decomp
-
    integer,  intent(in) :: rhminl_opt_in
    integer,  intent(in) :: rhmini_opt_in
+   integer,  intent(in) :: pcols_in, pver_in, pverp_in
+   integer,  intent(in) :: top_lev_in, iulog_in, iceopt_in
+   real(r8), intent(in) :: cpair_in, latvap_in, latice_in, rh2o_in
+   real(r8), intent(in) :: gravit_in, rair_in
+   real(r8), intent(in) :: qmin_vapor_in, qmin_liquid_in, qmin_ice_in
+   real(r8), intent(in) :: rhmini_in, rhmaxi_in
+   real(r8), intent(in) :: rhminl_in, rhminl_adj_land_in, rhminh_in
+   real(r8), intent(in) :: premit_in, premib_in, icecrit_in
+   real(r8), intent(in) :: epsilo_in, tmelt_in, h2otrip_in
+   character(len=*), intent(out) :: errmsg
+   integer, intent(out) :: errflg
 
    i_rhminl   = rhminl_opt_in
    i_rhmini   = rhmini_opt_in
+   pcols = pcols_in
+   pver = pver_in
+   pverp = pverp_in
+   top_lev = top_lev_in
+   iulog = iulog_in
+   cpair = cpair_in
+   latvap = latvap_in
+   latice = latice_in
+   rh2o = rh2o_in
+   gravit = gravit_in
+   rair = rair_in
+   qmin_vapor = qmin_vapor_in
+   qmin_liquid = qmin_liquid_in
+   qmin_ice = qmin_ice_in
+   rhminl_const = rhminl_in
+   rhminl_adj_land_const = rhminl_adj_land_in
+   rhminh_const = rhminh_in
+   premit = premit_in
+   premib = premib_in
 
-   call cldfrc_getparams(rhminl_out=rhminl_const, rhminl_adj_land_out=rhminl_adj_land_const,  &
-                         rhminh_out=rhminh_const, premit_out=premit, premib_out=premib)
+   call wv_saturation_portable_init(epsilo_in, latvap_in, latice_in, &
+        rh2o_in, cpair_in, tmelt_in, h2otrip_in, errmsg, errflg)
+   if (errflg /= 0) return
 
-   if( masterproc ) then
-       write(iulog,*) 'Park Macrophysics Parameters'
-       write(iulog,*) '  rhminl          = ', rhminl_const
-       write(iulog,*) '  rhminl_adj_land = ', rhminl_adj_land_const
-       write(iulog,*) '  rhminh          = ', rhminh_const
-       write(iulog,*) '  premit          = ', premit
-       write(iulog,*) '  premib          = ', premib
-       write(iulog,*) '  i_rhminl        = ', i_rhminl
-       write(iulog,*) '  i_rhmini        = ', i_rhmini
-   end if
+   call cldfrc2m_portable_init(rair_in, rhmini_in, rhmaxi_in, rhminl_in, &
+        rhminl_adj_land_in, rhminh_in, premit_in, premib_in, iceopt_in, &
+        icecrit_in)
 
-
-   call addfld ('RHMIN_LIQ',     'fraction', pver, 'A', 'Default critical RH for liquid-stratus', phys_decomp)
-   call addfld ('RHMIN_ICE',     'fraction', pver, 'A', 'Default critical RH for    ice-stratus', phys_decomp)
-   call addfld ('DRHMINPBL_LIQ', 'fraction', pver, 'A', 'Drop of liquid-stratus critical RH by PBL turbulence', phys_decomp)
-   call addfld ('DRHMINPBL_ICE', 'fraction', pver, 'A', 'Drop of    ice-stratus critical RH by PBL turbulence', phys_decomp)
-   call addfld ('DRHMINDET_LIQ', 'fraction', pver, 'A', 'Drop of liquid-stratus critical RH by convective detrainment', phys_decomp)
-   call addfld ('DRHMINDET_ICE', 'fraction', pver, 'A', 'Drop of    ice-stratus critical RH by convective detrainment', phys_decomp)
-
-   end subroutine ini_macro
+   end subroutine mmacro_pcond_init
 
    ! ------------------------------ !
    ! Stratiform Liquid Macrophysics !
@@ -153,10 +176,6 @@
                             s_tendout  , qv_tendout , ql_tendout , qi_tendout   , nl_tendout , ni_tendout , &
                             qme        , qvadj      , qladj      , qiadj        , qllim      , qilim      , &
                             cld        , al_st_star , ai_st_star , ql_st_star   , qi_st_star , do_cldice  )
-
-   use constituents,     only : qmin, cnst_get_ind
-   use wv_saturation,    only : findsp_vc
-   use perf_mod,         only : t_startf, t_stopf
 
    integer   icol
    integer,  intent(in)    :: lchnk                        ! Chunk number
@@ -241,8 +260,6 @@
    ! --------------- !
    ! Local variables !
    ! --------------- !
-   integer :: ixcldliq, ixcldice
-
    integer :: i, j, k, iter, ii, jj                        ! Loop indexes
 
    ! Thermodynamic state variables
@@ -458,7 +475,7 @@
    real(r8) QQmax,QQmin,QQwmin,QQimin                      ! For limiting QQ
    real(r8) cone                                           ! Number close to but smaller than 1
 
-   call t_startf('ap_mmacro_pcond_run')
+   call cloud_microphysics_timer_start('ap_mmacro_pcond_run')
 
    cone            = 0.999_r8
    zeros(:ncol,:)  = 0._r8
@@ -687,13 +704,9 @@
    ni1(:ncol,:)   = ni0(:ncol,:)
 
 
-   call cnst_get_ind( 'CLDLIQ', ixcldliq )
-   call cnst_get_ind( 'CLDICE', ixcldice )
-
-
-   qmin1(:ncol,:) = qmin(1)
-   qmin2(:ncol,:) = qmin(ixcldliq)
-   qmin3(:ncol,:) = qmin(ixcldice)
+   qmin1(:ncol,:) = qmin_vapor
+   qmin2(:ncol,:) = qmin_liquid
+   qmin3(:ncol,:) = qmin_ice
 
    call positive_moisture( ncol, dt, qmin1, qmin2, qmin3, dp, &
                            qv1, ql1, qi1, T1, qvten_pwi1, qlten_pwi1, &
@@ -918,7 +931,7 @@
        ! ------------------------------------------------------------ !
 
          if( QQ(i,k) .ge. 0._r8 ) then
-             QQmax    = (qv_05(i,k) - qmin(1))/dt ! For ghost cumulus & semi-ghost ice stratus
+             QQmax    = (qv_05(i,k) - qmin_vapor)/dt ! For ghost cumulus & semi-ghost ice stratus
              QQmax    = max(0._r8,QQmax)
              QQ(i,k)  = min(QQ(i,k),QQmax)
              QQw(i,k) = QQ(i,k)
@@ -1216,7 +1229,7 @@
    nl0(:ncol,top_lev:) = nl_star(:ncol,top_lev:)
    ni0(:ncol,top_lev:) = ni_star(:ncol,top_lev:)
 
-   if (hist_fld_active('RHMIN_LIQ')) then
+   if (cloud_microphysics_history_active('RHMIN_LIQ')) then
       ! Compute default critical RH as a function of height and surface type as in the current code.
       rhmin_liq_diag(:,:) = 0._r8
       do k = top_lev, pver
@@ -1236,18 +1249,24 @@
             endif
          end do
       end do
-      call outfld( 'RHMIN_LIQ',      rhmin_liq_diag,  pcols, lchnk )
+      call cloud_microphysics_outfld_real2d( &
+           'RHMIN_LIQ', rhmin_liq_diag, pcols, lchnk)
    end if
 
    rhmin_ice_diag(:,:) = rhminh_const
-   call outfld( 'RHMIN_ICE',      rhmin_ice_diag,  pcols, lchnk )
+   call cloud_microphysics_outfld_real2d( &
+        'RHMIN_ICE', rhmin_ice_diag, pcols, lchnk)
 
-   call outfld( 'DRHMINPBL_LIQ', d_rhmin_liq_PBL,  pcols, lchnk )
-   call outfld( 'DRHMINPBL_ICE', d_rhmin_ice_PBL,  pcols, lchnk )
-   call outfld( 'DRHMINDET_LIQ', d_rhmin_liq_det,  pcols, lchnk )
-   call outfld( 'DRHMINDET_ICE', d_rhmin_ice_det,  pcols, lchnk )
+   call cloud_microphysics_outfld_real2d( &
+        'DRHMINPBL_LIQ', d_rhmin_liq_PBL, pcols, lchnk)
+   call cloud_microphysics_outfld_real2d( &
+        'DRHMINPBL_ICE', d_rhmin_ice_PBL, pcols, lchnk)
+   call cloud_microphysics_outfld_real2d( &
+        'DRHMINDET_LIQ', d_rhmin_liq_det, pcols, lchnk)
+   call cloud_microphysics_outfld_real2d( &
+        'DRHMINDET_ICE', d_rhmin_ice_det, pcols, lchnk)
 
-   call t_stopf('ap_mmacro_pcond_run')
+   call cloud_microphysics_timer_stop('ap_mmacro_pcond_run')
 
    end subroutine mmacro_pcond_run
 
@@ -1746,7 +1765,8 @@ end subroutine rhcrit_calc
                  ! This case should not happen. Issue error message !
                  ! ------------------------------------------------ !
                  write(iulog,*) 'Impossible case1 in instratus_condensate'
-                 call endrun
+                 call cloud_microphysics_endrun( &
+                      'Impossible case1 in instratus_condensate')
              endif
          ! ------------------------------------------------ !
          ! This case should not happen. Issue error message !
@@ -1755,7 +1775,8 @@ end subroutine rhcrit_calc
              write(iulog,*) 'Impossible case2 in instratus_condensate'
              write(iulog,*)  al0_st, a_sc, a_dc
              write(iulog,*)  1000*ql0_nc, 1000*(ql0+qi0)
-             call endrun
+             call cloud_microphysics_endrun( &
+                  'Impossible case2 in instratus_condensate')
          endif
       endif
 
@@ -2326,7 +2347,8 @@ end subroutine rhcrit_calc
                    write(iulog,*) ii, jj, aa(ii,jj), bb(ii,1)
                 end do
                 end do
-                call endrun
+                call cloud_microphysics_endrun( &
+                     'singular matrix in gaussj 1')
               endif
 12          continue
           endif
@@ -2353,7 +2375,8 @@ end subroutine rhcrit_calc
                write(iulog,*) ii, jj, aa(ii,jj), bb(ii,1)
             end do
             end do
-            call endrun
+            call cloud_microphysics_endrun( &
+                 'singular matrix in gaussj 2')
         endif
         pivinv=1._r8/a(icol,icol)
         a(icol,icol)=1._r8
