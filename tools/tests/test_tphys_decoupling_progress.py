@@ -106,10 +106,15 @@ class ProgressTrackerTests(unittest.TestCase):
         self.assertIn("| B07 | 云、微物理与辐射 | 10 |", first)
 
     def test_manual_bfb_update_is_rejected_without_evidence(self) -> None:
+        data = copy.deepcopy(self.data)
+        target = data["processes"][0]
+        target["status"] = "in_progress"
+        target["last_run"] = None
+        target["bfb_run"] = None
         with self.assertRaisesRegex(tracker.StatusError, "use record-run"):
             tracker.update_processes(
-                self.data,
-                ["dadadj_run"],
+                data,
+                [target["entry_point"]],
                 "bfb",
             )
 
@@ -134,11 +139,17 @@ class ProgressTrackerTests(unittest.TestCase):
             tracker.record_run(self.data, run)
 
     def test_partial_bfb_run_marks_only_proven_processes(self) -> None:
+        data = copy.deepcopy(self.data)
+        for process in tracker.processes_for_batch(data, "B05"):
+            process["status"] = "in_progress"
+            process["last_run"] = None
+            process["bfb_run"] = None
+
         run = self._bfb_run("B05")
         proven = next(iter(run["execution_proof"]))
         run["execution_proof"] = {proven: run["execution_proof"][proven]}
 
-        updated = tracker.record_run(self.data, run)
+        updated = tracker.record_run(data, run)
         members = tracker.processes_for_batch(updated, "B05")
         by_entry = {item["entry_point"]: item for item in members}
 

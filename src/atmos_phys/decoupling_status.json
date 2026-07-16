@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T07:53:20Z",
+  "updated_at": "2026-07-16T07:57:21Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -727,10 +727,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -743,10 +743,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -759,10 +759,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -775,10 +775,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -807,10 +807,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -823,10 +823,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -839,10 +839,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -855,10 +855,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -871,10 +871,10 @@
       "hosts": [
         "tphysac"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "73b53227468566b52b9e322149fe55fc8fa44262",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B05-default-20260716-job6748795",
+      "bfb_run": "B05-default-20260716-job6748795",
       "note": "Default job 6748795 completed 50 steps and 790/790 numeric exact with 9/10 B05 timers; positive-moisture branch is default-inactive and its matched native/decoupled 50-step variant pair is in clean build."
     },
     {
@@ -887,10 +887,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -903,10 +903,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -919,10 +919,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -935,10 +935,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -951,10 +951,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -967,10 +967,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -983,10 +983,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -999,10 +999,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -1015,10 +1015,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "in_progress",
+      "status": "bfb",
       "commit": "d553772cab5b7bad4f600267c58e4529454004dc",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B06-default-20260716-job6748818",
+      "bfb_run": "B06-default-20260716-job6748818",
       "note": "Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending."
     },
     {
@@ -1737,6 +1737,266 @@
       },
       "recorded_at": "2026-07-16T06:49:26Z",
       "note": "Integrated B01+B02+B03 50-step numeric BFB; normalized character BFB after excluding volatile date_written/time_written; 29/29 dependency timers executed; B03 record contains exactly its ten proofs; clean integration source bf46c7c6."
+    },
+    {
+      "run_id": "B05-default-20260716-job6748795",
+      "batch": "B05",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748795.desched1",
+      "source_commit": "73b53227468566b52b9e322149fe55fc8fa44262",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b05/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b05/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b05/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b05/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b05/bld/cesm.exe",
+          "size": 54976592,
+          "sha256": "e3370dc7366ac0d9cce24142e93694c1a92b41c5a47a6349687ba402911382c0"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b05/run/run_environment.txt.job6748795",
+          "size": 4451,
+          "sha256": "fa085179631e679c737a08bdc96cc0fdad4e8f5523379fb78dde32b8e0f0edce"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 5225,
+          "sha256": "2c44c49d55ccc53dbafb931ccc95e74e2ed632afe9dee6e9dc62fc518d2509b0"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/B05_DEFAULT_INTEGRATED_COMPARE_NORMALIZED.txt",
+          "size": 922,
+          "sha256": "36ba67c36f2894a8998fc065f3cba91e565c2e19ebc33bca04d88e909d5d6d6f"
+        }
+      },
+      "execution_proof": {
+        "compute_tms_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_compute_tms_run global_calls=5.222400e+04"
+        },
+        "compute_eddy_diff_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_compute_eddy_diff_run global_calls=5.222400e+04"
+        },
+        "calc_obklen_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_calc_obklen_run global_calls=5.222400e+04"
+        },
+        "compute_vdiff_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_compute_vdiff_run global_calls=3.133440e+05"
+        },
+        "gw_prof_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_gw_prof_run global_calls=5.222400e+04"
+        },
+        "gw_oro_src_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_gw_oro_src_run global_calls=5.222400e+04"
+        },
+        "gw_drag_prof_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_gw_drag_prof_run global_calls=5.222400e+04"
+        },
+        "energy_change_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_energy_change_run global_calls=5.222400e+04"
+        },
+        "calcram_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b05_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748795.desched1.260716-013724",
+            "size": 60143,
+            "sha256": "8964dfd24cdd94b91418a158b8cf64feab20b8c758533070ffd57170bcae4fa1"
+          },
+          "line": "ap_calcram_run global_calls=5.222400e+04"
+        }
+      },
+      "recorded_at": "2026-07-16T07:56:57Z",
+      "note": "Default PI path: 50-step job completed; 790/790 numeric exact; normalized character equality excludes only date_written/time_written; nine B05 timers nonzero. Positive-moisture is default-inactive and remains open for its matched variant pair."
+    },
+    {
+      "run_id": "B06-default-20260716-job6748818",
+      "batch": "B06",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6748818.desched1",
+      "source_commit": "d553772cab5b7bad4f600267c58e4529454004dc",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/output/bld/cesm.exe",
+          "size": 55061528,
+          "sha256": "243b253dd179bbf04ff5fe9671c6b2b4fa8370b97c5883931bbb7421a0ffe168"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/output/run/run_environment.txt.job6748818",
+          "size": 4213,
+          "sha256": "c843e7d5caf9b2854084f38899b28bcf433aadd250f48dff05ee158a374fe068"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 5146,
+          "sha256": "08bfd89ed47799eba18f01add9d93a3890e496881d614333c103c5e96bfcd804"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/b06_validation/B06_DEFAULT_COMPARE.txt",
+          "size": 1323,
+          "sha256": "72ad818fc38303381a7763334ebddf901780fec3e8772794864664a01b583d17"
+        }
+      },
+      "execution_proof": {
+        "dadadj_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_dadadj_run global_calls=5.324800e+04"
+        },
+        "zm_convr_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_zm_convr_run global_calls=5.324800e+04"
+        },
+        "zm_conv_evap_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_zm_conv_evap_run global_calls=5.324800e+04"
+        },
+        "zm_conv_momtran_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_zm_conv_momtran_run global_calls=5.324800e+04"
+        },
+        "zm_conv_convtran_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_zm_conv_convtran_run global_calls=1.064960e+05"
+        },
+        "compute_uwshcu_inv_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_compute_uwshcu_inv_run global_calls=5.324800e+04"
+        },
+        "compute_uwshcu_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_compute_uwshcu_run global_calls=5.324800e+04"
+        },
+        "cloud_fraction_fice_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_cloud_fraction_fice_run global_calls=1.597440e+05"
+        },
+        "dust_sediment_tend_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b06_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6748818.desched1.260716-014006",
+            "size": 60143,
+            "sha256": "eb4d52f05b510dbd166e357b86051502f56c5278f6245bfb12e4f4abf76885a1"
+          },
+          "line": "ap_dust_sediment_tend_run global_calls=1.566720e+06"
+        }
+      },
+      "recorded_at": "2026-07-16T07:57:21Z",
+      "note": "Default PI path: 50-step job completed; 790/790 numeric exact; normalized character equality excludes only date_written/time_written; nine B06 timers nonzero. d3ddflux is default-inactive and remains open for its matched selector variant pair."
     }
   ]
 }
