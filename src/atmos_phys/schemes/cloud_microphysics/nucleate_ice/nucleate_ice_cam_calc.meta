@@ -3,23 +3,209 @@
   type = scheme
 
 [ccpp-arg-table]
-  name  = nucleate_ice_cam_calc_run
-  type  = scheme
-[ state ]
-  standard_name = cam_physics_state
-  units = none
-  type = physics_state
+  name = nucleate_ice_cam_calc_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ top_lev ]
+  standard_name = ice_nucleation_top_layer_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ tmelt ]
+  standard_name = temperature_at_freezing_point
+  units = K
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ preexisting_ice_enabled ]
+  standard_name = preexisting_ice_nucleation_enabled
+  units = 1
+  type = logical
   dimensions = ()
   intent = in
 [ wsubi ]
-  standard_name = cam_nucleate_ice_wsubi
+  standard_name = ice_nucleation_vertical_velocity
   units = m s-1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
   intent = in
-[ pbuf ]
-  standard_name = cam_physics_buffer
-  units = none
-  type = physics_buffer_desc
-  dimensions = (physics_chunk_dimension)
-  intent = inout
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ relhum ]
+  standard_name = relative_humidity_with_respect_to_liquid_water
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ icldm ]
+  standard_name = ice_cloud_fraction_for_nucleation
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ qc ]
+  standard_name = cloud_liquid_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ qi ]
+  standard_name = cloud_ice_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ ni ]
+  standard_name = cloud_ice_number_mixing_ratio
+  units = number kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ rho ]
+  standard_name = air_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ so4_num ]
+  standard_name = sulfate_number_concentration_for_ice_nucleation
+  units = number cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ dst_num ]
+  standard_name = dust_number_concentration_for_ice_nucleation
+  units = number cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ soot_num ]
+  standard_name = soot_number_concentration_for_ice_nucleation
+  units = number cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = in
+[ naai ]
+  standard_name = activated_ice_nuclei_number_mixing_ratio
+  units = number kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ naai_hom ]
+  standard_name = homogeneous_activated_ice_nuclei_number_mixing_ratio
+  units = number kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ nihf ]
+  standard_name = homogeneous_freezing_ice_number_concentration
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ niimm ]
+  standard_name = immersion_freezing_ice_number_concentration
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ nidep ]
+  standard_name = deposition_nucleation_ice_number_concentration
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ nimey ]
+  standard_name = meyers_deposition_ice_number_concentration
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ fhom ]
+  standard_name = homogeneous_freezing_cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ wice ]
+  standard_name = preexisting_ice_vertical_velocity_reduction
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ weff ]
+  standard_name = effective_ice_nucleation_vertical_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ innso4 ]
+  standard_name = sulfate_number_concentration_used_for_ice_nucleation
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ innbc ]
+  standard_name = black_carbon_number_concentration_used_for_ice_nucleation
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ inndust ]
+  standard_name = dust_number_concentration_used_for_ice_nucleation
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ inhet ]
+  standard_name = heterogeneous_ice_nucleation_number_concentration
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ inhom ]
+  standard_name = homogeneous_ice_nucleation_number_concentration
+  units = number m-3
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ infrehom ]
+  standard_name = homogeneous_ice_nucleation_occurrence_frequency
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
+[ infrein ]
+  standard_name = ice_nucleation_occurrence_frequency
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_dimension, vertical_layer_dimension)
+  intent = out
