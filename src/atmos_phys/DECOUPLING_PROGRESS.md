@@ -5,13 +5,13 @@
 - 基线提交：`09c8a19c463122fad488e6fd1bbc0fcd0f410130`
 - 当前 PI 配置：PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD
 - 验证门槛：每组 `50step`，numeric、char 和执行证据必须全部通过
-- 最近更新：`2026-07-16T08:36:17Z`
+- 最近更新：`2026-07-16T08:42:40Z`
 
 ## 总览
 
 | Active总数 | BFB | 进行中 | Build通过 | 50step运行中 | 失败 | 待开始 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 69 | 59 | 0 | 0 | 10 | 0 | 0 |
+| 69 | 68 | 0 | 0 | 1 | 0 | 0 |
 
 ## 批次
 
@@ -23,7 +23,7 @@
 | B04 | MAM与气溶胶沉降 | 10 | B03, B05, B06 | `bfb` | 10/10 |
 | B05 | 边界层与地形重力波 | 10 | B01, B02 | `bfb` | 10/10 |
 | B06 | 对流与柱沉降 | 10 | B01, B02 | `bfb` | 10/10 |
-| B07 | 云、微物理与辐射 | 10 | B04, B06 | `50step_running` | 0/10 |
+| B07 | 云、微物理与辐射 | 10 | B04, B06 | `50step_running` | 9/10 |
 
 ## Active入口
 
@@ -88,16 +88,16 @@
 | B06 | tphysbc | cloud_fraction | `cloud_fraction_fice_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B06 | tphysbc | modal_aerosol | `dust_sediment_tend_run` | `bfb` | d553772cab5b7bad4f600267c58e4529454004dc | B06-default-20260716-job6748818 | B06-default-20260716-job6748818 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
 | B06 | tphysbc | modal_aerosol | `d3ddflux_run` | `bfb` | 7135334db145ee9b95818eaa8552e8d8045f0e1a | B06-d3-variant-20260716-job6748995 | B06-d3-variant-20260716-job6748995 | Default job 6748818 completed 50 steps with 9/10 B06 timers; d3ddflux is mutually exclusive with default dust sedimentation and its matched native/decoupled 50-step variant pair is in clean build; numeric report sealing pending. |
-| B07 | tphysbc | micro_mg/aerosol_activation | `nucleate_ice_cam_calc_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | micro_mg/aerosol_activation | `dropmixnuc_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | micro_mg/aerosol_activation | `nucleate_ice_cam_calc_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | micro_mg/aerosol_activation | `dropmixnuc_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
 | B07 | tphysbc | park_macrophysics | `ice_macro_tend_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | park_macrophysics | `cldfrc_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | park_macrophysics | `mmacro_pcond_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | micro_mg | `micro_mg_tend_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | rrtmg | `rad_rrtmg_sw_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | rrtmg | `rad_rrtmg_lw_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | rrtmg | `rrtmg_sw_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
-| B07 | tphysbc | rrtmg | `rrtmg_lw_run` | `50step_running` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | — | — | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | park_macrophysics | `cldfrc_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | park_macrophysics | `mmacro_pcond_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | micro_mg | `micro_mg_tend_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | rrtmg | `rad_rrtmg_sw_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | rrtmg | `rad_rrtmg_lw_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | rrtmg | `rrtmg_sw_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
+| B07 | tphysbc | rrtmg | `rrtmg_lw_run` | `bfb` | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | B07-default-integrated-20260716-job6749262 | B07-default-integrated-20260716-job6749262 | Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16. |
 
 ## 暂缓的非活动分支
 
@@ -135,3 +135,4 @@
 | `B05-positive-moisture-variant-20260716-job6748985` | B05 | `bfb` | 6748985.desched1 | 75b1853aaa820f0bc5a4cd415d595fcad1409eaa | True | True | 1 | 2026-07-16T08:10:22Z |
 | `B06-d3-variant-20260716-job6748995` | B06 | `bfb` | 6748995.desched1 | 7135334db145ee9b95818eaa8552e8d8045f0e1a | True | True | 1 | 2026-07-16T08:10:38Z |
 | `B04-integrated-20260716-job6749054` | B04 | `bfb` | 6749054.desched1 | 84ae4b8b7ffe01291233f0092d229482a460f5bb | True | True | 10 | 2026-07-16T08:18:05Z |
+| `B07-default-integrated-20260716-job6749262` | B07 | `bfb` | 6749262.desched1 | 37fecf4f32775f5308b18248fec7a1bef7a0ba7b | True | True | 9 | 2026-07-16T08:42:40Z |

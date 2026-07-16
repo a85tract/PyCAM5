@@ -3,7 +3,7 @@
   "project": "PI-atm tphysac/tphysbc modular decoupling",
   "source_of_truth": "This JSON file is the only editable progress source; DECOUPLING_PROGRESS.md is generated.",
   "baseline_commit": "09c8a19c463122fad488e6fd1bbc0fcd0f410130",
-  "updated_at": "2026-07-16T08:36:17Z",
+  "updated_at": "2026-07-16T08:42:40Z",
   "active_case": {
     "description": "PI CAM5 active path: ZM, UW, Park, MG1.0, RRTMG, diag_TKE/TMS, trop_mam3/MAM3, orographic GWD",
     "scope": "Only branches executed by the current PI 50step case count toward the 69-entry BFB denominator."
@@ -1047,10 +1047,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1063,10 +1063,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1095,10 +1095,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1111,10 +1111,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1127,10 +1127,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1143,10 +1143,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1159,10 +1159,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1175,10 +1175,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     },
     {
@@ -1191,10 +1191,10 @@
       "hosts": [
         "tphysbc"
       ],
-      "status": "50step_running",
+      "status": "bfb",
       "commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
-      "last_run": null,
-      "bfb_run": null,
+      "last_run": "B07-default-integrated-20260716-job6749262",
+      "bfb_run": "B07-default-integrated-20260716-job6749262",
       "note": "Authoritative clean full CESM build/link PASS at source 37fecf4; executable contains 10/10 B07 scheme objects and 10/10 timer strings; fresh 50-step job 6749262.desched1 submitted once on 2026-07-16."
     }
   ],
@@ -2267,6 +2267,136 @@
       },
       "recorded_at": "2026-07-16T08:18:05Z",
       "note": "Authoritative clean full CESM build at source 84ae4b8; fresh run directory; one submit; PBS Exit_status 0; 50 completed steps and CPL success; all ten B04 timers nonzero; 790/790 numeric exact; normalized character equality excludes only date_written/time_written."
+    },
+    {
+      "run_id": "B07-default-integrated-20260716-job6749262",
+      "batch": "B07",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6749262.desched1",
+      "source_commit": "37fecf4f32775f5308b18248fec7a1bef7a0ba7b",
+      "case_root": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/bld/cesm.exe",
+          "size": 55213088,
+          "sha256": "e11e68cb8456eaeeadef88bc4391b0ae92ac2c823bb9414729dda3486eaa6a34"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/output_b07/run/run_environment.txt.job6749262",
+          "size": 5192,
+          "sha256": "6b8b1418ea762b36ef6ab4ab30df72172e8508289d1ac1e0a6910f644ceddc9e"
+        },
+        "filepath": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/Filepath",
+          "size": 8509,
+          "sha256": "0526960855027fad013d92abe58efad24a025889e5e61317a294678b001960b6"
+        },
+        "namelist": {
+          "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/integration/B07_DEFAULT_INTEGRATED_COMPARE.txt",
+          "size": 1382,
+          "sha256": "232170428c7c7881125d902c558292635dd301e34e99de2b8ec6f1be75989e3e"
+        }
+      },
+      "execution_proof": {
+        "nucleate_ice_cam_calc_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_nucleate_ice_cam_calc_run global_calls=5.324800e+04"
+        },
+        "dropmixnuc_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_dropmixnuc_run global_calls=5.324800e+04"
+        },
+        "cldfrc_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_cldfrc_run global_calls=5.324800e+04"
+        },
+        "mmacro_pcond_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_mmacro_pcond_run global_calls=5.324800e+04"
+        },
+        "micro_mg_tend_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_micro_mg_tend_run global_calls=5.324800e+04"
+        },
+        "rad_rrtmg_sw_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_rad_rrtmg_sw_run global_calls=2.662400e+04"
+        },
+        "rad_rrtmg_lw_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_rad_rrtmg_lw_run global_calls=2.662400e+04"
+        },
+        "rrtmg_sw_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_rrtmg_sw_run global_calls=2.653600e+04"
+        },
+        "rrtmg_lw_run": {
+          "source": {
+            "path": "/glade/u/home/ruitong/cases/tphys_b07_integrated_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.50step.2node/timing/cesm_timing_stats.6749262.desched1.260716-023618",
+            "size": 64203,
+            "sha256": "c7ab5536e72485ad8de5ff72f161380377ac10650d30528095a62f7765f62079"
+          },
+          "line": "ap_rrtmg_lw_run global_calls=2.662400e+04"
+        }
+      },
+      "recorded_at": "2026-07-16T08:42:40Z",
+      "note": "Default PI path: fresh uniquely submitted job completed 50 steps and case.run/CPL succeeded; nine B07 timers nonzero; 790/790 numeric exact; normalized character equality excludes only date_written/time_written. ice_macro_tend_run is default-inactive because micro_do_icesupersat=false and remains open for a matched namelist variant pair."
     }
   ]
 }
