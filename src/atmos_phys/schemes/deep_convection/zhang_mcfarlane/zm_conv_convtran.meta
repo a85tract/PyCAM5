@@ -1,0 +1,157 @@
+[ccpp-table-properties]
+  name = zm_conv_convtran
+  type = scheme
+
+[ccpp-arg-table]
+  name  = zm_conv_convtran_run
+  type  = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nwtrc ]
+  standard_name = number_of_water_tracers
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nphase ]
+  standard_name = number_of_water_phases
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ doconvtran ]
+  standard_name = flag_for_tracer_transport_by_zhang_mcfarlane_deep_scheme
+  units = flag
+  type = logical
+  dimensions = (number_of_constituents)
+  intent = in
+[ q ]
+  standard_name = ccpp_constituents
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = in
+[ ncnst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ mu ]
+  standard_name = atmosphere_updraft_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = hPa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ md ]
+  standard_name = atmosphere_downdraft_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = hPa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ du ]
+  standard_name = atmosphere_detrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ eu ]
+  standard_name = atmosphere_updraft_entrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ ed ]
+  standard_name = atmosphere_downdraft_entrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ dp ]
+  standard_name = pressure_thickness_for_deep_convection_for_convective_columns
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ dsubcld ]
+  standard_name = pressure_thickness_for_subcloud_layer_for_deep_convection_for_convective_columns
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ jt ]
+  standard_name = vertical_index_at_top_of_deep_convection_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ mx ]
+  standard_name = vertical_index_of_deep_convection_launch_level_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ideep ]
+  standard_name = horizontal_index_of_convective_columns_for_deep_convection_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ il1g ]
+  standard_name = index_of_first_column_of_gathered_deep_convection_arrays
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ il2g ]
+  standard_name = index_of_last_column_of_gathered_deep_convection_arrays
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ nstep ]
+  standard_name = current_timestep_number
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ fracis ]
+  standard_name = fraction_of_water_insoluble_convectively_transported_species
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = in
+[ dqdt ]
+  standard_name = ccpp_constituent_tendencies
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = out
+[ dpdry ]
+  standard_name = air_pressure_thickness_of_dry_air
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ Rwt ]
+  standard_name = water_tracer_ratio_after_deep_convective_transport
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_water_tracers,number_of_water_phases)
+  intent = out

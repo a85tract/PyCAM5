@@ -1,0 +1,445 @@
+[ccpp-table-properties]
+  name = zm_convr
+  type = scheme
+
+[ccpp-arg-table]
+  name  = zm_convr_run
+  type  = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ qh ]
+  standard_name = water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ prec ]
+  standard_name = lwe_precipitation_rate_at_surface_due_to_deep_convection
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ jctop ]
+  standard_name = deep_convective_cloud_top_index
+  units = index
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ jcbot ]
+  standard_name = deep_convective_cloud_base_index
+  units = index
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ pblh ]
+  standard_name = atmosphere_boundary_layer_thickness
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ zm ]
+  standard_name = geopotential_height_wrt_surface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ geos ]
+  standard_name = surface_geopotential
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ zi ]
+  standard_name = geopotential_height_wrt_surface_at_interface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_interface_dimension)
+  intent = in
+[ qtnd ]
+  standard_name = tendency_of_water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ heat ]
+  standard_name = tendency_of_dry_air_enthalpy_at_constant_pressure
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ pap ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ paph ]
+  standard_name = air_pressure_at_interface
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_interface_dimension)
+  intent = in
+[ dpp ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ delt ]
+  standard_name = timestep_for_physics
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ mcon ]
+  standard_name = atmosphere_convective_mass_flux_due_to_deep_convection
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_interface_dimension)
+  intent = out
+[ cme ]
+  standard_name = tendency_of_water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water_from_cloud_condensation_minus_precipitation_evaporation_due_to_deep_convection
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ cape ]
+  standard_name = zhang_mcfarlane_convective_available_potential_energy
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ tpert ]
+  standard_name = convective_temperature_perturbation_due_to_pbl_eddies
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ dlf ]
+  standard_name = detrainment_of_cloud_liquid_water_wrt_moist_air_and_condensed_water_due_to_deep_convection
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ pflx ]
+  standard_name = deep_convective_precipitation_flux_at_interface
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_interface_dimension)
+  intent = out
+[ zdu ]
+  standard_name = detrainment_mass_flux_due_to_deep_convection
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ rprd ]
+  standard_name = tendency_of_precipitation_wrt_moist_air_and_condensed_water_due_to_deep_convection_excluding_subcloud_evaporation
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ mu ]
+  standard_name = atmosphere_updraft_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = hPa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ md ]
+  standard_name = atmosphere_downdraft_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = hPa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ du ]
+  standard_name = atmosphere_detrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ eu ]
+  standard_name = atmosphere_updraft_entrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ ed ]
+  standard_name = atmosphere_downdraft_entrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ dp ]
+  standard_name = pressure_thickness_for_deep_convection_for_convective_columns
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ dsubcld ]
+  standard_name = pressure_thickness_for_subcloud_layer_for_deep_convection_for_convective_columns
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ jt ]
+  standard_name = vertical_index_at_top_of_deep_convection_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ maxg ]
+  standard_name = vertical_index_of_deep_convection_launch_level_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ ideep ]
+  standard_name = horizontal_index_of_convective_columns_for_deep_convection_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ lengath ]
+  standard_name = number_of_convective_columns_for_deep_convection
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
+[ ql ]
+  standard_name = deep_convective_cloud_liquid_water_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ rliq ]
+  standard_name = vertically_integrated_cloud_liquid_water_tendency_due_to_all_convection_to_be_applied_later_in_time_loop
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ landfrac ]
+  standard_name = land_area_fraction_from_coupler
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ org ]
+  standard_name = deep_convection_organization_parameter
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ orgt ]
+  standard_name = deep_convection_organization_parameter_tendency_workspace
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = inout
+[ org2d ]
+  standard_name = vertically_averaged_deep_convection_organization_parameter
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = inout
+[ qu ]
+  standard_name = deep_convective_updraft_water_vapor_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ qd ]
+  standard_name = deep_convective_downdraft_water_vapor_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ dz ]
+  standard_name = layer_thickness_for_deep_convection
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ rppe ]
+  standard_name = deep_convective_rain_production_rate_before_evaporation
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ eps0 ]
+  standard_name = deep_convective_cloud_base_mass_flux_normalization
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ cu ]
+  standard_name = deep_convective_updraft_condensation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ evp ]
+  standard_name = deep_convective_downdraft_evaporation_rate
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ tu ]
+  standard_name = deep_convective_updraft_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ td ]
+  standard_name = deep_convective_downdraft_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ jd ]
+  standard_name = vertical_index_of_deep_convective_downdraft_origin
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ done ]
+  standard_name = flag_for_completed_deep_convective_updraft_calculation
+  units = flag
+  type = logical
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ lel ]
+  standard_name = vertical_index_of_deep_convective_equilibrium_level
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ jlcl ]
+  standard_name = vertical_index_of_deep_convective_lifting_condensation_level
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ qs ]
+  standard_name = deep_convective_saturation_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ qsthat ]
+  standard_name = deep_convective_interface_saturation_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ hmn ]
+  standard_name = environmental_moist_static_energy_for_deep_convection
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ hsat ]
+  standard_name = environmental_saturated_moist_static_energy_for_deep_convection
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ hsthat ]
+  standard_name = interface_saturated_moist_static_energy_for_deep_convection
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wteu ]
+  standard_name = water_tracer_updraft_entrainment_before_unit_conversion
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wted ]
+  standard_name = water_tracer_downdraft_entrainment_before_unit_conversion
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wtdu ]
+  standard_name = water_tracer_updraft_detrainment_before_unit_conversion
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wtmu ]
+  standard_name = water_tracer_updraft_mass_flux_before_unit_conversion
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wtmd ]
+  standard_name = water_tracer_downdraft_mass_flux_before_unit_conversion
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wtcu ]
+  standard_name = water_tracer_condensation_rate_before_unit_conversion
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ c0mask ]
+  standard_name = deep_convective_autoconversion_coefficient
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ wtrpd ]
+  standard_name = water_tracer_rain_production_rate_before_unit_conversion
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ qds ]
+  standard_name = deep_convective_downdraft_saturation_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out
+[ wtevp ]
+  standard_name = water_tracer_evaporation_rate_before_unit_conversion
+  units = m-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out

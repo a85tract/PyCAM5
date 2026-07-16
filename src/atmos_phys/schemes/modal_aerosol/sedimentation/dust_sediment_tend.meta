@@ -1,0 +1,67 @@
+[ccpp-table-properties]
+  name = dust_sediment_tend
+  type = scheme
+
+[ccpp-arg-table]
+  name = dust_sediment_tend_run
+  type = scheme
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dtime ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ pint ]
+  standard_name = air_pressure_at_interface
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ t ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ dustmr ]
+  standard_name = dust_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pvdust ]
+  standard_name = dust_pressure_fall_velocity
+  units = Pa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ dusttend ]
+  standard_name = dust_tendency_due_to_sedimentation
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ sfdust ]
+  standard_name = dust_surface_sedimentation_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out

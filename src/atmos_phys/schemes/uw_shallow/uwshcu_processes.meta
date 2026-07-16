@@ -1,0 +1,662 @@
+[ccpp-table-properties]
+  name = compute_uwshcu_inv
+  type = scheme
+
+[ccpp-arg-table]
+  name = compute_uwshcu_inv_run
+  type = scheme
+[ mix ]
+  standard_name = uw_shallow_horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ mkx ]
+  standard_name = uw_shallow_vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ iend ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncnst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ps0_inv ]
+  standard_name = uw_shallow_ps0_inv
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = in
+[ zs0_inv ]
+  standard_name = uw_shallow_zs0_inv
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = in
+[ p0_inv ]
+  standard_name = uw_shallow_p0_inv
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ z0_inv ]
+  standard_name = uw_shallow_z0_inv
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ dp0_inv ]
+  standard_name = uw_shallow_dp0_inv
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ u0_inv ]
+  standard_name = uw_shallow_u0_inv
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ v0_inv ]
+  standard_name = uw_shallow_v0_inv
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ qv0_inv ]
+  standard_name = uw_shallow_qv0_inv
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ ql0_inv ]
+  standard_name = uw_shallow_ql0_inv
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ qi0_inv ]
+  standard_name = uw_shallow_qi0_inv
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ t0_inv ]
+  standard_name = uw_shallow_t0_inv
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ s0_inv ]
+  standard_name = uw_shallow_s0_inv
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ tr0_inv ]
+  standard_name = uw_shallow_tr0_inv
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension, number_of_constituents)
+  intent = in
+[ tke_inv ]
+  standard_name = uw_shallow_tke_inv
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = in
+[ cldfrct_inv ]
+  standard_name = uw_shallow_cldfrct_inv
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ concldfrct_inv ]
+  standard_name = uw_shallow_concldfrct_inv
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ pblh ]
+  standard_name = uw_shallow_pblh
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ cush ]
+  standard_name = uw_shallow_cush
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = inout
+[ umf_inv ]
+  standard_name = uw_shallow_umf_inv
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ slflx_inv ]
+  standard_name = uw_shallow_slflx_inv
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ qtflx_inv ]
+  standard_name = uw_shallow_qtflx_inv
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ flxprc1_inv ]
+  standard_name = uw_shallow_flxprc1_inv
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ flxsnow1_inv ]
+  standard_name = uw_shallow_flxsnow1_inv
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ qvten_inv ]
+  standard_name = uw_shallow_qvten_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qlten_inv ]
+  standard_name = uw_shallow_qlten_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qiten_inv ]
+  standard_name = uw_shallow_qiten_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ sten_inv ]
+  standard_name = uw_shallow_sten_inv
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ uten_inv ]
+  standard_name = uw_shallow_uten_inv
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ vten_inv ]
+  standard_name = uw_shallow_vten_inv
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ trten_inv ]
+  standard_name = uw_shallow_trten_inv
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension, number_of_constituents)
+  intent = out
+[ qrten_inv ]
+  standard_name = uw_shallow_qrten_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qsten_inv ]
+  standard_name = uw_shallow_qsten_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ precip ]
+  standard_name = uw_shallow_precip
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ snow ]
+  standard_name = uw_shallow_snow
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ evapc_inv ]
+  standard_name = uw_shallow_evapc_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ cufrc_inv ]
+  standard_name = uw_shallow_cufrc_inv
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qcu_inv ]
+  standard_name = uw_shallow_qcu_inv
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qlu_inv ]
+  standard_name = uw_shallow_qlu_inv
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qiu_inv ]
+  standard_name = uw_shallow_qiu_inv
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ cbmf ]
+  standard_name = uw_shallow_cbmf
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ qc_inv ]
+  standard_name = uw_shallow_qc_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ rliq ]
+  standard_name = uw_shallow_rliq
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ cnt_inv ]
+  standard_name = uw_shallow_cnt_inv
+  units = index
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ cnb_inv ]
+  standard_name = uw_shallow_cnb_inv
+  units = index
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dpdry0_inv ]
+  standard_name = uw_shallow_dpdry0_inv
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ wtprec ]
+  standard_name = uw_shallow_wtprec
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out
+[ wtsnow ]
+  standard_name = uw_shallow_wtsnow
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out
+[ wtqc_inv ]
+  standard_name = uw_shallow_wtqc_inv
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension, number_of_constituents)
+  intent = out
+[ccpp-table-properties]
+  name = compute_uwshcu
+  type = scheme
+
+[ccpp-arg-table]
+  name = compute_uwshcu_run
+  type = scheme
+[ mix ]
+  standard_name = uw_shallow_horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ mkx ]
+  standard_name = uw_shallow_vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ iend ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncnst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ ps0_in ]
+  standard_name = uw_shallow_ps0_in
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = in
+[ zs0_in ]
+  standard_name = uw_shallow_zs0_in
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = in
+[ p0_in ]
+  standard_name = uw_shallow_p0_in
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ z0_in ]
+  standard_name = uw_shallow_z0_in
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ dp0_in ]
+  standard_name = uw_shallow_dp0_in
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ u0_in ]
+  standard_name = uw_shallow_u0_in
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ v0_in ]
+  standard_name = uw_shallow_v0_in
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ qv0_in ]
+  standard_name = uw_shallow_qv0_in
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ ql0_in ]
+  standard_name = uw_shallow_ql0_in
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ qi0_in ]
+  standard_name = uw_shallow_qi0_in
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ t0_in ]
+  standard_name = uw_shallow_t0_in
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ s0_in ]
+  standard_name = uw_shallow_s0_in
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ tr0_in ]
+  standard_name = uw_shallow_tr0_in
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension, number_of_constituents)
+  intent = in
+[ tke_in ]
+  standard_name = uw_shallow_tke_in
+  units = m2 s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = in
+[ cldfrct_in ]
+  standard_name = uw_shallow_cldfrct_in
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ concldfrct_in ]
+  standard_name = uw_shallow_concldfrct_in
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ pblh_in ]
+  standard_name = uw_shallow_pblh_in
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ cush_inout ]
+  standard_name = uw_shallow_cush_inout
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = inout
+[ umf_out ]
+  standard_name = uw_shallow_umf_out
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ slflx_out ]
+  standard_name = uw_shallow_slflx_out
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ qtflx_out ]
+  standard_name = uw_shallow_qtflx_out
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ flxprc1_out ]
+  standard_name = uw_shallow_flxprc1_out
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ flxsnow1_out ]
+  standard_name = uw_shallow_flxsnow1_out
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_interface_dimension)
+  intent = out
+[ qvten_out ]
+  standard_name = uw_shallow_qvten_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qlten_out ]
+  standard_name = uw_shallow_qlten_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qiten_out ]
+  standard_name = uw_shallow_qiten_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ sten_out ]
+  standard_name = uw_shallow_sten_out
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ uten_out ]
+  standard_name = uw_shallow_uten_out
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ vten_out ]
+  standard_name = uw_shallow_vten_out
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ trten_out ]
+  standard_name = uw_shallow_trten_out
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension, number_of_constituents)
+  intent = out
+[ qrten_out ]
+  standard_name = uw_shallow_qrten_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qsten_out ]
+  standard_name = uw_shallow_qsten_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ precip_out ]
+  standard_name = uw_shallow_precip_out
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ snow_out ]
+  standard_name = uw_shallow_snow_out
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ evapc_out ]
+  standard_name = uw_shallow_evapc_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ cufrc_out ]
+  standard_name = uw_shallow_cufrc_out
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qcu_out ]
+  standard_name = uw_shallow_qcu_out
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qlu_out ]
+  standard_name = uw_shallow_qlu_out
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ qiu_out ]
+  standard_name = uw_shallow_qiu_out
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ cbmf_out ]
+  standard_name = uw_shallow_cbmf_out
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ qc_out ]
+  standard_name = uw_shallow_qc_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = out
+[ rliq_out ]
+  standard_name = uw_shallow_rliq_out
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ cnt_out ]
+  standard_name = uw_shallow_cnt_out
+  units = index
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ cnb_out ]
+  standard_name = uw_shallow_cnb_out
+  units = index
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ dpdry0_in ]
+  standard_name = uw_shallow_dpdry0_in
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension)
+  intent = in
+[ wtprec_out ]
+  standard_name = uw_shallow_wtprec_out
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out
+[ wtsnow_out ]
+  standard_name = uw_shallow_wtsnow_out
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = out
+[ wtqc_out ]
+  standard_name = uw_shallow_wtqc_out
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, uw_shallow_vertical_layer_dimension, number_of_constituents)
+  intent = out

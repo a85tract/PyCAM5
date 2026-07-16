@@ -128,6 +128,8 @@ contains
 !
 ! Author: Natalie Mahowald
 !
+      use ap_d3ddflux_scheme, only: d3ddflux_run
+      use perf_mod, only: t_startf, t_stopf
       implicit none
 
 ! Input arguments:
@@ -144,25 +146,10 @@ contains
       real(r8), intent(out) ::    dep_dry(pcols) ! flux due to dry deposition in kg /m^s/sec
       real(r8), intent(out) ::    dep_dry_tend(pcols,pver) ! flux due to dry deposition in kg /m^s/sec
 
-! Local variables:
-
-      real(r8) :: flux(pcols,0:pver)  ! downward flux at each level:  kg/m2/s 
-      integer i,k
-      do i=1,ncol
-         flux(i,0)=0._r8
-      enddo
-      do k=1,pver
-         do i = 1, ncol
-            flux(i,k) = -min(vlc_dry(i,k) * q(i,k) * pmid(i,k) /(tv(i,k) * rair), &
-                      q(i,k)*pdel(i,k)/gravit/dt)
-            dep_dry_tend(i,k)=(flux(i,k)-flux(i,k-1))/pdel(i,k)*gravit  !kg/kg/s
-
-         end do
-      enddo
-! surface flux:
-      do i=1,ncol
-         dep_dry(i)=flux(i,pver)
-      enddo
+      call t_startf('ap_d3ddflux_run')
+      call d3ddflux_run(pcols, pver, ncol, vlc_dry, q, pmid, pdel, tv, &
+           dep_dry, dep_dry_tend, dt, rair, gravit)
+      call t_stopf('ap_d3ddflux_run')
       return
       end subroutine d3ddflux
 

@@ -1,0 +1,175 @@
+[ccpp-table-properties]
+  name = zm_conv_momtran
+  type = scheme
+
+[ccpp-arg-table]
+  name  = zm_conv_momtran_run
+  type  = scheme
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pverp ]
+  standard_name = vertical_interface_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ domomtran ]
+  standard_name = flag_for_momentum_transport_by_zhang_mcfarlane_deep_convection_scheme
+  units = flag
+  type = logical
+  dimensions = (number_of_constituents)
+  intent = in
+[ q ]
+  standard_name = horizontal_wind_components
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = in
+[ ncnst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ mu ]
+  standard_name = atmosphere_updraft_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = hPa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ md ]
+  standard_name = atmosphere_downdraft_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = hPa s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ du ]
+  standard_name = atmosphere_detrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ eu ]
+  standard_name = atmosphere_updraft_entrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ ed ]
+  standard_name = atmosphere_downdraft_entrainment_convective_mass_flux_for_deep_convection_for_convective_columns
+  units = s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ dp ]
+  standard_name = pressure_thickness_for_deep_convection_for_convective_columns
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ dsubcld ]
+  standard_name = pressure_thickness_for_subcloud_layer_for_deep_convection_for_convective_columns
+  units = hPa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ jt ]
+  standard_name = vertical_index_at_top_of_deep_convection_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ mx ]
+  standard_name = vertical_index_of_deep_convection_launch_level_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ ideep ]
+  standard_name = horizontal_index_of_convective_columns_for_deep_convection_for_convective_columns
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ il1g ]
+  standard_name = index_of_first_column_of_gathered_deep_convection_arrays
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ il2g ]
+  standard_name = index_of_last_column_of_gathered_deep_convection_arrays
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ nstep ]
+  standard_name = current_timestep_number
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dqdt ]
+  standard_name = tendency_of_horizontal_wind_components
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = out
+[ pguall ]
+  standard_name = horizontal_wind_tendency_due_to_deep_convective_updraft_pressure_gradient
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = out
+[ pgdall ]
+  standard_name = horizontal_wind_tendency_due_to_deep_convective_downdraft_pressure_gradient
+  units = m s-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = out
+[ icwu ]
+  standard_name = in_cloud_horizontal_wind_in_deep_convective_updraft
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = out
+[ icwd ]
+  standard_name = in_cloud_horizontal_wind_in_deep_convective_downdraft
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_constituents)
+  intent = out
+[ dt ]
+  standard_name = timestep_for_physics
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ seten ]
+  standard_name = tendency_of_dry_air_enthalpy_at_constant_pressure
+  units = J kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = out

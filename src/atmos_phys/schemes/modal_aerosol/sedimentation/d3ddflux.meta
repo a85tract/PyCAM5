@@ -1,0 +1,85 @@
+[ccpp-table-properties]
+  name = d3ddflux
+  type = scheme
+
+[ccpp-arg-table]
+  name = d3ddflux_run
+  type = scheme
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ vlc_dry ]
+  standard_name = aerosol_dry_deposition_velocity
+  units = m s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ q ]
+  standard_name = aerosol_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ tv ]
+  standard_name = virtual_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ dep_dry ]
+  standard_name = aerosol_surface_dry_deposition_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ dep_dry_tend ]
+  standard_name = aerosol_tendency_due_to_dry_deposition
+  units = kg kg-1 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = out
+[ dt ]
+  standard_name = physics_timestep
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rair ]
+  standard_name = dry_air_gas_constant
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
