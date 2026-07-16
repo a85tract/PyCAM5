@@ -30,8 +30,6 @@ subroutine zm_conv_momtran_run(lchnk, ncol, pcols, pver, pverp, &
 ! Author: J. Richter and P. Rasch
 !
 !-----------------------------------------------------------------------
-   use constituents,    only: cnst_get_type_byind
-
    implicit none
 !-----------------------------------------------------------------------
 !

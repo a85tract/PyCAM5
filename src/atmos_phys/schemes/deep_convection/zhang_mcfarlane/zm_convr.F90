@@ -14,13 +14,10 @@ module ap_zm_convr_scheme
 !
 !---------------------------------------------------------------------------------
   use shr_kind_mod,    only: r8 => shr_kind_r8
-  use spmd_utils,      only: masterproc
-  use ppgrid,          only: pcols, pver, pverp
-  use cloud_fraction,  only: cldfrc_fice
-  use physconst,       only: cpair, epsilo, gravit, latice, latvap, tmelt, rair, &
-                             cpwv, cpliq, rh2o
-  use cam_abortutils,  only: endrun
-  use cam_logfile,     only: iulog
+  use shr_const_mod,   only: cpliq => shr_const_cpfw, &
+                             latice => shr_const_latice
+  use wv_sat_methods,  only: wv_sat_methods_init
+  use ap_wv_sat_compat, only: qsat_water
 
   implicit none
 
@@ -31,6 +28,7 @@ module ap_zm_convr_scheme
 !
   public :: zm_convr_init
   public :: zm_convr_run
+  public :: zm_convr_get_error
 
 !
 ! Private data
@@ -65,6 +63,18 @@ module ap_zm_convr_scheme
 
    real(r8),parameter ::  tiedke_add = 0.5_r8
 
+   ! Keep the internal work-array bounds compile-time constant, as in the
+   ! original ppgrid-based implementation.  PCOLS and PLEV are supplied by
+   ! the host build, without introducing a dependency on the ppgrid module.
+   integer, parameter :: pcols_cfg = PCOLS
+   integer, parameter :: pver_cfg = PLEV
+   integer, parameter :: pverp_cfg = PLEV + 1
+   real(r8) :: cpwv_cfg
+   real(r8) :: rh2o_cfg
+   logical :: cam3_physics_cfg
+   character(len=512) :: scheme_errmsg
+   integer :: scheme_errflg
+
 contains
 
 
@@ -74,13 +84,19 @@ contains
 subroutine zm_convr_init(rl_in, cpres_in, c0_lnd_in, c0_ocn_in, &
                          zm_org_in, tau_in, tfreez_in, eps1_in, &
                          no_deep_pbl_in, rgrav_in, rgas_in, grav_in, &
-                         cp_in, limcnv_in)
+                         cp_in, limcnv_in, cpwv_in, rh2o_in, h2otrip_in, &
+                         cam3_physics_in, errmsg, errflg)
    real(r8), intent(in) :: rl_in, cpres_in
    real(r8), intent(in) :: c0_lnd_in, c0_ocn_in
    logical, intent(in) :: zm_org_in, no_deep_pbl_in
    real(r8), intent(in) :: tau_in, tfreez_in, eps1_in
    real(r8), intent(in) :: rgrav_in, rgas_in, grav_in, cp_in
+   real(r8), intent(in) :: cpwv_in, rh2o_in
+   real(r8), intent(in) :: h2otrip_in
+   logical, intent(in) :: cam3_physics_in
    integer, intent(in) :: limcnv_in
+   character(len=*), intent(out) :: errmsg
+   integer, intent(out) :: errflg
 
    rl = rl_in
    cpres = cpres_in
@@ -96,7 +112,26 @@ subroutine zm_convr_init(rl_in, cpres_in, c0_lnd_in, c0_ocn_in, &
    grav = grav_in
    cp = cp_in
    limcnv = limcnv_in
+   cpwv_cfg = cpwv_in
+   rh2o_cfg = rh2o_in
+   cam3_physics_cfg = cam3_physics_in
+
+   call wv_sat_methods_init(kind(1._r8), tfreez_in, h2otrip_in, &
+                            373.16_r8, 20._r8, eps1_in, errmsg)
+   if (len_trim(errmsg) == 0) then
+      errflg = 0
+   else
+      errflg = 1
+   end if
 end subroutine zm_convr_init
+
+subroutine zm_convr_get_error(errmsg, errflg)
+   character(len=*), intent(out) :: errmsg
+   integer, intent(out) :: errflg
+
+   errmsg = scheme_errmsg
+   errflg = scheme_errflg
+end subroutine zm_convr_get_error
 
 !> \section arg_table_zm_convr_run Argument Table
 !! \htmlinclude zm_convr_run.html
@@ -136,8 +171,6 @@ subroutine zm_convr_run(lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
 ! and will make use of the standard CAM nomenclature
 !
 !-----------------------------------------------------------------------
-   use phys_control, only: cam_physpkg_is
-
 !
 ! ************************ index of variables **********************
 !
@@ -240,7 +273,6 @@ subroutine zm_convr_run(lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
    integer, intent(in) :: pcols                   ! declared horizontal dimension
    integer, intent(in) :: pver                    ! vertical layer dimension
    integer, intent(in) :: pverp                   ! vertical interface dimension
-
    real(r8), intent(in) :: t(pcols,pver)          ! grid slice of temperature at mid-layer.
    real(r8), intent(in) :: qh(pcols,pver)   ! grid slice of specific humidity.
    real(r8), intent(in) :: pap(pcols,pver)
@@ -429,6 +461,8 @@ subroutine zm_convr_run(lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
 !
 ! Set internal variable "msg" (convection limit) to "limcnv-1"
 !
+   scheme_errmsg = ''
+   scheme_errflg = 0
    msg = limcnv - 1
 !
 ! initialize necessary arrays.
@@ -560,7 +594,7 @@ subroutine zm_convr_run(lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
       dsubcld(i) = 0._r8
    end do
 
-   if( cam_physpkg_is('cam3')) then
+   if (cam3_physics_cfg) then
 
       !  For cam3 physics package, call non-dilute
 
@@ -581,6 +615,10 @@ subroutine zm_convr_run(lchnk   ,ncol    ,pcols   ,pver    ,pverp   , &
                   pblt    ,lcl     ,lel     ,lon     ,maxi     , &
                   rgas    ,grav    ,cpres   ,msg     , &
                   tpert   , org2d  , landfrac)
+   end if
+
+   if (scheme_errflg /= 0) then
+      return
    end if
 
 !
@@ -826,7 +864,7 @@ wtrpd(:,:) = rprdg(:,:)
 ! Treat rliq as flux out bottom, to be added back later.
    do k = 1, pver
       do i = 1, ncol
-         rliq(i) = rliq(i) + dlf(i,k)*dpp(i,k)/gravit
+         rliq(i) = rliq(i) + dlf(i,k)*dpp(i,k)/grav
       end do
    end do
    rliq(:ncol) = rliq(:ncol) /1000._r8
@@ -867,45 +905,45 @@ subroutine buoyan(lchnk   ,ncol    , &
    integer, intent(in) :: lchnk                 ! chunk identifier
    integer, intent(in) :: ncol                  ! number of atmospheric columns
 
-   real(r8), intent(in) :: q(pcols,pver)        ! spec. humidity
-   real(r8), intent(in) :: t(pcols,pver)        ! temperature
-   real(r8), intent(in) :: p(pcols,pver)        ! pressure
-   real(r8), intent(in) :: z(pcols,pver)        ! height
-   real(r8), intent(in) :: pf(pcols,pverp)      ! pressure at interfaces
-   real(r8), intent(in) :: pblt(pcols)          ! index of pbl depth
-   real(r8), intent(in) :: tpert(pcols)         ! perturbation temperature by pbl processes
+   real(r8), intent(in) :: q(pcols_cfg,pver_cfg)        ! spec. humidity
+   real(r8), intent(in) :: t(pcols_cfg,pver_cfg)        ! temperature
+   real(r8), intent(in) :: p(pcols_cfg,pver_cfg)        ! pressure
+   real(r8), intent(in) :: z(pcols_cfg,pver_cfg)        ! height
+   real(r8), intent(in) :: pf(pcols_cfg,pverp_cfg)      ! pressure at interfaces
+   real(r8), intent(in) :: pblt(pcols_cfg)          ! index of pbl depth
+   real(r8), intent(in) :: tpert(pcols_cfg)         ! perturbation temperature by pbl processes
 
 !
 ! output arguments
 !
-   real(r8), intent(out) :: tp(pcols,pver)       ! parcel temperature
-   real(r8), intent(out) :: qstp(pcols,pver)     ! saturation mixing ratio of parcel
-   real(r8), intent(out) :: tl(pcols)            ! parcel temperature at lcl
-   real(r8), intent(out) :: cape(pcols)          ! convective aval. pot. energy.
-   integer lcl(pcols)        !
-   integer lel(pcols)        !
-   integer lon(pcols)        ! level of onset of deep convection
-   integer mx(pcols)         ! level of max moist static energy
+   real(r8), intent(out) :: tp(pcols_cfg,pver_cfg)       ! parcel temperature
+   real(r8), intent(out) :: qstp(pcols_cfg,pver_cfg)     ! saturation mixing ratio of parcel
+   real(r8), intent(out) :: tl(pcols_cfg)            ! parcel temperature at lcl
+   real(r8), intent(out) :: cape(pcols_cfg)          ! convective aval. pot. energy.
+   integer lcl(pcols_cfg)        !
+   integer lel(pcols_cfg)        !
+   integer lon(pcols_cfg)        ! level of onset of deep convection
+   integer mx(pcols_cfg)         ! level of max moist static energy
 !
 !--------------------------Local Variables------------------------------
 !
-   real(r8) capeten(pcols,5)     ! provisional value of cape
-   real(r8) tv(pcols,pver)       !
-   real(r8) tpv(pcols,pver)      !
-   real(r8) buoy(pcols,pver)
+   real(r8) capeten(pcols_cfg,5)     ! provisional value of cape
+   real(r8) tv(pcols_cfg,pver_cfg)       !
+   real(r8) tpv(pcols_cfg,pver_cfg)      !
+   real(r8) buoy(pcols_cfg,pver_cfg)
 
-   real(r8) a1(pcols)
-   real(r8) a2(pcols)
-   real(r8) estp(pcols)
-   real(r8) pl(pcols)
-   real(r8) plexp(pcols)
-   real(r8) hmax(pcols)
-   real(r8) hmn(pcols)
-   real(r8) y(pcols)
+   real(r8) a1(pcols_cfg)
+   real(r8) a2(pcols_cfg)
+   real(r8) estp(pcols_cfg)
+   real(r8) pl(pcols_cfg)
+   real(r8) plexp(pcols_cfg)
+   real(r8) hmax(pcols_cfg)
+   real(r8) hmn(pcols_cfg)
+   real(r8) y(pcols_cfg)
 
-   logical plge600(pcols)
-   integer knt(pcols)
-   integer lelten(pcols,5)
+   logical plge600(pcols_cfg)
+   integer knt(pcols_cfg)
+   integer lelten(pcols_cfg,5)
 
    real(r8) cp
    real(r8) e
@@ -926,15 +964,15 @@ subroutine buoyan(lchnk   ,ncol    , &
 !
    do n = 1,5
       do i = 1,ncol
-         lelten(i,n) = pver
+         lelten(i,n) = pver_cfg
          capeten(i,n) = 0._r8
       end do
    end do
 !
    do i = 1,ncol
-      lon(i) = pver
+      lon(i) = pver_cfg
       knt(i) = 0
-      lel(i) = pver
+      lel(i) = pver_cfg
       mx(i) = lon(i)
       cape(i) = 0._r8
       hmax(i) = 0._r8
@@ -954,7 +992,7 @@ subroutine buoyan(lchnk   ,ncol    , &
 ! search for this level stops at planetary boundary layer top.
 !
 #ifdef PERGRO
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,ncol
          hmn(i) = cp*t(i,k) + grav*z(i,k) + rl*q(i,k)
 !
@@ -968,7 +1006,7 @@ subroutine buoyan(lchnk   ,ncol    , &
       end do
    end do
 #else
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,ncol
          hmn(i) = cp*t(i,k) + grav*z(i,k) + rl*q(i,k)
          if (k >= nint(pblt(i)) .and. k <= lon(i) .and. hmn(i) > hmax(i)) then
@@ -995,7 +1033,7 @@ subroutine buoyan(lchnk   ,ncol    , &
 !
 ! calculate lifting condensation level (lcl).
 !
-   do k = pver,msg + 2,-1
+   do k = pver_cfg,msg + 2,-1
       do i = 1,ncol
          if (k <= mx(i) .and. (p(i,k) > pl(i) .and. p(i,k-1) <= pl(i))) then
             lcl(i) = k - 1
@@ -1013,7 +1051,7 @@ subroutine buoyan(lchnk   ,ncol    , &
 !
 ! initialize parcel properties in sub-cloud layer below lcl.
 !
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i=1,ncol
          if (k > lcl(i) .and. k <= mx(i) .and. plge600(i)) then
             tv(i,k) = t(i,k)* (1._r8+1.608_r8*q(i,k))/ (1._r8+q(i,k))
@@ -1033,7 +1071,7 @@ subroutine buoyan(lchnk   ,ncol    , &
 !
 ! define parcel properties at lcl (i.e. level immediately above pl).
 !
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i=1,ncol
          if (k == lcl(i) .and. plge600(i)) then
             tv(i,k) = t(i,k)* (1._r8+1.608_r8*q(i,k))/ (1._r8+q(i,k))
@@ -1069,7 +1107,7 @@ subroutine buoyan(lchnk   ,ncol    , &
 !
 ! main buoyancy calculation.
 !
-   do k = pver - 1,msg + 1,-1
+   do k = pver_cfg - 1,msg + 1,-1
       do i=1,ncol
          if (k < lcl(i) .and. plge600(i)) then
             tv(i,k) = t(i,k)* (1._r8+1.608_r8*q(i,k))/ (1._r8+q(i,k))
@@ -1096,7 +1134,7 @@ subroutine buoyan(lchnk   ,ncol    , &
    end do
 
 !
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,ncol
          if (k < lcl(i) .and. plge600(i)) then
             if (buoy(i,k+1) > 0._r8 .and. buoy(i,k) <= 0._r8) then
@@ -1110,7 +1148,7 @@ subroutine buoyan(lchnk   ,ncol    , &
 ! calculate convective available potential energy (cape).
 !
    do n = 1,5
-      do k = msg + 1,pver
+      do k = msg + 1,pver_cfg
          do i = 1,ncol
             if (plge600(i) .and. k <= mx(i) .and. k > lelten(i,n)) then
                capeten(i,n) = capeten(i,n) + rd*buoy(i,k)*log(pf(i,k+1)/pf(i,k))
@@ -1184,65 +1222,65 @@ subroutine cldprp(lchnk   , &
 !
    integer, intent(in) :: lchnk                  ! chunk identifier
 
-   real(r8), intent(in) :: q(pcols,pver)         ! spec. humidity of env
-   real(r8), intent(in) :: t(pcols,pver)         ! temp of env
-   real(r8), intent(in) :: p(pcols,pver)         ! pressure of env
-   real(r8), intent(in) :: z(pcols,pver)         ! height of env
-   real(r8), intent(in) :: s(pcols,pver)         ! normalized dry static energy of env
-   real(r8), intent(in) :: zf(pcols,pverp)       ! height of interfaces
-   real(r8), intent(in) :: u(pcols,pver)         ! zonal velocity of env
-   real(r8), intent(in) :: v(pcols,pver)         ! merid. velocity of env
+   real(r8), intent(in) :: q(pcols_cfg,pver_cfg)         ! spec. humidity of env
+   real(r8), intent(in) :: t(pcols_cfg,pver_cfg)         ! temp of env
+   real(r8), intent(in) :: p(pcols_cfg,pver_cfg)         ! pressure of env
+   real(r8), intent(in) :: z(pcols_cfg,pver_cfg)         ! height of env
+   real(r8), intent(in) :: s(pcols_cfg,pver_cfg)         ! normalized dry static energy of env
+   real(r8), intent(in) :: zf(pcols_cfg,pverp_cfg)       ! height of interfaces
+   real(r8), intent(in) :: u(pcols_cfg,pver_cfg)         ! zonal velocity of env
+   real(r8), intent(in) :: v(pcols_cfg,pver_cfg)         ! merid. velocity of env
 
-   real(r8), intent(in) :: landfrac(pcols) ! RBN Landfrac
+   real(r8), intent(in) :: landfrac(pcols_cfg) ! RBN Landfrac
 
-   integer, intent(in) :: jb(pcols)              ! updraft base level
-   integer, intent(in) :: lel(pcols)             ! updraft launch level
-   integer, intent(out) :: jt(pcols)              ! updraft plume top
-   integer, intent(out) :: jlcl(pcols)            ! updraft lifting cond level
-   integer, intent(in) :: mx(pcols)              ! updraft base level (same is jb)
-   integer, intent(out) :: j0(pcols)              ! level where updraft begins detraining
-   integer, intent(out) :: jd(pcols)              ! level of downdraft
+   integer, intent(in) :: jb(pcols_cfg)              ! updraft base level
+   integer, intent(in) :: lel(pcols_cfg)             ! updraft launch level
+   integer, intent(out) :: jt(pcols_cfg)              ! updraft plume top
+   integer, intent(out) :: jlcl(pcols_cfg)            ! updraft lifting cond level
+   integer, intent(in) :: mx(pcols_cfg)              ! updraft base level (same is jb)
+   integer, intent(out) :: j0(pcols_cfg)              ! level where updraft begins detraining
+   integer, intent(out) :: jd(pcols_cfg)              ! level of downdraft
    integer, intent(in) :: limcnv                 ! convection limiting level
    integer, intent(in) :: il2g                   !CORE GROUP REMOVE
    integer, intent(in) :: msg                    ! missing moisture vals (always 0)
    real(r8), intent(in) :: rl                    ! latent heat of vap
-   real(r8), intent(in) :: shat(pcols,pver)      ! interface values of dry stat energy
+   real(r8), intent(in) :: shat(pcols_cfg,pver_cfg)      ! interface values of dry stat energy
 !
 ! output
 !
-   real(r8), intent(out) :: rprd(pcols,pver)     ! rate of production of precip at that layer
-   real(r8), intent(out) :: du(pcols,pver)       ! detrainement rate of updraft
-   real(r8), intent(out) :: ed(pcols,pver)       ! entrainment rate of downdraft
-   real(r8), intent(out) :: eu(pcols,pver)       ! entrainment rate of updraft
-   real(r8), intent(out) :: hmn(pcols,pver)      ! moist stat energy of env
-   real(r8), intent(out) :: hsat(pcols,pver)     ! sat moist stat energy of env
-   real(r8), intent(out) :: mc(pcols,pver)       ! net mass flux
-   real(r8), intent(out) :: md(pcols,pver)       ! downdraft mass flux
-   real(r8), intent(out) :: mu(pcols,pver)       ! updraft mass flux
-   real(r8), intent(out) :: pflx(pcols,pverp)    ! precipitation flux thru layer
-   real(r8), intent(out) :: qd(pcols,pver)       ! spec humidity of downdraft
-   real(r8), intent(out) :: ql(pcols,pver)       ! liq water of updraft
-   real(r8), intent(out) :: qst(pcols,pver)      ! saturation mixing ratio of env.
-   real(r8), intent(out) :: qu(pcols,pver)       ! spec hum of updraft
-   real(r8), intent(out) :: sd(pcols,pver)       ! normalized dry stat energy of downdraft
-   real(r8), intent(out) :: su(pcols,pver)       ! normalized dry stat energy of updraft
+   real(r8), intent(out) :: rprd(pcols_cfg,pver_cfg)     ! rate of production of precip at that layer
+   real(r8), intent(out) :: du(pcols_cfg,pver_cfg)       ! detrainement rate of updraft
+   real(r8), intent(out) :: ed(pcols_cfg,pver_cfg)       ! entrainment rate of downdraft
+   real(r8), intent(out) :: eu(pcols_cfg,pver_cfg)       ! entrainment rate of updraft
+   real(r8), intent(out) :: hmn(pcols_cfg,pver_cfg)      ! moist stat energy of env
+   real(r8), intent(out) :: hsat(pcols_cfg,pver_cfg)     ! sat moist stat energy of env
+   real(r8), intent(out) :: mc(pcols_cfg,pver_cfg)       ! net mass flux
+   real(r8), intent(out) :: md(pcols_cfg,pver_cfg)       ! downdraft mass flux
+   real(r8), intent(out) :: mu(pcols_cfg,pver_cfg)       ! updraft mass flux
+   real(r8), intent(out) :: pflx(pcols_cfg,pverp_cfg)    ! precipitation flux thru layer
+   real(r8), intent(out) :: qd(pcols_cfg,pver_cfg)       ! spec humidity of downdraft
+   real(r8), intent(out) :: ql(pcols_cfg,pver_cfg)       ! liq water of updraft
+   real(r8), intent(out) :: qst(pcols_cfg,pver_cfg)      ! saturation mixing ratio of env.
+   real(r8), intent(out) :: qu(pcols_cfg,pver_cfg)       ! spec hum of updraft
+   real(r8), intent(out) :: sd(pcols_cfg,pver_cfg)       ! normalized dry stat energy of downdraft
+   real(r8), intent(out) :: su(pcols_cfg,pver_cfg)       ! normalized dry stat energy of updraft
 
    !Needed for Water Tracers:
-   real(r8), intent(out) :: tut(pcols,pver)  !updraft temperature (from su)
-   real(r8), intent(out) :: tdt(pcols,pver)  !downdarft temperature (from sd)
-   real(r8), intent(out) :: dz(pcols,pver)   !Layer thickness [m]
-   real(r8), intent(out) :: rppe(pcols,pver) !Rain production pre-evaporation
-   real(r8), intent(out) :: eps0(pcols)
-   real(r8), intent(out) :: qsthat(pcols,pver) !qsat at interfaces
-   real(r8), intent(out) :: hsthat(pcols,pver) !hsat at interfaces
-   real(r8), intent(out) :: qds(pcols,pver)    !saturation mixing ratio in downdraft
-   real(r8), intent(out) :: wtmu(pcols,pver)   !initial updraft mass flux value
-   real(r8), intent(out) :: wtdu(pcols,pver)   !detrainment in updraft beginning values
-   real(r8), intent(out) :: wteu(pcols,pver)   !entrainment in updraft beginning values
-   real(r8), intent(out) :: wted(pcols,pver)   !entrainment in dwndraft beginning values (not needed)
-   real(r8), intent(out) :: wtmd(pcols,pver)   !donwdraft mass flux beginning values
-   real(r8), intent(out) :: wtevp(pcols,pver)  !evaporation rate pre-precip limited
-   logical , intent(out) :: wtdn(pcols,pver)   !Endpoint of updraft loop
+   real(r8), intent(out) :: tut(pcols_cfg,pver_cfg)  !updraft temperature (from su)
+   real(r8), intent(out) :: tdt(pcols_cfg,pver_cfg)  !downdarft temperature (from sd)
+   real(r8), intent(out) :: dz(pcols_cfg,pver_cfg)   !Layer thickness [m]
+   real(r8), intent(out) :: rppe(pcols_cfg,pver_cfg) !Rain production pre-evaporation
+   real(r8), intent(out) :: eps0(pcols_cfg)
+   real(r8), intent(out) :: qsthat(pcols_cfg,pver_cfg) !qsat at interfaces
+   real(r8), intent(out) :: hsthat(pcols_cfg,pver_cfg) !hsat at interfaces
+   real(r8), intent(out) :: qds(pcols_cfg,pver_cfg)    !saturation mixing ratio in downdraft
+   real(r8), intent(out) :: wtmu(pcols_cfg,pver_cfg)   !initial updraft mass flux value
+   real(r8), intent(out) :: wtdu(pcols_cfg,pver_cfg)   !detrainment in updraft beginning values
+   real(r8), intent(out) :: wteu(pcols_cfg,pver_cfg)   !entrainment in updraft beginning values
+   real(r8), intent(out) :: wted(pcols_cfg,pver_cfg)   !entrainment in dwndraft beginning values (not needed)
+   real(r8), intent(out) :: wtmd(pcols_cfg,pver_cfg)   !donwdraft mass flux beginning values
+   real(r8), intent(out) :: wtevp(pcols_cfg,pver_cfg)  !evaporation rate pre-precip limited
+   logical , intent(out) :: wtdn(pcols_cfg,pver_cfg)   !Endpoint of updraft loop
 
    real(r8) rd                   ! gas constant for dry air
    real(r8) grav                 ! gravity
@@ -1251,44 +1289,44 @@ subroutine cldprp(lchnk   , &
 !
 ! Local workspace
 !
-   real(r8) gamma(pcols,pver)
-!   real(r8) dz(pcols,pver)
-   real(r8) iprm(pcols,pver)
-   real(r8) hu(pcols,pver)
-   real(r8) hd(pcols,pver)
-   real(r8) eps(pcols,pver)
-   real(r8) f(pcols,pver)
-   real(r8) k1(pcols,pver)
-   real(r8) i2(pcols,pver)
-   real(r8) ihat(pcols,pver)
-   real(r8) i3(pcols,pver)
-   real(r8) idag(pcols,pver)
-   real(r8) i4(pcols,pver)
- !  real(r8) qsthat(pcols,pver)
- !  real(r8) hsthat(pcols,pver)
-   real(r8) gamhat(pcols,pver)
-   real(r8) cu(pcols,pver)
-   real(r8) evp(pcols,pver)
-   real(r8) cmeg(pcols,pver)
- !  real(r8) qds(pcols,pver)
+   real(r8) gamma(pcols_cfg,pver_cfg)
+!   real(r8) dz(pcols_cfg,pver_cfg)
+   real(r8) iprm(pcols_cfg,pver_cfg)
+   real(r8) hu(pcols_cfg,pver_cfg)
+   real(r8) hd(pcols_cfg,pver_cfg)
+   real(r8) eps(pcols_cfg,pver_cfg)
+   real(r8) f(pcols_cfg,pver_cfg)
+   real(r8) k1(pcols_cfg,pver_cfg)
+   real(r8) i2(pcols_cfg,pver_cfg)
+   real(r8) ihat(pcols_cfg,pver_cfg)
+   real(r8) i3(pcols_cfg,pver_cfg)
+   real(r8) idag(pcols_cfg,pver_cfg)
+   real(r8) i4(pcols_cfg,pver_cfg)
+ !  real(r8) qsthat(pcols_cfg,pver_cfg)
+ !  real(r8) hsthat(pcols_cfg,pver_cfg)
+   real(r8) gamhat(pcols_cfg,pver_cfg)
+   real(r8) cu(pcols_cfg,pver_cfg)
+   real(r8) evp(pcols_cfg,pver_cfg)
+   real(r8) cmeg(pcols_cfg,pver_cfg)
+ !  real(r8) qds(pcols_cfg,pver_cfg)
 ! RBN For c0mask
- !  real(r8) c0mask(pcols)
-   real(r8), intent(out) :: c0mask(pcols)
+ !  real(r8) c0mask(pcols_cfg)
+   real(r8), intent(out) :: c0mask(pcols_cfg)
 
-   real(r8) hmin(pcols)
-   real(r8) expdif(pcols)
-   real(r8) expnum(pcols)
-   real(r8) ftemp(pcols)
-!   real(r8) eps0(pcols)
-   real(r8) rmue(pcols)
-   real(r8) zuef(pcols)
-   real(r8) zdef(pcols)
-   real(r8) epsm(pcols)
-   real(r8) ratmjb(pcols)
-   real(r8) est(pcols)
-   real(r8) totpcp(pcols)
-   real(r8) totevp(pcols)
-   real(r8) alfa(pcols)
+   real(r8) hmin(pcols_cfg)
+   real(r8) expdif(pcols_cfg)
+   real(r8) expnum(pcols_cfg)
+   real(r8) ftemp(pcols_cfg)
+!   real(r8) eps0(pcols_cfg)
+   real(r8) rmue(pcols_cfg)
+   real(r8) zuef(pcols_cfg)
+   real(r8) zdef(pcols_cfg)
+   real(r8) epsm(pcols_cfg)
+   real(r8) ratmjb(pcols_cfg)
+   real(r8) est(pcols_cfg)
+   real(r8) totpcp(pcols_cfg)
+   real(r8) totevp(pcols_cfg)
+   real(r8) alfa(pcols_cfg)
    real(r8) ql1
    real(r8) tu
    real(r8) estu
@@ -1302,8 +1340,8 @@ subroutine cldprp(lchnk   , &
    integer kount
    integer i,k
 
-   logical doit(pcols)
-   logical done(pcols)
+   logical doit(pcols_cfg)
+   logical done(pcols_cfg)
 !
 !------------------------------------------------------------------------------
 !
@@ -1316,7 +1354,7 @@ subroutine cldprp(lchnk   , &
 !
 !jr Change from msg+1 to 1 to prevent blowup
 !
-   do k = 1,pver
+   do k = 1,pver_cfg
       do i = 1,il2g
          dz(i,k) = zf(i,k) - zf(i,k+1)
       end do
@@ -1327,7 +1365,7 @@ subroutine cldprp(lchnk   , &
 !
    pflx(:il2g,1) = 0
 
-   do k = 1,pver
+   do k = 1,pver_cfg
       do i = 1,il2g
          k1(i,k) = 0._r8
          i2(i,k) = 0._r8
@@ -1390,7 +1428,7 @@ subroutine cldprp(lchnk   , &
       totpcp(i) = 0._r8
       totevp(i) = 0._r8
    end do
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,il2g
          if (abs(qst(i,k-1)-qst(i,k)) > 1.E-6_r8) then
             qsthat(i,k) = log(qst(i,k-1)/qst(i,k))*qst(i,k-1)*qst(i,k)/ (qst(i,k-1)-qst(i,k))
@@ -1408,13 +1446,13 @@ subroutine cldprp(lchnk   , &
    end do
 !
 ! initialize cloud top to highest plume top.
-!jr changed hard-wired 4 to limcnv+1 (not to exceed pver)
+!jr changed hard-wired 4 to limcnv+1 (not to exceed pver_cfg)
 !
-   jt(:) = pver
+   jt(:) = pver_cfg
    do i = 1,il2g
       jt(i) = max(lel(i),limcnv+1)
-      jt(i) = min(jt(i),pver)
-      jd(i) = pver
+      jt(i) = min(jt(i),pver_cfg)
+      jd(i) = pver_cfg
       jlcl(i) = lel(i)
       hmin(i) = 1.E6_r8
    end do
@@ -1423,7 +1461,7 @@ subroutine cldprp(lchnk   , &
 ! find the level of minimum hsat, where detrainment starts
 !
 
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
          if (hsat(i,k) <= hmin(i) .and. k >= jt(i) .and. k <= jb(i)) then
             hmin(i) = hsat(i,k)
@@ -1437,12 +1475,12 @@ subroutine cldprp(lchnk   , &
 !
 ! Fix from Guang Zhang to address out of bounds array reference
 !
-      j0(i) = min(j0(i),pver)
+      j0(i) = min(j0(i),pver_cfg)
    end do
 !
 ! Initialize certain arrays inside cloud
 !
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
          if (k >= jt(i) .and. k <= jb(i)) then
             hu(i,k) = hmn(i,mx(i)) + cp*tiedke_add
@@ -1455,7 +1493,7 @@ subroutine cldprp(lchnk   , &
 ! compute taylor series for approximate eps(z) below
 ! *********************************************************
 !
-   do k = pver - 1,msg + 1,-1
+   do k = pver_cfg - 1,msg + 1,-1
       do i = 1,il2g
          if (k < jb(i) .and. k >= jt(i)) then
             k1(i,k) = k1(i,k+1) + (hmn(i,mx(i))-hmn(i,k))*dz(i,k)
@@ -1474,7 +1512,7 @@ subroutine cldprp(lchnk   , &
    do i = 1,il2g
       hmin(i) = 1.E6_r8
    end do
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
          if (k >= j0(i) .and. k <= jb(i) .and. hmn(i,k) <= hmin(i)) then
             hmin(i) = hmn(i,k)
@@ -1487,7 +1525,7 @@ subroutine cldprp(lchnk   , &
 ! compute approximate eps(z) using above taylor series
 ! *********************************************************
 !
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,il2g
          expnum(i) = 0._r8
          ftemp(i) = 0._r8
@@ -1516,7 +1554,7 @@ subroutine cldprp(lchnk   , &
          if (f(i,j0(i)) < 1.E-6_r8 .and. f(i,j0(i)+1) > f(i,j0(i))) j0(i) = j0(i) + 1
       end if
    end do
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,il2g
          if (k >= jt(i) .and. k <= j0(i)) then
             f(i,k) = max(f(i,k),f(i,k-1))
@@ -1530,14 +1568,14 @@ subroutine cldprp(lchnk   , &
 !
 ! This is set to match the Rasch and Kristjansson paper
 !
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,il2g
          if (k >= j0(i) .and. k <= jb(i)) then
             eps(i,k) = f(i,j0(i))
          end if
       end do
    end do
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,il2g
          if (k < j0(i) .and. k >= jt(i)) eps(i,k) = f(i,k)
       end do
@@ -1553,7 +1591,7 @@ subroutine cldprp(lchnk   , &
          eu(i,jb(i)) = mu(i,jb(i))/dz(i,jb(i))
       end if
    end do
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,il2g
          if (eps0(i) > 0._r8 .and. (k >= jt(i) .and. k < jb(i))) then
             zuef(i) = zf(i,k) - zf(i,jb(i))
@@ -1565,7 +1603,7 @@ subroutine cldprp(lchnk   , &
       end do
    end do
 !
-   khighest = pverp
+   khighest = pverp_cfg
    klowest = 1
    do i=1,il2g
       khighest = min(khighest,lel(i))
@@ -1613,7 +1651,7 @@ subroutine cldprp(lchnk   , &
          end if
       end do
    end do
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,il2g
          if (k >= lel(i) .and. k <= jt(i) .and. eps0(i) > 0._r8) then
             mu(i,k) = 0._r8
@@ -1647,7 +1685,7 @@ subroutine cldprp(lchnk   , &
          md(i,jd(i)) = -alfa(i)*epsm(i)/eps0(i)
       end if
    end do
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
          if ((k > jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8) then
             zdef(i) = zf(i,jd(i)) - zf(i,k)
@@ -1655,7 +1693,7 @@ subroutine cldprp(lchnk   , &
          end if
       end do
    end do
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
          if ((k >= jt(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8 .and. jd(i) < jb(i)) then
             ratmjb(i) = min(abs(mu(i,jb(i))/md(i,jb(i))),1._r8)
@@ -1665,9 +1703,9 @@ subroutine cldprp(lchnk   , &
    end do
 
    small = 1.e-20_r8
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
-         if ((k >= jt(i) .and. k <= pver) .and. eps0(i) > 0._r8) then
+         if ((k >= jt(i) .and. k <= pver_cfg) .and. eps0(i) > 0._r8) then
             ed(i,k-1) = (md(i,k-1)-md(i,k))/dz(i,k-1)
             mdt = min(md(i,k),-small)
             hd(i,k) = (md(i,k-1)*hd(i,k-1) - dz(i,k-1)*ed(i,k-1)*hmn(i,k-1))/mdt
@@ -1685,7 +1723,7 @@ wteu(:,:) = eu(:,:)
 !
 ! calculate updraft and downdraft properties.
 !
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,il2g
          if ((k >= jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8 .and. jd(i) < jb(i)) then
             qds(i,k) = qsthat(i,k) + gamhat(i,k)*(hd(i,k)-hsthat(i,k))/ &
@@ -1700,7 +1738,7 @@ wteu(:,:) = eu(:,:)
       wtdn(i,:) = .false.
    end do
    kount = 0
-   do k = pver,msg + 2,-1
+   do k = pver_cfg,msg + 2,-1
       do i = 1,il2g
          if (k == jb(i) .and. eps0(i) > 0._r8) then
             qu(i,k) = q(i,mx(i))
@@ -1725,7 +1763,7 @@ wteu(:,:) = eu(:,:)
       if (kount >= il2g) goto 690
    end do
 690 continue
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,il2g
          if ((k > jt(i) .and. k <= jlcl(i)) .and. eps0(i) > 0._r8) then
             su(i,k) = shat(i,k) + (hu(i,k)-hsthat(i,k))/(cp* (1._r8+gamhat(i,k)))
@@ -1737,7 +1775,7 @@ wteu(:,:) = eu(:,:)
    end do
 
 ! compute condensation in updraft
-   do k = pver,msg + 2,-1
+   do k = pver_cfg,msg + 2,-1
       do i = 1,il2g
          if (k >= jt(i) .and. k < jb(i) .and. eps0(i) > 0._r8) then
             cu(i,k) = ((mu(i,k)*su(i,k)-mu(i,k+1)*su(i,k+1))/ &
@@ -1755,7 +1793,7 @@ wteu(:,:) = eu(:,:)
 ! consistently applied.
 !    mu, ql are interface quantities
 !    cu, du, eu, rprd are midpoint quantites
-   do k = pver,msg + 2,-1
+   do k = pver_cfg,msg + 2,-1
       do i = 1,il2g
          rprd(i,k) = 0._r8
          if (k >= jt(i) .and. k < jb(i) .and. eps0(i) > 0._r8 .and. mu(i,k) >= 0.0_r8) then
@@ -1782,7 +1820,7 @@ rppe(:,:) = rprd(:,:)
       tdt(i,jd(i)) = sd(i,jd(i)) - grav/cp*zf(i,jd(i))
    end do
 !
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
      do i = 1,il2g
          if (k >= jd(i) .and. k < jb(i) .and. eps0(i) > 0._r8) then
             qd(i,k+1) = qds(i,k+1)
@@ -1820,7 +1858,7 @@ rppe(:,:) = rprd(:,:)
       totevp(i) = max(totevp(i),0._r8)
    end do
 !
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,il2g
          if (totevp(i) > 0._r8 .and. totpcp(i) > 0._r8) then
             md(i,k)  = md (i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
@@ -1840,13 +1878,13 @@ rppe(:,:) = rprd(:,:)
 
 ! compute the net precipitation flux across interfaces
    pflx(:il2g,1) = 0._r8
-   do k = 2,pverp
+   do k = 2,pverp_cfg
       do i = 1,il2g
          pflx(i,k) = pflx(i,k-1) + rprd(i,k-1)*dz(i,k-1)
       end do
    end do
 !
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = 1,il2g
          mc(i,k) = mu(i,k) + md(i,k)
       end do
@@ -1882,8 +1920,6 @@ subroutine closure(lchnk   , &
 ! the documentation has been enhanced to the degree that we are able
 !
 !-----------------------------------------------------------------------
-   use dycore,    only: dycore_is, get_resolution
-
    implicit none
 
 !
@@ -1891,53 +1927,53 @@ subroutine closure(lchnk   , &
 !
    integer, intent(in) :: lchnk                 ! chunk identifier
 
-   real(r8), intent(inout) :: q(pcols,pver)        ! spec humidity
-   real(r8), intent(inout) :: t(pcols,pver)        ! temperature
-   real(r8), intent(inout) :: p(pcols,pver)        ! pressure (mb)
-   real(r8), intent(inout) :: mb(pcols)            ! cloud base mass flux
-   real(r8), intent(in) :: z(pcols,pver)        ! height (m)
-   real(r8), intent(in) :: s(pcols,pver)        ! normalized dry static energy
-   real(r8), intent(in) :: tp(pcols,pver)       ! parcel temp
-   real(r8), intent(in) :: qs(pcols,pver)       ! sat spec humidity
-   real(r8), intent(in) :: qu(pcols,pver)       ! updraft spec. humidity
-   real(r8), intent(in) :: su(pcols,pver)       ! normalized dry stat energy of updraft
-   real(r8), intent(in) :: mc(pcols,pver)       ! net convective mass flux
-   real(r8), intent(in) :: du(pcols,pver)       ! detrainment from updraft
-   real(r8), intent(in) :: mu(pcols,pver)       ! mass flux of updraft
-   real(r8), intent(in) :: md(pcols,pver)       ! mass flux of downdraft
-   real(r8), intent(in) :: qd(pcols,pver)       ! spec. humidity of downdraft
-   real(r8), intent(in) :: sd(pcols,pver)       ! dry static energy of downdraft
-   real(r8), intent(in) :: qhat(pcols,pver)     ! environment spec humidity at interfaces
-   real(r8), intent(in) :: shat(pcols,pver)     ! env. normalized dry static energy at intrfcs
-   real(r8), intent(in) :: dp(pcols,pver)       ! pressure thickness of layers
-   real(r8), intent(in) :: qstp(pcols,pver)     ! spec humidity of parcel
-   real(r8), intent(in) :: zf(pcols,pverp)      ! height of interface levels
-   real(r8), intent(in) :: ql(pcols,pver)       ! liquid water mixing ratio
+   real(r8), intent(inout) :: q(pcols_cfg,pver_cfg)        ! spec humidity
+   real(r8), intent(inout) :: t(pcols_cfg,pver_cfg)        ! temperature
+   real(r8), intent(inout) :: p(pcols_cfg,pver_cfg)        ! pressure (mb)
+   real(r8), intent(inout) :: mb(pcols_cfg)            ! cloud base mass flux
+   real(r8), intent(in) :: z(pcols_cfg,pver_cfg)        ! height (m)
+   real(r8), intent(in) :: s(pcols_cfg,pver_cfg)        ! normalized dry static energy
+   real(r8), intent(in) :: tp(pcols_cfg,pver_cfg)       ! parcel temp
+   real(r8), intent(in) :: qs(pcols_cfg,pver_cfg)       ! sat spec humidity
+   real(r8), intent(in) :: qu(pcols_cfg,pver_cfg)       ! updraft spec. humidity
+   real(r8), intent(in) :: su(pcols_cfg,pver_cfg)       ! normalized dry stat energy of updraft
+   real(r8), intent(in) :: mc(pcols_cfg,pver_cfg)       ! net convective mass flux
+   real(r8), intent(in) :: du(pcols_cfg,pver_cfg)       ! detrainment from updraft
+   real(r8), intent(in) :: mu(pcols_cfg,pver_cfg)       ! mass flux of updraft
+   real(r8), intent(in) :: md(pcols_cfg,pver_cfg)       ! mass flux of downdraft
+   real(r8), intent(in) :: qd(pcols_cfg,pver_cfg)       ! spec. humidity of downdraft
+   real(r8), intent(in) :: sd(pcols_cfg,pver_cfg)       ! dry static energy of downdraft
+   real(r8), intent(in) :: qhat(pcols_cfg,pver_cfg)     ! environment spec humidity at interfaces
+   real(r8), intent(in) :: shat(pcols_cfg,pver_cfg)     ! env. normalized dry static energy at intrfcs
+   real(r8), intent(in) :: dp(pcols_cfg,pver_cfg)       ! pressure thickness of layers
+   real(r8), intent(in) :: qstp(pcols_cfg,pver_cfg)     ! spec humidity of parcel
+   real(r8), intent(in) :: zf(pcols_cfg,pverp_cfg)      ! height of interface levels
+   real(r8), intent(in) :: ql(pcols_cfg,pver_cfg)       ! liquid water mixing ratio
 
-   real(r8), intent(in) :: cape(pcols)          ! available pot. energy of column
-   real(r8), intent(in) :: tl(pcols)
-   real(r8), intent(in) :: dsubcld(pcols)       ! thickness of subcloud layer
+   real(r8), intent(in) :: cape(pcols_cfg)          ! available pot. energy of column
+   real(r8), intent(in) :: tl(pcols_cfg)
+   real(r8), intent(in) :: dsubcld(pcols_cfg)       ! thickness of subcloud layer
 
-   integer, intent(in) :: lcl(pcols)        ! index of lcl
-   integer, intent(in) :: lel(pcols)        ! index of launch leve
-   integer, intent(in) :: jt(pcols)         ! top of updraft
-   integer, intent(in) :: mx(pcols)         ! base of updraft
+   integer, intent(in) :: lcl(pcols_cfg)        ! index of lcl
+   integer, intent(in) :: lel(pcols_cfg)        ! index of launch leve
+   integer, intent(in) :: jt(pcols_cfg)         ! top of updraft
+   integer, intent(in) :: mx(pcols_cfg)         ! base of updraft
 !
 !--------------------------Local variables------------------------------
 !
-   real(r8) dtpdt(pcols,pver)
-   real(r8) dqsdtp(pcols,pver)
-   real(r8) dtmdt(pcols,pver)
-   real(r8) dqmdt(pcols,pver)
-   real(r8) dboydt(pcols,pver)
-   real(r8) thetavp(pcols,pver)
-   real(r8) thetavm(pcols,pver)
+   real(r8) dtpdt(pcols_cfg,pver_cfg)
+   real(r8) dqsdtp(pcols_cfg,pver_cfg)
+   real(r8) dtmdt(pcols_cfg,pver_cfg)
+   real(r8) dqmdt(pcols_cfg,pver_cfg)
+   real(r8) dboydt(pcols_cfg,pver_cfg)
+   real(r8) thetavp(pcols_cfg,pver_cfg)
+   real(r8) thetavm(pcols_cfg,pver_cfg)
 
-   real(r8) dtbdt(pcols),dqbdt(pcols),dtldt(pcols)
+   real(r8) dtbdt(pcols_cfg),dqbdt(pcols_cfg),dtldt(pcols_cfg)
    real(r8) beta
    real(r8) capelmt
    real(r8) cp
-   real(r8) dadt(pcols)
+   real(r8) dadt(pcols_cfg)
    real(r8) debdt
    real(r8) dltaa
    real(r8) eb
@@ -1973,14 +2009,14 @@ subroutine closure(lchnk   , &
 !
 !   dtmdt and dqmdt are cumulus heating and drying.
 !
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = il1g,il2g
          dtmdt(i,k) = 0._r8
          dqmdt(i,k) = 0._r8
       end do
    end do
 !
-   do k = msg + 1,pver - 1
+   do k = msg + 1,pver_cfg - 1
       do i = il1g,il2g
          if (k == jt(i)) then
             dtmdt(i,k) = (1._r8/dp(i,k))*(mu(i,k+1)* (su(i,k+1)-shat(i,k+1)- &
@@ -1992,7 +2028,7 @@ subroutine closure(lchnk   , &
    end do
 !
    beta = 0._r8
-   do k = msg + 1,pver - 1
+   do k = msg + 1,pver_cfg - 1
       do i = il1g,il2g
          if (k > jt(i) .and. k < mx(i)) then
             dtmdt(i,k) = (mc(i,k)* (shat(i,k)-s(i,k))+mc(i,k+1)* (s(i,k)-shat(i,k+1)))/ &
@@ -2011,7 +2047,7 @@ subroutine closure(lchnk   , &
       end do
    end do
 !
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = il1g,il2g
          if (k >= lel(i) .and. k <= lcl(i)) then
             thetavp(i,k) = tp(i,k)* (1000._r8/p(i,k))** (rd/cp)*(1._r8+1.608_r8*qstp(i,k)-q(i,mx(i)))
@@ -2034,7 +2070,7 @@ subroutine closure(lchnk   , &
       end do
    end do
 !
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = il1g,il2g
          if (k > lcl(i) .and. k < mx(i)) then
             thetavp(i,k) = tp(i,k)* (1000._r8/p(i,k))** (rd/cp)*(1._r8+0.608_r8*q(i,mx(i)))
@@ -2102,29 +2138,29 @@ subroutine q1q2_pjr(lchnk   , &
    integer, intent(in) :: il2g
    integer, intent(in) :: msg
 
-   real(r8), intent(in) :: q(pcols,pver)
-   real(r8), intent(in) :: qs(pcols,pver)
-   real(r8), intent(in) :: qu(pcols,pver)
-   real(r8), intent(in) :: su(pcols,pver)
-   real(r8), intent(in) :: du(pcols,pver)
-   real(r8), intent(in) :: qhat(pcols,pver)
-   real(r8), intent(in) :: shat(pcols,pver)
-   real(r8), intent(in) :: dp(pcols,pver)
-   real(r8), intent(in) :: mu(pcols,pver)
-   real(r8), intent(in) :: md(pcols,pver)
-   real(r8), intent(in) :: sd(pcols,pver)
-   real(r8), intent(in) :: qd(pcols,pver)
-   real(r8), intent(in) :: ql(pcols,pver)
-   real(r8), intent(in) :: evp(pcols,pver)
-   real(r8), intent(in) :: cu(pcols,pver)
-   real(r8), intent(in) :: dsubcld(pcols)
+   real(r8), intent(in) :: q(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: qs(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: qu(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: su(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: du(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: qhat(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: shat(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: dp(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: mu(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: md(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: sd(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: qd(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: ql(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: evp(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: cu(pcols_cfg,pver_cfg)
+   real(r8), intent(in) :: dsubcld(pcols_cfg)
 
-   real(r8),intent(out) :: dqdt(pcols,pver),dsdt(pcols,pver)
-   real(r8),intent(out) :: dl(pcols,pver)
+   real(r8),intent(out) :: dqdt(pcols_cfg,pver_cfg),dsdt(pcols_cfg,pver_cfg)
+   real(r8),intent(out) :: dl(pcols_cfg,pver_cfg)
    integer kbm
    integer ktm
-   integer jt(pcols)
-   integer mx(pcols)
+   integer jt(pcols_cfg)
+   integer mx(pcols_cfg)
 !
 ! work fields:
 !
@@ -2134,7 +2170,7 @@ subroutine q1q2_pjr(lchnk   , &
    real(r8) emc
    real(r8) rl
 !-------------------------------------------------------------------
-   do k = msg + 1,pver
+   do k = msg + 1,pver_cfg
       do i = il1g,il2g
          dsdt(i,k) = 0._r8
          dqdt(i,k) = 0._r8
@@ -2144,14 +2180,14 @@ subroutine q1q2_pjr(lchnk   , &
 !
 ! find the highest level top and bottom levels of convection
 !
-   ktm = pver
-   kbm = pver
+   ktm = pver_cfg
+   kbm = pver_cfg
    do i = il1g, il2g
       ktm = min(ktm,jt(i))
       kbm = min(kbm,mx(i))
    end do
 
-   do k = ktm,pver-1
+   do k = ktm,pver_cfg-1
       do i = il1g,il2g
          emc = -cu (i,k)               &         ! condensation in updraft
                +evp(i,k)                         ! evaporating rain in downdraft
@@ -2177,7 +2213,7 @@ subroutine q1q2_pjr(lchnk   , &
 
 !
 !DIR$ NOINTERCHANGE!
-   do k = kbm,pver
+   do k = kbm,pver_cfg
       do i = il1g,il2g
          if (k == mx(i)) then
             dsdt(i,k) = (1._r8/dsubcld(i))* &
@@ -2237,48 +2273,48 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
    integer, intent(in) :: lchnk                 ! chunk identifier
    integer, intent(in) :: ncol                  ! number of atmospheric columns
 
-   real(r8), intent(in) :: q(pcols,pver)        ! spec. humidity
-   real(r8), intent(in) :: t(pcols,pver)        ! temperature
-   real(r8), intent(in) :: p(pcols,pver)        ! pressure
-   real(r8), intent(in) :: z(pcols,pver)        ! height
-   real(r8), intent(in) :: pf(pcols,pverp)      ! pressure at interfaces
-   real(r8), intent(in) :: pblt(pcols)          ! index of pbl depth
-   real(r8), intent(in) :: tpert(pcols)         ! perturbation temperature by pbl processes
+   real(r8), intent(in) :: q(pcols_cfg,pver_cfg)        ! spec. humidity
+   real(r8), intent(in) :: t(pcols_cfg,pver_cfg)        ! temperature
+   real(r8), intent(in) :: p(pcols_cfg,pver_cfg)        ! pressure
+   real(r8), intent(in) :: z(pcols_cfg,pver_cfg)        ! height
+   real(r8), intent(in) :: pf(pcols_cfg,pverp_cfg)      ! pressure at interfaces
+   real(r8), intent(in) :: pblt(pcols_cfg)          ! index of pbl depth
+   real(r8), intent(in) :: tpert(pcols_cfg)         ! perturbation temperature by pbl processes
 
 !
 ! output arguments
 !
-   real(r8), intent(out) :: tp(pcols,pver)       ! parcel temperature
-   real(r8), intent(out) :: qstp(pcols,pver)     ! saturation mixing ratio of parcel (only above lcl, just q below).
-   real(r8), intent(out) :: tl(pcols)            ! parcel temperature at lcl
-   real(r8), intent(out) :: cape(pcols)          ! convective aval. pot. energy.
-   integer lcl(pcols)        !
-   integer lel(pcols)        !
-   integer lon(pcols)        ! level of onset of deep convection
-   integer mx(pcols)         ! level of max moist static energy
+   real(r8), intent(out) :: tp(pcols_cfg,pver_cfg)       ! parcel temperature
+   real(r8), intent(out) :: qstp(pcols_cfg,pver_cfg)     ! saturation mixing ratio of parcel (only above lcl, just q below).
+   real(r8), intent(out) :: tl(pcols_cfg)            ! parcel temperature at lcl
+   real(r8), intent(out) :: cape(pcols_cfg)          ! convective aval. pot. energy.
+   integer lcl(pcols_cfg)        !
+   integer lel(pcols_cfg)        !
+   integer lon(pcols_cfg)        ! level of onset of deep convection
+   integer mx(pcols_cfg)         ! level of max moist static energy
 
    real(r8), pointer :: org(:,:)      ! organization parameter
-   real(r8), intent(in) :: landfrac(pcols)
+   real(r8), intent(in) :: landfrac(pcols_cfg)
 !
 !--------------------------Local Variables------------------------------
 !
-   real(r8) capeten(pcols,5)     ! provisional value of cape
-   real(r8) tv(pcols,pver)       !
-   real(r8) tpv(pcols,pver)      !
-   real(r8) buoy(pcols,pver)
+   real(r8) capeten(pcols_cfg,5)     ! provisional value of cape
+   real(r8) tv(pcols_cfg,pver_cfg)       !
+   real(r8) tpv(pcols_cfg,pver_cfg)      !
+   real(r8) buoy(pcols_cfg,pver_cfg)
 
-   real(r8) a1(pcols)
-   real(r8) a2(pcols)
-   real(r8) estp(pcols)
-   real(r8) pl(pcols)
-   real(r8) plexp(pcols)
-   real(r8) hmax(pcols)
-   real(r8) hmn(pcols)
-   real(r8) y(pcols)
+   real(r8) a1(pcols_cfg)
+   real(r8) a2(pcols_cfg)
+   real(r8) estp(pcols_cfg)
+   real(r8) pl(pcols_cfg)
+   real(r8) plexp(pcols_cfg)
+   real(r8) hmax(pcols_cfg)
+   real(r8) hmn(pcols_cfg)
+   real(r8) y(pcols_cfg)
 
-   logical plge600(pcols)
-   integer knt(pcols)
-   integer lelten(pcols,5)
+   logical plge600(pcols_cfg)
+   integer knt(pcols_cfg)
+   integer lelten(pcols_cfg,5)
 
    real(r8) cp
    real(r8) e
@@ -2299,15 +2335,15 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 !
    do n = 1,5
       do i = 1,ncol
-         lelten(i,n) = pver
+         lelten(i,n) = pver_cfg
          capeten(i,n) = 0._r8
       end do
    end do
 !
    do i = 1,ncol
-      lon(i) = pver
+      lon(i) = pver_cfg
       knt(i) = 0
-      lel(i) = pver
+      lel(i) = pver_cfg
       mx(i) = lon(i)
       cape(i) = 0._r8
       hmax(i) = 0._r8
@@ -2327,7 +2363,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 ! search for this level stops at planetary boundary layer top.
 !
 #ifdef PERGRO
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,ncol
          hmn(i) = cp*t(i,k) + grav*z(i,k) + rl*q(i,k)
 !
@@ -2341,7 +2377,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
       end do
    end do
 #else
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i = 1,ncol
          hmn(i) = cp*t(i,k) + grav*z(i,k) + rl*q(i,k)
          if (k >= nint(pblt(i)) .and. k <= lon(i) .and. hmn(i) > hmax(i)) then
@@ -2386,7 +2422,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 !
 ! Main buoyancy calculation.
 !
-   do k = pver,msg + 1,-1
+   do k = pver_cfg,msg + 1,-1
       do i=1,ncol
          if (k <= mx(i) .and. plge600(i)) then   ! Define buoy from launch level to cloud top.
             tv(i,k) = t(i,k)* (1._r8+1.608_r8*q(i,k))/ (1._r8+q(i,k))
@@ -2408,7 +2444,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 
 
 !
-   do k = msg + 2,pver
+   do k = msg + 2,pver_cfg
       do i = 1,ncol
          if (k < lcl(i) .and. plge600(i)) then
             if (buoy(i,k+1) > 0._r8 .and. buoy(i,k) <= 0._r8) then
@@ -2422,7 +2458,7 @@ subroutine buoyan_dilute(lchnk   ,ncol    , &
 ! calculate convective available potential energy (cape).
 !
    do n = 1,5
-      do k = msg + 1,pver
+      do k = msg + 1,pver_cfg
          do i = 1,ncol
             if (plge600(i) .and. k <= mx(i) .and. k > lelten(i,n)) then
                capeten(i,n) = capeten(i,n) + rd*buoy(i,k)*log(pf(i,k+1)/pf(i,k))
@@ -2469,24 +2505,24 @@ integer, intent(in) :: lchnk
 integer, intent(in) :: ncol
 integer, intent(in) :: msg
 
-integer, intent(in), dimension(pcols) :: klaunch(pcols)
+integer, intent(in), dimension(pcols_cfg) :: klaunch(pcols_cfg)
 
-real(r8), intent(in), dimension(pcols,pver) :: p
-real(r8), intent(in), dimension(pcols,pver) :: t
-real(r8), intent(in), dimension(pcols,pver) :: q
-real(r8), intent(in), dimension(pcols) :: tpert ! PBL temperature perturbation.
+real(r8), intent(in), dimension(pcols_cfg,pver_cfg) :: p
+real(r8), intent(in), dimension(pcols_cfg,pver_cfg) :: t
+real(r8), intent(in), dimension(pcols_cfg,pver_cfg) :: q
+real(r8), intent(in), dimension(pcols_cfg) :: tpert ! PBL temperature perturbation.
 
-real(r8), intent(inout), dimension(pcols,pver) :: tp    ! Parcel temp.
-real(r8), intent(inout), dimension(pcols,pver) :: qstp  ! Parcel water vapour (sat value above lcl).
-real(r8), intent(inout), dimension(pcols) :: tl         ! Actual temp of LCL.
-real(r8), intent(inout), dimension(pcols) :: pl          ! Actual pressure of LCL.
+real(r8), intent(inout), dimension(pcols_cfg,pver_cfg) :: tp    ! Parcel temp.
+real(r8), intent(inout), dimension(pcols_cfg,pver_cfg) :: qstp  ! Parcel water vapour (sat value above lcl).
+real(r8), intent(inout), dimension(pcols_cfg) :: tl         ! Actual temp of LCL.
+real(r8), intent(inout), dimension(pcols_cfg) :: pl          ! Actual pressure of LCL.
 
-integer, intent(inout), dimension(pcols) :: lcl ! Lifting condesation level (first model level with saturation).
+integer, intent(inout), dimension(pcols_cfg) :: lcl ! Lifting condesation level (first model level with saturation).
 
-real(r8), intent(out), dimension(pcols,pver) :: tpv   ! Define tpv within this routine.
+real(r8), intent(out), dimension(pcols_cfg,pver_cfg) :: tpv   ! Define tpv within this routine.
 
 real(r8), pointer, dimension(:,:) :: org
-real(r8), intent(in), dimension(pcols) :: landfrac
+real(r8), intent(in), dimension(pcols_cfg) :: landfrac
 !--------------------
 
 ! Have to be careful as s is also dry static energy.
@@ -2496,22 +2532,22 @@ real(r8), intent(in), dimension(pcols) :: landfrac
 ! loop then we need to dimension sp,atp,mp,xsh2o with ncol.
 
 
-real(r8) tmix(pcols,pver)        ! Tempertaure of the entraining parcel.
-real(r8) qtmix(pcols,pver)       ! Total water of the entraining parcel.
-real(r8) qsmix(pcols,pver)       ! Saturated mixing ratio at the tmix.
-real(r8) smix(pcols,pver)        ! Entropy of the entraining parcel.
-real(r8) xsh2o(pcols,pver)       ! Precipitate lost from parcel.
-real(r8) ds_xsh2o(pcols,pver)    ! Entropy change due to loss of condensate.
-real(r8) ds_freeze(pcols,pver)   ! Entropy change sue to freezing of precip.
-real(r8) dmpdz2d(pcols,pver)     ! variable detrainment rate
+real(r8) tmix(pcols_cfg,pver_cfg)        ! Tempertaure of the entraining parcel.
+real(r8) qtmix(pcols_cfg,pver_cfg)       ! Total water of the entraining parcel.
+real(r8) qsmix(pcols_cfg,pver_cfg)       ! Saturated mixing ratio at the tmix.
+real(r8) smix(pcols_cfg,pver_cfg)        ! Entropy of the entraining parcel.
+real(r8) xsh2o(pcols_cfg,pver_cfg)       ! Precipitate lost from parcel.
+real(r8) ds_xsh2o(pcols_cfg,pver_cfg)    ! Entropy change due to loss of condensate.
+real(r8) ds_freeze(pcols_cfg,pver_cfg)   ! Entropy change sue to freezing of precip.
+real(r8) dmpdz2d(pcols_cfg,pver_cfg)     ! variable detrainment rate
 
-real(r8) mp(pcols)    ! Parcel mass flux.
-real(r8) qtp(pcols)   ! Parcel total water.
-real(r8) sp(pcols)    ! Parcel entropy.
+real(r8) mp(pcols_cfg)    ! Parcel mass flux.
+real(r8) qtp(pcols_cfg)   ! Parcel total water.
+real(r8) sp(pcols_cfg)    ! Parcel entropy.
 
-real(r8) sp0(pcols)    ! Parcel launch entropy.
-real(r8) qtp0(pcols)   ! Parcel launch total water.
-real(r8) mp0(pcols)    ! Parcel launch relative mass flux.
+real(r8) sp0(pcols_cfg)    ! Parcel launch entropy.
+real(r8) qtp0(pcols_cfg)   ! Parcel launch total water.
+real(r8) mp0(pcols_cfg)    ! Parcel launch relative mass flux.
 
 real(r8) lwmax      ! Maximum condesate that can be held in cloud before rainout.
 real(r8) dmpdp      ! Parcel fractional mass entrainment rate (/mb).
@@ -2583,7 +2619,7 @@ new_s = 0._r8
 
 ! **** Begin loops ****
 
-do k = pver, msg+1, -1
+do k = pver_cfg, msg+1, -1
    do i=1,ncol
 
 ! Initialize parcel values at launch level.
@@ -2702,7 +2738,7 @@ ds_freeze = 0._r8
 
 
 
-do k = pver, msg+1, -1
+do k = pver_cfg, msg+1, -1
    do i=1,ncol
 
 ! Initialize variables at k=klaunch
@@ -2804,7 +2840,7 @@ real(r8) function entropy(TK,p,qtot)
      real(r8) :: qv,qst,e,est,L
      real(r8), parameter :: pref = 1000._r8
 
-L = rl - (cpliq - cpwv)*(TK-tfreez)         ! T IN CENTIGRADE
+L = rl - (cpliq - cpwv_cfg)*(TK-tfreez)         ! T IN CENTIGRADE
 
 call qsat_hPa(TK, p, est, qst)
 
@@ -2812,7 +2848,7 @@ qv = min(qtot,qst)                         ! Partition qtot into vapor part only
 e = qv*p / (eps1 +qv)
 
 entropy = (cpres + qtot*cpliq)*log( TK/tfreez) - rgas*log( (p-e)/pref ) + &
-        L*qv/TK - qv*rh2o*log(qv/qst)
+        L*qv/TK - qv*rh2o_cfg*log(qv/qst)
 
 end FUNCTION entropy
 
@@ -2826,12 +2862,10 @@ SUBROUTINE ientropy (rcall,icol,lchnk,s,p,qt,T,qst,Tfg)
 ! for T and saturated vapor mixing ratio
 !
 
-  use phys_grid, only: get_rlon_p, get_rlat_p
-
   integer, intent(in) :: icol, lchnk, rcall
   real(r8), intent(in)  :: s, p, Tfg, qt
   real(r8), intent(out) :: qst, T
-  real(r8) :: est, this_lat,this_lon
+  real(r8) :: est
   real(r8) :: a,b,c,d,ebr,fa,fb,fc,pbr,qbr,rbr,sbr,tol1,xm,tol
   integer :: i
 
@@ -2916,17 +2950,11 @@ SUBROUTINE ientropy (rcall,icol,lchnk,s,p,qt,T,qst,Tfg)
   call qsat_hPa(T, p, est, qst)
 
   if (.not. converged) then
-     this_lat = get_rlat_p(lchnk, icol)*57.296_r8
-     this_lon = get_rlon_p(lchnk, icol)*57.296_r8
-     write(iulog,*) '*** ZM_CONV: IENTROPY: Failed and about to exit, info follows ****'
-     write(iulog,100) 'ZM_CONV: IENTROPY. Details: call#,lchnk,icol= ',rcall,lchnk,icol, &
-          ' lat: ',this_lat,' lon: ',this_lon, &
-          ' P(mb)= ', p, ' Tfg(K)= ', Tfg, ' qt(g/kg) = ', 1000._r8*qt, &
-          ' qst(g/kg) = ', 1000._r8*qst,', s(J/kg) = ',s
-     call endrun('**** ZM_CONV IENTROPY: Tmix did not converge ****')
+     scheme_errflg = 1
+     write(scheme_errmsg,'(A,I0,A,I0,A,I0)') &
+          'ZM_CONV IENTROPY did not converge: call=', rcall, &
+          ', chunk=', lchnk, ', column=', icol
   end if
-
-100 format (A,I1,I4,I4,7(A,F6.2))
 
 end SUBROUTINE ientropy
 
@@ -2934,8 +2962,6 @@ end SUBROUTINE ientropy
 ! qsat_water uses Pa internally, so get it right, need to pass in Pa.
 ! Afterward, set es back to hPa.
 elemental subroutine qsat_hPa(t, p, es, qm)
-  use wv_saturation, only: qsat_water
-
   ! Inputs
   real(r8), intent(in) :: t    ! Temperature (K)
   real(r8), intent(in) :: p    ! Pressure (hPa)

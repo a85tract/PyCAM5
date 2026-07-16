@@ -59,6 +59,7 @@ public svp_to_qsat
 public qsat           ! Mixed phase
 public qsat_water     ! SVP over water only
 public qsat_ice       ! SVP over ice only
+public wv_sat_export_table
 
 ! Wet bulb temperature solver
 public :: findsp_vc, findsp
@@ -109,6 +110,13 @@ real(r8), parameter :: tboil = 373.16_r8
 !       1.36639103771e-06 /)
 
 contains
+
+subroutine wv_sat_export_table(table)
+  real(r8), allocatable, intent(out) :: table(:)
+
+  allocate(table(size(estbl)))
+  table = estbl
+end subroutine wv_sat_export_table
 
 !---------------------------------------------------------------------
 ! ADMINISTRATIVE FUNCTIONS

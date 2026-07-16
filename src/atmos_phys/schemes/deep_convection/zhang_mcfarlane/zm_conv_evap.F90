@@ -1,8 +1,6 @@
 module ap_zm_conv_evap_scheme
 
   use shr_kind_mod, only: r8 => shr_kind_r8
-  use cloud_fraction, only: cldfrc_fice
-  use physconst, only: gravit, latice, latvap, tmelt
 
   implicit none
   private
@@ -14,7 +12,7 @@ contains
 !> \section arg_table_zm_conv_evap_run Argument Table
 !! \htmlinclude zm_conv_evap_run.html
 subroutine zm_conv_evap_run(ncol,lchnk,pcols,pver,pverp,ke,ke_lnd,zm_org, &
-     t,pmid,pdel,q, &
+     t,pmid,pdel,q,qs,fsnow_conv,gravit,latice,latvap,tmelt, &
      landfrac, &
      tend_s, tend_s_snwprd, tend_s_snwevmlt, tend_q, &
      prdprec, cldfrc, deltat, prec, snow, &
@@ -29,9 +27,6 @@ subroutine zm_conv_evap_run(ncol,lchnk,pcols,pver,pverp,ke,ke_lnd,zm_org, &
 ! Evaporate some of the precip directly into the environment using a Sundqvist type algorithm
 !-----------------------------------------------------------------------
 
-    use wv_saturation,  only: qsat
-    use phys_grid, only: get_rlat_all_p
-
 !------------------------------Arguments--------------------------------
     integer,intent(in) :: ncol, lchnk                        ! number of columns and chunk index
     integer,intent(in) :: pcols, pver, pverp                 ! declared dimensions
@@ -41,6 +36,9 @@ subroutine zm_conv_evap_run(ncol,lchnk,pcols,pver,pverp,ke,ke_lnd,zm_org, &
     real(r8),intent(in), dimension(pcols,pver) :: pmid       ! midpoint pressure (Pa)
     real(r8),intent(in), dimension(pcols,pver) :: pdel       ! layer thickness (Pa)
     real(r8),intent(in), dimension(pcols,pver) :: q          ! water vapor (kg/kg)
+    real(r8),intent(in), dimension(pcols,pver) :: qs         ! saturation specific humidity
+    real(r8),intent(in), dimension(pcols,pver) :: fsnow_conv ! convective snow fraction
+    real(r8),intent(in) :: gravit, latice, latvap, tmelt
     real(r8),intent(in), dimension(pcols) :: landfrac
     real(r8),intent(inout), dimension(pcols,pver) :: tend_s     ! heating rate (J/kg/s)
     real(r8),intent(inout), dimension(pcols,pver) :: tend_q     ! water vapor tendency (kg/kg/s)
@@ -58,10 +56,6 @@ subroutine zm_conv_evap_run(ncol,lchnk,pcols,pver,pverp,ke,ke_lnd,zm_org, &
 !
 !---------------------------Local storage-------------------------------
 
-    real(r8) :: es    (pcols,pver)    ! Saturation vapor pressure
-    real(r8) :: fice   (pcols,pver)    ! ice fraction in precip production
-    real(r8) :: fsnow_conv(pcols,pver) ! snow fraction in precip production
-    real(r8) :: qs   (pcols,pver)    ! saturation specific humidity
     real(r8),intent(out) :: flxprec(pcols,pverp)   ! Convective-scale flux of precip at interfaces (kg/m2/s)
     real(r8),intent(out) :: flxsnow(pcols,pverp)   ! Convective-scale flux of snow   at interfaces (kg/m2/s)
     real(r8),intent(out) :: ntprprd(pcols,pver)    ! net precip production in layer
@@ -82,8 +76,6 @@ subroutine zm_conv_evap_run(ncol,lchnk,pcols,pver,pverp,ke,ke_lnd,zm_org, &
 
     real(r8) :: kemask
     real(r8) :: evplimit               ! temp variable for evaporation limits
-    real(r8) :: rlat(pcols)
-
     integer :: i,k                     ! longitude,level indices
 
 
@@ -91,13 +83,6 @@ subroutine zm_conv_evap_run(ncol,lchnk,pcols,pver,pverp,ke,ke_lnd,zm_org, &
 
 ! convert input precip to kg/m2/s
     prec(:ncol) = prec(:ncol)*1000._r8
-
-! determine saturation vapor pressure
-    call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &
-         es(1:ncol, 1:pver), qs(1:ncol, 1:pver))
-
-! determine ice fraction in rain production (use cloud water parameterization fraction at present)
-    call cldfrc_fice(ncol, t, fice, fsnow_conv)
 
 ! zero the flux integrals on the top boundary
     flxprec(:ncol,1) = 0._r8

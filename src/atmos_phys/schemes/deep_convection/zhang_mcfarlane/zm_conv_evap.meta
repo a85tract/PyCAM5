@@ -77,6 +77,42 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   intent = in
+[ qs ]
+  standard_name = saturation_specific_humidity
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ fsnow_conv ]
+  standard_name = convective_frozen_precipitation_fraction
+  units = fraction
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ gravit ]
+  standard_name = gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ latice ]
+  standard_name = latent_heat_of_fusion
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ latvap ]
+  standard_name = latent_heat_of_vaporization
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tmelt ]
+  standard_name = melting_temperature_of_water
+  units = K
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
 [ landfrac ]
   standard_name = land_area_fraction_from_coupler
   units = fraction

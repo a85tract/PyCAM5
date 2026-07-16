@@ -12,7 +12,9 @@ contains
 !> \section arg_table_zm_conv_convtran_run Argument Table
 !! \htmlinclude zm_conv_convtran_run.html
 subroutine zm_conv_convtran_run(lchnk   ,pcols  ,pver    ,nwtrc   ,nphase  , &
-                    doconvtran,q       ,ncnst   ,mu      ,md      , &
+                    doconvtran,q       ,ncnst   ,constituent_is_dry, &
+                    trace_water,nwater ,liq_indices,ice_indices, &
+                    liq_rstd,ice_rstd,wtrc_qmin,mu      ,md      , &
                     du      ,eu      ,ed      ,dp      ,dsubcld , &
                     jt      ,mx      ,ideep   ,il1g    ,il2g    , &
                     nstep   ,fracis  ,dqdt    ,dpdry, Rwt )
@@ -32,14 +34,6 @@ subroutine zm_conv_convtran_run(lchnk   ,pcols  ,pver    ,nwtrc   ,nphase  , &
 ! Rwt added by J. Nusbaumer to fix mystery variable passing error
 !
 !-----------------------------------------------------------------------
-   use constituents,    only: cnst_get_type_byind
-
-   !Needed for water tracers?
-   use water_tracer_vars, only: wtrc_iatype, wtrc_ntype, iwspec
-   use water_tracer_vars, only: trace_water
-   use water_tracers, only: wtrc_ratio
-   use water_types,   only: iwtliq, iwtice
-
    implicit none
 !-----------------------------------------------------------------------
 !
@@ -51,7 +45,15 @@ subroutine zm_conv_convtran_run(lchnk   ,pcols  ,pver    ,nwtrc   ,nphase  , &
    integer, intent(in) :: nwtrc                 ! water tracer dimension
    integer, intent(in) :: nphase                ! liquid/ice water phase dimension
    integer, intent(in) :: ncnst                 ! number of tracers to transport
+   integer, intent(in) :: nwater                ! number of liquid/ice water tracers
    logical, intent(in) :: doconvtran(ncnst)     ! flag for doing convective transport
+   logical, intent(in) :: constituent_is_dry(ncnst) ! true for dry-mass mixing ratios
+   logical, intent(in) :: trace_water           ! true when water tracers are active
+   integer, intent(in) :: liq_indices(nwtrc)    ! constituent index for each liquid tracer
+   integer, intent(in) :: ice_indices(nwtrc)    ! constituent index for each ice tracer
+   real(r8), intent(in) :: liq_rstd(nwtrc)      ! fallback liquid tracer ratios
+   real(r8), intent(in) :: ice_rstd(nwtrc)      ! fallback ice tracer ratios
+   real(r8), intent(in) :: wtrc_qmin            ! minimum base-water tendency
    real(r8), intent(in) :: q(pcols,pver,ncnst)  ! Tracer array including moisture
    real(r8), intent(in) :: mu(pcols,pver)       ! Mass flux up
    real(r8), intent(in) :: md(pcols,pver)       ! Mass flux down
@@ -138,7 +140,7 @@ subroutine zm_conv_convtran_run(lchnk   ,pcols  ,pver    ,nwtrc   ,nphase  , &
    do m = 2, ncnst
       if (doconvtran(m)) then
 
-         if (cnst_get_type_byind(m).eq.'dry') then
+         if (constituent_is_dry(m)) then
             do k = 1,pver
                do i =il1g,il2g
                   dptmp(i,k) = dpdry(i,k)
@@ -334,16 +336,18 @@ subroutine zm_conv_convtran_run(lchnk   ,pcols  ,pver    ,nwtrc   ,nphase  , &
    if ( trace_water )then
 !Calculate the water tracer ratio:
 Rwt(:,:,:,:) = 1._r8 !initalize ratio
-if(doconvtran(wtrc_iatype(1,iwtliq))) then !are water tracers being transported?
-  do m=2,wtrc_ntype(iwtliq) !loop over water tracers
+if(doconvtran(liq_indices(1))) then !are water tracers being transported?
+  do m=2,nwater !loop over water tracers
     do k=1,pver
       do i=il1g,il2g
-        Rwt(ideep(i),k,m,1) = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)), &
-                              dqdt(ideep(i),k,wtrc_iatype(m,iwtliq)),   &
-                              dqdt(ideep(i),k,wtrc_iatype(1,iwtliq)))
-        Rwt(ideep(i),k,m,2) = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)), &
-                              dqdt(ideep(i),k,wtrc_iatype(m,iwtice)),   &
-                              dqdt(ideep(i),k,wtrc_iatype(1,iwtice)))
+        Rwt(ideep(i),k,m,1) = tracer_ratio( &
+                              dqdt(ideep(i),k,liq_indices(m)),   &
+                              dqdt(ideep(i),k,liq_indices(1)),   &
+                              liq_rstd(m),wtrc_qmin)
+        Rwt(ideep(i),k,m,2) = tracer_ratio( &
+                              dqdt(ideep(i),k,ice_indices(m)),   &
+                              dqdt(ideep(i),k,ice_indices(1)),   &
+                              ice_rstd(m),wtrc_qmin)
       end do
     end do
   end do
@@ -352,4 +356,18 @@ end if
 
    return
 end subroutine zm_conv_convtran_run
+
+pure real(r8) function tracer_ratio(qtrc, qtot, rstd, qmin)
+   real(r8), intent(in) :: qtrc
+   real(r8), intent(in) :: qtot
+   real(r8), intent(in) :: rstd
+   real(r8), intent(in) :: qmin
+
+   if (abs(qtot) < qmin) then
+      tracer_ratio = rstd
+   else
+      tracer_ratio = qtrc / qtot
+   end if
+end function tracer_ratio
+
 end module ap_zm_conv_convtran_scheme

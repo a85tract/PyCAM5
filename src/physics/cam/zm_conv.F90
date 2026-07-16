@@ -18,11 +18,12 @@ module zm_conv
   use ppgrid,          only: pcols, pver, pverp
   use cloud_fraction,  only: cldfrc_fice
   use physconst,       only: cpair, epsilo, gravit, latice, latvap, tmelt, rair, &
-                             cpwv, cpliq, rh2o
+                             cpwv, cpliq, rh2o, h2otrip
   use cam_abortutils,  only: endrun
   use cam_logfile,     only: iulog
   use perf_mod,        only: t_startf, t_stopf
-  use ap_zm_convr_scheme, only: zm_convr_init, zm_convr_run
+  use ap_zm_convr_scheme, only: zm_convr_init, zm_convr_run, &
+                                zm_convr_get_error
   use ap_zm_conv_evap_scheme, only: zm_conv_evap_run
   use ap_zm_conv_convtran_scheme, only: zm_conv_convtran_run
   use ap_zm_conv_momtran_scheme, only: zm_conv_momtran_run
@@ -80,6 +81,7 @@ subroutine zm_convi(limcnv_in, zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_k
                     zmconv_org, no_deep_pbl_in)
 
    use dycore,       only: dycore_is, get_resolution
+   use phys_control, only: cam_physpkg_is
 
    integer, intent(in)           :: limcnv_in       ! top interface level limit for convection
    real(r8),intent(in)           :: zmconv_c0_lnd
@@ -91,6 +93,8 @@ subroutine zm_convi(limcnv_in, zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_k
 
    ! local variables
    character(len=32)   :: hgrid           ! horizontal grid specifier
+   character(len=512)  :: errmsg
+   integer :: errflg
 
    ! Initialization of ZM constants
    limcnv = limcnv_in
@@ -123,7 +127,9 @@ subroutine zm_convi(limcnv_in, zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_k
 
    call zm_convr_init(rl, cpres, c0_lnd, c0_ocn, zm_org, tau, &
                       tfreez, eps1, no_deep_pbl, rgrav, rgas, grav, &
-                      cp, limcnv)
+                      cp, limcnv, cpwv, rh2o, h2otrip, &
+                      cam_physpkg_is('cam3'), errmsg, errflg)
+   if (errflg /= 0) call endrun(trim(errmsg))
 
    if ( masterproc ) then
       write(iulog,*) 'tuning parameters zm_convi: tau',tau
@@ -257,6 +263,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), intent(out) :: qu(pcols,pver)
    real(r8), intent(out) :: qs(pcols,pver)
    real(r8), intent(out) :: qds(pcols,pver)
+   character(len=512) :: errmsg
+   integer :: errflg
    call t_startf('ap_zm_convr_run')
    call zm_convr_run(lchnk, ncol, pcols, pver, pverp, &
                      t, qh, prec, jctop, jcbot, &
@@ -275,6 +283,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
                      wted, wtdu, wtmu, wtmd, wtcu, &
                      c0mask, wtrpd, qds, wtevp)
    call t_stopf('ap_zm_convr_run')
+   call zm_convr_get_error(errmsg, errflg)
+   if (errflg /= 0) call endrun(trim(errmsg))
 
 end subroutine zm_convr
 
@@ -294,6 +304,8 @@ subroutine zm_conv_evap(ncol,lchnk, &
 ! in the Zhang-MacFarlane parameterization.
 ! Evaporate some of the precip directly into the environment using a Sundqvist type algorithm
 !-----------------------------------------------------------------------
+
+    use wv_saturation, only: qsat
 
 !------------------------------Arguments--------------------------------
     integer,intent(in) :: ncol, lchnk                        ! number of columns and chunk index
@@ -326,10 +338,17 @@ subroutine zm_conv_evap(ncol,lchnk, &
     real(r8), intent(out) :: evpstore(pcols,pver) !preciptation evaporation
     real(r8), intent(out) :: substore(pcols,pver) !snow sublimation
 
+    real(r8) :: es(pcols,pver), qs(pcols,pver)
+    real(r8) :: fice(pcols,pver), fsnow_conv(pcols,pver)
+
     call t_startf('ap_zm_conv_evap_run')
+    call qsat(t(1:ncol,1:pver), pmid(1:ncol,1:pver), &
+         es(1:ncol,1:pver), qs(1:ncol,1:pver))
+    call cldfrc_fice(ncol, t, fice, fsnow_conv)
     call zm_conv_evap_run(ncol, lchnk, pcols, pver, pverp, &
                           ke, ke_lnd, zm_org, &
-                          t, pmid, pdel, q, landfrac, &
+                          t, pmid, pdel, q, qs, fsnow_conv, &
+                          gravit, latice, latvap, tmelt, landfrac, &
                           tend_s, tend_s_snwprd, tend_s_snwevmlt, tend_q, &
                           prdprec, cldfrc, deltat, prec, snow, &
                           evpstore, substore, ntprprd, ntsnprd, &
@@ -361,8 +380,11 @@ subroutine convtran(lchnk   , &
 ! Rwt added by J. Nusbaumer to fix mystery variable passing error 
 !
 !-----------------------------------------------------------------------
-   use water_tracer_vars, only: wtrc_ntype
-   use water_types, only: iwtice
+   use constituents, only: cnst_get_type_byind
+   use water_tracer_vars, only: wtrc_ntype, wtrc_iatype, iwspec, &
+                                trace_water, wtrc_qmin
+   use water_tracers, only: wtrc_get_rstd
+   use water_types, only: iwtliq, iwtice
 
    implicit none
 !-----------------------------------------------------------------------
@@ -400,9 +422,37 @@ subroutine convtran(lchnk   , &
    !NOTE:  the 2 at the end is for liquid and ice - JN
    real(r8), intent(out) :: Rwt(pcols,pver,wtrc_ntype(iwtice),2) !water tracer ratio
 
+   integer :: m
+   integer :: nwater
+   logical :: constituent_is_dry(ncnst)
+   integer :: liq_indices(size(Rwt,3))
+   integer :: ice_indices(size(Rwt,3))
+   real(r8) :: liq_rstd(size(Rwt,3))
+   real(r8) :: ice_rstd(size(Rwt,3))
+
+   do m = 1, ncnst
+      constituent_is_dry(m) = cnst_get_type_byind(m) == 'dry'
+   end do
+
+   nwater = min(wtrc_ntype(iwtliq), size(Rwt,3))
+   liq_indices(:) = 1
+   ice_indices(:) = 1
+   liq_rstd(:) = 1._r8
+   ice_rstd(:) = 1._r8
+   if (trace_water) then
+      do m = 1, nwater
+         liq_indices(m) = wtrc_iatype(m,iwtliq)
+         ice_indices(m) = wtrc_iatype(m,iwtice)
+         liq_rstd(m) = wtrc_get_rstd(iwspec(liq_indices(m)))
+         ice_rstd(m) = wtrc_get_rstd(iwspec(ice_indices(m)))
+      end do
+   end if
+
    call t_startf('ap_zm_conv_convtran_run')
    call zm_conv_convtran_run(lchnk, pcols, pver, size(Rwt, 3), size(Rwt, 4), &
-                             doconvtran, q, ncnst, mu, md, &
+                             doconvtran, q, ncnst, constituent_is_dry, &
+                             trace_water, nwater, liq_indices, ice_indices, &
+                             liq_rstd, ice_rstd, wtrc_qmin, mu, md, &
                              du, eu, ed, dp, dsubcld, &
                              jt, mx, ideep, il1g, il2g, &
                              nstep, fracis, dqdt, dpdry, Rwt)

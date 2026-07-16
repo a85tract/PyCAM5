@@ -53,6 +53,54 @@
   type = integer
   dimensions = ()
   intent = in
+[ constituent_is_dry ]
+  standard_name = flag_for_constituent_mixing_ratio_with_respect_to_dry_air
+  units = flag
+  type = logical
+  dimensions = (number_of_constituents)
+  intent = in
+[ trace_water ]
+  standard_name = flag_for_water_tracer_physics
+  units = flag
+  type = logical
+  dimensions = ()
+  intent = in
+[ nwater ]
+  standard_name = number_of_water_tracers_for_convective_transport
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ liq_indices ]
+  standard_name = constituent_index_for_each_liquid_water_tracer
+  units = index
+  type = integer
+  dimensions = (number_of_water_tracers)
+  intent = in
+[ ice_indices ]
+  standard_name = constituent_index_for_each_ice_water_tracer
+  units = index
+  type = integer
+  dimensions = (number_of_water_tracers)
+  intent = in
+[ liq_rstd ]
+  standard_name = fallback_standard_ratio_for_each_liquid_water_tracer
+  units = 1
+  type = real | kind = r8
+  dimensions = (number_of_water_tracers)
+  intent = in
+[ ice_rstd ]
+  standard_name = fallback_standard_ratio_for_each_ice_water_tracer
+  units = 1
+  type = real | kind = r8
+  dimensions = (number_of_water_tracers)
+  intent = in
+[ wtrc_qmin ]
+  standard_name = minimum_base_water_tendency_for_ratio_calculation
+  units = none
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
 [ mu ]
   standard_name = atmosphere_updraft_convective_mass_flux_for_deep_convection_for_convective_columns
   units = hPa s-1
