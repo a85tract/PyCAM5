@@ -13,7 +13,7 @@ module aero_model
   use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer, only: physics_buffer_desc
   use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,      only: gravit, mwdry, rair, rhoh2o, tmelt
+  use physconst,      only: gravit, mwdry, rair, rhoh2o, tmelt, pi, boltz
   use spmd_utils,     only: masterproc
   use ap_aero_model_emissions_scheme, only: aero_model_emissions_run
   use ap_aero_model_gasaerexch_scheme, only: aero_model_gasaerexch_run
@@ -23,8 +23,10 @@ module aero_model
   use chem_mods,      only: gas_pcnst, adv_mass
   use mo_tracname,    only: solsym
 
-  use modal_aero_data,only: cnst_name_cw
-  use modal_aero_data,only: ntot_amode, modename_amode
+  use modal_aero_data,only: cnst_name_cw, qqcw_get_field
+  use modal_aero_data,only: ntot_amode, modename_amode, maxd_aspectype, &
+       alnsg_amode, sigmag_amode, nspec_amode, numptr_amode, &
+       numptrcw_amode, lmassptr_amode, lmassptrcw_amode
   use ref_pres,       only: top_lev => clim_modal_aero_top_lev
 
   use modal_aero_wateruptake, only: modal_strat_sulfate
@@ -541,6 +543,9 @@ contains
   !=============================================================================
   subroutine aero_model_drydep(state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend)
 
+    use mo_drydep, only : n_land_type, fraction_landuse
+    use modal_aero_deposition, only : set_srf_drydep
+
     type(physics_state), intent(in) :: state
     real(r8), intent(in) :: obklen(:)
     real(r8), intent(in) :: ustar(:)
@@ -550,10 +555,107 @@ contains
     type(physics_ptend), intent(out) :: ptend
     type(physics_buffer_desc), pointer :: pbuf(:)
 
+    integer :: l, m, mm
+    integer :: lchnk, ncol
+    integer :: errflg
+    logical :: qcw_needed(pcnst)
+    character(len=512) :: errmsg
+    real(r8), pointer :: dgncur_awet(:,:,:)
+    real(r8), pointer :: wetdens(:,:,:)
+    real(r8), pointer :: fldcw(:,:)
+    real(r8), allocatable :: qcw(:,:,:)
+    real(r8), allocatable :: fv(:), ram1(:)
+    real(r8), allocatable :: ddv(:,:,:)
+    real(r8), allocatable :: dep_flux_is(:,:), dep_trb_is(:,:), dep_grv_is(:,:)
+    real(r8), allocatable :: dep_flux_cw(:,:), dep_trb_cw(:,:), dep_grv_cw(:,:)
+    real(r8), allocatable :: aerdepdryis(:,:), aerdepdrycw(:,:)
+    logical, allocatable :: active_is(:), active_cw(:)
+
     call t_startf('ap_aero_model_drydep_run')
-    call aero_model_drydep_run(state, pbuf, obklen, ustar, cam_in, dt, &
-         cam_out, ptend, drydep_lq, dgnumwet_idx, wetdens_ap_idx,      &
-         qaerwat_idx, nmodes)
+
+    lchnk = state%lchnk
+    ncol = state%ncol
+    call physics_ptend_init(ptend, state%psetcols, 'aero_model_drydep', &
+         lq=drydep_lq)
+
+    call pbuf_get_field(pbuf, dgnumwet_idx, dgncur_awet, &
+         start=(/1,1,1/), kount=(/pcols,pver,nmodes/))
+    call pbuf_get_field(pbuf, wetdens_ap_idx, wetdens, &
+         start=(/1,1,1/), kount=(/pcols,pver,nmodes/))
+
+    allocate(qcw(pcols,pver,pcnst), fv(pcols), ram1(pcols), &
+         ddv(pcols,pver,pcnst), dep_flux_is(pcols,pcnst), &
+         dep_trb_is(pcols,pcnst), dep_grv_is(pcols,pcnst), &
+         dep_flux_cw(pcols,pcnst), dep_trb_cw(pcols,pcnst), &
+         dep_grv_cw(pcols,pcnst), aerdepdryis(pcols,pcnst), &
+         aerdepdrycw(pcols,pcnst), active_is(pcnst), active_cw(pcnst))
+
+    qcw(:,:,:) = 0._r8
+    qcw_needed(:) = .false.
+    do m = 1, ntot_amode
+       mm = numptrcw_amode(m)
+       if (mm > 0) qcw_needed(mm) = .true.
+       do l = 1, nspec_amode(m)
+          mm = lmassptrcw_amode(l,m)
+          if (mm > 0) qcw_needed(mm) = .true.
+       end do
+    end do
+    do mm = 1, pcnst
+       if (qcw_needed(mm)) then
+          fldcw => qqcw_get_field(pbuf, mm, lchnk)
+          qcw(:,:,mm) = fldcw(:,:)
+       end if
+    end do
+
+    call aero_model_drydep_run( &
+         pcols, pver, pverp, pcnst, ncol, ntot_amode, maxd_aspectype, &
+         n_land_type, dt, pi, boltz, gravit, rair, rhoh2o, &
+         cam_in%landfrac, cam_in%icefrac, cam_in%ocnfrac, obklen, ustar, &
+         cam_in%ram1, cam_in%fv, fraction_landuse(:,:,lchnk), state%t, &
+         state%pmid, state%pdel, state%pint, state%q, dgncur_awet, wetdens, &
+         alnsg_amode, sigmag_amode, nspec_amode, numptr_amode, &
+         numptrcw_amode, lmassptr_amode, lmassptrcw_amode, qcw, ptend%lq, &
+         ptend%q, fv, ram1, ddv, dep_flux_is, dep_trb_is, dep_grv_is, &
+         dep_flux_cw, dep_trb_cw, dep_grv_cw, aerdepdryis, aerdepdrycw, &
+         active_is, active_cw, errmsg, errflg)
+
+    if (errflg /= 0) then
+       write(iulog,*) trim(errmsg)
+       call endrun('aero_model_drydep: standalone kernel failure')
+    end if
+
+    do mm = 1, pcnst
+       if (qcw_needed(mm)) then
+          fldcw => qqcw_get_field(pbuf, mm, lchnk)
+          fldcw(1:ncol,:) = qcw(1:ncol,:,mm)
+       end if
+    end do
+
+    call outfld('airFV', fv, pcols, lchnk)
+    call outfld('RAM1', ram1, pcols, lchnk)
+    do mm = 1, pcnst
+       if (active_is(mm)) then
+          call outfld(trim(cnst_name(mm))//'DDV', ddv(:,:,mm), pcols, lchnk)
+          call outfld(trim(cnst_name(mm))//'DDF', dep_flux_is(:,mm), pcols, lchnk)
+          call outfld(trim(cnst_name(mm))//'TBF', dep_trb_is(:,mm), pcols, lchnk)
+          call outfld(trim(cnst_name(mm))//'GVF', dep_grv_is(:,mm), pcols, lchnk)
+          call outfld(trim(cnst_name(mm))//'DTQ', ptend%q(:,:,mm), pcols, lchnk)
+       end if
+       if (active_cw(mm)) then
+          call outfld(trim(cnst_name_cw(mm))//'DDF', dep_flux_cw(:,mm), pcols, lchnk)
+          call outfld(trim(cnst_name_cw(mm))//'TBF', dep_trb_cw(:,mm), pcols, lchnk)
+          call outfld(trim(cnst_name_cw(mm))//'GVF', dep_grv_cw(:,mm), pcols, lchnk)
+       end if
+    end do
+
+    if (.not. aerodep_flx_prescribed()) then
+       call set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
+    end if
+
+    deallocate(qcw, fv, ram1, ddv, dep_flux_is, dep_trb_is, dep_grv_is, &
+         dep_flux_cw, dep_trb_cw, dep_grv_cw, aerdepdryis, aerdepdrycw, &
+         active_is, active_cw)
+
     call t_stopf('ap_aero_model_drydep_run')
 
   end subroutine aero_model_drydep

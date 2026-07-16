@@ -53,6 +53,12 @@
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_interface_dimension)
   intent = in
+[ gravit ]
+  standard_name = gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
 [ dusttend ]
   standard_name = dust_tendency_due_to_sedimentation
   units = kg kg-1 s-1
@@ -64,4 +70,16 @@
   units = kg m-2 s-1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_code
+  units = flag
+  type = integer
+  dimensions = ()
   intent = out
