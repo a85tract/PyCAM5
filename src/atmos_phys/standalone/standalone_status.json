@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T18:05:43Z",
+  "updated_at": "2026-07-16T18:10:19Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -72,11 +72,11 @@
       "order": 1,
       "source": "src/atmos_phys/schemes/vertical_diffusion/compute_vdiff/compute_vdiff.F90",
       "module": "ap_compute_vdiff_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "in_progress",
+      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic API and static closure PASS for non-molecular path; do_molec_diff intrinsic kernel still pending"
     },
     {
       "entry_point": "gw_prof_run",
@@ -86,11 +86,11 @@
       "order": 2,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_prof.F90",
       "module": "ap_gw_prof_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
     },
     {
       "entry_point": "gw_oro_src_run",
@@ -100,11 +100,11 @@
       "order": 3,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_oro_src.F90",
       "module": "ap_gw_oro_src_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
     },
     {
       "entry_point": "gw_drag_prof_run",
@@ -114,11 +114,11 @@
       "order": 4,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_drag_prof.F90",
       "module": "ap_gw_drag_prof_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
     },
     {
       "entry_point": "energy_change_run",
@@ -128,11 +128,11 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/energy_change.F90",
       "module": "ap_energy_change_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
     },
     {
       "entry_point": "ice_macro_tend_run",
@@ -142,11 +142,11 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/cloud_microphysics/ice_macro/ice_macro_tend.F90",
       "module": "ap_ice_macro_tend_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "583e574b5eb21915977ac881617346e69d99b7ad",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "intrinsic process API; direct+transitive closure PASS; metadata and ifx unit compile PASS"
     },
     {
       "entry_point": "rrtmg_sw_run",
