@@ -5,29 +5,101 @@
 [ccpp-arg-table]
   name  = dropmixnuc_run
   type  = scheme
-[ state ]
-  standard_name = cam_physics_state
-  units = none
-  type = physics_state
+[ lchnk ]
+  standard_name = physics_chunk_index
+  units = index
+  type = integer
   dimensions = ()
   intent = in
-[ ptend ]
-  standard_name = cam_physics_tendency
-  units = none
-  type = physics_ptend
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
   dimensions = ()
-  intent = out
+  intent = in
 [ dtmicro ]
   standard_name = cam_dropmixnuc_dtmicro
   units = s
   type = real | kind = r8
   dimensions = ()
   intent = in
-[ pbuf ]
-  standard_name = cam_physics_buffer
+[ ncldwtr ]
+  standard_name = cloud_liquid_number_mixing_ratio
+  units = number kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ temp ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pmid ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ pint ]
+  standard_name = air_pressure_at_interface
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ pdel ]
+  standard_name = air_pressure_thickness
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ rpdel ]
+  standard_name = inverse_air_pressure_thickness
+  units = Pa-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ zm ]
+  standard_name = geopotential_height_wrt_surface
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ kvh ]
+  standard_name = heat_diffusivity
+  units = m2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_interface_dimension)
+  intent = in
+[ qsat_es ]
+  standard_name = saturation_vapor_pressure_for_dropmixnuc
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ qsat_qs ]
+  standard_name = saturation_specific_humidity_for_dropmixnuc
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension)
+  intent = in
+[ raer_data ]
+  standard_name = interstitial_modal_aerosol_fields_for_dropmixnuc
   units = none
-  type = physics_buffer_desc
-  dimensions = (physics_chunk_dimension)
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_modal_aerosol_fields)
+  intent = in
+[ qqcw_data ]
+  standard_name = cloudborne_modal_aerosol_fields_for_dropmixnuc
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_modal_aerosol_fields)
+  intent = inout
+[ ptend_q ]
+  standard_name = constituent_tendency_due_to_dropmixnuc
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_constituents)
   intent = inout
 [ wsub ]
   standard_name = cam_dropmixnuc_wsub
@@ -49,7 +121,7 @@
   intent = in
 [ tendnd ]
   standard_name = cam_dropmixnuc_tendnd
-  units = kg kg-1 s-1
+  units = number kg-1 s-1
   type = real | kind = r8
   dimensions = (horizontal_loop_extent, vertical_layer_dimension)
   intent = out
