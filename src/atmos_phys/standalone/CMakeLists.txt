@@ -196,6 +196,14 @@ if(TPHYS_STANDALONE_BUILD_SOURCES)
         "${CMAKE_CURRENT_BINARY_DIR}/modules"
         ${TPHYS_STANDALONE_MODULE_INCLUDE_DIRS}
     )
+    # CAM defines this portability macro in bld/Makefile.in.  The standalone
+    # build owns the same explicit definition so moved solver utilities do not
+    # depend on flags inherited from a CAM EXEROOT.
+    target_compile_options(
+      tphys-standalone-schemes
+      PRIVATE
+        "$<$<COMPILE_LANGUAGE:Fortran>:-DUSE_CONTIGUOUS=contiguous,>"
+    )
     if(TPHYS_STANDALONE_EXTERNAL_LIBRARIES)
       target_link_libraries(
         tphys-standalone-schemes

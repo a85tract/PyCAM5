@@ -39,8 +39,7 @@ module linear_1d_operators
 !   call decomp%left_div(data)
 
 use shr_kind_mod, only: r8 => shr_kind_r8
-use shr_log_mod, only: errMsg => shr_log_errMsg
-use shr_sys_mod, only: shr_sys_abort
+use, intrinsic :: iso_fortran_env, only: error_unit
 use coords_1d, only: Coords1D
 
 implicit none
@@ -708,8 +707,7 @@ subroutine make_left(self, grid_spacing, seed, term1, term2)
      call seed(del_minus, del_plus, term1, term2)
      term1 = 0._r8
   case default
-     call shr_sys_abort("Invalid boundary type at "// &
-          errMsg(__FILE__, __LINE__))
+     call abort_invalid_boundary("Invalid boundary type", __FILE__, __LINE__)
   end select
 
 end subroutine make_left
@@ -750,8 +748,7 @@ subroutine make_right(self, grid_spacing, seed, term1, term2)
      call seed(del_minus, del_plus, term1, term2)
      term2 = 0._r8
   case default
-     call shr_sys_abort("Invalid boundary type at "// &
-          errMsg(__FILE__, __LINE__))
+     call abort_invalid_boundary("Invalid boundary type", __FILE__, __LINE__)
   end select
 
 end subroutine make_right
@@ -847,8 +844,7 @@ function apply_left(self, bound_term, array) result(delta_edge)
   case (flux_cond)
      delta_edge = self%edge_data
   case default
-     call shr_sys_abort("Invalid boundary condition at "// &
-          errMsg(__FILE__, __LINE__))
+     call abort_invalid_boundary("Invalid boundary condition", __FILE__, __LINE__)
   end select
 
 end function apply_left
@@ -867,8 +863,7 @@ function apply_right(self, bound_term, array) result(delta_edge)
   case (flux_cond)
      delta_edge = self%edge_data
   case default
-     call shr_sys_abort("Invalid boundary condition at "// &
-          errMsg(__FILE__, __LINE__))
+     call abort_invalid_boundary("Invalid boundary condition", __FILE__, __LINE__)
   end select
 
 end function apply_right
@@ -1176,5 +1171,18 @@ subroutine decomp_finalize(decomp)
   if (allocated(decomp%ze)) deallocate(decomp%ze)
 
 end subroutine decomp_finalize
+
+! Fatal guard for impossible internal boundary tags.  Keep this utility in the
+! standalone numerical-support module so it does not depend on CAM logging or
+! process-control modules.
+subroutine abort_invalid_boundary(message, source_file, source_line)
+  character(len=*), intent(in) :: message
+  character(len=*), intent(in) :: source_file
+  integer, intent(in) :: source_line
+
+  write(error_unit, '(a,1x,a,":",i0)') trim(message), trim(source_file), source_line
+  error stop 1
+
+end subroutine abort_invalid_boundary
 
 end module linear_1d_operators
