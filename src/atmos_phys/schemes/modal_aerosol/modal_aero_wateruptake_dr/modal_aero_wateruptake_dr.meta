@@ -3,94 +3,227 @@
   type = scheme
 
 [ccpp-arg-table]
-  name = modal_aero_wateruptake_dr_run
-  type = scheme
-[ state ]
-  standard_name = cam_physics_state
-  units = none
-  type = physics_state
-  dimensions = ()
-  intent = in
-[ pbuf ]
-  standard_name = cam_physics_buffer
-  units = none
-  type = physics_buffer_desc
-  dimensions = (physics_chunk_dimension)
-  intent = inout
-[ cld_idx_in ]
-  standard_name = physics_buffer_index_for_cloud_fraction
-  units = index
+  name  = modal_aero_wateruptake_dr_run
+  type  = scheme
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = 1
   type = integer
   dimensions = ()
   intent = in
-[ dgnum_idx_in ]
-  standard_name = physics_buffer_index_for_dry_geometric_mean_aerosol_diameter
-  units = index
+[ pcols ]
+  standard_name = horizontal_dimension
+  units = 1
   type = integer
   dimensions = ()
   intent = in
-[ dgnumwet_idx_in ]
-  standard_name = physics_buffer_index_for_wet_geometric_mean_aerosol_diameter
-  units = index
+[ pver ]
+  standard_name = vertical_layer_dimension
+  units = 1
   type = integer
   dimensions = ()
   intent = in
-[ sulfeq_idx_in ]
-  standard_name = physics_buffer_index_for_sulfuric_acid_equilibrium_mixing_ratio
-  units = index
+[ nmodes ]
+  standard_name = number_of_modal_aerosol_modes
+  units = 1
   type = integer
   dimensions = ()
   intent = in
-[ wetdens_ap_idx_in ]
-  standard_name = physics_buffer_index_for_wet_aerosol_density
-  units = index
+[ maxspec ]
+  standard_name = maximum_number_of_modal_aerosol_species
+  units = 1
   type = integer
   dimensions = ()
   intent = in
-[ qaerwat_idx_in ]
-  standard_name = physics_buffer_index_for_aerosol_water_mixing_ratio
-  units = index
+[ top_lev ]
+  standard_name = modal_aerosol_top_level_index
+  units = 1
   type = integer
   dimensions = ()
   intent = in
 [ modal_strat_sulfate_in ]
   standard_name = flag_for_modal_stratospheric_sulfate
-  units = flag
+  units = 1
   type = logical
   dimensions = ()
   intent = in
-[ list_idx_in ]
-  standard_name = radiative_constituent_list_index
-  units = index
+[ is_first_step_in ]
+  standard_name = flag_for_first_physics_timestep
+  units = 1
+  type = logical
+  dimensions = ()
+  intent = in
+[ saturation_scheme ]
+  standard_name = water_saturation_scheme_index
+  units = 1
   type = integer
   dimensions = ()
   intent = in
-  optional = True
-[ dgnumdry_m ]
-  standard_name = diagnostic_dry_geometric_mean_aerosol_diameter
-  units = m
+[ pi ]
+  standard_name = mathematical_constant_pi
+  units = 1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  dimensions = ()
   intent = in
-  optional = True
-[ dgnumwet_m ]
-  standard_name = diagnostic_wet_geometric_mean_aerosol_diameter
-  units = m
+[ pi43 ]
+  standard_name = four_thirds_pi
+  units = 1
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
-  intent = out
-  optional = True
-[ qaerwat_m ]
-  standard_name = diagnostic_aerosol_water_mixing_ratio
-  units = kg kg-1
-  type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
-  intent = out
-  optional = True
-[ wetdens_m ]
-  standard_name = diagnostic_wet_aerosol_density
+  dimensions = ()
+  intent = in
+[ rhoh2o ]
+  standard_name = density_of_liquid_water
   units = kg m-3
   type = real | kind = r8
-  dimensions = (horizontal_loop_extent, vertical_layer_dimension, number_of_aerosol_modes)
+  dimensions = ()
+  intent = in
+[ epsilo ]
+  standard_name = ratio_of_water_to_dry_air_molecular_weight
+  units = 1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tmelt ]
+  standard_name = melting_temperature_of_water
+  units = K
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ tboil ]
+  standard_name = boiling_temperature_of_water
+  units = K
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ nspec_mode ]
+  standard_name = number_of_species_in_modal_aerosol_mode
+  units = 1
+  type = integer
+  dimensions = (number_of_modal_aerosol_modes)
+  intent = in
+[ sigmag_mode ]
+  standard_name = modal_aerosol_geometric_standard_deviation
+  units = 1
+  type = real | kind = r8
+  dimensions = (number_of_modal_aerosol_modes)
+  intent = in
+[ rhcrystal ]
+  standard_name = modal_aerosol_crystallization_relative_humidity
+  units = 1
+  type = real | kind = r8
+  dimensions = (number_of_modal_aerosol_modes)
+  intent = in
+[ rhdeliques ]
+  standard_name = modal_aerosol_deliquescence_relative_humidity
+  units = 1
+  type = real | kind = r8
+  dimensions = (number_of_modal_aerosol_modes)
+  intent = in
+[ species_density ]
+  standard_name = modal_aerosol_species_density_by_mode
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (maximum_number_of_modal_aerosol_species,number_of_modal_aerosol_modes)
+  intent = in
+[ species_hygro ]
+  standard_name = modal_aerosol_species_hygroscopicity_by_mode
+  units = 1
+  type = real | kind = r8
+  dimensions = (maximum_number_of_modal_aerosol_species,number_of_modal_aerosol_modes)
+  intent = in
+[ species_is_sulfate ]
+  standard_name = modal_aerosol_species_is_sulfate_by_mode
+  units = 1
+  type = logical
+  dimensions = (maximum_number_of_modal_aerosol_species,number_of_modal_aerosol_modes)
+  intent = in
+[ species_mmr ]
+  standard_name = interstitial_modal_aerosol_species_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,maximum_number_of_modal_aerosol_species,number_of_modal_aerosol_modes)
+  intent = in
+[ h2ommr ]
+  standard_name = water_vapor_specific_humidity
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ temperature ]
+  standard_name = air_temperature
+  units = K
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ pressure ]
+  standard_name = air_pressure
+  units = Pa
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ cloud_fraction ]
+  standard_name = cloud_fraction
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  intent = in
+[ trop_lev ]
+  standard_name = tropopause_layer_index
+  units = 1
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ dgncur_a ]
+  standard_name = dry_geometric_mean_modal_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
+  intent = in
+[ dgncur_awet ]
+  standard_name = wet_geometric_mean_modal_aerosol_diameter
+  units = m
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
+  intent = inout
+[ sulfeq ]
+  standard_name = sulfuric_acid_equilibrium_mole_fraction_over_modal_aerosol
+  units = mol mol-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
+  intent = inout
+[ wetdens ]
+  standard_name = wet_modal_aerosol_density
+  units = kg m-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
+  intent = inout
+[ qaerwat ]
+  standard_name = modal_aerosol_water_mass_mixing_ratio
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
+  intent = inout
+[ wtpct ]
+  standard_name = sulfuric_acid_weight_percent_in_modal_aerosol
+  units = 1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
   intent = out
-  optional = True
+[ sulden ]
+  standard_name = sulfuric_acid_solution_density_in_modal_aerosol
+  units = g cm-3
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_modal_aerosol_modes)
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = 1
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
+[ errflg ]
+  standard_name = ccpp_error_flag
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
