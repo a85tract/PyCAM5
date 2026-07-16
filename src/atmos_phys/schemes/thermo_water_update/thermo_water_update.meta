@@ -1,0 +1,84 @@
+[ccpp-table-properties]
+  name = thermo_water_update
+  type = scheme
+[ccpp-arg-table]
+  name = thermo_water_update_run
+  type = scheme
+[ psetcols ]
+  standard_name = allocated_horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ standard_columns ]
+  standard_name = host_horizontal_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ num_layers ]
+  standard_name = vertical_layer_dimension
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ first_chunk ]
+  standard_name = first_physics_chunk
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ last_chunk ]
+  standard_name = last_physics_chunk
+  units = index
+  type = integer
+  dimensions = ()
+  intent = in
+[ cpair ]
+  standard_name = specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ rair ]
+  standard_name = gas_constant_of_dry_air
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ cpairv ]
+  standard_name = composition_dependent_specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (host_horizontal_dimension, vertical_layer_dimension, physics_chunk_dimension)
+  intent = in
+[ rairv ]
+  standard_name = composition_dependent_gas_constant_of_dry_air
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (host_horizontal_dimension, vertical_layer_dimension, physics_chunk_dimension)
+  intent = in
+[ cpairv_local ]
+  standard_name = local_composition_dependent_specific_heat_of_dry_air_at_constant_pressure
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension, physics_chunk_dimension)
+  intent = out
+[ rairv_local ]
+  standard_name = local_composition_dependent_gas_constant_of_dry_air
+  units = J kg-1 K-1
+  type = real | kind = r8
+  dimensions = (allocated_horizontal_dimension, vertical_layer_dimension, physics_chunk_dimension)
+  intent = out
+[ errcode ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out

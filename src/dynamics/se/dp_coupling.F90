@@ -464,6 +464,8 @@ CONTAINS
     use hycoef,   only : hyam, hybm, hyai, hybi, ps0
     use shr_vmath_mod, only: shr_vmath_log
     use phys_gmean,      only: gmean
+    use static_energy,   only: update_dry_static_energy_run
+    use cam_abortutils,  only: endrun
 
 
     implicit none
@@ -483,13 +485,17 @@ CONTAINS
     real(r8) :: zvirv(pcols,pver)    ! Local zvir array pointer
 
     integer :: m, i, k, ncol
+    integer :: scheme_errcode
+    logical :: include_geopotential
+    character(len=512) :: scheme_errmsg
 
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
 
 !
 ! Evaluate derived quantities
 !
-!$omp parallel do private (lchnk, ncol, k, i, zvirv, pbuf_chnk)
+!$omp parallel do private (lchnk, ncol, k, i, zvirv, pbuf_chnk, &
+!$omp scheme_errcode, scheme_errmsg, include_geopotential)
     do lchnk = begchunk,endchunk
        ncol = get_ncols_p(lchnk)
        do k=1,nlev
@@ -528,23 +534,18 @@ CONTAINS
             phys_state(lchnk)%t     , phys_state(lchnk)%q(:,:,1), rairv(:,:,lchnk),  gravit,  zvirv       , &
             phys_state(lchnk)%zi    , phys_state(lchnk)%zm      , ncol                )
           
-! Compute initial dry static energy, include surface geopotential
-       do k = 1, pver
-          do i=1,ncol
 #if FIX_TOTE
-             ! general formula:  E = CV_air T + phis + gravit*zi )
-             ! hydrostatic case: integrate zi term by parts, use CP=CV+R to get:
-             ! E = CP_air T + phis   (Holton Section 8.3)
-             ! to use this, update geopotential.F90, and other not-yet-found physics routines:
-             ! (check boundary layer code, others which have gravit and zi() or zm()
-             phys_state(lchnk)%s(i,k) = cpair*phys_state(lchnk)%t(i,k) &
-                                      + phys_state(lchnk)%phis(i)
+       include_geopotential = .false.
 #else
-             phys_state(lchnk)%s(i,k) = cpair*phys_state(lchnk)%t(i,k) &
-                  + gravit*phys_state(lchnk)%zm(i,k) + phys_state(lchnk)%phis(i)
+       include_geopotential = .true.
 #endif
-          end do
-       end do
+       call t_startf('ap_update_dry_static_energy_run')
+       call update_dry_static_energy_run(ncol, pver, gravit, &
+            phys_state(lchnk)%t, phys_state(lchnk)%zm, &
+            phys_state(lchnk)%phis, cpair, include_geopotential, &
+            phys_state(lchnk)%s, scheme_errcode, scheme_errmsg)
+       call t_stopf('ap_update_dry_static_energy_run')
+       if (scheme_errcode /= 0) call endrun(trim(scheme_errmsg))
 
 ! NOTE:  if a tracer is marked "dry", that means physics wants it dry
 !        if dycore advects it wet, it should be converted here 

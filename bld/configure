@@ -2838,6 +2838,12 @@ sub write_filepath
 	print $fh "$srcdir/cam/src/physics/rrtmg/ext/rrtmg_sw\n";
     }
 
+    # Decoupled atmospheric-physics schemes.  Keep these leaf directories
+    # ahead of physics/cam so CAM adapters can use the portable array kernels.
+    print $fh "$srcdir/cam/src/atmos_phys/phys_utils\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/utilities\n";
+    print $fh "$srcdir/cam/src/atmos_phys/schemes/thermo_water_update\n";
+
     print $fh "$srcdir/cam/src/physics/cam\n";
     if ($clubb_sgs eq '1') {
        print $fh "$srcdir/cam/src/physics/clubb\n";

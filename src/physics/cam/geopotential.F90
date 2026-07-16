@@ -15,6 +15,9 @@ module geopotential
   use shr_kind_mod, only: r8 => shr_kind_r8
   use ppgrid,       only: pver, pverp
   use dycore,       only: dycore_is
+  use geopotential_temp, only: geopotential_temp_run
+  use cam_abortutils, only: endrun
+  use perf_mod, only: t_startf, t_stopf
 
   implicit none
   private
@@ -66,53 +69,19 @@ contains
 !---------------------------Local variables-----------------------------------------
 !
     logical  :: fvdyn                   ! finite volume dynamics
-    integer  :: i,k                     ! Lon, level, level indices
-    real(r8) :: hkk(ncol)               ! diagonal element of hydrostatic matrix
-    real(r8) :: hkl(ncol)               ! off-diagonal element
-    real(r8) :: rog(ncol,pver)          ! Rair / gravit
-    real(r8) :: tv                      ! virtual temperature
-    real(r8) :: tvfac                   ! Tv/T
+    integer :: errcode
+    character(len=512) :: errmsg
 !
 !----------------------------------------------------------------------------------
-    rog(:ncol,:) = rair(:ncol,:) / gravit
-
 ! Set dynamics flag
     fvdyn = dycore_is ('LR')
 
-! The surface height is zero by definition.
-    do i = 1,ncol
-       zi(i,pverp) = 0.0_r8
-    end do
-
-! Compute the virtual temperature, zi, zm from bottom up
-! Note, zi(i,k) is the interface above zm(i,k)
-    do k = pver, 1, -1
-
-! First set hydrostatic elements consistent with dynamics
-       if (fvdyn) then
-          do i = 1,ncol
-             hkl(i) = piln(i,k+1) - piln(i,k)
-             hkk(i) = 1._r8 - pint(i,k) * hkl(i) * rpdel(i,k)
-          end do
-       else
-          do i = 1,ncol
-             hkl(i) = pdel(i,k) / pmid(i,k)
-             hkk(i) = 0.5_r8 * hkl(i)
-          end do
-       end if
-
-! Now compute tv, t, zm, zi
-       do i = 1,ncol
-          tvfac   = 1._r8 + zvir(i,k) * q(i,k)
-          tv      = (dse(i,k) - phis(i) - gravit*zi(i,k+1)) / ((cpair(i,k) / tvfac) + &
-	                                                               rair(i,k)*hkk(i))
-
-          t (i,k) = tv / tvfac
-
-          zm(i,k) = zi(i,k+1) + rog(i,k) * tv * hkk(i)
-          zi(i,k) = zi(i,k+1) + rog(i,k) * tv * hkl(i)
-       end do
-    end do
+    call t_startf('ap_geopotential_temp_run')
+    call geopotential_temp_run(pver, pverp, fvdyn, piln, pmln, pint, pmid, &
+         pdel, rpdel, dse, q, phis, rair, gravit, cpair, zvir, t, zi, zm, &
+         ncol, errcode, errmsg)
+    call t_stopf('ap_geopotential_temp_run')
+    if (errcode /= 0) call endrun(trim(errmsg))
 
     return
   end subroutine geopotential_dse

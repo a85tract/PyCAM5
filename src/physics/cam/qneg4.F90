@@ -24,6 +24,9 @@ subroutine qneg4 (subnam  ,lchnk   ,ncol    ,ztodt   ,        &
    use physconst,    only: gravit, latvap
    use constituents, only: qmin, pcnst
    use cam_logfile,  only: iulog
+   use cam_abortutils, only: endrun
+   use qneg4_scheme, only: qneg4_run
+   use perf_mod, only: t_startf, t_stopf
 
    !water isotopes:
    use water_types,   only: iwtvap
@@ -52,83 +55,47 @@ subroutine qneg4 (subnam  ,lchnk   ,ncol    ,ztodt   ,        &
 !
 !---------------------------Local workspace-----------------------------
 !
-   integer :: i,ii              ! longitude indices
    integer :: iw                ! i index of worst violator
-   integer :: indxexc(pcols)    ! index array of points with excess flux
    integer :: nptsexc           ! number of points with excess flux
-   integer :: m                 ! loop control variable for water isotopes
-   integer :: ivap              ! isotope index
-!
-   real(r8):: worst             ! biggest violator
-   real(r8):: excess(pcols)     ! Excess downward sfc latent heat flux
-
-!water isotopes:
-   real(r8):: qfxo(pcols,pcnst)   ! initial tracer flux
-   real(r8):: rat                 ! tracer ratio
+   integer :: i, ii, ivap       ! column and isotope indices
+   integer :: m, errcode
+   integer :: indxexc(pcols)
+   real(r8) :: excess(pcols), qfxo(pcols,pcnst), rat, worst
+   character(len=512) :: errmsg
 
 !
 !-----------------------------------------------------------------------
 !
 
-! Store old value to input for water tracers
-
    do m = 1, pcnst
-     do i = 1, ncol
-       qfxo(i,m) = qflx(i,m)
-     end do
+      do i = 1, ncol
+         qfxo(i,m) = qflx(i,m)
+      end do
    end do
 
-! Compute excess downward (negative) q flux compared to a theoretical
-! maximum downward q flux.  The theoretical max is based upon the
-! given moisture content of lowest level of the model atmosphere.
-!
-   nptsexc = 0
-   do i = 1,ncol
-      excess(i) = qflx(i,1) - (qmin(1) - qbot(i,1))/(ztodt*gravit*srfrpdel(i))
-!
-! If there is an excess downward (negative) q flux, then subtract
-! excess from "qflx" and "lhflx" and add to "shflx".
-!
-      if (excess(i) < 0._r8) then
-         nptsexc = nptsexc + 1
-         indxexc(nptsexc) = i
-         qflx (i,1) = qflx (i,1) - excess(i)
-         lhflx(i) = lhflx(i) - excess(i)*latvap
-         shflx(i) = shflx(i) + excess(i)*latvap
-      end if
-   end do
-!
-! Write out worst value if excess
-!
+   call t_startf('ap_qneg4_run')
+   call qneg4_run(ncol, pcnst, ztodt, qbot, srfrpdel, qmin(1), &
+        gravit, latvap, shflx, lhflx, qflx, nptsexc, &
+        indxexc(:ncol), excess(:ncol), worst, iw, errcode, errmsg)
+   if (errcode /= 0) call endrun(trim(errmsg))
+
    if (nptsexc.gt.10) then
-      worst = 0._r8
-      do ii=1,nptsexc
-         i = indxexc(ii)
-         if (excess(i) < worst) then
-            worst = excess(i)
-            iw = i
-         end if
-      end do
-      write(iulog,9000) subnam,nptsexc,worst, lchnk, iw, get_lat_p(lchnk,iw),get_lon_p(lchnk,iw)
+      write(iulog,9000) subnam,nptsexc,worst, lchnk, iw, &
+           get_lat_p(lchnk,iw),get_lon_p(lchnk,iw)
    end if
-!
-! Water tracers: where total has change, modify tracers to conserve ratios
-!
 
    if (trace_water) then
-     !NOTE:  qfxo may not be needed, as ratio is against H2O tracer, not q. - JN
-     do ivap = 1, wtrc_ntype(iwtvap)
-       m = wtrc_iatype(ivap, iwtvap)
-      
-       do ii = 1, nptsexc
-         i = indxexc(ii)
-!         rat = wtrc_ratio(iwspec(m), qfxo(i,m),qfxo(i,1))
-         rat = wtrc_ratio(iwspec(m),qfxo(i,m),qfxo(i,wtrc_iatype(1,iwtvap)))
-         qflx(i,m) = qflx(i,m) - rat*excess(i)
-       end do
-     end do
+      do ivap = 1, wtrc_ntype(iwtvap)
+         m = wtrc_iatype(ivap, iwtvap)
+         do ii = 1, nptsexc
+            i = indxexc(ii)
+            rat = wtrc_ratio(iwspec(m), qfxo(i,m), &
+                 qfxo(i,wtrc_iatype(1,iwtvap)))
+            qflx(i,m) = qflx(i,m) - rat*excess(i)
+         end do
+      end do
    end if
-!
+   call t_stopf('ap_qneg4_run')
 
    return
 9000 format(' QNEG4 WARNING from ',a8 &

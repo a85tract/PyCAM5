@@ -1,0 +1,114 @@
+[ccpp-table-properties]
+  name = qneg4
+  type = scheme
+[ccpp-arg-table]
+  name = qneg4_run
+  type = scheme
+[ ncol ]
+  standard_name = horizontal_loop_extent
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ nconst ]
+  standard_name = number_of_constituents
+  units = count
+  type = integer
+  dimensions = ()
+  intent = in
+[ dt ]
+  standard_name = timestep_for_physics
+  units = s
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ qbot ]
+  standard_name = bottom_layer_constituents
+  units = none
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = in
+[ srfrpdel ]
+  standard_name = reciprocal_of_bottom_layer_pressure_thickness
+  units = Pa-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = in
+[ qminimum ]
+  standard_name = water_vapor_minimum_value
+  units = kg kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ gravit ]
+  standard_name = standard_gravitational_acceleration
+  units = m s-2
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ latvap ]
+  standard_name = latent_heat_of_vaporization_of_water
+  units = J kg-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = in
+[ shflx ]
+  standard_name = surface_upward_sensible_heat_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = inout
+[ lhflx ]
+  standard_name = surface_upward_latent_heat_flux
+  units = W m-2
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = inout
+[ qflx ]
+  standard_name = surface_upward_constituent_mass_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent, number_of_constituents)
+  intent = inout
+[ nptsexc ]
+  standard_name = number_of_excess_surface_moisture_flux_points
+  units = count
+  type = integer
+  dimensions = ()
+  intent = out
+[ excess_indices ]
+  standard_name = excess_surface_moisture_flux_column_indices
+  units = index
+  type = integer
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ excess ]
+  standard_name = excess_surface_moisture_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = (horizontal_loop_extent)
+  intent = out
+[ worst ]
+  standard_name = worst_excess_surface_moisture_flux
+  units = kg m-2 s-1
+  type = real | kind = r8
+  dimensions = ()
+  intent = out
+[ worst_column ]
+  standard_name = worst_excess_surface_moisture_flux_column
+  units = index
+  type = integer
+  dimensions = ()
+  intent = out
+[ errcode ]
+  standard_name = ccpp_error_code
+  units = 1
+  type = integer
+  dimensions = ()
+  intent = out
+[ errmsg ]
+  standard_name = ccpp_error_message
+  units = none
+  type = character | kind = len=512
+  dimensions = ()
+  intent = out
