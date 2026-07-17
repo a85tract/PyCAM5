@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T00:40:09Z",
+  "updated_at": "2026-07-17T00:47:00Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -450,11 +450,11 @@
       "order": 1,
       "source": "src/atmos_phys/schemes/mozart_mam/neu_wetdep/neu_wetdep.F90",
       "module": "neu_wetdep_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "bc98f00818982026b47f4d9ad0b7ab187316e84f",
+      "last_run": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "bfb_run": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "note": "10-root/76-source standalone ifx build and CTest 2/2 PASS; job6758752 completed 256-rank 50-step 790/790 BFB after restoring Neu ncol history stride"
     },
     {
       "entry_point": "aero_model_wetdep_run",
@@ -478,11 +478,11 @@
       "order": 3,
       "source": "src/atmos_phys/schemes/cloud_microphysics/nucleate_ice/nucleate_ice_cam_calc.F90",
       "module": "ap_nucleate_ice_cam_calc_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "bc98f00818982026b47f4d9ad0b7ab187316e84f",
+      "last_run": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "bfb_run": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "note": "10-root/76-source standalone ifx build and CTest 2/2 PASS; job6758752 completed 256-rank 50-step 790/790 BFB after restoring Neu ncol history stride"
     },
     {
       "entry_point": "dropmixnuc_run",
@@ -1353,6 +1353,90 @@
       },
       "recorded_at": "2026-07-17T00:40:09Z",
       "note": "Standalone RRTMG longwave and shortwave drivers completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and both runtime timers nonzero. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated science matches 2e89b79 and passes the combined 30-entry/117-source standalone build."
+    },
+    {
+      "run_id": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6758752.desched1",
+      "source_commit": "bc98f00818982026b47f4d9ad0b7ab187316e84f",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_Neu_nucleate_dependency_a557a9f.txt",
+          "size": 871,
+          "sha256": "bf57b2f89753895aa6c25d88e2978b2a9bd51bc925610646841a4386b3fcc8e3"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_Neu_nucleate_standalone_build_bc98f00.txt",
+          "size": 804,
+          "sha256": "c47d651be5e488397a566561939ec81b2992b6ea660729c81b379b81eeff2a54"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/bld/cesm.exe",
+          "size": 55465096,
+          "sha256": "cf6724c18efaa32c11e48f37e4aa5c5d9665adee9ba17f532ada4ced4edd91f0"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/case/logs/run_environment.txt.6758752.desched1.260716-184127",
+          "size": 41880,
+          "sha256": "abd1e190efb9307f264bc087d6064cc5263b513c9e836f0ff554f28ccd0a7821"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/case/Buildconf/camconf/Filepath",
+          "size": 10596,
+          "sha256": "a729844ededbd7dabbcfc977c6ba55bd9483672b7f721f6a2d9612edea26adb8"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/evidence/compare_native_job6758752.txt",
+          "size": 946,
+          "sha256": "fb25f523c17702af85893d0e889350c1ac0876dec455158bd51a13288a254dac"
+        }
+      },
+      "execution_proof": {
+        "neu_wetdep_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "3ba120c48751afd217fcee1a92c7d9b37876ee1aee2ceb87c5bbffbf50a85137"
+          },
+          "line": "ap_neu_wetdep_tend_run global_calls=5.222400e+04"
+        },
+        "nucleate_ice_cam_calc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "3ba120c48751afd217fcee1a92c7d9b37876ee1aee2ceb87c5bbffbf50a85137"
+          },
+          "line": "ap_nucleate_ice_cam_calc_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T00:47:00Z",
+      "note": "Neu wet deposition and CAM ice nucleation completed a fresh 256-rank STOP_N=50 run after restoring the ncol history-array stride. PBS Exit_status is 0, both process timers are nonzero, and all 790 numeric variables match the authoritative native baseline exactly. The three previously drifting DTWR diagnostics are individually exact. Character equality is normalized only for hrestpath and volatile timestamps."
     }
   ]
 }

@@ -1,0 +1,21 @@
+S04 Neu wet deposition and nucleation standalone build evidence
+
+Validated fix commit: bc98f00818982026b47f4d9ad0b7ab187316e84f
+Build tree:
+/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_neu_history_fix/standalone_build_bc98f00
+
+Configuration:
+- Intel ifx standalone source build
+- completed-only scope
+- no CAM EXEROOT module path
+
+Result:
+- selected_entries=10, roots=10
+- direct closure PASS: 36 sources, 0 violations, 0 duplicates
+- transitive closure PASS: 76 sources, 0 violations, 0 duplicates
+- tphys-standalone-schemes static library build PASS
+- CTest 2/2 PASS
+
+The build includes the Neu and nucleation roots used by job6758752. The
+integration tree also passed separate process-scoped direct/transitive checks:
+Neu closure 1 source; nucleation closure 3 transitive sources.

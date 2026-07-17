@@ -1,0 +1,19 @@
+S04 Neu wet deposition and ice nucleation dependency evidence
+
+Validated fix commit: bc98f00818982026b47f4d9ad0b7ab187316e84f
+Integrated compose commit: a557a9f
+
+neu_wetdep_tend_run
+- direct PASS: roots=1, closure_sources=1, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=1, violations=0, duplicates=0
+
+nucleate_ice_cam_calc_run
+- direct PASS: roots=1, closure_sources=2, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=3, violations=0, duplicates=0
+
+Each result was produced in the integration tree with:
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --process PROCESS
+
+The Neu fix preserves the standalone boundary: scheme, metadata and CAM host
+adapter agree on horizontal_loop_extent/ncol without reintroducing cam_history
+or another CAM module into the scientific root.
