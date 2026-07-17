@@ -1,0 +1,38 @@
+S04 mmacro_pcond single-root diagnostic result
+
+Source commit: 5a37ad3deb749da70de813b82279edf43cc83e8c
+job=6759045.desched1
+mpi_ranks=256
+steps=50
+pbs_exit_status=0
+case_status=success
+cpl_status=successful_termination
+
+Static and build gates:
+- direct/transitive dependency closure PASS
+- standalone ifx build PASS: 80 sources, 81 objects plus archive
+- standalone CTest 2/2 PASS
+- fresh clean full CAM build PASS
+
+ap_mmacro_pcond_run global_calls=5.324800e+04
+
+r: numeric_count=307, equal=False
+native_md5=8ecb1dc7e4ca29f9adf2e92017106cfe
+candidate_md5=7d5e67ee5c6592e5ab623995cfbc9274
+
+rh0: numeric_count=392, equal=False
+native_md5=e81876a05681533e9f4b8a9a67ea5154
+candidate_md5=ed340714027c6844fc98f7924749e4cb
+
+rs: numeric_count=91, equal=False
+native_md5=b9d2a429aede18ca97b0f9af0e19fba2
+candidate_md5=b2e900a1b2d9b84cc2fc3cc42e23f320
+
+overall_numeric_equal=False
+
+The candidate hashes exactly match the earlier cloud-pair failure, proving
+that mmacro_pcond alone drives the mismatch. The failed executable and run
+directory are retained unchanged for diagnosis.
+
+Original report SHA-256:
+c3014a37c78f65743b74a9fe36c79a64e9163fd83bd75fa02cd5a7578acf70fc

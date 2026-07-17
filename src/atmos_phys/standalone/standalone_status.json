@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T01:24:14Z",
+  "updated_at": "2026-07-17T01:25:00Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -522,7 +522,7 @@
       "module": "ap_mmacro_pcond_scheme",
       "status": "failed",
       "commit": null,
-      "last_run": "S04-cloud-pair-failed-20260716-job6759003",
+      "last_run": "S04-mmacro-only-failed-20260716-job6759045",
       "bfb_run": null,
       "note": ""
     },
@@ -1651,6 +1651,52 @@
       },
       "recorded_at": "2026-07-17T01:24:14Z",
       "note": "Diagnostic cloud fraction completed a fresh 256-rank STOP_N=50 run. PBS Exit_status is 0, its process timer is nonzero, and all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for hrestpath and volatile timestamps."
+    },
+    {
+      "run_id": "S04-mmacro-only-failed-20260716-job6759045",
+      "batch": "S04",
+      "result": "failed",
+      "steps": 50,
+      "job_id": "6759045.desched1",
+      "source_commit": "5a37ad3deb749da70de813b82279edf43cc83e8c",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_mmacro_single_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_mmacro_single_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": false,
+      "char_equal": false,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_mmacro_single_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_mmacro_single_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_mmacro_single_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_mmacro_single_failed_job6759045.txt",
+          "size": 1162,
+          "sha256": "59442a5fe2708845a7ca1024e10facc87e6ffa08e0eb284e5af11cbf12e31924"
+        }
+      },
+      "execution_proof": {
+        "mmacro_pcond_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_mmacro_single_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "5ac01d3f76d9dee3f9d9e4de05fe7f5fab952269220523860a834f4473cc970a"
+          },
+          "line": "ap_mmacro_pcond_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T01:25:00Z",
+      "note": "The uncorrected standalone mmacro root executed in a fresh 256-rank STOP_N=50 run with successful Case/CPL termination, but reproduced all three cloud-pair numeric hashes exactly. This isolates mmacro_pcond as the sole source of the mismatch; compile-time PCOLS/PLEV shape restoration is in progress."
     }
   ]
 }
