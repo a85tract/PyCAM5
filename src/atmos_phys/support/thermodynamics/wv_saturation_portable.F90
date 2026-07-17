@@ -73,29 +73,66 @@ contains
     es = wv_sat_svp_ice(t)
   end function svp_ice
 
+  elemental function tq_enthalpy(t, q, hltalt) result(enthalpy)
+    real(r8), intent(in) :: t
+    real(r8), intent(in) :: q
+    real(r8), intent(in) :: hltalt
+    real(r8) :: enthalpy
+
+    enthalpy = cpair * t + hltalt * q
+  end function tq_enthalpy
+
+  elemental subroutine no_ip_hltalt(t, hltalt)
+    real(r8), intent(in) :: t
+    real(r8), intent(out) :: hltalt
+
+    hltalt = latvap
+    if (t >= tmelt) then
+       hltalt = hltalt - 2369.0_r8*(t-tmelt)
+    end if
+  end subroutine no_ip_hltalt
+
+  elemental subroutine deriv_outputs(t, p, es, qs, hltalt, tterm, &
+       gam, dqsdt)
+    real(r8), intent(in) :: t
+    real(r8), intent(in) :: p
+    real(r8), intent(in) :: es
+    real(r8), intent(in) :: qs
+    real(r8), intent(in) :: hltalt
+    real(r8), intent(in) :: tterm
+    real(r8), intent(out), optional :: gam
+    real(r8), intent(out), optional :: dqsdt
+
+    real(r8) :: desdt
+    real(r8) :: dqsdt_loc
+
+    if (qs == 1.0_r8) then
+       dqsdt_loc = 0._r8
+    else
+       desdt = hltalt*es/(rh2o*t*t) + tterm
+       dqsdt_loc = qs*p*desdt/(es*(p-omeps*es))
+    end if
+
+    if (present(dqsdt)) dqsdt = dqsdt_loc
+    if (present(gam))   gam   = dqsdt_loc * (hltalt/cpair)
+  end subroutine deriv_outputs
+
   elemental subroutine qsat_water(t, p, es, qs, gam, dqsdt, enthalpy)
     real(r8), intent(in) :: t, p
     real(r8), intent(out) :: es, qs
     real(r8), intent(out), optional :: gam, dqsdt, enthalpy
 
-    real(r8) :: desdt, dqsdt_loc, hltalt
+    real(r8) :: hltalt
 
     call wv_sat_qsat_water(t, p, es, qs)
 
     if (present(gam) .or. present(dqsdt) .or. present(enthalpy)) then
-       hltalt = latvap
-       if (t >= tmelt) hltalt = hltalt - 2369._r8*(t-tmelt)
+       call no_ip_hltalt(t, hltalt)
 
-       if (present(enthalpy)) enthalpy = cpair*t + hltalt*qs
+       if (present(enthalpy)) enthalpy = tq_enthalpy(t, qs, hltalt)
 
-       if (qs == 1._r8) then
-          dqsdt_loc = 0._r8
-       else
-          desdt = hltalt*es/(rh2o*t*t)
-          dqsdt_loc = qs*p*desdt/(es*(p-omeps*es))
-       end if
-       if (present(dqsdt)) dqsdt = dqsdt_loc
-       if (present(gam)) gam = dqsdt_loc*(hltalt/cpair)
+       call deriv_outputs(t, p, es, qs, hltalt, 0._r8, &
+            gam=gam, dqsdt=dqsdt)
     end if
   end subroutine qsat_water
 
@@ -174,34 +211,35 @@ contains
        status = 1
        tsp = t
        qsp = q
+       enin = 1._r8
+       enout = 1._r8
        return
     end if
 
     status = 2
-    hltalt = latvap
-    if (t >= tmelt) hltalt = hltalt - 2369._r8*(t-tmelt)
-    enin = cpair*t + hltalt*q
+    call no_ip_hltalt(t, hltalt)
+    enin = tq_enthalpy(t, q, hltalt)
 
     c1 = hltalt*c3
     c2 = (t + 36._r8)**2
     r1b = c2/(c2 + c1*qs)
-    qvd = r1b*(q - qs)
-    tsp = t + (hltalt/cpair)*qvd
+    qvd = r1b * (q - qs)
+    tsp = t + ((hltalt/cpair)*qvd)
 
     call qsat_water(tsp, p, es, qsp, gam=gam, enthalpy=enout)
 
     do l = 1, iter
        g = enin - enout
-       dgdt = -cpair*(1 + gam)
+       dgdt = -cpair * (1 + gam)
        t1 = tsp - g/dgdt
        dt = abs(t1 - tsp)/t1
        tsp = t1
 
        if (tsp < tmin) then
           tsp = tmin
-          hltalt = latvap
+          call no_ip_hltalt(tsp, hltalt)
           qsp = (enin - cpair*tsp)/hltalt
-          enout = cpair*tsp + hltalt*qsp
+          enout = tq_enthalpy(tsp, qsp, hltalt)
           status = 4
           exit
        end if
