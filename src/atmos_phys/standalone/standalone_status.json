@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-16T23:33:05Z",
+  "updated_at": "2026-07-17T00:26:30Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -534,11 +534,11 @@
       "order": 7,
       "source": "src/atmos_phys/schemes/cloud_microphysics/micro_mg1_0/micro_mg_tend.F90",
       "module": "ap_micro_mg_tend_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "f947fb3860e3ac45dba6d77892409ff2ed96a99b",
+      "last_run": "S04-micro-only-20260716-job6758548",
+      "bfb_run": "S04-micro-only-20260716-job6758548",
+      "note": "23-root/101-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; micro-only job6758548 is 790/790 BFB"
     },
     {
       "entry_point": "rad_rrtmg_sw_run",
@@ -1017,6 +1017,82 @@
       },
       "recorded_at": "2026-07-16T23:33:05Z",
       "note": "Four standalone ZM entries completed a 256-rank STOP_N=50 run with PBS Exit_status 0 and nonzero runtime timers; all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for volatile date_written/time_written. The executed ZM science is preserved in compose commit b2f2c40, which also passes an independent 22-root/100-source standalone build."
+    },
+    {
+      "run_id": "S04-micro-only-20260716-job6758548",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6758548.desched1",
+      "source_commit": "f947fb3860e3ac45dba6d77892409ff2ed96a99b",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_micro_mg_dependency_f947fb3.txt",
+          "size": 538,
+          "sha256": "0518ef91ebf2f05313be65f291a290df3bd2b5b896cedbd80b5404e3d351e0d9"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_micro_mg_standalone_build_23588a0.txt",
+          "size": 921,
+          "sha256": "4ee7ece1cdb7b3e00bb1b59f7527817694e03d6e31e6d224c0ea3b663f8b82c9"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/output/bld/cesm.exe",
+          "size": 55419072,
+          "sha256": "35031e5e5b235ef715513b2350388f0a59e99354cf0c74a7a037aab664b4041a"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/case/logs/run_environment.txt.6758548.desched1.260716-180148",
+          "size": 41863,
+          "sha256": "cccd229a72e4b6b200b3fc4ac2060c22827c6c885a619f16a3550675910e2fdf"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/case/Buildconf/camconf/Filepath",
+          "size": 11019,
+          "sha256": "f2eb96530a567435f64293cb2f1bab5058b57308bdaa28d919e008ac659a887f"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/validation/compare_native_job6758548.txt",
+          "size": 1275,
+          "sha256": "5eae17610c5dfd7460f373aebeb38727560ad52127a65e14e765cfc99a569142"
+        }
+      },
+      "execution_proof": {
+        "micro_mg_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_micro_mg_ebd45d0/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "e261fe50fb2ef4624dd721088dc2371875b455450d6eeb7d27799e3fef8f8c28"
+          },
+          "line": "ap_micro_mg_tend_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T00:26:30Z",
+      "note": "micro_mg_tend_run completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and nonzero runtime timer; all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for hrestpath and volatile timestamps. Integrated compose science is unchanged from f947fb3 and passes a fresh 23-root/101-source standalone build."
     }
   ]
 }

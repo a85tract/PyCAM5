@@ -1,0 +1,12 @@
+S04 micro_mg_tend_run standalone dependency evidence
+
+Validated science commit: f947fb3 (rebased micro-only extraction)
+Integrated compose commit: 23588a0
+
+Command:
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --process micro_mg_tend_run
+
+Result:
+scope=all selected_entries=1 allowed_external=ISO/IEEE,shr_*,MPI,OpenMP,NetCDF,PIO
+[direct] PASS: entries=1 roots=1 closure_sources=2 violations=0 duplicates=0
+[transitive] PASS: entries=1 roots=1 closure_sources=2 violations=0 duplicates=0

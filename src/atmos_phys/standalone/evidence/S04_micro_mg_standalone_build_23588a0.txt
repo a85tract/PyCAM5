@@ -1,0 +1,24 @@
+S04 micro_mg_tend_run standalone build evidence
+
+Build tree:
+/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/standalone_23_micro_23588a0
+
+Configuration:
+- Intel ifx 2025.2.1
+- TPHYS_STANDALONE_SCOPE=completed-only
+- TPHYS_STANDALONE_PCOLS=16
+- TPHYS_STANDALONE_PLEV=30
+- compiler definitions: -DPCOLS=16 -DPLEV=30
+- standalone dependency module directories only; no CAM EXEROOT module path
+
+Dependency/build result:
+- selected_entries=23, roots=23
+- direct closure: PASS, 60 sources, 0 violations, 0 duplicate modules
+- transitive closure: PASS, 101 sources, 0 violations, 0 duplicate modules
+- tphys-standalone-schemes: PASS
+- ctest: 2/2 PASS
+- libtphys-standalone-schemes.a sha256:
+  796d7020bea5725724b3533bb8214c7588c820775f6adde9cb8cfac157c8b598
+
+The 23-root build is the previously integrated 22-root S01/S02-ZM/S03
+closure plus micro_mg_tend_run from validated science commit f947fb3.
