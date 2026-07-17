@@ -20,12 +20,11 @@ module ap_saturation_table
       real(r8), intent(out), optional :: gam, dqsdt, enthalpy
     end subroutine qsat_scalar_hook
 
-    subroutine findsp_vector_hook(q, t, p, use_ice, tsp, qsp, errflg)
+    subroutine findsp_vector_hook(q, t, p, use_ice, tsp, qsp)
       import :: r8
       real(r8), intent(in) :: q(:), t(:), p(:)
       logical, intent(in) :: use_ice
       real(r8), intent(out) :: tsp(:), qsp(:)
-      integer, intent(out) :: errflg
     end subroutine findsp_vector_hook
   end interface
 
@@ -101,21 +100,25 @@ contains
     logical, intent(in) :: use_ice
     real(r8), intent(out) :: tsp(:)
     real(r8), intent(out) :: qsp(:)
-    integer, intent(out) :: errflg
+    integer, intent(out), optional :: errflg
 
     integer :: i
     integer :: status
+    integer :: local_errflg
 
     if (associated(production_findsp)) then
-      call production_findsp(q, t, p, use_ice, tsp, qsp, errflg)
+      call production_findsp(q, t, p, use_ice, tsp, qsp)
+      local_errflg = 0
+      if (present(errflg)) errflg = local_errflg
       return
     end if
 
-    errflg = 0
+    local_errflg = 0
     do i = 1, size(q)
       call findsp_table(q(i), t(i), p(i), use_ice, tsp(i), qsp(i), status)
-      if (status == 2 .or. status == 8) errflg = 1
+      if (status == 2 .or. status == 8) local_errflg = 1
     end do
+    if (present(errflg)) errflg = local_errflg
   end subroutine findsp_table_vc
 
   subroutine findsp_table(q, t, p, use_ice, tsp, qsp, status)

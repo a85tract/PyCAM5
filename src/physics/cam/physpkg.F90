@@ -670,7 +670,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
     use cldfrc2m,           only: cldfrc2m_init
     use co2_cycle,          only: co2_init, co2_transport
     use convect_deep,       only: convect_deep_init
-    use convect_shallow,    only: convect_shallow_init
+    use convect_shallow,    only: convect_shallow_init, convect_shallow_wtrc_init
     use cam_diagnostics,    only: diag_init
     use gw_drag,            only: gw_init
     use cam3_aero_data,     only: cam3_aero_data_on, cam3_aero_data_init
@@ -858,6 +858,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
 
    !Water isotopes:
     call wtrc_init
+    call convect_shallow_wtrc_init()
 
     prec_dp_idx  = pbuf_get_index('PREC_DP')
     snow_dp_idx  = pbuf_get_index('SNOW_DP')

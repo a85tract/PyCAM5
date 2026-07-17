@@ -3,8 +3,11 @@ module uwshcu
   use shr_kind_mod, only: r8 => shr_kind_r8
   use ap_uwshcu_processes_scheme, only: scheme_set_rpen => uwshcu_set_rpen, &
        scheme_init_uwshcu => init_uwshcu, &
-       compute_uwshcu_run, &
-       compute_uwshcu_inv => compute_uwshcu_inv_run
+       scheme_set_water_tracers => uwshcu_set_water_tracers, &
+       register_uwshcu_water_tracer_hooks, &
+       register_uwshcu_timer_hooks, &
+       compute_uwshcu_run_core, &
+       compute_uwshcu_inv => compute_uwshcu_inv_run_core
   use ap_water_isotope_fractionation, only: &
        register_water_isotope_alpha_hook
   use ap_saturation_table, only: register_qsat_table_hook, &
@@ -20,7 +23,8 @@ module uwshcu
   use water_tracer_vars, only: trace_water, wisotope, wtrc_nwset, &
        wtrc_iatype, iwspec, wtrc_qmin, wtrc_alpha_kinetic, &
        wtrc_fixed_alpha
-  use water_tracers, only: wtrc_is_wtrc, wtrc_get_rstd
+  use water_tracers, only: wtrc_is_wtrc, wtrc_get_rstd, wtrc_ratio, &
+       wtrc_get_alpha, wtrc_equil_time, wtrc_liqvap_equil
   use water_types, only: iwtvap, iwtliq, iwtice, iwtstrain, iwtcvrain, &
        wtype_get_alpha
   use water_isotopes, only: pwtspec, isph2o, isphdo
@@ -30,6 +34,7 @@ module uwshcu
 
   public :: uwshcu_readnl
   public :: init_uwshcu
+  public :: uwshcu_init_water_tracers
   public :: compute_uwshcu
   public :: compute_uwshcu_inv
 
@@ -67,8 +72,7 @@ contains
     integer, intent(in) :: kind
     real(r8), intent(in) :: xlv_in, cp_in, xlf_in, zvir_in, r_in, g_in, ep2_in
     real(r8), allocatable :: sat_table(:)
-    logical :: constituent_is_wet(pcnst), water_tracer_mask(pcnst)
-    real(r8) :: species_rstd(pwtspec)
+    logical :: constituent_is_wet(pcnst)
     integer :: ixnumliq, ixnumice, ixcldliq, ixcldice, m
     character(len=512) :: errmsg
     integer :: errflg
@@ -79,26 +83,39 @@ contains
     call cnst_get_ind('CLDICE', ixcldice)
     do m = 1, pcnst
        constituent_is_wet(m) = cnst_get_type_byind(m) == 'wet'
+    end do
+    call register_qsat_table_hook(cam_qsat)
+    call register_findsp_table_hook(findsp_vc)
+    call register_atmos_phys_history_hooks(cam_outfld_1d, cam_outfld_2d)
+    call register_uwshcu_timer_hooks(t_startf, t_stopf)
+    call register_uwshcu_history_fields()
+    call wv_sat_export_table(sat_table)
+    call scheme_init_uwshcu(kind, xlv_in, cp_in, xlf_in, zvir_in, r_in, &
+         g_in, ep2_in, sat_table, epsilo, rh2o, tmelt, qmin, &
+         constituent_is_wet, ixnumliq, ixnumice, ixcldliq, ixcldice, &
+         h2otrip, rhoh2o, errmsg, errflg)
+    if (errflg /= 0) call endrun(trim(errmsg))
+  end subroutine init_uwshcu
+
+  subroutine uwshcu_init_water_tracers()
+    logical :: water_tracer_mask(pcnst)
+    real(r8) :: species_rstd(pwtspec)
+    integer :: m
+
+    do m = 1, pcnst
        water_tracer_mask(m) = wtrc_is_wtrc(m)
     end do
     do m = 1, pwtspec
        species_rstd(m) = wtrc_get_rstd(m)
     end do
     call register_water_isotope_alpha_hook(wtype_get_alpha)
-    call register_qsat_table_hook(cam_qsat)
-    call register_findsp_table_hook(cam_findsp)
-    call register_atmos_phys_history_hooks(cam_outfld_1d, cam_outfld_2d)
-    call register_uwshcu_history_fields()
-    call wv_sat_export_table(sat_table)
-    call scheme_init_uwshcu(kind, xlv_in, cp_in, xlf_in, zvir_in, r_in, &
-         g_in, ep2_in, sat_table, epsilo, rh2o, tmelt, qmin, &
-         constituent_is_wet, ixnumliq, ixnumice, ixcldliq, ixcldice, &
-         trace_water, wisotope, wtrc_nwset, wtrc_iatype, iwspec, &
-         water_tracer_mask, wtrc_qmin, iwtvap, iwtliq, iwtice, &
-         iwtstrain, iwtcvrain, isph2o, isphdo, h2otrip, rhoh2o, &
-         wtrc_alpha_kinetic, wtrc_fixed_alpha, species_rstd, errmsg, errflg)
-    if (errflg /= 0) call endrun(trim(errmsg))
-  end subroutine init_uwshcu
+    call register_uwshcu_water_tracer_hooks(wtrc_is_wtrc, wtrc_get_rstd, &
+         wtrc_ratio, wtrc_get_alpha, wtrc_equil_time, wtrc_liqvap_equil)
+    call scheme_set_water_tracers(trace_water, wisotope, wtrc_nwset, &
+         wtrc_iatype, iwspec, water_tracer_mask, wtrc_qmin, iwtvap, &
+         iwtliq, iwtice, iwtstrain, iwtcvrain, isph2o, isphdo, &
+         wtrc_alpha_kinetic, wtrc_fixed_alpha, species_rstd)
+  end subroutine uwshcu_init_water_tracers
 
   subroutine compute_uwshcu(mix, mkx, iend, ncnst, dt, ps0_in, zs0_in, &
        p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, t0_in, &
@@ -126,21 +143,14 @@ contains
     real(r8), intent(out) :: cufrc_out(:,:), qcu_out(:,:), qlu_out(:,:), qiu_out(:,:)
     real(r8), intent(out) :: cbmf_out(:), qc_out(:,:), rliq_out(:), cnt_out(:), cnb_out(:)
     real(r8), intent(out) :: wtprec_out(:,:), wtsnow_out(:,:), wtqc_out(:,:,:)
-    character(len=512) :: errmsg
-    integer :: errflg
-
-    call t_startf('ap_compute_uwshcu_run')
-    call compute_uwshcu_run(mix, mkx, iend, ncnst, dt, ps0_in, zs0_in, &
+    call compute_uwshcu_run_core(mix, mkx, iend, ncnst, dt, ps0_in, zs0_in, &
          p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, t0_in, &
          s0_in, tr0_in, tke_in, cldfrct_in, concldfrct_in, pblh_in, &
          cush_inout, umf_out, slflx_out, qtflx_out, flxprc1_out, flxsnow1_out, &
          qvten_out, qlten_out, qiten_out, sten_out, uten_out, vten_out, &
          trten_out, qrten_out, qsten_out, precip_out, snow_out, evapc_out, &
          cufrc_out, qcu_out, qlu_out, qiu_out, cbmf_out, qc_out, rliq_out, &
-         cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out, &
-         errmsg, errflg)
-    call t_stopf('ap_compute_uwshcu_run')
-    if (errflg /= 0) call endrun(trim(errmsg))
+         cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out)
   end subroutine compute_uwshcu
 
   subroutine register_uwshcu_history_fields()
@@ -243,16 +253,6 @@ contains
 
     call qsat(t, p, es, qs_out, gam, dqsdt, enthalpy)
   end subroutine cam_qsat
-
-  subroutine cam_findsp(q, t, p, use_ice, tsp, qsp, errflg)
-    real(r8), intent(in) :: q(:), t(:), p(:)
-    logical, intent(in) :: use_ice
-    real(r8), intent(out) :: tsp(:), qsp(:)
-    integer, intent(out) :: errflg
-
-    call findsp_vc(q, t, p, use_ice, tsp, qsp)
-    errflg = 0
-  end subroutine cam_findsp
 
   subroutine cam_outfld_1d(name, field, horizontal_size, chunk)
     character(len=*), intent(in) :: name

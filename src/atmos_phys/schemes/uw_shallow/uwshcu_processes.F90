@@ -1,9 +1,10 @@
   module ap_uwshcu_processes_scheme
 
   use shr_spfn_mod,   only: erfc => shr_spfn_erfc
-  use ap_saturation_table, only: saturation_table_init, qsat_table, findsp_table_vc
+  use ap_saturation_table, only: saturation_table_init, qsat => qsat_table, &
+       findsp_vc => findsp_table_vc
   use ap_water_isotope_fractionation, only: water_isotope_alpha
-  use atmos_phys_history_hooks, only: atmos_phys_outfld
+  use atmos_phys_history_hooks, only: outfld => atmos_phys_outfld
   use wv_sat_methods, only: wv_sat_methods_init, wv_sat_qsat_water
 
   implicit none
@@ -12,12 +13,74 @@
 
   public &
      uwshcu_set_rpen,    &
+     uwshcu_set_water_tracers, &
+     register_uwshcu_water_tracer_hooks, &
+     register_uwshcu_timer_hooks, &
      init_uwshcu,        &
      compute_uwshcu_run,     &
-     compute_uwshcu_inv_run
+     compute_uwshcu_inv_run, &
+     compute_uwshcu_run_core, &
+     compute_uwshcu_inv_run_core
 
   integer , parameter :: r8 = selected_real_kind(12)    !  8 byte real
   real(r8), parameter :: unset_r8 = huge(1.0_r8)
+
+  abstract interface
+    logical function wtrc_is_wtrc_hook_iface(m)
+      integer, intent(in) :: m
+    end function wtrc_is_wtrc_hook_iface
+
+    real(r8) function wtrc_get_rstd_hook_iface(ispec)
+      import :: r8
+      integer, intent(in) :: ispec
+    end function wtrc_get_rstd_hook_iface
+
+    real(r8) function wtrc_ratio_hook_iface(ispec, qtrc, qtot)
+      import :: r8
+      integer, intent(in) :: ispec
+      real(r8), intent(in) :: qtrc, qtot
+    end function wtrc_ratio_hook_iface
+
+    real(r8) function wtrc_get_alpha_hook_iface(q, tk, ispec, isrctype, &
+         idsttype, rhclc, porqh, kin)
+      import :: r8
+      real(r8), intent(in) :: q, tk, porqh
+      integer, intent(in) :: ispec, isrctype, idsttype
+      logical, intent(in) :: rhclc
+      logical, intent(in), optional :: kin
+    end function wtrc_get_alpha_hook_iface
+
+    subroutine wtrc_equil_time_hook_iface(ispec, temp, pres, rdrop, &
+         zdel, alpha, difrm, fequil)
+      import :: r8
+      integer, intent(in) :: ispec
+      real(r8), intent(in) :: temp, pres, rdrop, zdel, alpha, difrm
+      real(r8), intent(out) :: fequil
+    end subroutine wtrc_equil_time_hook_iface
+
+    subroutine wtrc_liqvap_equil_hook_iface(alpha, feq0, vaptot, &
+         liqtot, vapiso, liqiso, dliqiso)
+      import :: r8
+      real(r8), intent(in) :: alpha, feq0, vaptot, liqtot
+      real(r8), intent(inout) :: vapiso, liqiso
+      real(r8), intent(out) :: dliqiso
+    end subroutine wtrc_liqvap_equil_hook_iface
+
+    subroutine uwshcu_timer_hook_iface(event, handle)
+      character(len=*), intent(in) :: event
+      integer, optional :: handle
+    end subroutine uwshcu_timer_hook_iface
+  end interface
+
+  procedure(wtrc_is_wtrc_hook_iface), pointer :: production_wtrc_is_wtrc => null()
+  procedure(wtrc_get_rstd_hook_iface), pointer :: production_wtrc_get_rstd => null()
+  procedure(wtrc_ratio_hook_iface), pointer :: production_wtrc_ratio => null()
+  procedure(wtrc_get_alpha_hook_iface), pointer :: production_wtrc_get_alpha => null()
+  procedure(wtrc_equil_time_hook_iface), pointer :: production_wtrc_equil_time => null()
+  procedure(wtrc_liqvap_equil_hook_iface), pointer :: production_wtrc_liqvap_equil => null()
+  procedure(uwshcu_timer_hook_iface), pointer :: production_timer_start => null()
+  procedure(uwshcu_timer_hook_iface), pointer :: production_timer_stop => null()
+
   real(r8)            :: xlv                            !  Latent heat of vaporization
   real(r8)            :: xlf                            !  Latent heat of fusion
   real(r8)            :: xls                            !  Latent heat of sublimation = xlv + xlf
@@ -35,28 +98,26 @@
   logical :: trace_water = .false.
   logical :: wisotope = .false.
   integer :: wtrc_nwset = 1
-  integer :: iwtvap = 1
-  integer :: iwtliq = 2
-  integer :: iwtice = 3
-  integer :: iwtstrain = 4
-  integer :: iwtcvrain = 6
-  integer :: isph2o = 1
-  integer :: isphdo = 3
+  integer, parameter :: iwtvap = 1
+  integer, parameter :: iwtliq = 2
+  integer, parameter :: iwtice = 3
+  integer, parameter :: iwtstrain = 4
+  integer, parameter :: iwtcvrain = 6
+  integer, parameter :: isph2o = 1
+  integer, parameter :: isphdo = 3
   integer, allocatable :: wtrc_iatype(:,:)
   integer, allocatable :: iwspec(:)
   logical, allocatable :: water_tracer_mask(:)
   logical, allocatable :: constituent_is_wet(:)
-  real(r8), allocatable :: constituent_qmin(:)
+  real(r8), allocatable :: qmin(:)
   real(r8), allocatable :: wtrc_fixed_alpha(:)
   real(r8), allocatable :: wtrc_species_rstd(:)
   real(r8) :: wtrc_qmin = 1.e-18_r8
   real(r8) :: h2otrip = 273.16_r8
-  real(r8) :: rhoh2o = 1000._r8
+  real(r8), parameter :: rhoh2o = 1000._r8
   real(r8) :: rh2o_isotope = 461.5_r8
   logical :: wtrc_alpha_kinetic = .false.
-  integer :: ixnumliq, ixnumice, ixcldliq, ixcldice
-  character(len=512) :: scheme_errmsg
-  integer :: scheme_errflg
+  integer :: ixnumliq_cfg, ixnumice_cfg, ixcldliq_cfg, ixcldice_cfg
 
 !===============================================================================
 contains
@@ -77,16 +138,92 @@ end subroutine uwshcu_set_rpen
 
 !===============================================================================
 
+  subroutine register_uwshcu_water_tracer_hooks(is_wtrc_proc, get_rstd_proc, &
+       ratio_proc, get_alpha_proc, equil_time_proc, liqvap_equil_proc)
+    procedure(wtrc_is_wtrc_hook_iface) :: is_wtrc_proc
+    procedure(wtrc_get_rstd_hook_iface) :: get_rstd_proc
+    procedure(wtrc_ratio_hook_iface) :: ratio_proc
+    procedure(wtrc_get_alpha_hook_iface) :: get_alpha_proc
+    procedure(wtrc_equil_time_hook_iface) :: equil_time_proc
+    procedure(wtrc_liqvap_equil_hook_iface) :: liqvap_equil_proc
+
+    production_wtrc_is_wtrc => is_wtrc_proc
+    production_wtrc_get_rstd => get_rstd_proc
+    production_wtrc_ratio => ratio_proc
+    production_wtrc_get_alpha => get_alpha_proc
+    production_wtrc_equil_time => equil_time_proc
+    production_wtrc_liqvap_equil => liqvap_equil_proc
+  end subroutine register_uwshcu_water_tracer_hooks
+
+!===============================================================================
+
+  subroutine register_uwshcu_timer_hooks(start_proc, stop_proc)
+    procedure(uwshcu_timer_hook_iface) :: start_proc
+    procedure(uwshcu_timer_hook_iface) :: stop_proc
+
+    production_timer_start => start_proc
+    production_timer_stop => stop_proc
+  end subroutine register_uwshcu_timer_hooks
+
+  subroutine t_startf(event)
+    character(len=*), intent(in) :: event
+
+    if (associated(production_timer_start)) call production_timer_start(event)
+  end subroutine t_startf
+
+  subroutine t_stopf(event)
+    character(len=*), intent(in) :: event
+
+    if (associated(production_timer_stop)) call production_timer_stop(event)
+  end subroutine t_stopf
+
+  subroutine cnst_get_ind(name, ind, abort)
+    character(len=*), intent(in) :: name
+    integer, intent(out) :: ind
+    logical, intent(in), optional :: abort
+
+    select case (name)
+    case ('NUMLIQ')
+       ind = ixnumliq_cfg
+    case ('NUMICE')
+       ind = ixnumice_cfg
+    case ('CLDLIQ')
+       ind = ixcldliq_cfg
+    case ('CLDICE')
+       ind = ixcldice_cfg
+    case default
+       ind = -1
+       if (.not. present(abort)) error stop 'cnst_get_ind: unknown constituent'
+       if (abort) error stop 'cnst_get_ind: unknown constituent'
+    end select
+  end subroutine cnst_get_ind
+
+  character(len=3) function cnst_get_type_byind(ind)
+    integer, intent(in) :: ind
+
+    if (ind < 1 .or. ind > size(constituent_is_wet)) then
+       error stop 'cnst_get_type_byind: constituent index out of range'
+    end if
+    if (constituent_is_wet(ind)) then
+       cnst_get_type_byind = 'wet'
+    else
+       cnst_get_type_byind = 'dry'
+    end if
+  end function cnst_get_type_byind
+
+  subroutine endrun(message)
+    character(len=*), intent(in), optional :: message
+
+    error stop 'UW shallow-convection scheme fatal error'
+  end subroutine endrun
+
+!===============================================================================
+
   subroutine init_uwshcu(kind, xlv_in, cp_in, xlf_in, zvir_in, r_in, g_in, ep2_in, &
                          sat_table, epsilo_sat, rh2o_sat, tmelt_sat, qmin_in, &
                          constituent_is_wet_in, ixnumliq_in, ixnumice_in, &
-                         ixcldliq_in, ixcldice_in, trace_water_in, wisotope_in, &
-                         wtrc_nwset_in, wtrc_iatype_in, iwspec_in, &
-                         water_tracer_mask_in, wtrc_qmin_in, iwtvap_in, &
-                         iwtliq_in, iwtice_in, iwtstrain_in, iwtcvrain_in, &
-                         isph2o_in, isphdo_in, h2otrip_in, rhoh2o_in, &
-                         wtrc_alpha_kinetic_in, wtrc_fixed_alpha_in, &
-                         wtrc_species_rstd_in, errmsg, errflg)
+                         ixcldliq_in, ixcldice_in, h2otrip_in, rhoh2o_in, &
+                         errmsg, errflg)
 
     !------------------------------------------------------------- !
     ! Purpose:                                                     !
@@ -107,17 +244,7 @@ end subroutine uwshcu_set_rpen
     real(r8), intent(in) :: qmin_in(:)
     logical, intent(in) :: constituent_is_wet_in(:)
     integer, intent(in) :: ixnumliq_in, ixnumice_in, ixcldliq_in, ixcldice_in
-    logical, intent(in) :: trace_water_in, wisotope_in
-    integer, intent(in) :: wtrc_nwset_in
-    integer, intent(in) :: wtrc_iatype_in(:,:), iwspec_in(:)
-    logical, intent(in) :: water_tracer_mask_in(:)
-    real(r8), intent(in) :: wtrc_qmin_in
-    integer, intent(in) :: iwtvap_in, iwtliq_in, iwtice_in
-    integer, intent(in) :: iwtstrain_in, iwtcvrain_in
-    integer, intent(in) :: isph2o_in, isphdo_in
     real(r8), intent(in) :: h2otrip_in, rhoh2o_in
-    logical, intent(in) :: wtrc_alpha_kinetic_in
-    real(r8), intent(in) :: wtrc_fixed_alpha_in(:), wtrc_species_rstd_in(:)
     character(len=*), intent(out) :: errmsg
     integer, intent(out) :: errflg
 
@@ -155,40 +282,17 @@ end subroutine uwshcu_set_rpen
        errflg = 1
        return
     end if
-    trace_water = trace_water_in
-    wisotope = wisotope_in
-    wtrc_alpha_kinetic = wtrc_alpha_kinetic_in
-    wtrc_nwset = wtrc_nwset_in
-    wtrc_qmin = wtrc_qmin_in
-    iwtvap = iwtvap_in
-    iwtliq = iwtliq_in
-    iwtice = iwtice_in
-    iwtstrain = iwtstrain_in
-    iwtcvrain = iwtcvrain_in
-    isph2o = isph2o_in
-    isphdo = isphdo_in
     h2otrip = h2otrip_in
-    rhoh2o = rhoh2o_in
     rh2o_isotope = rh2o_sat
-    ixnumliq = ixnumliq_in
-    ixnumice = ixnumice_in
-    ixcldliq = ixcldliq_in
-    ixcldice = ixcldice_in
+    ixnumliq_cfg = ixnumliq_in
+    ixnumice_cfg = ixnumice_in
+    ixcldliq_cfg = ixcldliq_in
+    ixcldice_cfg = ixcldice_in
 
-    if (allocated(constituent_qmin)) deallocate(constituent_qmin)
+    if (allocated(qmin)) deallocate(qmin)
     if (allocated(constituent_is_wet)) deallocate(constituent_is_wet)
-    if (allocated(water_tracer_mask)) deallocate(water_tracer_mask)
-    if (allocated(wtrc_iatype)) deallocate(wtrc_iatype)
-    if (allocated(iwspec)) deallocate(iwspec)
-    if (allocated(wtrc_fixed_alpha)) deallocate(wtrc_fixed_alpha)
-    if (allocated(wtrc_species_rstd)) deallocate(wtrc_species_rstd)
-    allocate(constituent_qmin(size(qmin_in)), source=qmin_in)
+    allocate(qmin(size(qmin_in)), source=qmin_in)
     allocate(constituent_is_wet(size(constituent_is_wet_in)), source=constituent_is_wet_in)
-    allocate(water_tracer_mask(size(water_tracer_mask_in)), source=water_tracer_mask_in)
-    allocate(wtrc_iatype(size(wtrc_iatype_in,1),size(wtrc_iatype_in,2)), source=wtrc_iatype_in)
-    allocate(iwspec(size(iwspec_in)), source=iwspec_in)
-    allocate(wtrc_fixed_alpha(size(wtrc_fixed_alpha_in)), source=wtrc_fixed_alpha_in)
-    allocate(wtrc_species_rstd(size(wtrc_species_rstd_in)), source=wtrc_species_rstd_in)
 
     if (rpen == unset_r8) then
        errmsg = subname//': uwshcu_rpen must be set in the namelist'
@@ -198,9 +302,90 @@ end subroutine uwshcu_set_rpen
 
   end subroutine init_uwshcu
 
+  subroutine uwshcu_set_water_tracers(trace_water_in, wisotope_in, &
+       wtrc_nwset_in, wtrc_iatype_in, iwspec_in, water_tracer_mask_in, &
+       wtrc_qmin_in, iwtvap_in, iwtliq_in, iwtice_in, iwtstrain_in, &
+       iwtcvrain_in, isph2o_in, isphdo_in, wtrc_alpha_kinetic_in, &
+       wtrc_fixed_alpha_in, wtrc_species_rstd_in)
+    logical, intent(in) :: trace_water_in, wisotope_in
+    integer, intent(in) :: wtrc_nwset_in
+    integer, intent(in) :: wtrc_iatype_in(:,:), iwspec_in(:)
+    logical, intent(in) :: water_tracer_mask_in(:)
+    real(r8), intent(in) :: wtrc_qmin_in
+    integer, intent(in) :: iwtvap_in, iwtliq_in, iwtice_in
+    integer, intent(in) :: iwtstrain_in, iwtcvrain_in
+    integer, intent(in) :: isph2o_in, isphdo_in
+    logical, intent(in) :: wtrc_alpha_kinetic_in
+    real(r8), intent(in) :: wtrc_fixed_alpha_in(:), wtrc_species_rstd_in(:)
+
+    trace_water = trace_water_in
+    wisotope = wisotope_in
+    wtrc_alpha_kinetic = wtrc_alpha_kinetic_in
+    wtrc_nwset = wtrc_nwset_in
+    wtrc_qmin = wtrc_qmin_in
+    if (allocated(water_tracer_mask)) deallocate(water_tracer_mask)
+    if (allocated(wtrc_iatype)) deallocate(wtrc_iatype)
+    if (allocated(iwspec)) deallocate(iwspec)
+    if (allocated(wtrc_fixed_alpha)) deallocate(wtrc_fixed_alpha)
+    if (allocated(wtrc_species_rstd)) deallocate(wtrc_species_rstd)
+    allocate(water_tracer_mask(size(water_tracer_mask_in)), source=water_tracer_mask_in)
+    allocate(wtrc_iatype(size(wtrc_iatype_in,1),size(wtrc_iatype_in,2)), &
+         source=wtrc_iatype_in)
+    allocate(iwspec(size(iwspec_in)), source=iwspec_in)
+    allocate(wtrc_fixed_alpha(size(wtrc_fixed_alpha_in)), source=wtrc_fixed_alpha_in)
+    allocate(wtrc_species_rstd(size(wtrc_species_rstd_in)), source=wtrc_species_rstd_in)
+  end subroutine uwshcu_set_water_tracers
+
   !> \section arg_table_compute_uwshcu_inv_run Argument Table
   !! \htmlinclude compute_uwshcu_inv_run.html
-  subroutine compute_uwshcu_inv_run( mix      , mkx        , iend          , ncnst     , dt       ,  &
+  subroutine compute_uwshcu_inv_run(mix, mkx, iend, ncnst, dt, ps0_inv, &
+       zs0_inv, p0_inv, z0_inv, dp0_inv, u0_inv, v0_inv, qv0_inv, &
+       ql0_inv, qi0_inv, t0_inv, s0_inv, tr0_inv, tke_inv, cldfrct_inv, &
+       concldfrct_inv, pblh, cush, umf_inv, slflx_inv, qtflx_inv, &
+       flxprc1_inv, flxsnow1_inv, qvten_inv, qlten_inv, qiten_inv, &
+       sten_inv, uten_inv, vten_inv, trten_inv, qrten_inv, qsten_inv, &
+       precip, snow, evapc_inv, cufrc_inv, qcu_inv, qlu_inv, qiu_inv, &
+       cbmf, qc_inv, rliq, cnt_inv, cnb_inv, lchnk, dpdry0_inv, wtprec, &
+       wtsnow, wtqc_inv, errmsg, errflg)
+
+    integer, intent(in) :: mix, mkx, iend, ncnst, lchnk
+    real(r8), intent(in) :: dt
+    real(r8), intent(in) :: ps0_inv(:,:), zs0_inv(:,:), p0_inv(:,:)
+    real(r8), intent(in) :: z0_inv(:,:), dp0_inv(:,:), dpdry0_inv(:,:)
+    real(r8), intent(in) :: u0_inv(:,:), v0_inv(:,:), qv0_inv(:,:)
+    real(r8), intent(in) :: ql0_inv(:,:), qi0_inv(:,:), t0_inv(:,:)
+    real(r8), intent(in) :: s0_inv(:,:), tr0_inv(:,:,:), tke_inv(:,:)
+    real(r8), intent(in) :: cldfrct_inv(:,:), concldfrct_inv(:,:), pblh(:)
+    real(r8), intent(inout) :: cush(:)
+    real(r8), intent(out) :: umf_inv(:,:), slflx_inv(:,:), qtflx_inv(:,:)
+    real(r8), intent(out) :: flxprc1_inv(:,:), flxsnow1_inv(:,:)
+    real(r8), intent(out) :: qvten_inv(:,:), qlten_inv(:,:), qiten_inv(:,:)
+    real(r8), intent(out) :: sten_inv(:,:), uten_inv(:,:), vten_inv(:,:)
+    real(r8), intent(out) :: trten_inv(:,:,:), qrten_inv(:,:), qsten_inv(:,:)
+    real(r8), intent(out) :: precip(:), snow(:), evapc_inv(:,:)
+    real(r8), intent(out) :: cufrc_inv(:,:), qcu_inv(:,:), qlu_inv(:,:)
+    real(r8), intent(out) :: qiu_inv(:,:), cbmf(:), qc_inv(:,:), rliq(:)
+    real(r8), intent(out) :: cnt_inv(:), cnb_inv(:), wtprec(:,:), wtsnow(:,:)
+    real(r8), intent(out) :: wtqc_inv(:,:,:)
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out) :: errflg
+
+    errmsg = ''
+    errflg = 0
+    call compute_uwshcu_inv_run_core(mix, mkx, iend, ncnst, dt, ps0_inv, &
+         zs0_inv, p0_inv, z0_inv, dp0_inv, u0_inv, v0_inv, qv0_inv, &
+         ql0_inv, qi0_inv, t0_inv, s0_inv, tr0_inv, tke_inv, cldfrct_inv, &
+         concldfrct_inv, pblh, cush, umf_inv, slflx_inv, qtflx_inv, &
+         flxprc1_inv, flxsnow1_inv, qvten_inv, qlten_inv, qiten_inv, &
+         sten_inv, uten_inv, vten_inv, trten_inv, qrten_inv, qsten_inv, &
+         precip, snow, evapc_inv, cufrc_inv, qcu_inv, qlu_inv, qiu_inv, &
+         cbmf, qc_inv, rliq, cnt_inv, cnb_inv, lchnk, dpdry0_inv, wtprec, &
+         wtsnow, wtqc_inv)
+  end subroutine compute_uwshcu_inv_run
+
+  !> \section arg_table_compute_uwshcu_inv_run Argument Table
+  !! \htmlinclude compute_uwshcu_inv_run.html
+  subroutine compute_uwshcu_inv_run_core( mix      , mkx        , iend          , ncnst     , dt       ,  &
                                  ps0_inv  , zs0_inv    , p0_inv        , z0_inv    , dp0_inv  ,  &
                                  u0_inv   , v0_inv     , qv0_inv       , ql0_inv   , qi0_inv  ,  &
                                  t0_inv   , s0_inv     , tr0_inv       ,                         &
@@ -213,7 +398,7 @@ end subroutine uwshcu_set_rpen
                                  cufrc_inv, qcu_inv    , qlu_inv       , qiu_inv   ,             &
                                  cbmf     , qc_inv     , rliq          ,                         &
                                  cnt_inv  , cnb_inv    , lchnk         , dpdry0_inv,             &
-                                 wtprec   , wtsnow     , wtqc_inv, errmsg, errflg )
+                                 wtprec   , wtsnow     , wtqc_inv )
 
     implicit none
     integer , intent(in)    :: lchnk
@@ -277,10 +462,6 @@ end subroutine uwshcu_set_rpen
     real(r8), intent(out)   :: wtprec(:,:)        !  Water tracer surface precipitation [ m/s ]
     real(r8), intent(out)   :: wtsnow(:,:)        !  Water tracer surface snow [ m/s ]
     real(r8), intent(out)   :: wtqc_inv(:,:,:)  !  Water tracer detrained condensate [ kg/kg/s ]
-    character(len=*), intent(out), optional :: errmsg
-    integer, intent(out), optional :: errflg
-    character(len=512) :: errmsg_local
-    integer :: errflg_local
     !*************
 
     real(r8)                :: ps0(mix,0:mkx)           !  Environmental pressure at the interfaces [ Pa ]
@@ -344,6 +525,8 @@ end subroutine uwshcu_set_rpen
 !    wtcush(:) = cush(:) !Copy convective scale height (needed for water tracers)
     !*********************
 
+    call t_startf('ap_compute_uwshcu_inv_run')
+
     do k = 1, mkx
        k_inv               = mkx + 1 - k
        p0(:iend,k)         = p0_inv(:iend,k_inv)
@@ -371,7 +554,7 @@ end subroutine uwshcu_set_rpen
        tke(:iend,k)        = tke_inv(:iend,k_inv)
     end do
 
-    call compute_uwshcu_run( mix  , mkx    , iend      , ncnst , dt   , &
+    call compute_uwshcu_run_core( mix  , mkx    , iend      , ncnst , dt   , &
                          ps0  , zs0    , p0        , z0    , dp0  , &
                          u0   , v0     , qv0       , ql0   , qi0  , &
                          t0   , s0     , tr0       ,                &
@@ -384,11 +567,7 @@ end subroutine uwshcu_set_rpen
                          cufrc, qcu    , qlu       , qiu   ,        &
                          cbmf , qc     , rliq      ,                &
                          cnt  , cnb    , lchnk     , dpdry0, wtprec,&
-                         wtsnow, wtqc, errmsg_local, errflg_local )
-
-    if (present(errmsg)) errmsg = errmsg_local
-    if (present(errflg)) errflg = errflg_local
-    if (errflg_local /= 0) return
+                         wtsnow, wtqc )
 
     !**********************************************
     !Calculate impact of UW scheme on water tracers:
@@ -456,11 +635,59 @@ end subroutine uwshcu_set_rpen
        enddo
     enddo
 
-  end subroutine compute_uwshcu_inv_run
+    call t_stopf('ap_compute_uwshcu_inv_run')
+  end subroutine compute_uwshcu_inv_run_core
 
   !> \section arg_table_compute_uwshcu_run Argument Table
   !! \htmlinclude compute_uwshcu_run.html
-  subroutine compute_uwshcu_run( mix      , mkx       , iend         , ncnst    , dt        , &
+  subroutine compute_uwshcu_run(mix, mkx, iend, ncnst, dt, ps0_in, &
+       zs0_in, p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, &
+       qi0_in, t0_in, s0_in, tr0_in, tke_in, cldfrct_in, concldfrct_in, &
+       pblh_in, cush_inout, umf_out, slflx_out, qtflx_out, flxprc1_out, &
+       flxsnow1_out, qvten_out, qlten_out, qiten_out, sten_out, &
+       uten_out, vten_out, trten_out, qrten_out, qsten_out, precip_out, &
+       snow_out, evapc_out, cufrc_out, qcu_out, qlu_out, qiu_out, &
+       cbmf_out, qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, &
+       wtprec_out, wtsnow_out, wtqc_out, errmsg, errflg)
+
+    integer, intent(in) :: mix, mkx, iend, ncnst, lchnk
+    real(r8), intent(in) :: dt
+    real(r8), intent(in) :: ps0_in(:,0:), zs0_in(:,0:), p0_in(:,:)
+    real(r8), intent(in) :: z0_in(:,:), dp0_in(:,:), dpdry0_in(:,:)
+    real(r8), intent(in) :: u0_in(:,:), v0_in(:,:), qv0_in(:,:)
+    real(r8), intent(in) :: ql0_in(:,:), qi0_in(:,:), t0_in(:,:), s0_in(:,:)
+    real(r8), intent(in) :: tr0_in(:,:,:), tke_in(:,0:), cldfrct_in(:,:)
+    real(r8), intent(in) :: concldfrct_in(:,:), pblh_in(:)
+    real(r8), intent(inout) :: cush_inout(:)
+    real(r8), intent(out) :: umf_out(:,0:), slflx_out(:,0:), qtflx_out(:,0:)
+    real(r8), intent(out) :: flxprc1_out(:,0:), flxsnow1_out(:,0:)
+    real(r8), intent(out) :: qvten_out(:,:), qlten_out(:,:), qiten_out(:,:)
+    real(r8), intent(out) :: sten_out(:,:), uten_out(:,:), vten_out(:,:)
+    real(r8), intent(out) :: trten_out(:,:,:), qrten_out(:,:), qsten_out(:,:)
+    real(r8), intent(out) :: precip_out(:), snow_out(:), evapc_out(:,:)
+    real(r8), intent(out) :: cufrc_out(:,:), qcu_out(:,:), qlu_out(:,:)
+    real(r8), intent(out) :: qiu_out(:,:), cbmf_out(:), qc_out(:,:)
+    real(r8), intent(out) :: rliq_out(:), cnt_out(:), cnb_out(:)
+    real(r8), intent(out) :: wtprec_out(:,:), wtsnow_out(:,:), wtqc_out(:,:,:)
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out) :: errflg
+
+    errmsg = ''
+    errflg = 0
+    call compute_uwshcu_run_core(mix, mkx, iend, ncnst, dt, ps0_in, zs0_in, &
+         p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, &
+         t0_in, s0_in, tr0_in, tke_in, cldfrct_in, concldfrct_in, &
+         pblh_in, cush_inout, umf_out, slflx_out, qtflx_out, flxprc1_out, &
+         flxsnow1_out, qvten_out, qlten_out, qiten_out, sten_out, &
+         uten_out, vten_out, trten_out, qrten_out, qsten_out, precip_out, &
+         snow_out, evapc_out, cufrc_out, qcu_out, qlu_out, qiu_out, &
+         cbmf_out, qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, &
+         wtprec_out, wtsnow_out, wtqc_out)
+  end subroutine compute_uwshcu_run
+
+  !> \section arg_table_compute_uwshcu_run Argument Table
+  !! \htmlinclude compute_uwshcu_run.html
+  subroutine compute_uwshcu_run_core( mix      , mkx       , iend         , ncnst    , dt        , &
                              ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
                              u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
                              t0_in    , s0_in     , tr0_in       ,                        &
@@ -473,7 +700,7 @@ end subroutine uwshcu_set_rpen
                              cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
                              cbmf_out , qc_out    , rliq_out     ,                        &
                              cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                             wtsnow_out, wtqc_out, errmsg, errflg )
+                             wtsnow_out, wtqc_out )
 
     ! ------------------------------------------------------------ !
     !                                                              !
@@ -562,8 +789,6 @@ end subroutine uwshcu_set_rpen
     real(r8), intent(out)  :: wtqc_out(:,:,:)         ! Tendency of detrained condensate [ kg/kg/s ]
     real(r8), intent(out)  :: wtprec_out(:,:)           ! Water tracer precipitation [ m/s ]
     real(r8), intent(out)  :: wtsnow_out(:,:)           ! Water tracer snow [ m/s ]
-    character(len=*), intent(out) :: errmsg
-    integer, intent(out) :: errflg
     !*************
 
     !
@@ -844,7 +1069,7 @@ end subroutine uwshcu_set_rpen
 
     integer     kk, mm, k, i, m, kp1, km1
     integer     iter_scaleh, iter_xc
-    integer     id_check, status, findsp_errflg
+    integer     id_check, status
     integer     klcl                                          !  Layer containing LCL of source air
     integer     kinv                                          !  Inversion layer with PBL top interface as a lower interface
     integer     krel                                          !  Release layer where buoyancy sorting mixing
@@ -1074,7 +1299,6 @@ end subroutine uwshcu_set_rpen
     real(r8), dimension(ncnst)       :: trsrc_o
     real(r8), dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
-
     ! ------------------ !
     !                    !
     ! Define Parameters  !
@@ -1193,6 +1417,14 @@ end subroutine uwshcu_set_rpen
     ! Start Main Calculation !
     !                        !
     !------------------------!
+
+    call t_startf('ap_compute_uwshcu_run')
+
+    call cnst_get_ind( 'NUMLIQ', ixnumliq )
+    call cnst_get_ind( 'NUMICE', ixnumice )
+
+    call cnst_get_ind( 'CLDLIQ', ixcldliq )
+    call cnst_get_ind( 'CLDICE', ixcldice )
 
     ! ------------------------------------------------------- !
     ! Initialize output variables defined for all grid points !
@@ -1323,21 +1555,13 @@ end subroutine uwshcu_set_rpen
     !                                                              !
     !--------------------------------------------------------------!
 
-    errmsg = ''
-    errflg = 0
-
     ! Compute wet-bulb temperature and specific humidity
     ! for treating evaporation of precipitation.
 
     ! "True" means ice will be taken into account
     do k = 1, mkx
-       call findsp_table_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
-            tw0_in(:iend,k), qw0_in(:iend,k), findsp_errflg)
-       if (findsp_errflg /= 0) then
-          errmsg = 'compute_uwshcu_run: wet-bulb iteration failed'
-          errflg = findsp_errflg
-          return
-       end if
+       call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
+            tw0_in(:iend,k), qw0_in(:iend,k))
     end do
 
     do i = 1, iend
@@ -2317,9 +2541,7 @@ end subroutine uwshcu_set_rpen
        if( mulcl .gt. 1.e-8_r8 .and. mulcl .gt. mulclstar ) then
            mumin2 = compute_mumin2(mulcl,rmaxfrac,mu)
            if( mu .gt. mumin2 ) then
-               errmsg = 'compute_uwshcu_run: critical error in mu calculation'
-               errflg = 1
-               return
+               call endrun
            endif
            mu = max(mu,mumin2)
            if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
@@ -2654,7 +2876,7 @@ end subroutine uwshcu_set_rpen
           thv0j    = thj * ( 1._r8 + zvir*qvj - qlj - qij )
           rho0j    = pe / ( r * thv0j * exne )
           qsat_arg = thle*exne
-          call qsat_table(qsat_arg, pe, es, qs)
+          call qsat(qsat_arg, pe, es, qs)
           excess0  = qte - qs
 
           call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
@@ -2687,7 +2909,7 @@ end subroutine uwshcu_set_rpen
           thvj     = thj * ( 1._r8 + zvir * qvj - qlj - qij )
           tj       = thj * exne ! This 'tj' is used for computing thermo. coeffs. below
           qsat_arg = thlue*exne
-          call qsat_table(qsat_arg, pe, es, qs)
+          call qsat(qsat_arg, pe, es, qs)
           excessu  = qtue - qs
 
           ! ------------------------------------------------------------------- !
@@ -4607,7 +4829,7 @@ end subroutine uwshcu_set_rpen
           !   3. Total evaporation cannot exceed the input total surface flux !
           ! ----------------------------------------------------------------- !
 
-          call qsat_table(t0(k), p0(k), es, qs)
+          call qsat(t0(k), p0(k), es, qs)
           subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
           if( noevap_krelkpen ) then
               if( k .ge. krel ) subsat = 0._r8
@@ -4680,9 +4902,9 @@ end subroutine uwshcu_set_rpen
           qiten(k) = qiten(k) - qsten(k)
           qvten(k) = qvten(k) + evprain  + evpsnow
           qtten(k) = qlten(k) + qiten(k) + qvten(k)
-          if( ( qv0(k) + qvten(k)*dt ) .lt. constituent_qmin(1) .or. &
-              ( ql0(k) + qlten(k)*dt ) .lt. constituent_qmin(ixcldliq) .or. &
-              ( qi0(k) + qiten(k)*dt ) .lt. constituent_qmin(ixcldice) ) then
+          if( ( qv0(k) + qvten(k)*dt ) .lt. qmin(1) .or. &
+              ( ql0(k) + qlten(k)*dt ) .lt. qmin(ixcldliq) .or. &
+              ( qi0(k) + qiten(k)*dt ) .lt. qmin(ixcldice) ) then
                limit_negcon(i) = 1._r8
           end if
           sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt
@@ -4953,11 +5175,11 @@ end subroutine uwshcu_set_rpen
             wt0_star(:mkx,m,2) = tr0(:mkx,wtrc_iatype(m,iwtliq)) + trten(:mkx,wtrc_iatype(m,iwtliq)) * dt
             wt0_star(:mkx,m,3) = tr0(:mkx,wtrc_iatype(m,iwtice)) + trten(:mkx,wtrc_iatype(m,iwtice)) * dt
           end do
-          call positive_moisture_single( xlv, xls, mkx, dt, constituent_qmin(1), constituent_qmin(ixcldliq), &
-                                         constituent_qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
+          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
+                                         qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
                                          qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
         else
-          call positive_moisture_single( xlv, xls, mkx, dt, constituent_qmin(1), constituent_qmin(ixcldliq), constituent_qmin(ixcldice), &
+          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
                dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
         end if !water tracers
         !************
@@ -4974,11 +5196,11 @@ end subroutine uwshcu_set_rpen
 
        if( m .ne. ixnumliq .and. m .ne. ixnumice .and. (.not. wtrc_is_wtrc(m))) then
 
-          trmin = constituent_qmin(m)
+          trmin = qmin(m)
           trflx_d(0:mkx) = 0._r8
           trflx_u(0:mkx) = 0._r8
           do k = 1, mkx-1
-             if (constituent_is_wet(m)) then
+             if( cnst_get_type_byind(m) .eq. 'wet' ) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
@@ -4988,7 +5210,7 @@ end subroutine uwshcu_set_rpen
              trflx_d(k) = min( 0._r8, dum )
           enddo
           do k = mkx, 2, -1
-             if (constituent_is_wet(m)) then
+             if( cnst_get_type_byind(m) .eq. 'wet' ) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
@@ -4999,7 +5221,7 @@ end subroutine uwshcu_set_rpen
              trflx_u(km1) = max( 0._r8, -dum )
           enddo
           do k = 1, mkx
-             if (constituent_is_wet(m)) then
+             if( cnst_get_type_byind(m) .eq. 'wet' ) then
                  pdelx = dp0(k)
              else
                  pdelx = dpdry0(k)
@@ -5507,100 +5729,102 @@ end subroutine uwshcu_set_rpen
      ! Writing main diagnostic output variables !
      ! ---------------------------------------- !
 
-     call atmos_phys_outfld( 'qtflx_Cu'        , qtflx_out(:,mkx:0:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'slflx_Cu'        , slflx_out(:,mkx:0:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'uflx_Cu'         , uflx_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'vflx_Cu'         , vflx_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'qtten_Cu'        , qtten_out,                mix,    lchnk )
-     call atmos_phys_outfld( 'slten_Cu'        , slten_out,                mix,    lchnk )
-     call atmos_phys_outfld( 'uten_Cu'         , uten_out(:,mkx:1:-1),     mix,    lchnk )
-     call atmos_phys_outfld( 'vten_Cu'         , vten_out(:,mkx:1:-1),     mix,    lchnk )
-     call atmos_phys_outfld( 'qvten_Cu'        , qvten_out(:,mkx:1:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'qlten_Cu'        , qlten_out(:,mkx:1:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'qiten_Cu'        , qiten_out(:,mkx:1:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'cbmf_Cu'         , cbmf_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'ufrcinvbase_Cu'  , ufrcinvbase_out,          mix,    lchnk )
-     call atmos_phys_outfld( 'ufrclcl_Cu'      , ufrclcl_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'winvbase_Cu'     , winvbase_out,             mix,    lchnk )
-     call atmos_phys_outfld( 'wlcl_Cu'         , wlcl_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'plcl_Cu'         , plcl_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'pinv_Cu'         , pinv_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'plfc_Cu'         , plfc_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'pbup_Cu'         , pbup_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'ppen_Cu'         , ppen_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'qtsrc_Cu'        , qtsrc_out,                mix,    lchnk )
-     call atmos_phys_outfld( 'thlsrc_Cu'       , thlsrc_out,               mix,    lchnk )
-     call atmos_phys_outfld( 'thvlsrc_Cu'      , thvlsrc_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'emfkbup_Cu'      , emfkbup_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'cin_Cu'          , cinh_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'cinlcl_Cu'       , cinlclh_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'cbmflimit_Cu'    , cbmflimit_out,            mix,    lchnk )
-     call atmos_phys_outfld( 'tkeavg_Cu'       , tkeavg_out,               mix,    lchnk )
-     call atmos_phys_outfld( 'zinv_Cu'         , zinv_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'rcwp_Cu'         , rcwp_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'rlwp_Cu'         , rlwp_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'riwp_Cu'         , riwp_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'tophgt_Cu'       , cush_inout,               mix,    lchnk )
-     call atmos_phys_outfld( 'wu_Cu'           , wu_out,                   mix,    lchnk )
-     call atmos_phys_outfld( 'ufrc_Cu'         , ufrc_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'qtu_Cu'          , qtu_out,                  mix,    lchnk )
-     call atmos_phys_outfld( 'thlu_Cu'         , thlu_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'thvu_Cu'         , thvu_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'uu_Cu'           , uu_out,                   mix,    lchnk )
-     call atmos_phys_outfld( 'vu_Cu'           , vu_out,                   mix,    lchnk )
-     call atmos_phys_outfld( 'qtu_emf_Cu'      , qtu_emf_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'thlu_emf_Cu'     , thlu_emf_out,             mix,    lchnk )
-     call atmos_phys_outfld( 'uu_emf_Cu'       , uu_emf_out,               mix,    lchnk )
-     call atmos_phys_outfld( 'vu_emf_Cu'       , vu_emf_out,               mix,    lchnk )
-     call atmos_phys_outfld( 'umf_Cu'          , umf_out(:,mkx:0:-1),      mix,    lchnk )
-     call atmos_phys_outfld( 'uemf_Cu'         , uemf_out,                 mix,    lchnk )
-     call atmos_phys_outfld( 'qcu_Cu'          , qcu_out(:,mkx:1:-1),      mix,    lchnk )
-     call atmos_phys_outfld( 'qlu_Cu'          , qlu_out(:,mkx:1:-1),      mix,    lchnk )
-     call atmos_phys_outfld( 'qiu_Cu'          , qiu_out(:,mkx:1:-1),      mix,    lchnk )
-     call atmos_phys_outfld( 'cufrc_Cu'        , cufrc_out(:,mkx:1:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'fer_Cu'          , fer_out,                  mix,    lchnk )
-     call atmos_phys_outfld( 'fdr_Cu'          , fdr_out,                  mix,    lchnk )
-     call atmos_phys_outfld( 'dwten_Cu'        , dwten_out,                mix,    lchnk )
-     call atmos_phys_outfld( 'diten_Cu'        , diten_out,                mix,    lchnk )
-     call atmos_phys_outfld( 'qrten_Cu'        , qrten_out(:,mkx:1:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'qsten_Cu'        , qsten_out(:,mkx:1:-1),    mix,    lchnk )
-     call atmos_phys_outfld( 'flxrain_Cu'      , flxrain_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'flxsnow_Cu'      , flxsnow_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'ntraprd_Cu'      , ntraprd_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'ntsnprd_Cu'      , ntsnprd_out,              mix,    lchnk )
-     call atmos_phys_outfld( 'excessu_Cu'      , excessu_arr_out,          mix,    lchnk )
-     call atmos_phys_outfld( 'excess0_Cu'      , excess0_arr_out,          mix,    lchnk )
-     call atmos_phys_outfld( 'xc_Cu'           , xc_arr_out,               mix,    lchnk )
-     call atmos_phys_outfld( 'aquad_Cu'        , aquad_arr_out,            mix,    lchnk )
-     call atmos_phys_outfld( 'bquad_Cu'        , bquad_arr_out,            mix,    lchnk )
-     call atmos_phys_outfld( 'cquad_Cu'        , cquad_arr_out,            mix,    lchnk )
-     call atmos_phys_outfld( 'bogbot_Cu'       , bogbot_arr_out,           mix,    lchnk )
-     call atmos_phys_outfld( 'bogtop_Cu'       , bogtop_arr_out,           mix,    lchnk )
-     call atmos_phys_outfld( 'exit_UWCu_Cu'    , exit_UWCu,                mix,    lchnk )
-     call atmos_phys_outfld( 'exit_conden_Cu'  , exit_conden,              mix,    lchnk )
-     call atmos_phys_outfld( 'exit_klclmkx_Cu' , exit_klclmkx,             mix,    lchnk )
-     call atmos_phys_outfld( 'exit_klfcmkx_Cu' , exit_klfcmkx,             mix,    lchnk )
-     call atmos_phys_outfld( 'exit_ufrc_Cu'    , exit_ufrc,                mix,    lchnk )
-     call atmos_phys_outfld( 'exit_wtw_Cu'     , exit_wtw,                 mix,    lchnk )
-     call atmos_phys_outfld( 'exit_drycore_Cu' , exit_drycore,             mix,    lchnk )
-     call atmos_phys_outfld( 'exit_wu_Cu'      , exit_wu,                  mix,    lchnk )
-     call atmos_phys_outfld( 'exit_cufilter_Cu', exit_cufilter,            mix,    lchnk )
-     call atmos_phys_outfld( 'exit_kinv1_Cu'   , exit_kinv1,               mix,    lchnk )
-     call atmos_phys_outfld( 'exit_rei_Cu'     , exit_rei,                 mix,    lchnk )
-     call atmos_phys_outfld( 'limit_shcu_Cu'   , limit_shcu,               mix,    lchnk )
-     call atmos_phys_outfld( 'limit_negcon_Cu' , limit_negcon,             mix,    lchnk )
-     call atmos_phys_outfld( 'limit_ufrc_Cu'   , limit_ufrc,               mix,    lchnk )
-     call atmos_phys_outfld( 'limit_ppen_Cu'   , limit_ppen,               mix,    lchnk )
-     call atmos_phys_outfld( 'limit_emf_Cu'    , limit_emf,                mix,    lchnk )
-     call atmos_phys_outfld( 'limit_cinlcl_Cu' , limit_cinlcl,             mix,    lchnk )
-     call atmos_phys_outfld( 'limit_cin_Cu'    , limit_cin,                mix,    lchnk )
-     call atmos_phys_outfld( 'limit_cbmf_Cu'   , limit_cbmf,               mix,    lchnk )
-     call atmos_phys_outfld( 'limit_rei_Cu'    , limit_rei,                mix,    lchnk )
-     call atmos_phys_outfld( 'ind_delcin_Cu'   , ind_delcin,               mix,    lchnk )
+     call outfld( 'qtflx_Cu'        , qtflx_out(:,mkx:0:-1),    mix,    lchnk )
+     call outfld( 'slflx_Cu'        , slflx_out(:,mkx:0:-1),    mix,    lchnk )
+     call outfld( 'uflx_Cu'         , uflx_out,                 mix,    lchnk )
+     call outfld( 'vflx_Cu'         , vflx_out,                 mix,    lchnk )
+     call outfld( 'qtten_Cu'        , qtten_out,                mix,    lchnk )
+     call outfld( 'slten_Cu'        , slten_out,                mix,    lchnk )
+     call outfld( 'uten_Cu'         , uten_out(:,mkx:1:-1),     mix,    lchnk )
+     call outfld( 'vten_Cu'         , vten_out(:,mkx:1:-1),     mix,    lchnk )
+     call outfld( 'qvten_Cu'        , qvten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'qlten_Cu'        , qlten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'qiten_Cu'        , qiten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'cbmf_Cu'         , cbmf_out,                 mix,    lchnk )
+     call outfld( 'ufrcinvbase_Cu'  , ufrcinvbase_out,          mix,    lchnk )
+     call outfld( 'ufrclcl_Cu'      , ufrclcl_out,              mix,    lchnk )
+     call outfld( 'winvbase_Cu'     , winvbase_out,             mix,    lchnk )
+     call outfld( 'wlcl_Cu'         , wlcl_out,                 mix,    lchnk )
+     call outfld( 'plcl_Cu'         , plcl_out,                 mix,    lchnk )
+     call outfld( 'pinv_Cu'         , pinv_out,                 mix,    lchnk )
+     call outfld( 'plfc_Cu'         , plfc_out,                 mix,    lchnk )
+     call outfld( 'pbup_Cu'         , pbup_out,                 mix,    lchnk )
+     call outfld( 'ppen_Cu'         , ppen_out,                 mix,    lchnk )
+     call outfld( 'qtsrc_Cu'        , qtsrc_out,                mix,    lchnk )
+     call outfld( 'thlsrc_Cu'       , thlsrc_out,               mix,    lchnk )
+     call outfld( 'thvlsrc_Cu'      , thvlsrc_out,              mix,    lchnk )
+     call outfld( 'emfkbup_Cu'      , emfkbup_out,              mix,    lchnk )
+     call outfld( 'cin_Cu'          , cinh_out,                 mix,    lchnk )
+     call outfld( 'cinlcl_Cu'       , cinlclh_out,              mix,    lchnk )
+     call outfld( 'cbmflimit_Cu'    , cbmflimit_out,            mix,    lchnk )
+     call outfld( 'tkeavg_Cu'       , tkeavg_out,               mix,    lchnk )
+     call outfld( 'zinv_Cu'         , zinv_out,                 mix,    lchnk )
+     call outfld( 'rcwp_Cu'         , rcwp_out,                 mix,    lchnk )
+     call outfld( 'rlwp_Cu'         , rlwp_out,                 mix,    lchnk )
+     call outfld( 'riwp_Cu'         , riwp_out,                 mix,    lchnk )
+     call outfld( 'tophgt_Cu'       , cush_inout,               mix,    lchnk )
+     call outfld( 'wu_Cu'           , wu_out,                   mix,    lchnk )
+     call outfld( 'ufrc_Cu'         , ufrc_out,                 mix,    lchnk )
+     call outfld( 'qtu_Cu'          , qtu_out,                  mix,    lchnk )
+     call outfld( 'thlu_Cu'         , thlu_out,                 mix,    lchnk )
+     call outfld( 'thvu_Cu'         , thvu_out,                 mix,    lchnk )
+     call outfld( 'uu_Cu'           , uu_out,                   mix,    lchnk )
+     call outfld( 'vu_Cu'           , vu_out,                   mix,    lchnk )
+     call outfld( 'qtu_emf_Cu'      , qtu_emf_out,              mix,    lchnk )
+     call outfld( 'thlu_emf_Cu'     , thlu_emf_out,             mix,    lchnk )
+     call outfld( 'uu_emf_Cu'       , uu_emf_out,               mix,    lchnk )
+     call outfld( 'vu_emf_Cu'       , vu_emf_out,               mix,    lchnk )
+     call outfld( 'umf_Cu'          , umf_out(:,mkx:0:-1),      mix,    lchnk )
+     call outfld( 'uemf_Cu'         , uemf_out,                 mix,    lchnk )
+     call outfld( 'qcu_Cu'          , qcu_out(:,mkx:1:-1),      mix,    lchnk )
+     call outfld( 'qlu_Cu'          , qlu_out(:,mkx:1:-1),      mix,    lchnk )
+     call outfld( 'qiu_Cu'          , qiu_out(:,mkx:1:-1),      mix,    lchnk )
+     call outfld( 'cufrc_Cu'        , cufrc_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'fer_Cu'          , fer_out,                  mix,    lchnk )
+     call outfld( 'fdr_Cu'          , fdr_out,                  mix,    lchnk )
+     call outfld( 'dwten_Cu'        , dwten_out,                mix,    lchnk )
+     call outfld( 'diten_Cu'        , diten_out,                mix,    lchnk )
+     call outfld( 'qrten_Cu'        , qrten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'qsten_Cu'        , qsten_out(:,mkx:1:-1),    mix,    lchnk )
+     call outfld( 'flxrain_Cu'      , flxrain_out,              mix,    lchnk )
+     call outfld( 'flxsnow_Cu'      , flxsnow_out,              mix,    lchnk )
+     call outfld( 'ntraprd_Cu'      , ntraprd_out,              mix,    lchnk )
+     call outfld( 'ntsnprd_Cu'      , ntsnprd_out,              mix,    lchnk )
+     call outfld( 'excessu_Cu'      , excessu_arr_out,          mix,    lchnk )
+     call outfld( 'excess0_Cu'      , excess0_arr_out,          mix,    lchnk )
+     call outfld( 'xc_Cu'           , xc_arr_out,               mix,    lchnk )
+     call outfld( 'aquad_Cu'        , aquad_arr_out,            mix,    lchnk )
+     call outfld( 'bquad_Cu'        , bquad_arr_out,            mix,    lchnk )
+     call outfld( 'cquad_Cu'        , cquad_arr_out,            mix,    lchnk )
+     call outfld( 'bogbot_Cu'       , bogbot_arr_out,           mix,    lchnk )
+     call outfld( 'bogtop_Cu'       , bogtop_arr_out,           mix,    lchnk )
+     call outfld( 'exit_UWCu_Cu'    , exit_UWCu,                mix,    lchnk )
+     call outfld( 'exit_conden_Cu'  , exit_conden,              mix,    lchnk )
+     call outfld( 'exit_klclmkx_Cu' , exit_klclmkx,             mix,    lchnk )
+     call outfld( 'exit_klfcmkx_Cu' , exit_klfcmkx,             mix,    lchnk )
+     call outfld( 'exit_ufrc_Cu'    , exit_ufrc,                mix,    lchnk )
+     call outfld( 'exit_wtw_Cu'     , exit_wtw,                 mix,    lchnk )
+     call outfld( 'exit_drycore_Cu' , exit_drycore,             mix,    lchnk )
+     call outfld( 'exit_wu_Cu'      , exit_wu,                  mix,    lchnk )
+     call outfld( 'exit_cufilter_Cu', exit_cufilter,            mix,    lchnk )
+     call outfld( 'exit_kinv1_Cu'   , exit_kinv1,               mix,    lchnk )
+     call outfld( 'exit_rei_Cu'     , exit_rei,                 mix,    lchnk )
+     call outfld( 'limit_shcu_Cu'   , limit_shcu,               mix,    lchnk )
+     call outfld( 'limit_negcon_Cu' , limit_negcon,             mix,    lchnk )
+     call outfld( 'limit_ufrc_Cu'   , limit_ufrc,               mix,    lchnk )
+     call outfld( 'limit_ppen_Cu'   , limit_ppen,               mix,    lchnk )
+     call outfld( 'limit_emf_Cu'    , limit_emf,                mix,    lchnk )
+     call outfld( 'limit_cinlcl_Cu' , limit_cinlcl,             mix,    lchnk )
+     call outfld( 'limit_cin_Cu'    , limit_cin,                mix,    lchnk )
+     call outfld( 'limit_cbmf_Cu'   , limit_cbmf,               mix,    lchnk )
+     call outfld( 'limit_rei_Cu'    , limit_rei,                mix,    lchnk )
+     call outfld( 'ind_delcin_Cu'   , ind_delcin,               mix,    lchnk )
+
+    call t_stopf('ap_compute_uwshcu_run')
 
     return
 
-  end subroutine compute_uwshcu_run
+  end subroutine compute_uwshcu_run_core
 
   ! ------------------------------ !
   !                                !
@@ -5760,7 +5984,7 @@ end subroutine uwshcu_set_rpen
    ! --------------------------------------------------------------------------- !
 
     temps  = tc
-    call qsat_table(temps, p, es, qs)
+    call qsat(temps, p, es, qs)
     rvls   = qs
 
     if( qs .ge. qt ) then
@@ -5773,7 +5997,7 @@ end subroutine uwshcu_set_rpen
     else
         do iteration = 1, 10
            temps  = temps + ( (tc-temps)*cp/leff + qt - rvls )/( cp/leff + ep2*leff*rvls/r/temps/temps )
-           call qsat_table(temps, p, es, qs)
+           call qsat(temps, p, es, qs)
            rvls   = qs
         end do
         qc = max(qt - qs,0._r8)
@@ -5930,7 +6154,7 @@ end subroutine uwshcu_set_rpen
     ! ------------------------------------ !
 
     Ti       =  thl*(psfc/p00)**rovcp
-    call qsat_table(Ti, psfc, es, qs)
+    call qsat(Ti, psfc, es, qs)
     rhi      =  qt/qs
     if( rhi .le. 0.01_r8 ) then
         qsinvert = psmin
@@ -5943,7 +6167,7 @@ end subroutine uwshcu_set_rpen
     do i = 1, 10
        Pis      =  (ps/p00)**rovcp
        Ts       =  thl*Pis
-       call qsat_table(Ts, ps, es, qs, gam=gam)
+       call qsat(Ts, ps, es, qs, gam=gam)
        err      =  qt - qs
        nu       =  max(min((268._r8 - Ts)/20._r8,1.0_r8),0.0_r8)
        leff     =  (1._r8 - nu)*xlv + nu*xls
@@ -6277,18 +6501,30 @@ end subroutine uwshcu_set_rpen
 
   logical function wtrc_is_wtrc(m)
     integer, intent(in) :: m
+    if (associated(production_wtrc_is_wtrc)) then
+       wtrc_is_wtrc = production_wtrc_is_wtrc(m)
+       return
+    end if
     wtrc_is_wtrc = m >= 1 .and. m <= size(water_tracer_mask)
     if (wtrc_is_wtrc) wtrc_is_wtrc = water_tracer_mask(m)
   end function wtrc_is_wtrc
 
   real(r8) function wtrc_get_rstd(ispec)
     integer, intent(in) :: ispec
+    if (associated(production_wtrc_get_rstd)) then
+       wtrc_get_rstd = production_wtrc_get_rstd(ispec)
+       return
+    end if
     wtrc_get_rstd = wtrc_species_rstd(ispec)
   end function wtrc_get_rstd
 
   real(r8) function wtrc_ratio(ispec, qtrc, qtot)
     integer, intent(in) :: ispec
     real(r8), intent(in) :: qtrc, qtot
+    if (associated(production_wtrc_ratio)) then
+       wtrc_ratio = production_wtrc_ratio(ispec, qtrc, qtot)
+       return
+    end if
     if (abs(qtot) < wtrc_qmin) then
        wtrc_ratio = wtrc_get_rstd(ispec)
     else
@@ -6303,6 +6539,17 @@ end subroutine uwshcu_set_rpen
     logical, intent(in), optional :: kin
     logical :: alpkin
     real(r8) :: es, qs, rh
+
+    if (associated(production_wtrc_get_alpha)) then
+       if (present(kin)) then
+          wtrc_get_alpha = production_wtrc_get_alpha(q, tk, ispec, &
+               isrctype, idsttype, rhclc, porqh, kin)
+       else
+          wtrc_get_alpha = production_wtrc_get_alpha(q, tk, ispec, &
+               isrctype, idsttype, rhclc, porqh)
+       end if
+       return
+    end if
 
     if (present(kin)) then
        alpkin = kin
@@ -6334,8 +6581,14 @@ end subroutine uwshcu_set_rpen
     real(r8) :: difa, mu, vterm, cddrop, fvent
     real(r8) :: esat, qst
 
+    if (associated(production_wtrc_equil_time)) then
+       call production_wtrc_equil_time(ispec, temp, pres, rdrop, zdel, &
+            alpha, difrm, fequil)
+       return
+    end if
+
     rhoa = pres/(r*temp)
-    call qsat_table(temp, pres, esat, qst)
+    call qsat(temp, pres, esat, qst)
     difa = 2.11e-5_r8*difrm*(temp/273.15_r8)**1.94_r8*(101325._r8/pres)
     mu = 1.72e-5_r8*((temp/273.0_r8)**1.5_r8)*393.0_r8/(temp+120.0_r8)
     cddrop = 0.6_r8
@@ -6359,7 +6612,13 @@ end subroutine uwshcu_set_rpen
     real(r8), intent(inout) :: vapiso, liqiso
     real(r8), intent(out) :: dliqiso
     real(r8) :: dviso, qtot, qiso
-    real(r8), parameter :: qtiny = 1.e-36_r8
+    real(r8) :: qtiny = 1.e-36
+
+    if (associated(production_wtrc_liqvap_equil)) then
+       call production_wtrc_liqvap_equil(alpha, feq0, vaptot, liqtot, &
+            vapiso, liqiso, dliqiso)
+       return
+    end if
 
     dliqiso = 0._r8
     qtot = vaptot+liqtot
