@@ -82,7 +82,14 @@
 
    real(r8), parameter :: qsmall = 1.e-18_r8         ! Smallest mixing ratio considered in the macrophysics
 
-   integer, private :: pcols, pver, pverp, top_lev
+#if defined(PCOLS) && defined(PLEV)
+   integer, parameter, private :: pcols  = PCOLS
+   integer, parameter, private :: pver   = PLEV
+   integer, parameter, private :: pverp  = PLEV + 1
+#else
+   integer, private :: pcols, pver, pverp
+#endif
+   integer, private :: top_lev
    integer, private :: iulog
    real(r8), private :: cpair, latvap, latice, rh2o, gravit, rair
    real(r8), private :: qmin_vapor, qmin_liquid, qmin_ice
@@ -122,11 +129,22 @@
    character(len=*), intent(out) :: errmsg
    integer, intent(out) :: errflg
 
-   i_rhminl   = rhminl_opt_in
-   i_rhmini   = rhmini_opt_in
+   errmsg = ' '
+   errflg = 0
+#if defined(PCOLS) && defined(PLEV)
+   if (pcols_in /= pcols .or. pver_in /= pver .or. pverp_in /= pverp) then
+      errmsg = 'mmacro_pcond_init: compile-time physics dimensions do not match host'
+      errflg = 1
+      return
+   end if
+#else
    pcols = pcols_in
    pver = pver_in
    pverp = pverp_in
+#endif
+
+   i_rhminl   = rhminl_opt_in
+   i_rhmini   = rhmini_opt_in
    top_lev = top_lev_in
    iulog = iulog_in
    cpair = cpair_in

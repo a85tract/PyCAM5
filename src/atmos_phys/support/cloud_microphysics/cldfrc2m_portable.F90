@@ -1,3 +1,9 @@
+#ifdef PCOLS
+#define AP_PCOLS_OR_COLON PCOLS
+#else
+#define AP_PCOLS_OR_COLON :
+#endif
+
 module cldfrc2m_portable
 
 ! cloud fraction calculations
@@ -248,19 +254,19 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    ! they will produce the same results.                       !
    ! --------------------------------------------------------- !
 
-   real(r8), intent(in)  :: U_in(:)           ! Relative humidity
-   real(r8), intent(in)  :: p_in(:)           ! Pressure [Pa]
-   real(r8), intent(in)  :: qv_in(:)          ! Grid-mean water vapor specific humidity [kg/kg]
-   real(r8), intent(in)  :: landfrac_in(:)    ! Land fraction
-   real(r8), intent(in)  :: snowh_in(:)       ! Snow depth (liquid water equivalent)
+   real(r8), intent(in)  :: U_in(AP_PCOLS_OR_COLON)           ! Relative humidity
+   real(r8), intent(in)  :: p_in(AP_PCOLS_OR_COLON)           ! Pressure [Pa]
+   real(r8), intent(in)  :: qv_in(AP_PCOLS_OR_COLON)          ! Grid-mean water vapor specific humidity [kg/kg]
+   real(r8), intent(in)  :: landfrac_in(AP_PCOLS_OR_COLON)    ! Land fraction
+   real(r8), intent(in)  :: snowh_in(AP_PCOLS_OR_COLON)       ! Snow depth (liquid water equivalent)
 
-   real(r8), intent(out) :: a_out(:)          ! Stratus fraction
-   real(r8), intent(out) :: Ga_out(:)         ! dU/da
+   real(r8), intent(out) :: a_out(AP_PCOLS_OR_COLON)          ! Stratus fraction
+   real(r8), intent(out) :: Ga_out(AP_PCOLS_OR_COLON)         ! dU/da
    integer,  intent(in)  :: ncol
 
-   real(r8), optional, intent(in)  :: rhminl_in(:)                ! Critical relative humidity for low-level  liquid stratus
-   real(r8), optional, intent(in)  :: rhminl_adj_land_in(:)       ! Adjustment drop of rhminl over the land
-   real(r8), optional, intent(in)  :: rhminh_in(:)                ! Critical relative humidity for high-level liquid stratus
+   real(r8), optional, intent(in)  :: rhminl_in(AP_PCOLS_OR_COLON)                ! Critical relative humidity for low-level  liquid stratus
+   real(r8), optional, intent(in)  :: rhminl_adj_land_in(AP_PCOLS_OR_COLON)       ! Adjustment drop of rhminl over the land
+   real(r8), optional, intent(in)  :: rhminh_in(AP_PCOLS_OR_COLON)                ! Critical relative humidity for high-level liquid stratus
 
    real(r8)              :: rhminl                ! Critical relative humidity for low-level  liquid stratus
    real(r8)              :: rhminl_adj_land       ! Adjustment drop of rhminl over the land
@@ -522,19 +528,19 @@ subroutine astG_RHU(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    ! G is discontinuous across U = 1.                          !
    ! --------------------------------------------------------- !
 
-   real(r8), intent(in)  :: U_in(:)           ! Relative humidity
-   real(r8), intent(in)  :: p_in(:)           ! Pressure [Pa]
-   real(r8), intent(in)  :: qv_in(:)          ! Grid-mean water vapor specific humidity [kg/kg]
-   real(r8), intent(in)  :: landfrac_in(:)    ! Land fraction
-   real(r8), intent(in)  :: snowh_in(:)       ! Snow depth (liquid water equivalent)
+   real(r8), intent(in)  :: U_in(AP_PCOLS_OR_COLON)           ! Relative humidity
+   real(r8), intent(in)  :: p_in(AP_PCOLS_OR_COLON)           ! Pressure [Pa]
+   real(r8), intent(in)  :: qv_in(AP_PCOLS_OR_COLON)          ! Grid-mean water vapor specific humidity [kg/kg]
+   real(r8), intent(in)  :: landfrac_in(AP_PCOLS_OR_COLON)    ! Land fraction
+   real(r8), intent(in)  :: snowh_in(AP_PCOLS_OR_COLON)       ! Snow depth (liquid water equivalent)
 
-   real(r8), intent(out) :: a_out(:)          ! Stratus fraction
-   real(r8), intent(out) :: Ga_out(:)         ! dU/da
+   real(r8), intent(out) :: a_out(AP_PCOLS_OR_COLON)          ! Stratus fraction
+   real(r8), intent(out) :: Ga_out(AP_PCOLS_OR_COLON)         ! dU/da
    integer,  intent(in)  :: ncol
 
-   real(r8), optional, intent(in)  :: rhminl_in(:)          ! Critical relative humidity for low-level  liquid stratus
-   real(r8), optional, intent(in)  :: rhminl_adj_land_in(:) ! Adjustment drop of rhminl over the land
-   real(r8), optional, intent(in)  :: rhminh_in(:)          ! Critical relative humidity for high-level liquid stratus
+   real(r8), optional, intent(in)  :: rhminl_in(AP_PCOLS_OR_COLON)          ! Critical relative humidity for low-level  liquid stratus
+   real(r8), optional, intent(in)  :: rhminl_adj_land_in(AP_PCOLS_OR_COLON) ! Adjustment drop of rhminl over the land
+   real(r8), optional, intent(in)  :: rhminh_in(AP_PCOLS_OR_COLON)          ! Critical relative humidity for high-level liquid stratus
 
    real(r8)              :: U                     ! Relative humidity
    real(r8)              :: p                     ! Pressure [Pa]
@@ -823,22 +829,22 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
    ! Compute non-physical ice stratus fraction                 ! 
    ! --------------------------------------------------------- !
 
-   real(r8), intent(in)  :: qv_in(:)       ! Grid-mean water vapor[kg/kg]
-   real(r8), intent(in)  :: T_in(:)        ! Temperature
-   real(r8), intent(in)  :: p_in(:)        ! Pressure [Pa]
-   real(r8), intent(in)  :: qi_in(:)       ! Grid-mean ice water content [kg/kg]
-   real(r8), intent(in)  :: ni_in(:)       ! Grid-mean ice water number concentration [#/kg]
-   real(r8), intent(in)  :: landfrac_in(:) ! Land fraction
-   real(r8), intent(in)  :: snowh_in(:)    ! Snow depth (liquid water equivalent)
+   real(r8), intent(in)  :: qv_in(AP_PCOLS_OR_COLON)       ! Grid-mean water vapor[kg/kg]
+   real(r8), intent(in)  :: T_in(AP_PCOLS_OR_COLON)        ! Temperature
+   real(r8), intent(in)  :: p_in(AP_PCOLS_OR_COLON)        ! Pressure [Pa]
+   real(r8), intent(in)  :: qi_in(AP_PCOLS_OR_COLON)       ! Grid-mean ice water content [kg/kg]
+   real(r8), intent(in)  :: ni_in(AP_PCOLS_OR_COLON)       ! Grid-mean ice water number concentration [#/kg]
+   real(r8), intent(in)  :: landfrac_in(AP_PCOLS_OR_COLON) ! Land fraction
+   real(r8), intent(in)  :: snowh_in(AP_PCOLS_OR_COLON)    ! Snow depth (liquid water equivalent)
 
-   real(r8), intent(out) :: aist_out(:)    ! Non-physical ice stratus fraction ( 0<= aist <= 1 )
+   real(r8), intent(out) :: aist_out(AP_PCOLS_OR_COLON)    ! Non-physical ice stratus fraction ( 0<= aist <= 1 )
    integer,  intent(in)  :: ncol 
 
    real(r8), optional, intent(in)  :: rhmaxi_in
-   real(r8), optional, intent(in)  :: rhmini_in(:)          ! Critical relative humidity for               ice stratus
-   real(r8), optional, intent(in)  :: rhminl_in(:)          ! Critical relative humidity for low-level  liquid stratus
-   real(r8), optional, intent(in)  :: rhminl_adj_land_in(:) ! Adjustment drop of rhminl over the land
-   real(r8), optional, intent(in)  :: rhminh_in(:)          ! Critical relative humidity for high-level liquid stratus
+   real(r8), optional, intent(in)  :: rhmini_in(AP_PCOLS_OR_COLON)          ! Critical relative humidity for               ice stratus
+   real(r8), optional, intent(in)  :: rhminl_in(AP_PCOLS_OR_COLON)          ! Critical relative humidity for low-level  liquid stratus
+   real(r8), optional, intent(in)  :: rhminl_adj_land_in(AP_PCOLS_OR_COLON) ! Adjustment drop of rhminl over the land
+   real(r8), optional, intent(in)  :: rhminh_in(AP_PCOLS_OR_COLON)          ! Critical relative humidity for high-level liquid stratus
 
    ! Local variables
 
@@ -1053,4 +1059,5 @@ end subroutine aist_vector
 
 !================================================================================================
 
+#undef AP_PCOLS_OR_COLON
 end module cldfrc2m_portable
