@@ -129,7 +129,7 @@ contains
     real(r8), intent(inout) :: wd_tend(pcols,pver,pcnst)
 
     real(r8) :: area(pcols), lats(pcols)
-    real(r8) :: dtwr(pcols,pver,gas_wetdep_cnt)
+    real(r8) :: dtwr(ncol,pver,gas_wetdep_cnt)
     real(r8) :: qt_rain(ncol,pver), qt_rime(ncol,pver)
     real(r8) :: qt_wash(ncol,pver), qt_evap(ncol,pver)
     integer :: m

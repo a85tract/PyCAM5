@@ -107,7 +107,7 @@ subroutine neu_wetdep_tend_run(lchnk,ncol,pcols,pver,pverp,pcnst, &
   real(r8),       intent(in)    :: cmfdqr(ncol, pver)
 
   real(r8),       intent(inout) :: wd_tend(pcols,pver,pcnst)
-  real(r8),       intent(out)   :: dtwr_out(pcols,pver,gas_wetdep_cnt)
+  real(r8),       intent(out)   :: dtwr_out(ncol,pver,gas_wetdep_cnt)
   real(r8),       intent(out)   :: qt_rain(ncol,pver),qt_rime(ncol,pver)
   real(r8),       intent(out)   :: qt_wash(ncol,pver),qt_evap(ncol,pver)
 
