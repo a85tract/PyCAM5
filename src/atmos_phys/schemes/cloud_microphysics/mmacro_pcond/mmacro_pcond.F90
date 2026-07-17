@@ -1,3 +1,10 @@
+#if defined(PCOLS) && defined(PLEV)
+#define AP_MMACRO_2D pcols,pver
+#define AP_MMACRO_1D pcols
+#else
+#define AP_MMACRO_2D : , :
+#define AP_MMACRO_1D :
+#endif
 
   module ap_mmacro_pcond_scheme
 
@@ -201,47 +208,47 @@
 
    ! Input-Output variables
 
-   real(r8), intent(inout) :: T0(:,:)               ! Temperature [K]
-   real(r8), intent(inout) :: qv0(:,:)              ! Grid-mean water vapor specific humidity [kg/kg]
-   real(r8), intent(inout) :: ql0(:,:)              ! Grid-mean liquid water content [kg/kg]
-   real(r8), intent(inout) :: qi0(:,:)              ! Grid-mean ice water content [kg/kg]
-   real(r8), intent(inout) :: nl0(:,:)              ! Grid-mean number concentration of cloud liquid droplet [#/kg]
-   real(r8), intent(inout) :: ni0(:,:)              ! Grid-mean number concentration of cloud ice    droplet [#/kg]
+   real(r8), intent(inout) :: T0(AP_MMACRO_2D)      ! Temperature [K]
+   real(r8), intent(inout) :: qv0(AP_MMACRO_2D)     ! Grid-mean water vapor specific humidity [kg/kg]
+   real(r8), intent(inout) :: ql0(AP_MMACRO_2D)     ! Grid-mean liquid water content [kg/kg]
+   real(r8), intent(inout) :: qi0(AP_MMACRO_2D)     ! Grid-mean ice water content [kg/kg]
+   real(r8), intent(inout) :: nl0(AP_MMACRO_2D)     ! Grid-mean number concentration of cloud liquid droplet [#/kg]
+   real(r8), intent(inout) :: ni0(AP_MMACRO_2D)     ! Grid-mean number concentration of cloud ice    droplet [#/kg]
 
    ! Input variables
 
    real(r8), intent(in)    :: dt                           ! Model integration time step [s]
-   real(r8), intent(in)    :: p(:,:)                ! Pressure at the layer mid-point [Pa]
-   real(r8), intent(in)    :: dp(:,:)               ! Pressure thickness [Pa] > 0
+   real(r8), intent(in)    :: p(AP_MMACRO_2D)       ! Pressure at the layer mid-point [Pa]
+   real(r8), intent(in)    :: dp(AP_MMACRO_2D)      ! Pressure thickness [Pa] > 0
 
-   real(r8), intent(in)    :: A_T(:,:)              ! Non-microphysical advective external forcing of T  [K/s]
-   real(r8), intent(in)    :: A_qv(:,:)             ! Non-microphysical advective external forcing of qv [kg/kg/s]
-   real(r8), intent(in)    :: A_ql(:,:)             ! Non-microphysical advective external forcing of ql [kg/kg/s]
-   real(r8), intent(in)    :: A_qi(:,:)             ! Non-microphysical advective external forcing of qi [kg/kg/s]
-   real(r8), intent(in)    :: A_nl(:,:)             ! Non-microphysical advective external forcing of nl [#/kg/s]
-   real(r8), intent(in)    :: A_ni(:,:)             ! Non-microphysical advective external forcing of ni [#/kg/s]
+   real(r8), intent(in)    :: A_T(AP_MMACRO_2D)     ! Non-microphysical advective external forcing of T  [K/s]
+   real(r8), intent(in)    :: A_qv(AP_MMACRO_2D)    ! Non-microphysical advective external forcing of qv [kg/kg/s]
+   real(r8), intent(in)    :: A_ql(AP_MMACRO_2D)    ! Non-microphysical advective external forcing of ql [kg/kg/s]
+   real(r8), intent(in)    :: A_qi(AP_MMACRO_2D)    ! Non-microphysical advective external forcing of qi [kg/kg/s]
+   real(r8), intent(in)    :: A_nl(AP_MMACRO_2D)    ! Non-microphysical advective external forcing of nl [#/kg/s]
+   real(r8), intent(in)    :: A_ni(AP_MMACRO_2D)    ! Non-microphysical advective external forcing of ni [#/kg/s]
 
-   real(r8), intent(in)    :: C_T(:,:)              ! Microphysical advective external forcing of T  [K/s]
-   real(r8), intent(in)    :: C_qv(:,:)             ! Microphysical advective external forcing of qv [kg/kg/s]
-   real(r8), intent(in)    :: C_ql(:,:)             ! Microphysical advective external forcing of ql [kg/kg/s]
-   real(r8), intent(in)    :: C_qi(:,:)             ! Microphysical advective external forcing of qi [kg/kg/s]
-   real(r8), intent(in)    :: C_nl(:,:)             ! Microphysical advective external forcing of nl [#/kg/s]
-   real(r8), intent(in)    :: C_ni(:,:)             ! Microphysical advective external forcing of ni [#/kg/s]
-   real(r8), intent(in)    :: C_qlst(:,:)           ! Microphysical advective external forcing of ql
+   real(r8), intent(in)    :: C_T(AP_MMACRO_2D)     ! Microphysical advective external forcing of T  [K/s]
+   real(r8), intent(in)    :: C_qv(AP_MMACRO_2D)    ! Microphysical advective external forcing of qv [kg/kg/s]
+   real(r8), intent(in)    :: C_ql(AP_MMACRO_2D)    ! Microphysical advective external forcing of ql [kg/kg/s]
+   real(r8), intent(in)    :: C_qi(AP_MMACRO_2D)    ! Microphysical advective external forcing of qi [kg/kg/s]
+   real(r8), intent(in)    :: C_nl(AP_MMACRO_2D)    ! Microphysical advective external forcing of nl [#/kg/s]
+   real(r8), intent(in)    :: C_ni(AP_MMACRO_2D)    ! Microphysical advective external forcing of ni [#/kg/s]
+   real(r8), intent(in)    :: C_qlst(AP_MMACRO_2D)  ! Microphysical advective external forcing of ql
                                                            ! within liquid stratus [kg/kg/s]
 
-   real(r8), intent(in)    :: D_T(:,:)              ! Cumulus detrainment external forcing of T  [K/s]
-   real(r8), intent(in)    :: D_qv(:,:)             ! Cumulus detrainment external forcing of qv [kg/kg/s]
-   real(r8), intent(in)    :: D_ql(:,:)             ! Cumulus detrainment external forcing of ql [kg/kg/s]
-   real(r8), intent(in)    :: D_qi(:,:)             ! Cumulus detrainment external forcing of qi [kg/kg/s]
-   real(r8), intent(in)    :: D_nl(:,:)             ! Cumulus detrainment external forcing of nl [#/kg/s]
-   real(r8), intent(in)    :: D_ni(:,:)             ! Cumulus detrainment external forcing of qi [#/kg/s]
+   real(r8), intent(in)    :: D_T(AP_MMACRO_2D)     ! Cumulus detrainment external forcing of T  [K/s]
+   real(r8), intent(in)    :: D_qv(AP_MMACRO_2D)    ! Cumulus detrainment external forcing of qv [kg/kg/s]
+   real(r8), intent(in)    :: D_ql(AP_MMACRO_2D)    ! Cumulus detrainment external forcing of ql [kg/kg/s]
+   real(r8), intent(in)    :: D_qi(AP_MMACRO_2D)    ! Cumulus detrainment external forcing of qi [kg/kg/s]
+   real(r8), intent(in)    :: D_nl(AP_MMACRO_2D)    ! Cumulus detrainment external forcing of nl [#/kg/s]
+   real(r8), intent(in)    :: D_ni(AP_MMACRO_2D)    ! Cumulus detrainment external forcing of qi [#/kg/s]
 
-   real(r8), intent(in)    :: a_cud(:,:)            ! Old cumulus fraction before update
-   real(r8), intent(in)    :: a_cu0(:,:)            ! New cumulus fraction after update
+   real(r8), intent(in)    :: a_cud(AP_MMACRO_2D)   ! Old cumulus fraction before update
+   real(r8), intent(in)    :: a_cu0(AP_MMACRO_2D)   ! New cumulus fraction after update
 
-   real(r8), intent(in)    :: clrw_old(:,:)         ! Clear sky fraction at the previous time step for liquid stratus process
-   real(r8), intent(in)    :: clri_old(:,:)         ! Clear sky fraction at the previous time step for    ice stratus process
+   real(r8), intent(in)    :: clrw_old(AP_MMACRO_2D) ! Clear sky fraction at the previous time step for liquid stratus process
+   real(r8), intent(in)    :: clri_old(AP_MMACRO_2D) ! Clear sky fraction at the previous time step for    ice stratus process
    real(r8), pointer, intent(in) :: tke(:,:)                ! (pcols,pverp) TKE from the PBL scheme
    real(r8), pointer, intent(in) :: qtl_flx(:,:)            ! (pcols,pverp) overbar(w'qtl') from PBL scheme where qtl = qv + ql
    real(r8), pointer, intent(in) :: qti_flx(:,:)            ! (pcols,pverp) overbar(w'qti') from PBL scheme where qti = qv + qi
@@ -249,31 +256,31 @@
    real(r8), pointer, intent(in) :: qlr_det(:,:)            ! (pcols,pver)  Detrained        ql from the convection scheme
    real(r8), pointer, intent(in) :: qir_det(:,:)            ! (pcols,pver)  Detrained        qi from the convection scheme
 
-   real(r8), intent(in)    :: landfrac(:)              ! Land fraction
-   real(r8), intent(in)    :: snowh(:)                 ! Snow depth (liquid water equivalent)
+   real(r8), intent(in)    :: landfrac(AP_MMACRO_1D) ! Land fraction
+   real(r8), intent(in)    :: snowh(AP_MMACRO_1D)    ! Snow depth (liquid water equivalent)
    logical,  intent(in)    :: do_cldice                    ! Whether or not cldice should be prognosed
 
    ! Output variables
 
-   real(r8), intent(out)   :: s_tendout(:,:)        ! Net tendency of grid-mean s  from 'Micro+Macro' processes [J/kg/s]
-   real(r8), intent(out)   :: qv_tendout(:,:)       ! Net tendency of grid-mean qv from 'Micro+Macro' processes [kg/kg/s]
-   real(r8), intent(out)   :: ql_tendout(:,:)       ! Net tendency of grid-mean ql from 'Micro+Macro' processes [kg/kg/s]
-   real(r8), intent(out)   :: qi_tendout(:,:)       ! Net tendency of grid-mean qi from 'Micro+Macro' processes [kg/kg/s]
-   real(r8), intent(out)   :: nl_tendout(:,:)       ! Net tendency of grid-mean nl from 'Micro+Macro' processes [#/kg/s]
-   real(r8), intent(out)   :: ni_tendout(:,:)       ! Net tendency of grid-mean ni from 'Micro+Macro' processes [#/kg/s]
+   real(r8), intent(out)   :: s_tendout(AP_MMACRO_2D)  ! Net tendency of grid-mean s  from 'Micro+Macro' processes [J/kg/s]
+   real(r8), intent(out)   :: qv_tendout(AP_MMACRO_2D) ! Net tendency of grid-mean qv from 'Micro+Macro' processes [kg/kg/s]
+   real(r8), intent(out)   :: ql_tendout(AP_MMACRO_2D) ! Net tendency of grid-mean ql from 'Micro+Macro' processes [kg/kg/s]
+   real(r8), intent(out)   :: qi_tendout(AP_MMACRO_2D) ! Net tendency of grid-mean qi from 'Micro+Macro' processes [kg/kg/s]
+   real(r8), intent(out)   :: nl_tendout(AP_MMACRO_2D) ! Net tendency of grid-mean nl from 'Micro+Macro' processes [#/kg/s]
+   real(r8), intent(out)   :: ni_tendout(AP_MMACRO_2D) ! Net tendency of grid-mean ni from 'Micro+Macro' processes [#/kg/s]
 
-   real(r8), intent(out)   :: qme  (:,:)            ! Net condensation rate [kg/kg/s]
-   real(r8), intent(out)   :: qvadj(:,:)            ! adjustment tendency from "positive_moisture" call (vapor)
-   real(r8), intent(out)   :: qladj(:,:)            ! adjustment tendency from "positive_moisture" call (liquid)
-   real(r8), intent(out)   :: qiadj(:,:)            ! adjustment tendency from "positive_moisture" call (ice)
-   real(r8), intent(out)   :: qllim(:,:)            ! tendency from "instratus_condensate" call (liquid)
-   real(r8), intent(out)   :: qilim(:,:)            ! tendency from "instratus_condensate" call (ice)
+   real(r8), intent(out)   :: qme  (AP_MMACRO_2D)   ! Net condensation rate [kg/kg/s]
+   real(r8), intent(out)   :: qvadj(AP_MMACRO_2D)   ! adjustment tendency from "positive_moisture" call (vapor)
+   real(r8), intent(out)   :: qladj(AP_MMACRO_2D)   ! adjustment tendency from "positive_moisture" call (liquid)
+   real(r8), intent(out)   :: qiadj(AP_MMACRO_2D)   ! adjustment tendency from "positive_moisture" call (ice)
+   real(r8), intent(out)   :: qllim(AP_MMACRO_2D)   ! tendency from "instratus_condensate" call (liquid)
+   real(r8), intent(out)   :: qilim(AP_MMACRO_2D)   ! tendency from "instratus_condensate" call (ice)
 
-   real(r8), intent(out)   :: cld(:,:)              ! Net cloud fraction ( 0 <= cld <= 1 )
-   real(r8), intent(out)   :: al_st_star(:,:)       ! Physical liquid stratus fraction
-   real(r8), intent(out)   :: ai_st_star(:,:)       ! Physical ice stratus fraction
-   real(r8), intent(out)   :: ql_st_star(:,:)       ! In-stratus LWC [kg/kg]
-   real(r8), intent(out)   :: qi_st_star(:,:)       ! In-stratus IWC [kg/kg]
+   real(r8), intent(out)   :: cld(AP_MMACRO_2D)        ! Net cloud fraction ( 0 <= cld <= 1 )
+   real(r8), intent(out)   :: al_st_star(AP_MMACRO_2D) ! Physical liquid stratus fraction
+   real(r8), intent(out)   :: ai_st_star(AP_MMACRO_2D) ! Physical ice stratus fraction
+   real(r8), intent(out)   :: ql_st_star(AP_MMACRO_2D) ! In-stratus LWC [kg/kg]
+   real(r8), intent(out)   :: qi_st_star(AP_MMACRO_2D) ! In-stratus IWC [kg/kg]
 
    ! --------------- !
    ! Local variables !
@@ -2434,4 +2441,6 @@ end subroutine rhcrit_calc
    ! End of subroutine !
    ! ----------------- !
 
+#undef AP_MMACRO_2D
+#undef AP_MMACRO_1D
 end module ap_mmacro_pcond_scheme
