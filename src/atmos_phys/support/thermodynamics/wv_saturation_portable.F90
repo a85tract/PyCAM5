@@ -5,6 +5,8 @@ module wv_saturation_portable
   ! outputs and water-only wet-bulb iteration used by Park macrophysics.
 
   use shr_kind_mod, only: r8 => shr_kind_r8
+  use shr_const_mod, only: cpair  => shr_const_cpdair, &
+       latvap => shr_const_latvap, latice => shr_const_latice
   use wv_sat_methods, only: wv_sat_methods_init, &
        wv_sat_svp_water, wv_sat_svp_ice, &
        wv_sat_qsat_water, wv_sat_qsat_ice
@@ -20,10 +22,7 @@ module wv_saturation_portable
 
   real(r8) :: epsilo
   real(r8) :: omeps
-  real(r8) :: latvap
-  real(r8) :: latice
   real(r8) :: rh2o
-  real(r8) :: cpair
   real(r8) :: tmelt
   real(r8) :: c3
 
@@ -43,12 +42,16 @@ contains
 
     epsilo = epsilo_in
     omeps = 1._r8 - epsilo
-    latvap = latvap_in
-    latice = latice_in
     rh2o = rh2o_in
-    cpair = cpair_in
     tmelt = tmelt_in
     c3 = 287.04_r8*(7.5_r8*log(10._r8))/cpair
+
+    if (cpair_in /= cpair .or. latvap_in /= latvap .or. &
+         latice_in /= latice) then
+       errmsg = 'wv_saturation_portable_init: immutable host constants differ'
+       errflg = 1
+       return
+    end if
 
     call wv_sat_methods_init(r8, tmelt_in, h2otrip_in, tboil, ttrice, &
          epsilo, errmsg)

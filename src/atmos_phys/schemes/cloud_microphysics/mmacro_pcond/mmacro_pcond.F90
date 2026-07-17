@@ -18,6 +18,9 @@
   !--------------------------------------------------- !
 
    use shr_kind_mod,     only: r8=>shr_kind_r8
+   use shr_const_mod,    only: cpair  => shr_const_cpdair, &
+                                latvap => shr_const_latvap, &
+                                latice => shr_const_latice
    use wv_saturation_portable, only: wv_saturation_portable_init, &
                                       qsat_water, svp_water, svp_ice, &
                                       qsat_ice, findsp_vc
@@ -98,7 +101,7 @@
 #endif
    integer, private :: top_lev
    integer, private :: iulog
-   real(r8), private :: cpair, latvap, latice, rh2o, gravit, rair
+   real(r8), private :: rh2o, gravit, rair
    real(r8), private :: qmin_vapor, qmin_liquid, qmin_ice
 
    contains
@@ -154,9 +157,6 @@
    i_rhmini   = rhmini_opt_in
    top_lev = top_lev_in
    iulog = iulog_in
-   cpair = cpair_in
-   latvap = latvap_in
-   latice = latice_in
    rh2o = rh2o_in
    gravit = gravit_in
    rair = rair_in
