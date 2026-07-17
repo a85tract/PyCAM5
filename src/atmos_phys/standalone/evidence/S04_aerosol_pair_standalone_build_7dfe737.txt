@@ -1,0 +1,22 @@
+S04 dropmixnuc and aerosol wet-deposition standalone build evidence
+
+Validated source commit: 7dfe737c848b073bc8c1334c1cfb9a547562b52e
+Build tree:
+/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/standalone_build_7dfe737
+
+Configuration:
+- Intel ifx 2025.2.1
+- PCOLS=16, PLEV=30
+- completed-only diagnostic ledger containing the S01 baseline and both
+  aerosol roots
+- no CAM EXEROOT module path
+
+Result:
+- selected_entries=11, roots=11
+- direct closure PASS: 40 sources, 0 violations, 0 duplicates
+- transitive closure PASS: 80 sources, 0 violations, 0 duplicates
+- libtphys-standalone-schemes.a build PASS
+- CTest 2/2 PASS
+
+Original report SHA-256:
+42cde67025339dca781e7840982c273a13a2a0c742076e310928496575f0a281

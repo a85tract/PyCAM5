@@ -1,0 +1,32 @@
+Authoritative baseline: /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run
+Candidate: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run
+job=6758974.desched1
+mpi_ranks=256
+steps=50
+pbs_exit_status=0
+case_status=success
+cpl_status=successful_termination
+compare_exit_code=0
+
+r: numeric_count=307, equal=True
+native_md5=8ecb1dc7e4ca29f9adf2e92017106cfe
+candidate_md5=8ecb1dc7e4ca29f9adf2e92017106cfe
+
+rh0: numeric_count=392, equal=True
+native_md5=e81876a05681533e9f4b8a9a67ea5154
+candidate_md5=e81876a05681533e9f4b8a9a67ea5154
+
+rs: numeric_count=91, equal=True
+native_md5=b9d2a429aede18ca97b0f9af0e19fba2
+candidate_md5=b9d2a429aede18ca97b0f9af0e19fba2
+
+overall_numeric_equal=True
+numeric_variables_compared=790
+normalized_character_equal=True
+normalized_character_fields=hrestpath,date_written,time_written
+
+ap_dropmixnuc_run global_calls=5.324800e+04
+ap_aero_model_wetdep_run global_calls=5.324800e+04
+
+Original compare report SHA-256:
+2eb6d61b50379a68cc980c2c83d0cec0caca938df76c89a21c169039121b4f1b

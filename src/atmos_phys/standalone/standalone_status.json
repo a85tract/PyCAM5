@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T00:47:00Z",
+  "updated_at": "2026-07-17T01:04:30Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -464,10 +464,10 @@
       "order": 2,
       "source": "src/atmos_phys/schemes/modal_aerosol/aero_model_wetdep/aero_model_wetdep.F90",
       "module": "ap_aero_model_wetdep_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "7dfe737c848b073bc8c1334c1cfb9a547562b52e",
+      "last_run": "S04-aerosol-pair-20260716-job6758974",
+      "bfb_run": "S04-aerosol-pair-20260716-job6758974",
       "note": ""
     },
     {
@@ -492,10 +492,10 @@
       "order": 4,
       "source": "src/atmos_phys/schemes/cloud_microphysics/dropmixnuc/dropmixnuc.F90",
       "module": "ap_dropmixnuc_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "7dfe737c848b073bc8c1334c1cfb9a547562b52e",
+      "last_run": "S04-aerosol-pair-20260716-job6758974",
+      "bfb_run": "S04-aerosol-pair-20260716-job6758974",
       "note": ""
     },
     {
@@ -1437,6 +1437,90 @@
       },
       "recorded_at": "2026-07-17T00:47:00Z",
       "note": "Neu wet deposition and CAM ice nucleation completed a fresh 256-rank STOP_N=50 run after restoring the ncol history-array stride. PBS Exit_status is 0, both process timers are nonzero, and all 790 numeric variables match the authoritative native baseline exactly. The three previously drifting DTWR diagnostics are individually exact. Character equality is normalized only for hrestpath and volatile timestamps."
+    },
+    {
+      "run_id": "S04-aerosol-pair-20260716-job6758974",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6758974.desched1",
+      "source_commit": "7dfe737c848b073bc8c1334c1cfb9a547562b52e",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_aerosol_pair_dependency_e9416ca.txt",
+          "size": 859,
+          "sha256": "58c32c61310329ee8d8e21fee8d79d667d3235478794947c884bcede90c96789"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_aerosol_pair_standalone_build_7dfe737.txt",
+          "size": 757,
+          "sha256": "54afcc9b0e88340f40c62eee8165970ca00eab7164c70836acc2ac02d66536e5"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/bld/cesm.exe",
+          "size": 55501984,
+          "sha256": "6cdfd695e8155e72ceedb79caecc9688e2e4846f4498bdd820471c73107fbf51"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/case/logs/run_environment.txt.6758974.desched1.260716-185847",
+          "size": 41867,
+          "sha256": "c7080dc67ace7f5de7deca1ada62e8558ce5c5830978930e6f7d274cb642354c"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/case/Buildconf/camconf/Filepath",
+          "size": 11161,
+          "sha256": "47622bd00c0bdb40c7621c40027bf97cb9eec999f33cd3d57e6bf8e0f87c9605"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_aerosol_pair_compare_job6758974.txt",
+          "size": 1079,
+          "sha256": "4ec2990395a2a664904842acfc8eebaf33bc1e1785ccd2678324f43fb4afc134"
+        }
+      },
+      "execution_proof": {
+        "dropmixnuc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "c64c4dbde17856a3878bb67957c6686c26012372ace2376681f5942b149ca0d4"
+          },
+          "line": "ap_dropmixnuc_run global_calls=5.324800e+04"
+        },
+        "aero_model_wetdep_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_aero_pair_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "c64c4dbde17856a3878bb67957c6686c26012372ace2376681f5942b149ca0d4"
+          },
+          "line": "ap_aero_model_wetdep_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T01:04:30Z",
+      "note": "dropmixnuc and modal aerosol wet-deposition completed a fresh 256-rank STOP_N=50 run. PBS Exit_status is 0, both process timers are nonzero, and all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for hrestpath and volatile timestamps."
     }
   ]
 }
