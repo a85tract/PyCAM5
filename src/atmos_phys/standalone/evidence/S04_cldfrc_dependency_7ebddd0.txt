@@ -1,0 +1,14 @@
+S04 diagnostic cloud-fraction dependency evidence
+
+Validated source commit: ed3b8e432117fddf03a93c2107651473bd5545de
+Integrated compose commit: 7ebddd0
+
+Process: cldfrc_run
+
+Integration-tree result:
+- direct PASS: entries=1, roots=1, closure_sources=1, violations=0, duplicates=0
+- transitive PASS: entries=1, roots=1, closure_sources=1, violations=0, duplicates=0
+
+The root contains the diagnostic cloud-fraction science only. CAM state,
+history output, saturation services, and latitude lookup remain in the host
+adapter under src/physics/cam.

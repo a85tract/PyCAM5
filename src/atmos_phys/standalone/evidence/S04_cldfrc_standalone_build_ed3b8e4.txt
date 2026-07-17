@@ -1,0 +1,18 @@
+S04 diagnostic cloud-fraction standalone build evidence
+
+Validated source commit: ed3b8e432117fddf03a93c2107651473bd5545de
+Build tree:
+/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/standalone_build_ed3b8e4
+
+Configuration:
+- Intel ifx 2025.2.1
+- PCOLS=16, PLEV=30
+- completed-only diagnostic ledger containing the S01 baseline and cldfrc
+- no CAM EXEROOT module path
+
+Result:
+- selected_entries=10, roots=10
+- direct closure PASS: 36 sources, 0 violations, 0 duplicates
+- transitive closure PASS: 76 sources, 0 violations, 0 duplicates
+- 76 Fortran objects and libtphys-standalone-schemes.a build PASS
+- CTest 2/2 PASS

@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T01:10:33Z",
+  "updated_at": "2026-07-17T01:24:14Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -506,10 +506,10 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/cloud_microphysics/cldfrc/cldfrc.F90",
       "module": "ap_cldfrc_scheme",
-      "status": "failed",
-      "commit": null,
-      "last_run": "S04-cloud-pair-failed-20260716-job6759003",
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "ed3b8e432117fddf03a93c2107651473bd5545de",
+      "last_run": "S04-cldfrc-only-20260716-job6759051",
+      "bfb_run": "S04-cldfrc-only-20260716-job6759051",
       "note": ""
     },
     {
@@ -1575,6 +1575,82 @@
       },
       "recorded_at": "2026-07-17T01:10:33Z",
       "note": "Both cloud roots executed in a fresh 256-rank STOP_N=50 run with successful Case/CPL termination, but all three numeric streams differed from the authoritative native baseline. Split into independent cldfrc-only and mmacro-only 50-step lanes."
+    },
+    {
+      "run_id": "S04-cldfrc-only-20260716-job6759051",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6759051.desched1",
+      "source_commit": "ed3b8e432117fddf03a93c2107651473bd5545de",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_cldfrc_dependency_7ebddd0.txt",
+          "size": 546,
+          "sha256": "082a2b40499ec5af232d2d1d0aeaf7f200e9b096f7458c2c0fcebf58537d18ac"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_cldfrc_standalone_build_ed3b8e4.txt",
+          "size": 668,
+          "sha256": "3012851e3d14bfa57a426973d9af4bf62fa0d057f45950264199b3092a818b00"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/output/bld/cesm.exe",
+          "size": 55439336,
+          "sha256": "d472afac2b9ffa08170b76ae9f470bdef769fa62f44097010f7774aa825e9343"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/case/logs/run_environment.txt.6759051.desched1.260716-191853",
+          "size": 41890,
+          "sha256": "a199721d4b9a8538a9ab79e2c41a35ea01aebc0c0694316e27d2f18429dc9a5a"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/case/Buildconf/camconf/Filepath",
+          "size": 11354,
+          "sha256": "17eb379c1c7c31e819c3c2f407a0dd0f4ed0513b59b260bb1ac899dcb5b1e9bc"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_cldfrc_compare_job6759051.txt",
+          "size": 1029,
+          "sha256": "ddfb2093cf810bf5be94d9eb4ba138a8e17dd533f5c061c0c34329768b487bdb"
+        }
+      },
+      "execution_proof": {
+        "cldfrc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_cldfrc_84da5e0_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "87fe3726eb29dc5a03ace8c8d5f80d03ed2c2b8796f3a260efa9178adcf44c49"
+          },
+          "line": "ap_cldfrc_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T01:24:14Z",
+      "note": "Diagnostic cloud fraction completed a fresh 256-rank STOP_N=50 run. PBS Exit_status is 0, its process timer is nonzero, and all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for hrestpath and volatile timestamps."
     }
   ]
 }
