@@ -173,15 +173,7 @@ contains
     integer :: status(size(q))
     integer :: i
 
-    if (use_ice) then
-       call cloud_microphysics_endrun( &
-            'wv_saturation_portable::findsp_vc ice path is unsupported')
-       tsp = t
-       qsp = q
-       return
-    end if
-
-    call findsp_water(q, t, p, tsp, qsp, status)
+    call findsp(q, t, p, use_ice, tsp, qsp, status)
 
     do i = 1, size(q)
        if (status(i) == 2) then
@@ -194,8 +186,9 @@ contains
     end do
   end subroutine findsp_vc
 
-  elemental subroutine findsp_water(q, t, p, tsp, qsp, status)
+  elemental subroutine findsp(q, t, p, use_ice, tsp, qsp, status)
     real(r8), intent(in) :: q, t, p
+    logical, intent(in) :: use_ice
     real(r8), intent(out) :: tsp, qsp
     integer, intent(out) :: status
 
@@ -207,7 +200,11 @@ contains
     real(r8) :: t1, q1, dt, dq, qvd, r1b, c1, c2
     real(r8) :: enin, enout
 
-    call qsat_water(t, p, es, qs)
+    if (use_ice) then
+       call qsat_ice(t, p, es, qs)
+    else
+       call qsat_water(t, p, es, qs)
+    end if
 
     if (p <= 5._r8*es .or. qs <= 0._r8 .or. qs >= 0.5_r8 .or. &
          t < tmin .or. t > tmax) then
@@ -220,7 +217,11 @@ contains
     end if
 
     status = 2
-    call no_ip_hltalt(t, hltalt)
+    if (use_ice) then
+       hltalt = latvap + latice
+    else
+       call no_ip_hltalt(t, hltalt)
+    end if
     enin = tq_enthalpy(t, q, hltalt)
 
     c1 = hltalt*c3
@@ -229,7 +230,11 @@ contains
     qvd = r1b * (q - qs)
     tsp = t + ((hltalt/cpair)*qvd)
 
-    call qsat_water(tsp, p, es, qsp, gam=gam, enthalpy=enout)
+    if (use_ice) then
+       call qsat_ice(tsp, p, es, qsp, gam=gam, enthalpy=enout)
+    else
+       call qsat_water(tsp, p, es, qsp, gam=gam, enthalpy=enout)
+    end if
 
     do l = 1, iter
        g = enin - enout
@@ -240,14 +245,22 @@ contains
 
        if (tsp < tmin) then
           tsp = tmin
-          call no_ip_hltalt(tsp, hltalt)
+          if (use_ice) then
+             hltalt = latvap + latice
+          else
+             call no_ip_hltalt(tsp, hltalt)
+          end if
           qsp = (enin - cpair*tsp)/hltalt
           enout = tq_enthalpy(tsp, qsp, hltalt)
           status = 4
           exit
        end if
 
-       call qsat_water(tsp, p, es, q1, gam=gam, enthalpy=enout)
+       if (use_ice) then
+          call qsat_ice(tsp, p, es, q1, gam=gam, enthalpy=enout)
+       else
+          call qsat_water(tsp, p, es, q1, gam=gam, enthalpy=enout)
+       end if
        dq = abs(q1 - qsp)/max(q1,1.e-12_r8)
        qsp = q1
 
@@ -258,6 +271,6 @@ contains
     end do
 
     if (abs((enin-enout)/(enin+enout)) > 1.e-4_r8) status = 8
-  end subroutine findsp_water
+  end subroutine findsp
 
 end module wv_saturation_portable
