@@ -1,14 +1,16 @@
 module wv_saturation_portable
 
-  ! Thin portable adapter around wv_sat_methods.  The saturation pressure
-  ! formulae live only in wv_sat_methods; this module supplies the derivative
-  ! outputs and water-only wet-bulb iteration used by Park macrophysics.
+  ! Portable adapter around wv_sat_methods.  The saturation pressure formulae
+  ! live only in the standalone wv_sat_methods copy; this module supplies the
+  ! mixed-phase table, derivative outputs, and wet-bulb iteration used by Park
+  ! macrophysics.
 
   use shr_kind_mod, only: r8 => shr_kind_r8
   use shr_const_mod, only: cpair  => shr_const_cpdair, &
        latvap => shr_const_latvap, latice => shr_const_latice
   use wv_sat_methods, only: wv_sat_methods_init, &
        wv_sat_svp_water, wv_sat_svp_ice, &
+       wv_sat_svp_trans, wv_sat_svp_to_qsat, &
        wv_sat_qsat_water, wv_sat_qsat_ice
 
   implicit none
@@ -20,6 +22,9 @@ module wv_saturation_portable
   real(r8), parameter :: tmin = 127.16_r8
   real(r8), parameter :: tmax = 375.16_r8
 
+  integer :: plenest
+  real(r8), allocatable :: estbl(:)
+
   real(r8) :: epsilo
   real(r8) :: omeps
   real(r8) :: rh2o
@@ -27,9 +32,16 @@ module wv_saturation_portable
   real(r8) :: c3
   integer :: iulog
 
+  real(r8) :: pcf(5) = (/ &
+       5.04469588506e-01_r8, &
+       -5.47288442819e+00_r8, &
+       -3.67471858735e-01_r8, &
+       -8.95963532403e-03_r8, &
+       -7.78053686625e-05_r8 /)
+
   public :: wv_saturation_portable_init
   public :: svp_water, svp_ice
-  public :: qsat_water, qsat_ice
+  public :: qsat, qsat_water, qsat_ice
   public :: findsp_vc
 
 contains
@@ -41,6 +53,10 @@ contains
     integer, intent(in) :: iulog_in
     character(len=*), intent(out) :: errmsg
     integer, intent(out) :: errflg
+
+    integer :: status
+    real(r8) :: t
+    integer :: i
 
     epsilo = epsilo_in
     omeps = 1._r8 - epsilo
@@ -58,11 +74,25 @@ contains
 
     call wv_sat_methods_init(r8, tmelt_in, h2otrip_in, tboil, ttrice, &
          epsilo, errmsg)
-    if (len_trim(errmsg) == 0) then
-       errflg = 0
-    else
+    if (len_trim(errmsg) /= 0) then
        errflg = 1
+       return
     end if
+
+    plenest = ceiling(tmax-tmin) + 2
+
+    allocate(estbl(plenest), stat=status)
+    if (status /= 0) then
+       errmsg = 'wv_saturation_portable_init: ERROR allocating saturation vapor pressure table'
+       errflg = 1
+       return
+    end if
+
+    do i = 1, plenest
+       estbl(i) = svp_trans(tmin + real(i-1,r8))
+    end do
+
+    errflg = 0
   end subroutine wv_saturation_portable_init
 
   elemental function svp_water(t) result(es)
@@ -78,6 +108,27 @@ contains
 
     es = wv_sat_svp_ice(t)
   end function svp_ice
+
+  elemental function svp_trans(t) result(es)
+    real(r8), intent(in) :: t
+    real(r8) :: es
+
+    es = wv_sat_svp_trans(t)
+  end function svp_trans
+
+  elemental function estblf(t) result(es)
+    real(r8), intent(in) :: t
+    real(r8) :: es
+
+    integer :: i
+    real(r8) :: t_tmp
+    real(r8) :: weight
+
+    t_tmp = max(min(t,tmax)-tmin, 0._r8)
+    i = int(t_tmp) + 1
+    weight = t_tmp - aint(t_tmp, r8)
+    es = (1._r8 - weight)*estbl(i) + weight*estbl(i+1)
+  end function estblf
 
   elemental function tq_enthalpy(t, q, hltalt) result(enthalpy)
     real(r8), intent(in) :: t
@@ -97,6 +148,40 @@ contains
        hltalt = hltalt - 2369.0_r8*(t-tmelt)
     end if
   end subroutine no_ip_hltalt
+
+  elemental subroutine calc_hltalt(t, hltalt, tterm)
+    real(r8), intent(in) :: t
+    real(r8), intent(out) :: hltalt
+    real(r8), intent(out), optional :: tterm
+
+    real(r8) :: tc
+    real(r8) :: weight
+    integer :: i
+
+    if (present(tterm)) tterm = 0.0_r8
+
+    call no_ip_hltalt(t,hltalt)
+    if (t < tmelt) then
+       tc = t - tmelt
+
+       if (tc >= -ttrice) then
+          weight = -tc/ttrice
+
+          if (present(tterm)) then
+             do i = size(pcf), 1, -1
+                tterm = pcf(i) + tc*tterm
+             end do
+             tterm = tterm/ttrice
+          end if
+
+       else
+          weight = 1.0_r8
+       end if
+
+       hltalt = hltalt + weight*latice
+
+    end if
+  end subroutine calc_hltalt
 
   elemental subroutine deriv_outputs(t, p, es, qs, hltalt, tterm, &
        gam, dqsdt)
@@ -123,6 +208,36 @@ contains
     if (present(gam))   gam   = dqsdt_loc * (hltalt/cpair)
   end subroutine deriv_outputs
 
+  elemental subroutine qsat(t, p, es, qs, gam, dqsdt, enthalpy)
+    real(r8), intent(in) :: t
+    real(r8), intent(in) :: p
+    real(r8), intent(out) :: es
+    real(r8), intent(out) :: qs
+    real(r8), intent(out), optional :: gam
+    real(r8), intent(out), optional :: dqsdt
+    real(r8), intent(out), optional :: enthalpy
+
+    real(r8) :: hltalt
+    real(r8) :: tterm
+
+    es = estblf(t)
+
+    qs = wv_sat_svp_to_qsat(es, p)
+
+    es = min(es, p)
+
+    if (present(gam) .or. present(dqsdt) .or. present(enthalpy)) then
+
+       call calc_hltalt(t, hltalt, tterm)
+
+       if (present(enthalpy)) enthalpy = tq_enthalpy(t, qs, hltalt)
+
+       call deriv_outputs(t, p, es, qs, hltalt, tterm, &
+            gam=gam, dqsdt=dqsdt)
+
+    end if
+  end subroutine qsat
+
   elemental subroutine qsat_water(t, p, es, qs, gam, dqsdt, enthalpy)
     real(r8), intent(in) :: t, p
     real(r8), intent(out) :: es, qs
@@ -147,22 +262,17 @@ contains
     real(r8), intent(out) :: es, qs
     real(r8), intent(out), optional :: gam, dqsdt, enthalpy
 
-    real(r8) :: desdt, dqsdt_loc, hltalt
+    real(r8) :: hltalt
 
     call wv_sat_qsat_ice(t, p, es, qs)
 
     if (present(gam) .or. present(dqsdt) .or. present(enthalpy)) then
        hltalt = latvap + latice
-       if (present(enthalpy)) enthalpy = cpair*t + hltalt*qs
 
-       if (qs == 1._r8) then
-          dqsdt_loc = 0._r8
-       else
-          desdt = hltalt*es/(rh2o*t*t)
-          dqsdt_loc = qs*p*desdt/(es*(p-omeps*es))
-       end if
-       if (present(dqsdt)) dqsdt = dqsdt_loc
-       if (present(gam)) gam = dqsdt_loc*(hltalt/cpair)
+       if (present(enthalpy)) enthalpy = tq_enthalpy(t, qs, hltalt)
+
+       call deriv_outputs(t, p, es, qs, hltalt, 0._r8, &
+            gam=gam, dqsdt=dqsdt)
     end if
   end subroutine qsat_ice
 
@@ -174,11 +284,13 @@ contains
     real(r8), intent(out) :: tsp(:), qsp(:)
 
     integer :: status(size(q))
-    integer :: i
+    integer :: n, i
+
+    n = size(q)
 
     call findsp(q, t, p, use_ice, tsp, qsp, status)
 
-    do i = 1, size(q)
+    do i = 1,n
        if (status(i) == 2) then
           write(iulog,*) ' findsp not converging at i = ', i
           write(iulog,*) ' t, q, p ', t(i), q(i), p(i)
@@ -208,7 +320,7 @@ contains
     real(r8) :: enin, enout
 
     if (use_ice) then
-       call qsat_ice(t, p, es, qs)
+       call qsat(t, p, es, qs)
     else
        call qsat_water(t, p, es, qs)
     end if
@@ -225,7 +337,7 @@ contains
 
     status = 2
     if (use_ice) then
-       hltalt = latvap + latice
+       call calc_hltalt(t,hltalt)
     else
        call no_ip_hltalt(t, hltalt)
     end if
@@ -238,7 +350,7 @@ contains
     tsp = t + ((hltalt/cpair)*qvd)
 
     if (use_ice) then
-       call qsat_ice(tsp, p, es, qsp, gam=gam, enthalpy=enout)
+       call qsat(tsp, p, es, qsp, gam=gam, enthalpy=enout)
     else
        call qsat_water(tsp, p, es, qsp, gam=gam, enthalpy=enout)
     end if
@@ -253,7 +365,7 @@ contains
        if (tsp < tmin) then
           tsp = tmin
           if (use_ice) then
-             hltalt = latvap + latice
+             call calc_hltalt(tsp,hltalt)
           else
              call no_ip_hltalt(tsp, hltalt)
           end if
@@ -264,7 +376,7 @@ contains
        end if
 
        if (use_ice) then
-          call qsat_ice(tsp, p, es, q1, gam=gam, enthalpy=enout)
+          call qsat(tsp, p, es, q1, gam=gam, enthalpy=enout)
        else
           call qsat_water(tsp, p, es, q1, gam=gam, enthalpy=enout)
        end if
