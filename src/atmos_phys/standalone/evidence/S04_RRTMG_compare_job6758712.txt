@@ -1,0 +1,23 @@
+Authoritative baseline: /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run
+Candidate: /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run
+compare_exit_code=0
+
+r: numeric_count=307, equal=True
+native_md5=8ecb1dc7e4ca29f9adf2e92017106cfe
+candidate_md5=8ecb1dc7e4ca29f9adf2e92017106cfe
+
+rh0: numeric_count=392, equal=True
+native_md5=e81876a05681533e9f4b8a9a67ea5154
+candidate_md5=e81876a05681533e9f4b8a9a67ea5154
+
+rs: numeric_count=91, equal=True
+native_md5=b9d2a429aede18ca97b0f9af0e19fba2
+candidate_md5=b9d2a429aede18ca97b0f9af0e19fba2
+
+overall_numeric_equal=True
+numeric_variables_compared=790
+normalized_character_equal=True
+normalized_character_fields=hrestpath,date_written,time_written
+
+ap_rad_rrtmg_lw_run global_calls=2.662400e+04
+ap_rad_rrtmg_sw_run global_calls=2.662400e+04

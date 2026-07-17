@@ -1,0 +1,19 @@
+S02 UW shallow-convection standalone dependency evidence
+
+Validated lane commit: caa48bf
+Integrated compose commit: ffd6b56
+
+Processes:
+- compute_uwshcu_inv_run
+- compute_uwshcu_run
+
+Integration-tree checks for each entry:
+- direct PASS: roots=1, closure_sources=5, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=6, violations=0, duplicates=0
+
+The isolated two-entry lane also reported one shared root, five direct sources
+and six transitive sources, with no violations or duplicate modules. The
+allowlist is restricted to ISO/IEEE, shr_*, MPI, OpenMP, NetCDF and PIO.
+
+Command form:
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --process PROCESS

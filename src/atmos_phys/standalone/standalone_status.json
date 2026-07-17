@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T00:35:58Z",
+  "updated_at": "2026-07-17T00:40:09Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -282,11 +282,11 @@
       "order": 7,
       "source": "src/atmos_phys/schemes/uw_shallow/uwshcu_processes.F90",
       "module": "ap_uwshcu_processes_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "caa48bf2e23151c1da5a4ff15643d3feaabdae91",
+      "last_run": "S02-UW-finalbaseline-20260716-job6758717",
+      "bfb_run": "S02-UW-finalbaseline-20260716-job6758717",
+      "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758717 is 790/790 BFB"
     },
     {
       "entry_point": "compute_uwshcu_run",
@@ -296,11 +296,11 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/uw_shallow/uwshcu_processes.F90",
       "module": "ap_uwshcu_processes_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "caa48bf2e23151c1da5a4ff15643d3feaabdae91",
+      "last_run": "S02-UW-finalbaseline-20260716-job6758717",
+      "bfb_run": "S02-UW-finalbaseline-20260716-job6758717",
+      "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758717 is 790/790 BFB"
     },
     {
       "entry_point": "dust_sediment_tend_run",
@@ -548,11 +548,11 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rad_rrtmg_sw.F90",
       "module": "ap_rad_rrtmg_sw_scheme",
-      "status": "dependency_pass",
+      "status": "bfb",
       "commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
-      "last_run": null,
-      "bfb_run": null,
-      "note": "direct/transitive standalone dependency checks PASS (36-source closure); job6758712 completed 256-rank 50-step 790/790 BFB"
+      "last_run": "S04-RRTMG-drivers-20260716-job6758712",
+      "bfb_run": "S04-RRTMG-drivers-20260716-job6758712",
+      "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758712 is 790/790 BFB"
     },
     {
       "entry_point": "rad_rrtmg_lw_run",
@@ -562,11 +562,11 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rad_rrtmg_lw.F90",
       "module": "ap_rad_rrtmg_lw_scheme",
-      "status": "dependency_pass",
+      "status": "bfb",
       "commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
-      "last_run": null,
-      "bfb_run": null,
-      "note": "direct/transitive standalone dependency checks PASS (33-source closure); job6758712 completed 256-rank 50-step 790/790 BFB"
+      "last_run": "S04-RRTMG-drivers-20260716-job6758712",
+      "bfb_run": "S04-RRTMG-drivers-20260716-job6758712",
+      "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758712 is 790/790 BFB"
     }
   ],
   "runs": [
@@ -1185,6 +1185,174 @@
       },
       "recorded_at": "2026-07-17T00:31:08Z",
       "note": "compute_eddy_diff_run, dadadj_run and dust_sediment_tend_run completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and all three runtime timers nonzero. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated compose science is unchanged from 0951b95 and passes a fresh 26-root/108-source standalone build."
+    },
+    {
+      "run_id": "S02-UW-finalbaseline-20260716-job6758717",
+      "batch": "S02",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6758717.desched1",
+      "source_commit": "caa48bf2e23151c1da5a4ff15643d3feaabdae91",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/case/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_UW_dependency_ffd6b56.txt",
+          "size": 721,
+          "sha256": "f42481a433f7acdf84b6c8846fa9209de6b8187bbb67204035bfa921d563dc6e"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_UW_S04_RRTMG_standalone_build_ffd6b56.txt",
+          "size": 1021,
+          "sha256": "720e329f4ffa79654f2d1671c4ef835fb53e78ef1c40e6c4bdf6716672deb0c6"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/bld/cesm.exe",
+          "size": 55482872,
+          "sha256": "b210ffd31baa35f6b18b4ce11240f9e4ee4a9348ee43fd42f8a0e9573aabb0d4"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/case/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/logs/run_environment.txt.6758717.desched1.260716-183105",
+          "size": 42041,
+          "sha256": "36e3bf83ea0ef1e3f1de8eb417cbbadad877cea67986a3ac45e0618b6cdfa978"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/case/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/Buildconf/camconf/Filepath",
+          "size": 10943,
+          "sha256": "c4693d3124976593d21bbf773c19ecb74b83d4618ac1f43647cd09b7e4e475ef"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/case/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/evidence/compare_790_6758717.txt",
+          "size": 926,
+          "sha256": "b9a6928989aedc2b2d2cb4ded2f5f8530e0aaa71b5fc6a7cb204e657d6d2e5b3"
+        }
+      },
+      "execution_proof": {
+        "compute_uwshcu_inv_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "2a35d705ff3ae96f7e6990678dc29b9334b187e7084d0401a834ffb076257bc4"
+          },
+          "line": "ap_compute_uwshcu_inv_run global_calls=5.324800e+04"
+        },
+        "compute_uwshcu_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_uw_finalbaseline_lane/output/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.uwfinal.50step.2node/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "2a35d705ff3ae96f7e6990678dc29b9334b187e7084d0401a834ffb076257bc4"
+          },
+          "line": "ap_compute_uwshcu_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T00:39:51Z",
+      "note": "Both UW shallow-convection entry points completed a fresh 256-rank STOP_N=50 run on the final BFB integration baseline with PBS Exit_status 0 and nonzero runtime timers. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated science matches caa48bf and passes the combined 30-entry/117-source standalone build."
+    },
+    {
+      "run_id": "S04-RRTMG-drivers-20260716-job6758712",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6758712.desched1",
+      "source_commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_rrtmg_driver_dependency_60531c9.txt",
+          "size": 781,
+          "sha256": "38f8ea0008ec6c6c805a02ae4ae511eb1bb38dfabbea3a0d50b39a77ba87649a"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_UW_S04_RRTMG_standalone_build_ffd6b56.txt",
+          "size": 1021,
+          "sha256": "720e329f4ffa79654f2d1671c4ef835fb53e78ef1c40e6c4bdf6716672deb0c6"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/bld/cesm.exe",
+          "size": 55419256,
+          "sha256": "81c3c2c81ae40acd4d8a88ccc6699f243d755a647d3fb49e1e594b1ce045cfa6"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/case/logs/run_environment.txt.6758712.desched1.260716-182939",
+          "size": 41830,
+          "sha256": "b5e23ce9afb03c0d5dd5b21547d51275cbbd3dd25de255047f718f2537d198f5"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/case/Buildconf/camconf/Filepath",
+          "size": 10236,
+          "sha256": "b41a319c921f2c56ae27f6ba56b389343a4aa6fd13334cf08137abad9bf5bae8"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/validation/compare_native_job6758712.txt",
+          "size": 1919,
+          "sha256": "f19bd964f48750c746c80ae660f05099b1dbdd87003344dea3969954fccbc227"
+        }
+      },
+      "execution_proof": {
+        "rad_rrtmg_lw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "7c8c87f6480da03a8f973d3a304eb38fe1258469a70cfe9db0a473c2fb1a4bc4"
+          },
+          "line": "ap_rad_rrtmg_lw_run global_calls=2.662400e+04"
+        },
+        "rad_rrtmg_sw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_bisect_lw_sw/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "7c8c87f6480da03a8f973d3a304eb38fe1258469a70cfe9db0a473c2fb1a4bc4"
+          },
+          "line": "ap_rad_rrtmg_sw_run global_calls=2.662400e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T00:40:09Z",
+      "note": "Standalone RRTMG longwave and shortwave drivers completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and both runtime timers nonzero. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated science matches 2e89b79 and passes the combined 30-entry/117-source standalone build."
     }
   ]
 }
