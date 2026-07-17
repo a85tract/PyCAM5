@@ -25,6 +25,7 @@ module wv_saturation_portable
   real(r8) :: rh2o
   real(r8) :: tmelt
   real(r8) :: c3
+  integer :: iulog
 
   public :: wv_saturation_portable_init
   public :: svp_water, svp_ice
@@ -34,9 +35,10 @@ module wv_saturation_portable
 contains
 
   subroutine wv_saturation_portable_init(epsilo_in, latvap_in, latice_in, &
-       rh2o_in, cpair_in, tmelt_in, h2otrip_in, errmsg, errflg)
+       rh2o_in, cpair_in, tmelt_in, h2otrip_in, iulog_in, errmsg, errflg)
     real(r8), intent(in) :: epsilo_in, latvap_in, latice_in
     real(r8), intent(in) :: rh2o_in, cpair_in, tmelt_in, h2otrip_in
+    integer, intent(in) :: iulog_in
     character(len=*), intent(out) :: errmsg
     integer, intent(out) :: errflg
 
@@ -44,6 +46,7 @@ contains
     omeps = 1._r8 - epsilo
     rh2o = rh2o_in
     tmelt = tmelt_in
+    iulog = iulog_in
     c3 = 287.04_r8*(7.5_r8*log(10._r8))/cpair
 
     if (cpair_in /= cpair .or. latvap_in /= latvap .or. &
@@ -164,7 +167,7 @@ contains
   end subroutine qsat_ice
 
   subroutine findsp_vc(q, t, p, use_ice, tsp, qsp)
-    use cloud_microphysics_host_hooks, only: cloud_microphysics_endrun
+    use cloud_microphysics_host_hooks, only: endrun => cloud_microphysics_endrun
 
     real(r8), intent(in) :: q(:), t(:), p(:)
     logical, intent(in) :: use_ice
@@ -177,11 +180,15 @@ contains
 
     do i = 1, size(q)
        if (status(i) == 2) then
-          call cloud_microphysics_endrun( &
-               'wv_saturation::FINDSP -- not converging')
+          write(iulog,*) ' findsp not converging at i = ', i
+          write(iulog,*) ' t, q, p ', t(i), q(i), p(i)
+          write(iulog,*) ' tsp, qsp ', tsp(i), qsp(i)
+          call endrun ('wv_saturation::FINDSP -- not converging')
        else if (status(i) == 8) then
-          call cloud_microphysics_endrun( &
-               'wv_saturation::FINDSP -- enthalpy is not conserved')
+          write(iulog,*) ' the enthalpy is not conserved at i = ', i
+          write(iulog,*) ' t, q, p ', t(i), q(i), p(i)
+          write(iulog,*) ' tsp, qsp ', tsp(i), qsp(i)
+          call endrun ('wv_saturation::FINDSP -- enthalpy is not conserved')
        end if
     end do
   end subroutine findsp_vc

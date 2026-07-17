@@ -170,7 +170,7 @@
    premib = premib_in
 
    call wv_saturation_portable_init(epsilo_in, latvap_in, latice_in, &
-        rh2o_in, cpair_in, tmelt_in, h2otrip_in, errmsg, errflg)
+        rh2o_in, cpair_in, tmelt_in, h2otrip_in, iulog_in, errmsg, errflg)
    if (errflg /= 0) return
 
    call cldfrc2m_portable_init(rair_in, rhmini_in, rhmaxi_in, rhminl_in, &
