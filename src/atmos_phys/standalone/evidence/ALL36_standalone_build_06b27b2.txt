@@ -1,0 +1,20 @@
+All-36 all-scope standalone source build
+
+science_commit=06b27b21faf0989092f8f929bbc673d01abc92f3
+final_commit_before_combined_run=6cbc8b758e8a6659b1e8470696c8f8a717e41f8f
+note=commits after 06b27b2 only add evidence and update the generated ledger; science sources are unchanged
+build_root=/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_all36_staging_20260716/standalone_build_all36_06b27b2
+compiler=/glade/u/apps/derecho/25.10/spack/opt/spack/ncarcompilers/1.1.0/intel-oneapi-compilers/2025.2.1/d7a7/bin/ifx
+compiler_id=IntelLLVM 2025.2.1
+scope=all
+mode=both
+build_sources=ON
+pcols=16
+plev=30
+transitive_sources=129
+build_result=PASS
+library=libtphys-standalone-schemes.a
+library_sha256=6bc083a7524f5ba1ec2ad1b4d9d4e34c0428205402ab3fa8696ff12b16aab78c
+ctest_result=PASS
+ctest_passed=2
+ctest_failed=0

@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T05:46:56Z",
+  "updated_at": "2026-07-17T05:59:56Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -73,9 +73,9 @@
       "source": "src/atmos_phys/schemes/vertical_diffusion/compute_vdiff/compute_vdiff.F90",
       "module": "ap_compute_vdiff_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -87,9 +87,9 @@
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_prof.F90",
       "module": "ap_gw_prof_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -101,9 +101,9 @@
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_oro_src.F90",
       "module": "ap_gw_oro_src_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -115,9 +115,9 @@
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/gw_drag_prof.F90",
       "module": "ap_gw_drag_prof_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -129,9 +129,9 @@
       "source": "src/atmos_phys/schemes/orographic_gravity_wave/energy_change.F90",
       "module": "ap_energy_change_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -157,9 +157,9 @@
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rrtmg_sw.F90",
       "module": "ap_rrtmg_sw_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -171,9 +171,9 @@
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rrtmg_lw.F90",
       "module": "ap_rrtmg_lw_scheme",
       "status": "bfb",
-      "commit": "1165032025a53498d6b912866443c9b8c8c76ff6",
-      "last_run": "S01-default-20260716-job6753204",
-      "bfb_run": "S01-default-20260716-job6753204",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S01-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S01-20260716-job6761344",
       "note": "fresh standalone CMake closure build PASS (75 sources, no CAM EXEROOT modules); clean full CAM rebuild pending"
     },
     {
@@ -199,9 +199,9 @@
       "source": "src/atmos_phys/schemes/vertical_diffusion/compute_eddy_diff/compute_eddy_diff.F90",
       "module": "ap_compute_eddy_diff_scheme",
       "status": "bfb",
-      "commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
-      "last_run": "S02-remaining3-timerfix-20260716-job6758620",
-      "bfb_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "26-root/108-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758620 is 790/790 BFB"
     },
     {
@@ -213,9 +213,9 @@
       "source": "src/atmos_phys/schemes/deep_convection/dry_adiabatic_adjust/dadadj_scheme.F90",
       "module": "ap_dadadj_scheme",
       "status": "bfb",
-      "commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
-      "last_run": "S02-remaining3-timerfix-20260716-job6758620",
-      "bfb_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "26-root/108-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758620 is 790/790 BFB"
     },
     {
@@ -227,9 +227,9 @@
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_convr.F90",
       "module": "ap_zm_convr_scheme",
       "status": "bfb",
-      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
-      "last_run": "S02-ZM-default-20260716-job6757863",
-      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
@@ -241,9 +241,9 @@
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_conv_evap.F90",
       "module": "ap_zm_conv_evap_scheme",
       "status": "bfb",
-      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
-      "last_run": "S02-ZM-default-20260716-job6757863",
-      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
@@ -255,9 +255,9 @@
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_conv_momtran.F90",
       "module": "ap_zm_conv_momtran_scheme",
       "status": "bfb",
-      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
-      "last_run": "S02-ZM-default-20260716-job6757863",
-      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
@@ -269,9 +269,9 @@
       "source": "src/atmos_phys/schemes/deep_convection/zhang_mcfarlane/zm_conv_convtran.F90",
       "module": "ap_zm_conv_convtran_scheme",
       "status": "bfb",
-      "commit": "9b2d2db6a0f58f69e0c48435691a99a8a48d6088",
-      "last_run": "S02-ZM-default-20260716-job6757863",
-      "bfb_run": "S02-ZM-default-20260716-job6757863",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "four-entry direct/transitive closure PASS; 22-root/100-source standalone build PASS; clean full CAM integration build PASS; job6757863 completed 256-rank 50-step"
     },
     {
@@ -283,9 +283,9 @@
       "source": "src/atmos_phys/schemes/uw_shallow/uwshcu_processes.F90",
       "module": "ap_uwshcu_processes_scheme",
       "status": "bfb",
-      "commit": "caa48bf2e23151c1da5a4ff15643d3feaabdae91",
-      "last_run": "S02-UW-finalbaseline-20260716-job6758717",
-      "bfb_run": "S02-UW-finalbaseline-20260716-job6758717",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758717 is 790/790 BFB"
     },
     {
@@ -297,9 +297,9 @@
       "source": "src/atmos_phys/schemes/uw_shallow/uwshcu_processes.F90",
       "module": "ap_uwshcu_processes_scheme",
       "status": "bfb",
-      "commit": "caa48bf2e23151c1da5a4ff15643d3feaabdae91",
-      "last_run": "S02-UW-finalbaseline-20260716-job6758717",
-      "bfb_run": "S02-UW-finalbaseline-20260716-job6758717",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758717 is 790/790 BFB"
     },
     {
@@ -311,9 +311,9 @@
       "source": "src/atmos_phys/schemes/modal_aerosol/sedimentation/dust_sediment_tend.F90",
       "module": "ap_dust_sediment_tend_scheme",
       "status": "bfb",
-      "commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
-      "last_run": "S02-remaining3-timerfix-20260716-job6758620",
-      "bfb_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S02-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S02-20260716-job6761344",
       "note": "26-root/108-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758620 is 790/790 BFB with direct dust timer"
     },
     {
@@ -325,9 +325,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/gas_phase_chemdr/gas_phase_chemdr.F90",
       "module": "gas_phase_chemdr_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -339,9 +339,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch/aero_model_gasaerexch.F90",
       "module": "ap_aero_model_gasaerexch_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -353,9 +353,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/gasaerexch/modal_aero_gasaerexch_scheme.F90",
       "module": "ap_modal_aero_gasaerexch_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -367,9 +367,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/newnuc/modal_aero_newnuc_scheme.F90",
       "module": "ap_modal_aero_newnuc_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -381,9 +381,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/coag/modal_aero_coag_scheme.F90",
       "module": "ap_modal_aero_coag_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -395,9 +395,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/modal_aero/drydep/aero_model_drydep.F90",
       "module": "ap_aero_model_drydep_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -409,9 +409,9 @@
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_calcsize_sub/modal_aero_calcsize_sub.F90",
       "module": "ap_modal_aero_calcsize_sub_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -423,9 +423,9 @@
       "source": "src/atmos_phys/schemes/modal_aerosol/modal_aero_wateruptake_dr/modal_aero_wateruptake_dr.F90",
       "module": "ap_modal_aero_wateruptake_dr_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -437,9 +437,9 @@
       "source": "src/atmos_phys/schemes/modal_aerosol/wetdepa_v2/wetdepa_v2.F90",
       "module": "ap_wetdepa_v2_scheme",
       "status": "bfb",
-      "commit": "02cc8741d3d29416f0125105c778b1c28fc0c4a3",
-      "last_run": "S03-default-20260716-job6757715",
-      "bfb_run": "S03-default-20260716-job6757715",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S03-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S03-20260716-job6761344",
       "note": "direct and transitive closure PASS; fresh full CAM build PASS; job 6757715 completed 256-rank 50-step"
     },
     {
@@ -451,9 +451,9 @@
       "source": "src/atmos_phys/schemes/mozart_mam/neu_wetdep/neu_wetdep.F90",
       "module": "neu_wetdep_scheme",
       "status": "bfb",
-      "commit": "bc98f00818982026b47f4d9ad0b7ab187316e84f",
-      "last_run": "S04-Neu-nucleate-fix-20260716-job6758752",
-      "bfb_run": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": "10-root/76-source standalone ifx build and CTest 2/2 PASS; job6758752 completed 256-rank 50-step 790/790 BFB after restoring Neu ncol history stride"
     },
     {
@@ -465,9 +465,9 @@
       "source": "src/atmos_phys/schemes/modal_aerosol/aero_model_wetdep/aero_model_wetdep.F90",
       "module": "ap_aero_model_wetdep_scheme",
       "status": "bfb",
-      "commit": "7dfe737c848b073bc8c1334c1cfb9a547562b52e",
-      "last_run": "S04-aerosol-pair-20260716-job6758974",
-      "bfb_run": "S04-aerosol-pair-20260716-job6758974",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": ""
     },
     {
@@ -479,9 +479,9 @@
       "source": "src/atmos_phys/schemes/cloud_microphysics/nucleate_ice/nucleate_ice_cam_calc.F90",
       "module": "ap_nucleate_ice_cam_calc_scheme",
       "status": "bfb",
-      "commit": "bc98f00818982026b47f4d9ad0b7ab187316e84f",
-      "last_run": "S04-Neu-nucleate-fix-20260716-job6758752",
-      "bfb_run": "S04-Neu-nucleate-fix-20260716-job6758752",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": "10-root/76-source standalone ifx build and CTest 2/2 PASS; job6758752 completed 256-rank 50-step 790/790 BFB after restoring Neu ncol history stride"
     },
     {
@@ -493,9 +493,9 @@
       "source": "src/atmos_phys/schemes/cloud_microphysics/dropmixnuc/dropmixnuc.F90",
       "module": "ap_dropmixnuc_scheme",
       "status": "bfb",
-      "commit": "7dfe737c848b073bc8c1334c1cfb9a547562b52e",
-      "last_run": "S04-aerosol-pair-20260716-job6758974",
-      "bfb_run": "S04-aerosol-pair-20260716-job6758974",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": ""
     },
     {
@@ -507,9 +507,9 @@
       "source": "src/atmos_phys/schemes/cloud_microphysics/cldfrc/cldfrc.F90",
       "module": "ap_cldfrc_scheme",
       "status": "bfb",
-      "commit": "ed3b8e432117fddf03a93c2107651473bd5545de",
-      "last_run": "S04-cldfrc-only-20260716-job6759051",
-      "bfb_run": "S04-cldfrc-only-20260716-job6759051",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": ""
     },
     {
@@ -521,9 +521,9 @@
       "source": "src/atmos_phys/schemes/cloud_microphysics/mmacro_pcond/mmacro_pcond.F90",
       "module": "ap_mmacro_pcond_scheme",
       "status": "bfb",
-      "commit": "5aaa3e2fad6653b7ac0c8ee2dd236e933fa297bd",
-      "last_run": "S04-mmacro-fix7-bfb-20260716-job6760992",
-      "bfb_run": "S04-mmacro-fix7-bfb-20260716-job6760992",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": ""
     },
     {
@@ -535,9 +535,9 @@
       "source": "src/atmos_phys/schemes/cloud_microphysics/micro_mg1_0/micro_mg_tend.F90",
       "module": "ap_micro_mg_tend_scheme",
       "status": "bfb",
-      "commit": "f947fb3860e3ac45dba6d77892409ff2ed96a99b",
-      "last_run": "S04-micro-only-20260716-job6758548",
-      "bfb_run": "S04-micro-only-20260716-job6758548",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": "23-root/101-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; micro-only job6758548 is 790/790 BFB"
     },
     {
@@ -549,9 +549,9 @@
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rad_rrtmg_sw.F90",
       "module": "ap_rad_rrtmg_sw_scheme",
       "status": "bfb",
-      "commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
-      "last_run": "S04-RRTMG-drivers-20260716-job6758712",
-      "bfb_run": "S04-RRTMG-drivers-20260716-job6758712",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758712 is 790/790 BFB"
     },
     {
@@ -563,9 +563,9 @@
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rad_rrtmg_lw.F90",
       "module": "ap_rad_rrtmg_lw_scheme",
       "status": "bfb",
-      "commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
-      "last_run": "S04-RRTMG-drivers-20260716-job6758712",
-      "bfb_run": "S04-RRTMG-drivers-20260716-job6758712",
+      "commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "last_run": "ALL36-combined-S04-20260716-job6761344",
+      "bfb_run": "ALL36-combined-S04-20260716-job6761344",
       "note": "30-entry/29-root 117-source fresh standalone build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758712 is 790/790 BFB"
     }
   ],
@@ -1773,6 +1773,550 @@
       },
       "recorded_at": "2026-07-17T05:45:55Z",
       "note": "mmacro_pcond_run completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and 53,248 timer calls. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated all-36 source at 06b27b2 passes the 36-entry/129-source standalone build."
+    },
+    {
+      "run_id": "ALL36-combined-S01-20260716-job6761344",
+      "batch": "S01",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6761344.desched1",
+      "source_commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_dependency_6cbc8b7.txt",
+          "size": 613,
+          "sha256": "78ad845026d9131dd16caa5e7bd802797a2fd2d8fe95a197fe32ccc538c64013"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_standalone_build_06b27b2.txt",
+          "size": 823,
+          "sha256": "4a8aed27160955d5187f72486676c566dcaa2ab574ac456cf6d016675af2de00"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/bld/cesm.exe",
+          "size": 55663328,
+          "sha256": "ced9c281c78f01593c017400aaee72e0bf4e2baa56390b6935563ba72125f64a"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/logs/run_environment.txt.6761344.desched1.260716-235438",
+          "size": 43341,
+          "sha256": "e8fdd7fdd1735eb9c5930b424fec4b74fe10728a2ec0e1cfd994ed2f5e7088d4"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/Filepath",
+          "size": 11460,
+          "sha256": "a0c4c373b05eafbc0adfdd3a586dc5c8f1ffe72012d61fc61905fb31bc69fe4b"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_combined_compare_job6761344.txt",
+          "size": 1590,
+          "sha256": "2c24bf3e7d4c7fd9ae76065da5f75b9105e6ae69462ed613ce8cdcb4b2525530"
+        }
+      },
+      "execution_proof": {
+        "compute_vdiff_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_compute_vdiff_run global_calls=1.044480e+05"
+        },
+        "gw_prof_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_gw_prof_run global_calls=5.222400e+04"
+        },
+        "gw_oro_src_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_gw_oro_src_run global_calls=5.222400e+04"
+        },
+        "gw_drag_prof_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_gw_drag_prof_run global_calls=5.222400e+04"
+        },
+        "energy_change_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_energy_change_run global_calls=5.222400e+04"
+        },
+        "rrtmg_sw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "rrtmg_sw global_calls=2.653600e+04"
+        },
+        "rrtmg_lw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "rrtmg_lw global_calls=2.662400e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T05:58:46Z",
+      "note": "Final integrated all-36 source completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and 790/790 numeric BFB. Seven S01 roots have direct timers in this active Park/MMG configuration; ice_macro_tend_run is configuration-exclusive and modal_aero_depvel_part_run has no retained child timer, so their earlier process-scoped 50-step BFB records remain authoritative."
+    },
+    {
+      "run_id": "ALL36-combined-S02-20260716-job6761344",
+      "batch": "S02",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6761344.desched1",
+      "source_commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_dependency_6cbc8b7.txt",
+          "size": 613,
+          "sha256": "78ad845026d9131dd16caa5e7bd802797a2fd2d8fe95a197fe32ccc538c64013"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_standalone_build_06b27b2.txt",
+          "size": 823,
+          "sha256": "4a8aed27160955d5187f72486676c566dcaa2ab574ac456cf6d016675af2de00"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/bld/cesm.exe",
+          "size": 55663328,
+          "sha256": "ced9c281c78f01593c017400aaee72e0bf4e2baa56390b6935563ba72125f64a"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/logs/run_environment.txt.6761344.desched1.260716-235438",
+          "size": 43341,
+          "sha256": "e8fdd7fdd1735eb9c5930b424fec4b74fe10728a2ec0e1cfd994ed2f5e7088d4"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/Filepath",
+          "size": 11460,
+          "sha256": "a0c4c373b05eafbc0adfdd3a586dc5c8f1ffe72012d61fc61905fb31bc69fe4b"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_combined_compare_job6761344.txt",
+          "size": 1590,
+          "sha256": "2c24bf3e7d4c7fd9ae76065da5f75b9105e6ae69462ed613ce8cdcb4b2525530"
+        }
+      },
+      "execution_proof": {
+        "compute_eddy_diff_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_compute_eddy_diff_run global_calls=5.222400e+04"
+        },
+        "dadadj_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_dadadj_run global_calls=5.324800e+04"
+        },
+        "zm_convr_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_zm_convr_run global_calls=5.324800e+04"
+        },
+        "zm_conv_evap_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_zm_conv_evap_run global_calls=5.324800e+04"
+        },
+        "zm_conv_momtran_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_zm_conv_momtran_run global_calls=5.324800e+04"
+        },
+        "zm_conv_convtran_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_zm_conv_convtran_run global_calls=1.064960e+05"
+        },
+        "compute_uwshcu_inv_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_compute_uwshcu_inv_run global_calls=5.324800e+04"
+        },
+        "compute_uwshcu_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_compute_uwshcu_run global_calls=5.324800e+04"
+        },
+        "dust_sediment_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_dust_sediment_tend_run global_calls=1.566720e+06"
+        }
+      },
+      "recorded_at": "2026-07-17T05:58:46Z",
+      "note": "Final integrated all-36 source completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0, 790/790 numeric BFB, and direct runtime timers for all 9 S02 roots."
+    },
+    {
+      "run_id": "ALL36-combined-S03-20260716-job6761344",
+      "batch": "S03",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6761344.desched1",
+      "source_commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_dependency_6cbc8b7.txt",
+          "size": 613,
+          "sha256": "78ad845026d9131dd16caa5e7bd802797a2fd2d8fe95a197fe32ccc538c64013"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_standalone_build_06b27b2.txt",
+          "size": 823,
+          "sha256": "4a8aed27160955d5187f72486676c566dcaa2ab574ac456cf6d016675af2de00"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/bld/cesm.exe",
+          "size": 55663328,
+          "sha256": "ced9c281c78f01593c017400aaee72e0bf4e2baa56390b6935563ba72125f64a"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/logs/run_environment.txt.6761344.desched1.260716-235438",
+          "size": 43341,
+          "sha256": "e8fdd7fdd1735eb9c5930b424fec4b74fe10728a2ec0e1cfd994ed2f5e7088d4"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/Filepath",
+          "size": 11460,
+          "sha256": "a0c4c373b05eafbc0adfdd3a586dc5c8f1ffe72012d61fc61905fb31bc69fe4b"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_combined_compare_job6761344.txt",
+          "size": 1590,
+          "sha256": "2c24bf3e7d4c7fd9ae76065da5f75b9105e6ae69462ed613ce8cdcb4b2525530"
+        }
+      },
+      "execution_proof": {
+        "gas_phase_chemdr_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_gas_phase_chemdr_run global_calls=5.222400e+04"
+        },
+        "aero_model_gasaerexch_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_aero_model_gasaerexch_run global_calls=5.222400e+04"
+        },
+        "modal_aero_gasaerexch_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "modal_gas-aer_exchng global_calls=5.222400e+04"
+        },
+        "modal_aero_newnuc_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "modal_nucl global_calls=5.222400e+04"
+        },
+        "modal_aero_coag_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "modal_coag global_calls=5.222400e+04"
+        },
+        "aero_model_drydep_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_aero_model_drydep_run global_calls=5.222400e+04"
+        },
+        "modal_aero_calcsize_sub_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_modal_aero_calcsize_sub_run global_calls=5.324800e+04"
+        },
+        "modal_aero_wateruptake_dr_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_modal_aero_wateruptake_dr_run global_calls=5.324800e+04"
+        },
+        "wetdepa_v2_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_wetdepa_v2_run global_calls=1.597440e+06"
+        }
+      },
+      "recorded_at": "2026-07-17T05:58:46Z",
+      "note": "Final integrated all-36 source completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0, 790/790 numeric BFB, and direct runtime timers for all 9 S03 roots."
+    },
+    {
+      "run_id": "ALL36-combined-S04-20260716-job6761344",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6761344.desched1",
+      "source_commit": "6cbc8b758e8a6659b1e8470696c8f8a717e41f8f",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_dependency_6cbc8b7.txt",
+          "size": 613,
+          "sha256": "78ad845026d9131dd16caa5e7bd802797a2fd2d8fe95a197fe32ccc538c64013"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_standalone_build_06b27b2.txt",
+          "size": 823,
+          "sha256": "4a8aed27160955d5187f72486676c566dcaa2ab574ac456cf6d016675af2de00"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/output/bld/cesm.exe",
+          "size": 55663328,
+          "sha256": "ced9c281c78f01593c017400aaee72e0bf4e2baa56390b6935563ba72125f64a"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/logs/run_environment.txt.6761344.desched1.260716-235438",
+          "size": 43341,
+          "sha256": "e8fdd7fdd1735eb9c5930b424fec4b74fe10728a2ec0e1cfd994ed2f5e7088d4"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/Filepath",
+          "size": 11460,
+          "sha256": "a0c4c373b05eafbc0adfdd3a586dc5c8f1ffe72012d61fc61905fb31bc69fe4b"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/ALL36_combined_compare_job6761344.txt",
+          "size": 1590,
+          "sha256": "2c24bf3e7d4c7fd9ae76065da5f75b9105e6ae69462ed613ce8cdcb4b2525530"
+        }
+      },
+      "execution_proof": {
+        "neu_wetdep_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_neu_wetdep_tend_run global_calls=5.222400e+04"
+        },
+        "aero_model_wetdep_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_aero_model_wetdep_run global_calls=5.324800e+04"
+        },
+        "nucleate_ice_cam_calc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_nucleate_ice_cam_calc_run global_calls=5.324800e+04"
+        },
+        "dropmixnuc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_dropmixnuc_run global_calls=5.324800e+04"
+        },
+        "cldfrc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_cldfrc_run global_calls=5.324800e+04"
+        },
+        "mmacro_pcond_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_mmacro_pcond_run global_calls=5.324800e+04"
+        },
+        "micro_mg_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_micro_mg_tend_run global_calls=5.324800e+04"
+        },
+        "rad_rrtmg_sw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_rad_rrtmg_sw_run global_calls=2.662400e+04"
+        },
+        "rad_rrtmg_lw_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/all36_combined_6cbc8b7_20260716/case/timing/cesm_timing_stats.6761344.desched1.260716-235438",
+            "size": 63188,
+            "sha256": "b0a2ef55e544c49cdfe32fd0c5ce864ef289374a64c3a16e92dad03e6fb1e511"
+          },
+          "line": "ap_rad_rrtmg_lw_run global_calls=2.662400e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T05:58:46Z",
+      "note": "Final integrated all-36 source completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0, 790/790 numeric BFB, and direct runtime timers for all 9 S04 roots."
     }
   ]
 }

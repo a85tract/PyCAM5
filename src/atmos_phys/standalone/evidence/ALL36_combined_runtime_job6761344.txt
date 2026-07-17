@@ -1,0 +1,51 @@
+All-36 integrated runtime coverage matrix
+
+job_id=6761344.desched1
+source_commit=6cbc8b758e8a6659b1e8470696c8f8a717e41f8f
+linked_entry_symbols=36/36
+direct_runtime_timers=34/36
+numeric_bfb=790/790
+
+S01.1 compute_vdiff_run=ap_compute_vdiff_run global_calls=1.044480e+05
+S01.2 gw_prof_run=ap_gw_prof_run global_calls=5.222400e+04
+S01.3 gw_oro_src_run=ap_gw_oro_src_run global_calls=5.222400e+04
+S01.4 gw_drag_prof_run=ap_gw_drag_prof_run global_calls=5.222400e+04
+S01.5 energy_change_run=ap_energy_change_run global_calls=5.222400e+04
+S01.6 ice_macro_tend_run=not active in this Park/MMG macrophysics configuration
+S01.7 rrtmg_sw_run=rrtmg_sw global_calls=2.653600e+04
+S01.8 rrtmg_lw_run=rrtmg_lw global_calls=2.662400e+04
+S01.9 modal_aero_depvel_part_run=called below aero_model_drydep but no child timer retained in final host wiring
+
+S02.1 compute_eddy_diff_run=ap_compute_eddy_diff_run global_calls=5.222400e+04
+S02.2 dadadj_run=ap_dadadj_run global_calls=5.324800e+04
+S02.3 zm_convr_run=ap_zm_convr_run global_calls=5.324800e+04
+S02.4 zm_conv_evap_run=ap_zm_conv_evap_run global_calls=5.324800e+04
+S02.5 zm_conv_momtran_run=ap_zm_conv_momtran_run global_calls=5.324800e+04
+S02.6 zm_conv_convtran_run=ap_zm_conv_convtran_run global_calls=1.064960e+05
+S02.7 compute_uwshcu_inv_run=ap_compute_uwshcu_inv_run global_calls=5.324800e+04
+S02.8 compute_uwshcu_run=ap_compute_uwshcu_run global_calls=5.324800e+04
+S02.9 dust_sediment_tend_run=ap_dust_sediment_tend_run global_calls=1.566720e+06
+
+S03.1 gas_phase_chemdr_run=ap_gas_phase_chemdr_run global_calls=5.222400e+04
+S03.2 aero_model_gasaerexch_run=ap_aero_model_gasaerexch_run global_calls=5.222400e+04
+S03.3 modal_aero_gasaerexch_sub_run=modal_gas-aer_exchng global_calls=5.222400e+04
+S03.4 modal_aero_newnuc_sub_run=modal_nucl global_calls=5.222400e+04
+S03.5 modal_aero_coag_sub_run=modal_coag global_calls=5.222400e+04
+S03.6 aero_model_drydep_run=ap_aero_model_drydep_run global_calls=5.222400e+04
+S03.7 modal_aero_calcsize_sub_run=ap_modal_aero_calcsize_sub_run global_calls=5.324800e+04
+S03.8 modal_aero_wateruptake_dr_run=ap_modal_aero_wateruptake_dr_run global_calls=5.324800e+04
+S03.9 wetdepa_v2_run=ap_wetdepa_v2_run global_calls=1.597440e+06
+
+S04.1 neu_wetdep_tend_run=ap_neu_wetdep_tend_run global_calls=5.222400e+04
+S04.2 aero_model_wetdep_run=ap_aero_model_wetdep_run global_calls=5.324800e+04
+S04.3 nucleate_ice_cam_calc_run=ap_nucleate_ice_cam_calc_run global_calls=5.324800e+04
+S04.4 dropmixnuc_run=ap_dropmixnuc_run global_calls=5.324800e+04
+S04.5 cldfrc_run=ap_cldfrc_run global_calls=5.324800e+04
+S04.6 mmacro_pcond_run=ap_mmacro_pcond_run global_calls=5.324800e+04
+S04.7 micro_mg_tend_run=ap_micro_mg_tend_run global_calls=5.324800e+04
+S04.8 rad_rrtmg_sw_run=ap_rad_rrtmg_sw_run global_calls=2.662400e+04
+S04.9 rad_rrtmg_lw_run=ap_rad_rrtmg_lw_run global_calls=2.662400e+04
+
+The two entries without a direct timer in this combined configuration retain
+their earlier process-scoped 256-rank, 50-step BFB records in the authoritative
+ledger. They are not claimed as direct timer proofs for job 6761344.
