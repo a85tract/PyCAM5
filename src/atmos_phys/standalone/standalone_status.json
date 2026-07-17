@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T00:26:30Z",
+  "updated_at": "2026-07-17T00:31:08Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -198,11 +198,11 @@
       "order": 1,
       "source": "src/atmos_phys/schemes/vertical_diffusion/compute_eddy_diff/compute_eddy_diff.F90",
       "module": "ap_compute_eddy_diff_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
+      "last_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "bfb_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "note": "26-root/108-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758620 is 790/790 BFB"
     },
     {
       "entry_point": "dadadj_run",
@@ -212,11 +212,11 @@
       "order": 2,
       "source": "src/atmos_phys/schemes/deep_convection/dry_adiabatic_adjust/dadadj_scheme.F90",
       "module": "ap_dadadj_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
+      "last_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "bfb_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "note": "26-root/108-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758620 is 790/790 BFB"
     },
     {
       "entry_point": "zm_convr_run",
@@ -310,11 +310,11 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/modal_aerosol/sedimentation/dust_sediment_tend.F90",
       "module": "ap_dust_sediment_tend_scheme",
-      "status": "planned",
-      "commit": null,
-      "last_run": null,
-      "bfb_run": null,
-      "note": ""
+      "status": "bfb",
+      "commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
+      "last_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "bfb_run": "S02-remaining3-timerfix-20260716-job6758620",
+      "note": "26-root/108-source fresh standalone ifx build PASS with PCOLS=16 PLEV=30 and CTest 2/2; job6758620 is 790/790 BFB with direct dust timer"
     },
     {
       "entry_point": "gas_phase_chemdr_run",
@@ -1093,6 +1093,98 @@
       },
       "recorded_at": "2026-07-17T00:26:30Z",
       "note": "micro_mg_tend_run completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and nonzero runtime timer; all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for hrestpath and volatile timestamps. Integrated compose science is unchanged from f947fb3 and passes a fresh 23-root/101-source standalone build."
+    },
+    {
+      "run_id": "S02-remaining3-timerfix-20260716-job6758620",
+      "batch": "S02",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6758620.desched1",
+      "source_commit": "0951b95d4f01a447ef381d216b6afb0c17b02f1b",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_remaining3_timerfix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_remaining3_dependency_114d3a8.txt",
+          "size": 1079,
+          "sha256": "63931f28e4b7e1235fc7feb74ef2dcdfd33fb07b287c3b4038f25df9e6fb033e"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S02_remaining3_standalone_build_114d3a8.txt",
+          "size": 964,
+          "sha256": "0a7ec66449246ac40f13228011deaddd553edc5bb090b8eee9903fce14348c28"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/bld/cesm.exe",
+          "size": 55482504,
+          "sha256": "cdcf0bbc5fd32bab5efd2615f57e30f4fb12f20df7969efba67a47ea46cc9e17"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_remaining3_timerfix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node/logs/run_environment.txt.6758620.desched1.260716-181840",
+          "size": 42060,
+          "sha256": "519d2a843fe6cda32e385e0a8bc4cc301e436f9fd8a485759213b3abcc41149d"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_remaining3_timerfix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node/Buildconf/camconf/Filepath",
+          "size": 11213,
+          "sha256": "228aff03c02d6f0341bf28ffecd69919459939bed7705dd9d34f59765dbbf57d"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/cases/s02_remaining3_timerfix_20260716/f.e13.F1850C5.ne16_g16.icesm131_ihesp.PI-atm.timerfix.50step.2node/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/job6758620_authoritative_native_790_compare.txt",
+          "size": 1678,
+          "sha256": "eaae8cbb2b0759d0ff2fd48c59f4b7d429d98f1ed96246ce9340b98afcb4ee91"
+        }
+      },
+      "execution_proof": {
+        "compute_eddy_diff_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63188,
+            "sha256": "4b89bfe3e71c856918416efd1e7f89fe1f0f5435dc897ce577777100fedf25fd"
+          },
+          "line": "ap_compute_eddy_diff_run global_calls=5.222400e+04"
+        },
+        "dadadj_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63188,
+            "sha256": "4b89bfe3e71c856918416efd1e7f89fe1f0f5435dc897ce577777100fedf25fd"
+          },
+          "line": "ap_dadadj_run global_calls=5.324800e+04"
+        },
+        "dust_sediment_tend_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63188,
+            "sha256": "4b89bfe3e71c856918416efd1e7f89fe1f0f5435dc897ce577777100fedf25fd"
+          },
+          "line": "ap_dust_sediment_tend_run global_calls=1.566720e+06"
+        }
+      },
+      "recorded_at": "2026-07-17T00:31:08Z",
+      "note": "compute_eddy_diff_run, dadadj_run and dust_sediment_tend_run completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and all three runtime timers nonzero. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated compose science is unchanged from 0951b95 and passes a fresh 26-root/108-source standalone build."
     }
   ]
 }

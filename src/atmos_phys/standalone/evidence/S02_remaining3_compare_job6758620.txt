@@ -1,0 +1,44 @@
+Command:
+/glade/u/apps/opt/conda/envs/npl-2025b/bin/python \
+  /glade/u/home/ruitong/code/fortran2python/compare_cesm_runpair.py \
+  --native-run-dir /glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run \
+  --codon-run-dir /glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s02_remaining3_timerfix_20260716/output/run
+
+compare_exit_code=0
+
+=== r.0001-01-02-03600.nc ===
+numeric_count=307
+numeric_equal=True
+numeric_md5_native=8ecb1dc7e4ca29f9adf2e92017106cfe
+numeric_md5_codon=8ecb1dc7e4ca29f9adf2e92017106cfe
+char_count=15
+char_diff_count=1
+char_diff_vars=hrestpath
+
+=== rh0.0001-01-02-03600.nc ===
+numeric_count=392
+numeric_equal=True
+numeric_md5_native=e81876a05681533e9f4b8a9a67ea5154
+numeric_md5_codon=e81876a05681533e9f4b8a9a67ea5154
+char_count=3
+char_diff_count=2
+char_diff_vars=date_written,time_written
+
+=== rs.0001-01-02-03600.nc ===
+numeric_count=91
+numeric_equal=True
+numeric_md5_native=b9d2a429aede18ca97b0f9af0e19fba2
+numeric_md5_codon=b9d2a429aede18ca97b0f9af0e19fba2
+char_count=0
+char_diff_count=0
+
+overall_numeric_equal=True
+overall_char_equal=False
+numeric_variables_compared=790
+normalized_character_equal=True
+normalized_character_fields=hrestpath,date_written,time_written
+
+=== process execution evidence ===
+ap_dadadj_run global_calls=5.324800e+04
+ap_compute_eddy_diff_run global_calls=5.222400e+04
+ap_dust_sediment_tend_run global_calls=1.566720e+06

@@ -1,0 +1,25 @@
+S02 remaining-three integrated standalone build evidence
+
+Build tree:
+/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/standalone_26_s02remaining3_114d3a8
+
+Validated science commit: 0951b95d4f01a447ef381d216b6afb0c17b02f1b
+Integrated compose commit: 114d3a8
+
+Configuration:
+- Intel ifx 2025.2.1
+- TPHYS_STANDALONE_SCOPE=completed-only
+- PCOLS=16 and PLEV=30, verified in target flags
+- standalone dependency module directories only; no CAM EXEROOT module path
+
+Result:
+- selected_entries=26, roots=26
+- direct closure PASS: 67 sources, 0 violations, 0 duplicates
+- transitive closure PASS: 108 sources, 0 violations, 0 duplicates
+- tphys-standalone-schemes static library build PASS
+- CTest 2/2 PASS
+- libtphys-standalone-schemes.a sha256:
+  54480d1b78b9f7c9500b4efaf888e52228c9f7684646eb5932f3da15563947c5
+
+The 26-root build contains all previously BFB-recorded roots plus
+compute_eddy_diff_run, dadadj_run and dust_sediment_tend_run.

@@ -1,0 +1,26 @@
+S02 remaining-three standalone dependency evidence
+
+Validated science commit: 0951b95d4f01a447ef381d216b6afb0c17b02f1b
+Integrated compose commit: 114d3a8
+
+Processes and live integration results:
+
+compute_eddy_diff_run
+- direct PASS: roots=1, closure_sources=6, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=11, violations=0, duplicates=0
+
+dadadj_run
+- direct PASS: roots=1, closure_sources=1, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=1, violations=0, duplicates=0
+
+dust_sediment_tend_run
+- direct PASS: roots=1, closure_sources=1, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=1, violations=0, duplicates=0
+
+Each result was produced with:
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --process PROCESS
+
+The isolated combined lane also passed a three-root direct closure of 8
+sources and transitive closure of 13 sources, with no violations or duplicate
+modules. Allowed external modules were limited to ISO/IEEE, shr_*, MPI,
+OpenMP, NetCDF and PIO.
