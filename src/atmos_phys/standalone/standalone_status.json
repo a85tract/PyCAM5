@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T00:31:08Z",
+  "updated_at": "2026-07-17T00:35:58Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -548,11 +548,11 @@
       "order": 8,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_shortwave/rad_rrtmg_sw.F90",
       "module": "ap_rad_rrtmg_sw_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "direct/transitive standalone dependency checks PASS (36-source closure); job6758712 completed 256-rank 50-step 790/790 BFB"
     },
     {
       "entry_point": "rad_rrtmg_lw_run",
@@ -562,11 +562,11 @@
       "order": 9,
       "source": "src/atmos_phys/schemes/radiation/rrtmg_longwave/rad_rrtmg_lw.F90",
       "module": "ap_rad_rrtmg_lw_scheme",
-      "status": "planned",
-      "commit": null,
+      "status": "dependency_pass",
+      "commit": "2e89b79a11f064521cf60a3ab7108759d0bdaa07",
       "last_run": null,
       "bfb_run": null,
-      "note": ""
+      "note": "direct/transitive standalone dependency checks PASS (33-source closure); job6758712 completed 256-rank 50-step 790/790 BFB"
     }
   ],
   "runs": [

@@ -1,0 +1,18 @@
+S04 standalone RRTMG driver dependency evidence
+
+Validated lane commit: 2e89b79a11f064521cf60a3ab7108759d0bdaa07
+Integrated compose commit: 60531c9
+
+rad_rrtmg_lw_run
+- direct PASS: roots=1, closure_sources=5, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=33, violations=0, duplicates=0
+
+rad_rrtmg_sw_run
+- direct PASS: roots=1, closure_sources=6, violations=0, duplicates=0
+- transitive PASS: roots=1, closure_sources=36, violations=0, duplicates=0
+
+Each result was produced in the integration tree with:
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both --process PROCESS
+
+Only ISO/IEEE, shr_*, MPI, OpenMP, NetCDF and PIO are allowlisted external
+modules. No CAM EXEROOT module path is accepted by this gate.
