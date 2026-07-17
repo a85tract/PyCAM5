@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T01:25:00Z",
+  "updated_at": "2026-07-17T05:46:56Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -520,10 +520,10 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/cloud_microphysics/mmacro_pcond/mmacro_pcond.F90",
       "module": "ap_mmacro_pcond_scheme",
-      "status": "failed",
-      "commit": null,
-      "last_run": "S04-mmacro-only-failed-20260716-job6759045",
-      "bfb_run": null,
+      "status": "bfb",
+      "commit": "5aaa3e2fad6653b7ac0c8ee2dd236e933fa297bd",
+      "last_run": "S04-mmacro-fix7-bfb-20260716-job6760992",
+      "bfb_run": "S04-mmacro-fix7-bfb-20260716-job6760992",
       "note": ""
     },
     {
@@ -1697,6 +1697,82 @@
       },
       "recorded_at": "2026-07-17T01:25:00Z",
       "note": "The uncorrected standalone mmacro root executed in a fresh 256-rank STOP_N=50 run with successful Case/CPL termination, but reproduced all three cloud-pair numeric hashes exactly. This isolates mmacro_pcond as the sole source of the mismatch; compile-time PCOLS/PLEV shape restoration is in progress."
+    },
+    {
+      "run_id": "S04-mmacro-fix7-bfb-20260716-job6760992",
+      "batch": "S04",
+      "result": "bfb",
+      "steps": 50,
+      "job_id": "6760992.desched1",
+      "source_commit": "5aaa3e2fad6653b7ac0c8ee2dd236e933fa297bd",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": true,
+      "char_equal": true,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "dependency_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_mmacro_dependency_06b27b2.txt",
+          "size": 776,
+          "sha256": "5231dcc668cee219190df0cf623d41ad0865b3a617b6fe1a725d1362a572e2ba"
+        },
+        "standalone_build_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_mmacro_standalone_build_06b27b2.txt",
+          "size": 944,
+          "sha256": "c712be504b072399f27a94a05c4f61536df6db98b2f6b6bb964b391a61663f5b"
+        },
+        "executable": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/output/bld/cesm.exe",
+          "size": 55420784,
+          "sha256": "b4f3f70bade834e13956ef3a2d5ae927b3be9b34f0b793f35dea29d1a105cdc3"
+        },
+        "run_environment": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/case/logs/run_environment.txt.6760992.desched1.260716-234016",
+          "size": 43320,
+          "sha256": "cf4dd68332ee5f56243f9303d7725a8ba3e61427a379668643ddc91edd1bd507"
+        },
+        "filepath": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/case/Buildconf/camconf/Filepath",
+          "size": 10806,
+          "sha256": "6ff58ece35e1a1a6b60b984c45f7fa249637365ae46119134f8d71122ba472a8"
+        },
+        "namelist": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/case/Buildconf/camconf/atm_in",
+          "size": 12759,
+          "sha256": "9617f930cc92fe837cb98d8488cd05de4ab50da11e878cee2cb75d464b9f4313"
+        },
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_mmacro_compare_job6760992.txt",
+          "size": 1551,
+          "sha256": "5a9be3df8a93c96051518c97b5df118cfc044622a38a7a55f0085579759e7d15"
+        }
+      },
+      "execution_proof": {
+        "mmacro_pcond_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/mmacro_findsp_exact_fix7/case/timing/cesm_timing_stats.6760992.desched1.260716-234016",
+            "size": 63043,
+            "sha256": "45d4b098f009d04e45291bc865f8e4c84d660f4b4b05fd957f9f2078fc491fd5"
+          },
+          "line": "ap_mmacro_pcond_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T05:45:55Z",
+      "note": "mmacro_pcond_run completed a fresh 256-rank STOP_N=50 run with PBS Exit_status 0 and 53,248 timer calls. All 790 numeric variables match the authoritative native baseline exactly; character equality is normalized only for hrestpath and volatile timestamps. The integrated all-36 source at 06b27b2 passes the 36-entry/129-source standalone build."
     }
   ]
 }
