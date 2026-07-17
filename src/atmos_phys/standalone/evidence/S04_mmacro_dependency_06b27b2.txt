@@ -1,0 +1,27 @@
+S04 Park macrophysics standalone dependency audit
+
+integrated_commit=06b27b21faf0989092f8f929bbc673d01abc92f3
+entry=mmacro_pcond_run
+module=ap_mmacro_pcond_scheme
+scope=all
+selected_entries=36
+distinct_roots=35
+allowed_external=ISO/IEEE,shr_*,MPI,OpenMP,NetCDF,PIO
+direct_result=PASS
+direct_entries=36
+direct_roots=35
+direct_closure_sources=87
+direct_violations=0
+direct_duplicates=0
+transitive_result=PASS
+transitive_entries=36
+transitive_roots=35
+transitive_closure_sources=129
+transitive_violations=0
+transitive_duplicates=0
+
+command=PYTHONDONTWRITEBYTECODE=1 python3 tools/check_atmos_phys_standalone.py --scope all --mode both
+ledger_check=PASS: 36 standalone entries, four batches, generated Markdown current
+unit_tests=PASS: 25/25
+configure_syntax=PASS
+diff_check=PASS
