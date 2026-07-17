@@ -1,0 +1,37 @@
+S04 cldfrc and macrophysics pair diagnostic result
+
+Source tip: 2b57f8c92da20cfe757c4638b115f06cbca86943
+Science commits:
+- cldfrc: 84da5e03767b6b6992195c99ba33851b16fe3aa7
+- mmacro_pcond: c47a21f04c97d4db92a26b083ed5dd2f384e37dc
+
+job=6759003.desched1
+mpi_ranks=256
+steps=50
+pbs_exit_status=0
+case_status=success
+cpl_status=successful_termination
+
+ap_cldfrc_run global_calls=5.324800e+04
+ap_mmacro_pcond_run global_calls=5.324800e+04
+
+r: numeric_count=307, equal=False
+native_md5=8ecb1dc7e4ca29f9adf2e92017106cfe
+candidate_md5=7d5e67ee5c6592e5ab623995cfbc9274
+
+rh0: numeric_count=392, equal=False
+native_md5=e81876a05681533e9f4b8a9a67ea5154
+candidate_md5=ed340714027c6844fc98f7924749e4cb
+
+rs: numeric_count=91, equal=False
+native_md5=b9d2a429aede18ca97b0f9af0e19fba2
+candidate_md5=b2e900a1b2d9b84cc2fc3cc42e23f320
+
+overall_numeric_equal=False
+
+The run proves that both extracted roots executed, but does not prove either
+root BFB in isolation. The pair was therefore split into separate fresh
+256-rank, 50-step runs.
+
+Original report SHA-256:
+974cec1fc570d90b561ccf5758ee0063e97e187c5ebae9ee54cd7eb4959f459d

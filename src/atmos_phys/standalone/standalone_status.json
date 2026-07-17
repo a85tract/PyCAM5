@@ -4,7 +4,7 @@
   "source_of_truth": "src/atmos_phys/standalone/standalone_status.json",
   "generated_progress": "src/atmos_phys/standalone/STANDALONE_PROGRESS.md",
   "baseline_commit": "0c9d849979f23de37b7f18e3ac452fb3f47cdd52",
-  "updated_at": "2026-07-17T01:04:30Z",
+  "updated_at": "2026-07-17T01:10:33Z",
   "allowed_statuses": [
     "planned",
     "in_progress",
@@ -506,9 +506,9 @@
       "order": 5,
       "source": "src/atmos_phys/schemes/cloud_microphysics/cldfrc/cldfrc.F90",
       "module": "ap_cldfrc_scheme",
-      "status": "planned",
+      "status": "failed",
       "commit": null,
-      "last_run": null,
+      "last_run": "S04-cloud-pair-failed-20260716-job6759003",
       "bfb_run": null,
       "note": ""
     },
@@ -520,9 +520,9 @@
       "order": 6,
       "source": "src/atmos_phys/schemes/cloud_microphysics/mmacro_pcond/mmacro_pcond.F90",
       "module": "ap_mmacro_pcond_scheme",
-      "status": "planned",
+      "status": "failed",
       "commit": null,
-      "last_run": null,
+      "last_run": "S04-cloud-pair-failed-20260716-job6759003",
       "bfb_run": null,
       "note": ""
     },
@@ -1521,6 +1521,60 @@
       },
       "recorded_at": "2026-07-17T01:04:30Z",
       "note": "dropmixnuc and modal aerosol wet-deposition completed a fresh 256-rank STOP_N=50 run. PBS Exit_status is 0, both process timers are nonzero, and all 790 numeric variables match the authoritative native baseline exactly. Character equality is normalized only for hrestpath and volatile timestamps."
+    },
+    {
+      "run_id": "S04-cloud-pair-failed-20260716-job6759003",
+      "batch": "S04",
+      "result": "failed",
+      "steps": 50,
+      "job_id": "6759003.desched1",
+      "source_commit": "2b57f8c92da20cfe757c4638b115f06cbca86943",
+      "case_root": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/case",
+      "run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/output/run",
+      "baseline_run_dir": "/glade/derecho/scratch/ruitong/tmp/tphys_decoupling_20260715/native/output/run",
+      "numeric_equal": false,
+      "char_equal": false,
+      "artifacts": {
+        "output_files": [
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/output/run/case.cam.r.0001-01-02-03600.nc",
+            "size": 927175208
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/output/run/case.cam.rh0.0001-01-02-03600.nc",
+            "size": 275855008
+          },
+          {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/output/run/case.cam.rs.0001-01-02-03600.nc",
+            "size": 11113904
+          }
+        ],
+        "compare_report": {
+          "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/final_candidate/cam/src/atmos_phys/standalone/evidence/S04_cloud_pair_failed_job6759003.txt",
+          "size": 1108,
+          "sha256": "fcc225b4d41f11397ea2281ef51e1e67e50a36e8797e83f10e34d3ddef6212a1"
+        }
+      },
+      "execution_proof": {
+        "cldfrc_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "0d8e523814782f7e2c0660c9482abeca053dc4f9f235c5eceeb1b40c399d99b1"
+          },
+          "line": "ap_cldfrc_run global_calls=5.324800e+04"
+        },
+        "mmacro_pcond_run": {
+          "source": {
+            "path": "/glade/derecho/scratch/ruitong/tmp/tphys_standalone_20260716/s04_cloud_pair_20260716/output/run/timing/cesm_timing_stats",
+            "size": 63043,
+            "sha256": "0d8e523814782f7e2c0660c9482abeca053dc4f9f235c5eceeb1b40c399d99b1"
+          },
+          "line": "ap_mmacro_pcond_run global_calls=5.324800e+04"
+        }
+      },
+      "recorded_at": "2026-07-17T01:10:33Z",
+      "note": "Both cloud roots executed in a fresh 256-rank STOP_N=50 run with successful Case/CPL termination, but all three numeric streams differed from the authoritative native baseline. Split into independent cldfrc-only and mmacro-only 50-step lanes."
     }
   ]
 }
