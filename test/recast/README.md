@@ -82,3 +82,55 @@ iterates to convergence probably does.
 Routines whose Codon path is selected at runtime through `*_IMPL` are all
 candidates. `dadadj` was chosen first because it is small, iterative, and
 numerically fragile — the shape of routine where a port most easily drifts.
+
+## Three-way comparison: engine translation, Codon port, native Fortran
+
+`run_threeway.py` answers a different question from the gate above. This
+repository's long runs already establish that the **Codon port** matches the
+native Fortran. The two open questions are about the *other* modernization
+path — the rule-driven translator in RecastEngine:
+
+    engine translation  vs  native Fortran    does the mechanical translator
+                                              reproduce CAM?
+    engine translation  vs  Codon port        do the two independent
+                                              modernizations agree with each
+                                              other?
+
+Result for `vertical_diffusion_ptend_core_native`, 20 trials over 8×30×4
+arrays:
+
+```
+ engine vs native Fortran: bit_exact   43200/43200 points, 0 ULP
+  codon vs native Fortran: bit_exact   43200/43200 points, 0 ULP
+ engine vs codon (direct): bit-identical on 43200 points across 120 arrays
+```
+
+All three sides derive from the same routine text. The routine is extracted
+**byte-for-byte** from `src/physics/cam/vertical_diffusion.F90` into
+`vd_ptend_core.f90`, because that file use-imports seventeen framework
+modules and this routine needs none of them; the driver re-derives the
+extraction on every run and refuses to proceed if the copy has drifted, so
+the isolation cannot quietly become a rewrite. Only the environment is
+stood in for — `pcols`, `pver`, `pcnst` as parameters.
+
+`vertical_diffusion_ptend_core_native` was chosen as the first three-way
+because it is **pure**: no module state read or written, no calls. There is
+nothing to initialize, so no way for the three sides to disagree about state
+none of them was given. A survey across this repository's 32 Codon-ported
+files found 49 such routines, so the same harness extends by changing which
+name it points at.
+
+`vd_callback_stubs.c` exists only so the Codon library links standalone:
+`vertical_diffusion_codon.py` declares three CAM callbacks
+(`compute_cubic_native_cb` and two `eddy_diff_*`) that belong to other
+routines. Each stub aborts rather than returning a plausible number — a stub
+that answered silently would let a future gate on *those* routines pass on
+fiction.
+
+### What this does not claim
+
+The inputs are physically ranged but synthetic, not sampled from a model
+run. A bit-exact verdict here says the three implementations agree on the
+sampled region of the input space; it does not say the region the model
+actually visits was covered. That is what captured dumps are for, and it is
+the natural next step for this harness.

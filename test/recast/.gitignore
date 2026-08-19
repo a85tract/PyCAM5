@@ -2,5 +2,5 @@
 # workspace is per-run, and stale evidence from a failed attempt is noise
 # rather than a record.
 build/
-work/
+work*/
 evidence/
