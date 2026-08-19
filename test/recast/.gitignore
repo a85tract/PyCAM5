@@ -1,0 +1,6 @@
+# Build products and run scratch: the library is built from src/, the
+# workspace is per-run, and stale evidence from a failed attempt is noise
+# rather than a record.
+build/
+work/
+evidence/
