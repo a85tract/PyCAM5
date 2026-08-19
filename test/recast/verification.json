@@ -1,0 +1,48 @@
+{
+  "harness": "test/recast",
+  "routines": [
+    {
+      "bit_exact": 9600,
+      "comparison": "codon vs native Fortran",
+      "confidence": "bit_exact",
+      "max_ulp": 0,
+      "oracle": "f2py:dadadj:3331927aa8f52c27",
+      "passed": true,
+      "points": 9600,
+      "routine": "dadadj_native",
+      "verifier": "differential.bitexact"
+    },
+    {
+      "bit_exact": 43200,
+      "comparison": "codon vs native Fortran",
+      "confidence": "bit_exact",
+      "max_ulp": 0,
+      "oracle": "f2py:vd_ptend_core:8de28c8cce7424ec",
+      "passed": true,
+      "points": 43200,
+      "routine": "vertical_diffusion_ptend_core_native",
+      "verifier": "differential.bitexact"
+    },
+    {
+      "comparison": "engine vs codon",
+      "confidence": "bit_exact",
+      "detail": "bit-identical on 43200 points across 120 output arrays",
+      "passed": true,
+      "routine": "vertical_diffusion_ptend_core_native",
+      "verifier": "direct"
+    },
+    {
+      "bit_exact": 43200,
+      "comparison": "engine vs native Fortran",
+      "confidence": "bit_exact",
+      "max_ulp": 0,
+      "oracle": "f2py:vd_ptend_core:8de28c8cce7424ec",
+      "passed": true,
+      "points": 43200,
+      "routine": "vertical_diffusion_ptend_core_native",
+      "verifier": "differential.bitexact"
+    }
+  ],
+  "schema": 1,
+  "source_revision": "a813282"
+}

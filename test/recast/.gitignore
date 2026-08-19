@@ -1,6 +1,16 @@
-# Build products and run scratch: the library is built from src/, the
-# workspace is per-run, and stale evidence from a failed attempt is noise
-# rather than a record.
+# Build products and per-run scratch: the libraries are built from src/, the
+# workspaces are per-run.
 build/
 work*/
+
+# The evidence manifests are the audit trail -- one immutable, content-addressed
+# document per verdict per run, which means one file per attempt including the
+# attempts that failed. Useful while working, noise in history.
 evidence/
+
+# verification.json is the other record: current state, one entry per routine
+# and comparison, regenerated rather than appended, with no timestamps or paths
+# in it so two runs over the same revisions produce the same bytes. That one is
+# committed -- it is how a reader sees what these gates concluded without owning
+# a Fortran compiler and a Codon toolchain.
+!verification.json

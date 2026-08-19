@@ -96,7 +96,70 @@ def main() -> int:
     store = FilesystemEvidenceStore(root=HERE / "evidence")
     uri = store.put(_evidence(_Recipe(), "local", unit, run_view, verdict))
     print(f"evidence: {uri}")
+    write_summary(
+        [
+            {
+                "routine": "dadadj_native",
+                "comparison": "codon vs native Fortran",
+                "verifier": verdict.verifier,
+                "confidence": verdict.confidence.value,
+                "passed": verdict.passed,
+                "points": verdict.metrics.get("points"),
+                "bit_exact": verdict.metrics.get("bit_exact"),
+                "max_ulp": verdict.metrics.get("max_ulp"),
+                "oracle": ref.key,
+            }
+        ]
+    )
     return 0 if verdict.passed else 1
+
+
+def write_summary(entries: list[dict]) -> None:
+    """Record what these gates concluded, as a committed file.
+
+    The manifests under ``evidence/`` are the audit trail -- one immutable
+    document per verdict per run, and one file per attempt including the
+    attempts that failed, which is why they are not committed. This is the
+    other record: current state, one entry per routine and verifier,
+    regenerated rather than appended, with no wall-clock time or paths in it
+    so that two runs over the same revisions produce the same bytes.
+
+    Committing it is what lets a reader -- or the CESM dashboard, which counts
+    these -- see what has been verified without owning a Fortran compiler and
+    a Codon toolchain.
+    """
+    import json
+    import subprocess
+
+    def revision(path: Path) -> str:
+        out = subprocess.run(  # noqa: S603 -- git, in this repository
+            ["git", "rev-parse", "HEAD"], cwd=path, capture_output=True, text=True, check=False
+        )
+        return out.stdout.strip()[:7] if out.returncode == 0 else "unknown"
+
+    target = HERE / "verification.json"
+    # Merge rather than overwrite: this file is what the whole harness has
+    # concluded, not what the last driver to run concluded. Each (routine,
+    # comparison) pair has one entry, and re-running a driver replaces its own
+    # entries while leaving the other drivers' alone.
+    known: dict[tuple[str, str], dict] = {}
+    if target.is_file():
+        try:
+            for entry in json.loads(target.read_text())["routines"]:
+                known[(entry["routine"], entry["comparison"])] = entry
+        except (OSError, json.JSONDecodeError, KeyError, TypeError):
+            known = {}
+    for entry in entries:
+        known[(entry["routine"], entry["comparison"])] = entry
+
+    payload = {
+        "schema": 1,
+        "harness": "test/recast",
+        "source_revision": revision(REPO),
+        "routines": [known[key] for key in sorted(known)],
+    }
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    print(f"summary: {target} ({len(payload['routines'])} comparison(s) recorded)")
 
 
 if __name__ == "__main__":
