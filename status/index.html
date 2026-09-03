@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>PyCAM5 Porting Status</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <a class="back-link" href="../">← Project data</a>
+      <div class="eyebrow">PyCAM5 / CAM → Codon</div>
+      <h1>Routine porting status</h1>
+    </div>
+    <nav class="header-links" aria-label="Project links">
+      <a href="../coverage/">Coverage browser</a>
+      <a href="https://github.com/a85tract/PyCAM5">Repository</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="case-switch" aria-label="Select data set">
+      <button type="button" data-case="pi" class="active">PI-atm</button>
+      <button type="button" data-case="mco">MCO</button>
+      <button type="button" data-case="union">Union</button>
+    </section>
+
+    <section id="summaryCards" class="summary-grid" aria-live="polite"></section>
+
+    <section class="progress-panel" aria-label="Status distribution">
+      <div class="progress-heading">
+        <div>
+          <span class="section-label">Routine distribution</span>
+          <strong id="progressCaption">Loading snapshot…</strong>
+        </div>
+        <span id="snapshotTime" class="snapshot-time"></span>
+      </div>
+      <div id="progressBar" class="progress-bar"></div>
+      <div id="progressLegend" class="progress-legend"></div>
+    </section>
+
+    <section class="browser-panel">
+      <div class="browser-heading">
+        <div>
+          <span class="section-label">Routine browser</span>
+          <strong id="resultCount">Loading…</strong>
+        </div>
+      </div>
+
+      <div class="filters">
+        <label class="search-field">
+          <span>Search</span>
+          <input id="searchInput" type="search" placeholder="Routine or source path">
+        </label>
+        <label>
+          <span>Status</span>
+          <select id="statusFilter">
+            <option value="">All statuses</option>
+            <option value="done">Done</option>
+            <option value="done-native-island">Native island</option>
+            <option value="processing">Processing</option>
+            <option value="partial">Partial</option>
+            <option value="none">None</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </label>
+        <label>
+          <span>Subtree</span>
+          <select id="subtreeFilter"><option value="">All subtrees</option></select>
+        </label>
+        <label>
+          <span>Sort</span>
+          <select id="sortOrder">
+            <option value="path">Source path</option>
+            <option value="status">Status</option>
+            <option value="coverage-desc">Runtime coverage ↓</option>
+            <option value="codon-desc">Codon coverage ↓</option>
+            <option value="updated-desc">Recently updated</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Routine</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th class="numeric">Runtime coverage</th>
+              <th class="numeric">Codon coverage</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="routineRows"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty-state" hidden>No routines match these filters.</div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    This is a read-only snapshot. Status changes are made in the project database and appear here after the next export.
+  </footer>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>

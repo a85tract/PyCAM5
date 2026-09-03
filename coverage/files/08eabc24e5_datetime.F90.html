@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>src/utils/datetime.F90</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<header>
+  <h1>src/utils/datetime.F90</h1>
+  <div class="meta">13/13 instrumented lines covered | iCESM1.3.1_PI_atm/components/cam/src/utils/datetime.F90</div>
+</header>
+
+<main>
+  <p><a href="../index.html">Back to index</a></p>
+  <section class="cards">
+    <div class="card"><div class="label">Line Coverage</div><div class="value">100.00%</div></div>
+    <div class="card"><div class="label">Covered Lines</div><div class="value">13/13</div></div>
+    <div class="card"><div class="label">Runtime Function Rows</div><div class="value">1</div></div>
+    <div class="card"><div class="label">Max Line Count</div><div class="value">512</div></div>
+  </section>
+  <div class="toolbar">
+    <button data-mode="all" class="active">All lines</button>
+    <button data-mode="covered">Covered</button>
+    <button data-mode="missed">Missed instrumented</button>
+    <button data-mode="instrumented">Instrumented</button>
+    <button data-mode="trace">Trace lines</button>
+    <input id="traceInput" type="search" placeholder="Trace variable, e.g. physics_state%q">
+    <button id="traceApply">Trace variable</button>
+  </div>
+  <div id="traceStatus" class="trace-status">No variable trace loaded.</div>
+  <div class="trace-legend">
+    <span><i class="trace-swatch write"></i>write/modify</span>
+    <span><i class="trace-swatch init"></i>init/allocation</span>
+    <span><i class="trace-swatch call"></i>call argument</span>
+    <span><i class="trace-swatch edge"></i>assignment edge</span>
+    <span><i class="trace-swatch read"></i>read/reference</span>
+    <span><i class="trace-swatch definition"></i>definition</span>
+  </div>
+  <p class="small">Count is max block-instance frequency on the line. Sum is the sum of all block-instance frequencies on the line.</p>
+  <div class="source-wrap">
+    <table class="source">
+      <tbody>
+        <tr class="neutral" data-state="neutral" id="L1"><td class="mark"></td><td class="line-no"><a href="#L1">1</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">module datetime_mod</td></tr><tr class="neutral" data-state="neutral" id="L2"><td class="mark"></td><td class="line-no"><a href="#L2">2</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="neutral" data-state="neutral" id="L3"><td class="mark"></td><td class="line-no"><a href="#L3">3</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">implicit none</td></tr><tr class="neutral" data-state="neutral" id="L4"><td class="mark"></td><td class="line-no"><a href="#L4">4</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="neutral" data-state="neutral" id="L5"><td class="mark"></td><td class="line-no"><a href="#L5">5</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">private</td></tr><tr class="neutral" data-state="neutral" id="L6"><td class="mark"></td><td class="line-no"><a href="#L6">6</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="neutral" data-state="neutral" id="L7"><td class="mark"></td><td class="line-no"><a href="#L7">7</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">public :: datetime</td></tr><tr class="neutral" data-state="neutral" id="L8"><td class="mark"></td><td class="line-no"><a href="#L8">8</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="neutral" data-state="neutral" id="L9"><td class="mark"></td><td class="line-no"><a href="#L9">9</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">contains</td></tr><tr class="neutral" data-state="neutral" id="L10"><td class="mark"></td><td class="line-no"><a href="#L10">10</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="covered" data-state="covered" id="L11"><td class="mark"></td><td class="line-no"><a href="#L11">11</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=15 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   subroutine datetime(cdate, ctime)</td></tr><tr class="neutral" data-state="neutral" id="L12"><td class="mark"></td><td class="line-no"><a href="#L12">12</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------------------------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L13"><td class="mark"></td><td class="line-no"><a href="#L13">13</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L14"><td class="mark"></td><td class="line-no"><a href="#L14">14</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">! Purpose:</td></tr><tr class="neutral" data-state="neutral" id="L15"><td class="mark"></td><td class="line-no"><a href="#L15">15</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L16"><td class="mark"></td><td class="line-no"><a href="#L16">16</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!  A generic Date and Time routine</td></tr><tr class="neutral" data-state="neutral" id="L17"><td class="mark"></td><td class="line-no"><a href="#L17">17</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L18"><td class="mark"></td><td class="line-no"><a href="#L18">18</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">! Author: CCM Core group</td></tr><tr class="neutral" data-state="neutral" id="L19"><td class="mark"></td><td class="line-no"><a href="#L19">19</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L20"><td class="mark"></td><td class="line-no"><a href="#L20">20</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------------------------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L21"><td class="mark"></td><td class="line-no"><a href="#L21">21</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L22"><td class="mark"></td><td class="line-no"><a href="#L22">22</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">! $Id$</td></tr><tr class="neutral" data-state="neutral" id="L23"><td class="mark"></td><td class="line-no"><a href="#L23">23</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L24"><td class="mark"></td><td class="line-no"><a href="#L24">24</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------------------------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L25"><td class="mark"></td><td class="line-no"><a href="#L25">25</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">   implicit none</td></tr><tr class="neutral" data-state="neutral" id="L26"><td class="mark"></td><td class="line-no"><a href="#L26">26</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------------------------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L27"><td class="mark"></td><td class="line-no"><a href="#L27">27</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L28"><td class="mark"></td><td class="line-no"><a href="#L28">28</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------Arguments---------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L29"><td class="mark"></td><td class="line-no"><a href="#L29">29</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">   character , intent(out) :: cdate*8</td></tr><tr class="neutral" data-state="neutral" id="L30"><td class="mark"></td><td class="line-no"><a href="#L30">30</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">   character , intent(out) :: ctime*8</td></tr><tr class="neutral" data-state="neutral" id="L31"><td class="mark"></td><td class="line-no"><a href="#L31">31</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------------------------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L32"><td class="mark"></td><td class="line-no"><a href="#L32">32</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!</td></tr><tr class="neutral" data-state="neutral" id="L33"><td class="mark"></td><td class="line-no"><a href="#L33">33</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!---------------------------Local Variables------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L34"><td class="mark"></td><td class="line-no"><a href="#L34">34</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">   integer, dimension(8) :: values</td></tr><tr class="neutral" data-state="neutral" id="L35"><td class="mark"></td><td class="line-no"><a href="#L35">35</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">   character :: date*8, time*10, zone*5</td></tr><tr class="neutral" data-state="neutral" id="L36"><td class="mark"></td><td class="line-no"><a href="#L36">36</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">!-----------------------------------------------------------------------</td></tr><tr class="neutral" data-state="neutral" id="L37"><td class="mark"></td><td class="line-no"><a href="#L37">37</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="covered" data-state="covered" id="L38"><td class="mark"></td><td class="line-no"><a href="#L38">38</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=9 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   call date_and_time (date, time, zone, values)</td></tr><tr class="covered" data-state="covered" id="L39"><td class="mark"></td><td class="line-no"><a href="#L39">39</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   cdate(1:2) = date(5:6)</td></tr><tr class="covered" data-state="covered" id="L40"><td class="mark"></td><td class="line-no"><a href="#L40">40</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   cdate(3:3) = &#x27;/&#x27;</td></tr><tr class="covered" data-state="covered" id="L41"><td class="mark"></td><td class="line-no"><a href="#L41">41</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   cdate(4:5) = date(7:8)</td></tr><tr class="covered" data-state="covered" id="L42"><td class="mark"></td><td class="line-no"><a href="#L42">42</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   cdate(6:6) = &#x27;/&#x27;</td></tr><tr class="covered" data-state="covered" id="L43"><td class="mark"></td><td class="line-no"><a href="#L43">43</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   cdate(7:8) = date(3:4)</td></tr><tr class="covered" data-state="covered" id="L44"><td class="mark"></td><td class="line-no"><a href="#L44">44</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   ctime(1:2) = time(1:2)</td></tr><tr class="covered" data-state="covered" id="L45"><td class="mark"></td><td class="line-no"><a href="#L45">45</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   ctime(3:3) = &#x27;:&#x27;</td></tr><tr class="covered" data-state="covered" id="L46"><td class="mark"></td><td class="line-no"><a href="#L46">46</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   ctime(4:5) = time(3:4)</td></tr><tr class="covered" data-state="covered" id="L47"><td class="mark"></td><td class="line-no"><a href="#L47">47</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   ctime(6:6) = &#x27;:&#x27;</td></tr><tr class="covered" data-state="covered" id="L48"><td class="mark"></td><td class="line-no"><a href="#L48">48</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   ctime(7:8) = time(5:6)</td></tr><tr class="neutral" data-state="neutral" id="L49"><td class="mark"></td><td class="line-no"><a href="#L49">49</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="neutral" data-state="neutral" id="L50"><td class="mark"></td><td class="line-no"><a href="#L50">50</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">   return</td></tr><tr class="covered" data-state="covered" id="L51"><td class="mark"></td><td class="line-no"><a href="#L51">51</a></td><td class="count" title="sum=512 instances=1 blocks=1 cols=4 functions=datetime">512</td><td class="count" title="sum of block-instance frequencies">512</td><td class="code">   end subroutine datetime</td></tr><tr class="neutral" data-state="neutral" id="L52"><td class="mark"></td><td class="line-no"><a href="#L52">52</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code"></td></tr><tr class="neutral" data-state="neutral" id="L53"><td class="mark"></td><td class="line-no"><a href="#L53">53</a></td><td class="count" title=""></td><td class="count" title="sum of block-instance frequencies"></td><td class="code">end module datetime_mod</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h2>Runtime Function Rows</h2>
+  <table>
+    <thead><tr><th>Routine</th><th>Symbol</th><th class="num">Freq</th><th class="num">Blocks</th><th class="num">Block %</th><th class="num">Line</th></tr></thead>
+    <tbody><tr><td><code>datetime</code></td><td><code>datetime_mod_mp_datetime_</code></td><td class="num">512</td><td class="num">13/13</td><td class="num">100.00%</td><td class="num">11</td></tr></tbody>
+  </table>
+</main>
+<script>
+const SOURCE_FILE = "src/utils/datetime.F90";
+const traceInput = document.getElementById('traceInput');
+const traceApply = document.getElementById('traceApply');
+const traceStatus = document.getElementById('traceStatus');
+let activeMode = 'all';
+let traceIndexPromise = null;
+function normTraceKey(value) {
+  return value.trim().toLowerCase().replace(/\s+/g, '');
+}
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function loadTraceIndex() {
+  if (!traceIndexPromise) {
+    traceStatus.textContent = 'Loading trace index...';
+    traceIndexPromise = fetch('../data/variable_trace_index.json')
+      .then(resp => {
+        if (!resp.ok) throw new Error('trace index not found');
+        return resp.json();
+      });
+  }
+  return traceIndexPromise;
+}
+function traceColorKind(row) {
+  const type = String(row.type || '').toLowerCase();
+  const stage = String(row.stage || '').toLowerCase();
+  const edge = String(row.edge_role || '').toLowerCase();
+  if (type === 'definition') return 'definition';
+  if (stage === 'finalization' || type.includes('dealloc')) return 'final';
+  if (stage.includes('init') || type === 'init' || type.includes('alloc') || type === 'initialization') return 'init';
+  if (type.includes('write') || type === 'write') return 'write';
+  if (edge || type.includes('assignment')) return 'edge';
+  if (type.includes('call')) return 'call';
+  if (type.includes('read') || type === 'condition_read') return 'read';
+  return 'read';
+}
+function traceKindLabel(kind) {
+  return ({definition: 'DEF', init: 'INIT', write: 'WRITE', call: 'CALL', edge: 'EDGE', read: 'READ', final: 'FINAL'})[kind] || kind.toUpperCase();
+}
+function traceClassPriority(kinds) {
+  const order = ['write', 'init', 'call', 'edge', 'read', 'definition', 'final'];
+  for (const kind of order) if (kinds.has(kind)) return kind;
+  return 'read';
+}
+function collectTraceRows(record) {
+  const rows = [];
+  const definition = record.definition || {};
+  if (definition.file) {
+    rows.push({
+      file: definition.file,
+      line: Number(definition.line || 0),
+      routine: '',
+      type: 'definition',
+      stage: 'definition',
+      code: definition.declaration || '',
+      max_freq: '',
+      source_href: definition.source_href,
+      path_order: 0
+    });
+  }
+  for (const row of (record.initialization_path || [])) {
+    rows.push(Object.assign({}, row, {type: row.type || 'initialization', stage: row.stage || 'initialization'}));
+  }
+  for (const row of (record.events || [])) rows.push(row);
+  for (const row of (record.outgoing || [])) rows.push(Object.assign({}, row, {type: row.type || 'assignment', edge_role: 'outgoing'}));
+  for (const row of (record.incoming || [])) rows.push(Object.assign({}, row, {type: row.type || 'assignment', edge_role: 'incoming'}));
+  const seen = new Map();
+  for (const row of rows) {
+    if (row.file !== SOURCE_FILE || !row.line) continue;
+    const kind = traceColorKind(row);
+    const key = [row.file, row.line, kind, row.type || '', row.code || row.label || ''].join('|');
+    if (seen.has(key)) continue;
+    const copy = Object.assign({}, row);
+    copy.kind = kind;
+    seen.set(key, copy);
+  }
+  return Array.from(seen.values());
+}
+function clearTrace() {
+  for (const tr of document.querySelectorAll('table.source tr')) {
+    tr.classList.remove('trace-hit', 'trace-read', 'trace-write', 'trace-init', 'trace-call', 'trace-edge', 'trace-definition', 'trace-final');
+    delete tr.dataset.trace;
+    delete tr.dataset.traceKinds;
+    const mark = tr.querySelector('td.mark');
+    if (mark) {
+      mark.textContent = '';
+      mark.title = '';
+    }
+  }
+}
+function applyTraceRecord(record) {
+  clearTrace();
+  const rows = collectTraceRows(record);
+  const byLine = new Map();
+  for (const row of rows) {
+    const line = Number(row.line || 0);
+    if (!byLine.has(line)) byLine.set(line, []);
+    byLine.get(line).push(row);
+  }
+  for (const [line, items] of byLine.entries()) {
+    const tr = document.getElementById('L' + line);
+    if (!tr) continue;
+    const kinds = new Set(items.map(row => row.kind));
+    const displayKind = traceClassPriority(kinds);
+    tr.classList.add('trace-hit', 'trace-' + displayKind);
+    tr.dataset.trace = '1';
+    tr.dataset.traceKinds = Array.from(kinds).join(',');
+    const mark = tr.querySelector('td.mark');
+    if (mark) {
+      mark.textContent = traceKindLabel(displayKind);
+      mark.title = items.map(row => traceKindLabel(row.kind) + ' ' + (row.routine || '') + ' ' + (row.code || row.label || '')).join('\n');
+    }
+  }
+  const variableName = (record.variable || {}).canonical || '';
+  traceStatus.innerHTML = 'Trace <code>' + esc(variableName) + '</code>: ' + byLine.size + ' highlighted source lines in this file.';
+  setMode(activeMode);
+  if (byLine.size) {
+    const firstLine = Math.min(...byLine.keys());
+    const target = document.getElementById('L' + firstLine);
+    if (target && !location.hash) target.scrollIntoView({block: 'center'});
+  }
+}
+function traceSuggestions(index, query) {
+  const q = query.toLowerCase();
+  return (index.variable_list || [])
+    .filter(row => row.canonical.toLowerCase().includes(q) || (row.search_text || '').includes(q))
+    .slice(0, 8);
+}
+function applyTraceQuery(query) {
+  if (!query.trim()) return;
+  loadTraceIndex().then(index => {
+    const key = (index.lookup || {})[normTraceKey(query)];
+    if (key && index.variables && index.variables[key]) {
+      applyTraceRecord(index.variables[key]);
+      return;
+    }
+    const rows = traceSuggestions(index, query);
+    if (!rows.length) {
+      traceStatus.innerHTML = 'No trace variable matched <code>' + esc(query) + '</code>.';
+      return;
+    }
+    traceStatus.innerHTML = 'Multiple matches: ' + rows.map(row => '<button type="button" data-trace-var="' + esc(row.canonical) + '">' + esc(row.canonical) + '</button>').join(' ');
+    for (const btn of traceStatus.querySelectorAll('button[data-trace-var]')) {
+      btn.addEventListener('click', () => {
+        traceInput.value = btn.dataset.traceVar;
+        applyTraceQuery(btn.dataset.traceVar);
+      });
+    }
+  }).catch(err => {
+    traceStatus.textContent = 'Trace index unavailable: ' + err.message;
+  });
+}
+function setMode(mode) {
+  activeMode = mode;
+  for (const tr of document.querySelectorAll('table.source tr')) {
+    const state = tr.dataset.state;
+    const show = mode === 'all' || state === mode || (mode === 'instrumented' && state !== 'neutral') || (mode === 'trace' && tr.dataset.trace === '1');
+    tr.classList.toggle('hidden', !show);
+  }
+}
+for (const btn of document.querySelectorAll('button[data-mode]')) {
+  btn.addEventListener('click', () => {
+    for (const b of document.querySelectorAll('button[data-mode]')) b.classList.remove('active');
+    btn.classList.add('active');
+    setMode(btn.dataset.mode);
+  });
+}
+traceApply.addEventListener('click', () => applyTraceQuery(traceInput.value));
+traceInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') applyTraceQuery(traceInput.value);
+});
+const initialTrace = new URLSearchParams(location.search).get('trace');
+if (initialTrace) {
+  traceInput.value = initialTrace;
+  applyTraceQuery(initialTrace);
+}
+</script>
+</body>
+</html>
