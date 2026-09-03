@@ -10,21 +10,19 @@
 <body>
   <header class="site-header">
     <div>
-      <a class="back-link" href="../">← Project data</a>
       <div class="eyebrow">PyCAM5 / CAM → Codon</div>
       <h1>Routine porting status</h1>
     </div>
     <nav class="header-links" aria-label="Project links">
-      <a href="../coverage/">Coverage browser</a>
       <a href="https://github.com/a85tract/PyCAM5">Repository</a>
     </nav>
   </header>
 
   <main>
     <section class="case-switch" aria-label="Select data set">
-      <button type="button" data-case="pi" class="active">PI-atm</button>
+      <button type="button" data-case="pi">PI</button>
       <button type="button" data-case="mco">MCO</button>
-      <button type="button" data-case="union">Union</button>
+      <button type="button" data-case="union" class="active">Combined</button>
     </section>
 
     <section id="summaryCards" class="summary-grid" aria-live="polite"></section>

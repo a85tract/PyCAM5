@@ -1,4 +1,4 @@
-const CASE_LABELS = { pi: "PI-atm", mco: "MCO", union: "Union" };
+const CASE_LABELS = { pi: "PI Baseline", mco: "MCO 6-month", union: "PI + MCO" };
 const STATUS_ORDER = ["done", "done-native-island", "processing", "partial", "none", "unknown"];
 const STATUS_LABELS = {
   done: "Done",
@@ -25,7 +25,7 @@ const elements = {
   emptyState: document.getElementById("emptyState"),
 };
 
-let currentCase = "pi";
+let currentCase = "union";
 let currentData = null;
 const cache = new Map();
 
@@ -86,21 +86,19 @@ function setLoading(isLoading) {
 function renderSummary() {
   const { summary, generated_at: generatedAt } = currentData;
   const counts = summary.counts;
-  const finished = (counts.done || 0) + (counts["done-native-island"] || 0);
-  const finishedLoc = (summary.loc.done || 0) + (summary.loc["done-native-island"] || 0);
-  const totalLoc = Object.values(summary.loc).reduce((total, value) => total + Number(value || 0), 0);
   const cards = [
-    ["Total routines", formatNumber(summary.total), `${Object.keys(summary.subtrees || {}).length} source groups`],
-    ["Finished", formatNumber(finished), `${percent(finished, summary.total)}% of routines`],
-    ["Partial", formatNumber(counts.partial), `${percent(counts.partial, summary.total)}% of routines`],
-    ["Not started", formatNumber((counts.none || 0) + (counts.unknown || 0)), "None + unknown"],
-    ["Finished LOC", formatNumber(finishedLoc), `${percent(finishedLoc, totalLoc)}% of tracked LOC`],
+    ["Total", formatNumber(summary.total), ""],
+    ...STATUS_ORDER.map(status => [
+      status,
+      formatNumber(counts[status] || 0),
+      `${formatNumber(summary.loc[status] || 0)} LOC`,
+    ]),
   ];
   elements.summaryCards.innerHTML = cards.map(([label, value, detail]) => `
     <article class="summary-card">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
-      <small>${escapeHtml(detail)}</small>
+      ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
     </article>
   `).join("");
 
@@ -176,4 +174,4 @@ elements.caseButtons.forEach(button => button.addEventListener("click", () => lo
 [elements.searchInput, elements.statusFilter, elements.subtreeFilter, elements.sortOrder]
   .forEach(control => control.addEventListener(control.tagName === "INPUT" ? "input" : "change", renderRows));
 
-loadCase("pi");
+loadCase("union");

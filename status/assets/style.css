@@ -120,7 +120,7 @@ main { padding: 28px 0 60px; }
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 12px;
   margin-top: 22px;
 }
@@ -387,6 +387,10 @@ tbody tr:hover { background: #f8f7f2; }
 @media (max-width: 960px) {
   .summary-grid { grid-template-columns: repeat(3, 1fr); }
   .filters { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 1200px) and (min-width: 961px) {
+  .summary-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 @media (max-width: 680px) {
