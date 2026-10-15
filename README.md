@@ -106,8 +106,6 @@ Important Codon-port files live beside the original CAM source:
   `case.build`.
 - `scripts/cam_codon_guard.py`: validation/pre-commit guard for high-risk
   numerical changes.
-- `scripts/validation/compare_cesm_runpair.py`: repo-local CAM output compare
-  helper used by the examples below.
 - `scripts/validation/env_allcodon_675.sh`: compatibility selector file for the
   2026-06-16 validation snapshot. New all-Codon runs can usually use
   `CAM_CODON_IMPL=codon` instead.
@@ -266,15 +264,8 @@ zgrep -n 'implementation = codon\|direct = codon' /path/to/run/atm.log.*.gz
 ```
 
 For BFB validation, compare the run against a pristine native baseline produced
-with the same case configuration:
-
-```bash
-CAM_REPO=/path/to/iCESM1.3.1_fzhu/components/cam
-
-python "$CAM_REPO/scripts/validation/compare_cesm_runpair.py" \
-  --native-run-dir /path/to/pristine/native/run \
-  --codon-run-dir /path/to/codon/run
-```
+with the same case configuration. Compare the two run directories' CAM outputs
+with the run-pair comparison tool; contact the maintainers to get it.
 
 The expected pass condition is:
 
@@ -372,13 +363,10 @@ After the job completes, prove execution and compare:
 ```bash
 rg -n 'CAM_CODON_IMPL|<SELECTOR_NAME>' /path/to/case/logs/run_environment.txt.*
 zgrep -n 'implementation = codon\|direct = codon' /path/to/run/atm.log.*.gz
-
-CAM_REPO=/path/to/iCESM1.3.1_fzhu/components/cam
-
-python "$CAM_REPO/scripts/validation/compare_cesm_runpair.py" \
-  --native-run-dir /path/to/pristine/native/run \
-  --codon-run-dir /path/to/codon/run
 ```
+
+Then compare the two run directories' CAM outputs with the run-pair comparison
+tool; contact the maintainers to get it.
 
 Only `overall_numeric_equal=True` is accepted as BFB. Character metadata
 differences such as `time_written`, `cpath`, `nfpath`, and `nhfil` are expected
